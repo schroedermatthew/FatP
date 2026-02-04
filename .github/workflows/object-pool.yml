@@ -3,7 +3,7 @@
 # =============================================================================
 # CI workflow for ObjectPool component
 #
-# C++20 primary build. C++17 compatibility verified project-wide via ci_core17.yml.
+# C++20/C++23 builds. C++17 compatibility verified project-wide via ci_core17.yml.
 #
 # Directory structure:
 #   Headers:    include/fat_p/ObjectPool.h
@@ -29,21 +29,29 @@ env:
 
 jobs:
   # ===========================================================================
-  # Linux GCC Build (C++20)
+  # Linux GCC Builds (C++20/C++23)
   # ===========================================================================
   linux-gcc:
 
-    name: Linux GCC-13 C++20
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 13
+            std: 20
+          - version: 14
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
       - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-13
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
       - name: Build tests
         run: |
-          g++-13 -std=c++20 \
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
@@ -54,12 +62,20 @@ jobs:
         run: ./test_bin
 
   # ===========================================================================
-  # Linux Clang Build (C++20)
+  # Linux Clang Builds (C++20/C++23)
   # ===========================================================================
   linux-clang:
 
-    name: Linux Clang-16 C++20
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 16
+            std: 20
+          - version: 17
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -67,11 +83,11 @@ jobs:
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 16
+          sudo ./llvm.sh ${{ matrix.version }}
 
       - name: Build tests
         run: |
-          clang++-16 -std=c++20 \
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
@@ -83,12 +99,16 @@ jobs:
         run: ./test_bin
 
   # ===========================================================================
-  # Windows MSVC Build (C++20)
+  # Windows MSVC Builds (C++20/C++23)
   # ===========================================================================
   windows-msvc:
 
-    name: Windows MSVC C++20
+    name: Windows MSVC C++${{ matrix.std }}
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
     steps:
       - uses: actions/checkout@v4
 
@@ -97,7 +117,8 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\ObjectPool\tests\test_ObjectPool.cpp /Fe:test_bin.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\ObjectPool\tests\test_ObjectPool.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -384,7 +405,7 @@ jobs:
       - name: Build benchmark
         run: |
           $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
-          cl /nologo $stdFlag /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\ObjectPool\benchmarks\benchmark_ObjectPool.cpp /Fe:bench_bin.exe /link advapi32.lib
+          cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\ObjectPool\benchmarks\benchmark_ObjectPool.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:
