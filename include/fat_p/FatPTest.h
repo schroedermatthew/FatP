@@ -236,10 +236,17 @@ inline std::filesystem::path artifact_dir()
 #else
     static const std::filesystem::path sPath = []() -> std::filesystem::path
     {
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4996) // getenv is safe here - single-threaded init
+#endif
         if (const char* env = std::getenv("FATP_TEST_ARTIFACTS_DIR"); env && env[0] != '\0')
         {
             return std::filesystem::path(env);
         }
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
         std::error_code ec;
         std::filesystem::path cwd = std::filesystem::current_path(ec);
