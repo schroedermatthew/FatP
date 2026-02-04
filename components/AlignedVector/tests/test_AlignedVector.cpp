@@ -2063,36 +2063,6 @@ FATP_TEST_CASE(fuzz_vs_std_vector)
     return true;
 }
 
-// ============================================================================
-// Benchmarks
-// ============================================================================
-
-static volatile long long g_benchmarkSink;
-
-void print_cpu_state(const char* label)
-{
-    auto info = SystemInfo::capture();
-    std::cout << "  " << colors::blue() << "[" << label << "] ";
-    if (info.current_freq_mhz > 0 && info.base_freq_mhz > 0)
-    {
-        std::cout << "CPU: " << static_cast<int>(info.current_freq_mhz) << " MHz";
-        double throttlePct = info.throttle_percentage();
-        if (throttlePct > 5.0)
-        {
-            std::cout << " (" << colors::yellow() << std::fixed << std::setprecision(0) << throttlePct << "% throttled"
-                      << colors::reset() << colors::blue() << ")";
-        }
-        else if (throttlePct < -5.0)
-        {
-            std::cout << " (" << colors::green() << "turbo" << colors::reset() << colors::blue() << ")";
-        }
-    }
-    else if (info.base_freq_mhz > 0)
-    {
-        std::cout << "CPU: " << static_cast<int>(info.base_freq_mhz) << " MHz (base)";
-    }
-    std::cout << colors::reset() << "\n";
-}
 } // namespace fat_p::testing::alignedvector
 
 namespace fat_p::testing

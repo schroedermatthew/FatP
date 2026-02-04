@@ -100,7 +100,14 @@ jobs:
 
       - name: Build tests
         run: |
-          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+          # Clang < 17 uses -std=c++2b for C++23, Clang >= 17 uses -std=c++23
+          if [[ ${{ matrix.version }} -lt 17 && ${{ matrix.std }} -eq 23 ]]; then
+            STD_FLAG="c++2b"
+          else
+            STD_FLAG="c++${{ matrix.std }}"
+          fi
+          
+          clang++-${{ matrix.version }} -std=$STD_FLAG \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
@@ -343,7 +350,14 @@ jobs:
 
       - name: Build benchmark
         run: |
-          clang++-${{ matrix.version }} -std=c++23 \
+          # Clang < 17 uses -std=c++2b for C++23, Clang >= 17 uses -std=c++23
+          if [[ ${{ matrix.version }} -lt 17 ]]; then
+            STD_FLAG="c++2b"
+          else
+            STD_FLAG="c++23"
+          fi
+          
+          clang++-${{ matrix.version }} -std=$STD_FLAG \
             -O3 -DNDEBUG $AVX_FLAGS \
             -I./include/fat_p \
             -I/usr/include/eigen3 \
