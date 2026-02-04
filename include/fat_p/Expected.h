@@ -45,12 +45,11 @@ FATP_META:
  * - Rebind template for type transformations
  * - Storage policies (Union/Variant)
  * - Comprehensive noexcept specifications
- * - C++17 compatible, C++20/23 enhanced
+ * - C++20 minimum, C++23 enhanced
  *
  * @section cpp_versions C++ Version Support
- * - C++17: Full functionality (base implementation)
- * - C++20: + Three-way comparison (operator<=>)
- * - C++23: + std::expected interoperability
+ * - C++20: Full functionality (base implementation with operator<=>)
+ * - C++23: + std::expected interoperability (optional)
  *
  * @section differences Differences from std::expected (C++23)
  *
@@ -119,7 +118,7 @@ FATP_META:
 // #define USE_VARIANT_STORAGE  // Uncomment to enable VariantStorage for debug scenarios
 
 // =============================================================================
-// Feature Test Macros (C++17 Standard Practice)
+// Feature Test Macros
 // =============================================================================
 
 /**
@@ -168,7 +167,7 @@ FATP_META:
 #define FATP_EXPECTED_ORDERING 202411L
 #endif
 
-// Rebind template member (C++17)
+// Rebind template member
 #ifndef FATP_EXPECTED_REBIND
 #define FATP_EXPECTED_REBIND 202411L
 #endif
@@ -3632,7 +3631,7 @@ template <typename T, typename E = std::string>
 using ExpectedVariant = ExpectedImpl<T, E, VariantStorage>;
 #endif
 
-// --- C++17 CTAD Deduction Guides ---
+// --- CTAD Deduction Guides ---
 
 template <typename T>
 ExpectedImpl(T) -> ExpectedImpl<T, std::string, UnionStorage>;

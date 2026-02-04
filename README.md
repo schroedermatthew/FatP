@@ -1,6 +1,6 @@
 # FAT-P
 
-**A C++20 library that competes with Boost, LLVM, and Abseilâ€”built entirely through AI collaboration.**
+**A C++20 library that competes with Boost, LLVM, and Abseil—built entirely through AI collaboration.**
 
 ---
 
@@ -17,7 +17,7 @@ FAT-P is the answer: 425,000 lines of production C++ and documentation, zero ext
 | Components | 111 headers |
 | External dependencies | **Zero** |
 
-The AI wrote the code. The AI designed the architectures. The AI wrote the documentation. The human provided vision, constraints, and judgmentâ€”but did not write code.
+The AI wrote the code. The AI designed the architectures. The AI wrote the documentation. The human provided vision, constraints, and judgment—but did not write code.
 
 This is not "AI-assisted development." This is **AI-authored software** with human direction.
 
@@ -90,8 +90,8 @@ All implementations within measurement noise for core operations. The real win i
 
 | Implementation | Single-Thread | SPSC (2 threads) | MPMC (16 threads) |
 |----------------|---------------|------------------|-------------------|
-| **fat_p::LockFreeRingBuffer (SPSC)** | **0.52** | 31.13 | â€” |
-| **fat_p::WorkQueue (sharded)** | 10.06 | â€” | **24.4** |
+| **fat_p::LockFreeRingBuffer (SPSC)** | **0.52** | 31.13 | — |
+| **fat_p::WorkQueue (sharded)** | 10.06 | — | **24.4** |
 | fat_p::LockFreeQueue | 8.25 | 10.43 | 89.5 |
 | moodycamel::ConcurrentQueue | 8.68 | 19.00 | 38.8 |
 | std::mutex + std::queue | 16.65 | 20.58 | 247.4 |
@@ -101,26 +101,26 @@ All implementations within measurement noise for core operations. The real win i
 
 | Implementation | Insert | Lookup | Erase |
 |----------------|--------|--------|-------|
-| **fat_p::FastHashMap** | **4.37** | â€” | â€” |
-| boost::unordered_flat_map | 6.72 | â€” | â€” |
-| tsl::robin_map | 7.29 | â€” | â€” |
-| llvm::DenseMap | 7.81 | â€” | â€” |
-| absl::flat_hash_map | 11.72 | â€” | â€” |
-| ankerl::unordered_dense | 19.92 | â€” | â€” |
-| std::unordered_map | 34.96 | â€” | â€” |
+| **fat_p::FastHashMap** | **4.37** | — | — |
+| boost::unordered_flat_map | 6.72 | — | — |
+| tsl::robin_map | 7.29 | — | — |
+| llvm::DenseMap | 7.81 | — | — |
+| absl::flat_hash_map | 11.72 | — | — |
+| ankerl::unordered_dense | 19.92 | — | — |
+| std::unordered_map | 34.96 | — | — |
 
 ### StableHashMap (Pointer-Stable)
 
 | Implementation | Insert | Lookup | Erase |
 |----------------|--------|--------|-------|
-| **fat_p::StableHashMap** | **6.01** | â€” | â€” |
-| boost::unordered_node_map | 26.04 | â€” | â€” |
-| absl::node_hash_map | 29.33 | â€” | â€” |
-| std::unordered_map | 34.96 | â€” | â€” |
+| **fat_p::StableHashMap** | **6.01** | — | — |
+| boost::unordered_node_map | 26.04 | — | — |
+| absl::node_hash_map | 29.33 | — | — |
+| std::unordered_map | 34.96 | — | — |
 
-StableHashMap guarantees pointer/reference stability on insertâ€”critical for intrusive data structures and caches. It beats all pointer-stable competitors by 4x+.
+StableHashMap guarantees pointer/reference stability on insert—critical for intrusive data structures and caches. It beats all pointer-stable competitors by 4x+.
 
-**The critical difference**: FAT-P achieves this with **zero external dependencies**. Competitors require Boost (massive), LLVM libraries, EASTL runtime, or Abseil build integration. FAT-P is header-onlyâ€”copy the `include/fat_p/` directory and go.
+**The critical difference**: FAT-P achieves this with **zero external dependencies**. Competitors require Boost (massive), LLVM libraries, EASTL runtime, or Abseil build integration. FAT-P is header-only—copy the `include/fat_p/` directory and go.
 
 ---
 
@@ -189,7 +189,7 @@ StableHashMap guarantees pointer/reference stability on insertâ€”critical f
 | **SimdVector** | Universal SIMD wrapper for vectorized operations |
 | **SlidingFileWindow** | Sliding window access to large files with on-demand paging |
 | **SlotMap** | Generational index container with stable handles and O(1) access |
-| **SmallVector** | Inline storage vectorâ€”zero heap allocation for small sizes |
+| **SmallVector** | Inline storage vector—zero heap allocation for small sizes |
 | **SortedContainer** | Policy-based sorted vector maintaining order on insert |
 | **SparseSet** | Sparse set with dense iteration |
 | **StableHashMap** | Reference-stable hash map with SIMD-accelerated probing |
@@ -233,7 +233,7 @@ if (result) {
 ### Requirements
 
 - **C++20** (GCC 10+, Clang 12+, MSVC 19.29+)
-- Header-onlyâ€”no build step required
+- Header-only—no build step required
 - **Fully self-contained**: includes its own test framework (FatPTest) and benchmark runner (FatPBenchmarkRunner)
 
 ### Installation
@@ -253,28 +253,28 @@ target_link_libraries(your_target PRIVATE fatp)
 
 ## The Teaching Library
 
-FAT-P includes 192,000 lines of documentationâ€”not API references, but **teaching materials**:
+FAT-P includes 192,000 lines of documentation—not API references, but **teaching materials**:
 
-### Migration Guides (C â†’ Modern C++)
+### Migration Guides (C → Modern C++)
 
 18 guides transforming legacy patterns into FAT-P components:
 
 | Legacy Pattern | FAT-P Component |
 |----------------|-----------------|
-| Switch statements | â†’ StateMachine |
-| Callbacks/function pointers | â†’ Signal |
-| Integer handles | â†’ StrongId |
-| Manual memory management | â†’ ScopeGuard, ObjectPool |
-| Error codes | â†’ Expected |
-| Linear search in arrays | â†’ FlatMap |
-| Feature flags | â†’ FeatureManager |
+| Switch statements | → StateMachine |
+| Callbacks/function pointers | → Signal |
+| Integer handles | → StrongId |
+| Manual memory management | → ScopeGuard, ObjectPool |
+| Error codes | → Expected |
+| Linear search in arrays | → FlatMap |
+| Feature flags | → FeatureManager |
 
 ### Case Studies
 
 Real debugging sessions with real bugs:
-- "The Slow Miss" â€” hash map performance investigation
-- "Fuzzy Equality Non-Transitivity" â€” when approximate comparison breaks sorting
-- "The Noreturn Mirage" â€” exception safety edge cases
+- "The Slow Miss" — hash map performance investigation
+- "Fuzzy Equality Non-Transitivity" — when approximate comparison breaks sorting
+- "The Noreturn Mirage" — exception safety edge cases
 
 ### Compile-Time Safety Course
 
@@ -299,17 +299,17 @@ See [`Teaching/`](Teaching/) for the complete library.
 
 ```
 FatP/
-â”œâ”€â”€ include/fat_p/       # The library (111 headers)
-â”œâ”€â”€ components/          # Tests, benchmarks, docs per component
-â”‚   â””â”€â”€ <Component>/
-â”‚       â”œâ”€â”€ tests/
-â”‚       â”œâ”€â”€ benchmarks/
-â”‚       â”œâ”€â”€ docs/
-â”‚       â””â”€â”€ results/
-â”œâ”€â”€ Teaching/            # Migration guides, case studies, courses
-â”œâ”€â”€ Read_Me/             # Governance and methodology docs
-â”œâ”€â”€ ThirdParty/          # Benchmark competitors not available in vcpkg
-â””â”€â”€ .github/workflows/   # CI (label-gated)
+├── include/fat_p/       # The library (111 headers)
+├── components/          # Tests, benchmarks, docs per component
+│   └── <Component>/
+│       ├── tests/
+│       ├── benchmarks/
+│       ├── docs/
+│       └── results/
+├── Teaching/            # Migration guides, case studies, courses
+├── Read_Me/             # Governance and methodology docs
+├── ThirdParty/          # Benchmark competitors not available in vcpkg
+└── .github/workflows/   # CI (label-gated)
 ```
 
 **Note:** Benchmark comparisons use third-party libraries via **vcpkg** (primary) and a local `ThirdParty/` folder (for libraries not in vcpkg). These are **not** part of the FAT-P library. The `fatp` CMake target exports only `include/fat_p/` with zero external dependencies.
@@ -338,7 +338,7 @@ Competitor libraries (Abseil, Boost, EASTL, etc.) are installed via vcpkg. Libra
 
 ## The Philosophy
 
-> "The AIs are authors, not tools. They designed the architectures. They found the edge cases. They debugged autonomously. They wrote the documentationâ€”not transcription, authorship."
+> "The AIs are authors, not tools. They designed the architectures. They found the edge cases. They debugged autonomously. They wrote the documentation—not transcription, authorship."
 
 See **[Authors.md](Authors.md)** for the full philosophy on human-AI collaboration.
 

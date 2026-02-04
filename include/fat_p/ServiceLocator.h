@@ -403,11 +403,7 @@ struct ThreadLocalMruServiceLocatorResolveCachePolicy
         std::uint8_t mruIndex = 0; // 0 => e0 is MRU, 1 => e1 is MRU (Slots==2)
     };
 
-#if defined(__cpp_constinit) && (__cpp_constinit >= 201907L)
     static inline thread_local constinit Cache tlsCache{};
-#else
-    static inline thread_local Cache tlsCache{};
-#endif
 
     static Cache& cache() noexcept { return tlsCache; }
 
