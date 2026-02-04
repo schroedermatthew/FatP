@@ -23,6 +23,11 @@ name: FatPHashMap CI
 
 on:
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        type: boolean
+        default: false
 
 env:
   COMPONENT_DIR: components/FatPHashMap
@@ -114,12 +119,12 @@ jobs:
 
       - name: Build and run FastHashMap tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_FastHashMap.cpp /Fe:test_fast.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /wd4324 /D_CRT_SECURE_NO_WARNINGS /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_FastHashMap.cpp /Fe:test_fast.exe /link advapi32.lib
           .\test_fast.exe
 
       - name: Build and run StableHashMap tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_StableHashMap.cpp /Fe:test_stable.exe /link advapi32.lib
+          cl /std:c++20 /W4 /WX /EHsc /permissive- /wd4324 /D_CRT_SECURE_NO_WARNINGS /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_StableHashMap.cpp /Fe:test_stable.exe /link advapi32.lib
           .\test_stable.exe
 
   # ===========================================================================
@@ -241,7 +246,7 @@ jobs:
   benchmarks-gcc:
     name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-24.04
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
@@ -286,7 +291,7 @@ jobs:
   benchmarks-clang:
     name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-24.04
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
@@ -380,7 +385,7 @@ jobs:
   benchmarks-msvc:
     name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
@@ -467,7 +472,7 @@ jobs:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ always() && inputs.run_benchmarks }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
