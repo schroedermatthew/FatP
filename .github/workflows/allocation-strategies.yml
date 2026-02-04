@@ -135,7 +135,7 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AllocationStrategies\tests\test_AllocationStrategies.cpp /Fe:test_as.exe
+          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AllocationStrategies\tests\test_AllocationStrategies.cpp /Fe:test_as.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_as.exe
@@ -425,7 +425,7 @@ jobs:
 
       - name: Build benchmark
         run: |
-          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\AllocationStrategies\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_as.exe
+          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\AllocationStrategies\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_as.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:
