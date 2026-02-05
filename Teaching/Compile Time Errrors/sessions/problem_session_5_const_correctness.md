@@ -74,6 +74,8 @@ struct Record {
 // Precondition: records is non-empty
 double calculate_average(std::vector<Record>& records) {
     // "Normalize" categories for consistency
+    // Note: std::tolower is ASCII-ish; locale-sensitive and not Unicode case folding.
+    // That's not the lesson here, but be aware in production code.
     for (auto& r : records) {
         std::transform(r.category.begin(), r.category.end(),
                        r.category.begin(),
@@ -240,7 +242,7 @@ A reference is a pointer under the hood. When you pass `const int&`, the caller 
 
 There's also an aliasing cost. When the compiler sees `const int&`, it knows *this* reference won't be used to write — but it doesn't know whether the referenced memory might be modified through some other path (another pointer, a global, a function call with side effects). So the compiler may need to reload the value from memory after any intervening call or store. With `int` by value, the compiler knows the local copy can't be affected by anything else, so the value stays in a register across calls without reloads.
 
-Note that `const` on a by-value parameter (`const int x`) doesn't help the compiler — it already does its own dataflow analysis to determine whether a local is reassigned. `void f(int)` and `void f(const int)` are even the same function signature in C++ (the `const` is stripped from the type). But it's still good practice inside the function body: if you don't intend to modify the parameter, marking it `const` catches accidental reassignment the same way it does for any other local variable. The benefit is intent declaration and mistake prevention, not codegen.
+Note that `const` on a by-value parameter (`const int x`) doesn't help the compiler — it already does its own dataflow analysis to determine whether a local is reassigned. `void f(int)` and `void f(const int)` are even the same function signature in C++ (the `const` is stripped from the type). **Top-level `const` on by-value parameters doesn't change the function's type or signature; it's purely for readability and preventing reassignment inside the body.** But it's still good practice inside the function body: if you don't intend to modify the parameter, marking it `const` catches accidental reassignment the same way it does for any other local variable. The benefit is intent declaration and mistake prevention, not codegen.
 
 Here's a non-trivial case where it catches a real bug. Consider a function that interpolates between two values using a blend factor `t` that should stay in [0, 1]:
 
@@ -719,8 +721,8 @@ for (int i = 0; i < 10; i++) {
 ### The Standard Library's Const Contract
 
 The C++ standard library guarantees:
-- Const member functions can be called concurrently from multiple threads
-- Non-const member functions require exclusive access
+- For standard library types, simultaneous calls to `const` member functions are safe **as long as no thread performs a non-const operation on the same object**
+- Non-const member functions require exclusive access — no other thread may be accessing the object at all
 
 ```cpp
 const std::vector<int> v = {1, 2, 3};
@@ -868,15 +870,15 @@ Consider a function that builds a large result and returns it:
 std::vector<std::string> build_report() {
     const auto lines = generate_lines();   // const local
     // ... maybe log lines.size() ...
-    return lines;                          // COPIES — cannot move from const
+    return lines;                          // May copy — cannot implicitly move from const
 }
 ```
 
-Without `const`, the compiler can apply Named Return Value Optimization (NRVO) to eliminate the copy entirely, or failing that, implicitly move from the local variable into the return value. With `const`, NRVO is still *permitted* by the standard but some compilers won't apply it (the rules are implementation-defined), and the implicit move fallback is blocked — the `const` qualifier prevents binding to the move constructor.
+Without `const`, the compiler can apply Named Return Value Optimization (NRVO) to eliminate the copy entirely, or failing that, implicitly move from the local variable into the return value. With `const`, NRVO is still *permitted* by the standard and may still fire — but the implicit move *fallback* is blocked. If NRVO doesn't fire (which is implementation-defined), the `const` qualifier prevents binding to the move constructor, and the copy constructor is silently selected instead. The clean way to think about it: `const` can turn the fallback from move into copy; rely on NRVO, but don't force the compiler's hand.
 
-The cost is real: for a `std::vector<std::string>` with 10,000 elements, the difference between a move (constant time — pointer swap) and a copy (linear time — allocate new buffer, copy every string, each of which allocates and copies its own buffer) can be measured in microseconds for the move vs. milliseconds for the copy.
+The cost when the fallback triggers is real: for a `std::vector<std::string>` with 10,000 elements, the difference between a move (constant time — pointer swap) and a copy (linear time — allocate new buffer, copy every string, each of which allocates and copies its own buffer) can be measured in microseconds for the move vs. milliseconds for the copy.
 
-The assembly tells the story. With a non-const local, the return path moves three pointer-sized values (data, size, capacity). With a const local and NRVO disabled, the return path calls `operator new`, enters a loop that copies each element, and calls `operator new` again inside each string copy.
+The assembly tells the story. With a non-const local, the return path moves three pointer-sized values (data, size, capacity) when NRVO doesn't apply. With a const local and NRVO disabled, the return path calls `operator new`, enters a loop that copies each element, and calls `operator new` again inside each string copy.
 
 The guideline: mark local variables `const` when they won't be moved from. For variables that will be returned, passed to a sink parameter (`T&&` or by value), or transferred into a container via `emplace` or `push_back`, leave them non-const. The "default to const" rule applies to the variable's *lifetime* — if the variable lives and dies in the same scope without being consumed, const is correct. If the variable is a resource that will be moved elsewhere, const is a performance trap.
 
