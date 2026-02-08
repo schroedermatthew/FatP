@@ -518,7 +518,7 @@ struct StridedPolicy
             mPtr = mBase;
             for (size_t i = 0; i < mIndices.size(); ++i)
             {
-                mPtr += mIndices[i] * mStrides[i];
+                mPtr += static_cast<ptrdiff_t>(mIndices[i]) * mStrides[i];
             }
         }
 
@@ -2252,8 +2252,9 @@ public:
             size_t temp = i;
             for (int d = static_cast<int>(target_shape.size()) - 1; d >= 0; --d)
             {
-                out_indices[d] = temp % target_shape[d];
-                temp /= target_shape[d];
+                auto ud = static_cast<size_t>(d);
+                out_indices[ud] = temp % target_shape[ud];
+                temp /= target_shape[ud];
             }
 
             // Map to input indices (broadcasting)

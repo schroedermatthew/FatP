@@ -611,7 +611,7 @@ void benchmark_element_access()
 
     // Linear indexing
     double linear_time = measure_perf(
-        [&mat, idx = 0]() mutable {
+        [&mat, idx = std::size_t(0)]() mutable {
             double val = mat[idx];
             DoNotOptimize(val);
             ++idx;
