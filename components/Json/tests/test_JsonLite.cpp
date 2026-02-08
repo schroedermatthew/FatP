@@ -1187,7 +1187,9 @@ FATP_TEST_CASE(json_lite_optional)
         FATP_ASSERT_TRUE(j.is_int(), "Optional int should be int");
         std::optional<int> result;
         from_json(j, result);
+#ifdef _MSC_VER
 #pragma warning(suppress : 26859) // MSVC false positive: analyzer cannot track that from_json populates the optional
+#endif
         FATP_ASSERT_TRUE(result.has_value() && *result == 42, "Result should have value 42");
     }
     FATP_END_SUBTEST
@@ -1212,7 +1214,9 @@ FATP_TEST_CASE(json_lite_optional_string)
     JsonValue j = json_encode(opt);
     std::optional<std::string> result;
     from_json(j, result);
+#ifdef _MSC_VER
 #pragma warning(suppress : 26859) // MSVC false positive: analyzer cannot track that from_json populates the optional
+#endif
     FATP_ASSERT_TRUE(result.has_value() && *result == "hello", "Result should have value hello");
 
     return true;
@@ -1224,7 +1228,9 @@ FATP_TEST_CASE(json_lite_optional_vector)
     JsonValue j = json_encode(opt);
     std::optional<std::vector<int>> result;
     from_json(j, result);
+#ifdef _MSC_VER
 #pragma warning(suppress : 26859) // MSVC false positive: analyzer cannot track that from_json populates the optional
+#endif
     FATP_ASSERT_TRUE(result.has_value() && (*result).size() == 3, "Result should have value with size 3");
 
     return true;
