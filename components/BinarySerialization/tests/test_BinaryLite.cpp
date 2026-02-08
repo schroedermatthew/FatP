@@ -367,7 +367,7 @@ FATP_TEST_CASE(truncated_uint64)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
+        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readUint64();
@@ -389,7 +389,7 @@ FATP_TEST_CASE(truncated_uint32)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
+        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readUint32();
@@ -409,7 +409,7 @@ FATP_TEST_CASE(truncated_string)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
+        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readString();
@@ -431,7 +431,7 @@ FATP_TEST_CASE(truncated_bytes)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
+        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readBytes();
@@ -453,7 +453,7 @@ FATP_TEST_CASE(truncated_double)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + cut);
+        std::vector<std::uint8_t> truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readDouble();

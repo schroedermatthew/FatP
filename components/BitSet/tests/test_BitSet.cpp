@@ -877,7 +877,15 @@ FATP_TEST_CASE(self_assignment)
     bits.set(20);
     bits.set(30);
 
+    // Intentional self-assignment to test operator= safety
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
     bits = bits;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
     FATP_ASSERT_EQ(bits.count(), 3u, "Self-assignment preserves count");
     FATP_ASSERT_TRUE(bits.test(10), "Bit 10 preserved");

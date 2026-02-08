@@ -270,7 +270,7 @@ FATP_TEST_CASE(truncated_uint_2byte)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        buffer truncated(buf.begin(), buf.begin() + cut);
+        buffer truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readUint();
@@ -290,7 +290,7 @@ FATP_TEST_CASE(truncated_uint_4byte)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        buffer truncated(buf.begin(), buf.begin() + cut);
+        buffer truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readUint();
@@ -310,7 +310,7 @@ FATP_TEST_CASE(truncated_uint_8byte)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        buffer truncated(buf.begin(), buf.begin() + cut);
+        buffer truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readUint();
@@ -332,7 +332,7 @@ FATP_TEST_CASE(truncated_text)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        buffer truncated(buf.begin(), buf.begin() + cut);
+        buffer truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readText();
@@ -354,7 +354,7 @@ FATP_TEST_CASE(truncated_bytes)
 
     for (std::size_t cut = 1; cut < buf.size(); ++cut)
     {
-        buffer truncated(buf.begin(), buf.begin() + cut);
+        buffer truncated(buf.begin(), buf.begin() + static_cast<std::ptrdiff_t>(cut));
         FATP_ASSERT_THROWS(([&] {
                                Decoder dec(truncated);
                                (void)dec.readBytes();

@@ -115,7 +115,7 @@ FATP_TEST_CASE(prefetch_operations)
 
 FATP_TEST_CASE(prefetch_range_zero_size)
 {
-    alignas(64) int data[64];
+    alignas(64) int data[64] = {};
 
     // Zero-size prefetch should not crash or do anything
     prefetch_range(data, 0);
@@ -147,7 +147,7 @@ FATP_TEST_CASE(prefetch_ahead)
 
 FATP_TEST_CASE(prefetch_ahead_overflow)
 {
-    alignas(64) int data[64];
+    alignas(64) int data[64] = {};
 
     // Test with values that would overflow if not checked
     // SIZE_MAX + 8 would wrap around to a small value
@@ -168,7 +168,7 @@ FATP_TEST_CASE(prefetch_ahead_overflow)
 
 FATP_TEST_CASE(cache_flush)
 {
-    alignas(64) int data[64];
+    alignas(64) int data[64] = {};
     for (int i = 0; i < 64; ++i)
     {
         data[i] = i;
@@ -192,7 +192,7 @@ FATP_TEST_CASE(cache_flush)
 
 FATP_TEST_CASE(flush_cache_range_zero_size)
 {
-    alignas(64) int data[64];
+    alignas(64) int data[64] = {};
 
     // Zero-size flush should not crash
     flush_cache_range(data, 0);
@@ -207,7 +207,7 @@ FATP_TEST_CASE(flush_cache_range_zero_size)
 
 FATP_TEST_CASE(stream_store)
 {
-    alignas(64) int data[64];
+    alignas(64) int data[64] = {};
 
     for (int i = 0; i < 64; ++i)
     {
@@ -248,7 +248,7 @@ FATP_TEST_CASE(stream_store_8byte)
 FATP_TEST_CASE(stream_store_unaligned)
 {
     // Test that unaligned stream_store falls back gracefully (no crash)
-    alignas(64) char buffer[128];
+    alignas(64) char buffer[128] = {};
     std::memset(buffer, 0, sizeof(buffer));
 
     // Create unaligned int pointer
@@ -321,8 +321,8 @@ FATP_TEST_CASE(stream_copy_unaligned)
 
 FATP_TEST_CASE(stream_copy_zero_size)
 {
-    alignas(64) char src[64];
-    alignas(64) char dest[64];
+    alignas(64) char src[64] = {};
+    alignas(64) char dest[64] = {};
 
     // Zero-size copy should not crash
     stream_copy(dest, src, 0);
@@ -426,12 +426,12 @@ FATP_TEST_CASE(cache_line_padded_alignment)
 FATP_TEST_CASE(cache_line_padded_various_sizes)
 {
     // Test with various small types
-    CacheLinePadded<char> c(42);
+    CacheLinePadded<char> c(static_cast<char>(42));
     FATP_ASSERT_TRUE(sizeof(CacheLinePadded<char>) == CacheInfo::destructive_interference_size(),
                      "CacheLinePadded<char> should be cache line size");
     FATP_ASSERT_TRUE(c.get() == 42, "char value should be correct");
 
-    CacheLinePadded<short> s(1000);
+    CacheLinePadded<short> s(static_cast<short>(1000));
     FATP_ASSERT_TRUE(sizeof(CacheLinePadded<short>) == CacheInfo::destructive_interference_size(),
                      "CacheLinePadded<short> should be cache line size");
     FATP_ASSERT_TRUE(s.get() == 1000, "short value should be correct");
@@ -604,7 +604,7 @@ FATP_TEST_CASE(block_iterator_2d_zero_blocks)
 
 FATP_TEST_CASE(alignment_utilities)
 {
-    alignas(64) char buffer[128];
+    alignas(64) char buffer[128] = {};
 
     // Test is_aligned
     FATP_ASSERT_TRUE(is_aligned(buffer, 64), "Buffer should be 64-byte aligned");

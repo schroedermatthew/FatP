@@ -165,7 +165,7 @@ inline std::uint64_t readArgument(const byte* data, std::size_t& pos, std::size_
     {
         ensureAvailable(size, pos, 4U);
         std::uint64_t result = 0;
-        for (int i = 0; i < 4; ++i)
+        for (std::size_t i = 0; i < 4; ++i)
         {
             result = (result << 8U) | static_cast<std::uint64_t>(data[pos + i]);
         }
@@ -177,7 +177,7 @@ inline std::uint64_t readArgument(const byte* data, std::size_t& pos, std::size_
     {
         ensureAvailable(size, pos, 8U);
         std::uint64_t result = 0;
-        for (int i = 0; i < 8; ++i)
+        for (std::size_t i = 0; i < 8; ++i)
         {
             result = (result << 8U) | static_cast<std::uint64_t>(data[pos + i]);
         }

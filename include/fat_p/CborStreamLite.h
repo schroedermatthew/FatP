@@ -108,25 +108,19 @@ struct CborTagged
     std::uint64_t tag;
     std::unique_ptr<CborValue> value;
 
-    CborTagged()
-        : tag(0)
-        , value(nullptr)
-    {
-    }
-
-    CborTagged(std::uint64_t t, std::unique_ptr<CborValue> v)
-        : tag(t)
-        , value(std::move(v))
-    {
-    }
+    CborTagged();
+    CborTagged(std::uint64_t t, std::unique_ptr<CborValue> v);
 
     // Copy support
     CborTagged(const CborTagged& other);
     CborTagged& operator=(const CborTagged& other);
 
-    // Move support
-    CborTagged(CborTagged&&) noexcept = default;
-    CborTagged& operator=(CborTagged&&) noexcept = default;
+    // Move support — defined after CborValue is complete
+    CborTagged(CborTagged&&) noexcept;
+    CborTagged& operator=(CborTagged&&) noexcept;
+
+    // Destructor must be defined after CborValue is complete
+    ~CborTagged();
 
     bool operator<(const CborTagged& other) const
     {
@@ -412,6 +406,18 @@ private:
     Variant data_;
 };
 
+inline CborTagged::CborTagged()
+    : tag(0)
+    , value(nullptr)
+{
+}
+
+inline CborTagged::CborTagged(std::uint64_t t, std::unique_ptr<CborValue> v)
+    : tag(t)
+    , value(std::move(v))
+{
+}
+
 inline CborTagged::CborTagged(const CborTagged& other)
     : tag(other.tag)
     , value(other.value ? std::make_unique<CborValue>(*other.value) : nullptr)
@@ -427,6 +433,10 @@ inline CborTagged& CborTagged::operator=(const CborTagged& other)
     }
     return *this;
 }
+
+inline CborTagged::CborTagged(CborTagged&&) noexcept = default;
+inline CborTagged& CborTagged::operator=(CborTagged&&) noexcept = default;
+inline CborTagged::~CborTagged() = default;
 
 // =============================================================================
 // Parse Status and Errors
