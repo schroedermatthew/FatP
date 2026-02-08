@@ -654,40 +654,53 @@ inline SubtestTracker& get_subtest_tracker();
 // =============================================================================
 // Safe comparison helpers (C++20)
 //
-// Use std::cmp_equal/cmp_less/etc. for integral types to handle mixed
-// signed/unsigned comparisons without warnings. Fall back to regular
-// operators for non-integral types (floats, strings, etc.).
+// Use std::cmp_equal/cmp_less/etc. for standard integer types to handle
+// mixed signed/unsigned comparisons without warnings. Fall back to regular
+// operators for non-integer types (floats, strings, char, bool, etc.).
+//
+// Note: std::cmp_* rejects char, bool, and character types even though they
+// satisfy std::integral. The standard_integer concept matches exactly the
+// types std::cmp_* accepts.
 // =============================================================================
 
 namespace detail
 {
 
-template <std::integral A, std::integral B>
+template <typename T>
+concept standard_integer = std::integral<T>
+    && !std::same_as<std::remove_cv_t<T>, bool>
+    && !std::same_as<std::remove_cv_t<T>, char>
+    && !std::same_as<std::remove_cv_t<T>, wchar_t>
+    && !std::same_as<std::remove_cv_t<T>, char8_t>
+    && !std::same_as<std::remove_cv_t<T>, char16_t>
+    && !std::same_as<std::remove_cv_t<T>, char32_t>;
+
+template <standard_integer A, standard_integer B>
 bool safe_eq(const A& a, const B& b) { return std::cmp_equal(a, b); }
 template <typename A, typename B>
 bool safe_eq(const A& a, const B& b) { return a == b; }
 
-template <std::integral A, std::integral B>
+template <standard_integer A, standard_integer B>
 bool safe_ne(const A& a, const B& b) { return std::cmp_not_equal(a, b); }
 template <typename A, typename B>
 bool safe_ne(const A& a, const B& b) { return a != b; }
 
-template <std::integral A, std::integral B>
+template <standard_integer A, standard_integer B>
 bool safe_lt(const A& a, const B& b) { return std::cmp_less(a, b); }
 template <typename A, typename B>
 bool safe_lt(const A& a, const B& b) { return a < b; }
 
-template <std::integral A, std::integral B>
+template <standard_integer A, standard_integer B>
 bool safe_le(const A& a, const B& b) { return std::cmp_less_equal(a, b); }
 template <typename A, typename B>
 bool safe_le(const A& a, const B& b) { return a <= b; }
 
-template <std::integral A, std::integral B>
+template <standard_integer A, standard_integer B>
 bool safe_gt(const A& a, const B& b) { return std::cmp_greater(a, b); }
 template <typename A, typename B>
 bool safe_gt(const A& a, const B& b) { return a > b; }
 
-template <std::integral A, std::integral B>
+template <standard_integer A, standard_integer B>
 bool safe_ge(const A& a, const B& b) { return std::cmp_greater_equal(a, b); }
 template <typename A, typename B>
 bool safe_ge(const A& a, const B& b) { return a >= b; }
