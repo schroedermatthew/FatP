@@ -189,10 +189,11 @@ FATP_TEST_CASE(lazy_task_waits_for_await)
 {
     int executed = 0;
 
-    auto lazy = [&executed]() -> CoroutineTask<int> {
+    auto make_task = [&executed]() -> CoroutineTask<int> {
         executed = 42;
-        co_return executed;
-    }();
+        co_return 42;
+    };
+    auto lazy = make_task();
 
     // Should not be executed yet
     FATP_ASSERT_EQ(executed, 0, "Lazy task should not have executed yet");
