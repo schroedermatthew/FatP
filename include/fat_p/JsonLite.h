@@ -499,7 +499,12 @@ inline void convert_double_to_int(double d, IntType& result, const char* typeNam
         constexpr double type_min = static_cast<double>(std::numeric_limits<IntType>::min());
         constexpr double type_max = static_cast<double>(std::numeric_limits<IntType>::max());
 
-        if (intpart < type_min || intpart > type_max)
+        // NOTE: static_cast<double>(INT64_MAX) rounds UP to 2^63, which exceeds
+        // INT64_MAX. Using >= ensures we reject this value and avoid undefined
+        // behavior from casting an out-of-range double to int64_t (which GCC-14
+        // -O2 exploits by optimizing away post-cast overflow checks).
+        // INT64_MIN (-2^63) IS exactly representable, so < is correct for min.
+        if (intpart < type_min || intpart >= type_max)
         {
             FATP_JSON_ENFORCE(false,
                               "JSON conversion error: value out of range for 64-bit signed integer",
@@ -542,12 +547,28 @@ inline void convert_double_to_int(double d, IntType& result, const char* typeNam
         constexpr double type_min = static_cast<double>(std::numeric_limits<IntType>::min());
         constexpr double type_max = static_cast<double>(std::numeric_limits<IntType>::max());
 
-        FATP_JSON_ENFORCE(intpart >= type_min && intpart <= type_max,
-                          "JSON conversion error: value out of range",
-                          "value",
-                          d,
-                          "target_type",
-                          typeName);
+        // For 64-bit unsigned types, static_cast<double>(UINT64_MAX) rounds UP
+        // to 2^64, which exceeds UINT64_MAX. Use strict < to avoid casting an
+        // out-of-range double (undefined behavior). For smaller types (8/16/32-bit),
+        // the max IS exactly representable as double, so <= is correct.
+        if constexpr (sizeof(IntType) >= 8)
+        {
+            FATP_JSON_ENFORCE(intpart >= type_min && intpart < type_max,
+                              "JSON conversion error: value out of range",
+                              "value",
+                              d,
+                              "target_type",
+                              typeName);
+        }
+        else
+        {
+            FATP_JSON_ENFORCE(intpart >= type_min && intpart <= type_max,
+                              "JSON conversion error: value out of range",
+                              "value",
+                              d,
+                              "target_type",
+                              typeName);
+        }
 
         IntType candidate = static_cast<IntType>(intpart);
 
