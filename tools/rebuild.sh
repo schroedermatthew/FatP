@@ -1,10 +1,22 @@
 #!/bin/bash
 # FATP_META:
 #   meta_version: 1
-#   component: BuildSystem
+#   component: Tooling
 #   file_role: tooling
 #   path: tools/rebuild.sh
 #   summary: "Linux/macOS clean rebuild script."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
 set -e
 
 # Verify we're in project root

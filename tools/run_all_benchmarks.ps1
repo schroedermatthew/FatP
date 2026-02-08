@@ -1,9 +1,21 @@
 # FATP_META:
 #   meta_version: 1
-#   component: BuildSystem
+#   component: Tooling
 #   file_role: tooling
 #   path: tools/run_all_benchmarks.ps1
 #   summary: "Windows PowerShell script to execute all Fat-P benchmark suites."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
 # ==============================================================================
 # run_all_benchmarks.ps1 - Execute all Fat-P benchmark suites (Windows)
 # ==============================================================================
