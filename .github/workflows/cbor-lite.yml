@@ -12,6 +12,16 @@ name: CborLite CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/CborLite.h'
+      - 'components/Cbor/tests/test_CborLite.cpp'
+      - '.github/workflows/cbor-lite.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/CborLite.h'
+      - 'components/Cbor/tests/test_CborLite.cpp'
+      - '.github/workflows/cbor-lite.yml'
 
 env:
   HEADER: CborLite.h

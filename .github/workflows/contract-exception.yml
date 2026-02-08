@@ -12,6 +12,16 @@ name: ContractException CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/ContractException.h'
+      - 'components/ContractException/tests/test_ContractException.cpp'
+      - '.github/workflows/contract-exception.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/ContractException.h'
+      - 'components/ContractException/tests/test_ContractException.cpp'
+      - '.github/workflows/contract-exception.yml'
 
 env:
   HEADER: ContractException.h

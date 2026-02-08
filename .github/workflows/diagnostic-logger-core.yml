@@ -12,6 +12,16 @@ name: DiagnosticLogger_Core CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/DiagnosticLogger_Core.h'
+      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_Core.cpp'
+      - '.github/workflows/diagnostic-logger-core.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/DiagnosticLogger_Core.h'
+      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_Core.cpp'
+      - '.github/workflows/diagnostic-logger-core.yml'
 
 env:
   HEADER: DiagnosticLogger_Core.h

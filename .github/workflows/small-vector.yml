@@ -19,6 +19,18 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/SmallVector.h'
+      - 'components/SmallVector/tests/test_SmallVector.cpp'
+      - 'components/SmallVector/benchmarks/benchmark_SmallVector.cpp'
+      - '.github/workflows/small-vector.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/SmallVector.h'
+      - 'components/SmallVector/tests/test_SmallVector.cpp'
+      - 'components/SmallVector/benchmarks/benchmark_SmallVector.cpp'
+      - '.github/workflows/small-vector.yml'
 
 env:
   HEADER: SmallVector.h

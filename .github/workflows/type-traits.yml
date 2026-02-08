@@ -12,6 +12,16 @@ name: TypeTraits CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/TypeTraits.h'
+      - 'components/TypeTraits/tests/test_TypeTraits.cpp'
+      - '.github/workflows/type-traits.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/TypeTraits.h'
+      - 'components/TypeTraits/tests/test_TypeTraits.cpp'
+      - '.github/workflows/type-traits.yml'
 
 env:
   HEADER: TypeTraits.h

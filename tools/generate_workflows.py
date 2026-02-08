@@ -25,7 +25,7 @@ Based on object-pool.yml as the reference implementation.
 
 import os
 
-OUTPUT_DIR = "/home/claude/work/output/.github/workflows"
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".github", "workflows")
 
 # =============================================================================
 # Component definitions
@@ -366,10 +366,21 @@ def generate_header_block(filename, component, header, test_src, bench_src):
     return "\n".join(lines)
 
 
-def generate_trigger_block(has_benchmarks):
-    """Generate the on: trigger block."""
+def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src):
+    """Generate the on: trigger block with push/pull_request path triggers."""
+    # Build path list: header, test file, benchmark file (if any), workflow itself
+    paths = [
+        f"include/fat_p/{header}",
+        test_src,
+    ]
+    if bench_src:
+        paths.append(bench_src)
+    paths.append(f".github/workflows/{filename}")
+
+    path_yaml = "\n".join(f"      - '{p}'" for p in paths)
+
     if has_benchmarks:
-        return """
+        return f"""
 on:
   workflow_dispatch:
     inputs:
@@ -377,11 +388,23 @@ on:
         description: 'Run benchmarks'
         required: false
         default: 'false'
-        type: boolean"""
+        type: boolean
+  push:
+    paths:
+{path_yaml}
+  pull_request:
+    paths:
+{path_yaml}"""
     else:
-        return """
+        return f"""
 on:
-  workflow_dispatch:"""
+  workflow_dispatch:
+  push:
+    paths:
+{path_yaml}
+  pull_request:
+    paths:
+{path_yaml}"""
 
 
 def generate_env_block(header, test_src, bench_src):
@@ -914,7 +937,7 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     parts.append(f"\nname: {component} CI")
 
     # Trigger
-    parts.append(generate_trigger_block(bench_src is not None))
+    parts.append(generate_trigger_block(bench_src is not None, filename, header, test_src, bench_src))
 
     # Env block
     parts.append(generate_env_block(header, test_src, bench_src))

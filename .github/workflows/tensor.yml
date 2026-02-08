@@ -12,6 +12,16 @@ name: Tensor CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/Tensor.h'
+      - 'components/Tensor/tests/test_Tensor.cpp'
+      - '.github/workflows/tensor.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/Tensor.h'
+      - 'components/Tensor/tests/test_Tensor.cpp'
+      - '.github/workflows/tensor.yml'
 
 env:
   HEADER: Tensor.h

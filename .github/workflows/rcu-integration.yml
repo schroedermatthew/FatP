@@ -12,6 +12,16 @@ name: RcuIntegration CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/ConcurrencyPolicies.h'
+      - 'components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp'
+      - '.github/workflows/rcu-integration.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/ConcurrencyPolicies.h'
+      - 'components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp'
+      - '.github/workflows/rcu-integration.yml'
 
 env:
   HEADER: ConcurrencyPolicies.h

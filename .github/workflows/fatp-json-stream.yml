@@ -12,6 +12,16 @@ name: FatPJsonStream CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/FatPJsonStream.h'
+      - 'components/Json/tests/test_FatPJsonStream.cpp'
+      - '.github/workflows/fatp-json-stream.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FatPJsonStream.h'
+      - 'components/Json/tests/test_FatPJsonStream.cpp'
+      - '.github/workflows/fatp-json-stream.yml'
 
 env:
   HEADER: FatPJsonStream.h

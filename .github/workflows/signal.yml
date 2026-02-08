@@ -12,6 +12,16 @@ name: Signal CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/Signal.h'
+      - 'components/Signal/tests/test_Signal.cpp'
+      - '.github/workflows/signal.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/Signal.h'
+      - 'components/Signal/tests/test_Signal.cpp'
+      - '.github/workflows/signal.yml'
 
 env:
   HEADER: Signal.h

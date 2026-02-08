@@ -12,6 +12,16 @@ name: DebugOnly CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/DebugOnly.h'
+      - 'components/DebugOnly/tests/test_DebugOnly.cpp'
+      - '.github/workflows/debug-only.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/DebugOnly.h'
+      - 'components/DebugOnly/tests/test_DebugOnly.cpp'
+      - '.github/workflows/debug-only.yml'
 
 env:
   HEADER: DebugOnly.h

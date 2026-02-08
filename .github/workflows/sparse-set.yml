@@ -19,6 +19,18 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/SparseSet.h'
+      - 'components/SparseSet/tests/test_SparseSet.cpp'
+      - 'components/SparseSet/benchmarks/benchmark_SparseSet.cpp'
+      - '.github/workflows/sparse-set.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/SparseSet.h'
+      - 'components/SparseSet/tests/test_SparseSet.cpp'
+      - 'components/SparseSet/benchmarks/benchmark_SparseSet.cpp'
+      - '.github/workflows/sparse-set.yml'
 
 env:
   HEADER: SparseSet.h

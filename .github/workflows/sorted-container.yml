@@ -12,6 +12,16 @@ name: SortedContainer CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/SortedContainer.h'
+      - 'components/SortedContainer/tests/test_SortedContainer.cpp'
+      - '.github/workflows/sorted-container.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/SortedContainer.h'
+      - 'components/SortedContainer/tests/test_SortedContainer.cpp'
+      - '.github/workflows/sorted-container.yml'
 
 env:
   HEADER: SortedContainer.h

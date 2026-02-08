@@ -19,6 +19,18 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/AllocationStrategies.h'
+      - 'components/AllocationStrategies/tests/test_AllocationStrategies.cpp'
+      - 'components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp'
+      - '.github/workflows/allocation-strategies.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/AllocationStrategies.h'
+      - 'components/AllocationStrategies/tests/test_AllocationStrategies.cpp'
+      - 'components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp'
+      - '.github/workflows/allocation-strategies.yml'
 
 env:
   HEADER: AllocationStrategies.h

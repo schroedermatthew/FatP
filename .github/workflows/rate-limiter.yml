@@ -12,6 +12,16 @@ name: RateLimiter CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/RateLimiter.h'
+      - 'components/RateLimiter/tests/test_RateLimiter.cpp'
+      - '.github/workflows/rate-limiter.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/RateLimiter.h'
+      - 'components/RateLimiter/tests/test_RateLimiter.cpp'
+      - '.github/workflows/rate-limiter.yml'
 
 env:
   HEADER: RateLimiter.h

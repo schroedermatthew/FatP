@@ -12,6 +12,16 @@ name: BinaryLite CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/BinaryLite.h'
+      - 'components/BinarySerialization/tests/test_BinaryLite.cpp'
+      - '.github/workflows/binary-lite.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/BinaryLite.h'
+      - 'components/BinarySerialization/tests/test_BinaryLite.cpp'
+      - '.github/workflows/binary-lite.yml'
 
 env:
   HEADER: BinaryLite.h

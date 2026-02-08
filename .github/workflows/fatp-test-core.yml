@@ -12,6 +12,16 @@ name: FatP CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/FatPTest.h'
+      - 'components/FatPTest/tests/test_FatP.cpp'
+      - '.github/workflows/fatp-test-core.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FatPTest.h'
+      - 'components/FatPTest/tests/test_FatP.cpp'
+      - '.github/workflows/fatp-test-core.yml'
 
 env:
   HEADER: FatPTest.h

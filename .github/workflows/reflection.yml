@@ -12,6 +12,16 @@ name: Reflection CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/Reflection.h'
+      - 'components/Reflection/tests/test_Reflection.cpp'
+      - '.github/workflows/reflection.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/Reflection.h'
+      - 'components/Reflection/tests/test_Reflection.cpp'
+      - '.github/workflows/reflection.yml'
 
 env:
   HEADER: Reflection.h

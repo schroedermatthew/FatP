@@ -12,6 +12,16 @@ name: FatPJson CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/FatPJson.h'
+      - 'components/Json/tests/test_FatPJson.cpp'
+      - '.github/workflows/fatp-json.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FatPJson.h'
+      - 'components/Json/tests/test_FatPJson.cpp'
+      - '.github/workflows/fatp-json.yml'
 
 env:
   HEADER: FatPJson.h

@@ -12,6 +12,16 @@ name: CoroutineTask CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/CoroutineTask.h'
+      - 'components/CoroutineTask/tests/test_CoroutineTask.cpp'
+      - '.github/workflows/coroutine-task.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/CoroutineTask.h'
+      - 'components/CoroutineTask/tests/test_CoroutineTask.cpp'
+      - '.github/workflows/coroutine-task.yml'
 
 env:
   HEADER: CoroutineTask.h

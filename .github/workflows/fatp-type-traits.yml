@@ -12,6 +12,16 @@ name: FatPTypeTraits CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/FatPTypeTraits.h'
+      - 'components/TypeTraits/tests/test_FatPTypeTraits.cpp'
+      - '.github/workflows/fatp-type-traits.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FatPTypeTraits.h'
+      - 'components/TypeTraits/tests/test_FatPTypeTraits.cpp'
+      - '.github/workflows/fatp-type-traits.yml'
 
 env:
   HEADER: FatPTypeTraits.h

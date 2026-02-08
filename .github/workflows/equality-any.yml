@@ -12,6 +12,16 @@ name: EqualityAny CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/EqualityAny.h'
+      - 'components/Equality/tests/test_EqualityAny.cpp'
+      - '.github/workflows/equality-any.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/EqualityAny.h'
+      - 'components/Equality/tests/test_EqualityAny.cpp'
+      - '.github/workflows/equality-any.yml'
 
 env:
   HEADER: EqualityAny.h

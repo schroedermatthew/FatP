@@ -12,6 +12,16 @@ name: HpcVector CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/HpcVector.h'
+      - 'components/HpcVector/tests/test_HpcVector.cpp'
+      - '.github/workflows/hpc-vector.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/HpcVector.h'
+      - 'components/HpcVector/tests/test_HpcVector.cpp'
+      - '.github/workflows/hpc-vector.yml'
 
 env:
   HEADER: HpcVector.h

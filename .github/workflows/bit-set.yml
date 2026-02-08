@@ -19,6 +19,18 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/BitSet.h'
+      - 'components/BitSet/tests/test_BitSet.cpp'
+      - 'components/BitSet/benchmarks/benchmark_BitSet.cpp'
+      - '.github/workflows/bit-set.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/BitSet.h'
+      - 'components/BitSet/tests/test_BitSet.cpp'
+      - 'components/BitSet/benchmarks/benchmark_BitSet.cpp'
+      - '.github/workflows/bit-set.yml'
 
 env:
   HEADER: BitSet.h

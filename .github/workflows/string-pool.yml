@@ -12,6 +12,16 @@ name: StringPool CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/StringPool.h'
+      - 'components/StringPool/tests/test_StringPool.cpp'
+      - '.github/workflows/string-pool.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/StringPool.h'
+      - 'components/StringPool/tests/test_StringPool.cpp'
+      - '.github/workflows/string-pool.yml'
 
 env:
   HEADER: StringPool.h

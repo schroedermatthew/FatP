@@ -12,6 +12,16 @@ name: CheckedArithmetic CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/CheckedArithmetic.h'
+      - 'components/CheckedArithmetic/tests/test_CheckedArithmetic.cpp'
+      - '.github/workflows/checked-arithmetic.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/CheckedArithmetic.h'
+      - 'components/CheckedArithmetic/tests/test_CheckedArithmetic.cpp'
+      - '.github/workflows/checked-arithmetic.yml'
 
 env:
   HEADER: CheckedArithmetic.h

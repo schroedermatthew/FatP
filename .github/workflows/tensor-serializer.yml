@@ -12,6 +12,16 @@ name: TensorSerializer CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/TensorSerializer.h'
+      - 'components/Tensor/tests/test_TensorSerializer.cpp'
+      - '.github/workflows/tensor-serializer.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/TensorSerializer.h'
+      - 'components/Tensor/tests/test_TensorSerializer.cpp'
+      - '.github/workflows/tensor-serializer.yml'
 
 env:
   HEADER: TensorSerializer.h

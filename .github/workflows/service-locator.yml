@@ -19,6 +19,18 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/ServiceLocator.h'
+      - 'components/ServiceLocator/tests/test_ServiceLocator.cpp'
+      - 'components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp'
+      - '.github/workflows/service-locator.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/ServiceLocator.h'
+      - 'components/ServiceLocator/tests/test_ServiceLocator.cpp'
+      - 'components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp'
+      - '.github/workflows/service-locator.yml'
 
 env:
   HEADER: ServiceLocator.h

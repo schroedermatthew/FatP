@@ -12,6 +12,16 @@ name: PolicyQueue CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/PolicyQueue.h'
+      - 'components/PolicyQueue/tests/test_PolicyQueue.cpp'
+      - '.github/workflows/policy-queue.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/PolicyQueue.h'
+      - 'components/PolicyQueue/tests/test_PolicyQueue.cpp'
+      - '.github/workflows/policy-queue.yml'
 
 env:
   HEADER: PolicyQueue.h

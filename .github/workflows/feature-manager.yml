@@ -19,6 +19,18 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/FeatureManager.h'
+      - 'components/FeatureManager/tests/test_FeatureManager.cpp'
+      - 'components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp'
+      - '.github/workflows/feature-manager.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FeatureManager.h'
+      - 'components/FeatureManager/tests/test_FeatureManager.cpp'
+      - 'components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp'
+      - '.github/workflows/feature-manager.yml'
 
 env:
   HEADER: FeatureManager.h

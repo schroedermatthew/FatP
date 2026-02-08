@@ -12,6 +12,16 @@ name: TensorStorage CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/TensorStorage.h'
+      - 'components/Tensor/tests/test_TensorStorage.cpp'
+      - '.github/workflows/tensor-storage.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/TensorStorage.h'
+      - 'components/Tensor/tests/test_TensorStorage.cpp'
+      - '.github/workflows/tensor-storage.yml'
 
 env:
   HEADER: TensorStorage.h

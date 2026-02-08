@@ -12,6 +12,16 @@ name: ThreadPool CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/ThreadPool.h'
+      - 'components/ThreadPool/tests/test_ThreadPool.cpp'
+      - '.github/workflows/thread-pool.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/ThreadPool.h'
+      - 'components/ThreadPool/tests/test_ThreadPool.cpp'
+      - '.github/workflows/thread-pool.yml'
 
 env:
   HEADER: ThreadPool.h

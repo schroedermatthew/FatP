@@ -12,6 +12,16 @@ name: AtomicSharedPtr CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/AtomicSharedPtr.h'
+      - 'components/AtomicSharedPtr/tests/test_AtomicSharedPtr.cpp'
+      - '.github/workflows/atomic-shared-ptr.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/AtomicSharedPtr.h'
+      - 'components/AtomicSharedPtr/tests/test_AtomicSharedPtr.cpp'
+      - '.github/workflows/atomic-shared-ptr.yml'
 
 env:
   HEADER: AtomicSharedPtr.h

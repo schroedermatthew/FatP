@@ -12,6 +12,16 @@ name: FatPCborStream CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/FatPCborStream.h'
+      - 'components/Cbor/tests/test_FatPCborStream.cpp'
+      - '.github/workflows/fatp-cbor-stream.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FatPCborStream.h'
+      - 'components/Cbor/tests/test_FatPCborStream.cpp'
+      - '.github/workflows/fatp-cbor-stream.yml'
 
 env:
   HEADER: FatPCborStream.h

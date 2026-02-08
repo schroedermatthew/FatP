@@ -12,6 +12,16 @@ name: Factory CI
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/Factory.h'
+      - 'components/Factory/tests/test_Factory.cpp'
+      - '.github/workflows/factory.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/Factory.h'
+      - 'components/Factory/tests/test_Factory.cpp'
+      - '.github/workflows/factory.yml'
 
 env:
   HEADER: Factory.h
