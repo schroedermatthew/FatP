@@ -113,7 +113,6 @@ struct EnableOverloadedOperators<FeatureRelationship>
 template <>
 struct EnumStringPolicy<FeatureRelationship>
 {
-    static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {"Requires", "Conflicts", "Implies", "MutuallyExclusive"};
 
     static std::string_view to_string(FeatureRelationship e)
@@ -135,7 +134,6 @@ struct EnumStringPolicy<FeatureRelationship>
 template <>
 struct EnumStringPolicy<FeatureGroupState>
 {
-    static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {"Inactive", "Partial", "Active", "Invalid"};
 
     static std::string_view to_string(FeatureGroupState e)
@@ -457,7 +455,7 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
 
     std::string state_to_string() const override
     {
-        if constexpr (EnumStringPolicy<StateEnum>::has_names)
+        if constexpr (named_enum<StateEnum>)
         {
             return std::string(EnumStringPolicy<StateEnum>::to_string(cached_state));
         }

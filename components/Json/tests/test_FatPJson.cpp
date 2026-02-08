@@ -165,8 +165,6 @@ namespace fat_p
 template <>
 struct EnumStringPolicy<testing::TaskStatus>
 {
-    static constexpr bool has_names = true;
-
     static std::string_view to_string(testing::TaskStatus value)
     {
         switch (value)
@@ -209,8 +207,6 @@ struct EnumStringPolicy<testing::TaskStatus>
 template <>
 struct EnumStringPolicy<testing::Priority>
 {
-    static constexpr bool has_names = true;
-
     static std::string_view to_string(testing::Priority value)
     {
         switch (value)
@@ -253,8 +249,6 @@ struct EnumStringPolicy<testing::Priority>
 template <>
 struct EnumStringPolicy<testing::Color>
 {
-    static constexpr bool has_names = true;
-
     static std::string_view to_string(testing::Color value)
     {
         switch (value)

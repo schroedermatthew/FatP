@@ -70,7 +70,6 @@ enum class NetworkState
 template <>
 struct EnumStringPolicy<NetworkState>
 {
-    static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {"Disconnected", "Connecting", "Connected", "Error"};
 
     static std::string_view to_string(NetworkState e)
@@ -101,7 +100,6 @@ enum class LogLevel
 template <>
 struct EnumStringPolicy<LogLevel>
 {
-    static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {"Off", "Basic", "Verbose", "Debug"};
 
     static std::string_view to_string(LogLevel e)

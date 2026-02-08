@@ -267,7 +267,6 @@ namespace fat_p
 template <>
 struct EnumStringPolicy<BenchmarkState>
 {
-    static constexpr bool has_names = true;
     static constexpr std::array<std::string_view, 4> names = {"Empty", "Loading", "Ready", "Error"};
 
     static std::string_view to_string(BenchmarkState e)

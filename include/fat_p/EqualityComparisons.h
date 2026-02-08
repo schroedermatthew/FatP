@@ -424,7 +424,7 @@ struct EqualDispatcher
      *       the logging subsystem.
      */
     template <typename... EpsParams>
-    static bool compare(const T& a, const T& b, EpsParams... eps)
+    static bool compare(const T& a, const T& b, [[maybe_unused]] EpsParams... eps)
     {
         // === PAIR COMPARISON ===
         if constexpr (IsPair<T>::value)

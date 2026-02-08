@@ -741,22 +741,7 @@ template <typename Policy = StandardJsonPolicy>
 namespace json_detail
 {
 
-template <typename E, typename = void>
-struct has_enum_string_policy : std::false_type
-{
-};
-
-template <typename E>
-struct has_enum_string_policy<E,
-                              std::void_t<decltype(EnumStringPolicy<E>::has_names),
-                                          decltype(EnumStringPolicy<E>::to_string(std::declval<E>())),
-                                          decltype(EnumStringPolicy<E>::from_string(std::declval<std::string_view>()))>>
-    : std::bool_constant<std::is_enum_v<E> && EnumStringPolicy<E>::has_names>
-{
-};
-
-template <typename E>
-constexpr bool has_enum_string_policy_v = has_enum_string_policy<E>::value;
+// named_enum concept from EnumPlus.h replaces has_enum_string_policy trait
 
 } // namespace json_detail
 
@@ -774,8 +759,8 @@ constexpr bool has_enum_string_policy_v = has_enum_string_policy<E>::value;
  * @note This overload is only enabled for enums with EnumStringPolicy
  * @see EnumPlus.h for defining EnumStringPolicy
  */
-template <typename E>
-std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void> to_json(JsonValue& j, E value)
+template <named_enum E>
+void to_json(JsonValue& j, E value)
 {
     j = std::string(fat_p::to_string(value));
 }
@@ -794,8 +779,8 @@ std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void> to_json(JsonVal
  * @throws std::runtime_error if JSON is not a string or string is not a valid enum value
  * @note This overload is only enabled for enums with EnumStringPolicy
  */
-template <typename E>
-std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void> from_json(const JsonValue& j, E& value)
+template <named_enum E>
+void from_json(const JsonValue& j, E& value)
 {
     FATP_JSON_ENFORCE(j.is_string(),
                       "Enum deserialization requires string",
@@ -824,8 +809,8 @@ std::enable_if_t<json_detail::has_enum_string_policy_v<E>, void> from_json(const
  * @param j JSON value to read from
  * @return Expected containing enum value or JsonError
  */
-template <typename E>
-std::enable_if_t<json_detail::has_enum_string_policy_v<E>, Expected<E, JsonError>>
+template <named_enum E>
+Expected<E, JsonError>
 safe_from_json_enum(const JsonValue& j) noexcept
 {
     if (!j.is_string())

@@ -147,8 +147,6 @@ struct EnableOverloadedOperators<FilePermission> : std::true_type
 template <>
 struct EnumStringPolicy<Color>
 {
-    static constexpr bool has_names = true;
-
     static std::string_view to_string(Color value)
     {
         switch (value)
@@ -191,8 +189,6 @@ struct EnumStringPolicy<Color>
 template <>
 struct EnumStringPolicy<Status>
 {
-    static constexpr bool has_names = true;
-
     static std::string_view to_string(Status value)
     {
         switch (value)
@@ -235,8 +231,6 @@ struct EnumStringPolicy<Status>
 template <>
 struct EnumStringPolicy<SignedEnum>
 {
-    static constexpr bool has_names = true;
-
     static std::string_view to_string(SignedEnum value)
     {
         switch (value)

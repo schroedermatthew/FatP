@@ -34,6 +34,7 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <concepts>
 #include <functional>
 #include <optional>
 #include <ostream>
@@ -57,6 +58,12 @@ struct EnableOverloadedOperators;
 
 template <typename E>
 struct EnumStringPolicy;
+
+/// Concept: E is an enum with a specialized EnumStringPolicy providing to_string
+template <typename E>
+concept named_enum = std::is_enum_v<E> && requires(E e) {
+    { EnumStringPolicy<E>::to_string(e) } -> std::convertible_to<std::string_view>;
+};
 
 // ============================================================================
 // Bounds Check Policies
@@ -394,9 +401,8 @@ auto operator>>=(E& lhs, int rhs) noexcept -> std::enable_if_t<EnableOverloadedO
 // Stream Operators
 // ============================================================================
 
-template <typename E>
-auto operator<<(std::ostream& os, E value)
-    -> std::enable_if_t<std::is_enum_v<E> && EnumStringPolicy<E>::has_names, std::ostream&>
+template <named_enum E>
+std::ostream& operator<<(std::ostream& os, E value)
 {
     os << EnumStringPolicy<E>::to_string(value);
     return os;
@@ -405,7 +411,7 @@ auto operator<<(std::ostream& os, E value)
 template <typename E>
 std::ostream& operator<<(std::ostream& os, EnumPlusWrapper<E> value)
 {
-    if constexpr (EnumStringPolicy<E>::has_names)
+    if constexpr (named_enum<E>)
     {
         os << EnumStringPolicy<E>::to_string(value.value());
     }
@@ -682,18 +688,16 @@ constexpr void for_each_enum(Func&& func)
 }
 
 // Convert enum to string (requires EnumStringPolicy specialization)
-template <typename E>
+template <named_enum E>
 std::string_view to_string(E value)
 {
-    static_assert(EnumStringPolicy<E>::has_names, "EnumStringPolicy<E> must be specialized with names");
     return EnumStringPolicy<E>::to_string(value);
 }
 
 // Convert string to enum (requires EnumStringPolicy specialization)
-template <typename E>
+template <named_enum E>
 E from_string(std::string_view str)
 {
-    static_assert(EnumStringPolicy<E>::has_names, "EnumStringPolicy<E> must be specialized with names");
     return EnumStringPolicy<E>::from_string(str);
 }
 
@@ -729,10 +733,9 @@ inline bool string_eq_icase(std::string_view a, std::string_view b) noexcept
 } // namespace detail
 
 // Convert string to enum case-insensitively (requires EnumStringPolicy specialization)
-template <typename E>
+template <named_enum E>
 std::optional<E> from_string_icase(std::string_view str) noexcept
 {
-    static_assert(EnumStringPolicy<E>::has_names, "EnumStringPolicy<E> must be specialized with names");
     for (std::size_t i = 0; i < EnumSizeTrait<E>::size; ++i)
     {
         E candidate = static_cast<E>(i);
@@ -745,7 +748,7 @@ std::optional<E> from_string_icase(std::string_view str) noexcept
 }
 
 // Convert string to enum case-insensitively with default value
-template <typename E>
+template <named_enum E>
 E from_string_icase_or(std::string_view str, E default_value) noexcept
 {
     auto result = from_string_icase<E>(str);
@@ -762,9 +765,8 @@ struct EnumEntry
 
 // Get array of name-value pairs for enum reflection
 // Requires EnumStringPolicy<E> specialization
-template <typename E>
-constexpr auto enum_entries() noexcept -> std::enable_if_t<std::is_enum_v<E> && EnumStringPolicy<E>::has_names,
-                                                           std::array<EnumEntry<E>, EnumSizeTrait<E>::size>>
+template <named_enum E>
+constexpr std::array<EnumEntry<E>, EnumSizeTrait<E>::size> enum_entries() noexcept
 {
     std::array<EnumEntry<E>, EnumSizeTrait<E>::size> entries{};
     for (std::size_t i = 0; i < EnumSizeTrait<E>::size; ++i)
