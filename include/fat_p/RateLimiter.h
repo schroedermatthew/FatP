@@ -83,6 +83,7 @@ FATP_META:
 #include <chrono>
 #include <cmath>
 #include <mutex>
+#include <thread>
 #include <vector>
 
 namespace fat_p
