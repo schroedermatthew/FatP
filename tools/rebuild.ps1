@@ -16,6 +16,7 @@
 #     defines_unprefixed: 0
 #     undefs_total: 0
 #     includes_windows_h: false
+
 $ErrorActionPreference = "Stop"
 
 # Verify we're in project root

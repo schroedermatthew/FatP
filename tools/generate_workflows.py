@@ -18,7 +18,6 @@
 #     defines_unprefixed: 0
 #     undefs_total: 0
 #     includes_windows_h: false
-
 """
 Generate all Fat-P CI workflow files from canonical templates.
 Based on object-pool.yml as the reference implementation.

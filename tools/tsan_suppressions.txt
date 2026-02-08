@@ -16,6 +16,7 @@
 #     defines_unprefixed: 0
 #     undefs_total: 0
 #     includes_windows_h: false
+
 #
 # ThreadSanitizer suppression file for Fat-P
 #
@@ -26,3 +27,4 @@
 # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101978
 
 mutex:std::_Sp_atomic
+mutex:std::timed_mutex
