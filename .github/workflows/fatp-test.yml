@@ -13,6 +13,7 @@ name: FatPTest CI
 on:
   push:
     paths:
+      - '.github/workflows/fatp-test.yml'
       - 'include/fat_p/FatPTest.h'
       - 'components/FatPTest/tests/test_FatPTest.cpp'
   workflow_dispatch:

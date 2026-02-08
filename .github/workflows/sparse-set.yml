@@ -14,6 +14,7 @@ name: SparseSet CI
 on:
   push:
     paths:
+      - '.github/workflows/sparse-set.yml'
       - 'include/fat_p/SparseSet.h'
       - 'components/SparseSet/tests/test_SparseSet.cpp'
       - 'components/SparseSet/benchmarks/benchmark_SparseSet.cpp'

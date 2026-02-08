@@ -14,6 +14,7 @@ name: SlotMap CI
 on:
   push:
     paths:
+      - '.github/workflows/slot-map.yml'
       - 'include/fat_p/SlotMap.h'
       - 'components/SlotMap/tests/test_SlotMap.cpp'
       - 'components/SlotMap/benchmarks/benchmark_SlotMap.cpp'

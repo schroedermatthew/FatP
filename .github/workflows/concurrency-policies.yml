@@ -13,6 +13,7 @@ name: ConcurrencyPolicies CI
 on:
   push:
     paths:
+      - '.github/workflows/concurrency-policies.yml'
       - 'include/fat_p/ConcurrencyPolicies.h'
       - 'components/ConcurrencyPolicies/tests/test_ConcurrencyPolicies.cpp'
   workflow_dispatch:

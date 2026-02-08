@@ -13,6 +13,7 @@ name: DiagnosticLogger_IO CI
 on:
   push:
     paths:
+      - '.github/workflows/diagnostic-logger-io.yml'
       - 'include/fat_p/DiagnosticLogger_IO.h'
       - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_IO.cpp'
   workflow_dispatch:

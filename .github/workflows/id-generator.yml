@@ -13,6 +13,7 @@ name: IdGenerator CI
 on:
   push:
     paths:
+      - '.github/workflows/id-generator.yml'
       - 'include/fat_p/IdGenerator.h'
       - 'components/IdGenerator/tests/test_IdGenerator.cpp'
   workflow_dispatch:

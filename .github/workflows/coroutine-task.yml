@@ -13,6 +13,7 @@ name: CoroutineTask CI
 on:
   push:
     paths:
+      - '.github/workflows/coroutine-task.yml'
       - 'include/fat_p/CoroutineTask.h'
       - 'components/CoroutineTask/tests/test_CoroutineTask.cpp'
   workflow_dispatch:

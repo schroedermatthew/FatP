@@ -13,6 +13,7 @@ name: Reflection CI
 on:
   push:
     paths:
+      - '.github/workflows/reflection.yml'
       - 'include/fat_p/Reflection.h'
       - 'components/Reflection/tests/test_Reflection.cpp'
   workflow_dispatch:

@@ -13,6 +13,7 @@ name: FatPCbor CI
 on:
   push:
     paths:
+      - '.github/workflows/fatp-cbor.yml'
       - 'include/fat_p/FatPCbor.h'
       - 'components/Cbor/tests/test_FatPCbor.cpp'
   workflow_dispatch:

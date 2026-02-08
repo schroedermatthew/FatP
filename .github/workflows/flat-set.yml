@@ -13,6 +13,7 @@ name: FlatSet CI
 on:
   push:
     paths:
+      - '.github/workflows/flat-set.yml'
       - 'include/fat_p/FlatSet.h'
       - 'components/FlatMapSet/tests/test_FlatSet.cpp'
   workflow_dispatch:

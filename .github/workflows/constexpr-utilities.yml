@@ -13,6 +13,7 @@ name: ConstexprUtilities CI
 on:
   push:
     paths:
+      - '.github/workflows/constexpr-utilities.yml'
       - 'include/fat_p/ConstexprUtilities.h'
       - 'components/ConstexprUtilities/tests/test_ConstexprUtilities.cpp'
   workflow_dispatch:

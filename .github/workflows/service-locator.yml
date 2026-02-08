@@ -14,6 +14,7 @@ name: ServiceLocator CI
 on:
   push:
     paths:
+      - '.github/workflows/service-locator.yml'
       - 'include/fat_p/ServiceLocator.h'
       - 'components/ServiceLocator/tests/test_ServiceLocator.cpp'
       - 'components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp'

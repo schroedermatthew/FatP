@@ -13,6 +13,7 @@ name: LockFreeRingBuffer CI
 on:
   push:
     paths:
+      - '.github/workflows/lock-free-ring-buffer.yml'
       - 'include/fat_p/LockFreeRingBuffer.h'
       - 'components/LockFreeContainers/tests/test_LockFreeRingBuffer.cpp'
   workflow_dispatch:

@@ -13,6 +13,7 @@ name: TypeTraits CI
 on:
   push:
     paths:
+      - '.github/workflows/type-traits.yml'
       - 'include/fat_p/TypeTraits.h'
       - 'components/TypeTraits/tests/test_TypeTraits.cpp'
   workflow_dispatch:

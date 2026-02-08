@@ -3,6 +3,7 @@ name: FATP_META Compliance
 on:
   push:
     paths:
+      - '.github/workflows/fatp_meta_compliance.yml'
       - 'include/fat_p/*.h'
       - 'tools/fatp_meta_*.py'
   workflow_dispatch:

@@ -13,6 +13,7 @@ name: Enforce CI
 on:
   push:
     paths:
+      - '.github/workflows/enforce.yml'
       - 'include/fat_p/enforce.h'
       - 'components/Enforce/tests/test_Enforce.cpp'
   workflow_dispatch:

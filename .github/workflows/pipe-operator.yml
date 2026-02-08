@@ -13,6 +13,7 @@ name: PipeOperator CI
 on:
   push:
     paths:
+      - '.github/workflows/pipe-operator.yml'
       - 'include/fat_p/PipeOperator.h'
       - 'components/PipeOperator/tests/test_PipeOperator.cpp'
   workflow_dispatch:

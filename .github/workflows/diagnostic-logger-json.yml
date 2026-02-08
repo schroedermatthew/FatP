@@ -13,6 +13,7 @@ name: DiagnosticLogger_Json CI
 on:
   push:
     paths:
+      - '.github/workflows/diagnostic-logger-json.yml'
       - 'include/fat_p/DiagnosticLogger_Json.h'
       - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_Json.cpp'
   workflow_dispatch:

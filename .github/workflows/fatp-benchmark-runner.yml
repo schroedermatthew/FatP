@@ -13,6 +13,7 @@ name: FatPBenchmarkRunner CI
 on:
   push:
     paths:
+      - '.github/workflows/fatp-benchmark-runner.yml'
       - 'include/fat_p/FatPBenchmarkRunner.h'
       - 'components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp'
   workflow_dispatch:

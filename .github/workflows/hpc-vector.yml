@@ -13,6 +13,7 @@ name: HpcVector CI
 on:
   push:
     paths:
+      - '.github/workflows/hpc-vector.yml'
       - 'include/fat_p/HpcVector.h'
       - 'components/HpcVector/tests/test_HpcVector.cpp'
   workflow_dispatch:

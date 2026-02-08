@@ -13,6 +13,7 @@ name: SimdVector CI
 on:
   push:
     paths:
+      - '.github/workflows/simd-vector.yml'
       - 'include/fat_p/SimdVector.h'
       - 'components/SimdVector/tests/test_SimdVector.cpp'
   workflow_dispatch:

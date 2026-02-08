@@ -13,6 +13,7 @@ name: CborLite CI
 on:
   push:
     paths:
+      - '.github/workflows/cbor-lite.yml'
       - 'include/fat_p/CborLite.h'
       - 'components/Cbor/tests/test_CborLite.cpp'
   workflow_dispatch:

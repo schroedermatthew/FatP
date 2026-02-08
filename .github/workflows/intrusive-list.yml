@@ -14,6 +14,7 @@ name: IntrusiveList CI
 on:
   push:
     paths:
+      - '.github/workflows/intrusive-list.yml'
       - 'include/fat_p/IntrusiveList.h'
       - 'components/IntrusiveList/tests/test_IntrusiveList.cpp'
       - 'components/IntrusiveList/benchmarks/benchmark_IntrusiveList.cpp'

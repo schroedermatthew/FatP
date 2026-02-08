@@ -13,6 +13,7 @@ name: CSRMatrix_HPC_Parallel CI
 on:
   push:
     paths:
+      - '.github/workflows/csr-matrix-hpc-parallel.yml'
       - 'include/fat_p/CSRMatrix_HPC.h'
       - 'components/CSRMatrix/tests/test_CSRMatrix_HPC_Parallel.cpp'
   workflow_dispatch:

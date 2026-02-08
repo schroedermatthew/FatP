@@ -14,6 +14,7 @@ name: Stacktrace CI
 on:
   push:
     paths:
+      - '.github/workflows/stacktrace.yml'
       - 'include/fat_p/Stacktrace.h'
       - 'components/Stacktrace/tests/test_Stacktrace.cpp'
       - 'components/Stacktrace/benchmarks/benchmark_Stacktrace.cpp'

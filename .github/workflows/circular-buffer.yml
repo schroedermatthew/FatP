@@ -14,6 +14,7 @@ name: CircularBuffer CI
 on:
   push:
     paths:
+      - '.github/workflows/circular-buffer.yml'
       - 'include/fat_p/CircularBuffer.h'
       - 'components/CircularBuffer/tests/test_CircularBuffer.cpp'
       - 'components/CircularBuffer/benchmarks/benchmark_CircularBuffer.cpp'

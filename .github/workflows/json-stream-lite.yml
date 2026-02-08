@@ -13,6 +13,7 @@ name: JsonStreamLite CI
 on:
   push:
     paths:
+      - '.github/workflows/json-stream-lite.yml'
       - 'include/fat_p/JsonStreamLite.h'
       - 'components/Json/tests/test_JsonStreamLite.cpp'
   workflow_dispatch:

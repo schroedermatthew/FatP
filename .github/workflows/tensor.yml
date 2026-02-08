@@ -13,6 +13,7 @@ name: Tensor CI
 on:
   push:
     paths:
+      - '.github/workflows/tensor.yml'
       - 'include/fat_p/Tensor.h'
       - 'components/Tensor/tests/test_Tensor.cpp'
   workflow_dispatch:

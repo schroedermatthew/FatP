@@ -13,6 +13,7 @@ name: FatPConcepts CI
 on:
   push:
     paths:
+      - '.github/workflows/fatp-concepts.yml'
       - 'include/fat_p/FatPConcepts.h'
       - 'components/Concepts/tests/test_FatPConcepts.cpp'
   workflow_dispatch:

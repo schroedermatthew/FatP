@@ -13,6 +13,7 @@ name: EnhancedBoundsChecking CI
 on:
   push:
     paths:
+      - '.github/workflows/enhanced-bounds-checking.yml'
       - 'include/fat_p/EnhancedBoundsChecking.h'
       - 'components/EnhancedBoundsChecking/tests/test_EnhancedBoundsChecking.cpp'
   workflow_dispatch:

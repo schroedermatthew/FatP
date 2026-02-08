@@ -13,6 +13,7 @@ name: FatPBinary CI
 on:
   push:
     paths:
+      - '.github/workflows/fatp-binary.yml'
       - 'include/fat_p/FatPBinary.h'
       - 'components/BinarySerialization/tests/test_FatPBinary.cpp'
   workflow_dispatch:

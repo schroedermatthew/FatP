@@ -13,6 +13,7 @@ name: EqualityComparisons CI
 on:
   push:
     paths:
+      - '.github/workflows/equality-comparisons.yml'
       - 'include/fat_p/EqualityComparisons.h'
       - 'components/Equality/tests/test_EqualityComparisons.cpp'
   workflow_dispatch:

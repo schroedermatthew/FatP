@@ -13,6 +13,7 @@ name: EqualityAny CI
 on:
   push:
     paths:
+      - '.github/workflows/equality-any.yml'
       - 'include/fat_p/EqualityAny.h'
       - 'components/Equality/tests/test_EqualityAny.cpp'
   workflow_dispatch:

@@ -14,6 +14,7 @@ name: AllocationStrategies CI
 on:
   push:
     paths:
+      - '.github/workflows/allocation-strategies.yml'
       - 'include/fat_p/AllocationStrategies.h'
       - 'components/AllocationStrategies/tests/test_AllocationStrategies.cpp'
       - 'components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp'

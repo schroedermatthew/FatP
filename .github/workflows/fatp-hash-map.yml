@@ -21,6 +21,7 @@ name: FatPHashMap CI
 on:
   push:
     paths:
+      - '.github/workflows/fatp-hash-map.yml'
       - 'include/fat_p/FastHashMap.h'
       - 'include/fat_p/StableHashMap.h'
       - 'components/FatPHashMap/**'

@@ -13,6 +13,7 @@ name: Factory CI
 on:
   push:
     paths:
+      - '.github/workflows/factory.yml'
       - 'include/fat_p/Factory.h'
       - 'components/Factory/tests/test_Factory.cpp'
   workflow_dispatch:

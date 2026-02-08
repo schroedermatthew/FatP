@@ -13,6 +13,7 @@ name: ScopeGuardExpected CI
 on:
   push:
     paths:
+      - '.github/workflows/scope-guard-expected.yml'
       - 'include/fat_p/ScopeGuardExpected.h'
       - 'components/ScopeGuard/tests/test_ScopeGuardExpected.cpp'
   workflow_dispatch:

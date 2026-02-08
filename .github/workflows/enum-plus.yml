@@ -13,6 +13,7 @@ name: EnumPlus CI
 on:
   push:
     paths:
+      - '.github/workflows/enum-plus.yml'
       - 'include/fat_p/EnumPlus.h'
       - 'components/EnumPlus/tests/test_EnumPlus.cpp'
   workflow_dispatch:

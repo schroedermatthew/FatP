@@ -13,6 +13,7 @@ name: TensorComparison CI
 on:
   push:
     paths:
+      - '.github/workflows/tensor-comparison.yml'
       - 'include/fat_p/EqualityTensor.h'
       - 'components/Tensor/tests/test_TensorComparison.cpp'
   workflow_dispatch:

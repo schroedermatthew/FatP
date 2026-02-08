@@ -13,6 +13,7 @@ name: DebugOnly CI
 on:
   push:
     paths:
+      - '.github/workflows/debug-only.yml'
       - 'include/fat_p/DebugOnly.h'
       - 'components/DebugOnly/tests/test_DebugOnly.cpp'
   workflow_dispatch:

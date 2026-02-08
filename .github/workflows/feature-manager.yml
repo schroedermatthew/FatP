@@ -14,6 +14,7 @@ name: FeatureManager CI
 on:
   push:
     paths:
+      - '.github/workflows/feature-manager.yml'
       - 'include/fat_p/FeatureManager.h'
       - 'components/FeatureManager/tests/test_FeatureManager.cpp'
       - 'components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp'

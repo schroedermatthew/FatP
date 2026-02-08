@@ -13,6 +13,7 @@ name: ValueGuard CI
 on:
   push:
     paths:
+      - '.github/workflows/value-guard.yml'
       - 'include/fat_p/ValueGuard.h'
       - 'components/ValueGuard/tests/test_ValueGuard.cpp'
   workflow_dispatch:

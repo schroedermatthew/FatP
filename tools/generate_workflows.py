@@ -347,9 +347,10 @@ def generate_header_block(filename, component, header, test_src, bench_src):
     return "\n".join(lines)
 
 
-def generate_trigger_block(has_benchmarks, header, test_src, bench_src):
+def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src):
     """Generate the on: trigger block with push path filters."""
     paths = [
+        f"      - '.github/workflows/{filename}'",
         f"      - 'include/fat_p/{header}'",
         f"      - '{test_src}'",
     ]
@@ -910,7 +911,7 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     parts.append(f"\nname: {component} CI")
 
     # Trigger
-    parts.append(generate_trigger_block(bench_src is not None, header, test_src, bench_src))
+    parts.append(generate_trigger_block(bench_src is not None, filename, header, test_src, bench_src))
 
     # Env block
     parts.append(generate_env_block(header, test_src, bench_src))

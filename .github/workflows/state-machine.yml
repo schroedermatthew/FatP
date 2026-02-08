@@ -18,6 +18,7 @@ name: StateMachine CI
 on:
   push:
     paths:
+      - '.github/workflows/state-machine.yml'
       - 'include/fat_p/StateMachine.h'
       - 'components/StateMachine/**'
   workflow_dispatch:

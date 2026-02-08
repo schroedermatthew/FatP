@@ -13,6 +13,7 @@ name: EnforcedInit CI
 on:
   push:
     paths:
+      - '.github/workflows/enforced-init.yml'
       - 'include/fat_p/EnforcedInit.h'
       - 'components/EnforcedInit/tests/test_EnforcedInit.cpp'
   workflow_dispatch:

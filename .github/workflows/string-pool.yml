@@ -13,6 +13,7 @@ name: StringPool CI
 on:
   push:
     paths:
+      - '.github/workflows/string-pool.yml'
       - 'include/fat_p/StringPool.h'
       - 'components/StringPool/tests/test_StringPool.cpp'
   workflow_dispatch:

@@ -11,6 +11,7 @@ name: Layer & Dependency Verification
 on:
   push:
     paths:
+      - '.github/workflows/ci_verify.yml'
       - 'include/fat_p/*.h'
       - 'tools/validate_layers.py'
   workflow_dispatch:

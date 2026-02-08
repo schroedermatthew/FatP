@@ -13,6 +13,7 @@ name: TensorEinsum CI
 on:
   push:
     paths:
+      - '.github/workflows/tensor-einsum.yml'
       - 'include/fat_p/TensorEinsum.h'
       - 'components/Tensor/tests/test_TensorEinsum.cpp'
   workflow_dispatch:

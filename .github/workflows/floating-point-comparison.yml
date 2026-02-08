@@ -14,6 +14,7 @@ name: FloatingPointComparison CI
 on:
   push:
     paths:
+      - '.github/workflows/floating-point-comparison.yml'
       - 'include/fat_p/FloatingPointComparison.h'
       - 'components/FloatingPointComparison/tests/test_FloatingPointComparison.cpp'
       - 'components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp'

@@ -13,6 +13,7 @@ name: LockFreeQueue CI
 on:
   push:
     paths:
+      - '.github/workflows/lock-free-queue.yml'
       - 'include/fat_p/LockFreeQueue.h'
       - 'components/LockFreeContainers/tests/test_LockFreeQueue.cpp'
   workflow_dispatch:

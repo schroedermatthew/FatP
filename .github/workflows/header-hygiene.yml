@@ -11,6 +11,7 @@ name: Header Hygiene
 on:
   push:
     paths:
+      - '.github/workflows/header-hygiene.yml'
       - 'include/fat_p/*.h'
   workflow_dispatch:
 

@@ -14,6 +14,7 @@ name: Stringify CI
 on:
   push:
     paths:
+      - '.github/workflows/stringify.yml'
       - 'include/fat_p/Stringify.h'
       - 'components/Stringify/tests/test_Stringify.cpp'
       - 'components/Stringify/benchmarks/benchmark_Stringify.cpp'

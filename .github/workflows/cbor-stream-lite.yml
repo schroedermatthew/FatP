@@ -13,6 +13,7 @@ name: CborStreamLite CI
 on:
   push:
     paths:
+      - '.github/workflows/cbor-stream-lite.yml'
       - 'include/fat_p/CborStreamLite.h'
       - 'components/Cbor/tests/test_CborStreamLite.cpp'
   workflow_dispatch:

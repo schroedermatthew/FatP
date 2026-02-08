@@ -13,6 +13,7 @@ name: DiagnosticLogger_ScopeGuard CI
 on:
   push:
     paths:
+      - '.github/workflows/diagnostic-logger-scopeguard.yml'
       - 'include/fat_p/DiagnosticLogger_IO.h'
       - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_ScopeGuard.cpp'
   workflow_dispatch:

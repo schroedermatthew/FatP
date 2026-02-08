@@ -13,6 +13,7 @@ name: JsonLite CI
 on:
   push:
     paths:
+      - '.github/workflows/json-lite.yml'
       - 'include/fat_p/JsonLite.h'
       - 'components/Json/tests/test_JsonLite.cpp'
   workflow_dispatch:
