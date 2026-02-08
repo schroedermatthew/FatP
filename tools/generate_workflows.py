@@ -468,7 +468,11 @@ def generate_windows_msvc_job(test_src):
     strategy:
       fail-fast: false
       matrix:
-        std: [20, 23]
+        include:
+          - std: 20
+            flag: "/std:c++20"
+          - std: 23
+            flag: "/std:c++latest"
     steps:
       - uses: actions/checkout@v4
 
@@ -476,9 +480,8 @@ def generate_windows_msvc_job(test_src):
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Build tests
-        run: |
-          $stdFlag = if (${{{{ matrix.std }}}} -eq 23) {{{{ "/std:c++latest" }}}} else {{{{ "/std:c++${{{{ matrix.std }}}}" }}}}
-          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_bin.exe /link advapi32.lib
+        shell: cmd
+        run: cl ${{{{ matrix.flag }}}} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\\test_bin.exe"""
@@ -741,7 +744,11 @@ def generate_benchmark_jobs(component, bench_src):
     strategy:
       fail-fast: false
       matrix:
-        std: [20, 23]
+        include:
+          - std: 20
+            flag: "/std:c++20"
+          - std: 23
+            flag: "/std:c++latest"
 
     steps:
       - uses: actions/checkout@v4
@@ -752,9 +759,8 @@ def generate_benchmark_jobs(component, bench_src):
           arch: x64
 
       - name: Build benchmark
-        run: |
-          $stdFlag = if (${{{{ matrix.std }}}} -eq 23) {{{{ "/std:c++latest" }}}} else {{{{ "/std:c++${{{{ matrix.std }}}}" }}}}
-          cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\\include\\fat_p {bs_bench} /Fe:bench_bin.exe /link advapi32.lib
+        shell: cmd
+        run: cl /nologo ${{{{ matrix.flag }}}} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\\include\\fat_p {bs_bench} /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:
