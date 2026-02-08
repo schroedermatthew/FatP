@@ -38,6 +38,7 @@ FATP_META:
 #include "CppFeatureDetection.h"
 
 #include <cmath>
+#include <concepts>
 #include <cstdint>
 #include <iosfwd>
 #include <limits>
@@ -149,10 +150,9 @@ template <typename... Args>
  *
  * @note Zero and negative values return false.
  */
-template <typename T>
+template <std::integral T>
 [[nodiscard]] constexpr bool is_power_of_two(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "is_power_of_two requires an integral type");
     return (n > 0) && ((n & (n - 1)) == 0);
 }
 
@@ -171,11 +171,9 @@ template <typename T>
  *   static_assert(next_power_of_two(8u) == 8u);
  *   static_assert(next_power_of_two(0u) == 1u);
  */
-template <typename T>
+template <std::unsigned_integral T>
 [[nodiscard]] constexpr T next_power_of_two(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "next_power_of_two requires an integral type");
-    static_assert(std::is_unsigned_v<T>, "next_power_of_two requires an unsigned type");
 
     if (n == 0)
     {
@@ -224,11 +222,9 @@ template <typename T>
  *   static_assert(log2_floor(15u) == 3);  // floor(log2(15)) = 3
  *   static_assert(log2_floor(1u) == 0);   // 2^0 = 1
  */
-template <typename T>
+template <std::unsigned_integral T>
 [[nodiscard]] constexpr int log2_floor(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "log2_floor requires an integral type");
-    static_assert(std::is_unsigned_v<T>, "log2_floor requires an unsigned type");
 
     if (n == 0)
     {
@@ -254,11 +250,9 @@ template <typename T>
  *   static_assert(log2_ceil(9u) == 4);   // 2^4 = 16 >= 9
  *   static_assert(log2_ceil(1u) == 0);   // 2^0 = 1
  */
-template <typename T>
+template <std::unsigned_integral T>
 [[nodiscard]] constexpr int log2_ceil(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "log2_ceil requires an integral type");
-    static_assert(std::is_unsigned_v<T>, "log2_ceil requires an unsigned type");
 
     if (n == 0)
     {
@@ -286,10 +280,9 @@ template <typename T>
  *   static_assert(count_digits(42) == 2);
  *   static_assert(count_digits(-42) == 3);  // '-', '4', '2'
  */
-template <typename T>
+template <std::integral T>
 [[nodiscard]] constexpr int count_digits(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "count_digits requires an integral type");
 
     if (n == 0)
     {
@@ -374,11 +367,9 @@ template <typename T>
  *   static_assert(popcount(0b1010u) == 2);
  *   static_assert(popcount(0xFFu) == 8);
  */
-template <typename T>
+template <std::unsigned_integral T>
 [[nodiscard]] constexpr int popcount(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "popcount requires an integral type");
-    static_assert(std::is_unsigned_v<T>, "popcount requires an unsigned type");
 
 #if defined(__GNUC__) || defined(__clang__)
     if constexpr (sizeof(T) <= sizeof(unsigned int))
@@ -417,11 +408,9 @@ template <typename T>
  * @example
  *   static_assert(clz(uint8_t(0b00001000)) == 4);
  */
-template <typename T>
+template <std::unsigned_integral T>
 [[nodiscard]] constexpr int clz(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "clz requires an integral type");
-    static_assert(std::is_unsigned_v<T>, "clz requires an unsigned type");
 
     constexpr int bits = sizeof(T) * 8;
     if (n == 0)
@@ -470,11 +459,9 @@ template <typename T>
  * @example
  *   static_assert(ctz(uint8_t(0b00001000)) == 3);
  */
-template <typename T>
+template <std::unsigned_integral T>
 [[nodiscard]] constexpr int ctz(T n) noexcept
 {
-    static_assert(std::is_integral_v<T>, "ctz requires an integral type");
-    static_assert(std::is_unsigned_v<T>, "ctz requires an unsigned type");
 
     constexpr int bits = sizeof(T) * 8;
     if (n == 0)
@@ -527,10 +514,9 @@ inline constexpr std::size_t STRING_POOL_SIZE = 16;
  *   constexpr constexpr_to_string_t<int> conv{42};
  *   constexpr auto view = conv.view();  // "42"
  */
-template <typename T>
+template <std::integral T>
 struct constexpr_to_string_t
 {
-    static_assert(std::is_integral_v<T>, "constexpr_to_string_t requires integral type");
     static constexpr std::size_t MaxSize = 32;
     char buffer[MaxSize] = {};
     std::size_t length = 0;
@@ -612,7 +598,7 @@ struct constexpr_to_string_t
  * @example
  *   std::cout << to_string_view(10) << " + " << to_string_view(20);  // Safe
  */
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <std::integral T>
 [[nodiscard]] inline std::string_view to_string_view(T value) noexcept
 {
     thread_local constexpr_to_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
@@ -661,10 +647,9 @@ inline constexpr double MAX_SAFE_INT_DOUBLE = 9007199254740992.0; // 2^53
  * @note Does not support scientific notation. Values beyond safe range
  *       will display "overflow" rather than attempting lossy conversion.
  */
-template <typename T>
+template <std::floating_point T>
 struct float_to_string_t
 {
-    static_assert(std::is_floating_point_v<T>, "float_to_string_t requires floating-point type");
     static constexpr std::size_t MaxSize = 64;
     char buffer[MaxSize] = {};
     std::size_t length = 0;
@@ -788,7 +773,7 @@ struct float_to_string_t
  * @note Returns "overflow" or "-overflow" for values > 2^53.
  * @warning The returned view is invalidated after 16 subsequent calls.
  */
-template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
+template <std::floating_point T>
 [[nodiscard]] inline std::string_view to_string_view(T value, int precision = 6) noexcept
 {
     thread_local float_to_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
@@ -810,11 +795,9 @@ template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
  *
  * @tparam T Unsigned integral type.
  */
-template <typename T>
+template <std::unsigned_integral T>
 struct to_hex_string_t
 {
-    static_assert(std::is_integral_v<T>, "to_hex_string_t requires integral type");
-    static_assert(std::is_unsigned_v<T>, "to_hex_string_t requires unsigned type");
     static constexpr std::size_t MaxSize = sizeof(T) * 2 + 3; // "0x" + digits + null
     char buffer[MaxSize] = {};
     std::size_t length = 0;
@@ -882,7 +865,7 @@ struct to_hex_string_t
  *   to_hex_string_view(255u, true, true);  // "0XFF"
  *   to_hex_string_view(255u, false);       // "ff"
  */
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
+template <std::unsigned_integral T>
 [[nodiscard]] inline std::string_view to_hex_string_view(T value, bool prefix = true, bool uppercase = false) noexcept
 {
     thread_local to_hex_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
