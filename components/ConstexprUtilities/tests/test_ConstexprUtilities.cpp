@@ -447,17 +447,17 @@ FATP_TEST_CASE(constexpr_to_string_t)
 
     constexpr_to_string_t<int> conv42{42};
     auto view42 = conv42.view();
-    FATP_ASSERT_EQ(view42.size(), 2, "Size of 42");
+    FATP_ASSERT_EQ(view42.size(), std::size_t(2), "Size of 42");
     FATP_ASSERT_EQ(view42, "42", "Value 42");
 
     constexpr_to_string_t<int> conv_neg{-123};
     auto view_neg = conv_neg.view();
-    FATP_ASSERT_EQ(view_neg.size(), 4, "Size of -123");
+    FATP_ASSERT_EQ(view_neg.size(), std::size_t(4), "Size of -123");
     FATP_ASSERT_EQ(view_neg, "-123", "Value -123");
 
     constexpr_to_string_t<int> conv0{0};
     auto view0 = conv0.view();
-    FATP_ASSERT_EQ(view0.size(), 1, "Size of 0");
+    FATP_ASSERT_EQ(view0.size(), std::size_t(1), "Size of 0");
     FATP_ASSERT_EQ(view0, "0", "Value 0");
 
     // Test large values
@@ -591,14 +591,14 @@ FATP_TEST_CASE(constexpr_concat_basic)
 
     // Two strings
     auto s1 = constexpr_concat("Hello", " World");
-    FATP_ASSERT_EQ(s1.size(), 11, "Two strings size");
+    FATP_ASSERT_EQ(s1.size(), std::size_t(11), "Two strings size");
     char buf1[12];
     (void)s1.to_array(buf1, sizeof(buf1));
     FATP_ASSERT_EQ(std::string_view(buf1), "Hello World", "Two strings");
 
     // Three strings
     auto s2 = constexpr_concat("A", "B", "C");
-    FATP_ASSERT_EQ(s2.size(), 3, "Three strings size");
+    FATP_ASSERT_EQ(s2.size(), std::size_t(3), "Three strings size");
     char buf2[4];
     (void)s2.to_array(buf2, sizeof(buf2));
     FATP_ASSERT_EQ(std::string_view(buf2), "ABC", "Three strings");
@@ -645,12 +645,12 @@ FATP_TEST_CASE(constexpr_concat_edge_cases)
 
     // Empty strings
     auto empty = constexpr_concat("", "", "");
-    FATP_ASSERT_EQ(empty.size(), 0, "Empty concat size");
+    FATP_ASSERT_EQ(empty.size(), std::size_t(0), "Empty concat size");
     FATP_ASSERT_TRUE(empty.empty(), "Empty concat is empty");
 
     // Single string
     auto single = constexpr_concat("Single");
-    FATP_ASSERT_EQ(single.size(), 6, "Single string size");
+    FATP_ASSERT_EQ(single.size(), std::size_t(6), "Single string size");
 
     // Buffer too small (truncation)
     auto long_str = constexpr_concat("Hello World");
@@ -696,18 +696,18 @@ FATP_TEST_CASE(constexpr_string_to_array_return)
     auto cs1 = constexpr_concat("Hello", " ", "World");
     char buf[32];
     std::size_t written = cs1.to_array(buf, sizeof(buf));
-    FATP_ASSERT_EQ(written, 11, "Returns correct character count");
+    FATP_ASSERT_EQ(written, std::size_t(11), "Returns correct character count");
     FATP_ASSERT_EQ(std::string_view(buf), "Hello World", "Buffer contains correct data");
 
     // Truncation returns truncated length
     char small_buf[6];
     std::size_t truncated = cs1.to_array(small_buf, sizeof(small_buf));
-    FATP_ASSERT_EQ(truncated, 5, "Truncation returns truncated length");
+    FATP_ASSERT_EQ(truncated, std::size_t(5), "Truncation returns truncated length");
     FATP_ASSERT_EQ(std::string_view(small_buf), "Hello", "Truncated content correct");
 
     // Zero-size buffer returns 0
     std::size_t zero_written = cs1.to_array(buf, 0);
-    FATP_ASSERT_EQ(zero_written, 0, "Zero-size buffer returns 0");
+    FATP_ASSERT_EQ(zero_written, std::size_t(0), "Zero-size buffer returns 0");
 
     std::cout << colors::green() << "  PASSED: to_array() return value tests" << colors::reset() << std::endl;
     return true;
@@ -745,7 +745,7 @@ FATP_TEST_CASE(constexpr_string_utilities)
     static_assert(constexpr_strlen("hello") == 5, "strlen hello");
     static_assert(constexpr_strlen("a") == 1, "strlen single char");
 
-    FATP_ASSERT_EQ(constexpr_strlen("test"), 4, "strlen test");
+    FATP_ASSERT_EQ(constexpr_strlen("test"), std::size_t(4), "strlen test");
 
     // constexpr_strcmp
     static_assert(constexpr_strcmp("abc", "abc") == 0, "strcmp equal");
