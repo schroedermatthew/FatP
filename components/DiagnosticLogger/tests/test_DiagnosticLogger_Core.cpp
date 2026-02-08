@@ -1160,11 +1160,11 @@ FATP_TEST_CASE(registry_concurrent_get_same_logger)
     LoggerRegistry::instance().dropAll();
     LoggerRegistry::instance().setDefaultLevel(LogLevel::Trace);
 
-    const int numThreads = 10;
+    const size_t numThreads = 10;
     std::vector<std::thread> threads;
     std::vector<Logger*> loggerPtrs(numThreads, nullptr);
 
-    for (int t = 0; t < numThreads; ++t)
+    for (size_t t = 0; t < numThreads; ++t)
     {
         threads.emplace_back([t, &loggerPtrs]() {
             loggerPtrs[t] = &getLogger("shared");
@@ -1176,7 +1176,7 @@ FATP_TEST_CASE(registry_concurrent_get_same_logger)
         t.join();
     }
 
-    for (int i = 1; i < numThreads; ++i)
+    for (size_t i = 1; i < numThreads; ++i)
     {
         FATP_ASSERT_TRUE(loggerPtrs[i] == loggerPtrs[0], "All threads got same logger instance");
     }
