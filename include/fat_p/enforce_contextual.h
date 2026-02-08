@@ -125,8 +125,8 @@ namespace fat_p
 // Expected integration with predicate check — returns Expected<bool, string>.
 #define FATP_CONTEXTUAL_EXPECTED_PRED_IMPL_(func_ptr, PredicateType, check_call, expr_str, ...) \
     ([&]() -> fat_p::Expected<bool, std::string> {                                              \
-        auto result = check_call;                                                               \
-        if (!result)                                                                            \
+        auto fatp_pred_result_ = check_call;                                                    \
+        if (!fatp_pred_result_)                                                                 \
         {                                                                                       \
             fat_p::MessageBuilder mb;                                                           \
             mb.format(__VA_ARGS__);                                                             \
@@ -134,7 +134,7 @@ namespace fat_p
             fat_p::detail::writeToStderr("Expected Failure: ", msg);                            \
             return fat_p::unexpected(msg);                                                      \
         }                                                                                       \
-        return result;                                                                          \
+        return fatp_pred_result_;                                                               \
     })()
 
 // ============================================================================

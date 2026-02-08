@@ -220,13 +220,16 @@ public:
     {
         if (!mPassed) [[unlikely]]
         {
-            // Build message on heap - only happens on failure
-            static thread_local std::string formatted_message;
-            formatted_message.clear();
-            std::ostringstream ss;
-            (ss << ... << toString(std::forward<Msgs>(msgs)));
-            formatted_message = ss.str();
-            user_message_ = formatted_message.c_str();
+            if constexpr (sizeof...(Msgs) > 0)
+            {
+                // Build message on heap - only happens on failure
+                static thread_local std::string formatted_message;
+                formatted_message.clear();
+                std::ostringstream ss;
+                (ss << ... << toString(std::forward<Msgs>(msgs)));
+                formatted_message = ss.str();
+                user_message_ = formatted_message.c_str();
+            }
         }
     }
 

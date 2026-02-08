@@ -201,8 +201,8 @@ inline void debug_enforce_impl([[maybe_unused]] bool condition,
 
 #define FATP_ENFORCE_PREDICATE_EXPECTED(PredicateType, target, ...)                       \
     ([&]() -> fat_p::Expected<bool, std::string> {                                        \
-        auto result = PredicateType::check(target);                                       \
-        if (!result)                                                                      \
+        auto fatp_pred_result_ = PredicateType::check(target);                            \
+        if (!fatp_pred_result_)                                                           \
         {                                                                                 \
             fat_p::MessageBuilder mb;                                                     \
             mb.format(__VA_ARGS__);                                                       \
@@ -210,7 +210,7 @@ inline void debug_enforce_impl([[maybe_unused]] bool condition,
             fat_p::detail::writeToStderr("Expected Failure: ", msg);                      \
             return fat_p::make_unexpected(msg);                                           \
         }                                                                                 \
-        return result;                                                                    \
+        return fatp_pred_result_;                                                         \
     })()
 
 // ============================================================================
