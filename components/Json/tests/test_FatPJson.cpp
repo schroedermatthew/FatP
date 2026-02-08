@@ -86,7 +86,7 @@ namespace fat_p::testing
 
 using namespace std::chrono;
 
-constexpr size_t BENCHMARK_ITERATIONS = 1000;
+[[maybe_unused]] constexpr size_t BENCHMARK_ITERATIONS = 1000;
 constexpr size_t LARGE_OBJECT_SIZE = 1000;
 constexpr size_t LARGE_ARRAY_SIZE = 10000;
 constexpr size_t NESTED_DEPTH = 50;

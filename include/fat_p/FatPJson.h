@@ -1146,6 +1146,13 @@ template <typename T>
  * at positions where parsing failed. Check the error vector to identify which
  * indices failed.
  */
+// GCC 14 emits false-positive -Wmaybe-uninitialized warnings for std::variant
+// internals (string_length, _Rb_tree_header) when pushing JsonValue into vectors.
+// This is a known GCC bug with complex variant types. Suppress for this function only.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
 inline Expected<std::vector<JsonValue>, std::vector<JsonError>>
 batch_parse_json(const std::vector<std::string>& json_strings, bool fail_fast = false) noexcept
 {
@@ -1180,6 +1187,9 @@ batch_parse_json(const std::vector<std::string>& json_strings, bool fail_fast = 
 
     return results;
 }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
 // =============================================================================
 // Performance Statistics
