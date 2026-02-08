@@ -263,7 +263,7 @@ public:
     const char* intern(std::string_view str)
     {
         {
-            auto read_lock = sync_policy_.lock_shared();
+            [[maybe_unused]] auto read_lock = sync_policy_.lock_shared();
             auto it = mStrings.find(str);
             if (it != mStrings.end())
             {
@@ -273,7 +273,7 @@ public:
             }
         }
 
-        auto write_lock = sync_policy_.lock();
+        [[maybe_unused]] auto write_lock = sync_policy_.lock();
 
         auto it = mStrings.find(str);
         if (it != mStrings.end())
@@ -326,7 +326,7 @@ public:
      */
     bool contains(std::string_view str) const noexcept
     {
-        auto lock = sync_policy_.lock_shared();
+        [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         return mStrings.find(str) != mStrings.end();
     }
 
@@ -337,7 +337,7 @@ public:
      */
     const char* find(std::string_view str) const noexcept
     {
-        auto lock = sync_policy_.lock_shared();
+        [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         auto it = mStrings.find(str);
         return (it != mStrings.end()) ? it->c_str() : nullptr;
     }
@@ -347,7 +347,7 @@ public:
      */
     size_t size() const noexcept
     {
-        auto lock = sync_policy_.lock_shared();
+        [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         return mStrings.size();
     }
 
@@ -356,7 +356,7 @@ public:
      */
     bool empty() const noexcept
     {
-        auto lock = sync_policy_.lock_shared();
+        [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         return mStrings.empty();
     }
 
@@ -379,7 +379,7 @@ public:
      */
     void reserve(size_t n)
     {
-        auto lock = sync_policy_.lock();
+        [[maybe_unused]] auto lock = sync_policy_.lock();
         mStrings.reserve(n);
     }
 
@@ -390,7 +390,7 @@ public:
      */
     void clear()
     {
-        auto lock = sync_policy_.lock();
+        [[maybe_unused]] auto lock = sync_policy_.lock();
         mStrings.clear();
         detail::store_stat(mStats.total_interns, 0);
         detail::store_stat(mStats.content_bytes, 0);
@@ -406,7 +406,7 @@ public:
      */
     StringPoolStats stats() const noexcept
     {
-        auto lock = sync_policy_.lock_shared();
+        [[maybe_unused]] auto lock = sync_policy_.lock_shared();
 
         StringPoolStats result;
         // Query container directly for exact count under lock
@@ -432,7 +432,7 @@ public:
      */
     void reset_stats()
     {
-        auto lock = sync_policy_.lock();
+        [[maybe_unused]] auto lock = sync_policy_.lock();
         detail::store_stat(mStats.total_interns, mStrings.size());
         // content_bytes is already accurate from incremental updates in intern()
         detail::store_stat(mStats.memory_saved, 0);

@@ -429,7 +429,7 @@ FATP_TEST_CASE(policy_differences)
 FATP_TEST_CASE(policy_consistency_on_special_values)
 {
     constexpr double pos_inf = std::numeric_limits<double>::infinity();
-    constexpr double neg_inf = -std::numeric_limits<double>::infinity();
+    [[maybe_unused]] constexpr double neg_inf = -std::numeric_limits<double>::infinity();
     constexpr double nan = std::numeric_limits<double>::quiet_NaN();
 
     // All policies agree on infinities

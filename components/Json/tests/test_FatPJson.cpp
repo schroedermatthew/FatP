@@ -1640,7 +1640,7 @@ FATP_TEST_CASE(locale_independence)
         // Try to set a locale that uses comma as decimal separator
         // Note: This may fail if locale is not installed, which is OK - test passes
         const char* test_locales[] = {"de_DE.UTF-8", "fr_FR.UTF-8", "es_ES.UTF-8", "C"};
-        bool locale_set = false;
+        [[maybe_unused]] bool locale_set = false;
 
         for (const char* loc : test_locales)
         {

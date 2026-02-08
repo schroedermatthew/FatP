@@ -128,7 +128,7 @@ namespace fat_p::testing::logic
 {
 
 // Custom state computer for network group
-NetworkState network_state_computer(const std::set<std::string>& group_flags,
+NetworkState network_state_computer([[maybe_unused]] const std::set<std::string>& group_flags,
                                     size_t enabled_count,
                                     bool has_conflict,
                                     bool all_checks_pass)
