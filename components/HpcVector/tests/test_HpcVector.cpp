@@ -209,7 +209,7 @@ FATP_TEST_CASE(vector_alignment)
     std::cout << colors::cyan() << "\n[HpcVector] Alignment verification..." << colors::reset() << std::endl;
 
     // Test various sizes
-    for (size_t n : {1, 7, 16, 63, 64, 65, 100, 1000, 10000})
+    for (size_t n : {size_t(1), size_t(7), size_t(16), size_t(63), size_t(64), size_t(65), size_t(100), size_t(1000), size_t(10000)})
     {
         HpcVector<float, 64> v(n);
 
