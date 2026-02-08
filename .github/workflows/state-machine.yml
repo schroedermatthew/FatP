@@ -128,7 +128,7 @@ jobs:
         run: |
           $std = "${{ matrix.std }}"
           $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
-          cl $stdFlag /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\StateMachine\tests\test_StateMachine.cpp /Fe:test_sm.exe /link advapi32.lib
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\StateMachine\tests\test_StateMachine.cpp /Fe:test_sm.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_sm.exe
@@ -332,7 +332,7 @@ jobs:
           foreach ($f in $files) {
             Write-Host "Testing: $($f.FullName)"
             
-            $output = cl /nologo /std:c++20 /W4 /EHsc /permissive- /c `
+            $output = cl /nologo /std:c++20 /W4 /wd4324 /EHsc /permissive- /c `
               /I".\include\fat_p" `
               "$($f.FullName)" 2>&1
             

@@ -1,7 +1,7 @@
 # =============================================================================
 # .github/workflows/ci_verify.yml
 # =============================================================================
-# Verifies @layer tags match actual #include dependencies and no forbidden deps
+# Verifies FATP_META.layer fields match actual #include dependencies and no forbidden deps
 # Per Fat-P Guidelines §2.2: Layer mismatches are Critical violations
 # Per Fat-P Guidelines §1.6: No third-party libraries
 # =============================================================================
@@ -21,9 +21,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check @layer tags present
+      - name: Check FATP_META.layer fields present
         run: |
-          echo "Checking all headers have @layer tags..."
+          echo "Checking all headers have FATP_META.layer fields..."
           
           found=0
           missing=0
@@ -32,25 +32,25 @@ jobs:
               continue
             fi
             found=$((found + 1))
-            if ! grep -q '@layer' "$header"; then
-              echo "❌ Missing @layer tag: $header"
+            if ! grep -qP 'layer:\s*\w+' "$header"; then
+              echo "[FAIL] Missing FATP_META.layer: $header"
               missing=$((missing + 1))
             fi
           done
 
           if [ $found -eq 0 ]; then
-            echo "❌ No headers found under include/fat_p/*.h"
+            echo "[FAIL] No headers found under include/fat_p/*.h"
             exit 1
           fi
           
           if [ $missing -gt 0 ]; then
             echo ""
-            echo "❌ $missing headers missing @layer tags"
-            echo "Add @layer tag to file header per Guidelines §2.2"
+            echo "[FAIL] $missing headers missing FATP_META.layer fields"
+            echo "Add FATP_META block with layer field per Guidelines §2.2"
             exit 1
           fi
           
-          echo "✓ All headers have @layer tags"
+          echo "[PASS] All headers have FATP_META.layer fields"
 
       - name: Verify layer dependencies
         run: |
@@ -82,8 +82,8 @@ jobs:
             
             basename=$(basename "$header")
             
-            # Extract @layer tag
-            layer=$(grep -oP '@layer\s+\K\w+' "$header" 2>/dev/null | head -1 || echo "MISSING")
+            # Extract FATP_META.layer field
+            layer=$(grep -oP 'layer:\s*\K\w+' "$header" 2>/dev/null | head -1 || echo "MISSING")
             
             if [ "$layer" = "MISSING" ]; then
               continue  # Already reported above
@@ -92,7 +92,7 @@ jobs:
             layer_level=$(get_layer_level "$layer")
             
             if [ "$layer_level" = "99" ]; then
-              echo "❌ $basename: Unknown layer '$layer'"
+              echo "[FAIL] $basename: Unknown layer '$layer'"
               violations=$((violations + 1))
               continue
             fi
@@ -108,30 +108,30 @@ jobs:
                 continue  # External include
               fi
               
-              inc_layer=$(grep -oP '@layer\s+\K\w+' "$inc_path" 2>/dev/null | head -1 || echo "MISSING")
+              inc_layer=$(grep -oP 'layer:\s*\K\w+' "$inc_path" 2>/dev/null | head -1 || echo "MISSING")
               inc_level=$(get_layer_level "$inc_layer")
               
               if [ "$inc_level" -gt "$layer_level" ]; then
-                echo "❌ LAYER VIOLATION: $basename (@layer $layer, level $layer_level)"
-                echo "   includes $inc_file (@layer $inc_layer, level $inc_level)"
+                echo "[FAIL] LAYER VIOLATION: $basename (layer $layer, level $layer_level)"
+                echo "   includes $inc_file (layer $inc_layer, level $inc_level)"
                 violations=$((violations + 1))
               fi
             done < <(grep -E '^[[:space:]]*#include[[:space:]]*"' "$header" || true)
           done
 
           if [ $found -eq 0 ]; then
-            echo "❌ No headers found under include/fat_p/*.h"
+            echo "[FAIL] No headers found under include/fat_p/*.h"
             exit 1
           fi
           
           if [ $violations -gt 0 ]; then
             echo ""
-            echo "❌ $violations layer violations found"
+            echo "[FAIL] $violations layer violations found"
             echo "Components may only include headers from lower or equal layers"
             exit 1
           fi
           
-          echo "✓ All layer dependencies valid"
+          echo "[PASS] All layer dependencies valid"
 
   # ===========================================================================
   # Forbidden Dependency Scan
@@ -154,7 +154,7 @@ jobs:
           # Check for Boost
           matches=$(grep -rn '#include.*[<"]boost/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: Boost"
+            echo "[FAIL] Forbidden: Boost"
             echo "$matches"
             violations=$((violations + 1))
           fi
@@ -162,7 +162,7 @@ jobs:
           # Check for Abseil
           matches=$(grep -rn '#include.*[<"]absl/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: Abseil"
+            echo "[FAIL] Forbidden: Abseil"
             echo "$matches"
             violations=$((violations + 1))
           fi
@@ -170,7 +170,7 @@ jobs:
           # Check for fmt
           matches=$(grep -rn '#include.*[<"]fmt/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: fmt"
+            echo "[FAIL] Forbidden: fmt"
             echo "$matches"
             violations=$((violations + 1))
           fi
@@ -178,7 +178,7 @@ jobs:
           # Check for Eigen
           matches=$(grep -rn '#include.*[<"]Eigen/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: Eigen"
+            echo "[FAIL] Forbidden: Eigen"
             echo "$matches"
             violations=$((violations + 1))
           fi
@@ -186,7 +186,7 @@ jobs:
           # Check for nlohmann/json
           matches=$(grep -rn '#include.*[<"]nlohmann/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: nlohmann/json"
+            echo "[FAIL] Forbidden: nlohmann/json"
             echo "$matches"
             violations=$((violations + 1))
           fi
@@ -194,7 +194,7 @@ jobs:
           # Check for spdlog
           matches=$(grep -rn '#include.*[<"]spdlog/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: spdlog"
+            echo "[FAIL] Forbidden: spdlog"
             echo "$matches"
             violations=$((violations + 1))
           fi
@@ -202,19 +202,19 @@ jobs:
           # Check for catch2/gtest/doctest (in main headers, not tests)
           matches=$(grep -rn '#include.*[<"]catch2/\|#include.*[<"]gtest/\|#include.*[<"]doctest/' include/fat_p/ 2>/dev/null || true)
           if [ -n "$matches" ]; then
-            echo "❌ Forbidden: Test frameworks in library headers"
+            echo "[FAIL] Forbidden: Test frameworks in library headers"
             echo "$matches"
             violations=$((violations + 1))
           fi
           
           if [ $violations -gt 0 ]; then
             echo ""
-            echo "❌ $violations forbidden dependency violations found"
+            echo "[FAIL] $violations forbidden dependency violations found"
             echo "Fat-P must not depend on third-party libraries"
             exit 1
           fi
           
-          echo "✓ No forbidden dependencies found"
+          echo "[PASS] No forbidden dependencies found"
 
   # ===========================================================================
   # Gate Job
@@ -228,11 +228,11 @@ jobs:
       - name: Check results
         run: |
           if [[ "${{ needs.verify-layers.result }}" != "success" ]]; then
-            echo "❌ Layer verification failed"
+            echo "[FAIL] Layer verification failed"
             exit 1
           fi
           if [[ "${{ needs.scan-forbidden-deps.result }}" != "success" ]]; then
-            echo "❌ Forbidden dependency scan failed"
+            echo "[FAIL] Forbidden dependency scan failed"
             exit 1
           fi
-          echo "✓ All verification checks passed"
+          echo "[PASS] All verification checks passed"

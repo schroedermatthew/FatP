@@ -1,154 +1,201 @@
+# =============================================================================
 # .github/workflows/header-hygiene.yml
-#
+# =============================================================================
 # CI workflow to verify Fat-P header hygiene:
 # 1. All headers are self-contained (compile standalone)
 # 2. IncludeAllFatPHeaders.h compiles (no ODR/include-order issues)
+# =============================================================================
 
 name: Header Hygiene
 
 on:
   workflow_dispatch:
+
 jobs:
+  # ===========================================================================
+  # Header Self-Containment (Linux GCC/Clang, C++20/C++23)
+  # ===========================================================================
   header-self-containment:
 
-    name: Header Self-Containment
-    runs-on: ${{ matrix.os }}
+    name: Self-Containment ${{ matrix.compiler }} C++${{ matrix.std }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            compiler: g++
-            std: c++20
-          - os: ubuntu-latest
-            compiler: clang++
-            std: c++20
-          - os: macos-latest
-            compiler: clang++
-            std: c++20
-          # Windows uses MSVC, different syntax
-          # - os: windows-latest
-          #   compiler: cl
-          #   std: c++20
+          - runner: ubuntu-24.04
+            compiler: g++-13
+            std: 20
+          - runner: ubuntu-24.04
+            compiler: g++-14
+            std: 23
+          - runner: ubuntu-22.04
+            compiler: clang++-16
+            std: 20
+          - runner: ubuntu-22.04
+            compiler: clang++-17
+            std: 23
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Compiler (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Install Compiler
         run: |
           sudo apt-get update
-          if [[ "${{ matrix.compiler }}" == "clang++" ]]; then
-            sudo apt-get install -y clang
+          if [[ "${{ matrix.compiler }}" == clang* ]]; then
+            wget https://apt.llvm.org/llvm.sh
+            chmod +x llvm.sh
+            version=$(echo "${{ matrix.compiler }}" | grep -oP '\d+')
+            sudo ./llvm.sh $version
+          else
+            sudo apt-get install -y ${{ matrix.compiler }}
           fi
 
       - name: Check Header Self-Containment
         run: |
-          echo "Checking header self-containment with ${{ matrix.compiler }} -std=${{ matrix.std }}"
-          
+          echo "Checking header self-containment with ${{ matrix.compiler }} -std=c++${{ matrix.std }}"
+
           FAILED=0
           PASSED=0
-          
-          for header in fat_p/*.h; do
+
+          for header in include/fat_p/*.h; do
             header_name=$(basename "$header")
-            
-            if echo "#include \"$header_name\"" | \
-               ${{ matrix.compiler }} -std=${{ matrix.std }} \
-               -fsyntax-only -Wall -Wextra -I fat_p -x c++ - 2>/dev/null; then
-              ((PASSED++))
+
+            echo "#include \"$header_name\"" > test_sc.cpp
+            echo "int main() { return 0; }" >> test_sc.cpp
+
+            if ${{ matrix.compiler }} -std=c++${{ matrix.std }} \
+               -Wall -Wextra -Wpedantic -Werror \
+               -I./include/fat_p \
+               -c test_sc.cpp -o /dev/null 2>/dev/null; then
+              PASSED=$((PASSED + 1))
             else
-              echo "FAILED: $header_name"
-              echo "#include \"$header_name\"" | \
-                ${{ matrix.compiler }} -std=${{ matrix.std }} \
-                -fsyntax-only -Wall -I fat_p -x c++ - 2>&1 | head -10
-              ((FAILED++))
+              echo "[FAIL] $header_name"
+              ${{ matrix.compiler }} -std=c++${{ matrix.std }} \
+                -Wall -Wextra -I./include/fat_p \
+                -c test_sc.cpp -o /dev/null 2>&1 | head -10
+              FAILED=$((FAILED + 1))
             fi
           done
-          
+
           echo ""
           echo "Results: $PASSED passed, $FAILED failed"
-          
-          if [[ $FAILED -gt 0 ]]; then
+
+          if [ $FAILED -gt 0 ]; then
             exit 1
           fi
+          echo "All headers are self-contained"
 
+  # ===========================================================================
+  # Include All Headers (Linux GCC/Clang, C++20/C++23)
+  # ===========================================================================
   include-all-headers:
 
-    name: Include All Headers
-    runs-on: ${{ matrix.os }}
+    name: Include-All ${{ matrix.compiler }} C++${{ matrix.std }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            compiler: g++
-            std: c++20
-          - os: ubuntu-latest
-            compiler: clang++
-            std: c++20
-          - os: macos-latest
-            compiler: clang++
-            std: c++20
+          - runner: ubuntu-24.04
+            compiler: g++-13
+            std: 20
+          - runner: ubuntu-24.04
+            compiler: g++-14
+            std: 23
+          - runner: ubuntu-22.04
+            compiler: clang++-16
+            std: 20
+          - runner: ubuntu-22.04
+            compiler: clang++-17
+            std: 23
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install Compiler (Ubuntu)
-        if: runner.os == 'Linux'
+      - name: Install Compiler
         run: |
           sudo apt-get update
-          if [[ "${{ matrix.compiler }}" == "clang++" ]]; then
-            sudo apt-get install -y clang
+          if [[ "${{ matrix.compiler }}" == clang* ]]; then
+            wget https://apt.llvm.org/llvm.sh
+            chmod +x llvm.sh
+            version=$(echo "${{ matrix.compiler }}" | grep -oP '\d+')
+            sudo ./llvm.sh $version
+          else
+            sudo apt-get install -y ${{ matrix.compiler }}
           fi
 
       - name: Compile IncludeAllFatPHeaders.h
         run: |
-          echo "Compiling IncludeAllFatPHeaders.h with ${{ matrix.compiler }} -std=${{ matrix.std }}"
-          
-          # Create a source file that includes the header
-          echo '#include "IncludeAllFatPHeaders.h"' > test_include_all.cpp
-          
-          ${{ matrix.compiler }} -std=${{ matrix.std }} \
-            -fsyntax-only -Wall -Wextra \
-            -I fat_p -I tests \
-            test_include_all.cpp
-          
-          echo "PASSED: IncludeAllFatPHeaders.h compiles successfully"
+          echo "Compiling IncludeAllFatPHeaders.h with ${{ matrix.compiler }} -std=c++${{ matrix.std }}"
 
+          echo '#include "IncludeAllFatPHeaders.h"' > test_include_all.cpp
+          echo 'int main() { return 0; }' >> test_include_all.cpp
+
+          ${{ matrix.compiler }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include_all.cpp -o /dev/null
+
+          echo "IncludeAllFatPHeaders.h compiles successfully"
+
+  # ===========================================================================
+  # Windows MSVC Header Check (C++20/C++23)
+  # ===========================================================================
   windows-header-check:
 
-    name: Windows Header Check
+    name: Windows MSVC C++${{ matrix.std }} Header Check
     runs-on: windows-latest
-    
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup MSVC
-        uses: microsoft/setup-msbuild@v2
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Check Headers with MSVC
-        shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          
-          set FAILED=0
-          set PASSED=0
-          
-          for %%f in (fat_p\*.h) do (
-            echo #include "%%~nxf" > test_header.cpp
-            cl /std:c++20 /Zs /W4 /I fat_p test_header.cpp 2>nul
-            if errorlevel 1 (
-              echo FAILED: %%~nxf
-              set /a FAILED+=1
-            ) else (
-              set /a PASSED+=1
-            )
-          )
-          
-          echo.
-          echo Results: %PASSED% passed, %FAILED% failed
-          
-          if %FAILED% gtr 0 exit /b 1
+          $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
+
+          $failed = 0
+          $passed = 0
+
+          Get-ChildItem "include\fat_p\*.h" | ForEach-Object {
+            $headerName = $_.Name
+            Set-Content -Path "test_header.cpp" -Value "#include `"$headerName`"`nint main() { return 0; }"
+
+            $output = cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /I.\include\fat_p /c test_header.cpp 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              $passed++
+            } else {
+              Write-Host "[FAIL] $headerName"
+              $output | Select-Object -First 10 | Write-Host
+              $failed++
+            }
+          }
+
+          Write-Host ""
+          Write-Host "Results: $passed passed, $failed failed"
+
+          if ($failed -gt 0) { exit 1 }
+          Write-Host "All headers compile with MSVC"
+
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
+  hygiene-success:
+    name: Header Hygiene Success
+    needs: [header-self-containment, include-all-headers, windows-header-check]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.header-self-containment.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.include-all-headers.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-header-check.result }}" != "success" ]]; then exit 1; fi
+          echo "All header hygiene checks passed"

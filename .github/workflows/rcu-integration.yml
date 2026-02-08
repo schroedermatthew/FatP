@@ -1,0 +1,261 @@
+# =============================================================================
+# .github/workflows/rcu-integration.yml
+# =============================================================================
+# CI workflow for RcuIntegration component
+#
+# Directory structure:
+#   Headers:    include/fat_p/ConcurrencyPolicies.h
+#   Tests:      components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp
+# =============================================================================
+
+name: RcuIntegration CI
+
+on:
+  workflow_dispatch:
+
+env:
+  HEADER: ConcurrencyPolicies.h
+  TEST_SRC: components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Builds (C++20/C++23)
+  # ===========================================================================
+  linux-gcc:
+
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 13
+            std: 20
+          - version: 14
+            std: 23
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Linux Clang Builds (C++20/C++23)
+  # ===========================================================================
+  linux-clang:
+
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 16
+            std: 20
+          - version: 17
+            std: 23
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Windows MSVC Builds (C++20/C++23)
+  # ===========================================================================
+  windows-msvc:
+
+    name: Windows MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build tests
+        run: |
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\ConcurrencyPolicies\tests\test_RcuIntegration.cpp /Fe:test_bin.exe /link advapi32.lib
+
+      - name: Run tests
+        run: .\test_bin.exe
+
+  # ===========================================================================
+  # Sanitizers (C++20)
+  # ===========================================================================
+  sanitizer-asan:
+
+    name: AddressSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_bin
+
+  sanitizer-ubsan:
+
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_bin
+
+  sanitizer-tsan:
+
+    name: ThreadSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with TSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_bin
+
+  # ===========================================================================
+  # Header Self-Containment (C++20)
+  # ===========================================================================
+  header-check:
+
+    name: Header Self-Containment
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test header compiles standalone
+        run: |
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include.cpp -o /dev/null
+
+          echo "Header is self-contained"
+
+      - name: Test include order independence
+        run: |
+          cat > test1.cpp << 'EOF'
+          #include "ConcurrencyPolicies.h"
+          #include <vector>
+          #include <algorithm>
+          int main() {{ return 0; }}
+          EOF
+
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "ConcurrencyPolicies.h"
+          int main() {{ return 0; }}
+          EOF
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
+
+          echo "Include order independent"
+
+  # ===========================================================================
+  # Strict Warnings (C++20)
+  # ===========================================================================
+  strict-warnings:
+
+    name: Strict Warnings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
+
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "All checks passed"

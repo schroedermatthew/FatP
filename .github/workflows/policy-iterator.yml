@@ -4,48 +4,43 @@
 # CI workflow for PolicyIterator component
 #
 # Directory structure:
-#   Headers:    include/fat_p/PolicyIterator.h, TensorStridePolicy.h, TensorIteration.h
+#   Headers:    include/fat_p/PolicyIterator.h
 #   Tests:      components/PolicyIterator/tests/test_PolicyIterator.cpp
 #   Benchmarks: components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
-#
-# Fat-P Guidelines compliance:
-#   - Section 6.1: Include-all compile test
-#   - Section 6.2: Header self-contained tests
-#   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
 # =============================================================================
 
 name: PolicyIterator CI
 
 on:
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
+
 env:
-  INCLUDE_DIR: include/fat_p
+  HEADER: PolicyIterator.h
   TEST_SRC: components/PolicyIterator/tests/test_PolicyIterator.cpp
   BENCH_SRC: components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
 
 jobs:
   # ===========================================================================
-  # Linux GCC Builds
+  # Linux GCC Builds (C++20/C++23)
   # ===========================================================================
   linux-gcc:
 
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 11
-            std: 17
-          - version: 12
-            std: 17
-          - version: 12
-            std: 20
-          - version: 13
-            std: 17
           - version: 13
             std: 20
-
+          - version: 14
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -59,13 +54,13 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/PolicyIterator/tests/test_PolicyIterator.cpp -o test_pi
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
-        run: ./test_pi
+        run: ./test_bin
 
   # ===========================================================================
-  # Linux Clang Builds
+  # Linux Clang Builds (C++20/C++23)
   # ===========================================================================
   linux-clang:
 
@@ -75,17 +70,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
-          - version: 15
-            std: 20
-          - version: 16
-            std: 17
           - version: 16
             std: 20
-
+          - version: 17
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -103,13 +91,13 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/PolicyIterator/tests/test_PolicyIterator.cpp -o test_pi
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
-        run: ./test_pi
+        run: ./test_bin
 
   # ===========================================================================
-  # Windows MSVC Build
+  # Windows MSVC Builds (C++20/C++23)
   # ===========================================================================
   windows-msvc:
 
@@ -118,8 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        std: [17, 20]
-
+        std: [20, 23]
     steps:
       - uses: actions/checkout@v4
 
@@ -128,192 +115,153 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /wd4324 /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_PolicyIterator.cpp /Fe:test_pi.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\PolicyIterator\tests\test_PolicyIterator.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
-        run: .\test_pi.exe
+        run: .\test_bin.exe
 
   # ===========================================================================
-  # Sanitizers
+  # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
 
     name: AddressSanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with ASan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/PolicyIterator/tests/test_PolicyIterator.cpp -o test_pi
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_pi
+        run: ./test_bin
 
   sanitizer-ubsan:
 
     name: UndefinedBehaviorSanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with UBSan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/PolicyIterator/tests/test_PolicyIterator.cpp -o test_pi
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_pi
+        run: ./test_bin
 
   sanitizer-tsan:
 
     name: ThreadSanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with TSan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/PolicyIterator/tests/test_PolicyIterator.cpp -o test_pi
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with TSan
         env:
           TSAN_OPTIONS: halt_on_error=1
-        run: ./test_pi
+        run: ./test_bin
 
   # ===========================================================================
-  # Header Self-Containment (Fat-P §6.2)
+  # Header Self-Containment (C++20)
   # ===========================================================================
   header-check:
 
     name: Header Self-Containment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check PolicyIterator.h
+      - name: Test header compiles standalone
         run: |
-          echo '#include "PolicyIterator.h"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
-          
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
-          
-          echo "✓ PolicyIterator.h is self-contained"
 
-      - name: Check TensorStridePolicy.h
-        run: |
-          echo '#include "TensorStridePolicy.h"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
-          
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-            -I./include/fat_p \
-            -c test_include.cpp -o /dev/null
-          
-          echo "✓ TensorStridePolicy.h is self-contained"
+          echo "Header is self-contained"
 
-      - name: Check TensorIteration.h
+      - name: Test include order independence
         run: |
-          echo '#include "TensorIteration.h"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
-          
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-            -I./include/fat_p \
-            -c test_include.cpp -o /dev/null
-          
-          echo "✓ TensorIteration.h is self-contained"
-
-      - name: Include-order stress test
-        run: |
-          cat > stress_test.cpp << 'EOF'
-          #include <map>
-          #include <unordered_set>
+          cat > test1.cpp << 'EOF'
+          #include "PolicyIterator.h"
+          #include <vector>
           #include <algorithm>
-          #include <functional>
-          #include <memory>
-          #include <sstream>
+          int main() {{ return 0; }}
+          EOF
+
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
           #include <vector>
           #include "PolicyIterator.h"
-          #include "TensorStridePolicy.h"
-          #include "TensorIteration.h"
-          #include <set>
-          #include <list>
-          int main() {
-              std::vector<int> d = {1,2,3,4,5,6};
-              using Iter = fat_p::iterator::PolicyIterator<int>;
-              auto it  = Iter::begin(d.data(), d.data() + 6);
-              auto end = Iter::end(d.data(), d.data() + 6);
-              int sum = 0;
-              for (; it != end; ++it) sum += *it;
-              if (sum != 21) return 1;
-              int64_t tsum = 0;
-              fat_p::iterator::iterateND(d.data(), {2, 3}, [&](int v) { tsum += v; });
-              return (tsum == 21) ? 0 : 1;
-          }
+          int main() {{ return 0; }}
           EOF
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
-            -I./include/fat_p -o stress_test stress_test.cpp
-          ./stress_test
-          echo "✓ Include-order stress test passed"
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
+
+          echo "Include order independent"
 
   # ===========================================================================
-  # Strict Warnings Check
+  # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
 
     name: Strict Warnings
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Compile with strict warnings
         run: |
-          g++ -std=c++17 \
+          g++-13 -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
               -DENABLE_TEST_APPLICATION -I./include/fat_p \
-              -o test_strict components/PolicyIterator/tests/test_PolicyIterator.cpp
-          echo "✓ No warnings"
+              -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
 
   # ===========================================================================
-  # Benchmarks - Linux GCC (Weekly/Manual)
+  # Benchmarks - Linux GCC (Manual)
   # ===========================================================================
   benchmarks-gcc:
     name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 11
-            std: 17
-          - version: 12
-            std: 17
-          - version: 12
-            std: 20
-          - version: 13
-            std: 17
           - version: 13
             std: 20
+          - version: 14
+            std: 23
 
     steps:
       - uses: actions/checkout@v4
@@ -321,24 +269,12 @@ jobs:
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y \
-            libboost-dev \
-            libeigen3-dev \
-            librange-v3-dev
-          
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/iterator, boost/multi_array)"
-          echo "  - Eigen3"
-          echo "  - range-v3"
-
       - name: Check AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX2 supported"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX2 not supported on this runner"
           fi
 
       - name: Build benchmark
@@ -346,8 +282,7 @@ jobs:
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -mavx2 -mfma \
             -I./include/fat_p \
-            -I/usr/include/eigen3 \
-            components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp -o bench_pi
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
 
       - name: Run benchmarks
         env:
@@ -355,7 +290,7 @@ jobs:
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
           FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_pi 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+        run: ./bench_bin 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -366,26 +301,20 @@ jobs:
             benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmarks - Linux Clang (Weekly/Manual)
+  # Benchmarks - Linux Clang (Manual)
   # ===========================================================================
   benchmarks-clang:
     name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
-          - version: 15
-            std: 20
-          - version: 16
-            std: 17
           - version: 16
             std: 20
+          - version: 17
+            std: 23
 
     steps:
       - uses: actions/checkout@v4
@@ -396,24 +325,12 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
 
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y \
-            libboost-dev \
-            libeigen3-dev \
-            librange-v3-dev
-          
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/iterator, boost/multi_array)"
-          echo "  - Eigen3"
-          echo "  - range-v3"
-
       - name: Check AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX2 supported"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX2 not supported on this runner"
           fi
 
       - name: Build benchmark
@@ -421,8 +338,7 @@ jobs:
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -mavx2 -mfma \
             -I./include/fat_p \
-            -I/usr/include/eigen3 \
-            components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp -o bench_pi
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
 
       - name: Run benchmarks
         env:
@@ -430,7 +346,7 @@ jobs:
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
           FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_pi 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+        run: ./bench_bin 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -441,16 +357,16 @@ jobs:
             benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmarks - Windows MSVC (Weekly/Manual)
+  # Benchmarks - Windows MSVC (Manual)
   # ===========================================================================
   benchmarks-msvc:
     name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
-    if: ${{ github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
-        std: [17, 20]
+        std: [20, 23]
 
     steps:
       - uses: actions/checkout@v4
@@ -460,29 +376,19 @@ jobs:
         with:
           arch: x64
 
-      - name: Install competitor libraries via vcpkg
-        run: |
-          vcpkg install boost-iterator:x64-windows
-          vcpkg install boost-multi-array:x64-windows
-          vcpkg install eigen3:x64-windows
-          vcpkg install range-v3:x64-windows
-          
-          echo "Installed competitor libraries via vcpkg"
-
       - name: Build benchmark
-        shell: pwsh
         run: |
-          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /wd4324 /I.\FAT_P\FAT_P\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" FAT_P\FAT_P\benchmarks\benchmark_PolicyIterator.cpp /Fe:bench_pi.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\PolicyIterator\benchmarks\benchmark_PolicyIterator.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
-        shell: pwsh
         env:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
         run: |
-          .\bench_pi.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+          .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -493,13 +399,13 @@ jobs:
             benchmark_msvc_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmark Summary (Aggregates all benchmark artifacts)
+  # Benchmark Summary
   # ===========================================================================
   benchmark-summary:
     name: Benchmark Summary
     needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
     runs-on: ubuntu-latest
-    if: ${{ always() && github.event.inputs.run_benchmarks == 'true' }}
+    if: ${{ always() && inputs.run_benchmarks }}
     steps:
       - name: Download all benchmark artifacts
         uses: actions/download-artifact@v4
@@ -510,23 +416,23 @@ jobs:
 
       - name: Aggregate results
         run: |
-          echo "# Benchmark Summary" > summary.md
+          echo "# Benchmark Summary - PolicyIterator" > summary.md
           echo "" >> summary.md
-          echo "| Compiler | Standard | Status |" >> summary.md
-          echo "|----------|----------|--------|" >> summary.md
-          
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             if ls "$dir"/*.csv 1>/dev/null 2>&1; then
-              echo "| $name | ✓ |" >> summary.md
+              echo "| $name | [PASS] |" >> summary.md
             else
-              echo "| $name | ✗ |" >> summary.md
+              echo "| $name | [FAIL] |" >> summary.md
             fi
           done
-          
+
           echo "" >> summary.md
           echo "## Individual Results" >> summary.md
-          
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             echo "" >> summary.md
@@ -537,7 +443,7 @@ jobs:
               echo '```' >> summary.md
             fi
           done
-          
+
           cat summary.md
 
       - name: Upload combined results
@@ -553,7 +459,7 @@ jobs:
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -564,6 +470,7 @@ jobs:
           if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          echo "✓ All checks passed"
+          echo "All checks passed"

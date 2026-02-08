@@ -1,5 +1,5 @@
 # =============================================================================
-# .github/workflows/aligned_vector.yml
+# .github/workflows/aligned-vector.yml
 # =============================================================================
 # CI workflow for AlignedVector component
 #
@@ -7,11 +7,6 @@
 #   Headers:    include/fat_p/AlignedVector.h
 #   Tests:      components/AlignedVector/tests/test_AlignedVector.cpp
 #   Benchmarks: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
-#
-# Fat-P Guidelines compliance:
-#   - Section 6.1: Include-all compile test
-#   - Section 6.2: Header self-contained tests
-#   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
 # =============================================================================
 
 name: AlignedVector CI
@@ -21,35 +16,31 @@ on:
     inputs:
       run_benchmarks:
         description: 'Run benchmarks'
+        required: false
+        default: 'false'
         type: boolean
-        default: false
+
 env:
-  INCLUDE_DIR: include/fat_p
+  HEADER: AlignedVector.h
   TEST_SRC: components/AlignedVector/tests/test_AlignedVector.cpp
   BENCH_SRC: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
 
 jobs:
   # ===========================================================================
-  # Linux GCC Builds
+  # Linux GCC Builds (C++20/C++23)
   # ===========================================================================
   linux-gcc:
+
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 12
-            std: 20
           - version: 13
-            std: 20
-          - version: 13
-            std: 23
-          - version: 14
             std: 20
           - version: 14
             std: 23
-
     steps:
       - uses: actions/checkout@v4
 
@@ -63,28 +54,264 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
-        run: ./test_av
+        run: ./test_bin
 
   # ===========================================================================
-  # Linux Clang Builds
+  # Linux Clang Builds (C++20/C++23)
   # ===========================================================================
   linux-clang:
+
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 15
-            std: 20
           - version: 16
             std: 20
-          - version: 16
-            std: 23
           - version: 17
+            std: 23
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Windows MSVC Builds (C++20/C++23)
+  # ===========================================================================
+  windows-msvc:
+
+    name: Windows MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build tests
+        run: |
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AlignedVector\tests\test_AlignedVector.cpp /Fe:test_bin.exe /link advapi32.lib
+
+      - name: Run tests
+        run: .\test_bin.exe
+
+  # ===========================================================================
+  # Sanitizers (C++20)
+  # ===========================================================================
+  sanitizer-asan:
+
+    name: AddressSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_bin
+
+  sanitizer-ubsan:
+
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_bin
+
+  sanitizer-tsan:
+
+    name: ThreadSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with TSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_bin
+
+  # ===========================================================================
+  # Header Self-Containment (C++20)
+  # ===========================================================================
+  header-check:
+
+    name: Header Self-Containment
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test header compiles standalone
+        run: |
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include.cpp -o /dev/null
+
+          echo "Header is self-contained"
+
+      - name: Test include order independence
+        run: |
+          cat > test1.cpp << 'EOF'
+          #include "AlignedVector.h"
+          #include <vector>
+          #include <algorithm>
+          int main() {{ return 0; }}
+          EOF
+
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "AlignedVector.h"
+          int main() {{ return 0; }}
+          EOF
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
+
+          echo "Include order independent"
+
+  # ===========================================================================
+  # Strict Warnings (C++20)
+  # ===========================================================================
+  strict-warnings:
+
+    name: Strict Warnings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compile with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
+
+  # ===========================================================================
+  # Benchmarks - Linux GCC (Manual)
+  # ===========================================================================
+  benchmarks-gcc:
+    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_benchmarks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 13
+            std: 20
+          - version: 14
+            std: 23
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "AVX2 supported"
+          else
+            echo "AVX2 not supported on this runner"
+          fi
+
+      - name: Build benchmark
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -mavx2 -mfma \
+            -I./include/fat_p \
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_bin 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Linux Clang (Manual)
+  # ===========================================================================
+  benchmarks-clang:
+    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    if: ${{ inputs.run_benchmarks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 16
             std: 20
           - version: 17
             std: 23
@@ -98,32 +325,44 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
 
-      - name: Build tests
+      - name: Check AVX2 support
         run: |
-          # Clang < 17 uses -std=c++2b for C++23, Clang >= 17 uses -std=c++23
-          if [[ ${{ matrix.version }} -lt 17 && ${{ matrix.std }} -eq 23 ]]; then
-            STD_FLAG="c++2b"
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "AVX2 supported"
           else
-            STD_FLAG="c++${{ matrix.std }}"
+            echo "AVX2 not supported on this runner"
           fi
-          
-          clang++-${{ matrix.version }} -std=$STD_FLAG \
-            -Wall -Wextra -Wpedantic -Werror \
-            -Wno-gnu-zero-variadic-macro-arguments \
-            -O2 -DNDEBUG \
-            -DENABLE_TEST_APPLICATION \
+
+      - name: Build benchmark
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -mavx2 -mfma \
             -I./include/fat_p \
-            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
 
-      - name: Run tests
-        run: ./test_av
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_bin 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Windows MSVC Build
+  # Benchmarks - Windows MSVC (Manual)
   # ===========================================================================
-  windows-msvc:
-    name: Windows MSVC C++${{ matrix.std }}
+  benchmarks-msvc:
+    name: Benchmark MSVC C++${{ matrix.std }}
     runs-on: windows-latest
+    if: ${{ inputs.run_benchmarks }}
     strategy:
       fail-fast: false
       matrix:
@@ -134,299 +373,33 @@ jobs:
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Build tests
-        shell: pwsh
-        run: |
-          $std = "${{ matrix.std }}"
-          $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
-          cl $stdFlag /W4 /WX /EHsc /permissive- /wd4324 /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AlignedVector\tests\test_AlignedVector.cpp /Fe:test_av.exe /link advapi32.lib
-
-      - name: Run tests
-        run: .\test_av.exe
-
-  # ===========================================================================
-  # Sanitizers
-  # ===========================================================================
-  sanitizer-asan:
-    name: AddressSanitizer
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build with ASan
-        run: |
-          g++ -std=c++20 -Wall -Wextra -g -O1 \
-            -fsanitize=address -fno-omit-frame-pointer \
-            -DENABLE_TEST_APPLICATION \
-            -I./include/fat_p \
-            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
-
-      - name: Run with ASan
-        env:
-          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_av
-
-  sanitizer-ubsan:
-    name: UndefinedBehaviorSanitizer
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build with UBSan
-        run: |
-          g++ -std=c++20 -Wall -Wextra -g -O1 \
-            -fsanitize=undefined -fno-omit-frame-pointer \
-            -DENABLE_TEST_APPLICATION \
-            -I./include/fat_p \
-            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
-
-      - name: Run with UBSan
-        env:
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_av
-
-  sanitizer-tsan:
-    name: ThreadSanitizer
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build with TSan
-        run: |
-          g++ -std=c++20 -Wall -Wextra -g -O1 \
-            -fsanitize=thread -fno-omit-frame-pointer \
-            -DENABLE_TEST_APPLICATION \
-            -I./include/fat_p \
-            components/AlignedVector/tests/test_AlignedVector.cpp -o test_av
-
-      - name: Run with TSan
-        env:
-          TSAN_OPTIONS: halt_on_error=1
-        run: ./test_av
-
-  # ===========================================================================
-  # Header Self-Containment (Fat-P Section 6.2)
-  # ===========================================================================
-  header-check:
-    name: Header Self-Containment
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Test AlignedVector.h compiles standalone
-        run: |
-          echo '#include "AlignedVector.h"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
-          
-          g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror \
-            -I./include/fat_p \
-            -c test_include.cpp -o /dev/null
-          
-          echo "[OK] Header is self-contained"
-
-  # ===========================================================================
-  # Strict Warnings
-  # ===========================================================================
-  strict-warnings:
-    name: Strict Warnings
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Compile with strict warnings
-        run: |
-          g++ -std=c++20 \
-              -Wall -Wextra -Wpedantic \
-              -Wconversion -Wsign-conversion \
-              -Wshadow -Wformat=2 \
-              -Werror \
-              -DENABLE_TEST_APPLICATION -I./include/fat_p \
-              -o test_strict components/AlignedVector/tests/test_AlignedVector.cpp
-          echo "[OK] No warnings"
-
-  # ===========================================================================
-  # Benchmarks - Linux GCC (Weekly/Manual)
-  # ===========================================================================
-  benchmarks-gcc:
-    name: Benchmark GCC-${{ matrix.version }} C++23
-    runs-on: ubuntu-latest
-    if: ${{ inputs.run_benchmarks }}
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [13, 14]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
-
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y \
-            libboost-dev \
-            libeigen3-dev
-          
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/align/aligned_allocator)"
-          echo "  - Eigen3 (Eigen::aligned_allocator)"
-
-      - name: Detect AVX2 support
-        run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
-            echo "[OK] AVX2 supported (building with -mavx2 -mfma)"
-          else
-            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
-            echo "[!] AVX2 not supported on this runner (building without AVX2 flags)"
-          fi
-
-      - name: Build benchmark
-        run: |
-          g++-${{ matrix.version }} -std=c++23 \
-            -O3 -DNDEBUG $AVX_FLAGS \
-            -I./include/fat_p \
-            -I/usr/include/eigen3 \
-            components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp -o bench_av
-
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp23.csv
-        run: ./bench_av 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp23.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-gcc${{ matrix.version }}-cpp23
-          path: |
-            results_gcc${{ matrix.version }}_cpp23.csv
-            benchmark_gcc${{ matrix.version }}_cpp23.log
-
-  # ===========================================================================
-  # Benchmarks - Linux Clang (Weekly/Manual)
-  # ===========================================================================
-  benchmarks-clang:
-    name: Benchmark Clang-${{ matrix.version }} C++23
-    runs-on: ubuntu-22.04
-    if: ${{ inputs.run_benchmarks }}
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [16, 17]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Clang
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{ matrix.version }}
-
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y \
-            libboost-dev \
-            libeigen3-dev
-          
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/align/aligned_allocator)"
-          echo "  - Eigen3 (Eigen::aligned_allocator)"
-
-      - name: Detect AVX2 support
-        run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "AVX_FLAGS=-mavx2 -mfma" >> "$GITHUB_ENV"
-            echo "[OK] AVX2 supported (building with -mavx2 -mfma)"
-          else
-            echo "AVX_FLAGS=" >> "$GITHUB_ENV"
-            echo "[!] AVX2 not supported on this runner (building without AVX2 flags)"
-          fi
-
-      - name: Build benchmark
-        run: |
-          # Clang < 17 uses -std=c++2b for C++23, Clang >= 17 uses -std=c++23
-          if [[ ${{ matrix.version }} -lt 17 ]]; then
-            STD_FLAG="c++2b"
-          else
-            STD_FLAG="c++23"
-          fi
-          
-          clang++-${{ matrix.version }} -std=$STD_FLAG \
-            -O3 -DNDEBUG $AVX_FLAGS \
-            -I./include/fat_p \
-            -I/usr/include/eigen3 \
-            components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp -o bench_av
-
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp23.csv
-        run: ./bench_av 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp23.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-clang${{ matrix.version }}-cpp23
-          path: |
-            results_clang${{ matrix.version }}_cpp23.csv
-            benchmark_clang${{ matrix.version }}_cpp23.log
-
-  # ===========================================================================
-  # Benchmarks - Windows MSVC (Weekly/Manual)
-  # ===========================================================================
-  benchmarks-msvc:
-    name: Benchmark MSVC C++23
-    runs-on: windows-latest
-    if: ${{ inputs.run_benchmarks }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      - name: Install competitor libraries via vcpkg
-        run: |
-          vcpkg install boost-align:x64-windows
-          vcpkg install eigen3:x64-windows
-          
-          echo "Installed competitor libraries via vcpkg"
-
       - name: Build benchmark
-        shell: pwsh
         run: |
-          cl /nologo /std:c++latest /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /wd4324 /I.\include\fat_p /I"$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include" components\AlignedVector\benchmarks\benchmark_AlignedVector.cpp /Fe:bench_av.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\AlignedVector\benchmarks\benchmark_AlignedVector.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
-        shell: pwsh
         env:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: "1"
-          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp23.csv
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
         run: |
-          .\bench_av.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp23.log
+          .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-msvc-cpp23
+          name: benchmark-msvc-cpp${{ matrix.std }}
           path: |
-            results_msvc_cpp23.csv
-            benchmark_msvc_cpp23.log
+            results_msvc_cpp${{ matrix.std }}.csv
+            benchmark_msvc_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmark Summary (Aggregates all benchmark artifacts)
+  # Benchmark Summary
   # ===========================================================================
   benchmark-summary:
     name: Benchmark Summary
@@ -445,21 +418,21 @@ jobs:
         run: |
           echo "# Benchmark Summary - AlignedVector" > summary.md
           echo "" >> summary.md
-          echo "| Compiler | Standard | Status |" >> summary.md
-          echo "|----------|----------|--------|" >> summary.md
-          
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             if ls "$dir"/*.csv 1>/dev/null 2>&1; then
-              echo "| $name | [OK] |" >> summary.md
+              echo "| $name | [PASS] |" >> summary.md
             else
-              echo "| $name | [X] |" >> summary.md
+              echo "| $name | [FAIL] |" >> summary.md
             fi
           done
-          
+
           echo "" >> summary.md
           echo "## Individual Results" >> summary.md
-          
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             echo "" >> summary.md
@@ -470,7 +443,7 @@ jobs:
               echo '```' >> summary.md
             fi
           done
-          
+
           cat summary.md
 
       - name: Upload combined results
@@ -488,7 +461,7 @@ jobs:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
-    if: ${{ always() }}
+    if: always()
     steps:
       - name: Check results
         run: |

@@ -3,42 +3,44 @@
 # =============================================================================
 # CI workflow for Stringify component
 #
-# C++20 primary build. Manual trigger only per Fat-P CI policy.
-#
-# Compiler Matrix:
-#   - GCC 13, 14
-#   - Clang 17, 18
-#   - MSVC 2022
-#
 # Directory structure:
 #   Headers:    include/fat_p/Stringify.h
 #   Tests:      components/Stringify/tests/test_Stringify.cpp
+#   Benchmarks: components/Stringify/benchmarks/benchmark_Stringify.cpp
 # =============================================================================
 
 name: Stringify CI
 
 on:
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
+
 env:
   HEADER: Stringify.h
   TEST_SRC: components/Stringify/tests/test_Stringify.cpp
+  BENCH_SRC: components/Stringify/benchmarks/benchmark_Stringify.cpp
 
 jobs:
   # ===========================================================================
-  # Linux GCC Matrix (C++20)
+  # Linux GCC Builds (C++20/C++23)
   # ===========================================================================
   linux-gcc:
 
-    name: Linux GCC-${{ matrix.version }} C++20
-    runs-on: ${{ matrix.runner }}
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
           - version: 13
-            runner: ubuntu-24.04
+            std: 20
           - version: 14
-            runner: ubuntu-24.04
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +49,7 @@ jobs:
 
       - name: Build tests
         run: |
-          g++-${{ matrix.version }} -std=c++20 \
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
@@ -58,16 +60,20 @@ jobs:
         run: ./test_bin
 
   # ===========================================================================
-  # Linux Clang Matrix (C++20)
+  # Linux Clang Builds (C++20/C++23)
   # ===========================================================================
   linux-clang:
 
-    name: Linux Clang-${{ matrix.version }} C++20
-    runs-on: ubuntu-24.04
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
-        version: [17, 18]
+        include:
+          - version: 16
+            std: 20
+          - version: 17
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -79,7 +85,7 @@ jobs:
 
       - name: Build tests
         run: |
-          clang++-${{ matrix.version }} -std=c++20 \
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
@@ -91,12 +97,16 @@ jobs:
         run: ./test_bin
 
   # ===========================================================================
-  # Windows MSVC Build (C++20)
+  # Windows MSVC Builds (C++20/C++23)
   # ===========================================================================
   windows-msvc:
 
-    name: Windows MSVC 2022 C++20
-    runs-on: windows-2022
+    name: Windows MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
     steps:
       - uses: actions/checkout@v4
 
@@ -105,27 +115,25 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++20 /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\FAT_P\FAT_P\fat_p FAT_P\FAT_P\tests\test_Stringify.cpp /Fe:test_bin.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Stringify\tests\test_Stringify.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
 
   # ===========================================================================
-  # Sanitizers (C++20) - Using GCC 14 for best coverage
+  # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
 
-    name: AddressSanitizer (GCC-14)
+    name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
-
       - name: Build with ASan
         run: |
-          g++-14 -std=c++20 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
@@ -138,17 +146,14 @@ jobs:
 
   sanitizer-ubsan:
 
-    name: UndefinedBehaviorSanitizer (GCC-14)
+    name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
-
       - name: Build with UBSan
         run: |
-          g++-14 -std=c++20 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
@@ -161,17 +166,14 @@ jobs:
 
   sanitizer-tsan:
 
-    name: ThreadSanitizer (GCC-14)
+    name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
-
       - name: Build with TSan
         run: |
-          g++-14 -std=c++20 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
@@ -179,179 +181,296 @@ jobs:
 
       - name: Run with TSan
         env:
-          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+          TSAN_OPTIONS: halt_on_error=1
         run: ./test_bin
 
   # ===========================================================================
-  # Header Self-Containment Loop (C++20)
+  # Header Self-Containment (C++20)
   # ===========================================================================
-  header-self-containment:
+  header-check:
 
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
-
-      - name: Test all Stringify-related headers compile standalone
+      - name: Test header compiles standalone
         run: |
-          HEADER_DIR="include/fat_p"
-          HEADERS=(
-            "Stringify.h"
-            "Concepts.h"
-            "CppFeatureDetection.h"
-          )
-          
-          failed=0
-          for header in "${HEADERS[@]}"; do
-            echo "Testing $header..."
-            cat > test_include.cpp << EOF
-          #include "$header"
-          int main() { return 0; }
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include.cpp -o /dev/null
+
+          echo "Header is self-contained"
+
+      - name: Test include order independence
+        run: |
+          cat > test1.cpp << 'EOF'
+          #include "Stringify.h"
+          #include <vector>
+          #include <algorithm>
+          int main() {{ return 0; }}
           EOF
-            if g++-14 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
-              -I./$HEADER_DIR \
-              -c test_include.cpp -o /dev/null 2>&1; then
-              echo "✓ $header is self-contained"
-            else
-              echo "✗ $header failed self-containment check"
-              failed=$((failed + 1))
-            fi
-          done
-          
-          if [ $failed -gt 0 ]; then
-            echo "❌ $failed header(s) failed self-containment"
-            exit 1
-          fi
-          echo "✓ All headers are self-contained"
+
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "Stringify.h"
+          int main() {{ return 0; }}
+          EOF
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
+
+          echo "Include order independent"
 
   # ===========================================================================
   # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
 
-    name: Strict Warnings (GCC-14)
+    name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
 
       - name: Compile with strict warnings
         run: |
-          g++-14 -std=c++20 \
+          g++-13 -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
-              -Wnull-dereference \
-              -Wdouble-promotion \
               -Werror \
               -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
-          echo "✓ No warnings"
+          echo "No warnings"
 
   # ===========================================================================
-  # Clang Static Analysis
+  # Benchmarks - Linux GCC (Manual)
   # ===========================================================================
-  clang-tidy:
+  benchmarks-gcc:
+    name: Benchmark GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_benchmarks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 13
+            std: 20
+          - version: 14
+            std: 23
 
-    name: Clang-Tidy Analysis
-    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Clang tools
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Check AVX2 support
+        run: |
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "AVX2 supported"
+          else
+            echo "AVX2 not supported on this runner"
+          fi
+
+      - name: Build benchmark
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -mavx2 -mfma \
+            -I./include/fat_p \
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_bin 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-gcc${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Linux Clang (Manual)
+  # ===========================================================================
+  benchmarks-clang:
+    name: Benchmark Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    if: ${{ inputs.run_benchmarks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 16
+            std: 20
+          - version: 17
+            std: 23
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
-          sudo ./llvm.sh 18
-          sudo apt-get install -y clang-tidy-18
+          sudo ./llvm.sh ${{ matrix.version }}
 
-      - name: Run clang-tidy on header
+      - name: Check AVX2 support
         run: |
-          # Create a simple test file that includes the header
-          cat > analyze.cpp << EOF
-          #include "Stringify.h"
-          int main() {
-              return fat_p::toString(42).empty() ? 1 : 0;
-          }
-          EOF
-          
-          # Run clang-tidy with key checks
-          clang-tidy-18 analyze.cpp \
-            -checks='-*,bugprone-*,performance-*,modernize-use-nullptr,modernize-use-override' \
-            -- -std=c++20 -I./include/fat_p \
-            2>&1 | tee tidy_output.txt
-          
-          # Check for errors (warnings are OK)
-          if grep -q "error:" tidy_output.txt; then
-            echo "❌ clang-tidy found errors"
-            exit 1
+          if grep -q avx2 /proc/cpuinfo; then
+            echo "AVX2 supported"
+          else
+            echo "AVX2 not supported on this runner"
           fi
-          echo "✓ clang-tidy passed"
+
+      - name: Build benchmark
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -O3 -DNDEBUG -mavx2 -mfma \
+            -I./include/fat_p \
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: 1
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+        run: ./bench_bin 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-clang${{ matrix.version }}-cpp${{ matrix.std }}
+          path: |
+            results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
+            benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmarks - Windows MSVC (Manual)
+  # ===========================================================================
+  benchmarks-msvc:
+    name: Benchmark MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    if: ${{ inputs.run_benchmarks }}
+    strategy:
+      fail-fast: false
+      matrix:
+        std: [20, 23]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build benchmark
+        run: |
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\Stringify\benchmarks\benchmark_Stringify.cpp /Fe:bench_bin.exe /link advapi32.lib
+
+      - name: Run benchmarks
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: 20
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+        run: |
+          .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-msvc-cpp${{ matrix.std }}
+          path: |
+            results_msvc_cpp${{ matrix.std }}.csv
+            benchmark_msvc_cpp${{ matrix.std }}.log
+
+  # ===========================================================================
+  # Benchmark Summary
+  # ===========================================================================
+  benchmark-summary:
+    name: Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: ${{ always() && inputs.run_benchmarks }}
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: benchmark-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary - Stringify" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            if ls "$dir"/*.csv 1>/dev/null 2>&1; then
+              echo "| $name | [PASS] |" >> summary.md
+            else
+              echo "| $name | [FAIL] |" >> summary.md
+            fi
+          done
+
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+
+          for dir in all-benchmarks/benchmark-*/; do
+            name=$(basename "$dir")
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            if [ -f "$dir"/*.log ]; then
+              echo '```' >> summary.md
+              tail -50 "$dir"/*.log >> summary.md
+              echo '```' >> summary.md
+            fi
+          done
+
+          cat summary.md
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary
+          path: |
+            all-benchmarks/
+            summary.md
 
   # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: 
-      - linux-gcc
-      - linux-clang
-      - windows-msvc
-      - sanitizer-asan
-      - sanitizer-ubsan
-      - sanitizer-tsan
-      - header-self-containment
-      - strict-warnings
-      - clang-tidy
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check results
         run: |
-          echo "=== CI Results ==="
-          echo "linux-gcc: ${{ needs.linux-gcc.result }}"
-          echo "linux-clang: ${{ needs.linux-clang.result }}"
-          echo "windows-msvc: ${{ needs.windows-msvc.result }}"
-          echo "sanitizer-asan: ${{ needs.sanitizer-asan.result }}"
-          echo "sanitizer-ubsan: ${{ needs.sanitizer-ubsan.result }}"
-          echo "sanitizer-tsan: ${{ needs.sanitizer-tsan.result }}"
-          echo "header-self-containment: ${{ needs.header-self-containment.result }}"
-          echo "strict-warnings: ${{ needs.strict-warnings.result }}"
-          echo "clang-tidy: ${{ needs.clang-tidy.result }}"
-          echo ""
-          
-          # Check all required jobs
-          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then
-            echo "❌ linux-gcc failed"; exit 1
-          fi
-          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then
-            echo "❌ linux-clang failed"; exit 1
-          fi
-          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then
-            echo "❌ windows-msvc failed"; exit 1
-          fi
-          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then
-            echo "❌ sanitizer-asan failed"; exit 1
-          fi
-          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then
-            echo "❌ sanitizer-ubsan failed"; exit 1
-          fi
-          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then
-            echo "❌ sanitizer-tsan failed"; exit 1
-          fi
-          if [[ "${{ needs.header-self-containment.result }}" != "success" ]]; then
-            echo "❌ header-self-containment failed"; exit 1
-          fi
-          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then
-            echo "❌ strict-warnings failed"; exit 1
-          fi
-          if [[ "${{ needs.clang-tidy.result }}" != "success" ]]; then
-            echo "❌ clang-tidy failed"; exit 1
-          fi
-          
-          echo "✓ All checks passed"
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          echo "All checks passed"

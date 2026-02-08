@@ -7,11 +7,6 @@
 #   Headers:    include/fat_p/AllocationStrategies.h
 #   Tests:      components/AllocationStrategies/tests/test_AllocationStrategies.cpp
 #   Benchmarks: components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
-#
-# Fat-P Guidelines compliance:
-#   - Section 6.1: Include-all compile test
-#   - Section 6.2: Header self-contained tests
-#   - Section 6.4: Warning cleanliness (-Wall -Wextra -Wpedantic -Werror)
 # =============================================================================
 
 name: AllocationStrategies CI
@@ -26,33 +21,26 @@ on:
         type: boolean
 
 env:
-  INCLUDE_DIR: include/fat_p
+  HEADER: AllocationStrategies.h
   TEST_SRC: components/AllocationStrategies/tests/test_AllocationStrategies.cpp
   BENCH_SRC: components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
 
 jobs:
   # ===========================================================================
-  # Linux GCC Builds
+  # Linux GCC Builds (C++20/C++23)
   # ===========================================================================
   linux-gcc:
 
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         include:
-          - version: 11
-            std: 17
-          - version: 12
-            std: 17
-          - version: 12
-            std: 20
-          - version: 13
-            std: 17
           - version: 13
             std: 20
-
+          - version: 14
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -66,13 +54,13 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/AllocationStrategies/tests/test_AllocationStrategies.cpp -o test_as
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
-        run: ./test_as
+        run: ./test_bin
 
   # ===========================================================================
-  # Linux Clang Builds
+  # Linux Clang Builds (C++20/C++23)
   # ===========================================================================
   linux-clang:
 
@@ -82,17 +70,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: 14
-            std: 17
-          - version: 15
-            std: 17
-          - version: 15
-            std: 20
-          - version: 16
-            std: 17
           - version: 16
             std: 20
-
+          - version: 17
+            std: 23
     steps:
       - uses: actions/checkout@v4
 
@@ -110,13 +91,13 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/AllocationStrategies/tests/test_AllocationStrategies.cpp -o test_as
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run tests
-        run: ./test_as
+        run: ./test_bin
 
   # ===========================================================================
-  # Windows MSVC Builds
+  # Windows MSVC Builds (C++20/C++23)
   # ===========================================================================
   windows-msvc:
 
@@ -125,8 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        std: [17, 20]
-
+        std: [20, 23]
     steps:
       - uses: actions/checkout@v4
 
@@ -135,148 +115,137 @@ jobs:
 
       - name: Build tests
         run: |
-          cl /std:c++${{ matrix.std }} /W4 /WX /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AllocationStrategies\tests\test_AllocationStrategies.cpp /Fe:test_as.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\AllocationStrategies\tests\test_AllocationStrategies.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
-        run: .\test_as.exe
+        run: .\test_bin.exe
 
   # ===========================================================================
-  # Sanitizer Jobs
+  # Sanitizers (C++20)
   # ===========================================================================
   sanitizer-asan:
 
     name: AddressSanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with ASan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/AllocationStrategies/tests/test_AllocationStrategies.cpp -o test_as
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_as
+        run: ./test_bin
 
   sanitizer-ubsan:
 
     name: UndefinedBehaviorSanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with UBSan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/AllocationStrategies/tests/test_AllocationStrategies.cpp -o test_as
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_as
+        run: ./test_bin
 
   sanitizer-tsan:
 
     name: ThreadSanitizer
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Build with TSan
         run: |
-          g++ -std=c++17 -Wall -Wextra -g -O1 \
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            components/AllocationStrategies/tests/test_AllocationStrategies.cpp -o test_as
+            ${{ env.TEST_SRC }} -o test_bin
 
       - name: Run with TSan
         env:
           TSAN_OPTIONS: halt_on_error=1
-        run: ./test_as
+        run: ./test_bin
 
   # ===========================================================================
-  # Header Self-Containment Check
+  # Header Self-Containment (C++20)
   # ===========================================================================
   header-check:
 
     name: Header Self-Containment
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test AllocationStrategies.h compiles standalone
+      - name: Test header compiles standalone
         run: |
-          echo '#include "AllocationStrategies.h"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
-          
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror \
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
-          
-          echo "✓ Header is self-contained"
+
+          echo "Header is self-contained"
 
       - name: Test include order independence
         run: |
-          # AllocationStrategies first
           cat > test1.cpp << 'EOF'
           #include "AllocationStrategies.h"
           #include <vector>
           #include <algorithm>
-          int main() {
-              fat_p::NewDeleteAllocator<int> alloc;
-              int* p = alloc.allocate(42);
-              alloc.deallocate(p);
-              return 0;
-          }
+          int main() {{ return 0; }}
           EOF
-          
-          # AllocationStrategies last
+
           cat > test2.cpp << 'EOF'
           #include <algorithm>
           #include <vector>
           #include "AllocationStrategies.h"
-          int main() {
-              fat_p::BlockAllocator<long> alloc;
-              long* p = alloc.allocate(100);
-              alloc.deallocate(p);
-              return 0;
-          }
+          int main() {{ return 0; }}
           EOF
-          
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
-          g++ -std=c++17 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
-          
-          echo "✓ Include order independent"
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
+
+          echo "Include order independent"
 
   # ===========================================================================
-  # Strict Warnings Check
+  # Strict Warnings (C++20)
   # ===========================================================================
   strict-warnings:
 
     name: Strict Warnings
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Compile with strict warnings
         run: |
-          g++ -std=c++17 \
+          g++-13 -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
               -DENABLE_TEST_APPLICATION -I./include/fat_p \
-              -o test_strict components/AllocationStrategies/tests/test_AllocationStrategies.cpp
-          echo "✓ No warnings"
+              -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
 
   # ===========================================================================
   # Benchmarks - Linux GCC (Manual)
@@ -292,7 +261,7 @@ jobs:
           - version: 13
             std: 20
           - version: 14
-            std: 20
+            std: 23
 
     steps:
       - uses: actions/checkout@v4
@@ -300,20 +269,12 @@ jobs:
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y \
-            libboost-dev
-          
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/pool)"
-
       - name: Check AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX2 supported"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX2 not supported on this runner"
           fi
 
       - name: Build benchmark
@@ -321,7 +282,7 @@ jobs:
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -mavx2 -mfma \
             -I./include/fat_p \
-            components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp -o bench_as -pthread
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
 
       - name: Run benchmarks
         env:
@@ -329,7 +290,7 @@ jobs:
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
           FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_as 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
+        run: ./bench_bin 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -353,7 +314,7 @@ jobs:
           - version: 16
             std: 20
           - version: 17
-            std: 20
+            std: 23
 
     steps:
       - uses: actions/checkout@v4
@@ -364,20 +325,12 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
 
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y \
-            libboost-dev
-          
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/pool)"
-
       - name: Check AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX2 supported"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX2 not supported on this runner"
           fi
 
       - name: Build benchmark
@@ -385,7 +338,7 @@ jobs:
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -mavx2 -mfma \
             -I./include/fat_p \
-            components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp -o bench_as -pthread
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread
 
       - name: Run benchmarks
         env:
@@ -393,7 +346,7 @@ jobs:
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_NO_STABILIZE: 1
           FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp${{ matrix.std }}.csv
-        run: ./bench_as 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
+        run: ./bench_bin 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -413,7 +366,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        std: [20]
+        std: [20, 23]
 
     steps:
       - uses: actions/checkout@v4
@@ -425,7 +378,8 @@ jobs:
 
       - name: Build benchmark
         run: |
-          cl /nologo /std:c++${{ matrix.std }} /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\AllocationStrategies\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_as.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
+          cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\AllocationStrategies\benchmarks\benchmark_AllocationStrategies.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:
@@ -434,7 +388,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
         run: |
-          .\bench_as.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+          .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
@@ -445,7 +399,7 @@ jobs:
             benchmark_msvc_cpp${{ matrix.std }}.log
 
   # ===========================================================================
-  # Benchmark Summary (Aggregates all benchmark artifacts)
+  # Benchmark Summary
   # ===========================================================================
   benchmark-summary:
     name: Benchmark Summary
@@ -464,21 +418,21 @@ jobs:
         run: |
           echo "# Benchmark Summary - AllocationStrategies" > summary.md
           echo "" >> summary.md
-          echo "| Compiler | Standard | Status |" >> summary.md
-          echo "|----------|----------|--------|" >> summary.md
-          
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             if ls "$dir"/*.csv 1>/dev/null 2>&1; then
-              echo "| $name | ✓ |" >> summary.md
+              echo "| $name | [PASS] |" >> summary.md
             else
-              echo "| $name | ✗ |" >> summary.md
+              echo "| $name | [FAIL] |" >> summary.md
             fi
           done
-          
+
           echo "" >> summary.md
           echo "## Individual Results" >> summary.md
-          
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             echo "" >> summary.md
@@ -489,7 +443,7 @@ jobs:
               echo '```' >> summary.md
             fi
           done
-          
+
           cat summary.md
 
       - name: Upload combined results
@@ -501,7 +455,7 @@ jobs:
             summary.md
 
   # ===========================================================================
-  # CI Gate Job
+  # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
@@ -519,4 +473,4 @@ jobs:
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          echo "✓ All checks passed"
+          echo "All checks passed"

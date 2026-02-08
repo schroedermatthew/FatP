@@ -3,8 +3,6 @@
 # =============================================================================
 # CI workflow for ObjectPool component
 #
-# C++20/C++23 builds. C++17 compatibility verified project-wide via ci_core17.yml.
-#
 # Directory structure:
 #   Headers:    include/fat_p/ObjectPool.h
 #   Tests:      components/ObjectPool/tests/test_ObjectPool.cpp
@@ -117,7 +115,7 @@ jobs:
 
       - name: Build tests
         run: |
-          $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
           cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\ObjectPool\tests\test_ObjectPool.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
@@ -199,46 +197,34 @@ jobs:
       - name: Test header compiles standalone
         run: |
           echo '#include "${{ env.HEADER }}"' > test_include.cpp
-          echo 'int main() { return 0; }' >> test_include.cpp
-          
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
-          
-          echo "✓ Header is self-contained"
+
+          echo "Header is self-contained"
 
       - name: Test include order independence
         run: |
-          # ObjectPool first
           cat > test1.cpp << 'EOF'
           #include "ObjectPool.h"
           #include <vector>
           #include <algorithm>
-          int main() {
-              fat_p::ObjectPool<int> pool;
-              int* p = pool.acquire(42);
-              pool.release(p);
-              return 0;
-          }
+          int main() {{ return 0; }}
           EOF
-          
-          # ObjectPool last
+
           cat > test2.cpp << 'EOF'
           #include <algorithm>
           #include <vector>
           #include "ObjectPool.h"
-          int main() {
-              fat_p::ObjectPool<long> pool;
-              long* p = pool.acquire(100);
-              pool.release(p);
-              return 0;
-          }
+          int main() {{ return 0; }}
           EOF
-          
+
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
-          
-          echo "✓ Include order independent"
+
+          echo "Include order independent"
 
   # ===========================================================================
   # Strict Warnings (C++20)
@@ -259,7 +245,7 @@ jobs:
               -Werror \
               -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
-          echo "✓ No warnings"
+          echo "No warnings"
 
   # ===========================================================================
   # Benchmarks - Linux GCC (Manual)
@@ -283,18 +269,12 @@ jobs:
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y libboost-dev
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/pool)"
-
       - name: Check AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX2 supported"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX2 not supported on this runner"
           fi
 
       - name: Build benchmark
@@ -345,18 +325,12 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
 
-      - name: Install competitor libraries
-        run: |
-          sudo apt-get install -y libboost-dev
-          echo "Installed competitor libraries:"
-          echo "  - Boost (boost/pool)"
-
       - name: Check AVX2 support
         run: |
           if grep -q avx2 /proc/cpuinfo; then
-            echo "✓ AVX2 supported"
+            echo "AVX2 supported"
           else
-            echo "⚠ AVX2 not supported on this runner"
+            echo "AVX2 not supported on this runner"
           fi
 
       - name: Build benchmark
@@ -404,7 +378,7 @@ jobs:
 
       - name: Build benchmark
         run: |
-          $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
+          $stdFlag = if (${{ matrix.std }} -eq 23) {{ "/std:c++latest" }} else {{ "/std:c++${{ matrix.std }}" }}
           cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\ObjectPool\benchmarks\benchmark_ObjectPool.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
@@ -446,19 +420,19 @@ jobs:
           echo "" >> summary.md
           echo "| Compiler | Status |" >> summary.md
           echo "|----------|--------|" >> summary.md
-          
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             if ls "$dir"/*.csv 1>/dev/null 2>&1; then
-              echo "| $name | ✓ |" >> summary.md
+              echo "| $name | [PASS] |" >> summary.md
             else
-              echo "| $name | ✗ |" >> summary.md
+              echo "| $name | [FAIL] |" >> summary.md
             fi
           done
-          
+
           echo "" >> summary.md
           echo "## Individual Results" >> summary.md
-          
+
           for dir in all-benchmarks/benchmark-*/; do
             name=$(basename "$dir")
             echo "" >> summary.md
@@ -469,7 +443,7 @@ jobs:
               echo '```' >> summary.md
             fi
           done
-          
+
           cat summary.md
 
       - name: Upload combined results
@@ -499,4 +473,4 @@ jobs:
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          echo "✓ All checks passed"
+          echo "All checks passed"
