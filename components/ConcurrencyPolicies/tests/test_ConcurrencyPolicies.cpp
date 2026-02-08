@@ -719,6 +719,7 @@ FATP_TEST_CASE(HazardPointerPolicy)
     std::atomic<int*> shared_ptr(new int(0));
     std::atomic<int> sum{0};
     std::atomic<bool> stop{false};
+    std::atomic<bool> readers_done{false};
 
     std::thread writer([&]() {
         for (int i = 1; i <= 100; ++i)
@@ -729,6 +730,12 @@ FATP_TEST_CASE(HazardPointerPolicy)
             std::this_thread::yield();
         }
         stop.store(true);
+        // Wait for readers to release hazard pointers before reclaiming
+        while (!readers_done.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+        hp.force_reclaim();
     });
 
     std::vector<std::thread> readers;
@@ -747,11 +754,12 @@ FATP_TEST_CASE(HazardPointerPolicy)
         });
     }
 
-    writer.join();
     for (auto& r : readers)
     {
         r.join();
     }
+    readers_done.store(true, std::memory_order_release);
+    writer.join();
 
     hp.force_reclaim();
 

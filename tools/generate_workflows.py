@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 # FATP_META:
 #   meta_version: 1
 #   component: Tooling
@@ -17,6 +18,7 @@
 #     defines_unprefixed: 0
 #     undefs_total: 0
 #     includes_windows_h: false
+
 """
 Generate all Fat-P CI workflow files from canonical templates.
 Based on object-pool.yml as the reference implementation.
@@ -583,7 +585,7 @@ def generate_sanitizers():
 
       - name: Run with TSan
         env:
-          TSAN_OPTIONS: halt_on_error=1
+          TSAN_OPTIONS: halt_on_error=1:suppressions=tools/tsan_suppressions.txt
         run: ./test_bin"""
 
 

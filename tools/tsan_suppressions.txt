@@ -1,0 +1,28 @@
+# FATP_META:
+#   meta_version: 1
+#   component: Tooling
+#   file_role: tooling
+#   path: tools/tsan_suppressions.txt
+#   summary: "ThreadSanitizer suppression file for known libstdc++ false positives."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
+#
+# ThreadSanitizer suppression file for Fat-P
+#
+# Known false positives in GCC libstdc++ std::atomic<std::shared_ptr> implementation.
+# The internal spinlock in shared_ptr_atomic.h triggers a "double lock" warning
+# because TSAN doesn't understand the lock-free protocol used by _Sp_atomic.
+#
+# See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=101978
+
+mutex:std::_Sp_atomic

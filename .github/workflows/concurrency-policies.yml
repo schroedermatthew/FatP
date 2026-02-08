@@ -181,7 +181,7 @@ jobs:
 
       - name: Run with TSan
         env:
-          TSAN_OPTIONS: halt_on_error=1
+          TSAN_OPTIONS: halt_on_error=1:suppressions=tools/tsan_suppressions.txt
         run: ./test_bin
 
   # ===========================================================================

@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # FATP_META:
 #   meta_version: 1
 #   component: Tooling
@@ -17,6 +18,7 @@
 #     defines_unprefixed: 0
 #     undefs_total: 0
 #     includes_windows_h: false
+
 # ==============================================================================
 # run_all_benchmarks.sh - Execute all Fat-P benchmark suites
 # ==============================================================================
