@@ -442,7 +442,7 @@ FATP_TEST_CASE(logger_thread_safety)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back([&logger, t, messagesPerThread]() {
+        threads.emplace_back([&logger, t]() {
             for (int i = 0; i < messagesPerThread; ++i)
             {
                 logger.log(LogLevel::Info,
@@ -1129,7 +1129,7 @@ FATP_TEST_CASE(registry_thread_safety)
 
     for (int t = 0; t < numThreads; ++t)
     {
-        threads.emplace_back([t, loggersPerThread, &successCount]() {
+        threads.emplace_back([t, &successCount]() {
             for (int i = 0; i < loggersPerThread; ++i)
             {
                 std::string name = "thread" + std::to_string(t) + "_logger" + std::to_string(i);
