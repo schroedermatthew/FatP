@@ -73,7 +73,7 @@ size_t countLines(const std::string& filename)
     {
         return 0;
     }
-    return std::count(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), '\n');
+    return static_cast<size_t>(std::count(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>(), '\n'));
 }
 
 void cleanupTestFiles(const std::string& baseName, int maxIndex = 5)
