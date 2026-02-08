@@ -1,0 +1,82 @@
+# =============================================================================
+# .gitattributes — FAT-P Repository
+# =============================================================================
+# Normalizes line endings, sets diff/merge strategies, and marks binary files.
+# See: https://git-scm.com/docs/gitattributes
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Default: auto-detect text files and normalize to LF in the repo
+# -----------------------------------------------------------------------------
+*                 text=auto
+
+# -----------------------------------------------------------------------------
+# Source code — always LF
+# -----------------------------------------------------------------------------
+*.h               text eol=lf diff=cpp
+*.cpp             text eol=lf diff=cpp
+*.cmake           text eol=lf
+CMakeLists.txt    text eol=lf
+
+# -----------------------------------------------------------------------------
+# Scripts — preserve platform-native endings
+# -----------------------------------------------------------------------------
+*.sh              text eol=lf
+*.py              text eol=lf
+*.bat             text eol=crlf
+*.ps1             text eol=crlf
+
+# -----------------------------------------------------------------------------
+# Configuration and data
+# -----------------------------------------------------------------------------
+*.json            text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+*.csv             text eol=lf
+*.txt             text eol=lf
+*.log             text eol=lf
+*.in              text eol=lf
+*.props           text eol=crlf
+
+# -----------------------------------------------------------------------------
+# Documentation
+# -----------------------------------------------------------------------------
+*.md              text eol=lf diff=markdown
+LICENSE           text eol=lf
+
+# -----------------------------------------------------------------------------
+# Git and editor config
+# -----------------------------------------------------------------------------
+.gitignore        text eol=lf
+.gitattributes    text eol=lf
+.clang-format     text eol=lf
+.gitkeep          text eol=lf
+
+# -----------------------------------------------------------------------------
+# Binary files — no line-ending conversion, no diff
+# -----------------------------------------------------------------------------
+*.png             binary
+*.jpg             binary
+*.jpeg            binary
+*.gif             binary
+*.ico             binary
+*.pdf             binary
+*.zip             binary
+*.docx            binary
+*.pptx            binary
+*.xlsx            binary
+
+# -----------------------------------------------------------------------------
+# Git LFS (uncomment when LFS is enabled)
+# -----------------------------------------------------------------------------
+# *.docx          filter=lfs diff=lfs merge=lfs -text
+# *.pptx          filter=lfs diff=lfs merge=lfs -text
+# *.zip           filter=lfs diff=lfs merge=lfs -text
+# *.png           filter=lfs diff=lfs merge=lfs -text
+
+# -----------------------------------------------------------------------------
+# Linguist: keep GitHub language stats accurate
+# -----------------------------------------------------------------------------
+ThirdParty/**     linguist-vendored
+benchmark_results/** linguist-generated
+*.gitkeep         linguist-generated
