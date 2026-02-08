@@ -149,7 +149,7 @@ FATP_TEST_CASE(default_construction)
 
 FATP_TEST_CASE(value_construction)
 {
-    fat_p::DebugOnly<int> int_val(42);
+    [[maybe_unused]] fat_p::DebugOnly<int> int_val(42);
     fat_p::DebugOnly<std::string> str_val("hello");
     fat_p::DebugOnly<NonTrivial> complex_val(NonTrivial("test", 123));
 
@@ -165,7 +165,7 @@ FATP_TEST_CASE(value_construction)
 
 FATP_TEST_CASE(inplace_construction)
 {
-    fat_p::DebugOnly<NonTrivial> val(std::in_place, "inplace", 999);
+    [[maybe_unused]] fat_p::DebugOnly<NonTrivial> val(std::in_place, "inplace", 999);
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(val.get().data, "inplace", "In-place data");
@@ -178,7 +178,7 @@ FATP_TEST_CASE(inplace_construction)
 FATP_TEST_CASE(copy_construction)
 {
     fat_p::DebugOnly<int> original(42);
-    fat_p::DebugOnly<int> copy(original);
+    [[maybe_unused]] fat_p::DebugOnly<int> copy(original);
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(copy.get(), 42, "Copy should have same value");
@@ -191,7 +191,7 @@ FATP_TEST_CASE(copy_construction)
 FATP_TEST_CASE(move_construction)
 {
     fat_p::DebugOnly<std::string> original("moveable");
-    fat_p::DebugOnly<std::string> moved(std::move(original));
+    [[maybe_unused]] fat_p::DebugOnly<std::string> moved(std::move(original));
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(moved.get(), "moveable", "Moved-to should have value");
@@ -208,7 +208,7 @@ FATP_TEST_CASE(move_only_type)
     FATP_ASSERT_EQ(val.get().get_value(), 42, "Move-only value should be accessible");
 #endif
 
-    fat_p::DebugOnly<MoveOnly> moved(std::move(val));
+    [[maybe_unused]] fat_p::DebugOnly<MoveOnly> moved(std::move(val));
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(moved.get().get_value(), 42, "Move-only should transfer");
@@ -271,7 +271,7 @@ FATP_TEST_CASE(move_assignment)
 
 FATP_TEST_CASE(get_accessor)
 {
-    fat_p::DebugOnly<int> val(42);
+    [[maybe_unused]] fat_p::DebugOnly<int> val(42);
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(val.get(), 42, "get() should return value");
@@ -300,7 +300,7 @@ FATP_TEST_CASE(arrow_operator)
 
 FATP_TEST_CASE(dereference_operator)
 {
-    fat_p::DebugOnly<int> val(42);
+    [[maybe_unused]] fat_p::DebugOnly<int> val(42);
 
 #ifndef NDEBUG
     FATP_ASSERT_EQ(*val, 42, "Dereference should return value");
@@ -314,7 +314,7 @@ FATP_TEST_CASE(dereference_operator)
 
 FATP_TEST_CASE(implicit_conversion)
 {
-    fat_p::DebugOnly<int> val(42);
+    [[maybe_unused]] fat_p::DebugOnly<int> val(42);
 
 #ifndef NDEBUG
     int& ref = val;
@@ -329,7 +329,7 @@ FATP_TEST_CASE(implicit_conversion)
 
 FATP_TEST_CASE(data_accessor)
 {
-    fat_p::DebugOnly<int> val(42);
+    [[maybe_unused]] fat_p::DebugOnly<int> val(42);
 
 #ifndef NDEBUG
     int* ptr = val.data();
@@ -476,8 +476,8 @@ FATP_TEST_CASE(equality_comparison)
 
 FATP_TEST_CASE(relational_comparison)
 {
-    fat_p::DebugOnly<int> a(10);
-    fat_p::DebugOnly<int> b(20);
+    [[maybe_unused]] fat_p::DebugOnly<int> a(10);
+    [[maybe_unused]] fat_p::DebugOnly<int> b(20);
 
 #ifndef NDEBUG
     FATP_ASSERT_TRUE(a < b, "10 < 20");
@@ -714,7 +714,7 @@ FATP_TEST_CASE(debug_only_exec_macro)
 
 FATP_TEST_CASE(debug_only_increment_macro)
 {
-    fat_p::DebugOnly<int> counter(0);
+    [[maybe_unused]] fat_p::DebugOnly<int> counter(0);
 
     FATP_DEBUG_ONLY_INCREMENT(counter);
     FATP_DEBUG_ONLY_INCREMENT(counter);
@@ -768,7 +768,7 @@ FATP_TEST_CASE(throwing_constructor)
 
 FATP_TEST_CASE(constexpr_construction)
 {
-    constexpr fat_p::DebugOnly<int> val(42);
+    [[maybe_unused]] constexpr fat_p::DebugOnly<int> val(42);
 
 #ifndef NDEBUG
     static_assert(val.get() == 42 || true, "Constexpr construction");

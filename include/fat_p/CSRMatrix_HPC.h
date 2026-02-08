@@ -200,6 +200,9 @@ private:
     index_vector col_indices_;
     ptr_vector row_ptrs_;
 
+    /// Cast IndexType to size_type for safe vector indexing
+    static constexpr size_type idx(IndexType i) noexcept { return static_cast<size_type>(i); }
+
     // =========================================================================
     // Private Helpers
     // =========================================================================
@@ -1053,7 +1056,7 @@ public:
                     {
                         for (ptr_type j = row_ptrs_[i]; j < row_ptrs_[i + 1]; ++j)
                         {
-                            thread_counts[t][col_indices_[j] + 1]++;
+                            thread_counts[t][idx(col_indices_[j]) + 1]++;
                         }
                     }
                 }));
@@ -1112,7 +1115,7 @@ public:
                         for (ptr_type j = row_ptrs_[i]; j < row_ptrs_[i + 1]; ++j)
                         {
                             IndexType col = col_indices_[j];
-                            ptr_type dest = write_pos[col].fetch_add(1, std::memory_order_relaxed);
+                            ptr_type dest = write_pos[idx(col)].fetch_add(1, std::memory_order_relaxed);
 
                             result.mValues[dest] = mValues[j];
                             result.col_indices_[dest] = static_cast<IndexType>(i);
@@ -1269,7 +1272,7 @@ public:
             for (ptr_type j = start; j < end; ++j)
             {
                 IndexType col = col_indices_[j];
-                ptr_type dest = write_pos[col]++;
+                ptr_type dest = write_pos[idx(col)]++;
                 result.mValues[dest] = mValues[j];
                 result.col_indices_[dest] = static_cast<IndexType>(i);
             }
@@ -1458,8 +1461,8 @@ public:
                 IndexType k = col_indices_[a_ptr];
                 T a_val = mValues[a_ptr];
 
-                ptr_type b_start = B.row_ptrs_[k];
-                ptr_type b_end = B.row_ptrs_[k + 1];
+                ptr_type b_start = B.row_ptrs_[idx(k)];
+                ptr_type b_end = B.row_ptrs_[idx(k + 1)];
 
                 for (ptr_type b_ptr = b_start; b_ptr < b_end; ++b_ptr)
                 {
@@ -1516,7 +1519,7 @@ public:
 
             for (ptr_type j = start; j < end; ++j)
             {
-                dense[i * mCols + col_indices_[j]] += mValues[j];
+                dense[i * mCols + idx(col_indices_[j])] += mValues[j];
             }
         }
 

@@ -71,7 +71,7 @@ fat_p::CSRMatrix<T, IndexType> generate_random_sparse(size_t rows, size_t cols, 
     std::uniform_real_distribution<double> val_dist(-1.0, 1.0);
     std::uniform_real_distribution<double> prob_dist(0.0, 1.0);
 
-    size_t expected_nnz = static_cast<size_t>(rows * cols * density);
+    size_t expected_nnz = static_cast<size_t>(static_cast<double>(rows * cols) * density);
     row_indices.reserve(expected_nnz);
     col_indices.reserve(expected_nnz);
     values.reserve(expected_nnz);
