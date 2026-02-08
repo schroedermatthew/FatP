@@ -459,6 +459,7 @@ private:
 #if defined(__linux__) && FATP_HAS_NUMA_SUPPORT
         numa_free(ptr, size);
 #elif defined(_WIN32) && FATP_HAS_NUMA_SUPPORT
+        (void)size;
         if constexpr (std::is_same_v<Policy, NumaInterleavedPolicy>)
         {
             // Interleaved on Windows falls back to malloc/aligned_alloc

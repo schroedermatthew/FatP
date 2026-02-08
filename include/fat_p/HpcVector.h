@@ -174,7 +174,10 @@ private:
     {
         if constexpr (std::is_trivially_copyable_v<T>)
         {
-            std::memcpy(dest, src, count * sizeof(T));
+            if (count > 0)
+            {
+                std::memcpy(dest, src, count * sizeof(T));
+            }
         }
         else
         {
@@ -189,7 +192,10 @@ private:
     {
         if constexpr (std::is_trivially_copyable_v<T>)
         {
-            std::memcpy(dest, src, count * sizeof(T));
+            if (count > 0)
+            {
+                std::memcpy(dest, src, count * sizeof(T));
+            }
         }
         else
         {
@@ -217,7 +223,10 @@ private:
             if constexpr (std::is_trivially_copyable_v<T>)
             {
                 // Fast path: memcpy is noexcept, no partial construction possible
-                std::memcpy(new_data, data_, size_ * sizeof(T));
+                if (size_ > 0)
+                {
+                    std::memcpy(new_data, data_, size_ * sizeof(T));
+                }
                 constructed_count = size_;
             }
             else
