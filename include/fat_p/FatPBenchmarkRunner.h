@@ -1756,8 +1756,8 @@ struct Statistics
         s.mean = sum / static_cast<double>(n);
 
         // Percentiles
-        s.p95 = rawSamples[static_cast<std::size_t>(0.95 * (n - 1))];
-        s.p99 = rawSamples[static_cast<std::size_t>(0.99 * (n - 1))];
+        s.p95 = rawSamples[static_cast<std::size_t>(0.95 * static_cast<double>(n - 1))];
+        s.p99 = rawSamples[static_cast<std::size_t>(0.99 * static_cast<double>(n - 1))];
 
         // Standard deviation (sample) and CI95
         if (n > 1)

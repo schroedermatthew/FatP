@@ -136,9 +136,9 @@ public:
         std::lock_guard<std::mutex> lock(mMutex);
         refill_tokens();
 
-        if (mTokens >= count)
+        if (mTokens >= static_cast<double>(count))
         {
-            mTokens -= count;
+            mTokens -= static_cast<double>(count);
             return true;
         }
         return false;

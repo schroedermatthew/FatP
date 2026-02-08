@@ -221,9 +221,9 @@ public:
     size_t countLevel(LogLevel level) const
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        return std::count_if(records.begin(), records.end(), [level](const LogRecord& rec) {
+        return static_cast<size_t>(std::count_if(records.begin(), records.end(), [level](const LogRecord& rec) {
             return rec.level == level;
-        });
+        }));
     }
 
     /**
