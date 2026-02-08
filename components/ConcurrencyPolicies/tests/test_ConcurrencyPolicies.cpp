@@ -73,7 +73,7 @@ void run_concurrent_increment(Policy& policy, std::atomic<int>& counter, int ops
 {
     for (int i = 0; i < ops; ++i)
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         counter.fetch_add(1, std::memory_order_relaxed);
     }
 }
@@ -151,20 +151,20 @@ FATP_TEST_CASE(SingleThreadedPolicy)
     int value = 0;
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         value = 42;
         FATP_ASSERT_EQ(value, 42, "Value should be 42");
     }
 
     {
-        auto guard = policy.lock_shared();
+        [[maybe_unused]] auto guard = policy.lock_shared();
         FATP_ASSERT_EQ(value, 42, "Shared read should work");
     }
 
     {
         auto& static_lock = SingleThreadedPolicy::getStaticLock();
         (void)static_lock;
-        SingleThreadedPolicy::LockGuard guard{};
+        [[maybe_unused]] SingleThreadedPolicy::LockGuard guard{};
         FATP_ASSERT_TRUE(true, "Static lock should work");
     }
 
@@ -210,7 +210,7 @@ FATP_TEST_CASE(MutexSynchronizationPolicy)
 
     {
         auto& static_lock = MutexSynchronizationPolicy::getStaticLock();
-        MutexSynchronizationPolicy::LockGuard guard(static_lock);
+        [[maybe_unused]] MutexSynchronizationPolicy::LockGuard guard(static_lock);
         FATP_ASSERT_TRUE(true, "Static lock works");
     }
 
@@ -233,7 +233,7 @@ FATP_TEST_CASE(SharedMutexPolicy)
     std::atomic<int> read_sum{0};
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         value.store(100, std::memory_order_relaxed);
     }
 
@@ -244,7 +244,7 @@ FATP_TEST_CASE(SharedMutexPolicy)
         readers.emplace_back([&]() {
             for (int j = 0; j < 1000; ++j)
             {
-                auto guard = policy.lock_shared();
+                [[maybe_unused]] auto guard = policy.lock_shared();
                 read_sum.fetch_add(value.load(std::memory_order_relaxed), std::memory_order_relaxed);
             }
         });
@@ -259,7 +259,7 @@ FATP_TEST_CASE(SharedMutexPolicy)
 
     {
         auto& static_lock = SharedMutexPolicy::getStaticLock();
-        SharedMutexPolicy::LockGuard guard(static_lock);
+        [[maybe_unused]] SharedMutexPolicy::LockGuard guard(static_lock);
         FATP_ASSERT_TRUE(true, "Static lock works");
     }
 
@@ -281,18 +281,18 @@ FATP_TEST_CASE(UniqueRWLockPolicy)
     std::atomic<int> counter{0};
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         counter.store(42, std::memory_order_relaxed);
     }
 
     {
-        auto guard = policy.lock_shared();
+        [[maybe_unused]] auto guard = policy.lock_shared();
         FATP_ASSERT_EQ(counter.load(), 42, "Read should work");
     }
 
     UniqueRWLockPolicy policy2 = std::move(policy);
     {
-        auto guard = policy2.lock();
+        [[maybe_unused]] auto guard = policy2.lock();
         counter.store(100, std::memory_order_relaxed);
     }
     FATP_ASSERT_EQ(counter.load(), 100, "Move should work");
@@ -354,12 +354,12 @@ FATP_TEST_CASE(LockFreeSynchronizationPolicy)
     LockFreeSynchronizationPolicy policy;
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         FATP_ASSERT_TRUE(true, "Lock guard construction works");
     }
 
     {
-        auto guard = policy.lock_shared();
+        [[maybe_unused]] auto guard = policy.lock_shared();
         FATP_ASSERT_TRUE(true, "Shared guard construction works");
     }
 
@@ -390,7 +390,7 @@ FATP_TEST_CASE(LockFreeWithFallbackPolicy)
         threads.emplace_back([&]() {
             for (int j = 0; j < 1000; ++j)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 counter.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -408,7 +408,7 @@ FATP_TEST_CASE(LockFreeWithFallbackPolicy)
 
     for (int j = 0; j < 1000; ++j)
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         counter.fetch_add(1, std::memory_order_relaxed);
     }
     FATP_ASSERT_EQ(counter.load(), 1000, "Release mode is no-op");
@@ -437,13 +437,13 @@ FATP_TEST_CASE(WaitableSynchronizationPolicy)
 
     std::thread producer([&]() {
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         ready = true;
         policy.getCondition().notify_one();
     });
 
     std::thread consumer([&]() {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         guard.wait(policy.getCondition(), [&]() {
             return ready;
         });
@@ -456,7 +456,7 @@ FATP_TEST_CASE(WaitableSynchronizationPolicy)
     FATP_ASSERT_TRUE(ready && processed, "Producer/consumer should synchronize");
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         FATP_ASSERT_TRUE(guard.owns_lock(), "Should own lock");
         FATP_ASSERT_TRUE(guard.mutex() != nullptr, "Should have mutex pointer");
     }
@@ -479,12 +479,12 @@ FATP_TEST_CASE(SeqLockPolicy)
     int test_data = 0;
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         test_data = 42;
     }
 
     {
-        auto guard = policy.lock_shared();
+        [[maybe_unused]] auto guard = policy.lock_shared();
         int value = test_data;
         FATP_ASSERT_TRUE(guard.is_valid(), "Read should be valid");
         FATP_ASSERT_EQ(value, 42, "Read value should match");
@@ -492,7 +492,7 @@ FATP_TEST_CASE(SeqLockPolicy)
 
     uint64_t seq1 = policy.get_sequence();
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         test_data = 100;
     }
     uint64_t seq2 = policy.get_sequence();
@@ -509,7 +509,7 @@ FATP_TEST_CASE(SeqLockPolicy)
         {
             for (int i = 0; i < 100; ++i)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 test_data++;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -523,7 +523,7 @@ FATP_TEST_CASE(SeqLockPolicy)
         readers.emplace_back([&]() {
             while (!stop.load())
             {
-                auto guard = policy.lock_shared();
+                [[maybe_unused]] auto guard = policy.lock_shared();
                 int value = test_data;
                 (void)value;
                 if (guard.is_valid())
@@ -574,7 +574,7 @@ FATP_TEST_CASE(TicketLockPolicy)
         threads.emplace_back([&]() {
             for (int j = 0; j < ops; ++j)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 counter.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -613,7 +613,7 @@ FATP_TEST_CASE(MCSLockPolicy)
         threads.emplace_back([&]() {
             for (int j = 0; j < ops; ++j)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 counter.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -643,19 +643,19 @@ FATP_TEST_CASE(RCUPolicy)
     RCUPolicy<int> rcu(42);
 
     {
-        auto guard = rcu.read();
+        [[maybe_unused]] auto guard = rcu.read();
         FATP_ASSERT_EQ(*guard, 42, "Initial read should work");
     }
 
     {
-        auto guard = rcu.write();
+        [[maybe_unused]] auto guard = rcu.write();
         guard.update([](int& val) {
             val = 100;
         });
     }
 
     {
-        auto guard = rcu.read();
+        [[maybe_unused]] auto guard = rcu.read();
         FATP_ASSERT_EQ(*guard, 100, "Updated value should be visible");
     }
 
@@ -667,7 +667,7 @@ FATP_TEST_CASE(RCUPolicy)
         readers.emplace_back([&]() {
             for (int j = 0; j < 1000; ++j)
             {
-                auto guard = rcu.read();
+                [[maybe_unused]] auto guard = rcu.read();
                 if (*guard == 100)
                 {
                     read_count.fetch_add(1);
@@ -704,7 +704,7 @@ FATP_TEST_CASE(HazardPointerPolicy)
 
     std::atomic<int*> ptr(new int(42));
     {
-        auto guard = hp.acquire();
+        [[maybe_unused]] auto guard = hp.acquire();
         int* protected_ptr = guard.protect(ptr);
         FATP_ASSERT_EQ(*protected_ptr, 42, "Protected read should work");
     }
@@ -734,7 +734,7 @@ FATP_TEST_CASE(HazardPointerPolicy)
         readers.emplace_back([&]() {
             while (!stop.load())
             {
-                auto guard = hp.acquire();
+                [[maybe_unused]] auto guard = hp.acquire();
                 int* p = guard.protect(shared_ptr);
                 if (p)
                 {
@@ -775,7 +775,7 @@ FATP_TEST_CASE(AdaptiveLockPolicy)
 
     for (int i = 0; i < 100; ++i)
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         counter.fetch_add(1, std::memory_order_relaxed);
     }
     FATP_ASSERT_EQ(counter.load(), 100, "Low contention should work");
@@ -792,7 +792,7 @@ FATP_TEST_CASE(AdaptiveLockPolicy)
         threads.emplace_back([&]() {
             for (int j = 0; j < 2000; ++j)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 counter.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -830,7 +830,7 @@ FATP_TEST_CASE(PriorityInheritanceLockPolicy)
         threads.emplace_back([&]() {
             for (int j = 0; j < 5000; ++j)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 counter.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -870,14 +870,14 @@ FATP_TEST_CASE(VersionedLockPolicy)
 
     uint64_t v1 = policy.get_version();
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         test_data = 42;
     }
     uint64_t v2 = policy.get_version();
     FATP_ASSERT_TRUE(v2 > v1, "Version should increment after write");
 
     {
-        auto guard = policy.lock_shared();
+        [[maybe_unused]] auto guard = policy.lock_shared();
         int value = test_data;
         FATP_ASSERT_TRUE(guard.validate(), "Version should be valid");
         FATP_ASSERT_EQ(value, 42, "Read value should match");
@@ -885,7 +885,7 @@ FATP_TEST_CASE(VersionedLockPolicy)
     }
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         test_data = 100;
         FATP_ASSERT_EQ(guard.get_version(), v2, "Write guard has old version");
         guard.commit();
@@ -931,7 +931,7 @@ FATP_TEST_CASE(RecursiveMutexPolicy)
         threads.emplace_back([&]() {
             for (int j = 0; j < 5000; ++j)
             {
-                auto guard = policy.lock();
+                [[maybe_unused]] auto guard = policy.lock();
                 counter.fetch_add(1, std::memory_order_relaxed);
             }
         });
@@ -961,12 +961,12 @@ FATP_TEST_CASE(TimedMutexPolicy)
     TimedMutexPolicy policy;
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         FATP_ASSERT_TRUE(guard.owns_lock(), "Should acquire lock");
     }
 
     {
-        auto guard = policy.lock_deferred();
+        [[maybe_unused]] auto guard = policy.lock_deferred();
         FATP_ASSERT_TRUE(!guard.owns_lock(), "Deferred should not own lock");
         bool acquired = guard.try_lock_for(std::chrono::milliseconds(10));
         FATP_ASSERT_TRUE(acquired, "Should acquire uncontended lock");
@@ -977,7 +977,7 @@ FATP_TEST_CASE(TimedMutexPolicy)
     std::atomic<bool> holder_ready{false};
 
     std::thread holder([&]() {
-        auto guard = policy2.lock();
+        [[maybe_unused]] auto guard = policy2.lock();
         holder_ready.store(true);
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     });
@@ -988,7 +988,7 @@ FATP_TEST_CASE(TimedMutexPolicy)
     }
 
     {
-        auto guard = policy2.lock_deferred();
+        [[maybe_unused]] auto guard = policy2.lock_deferred();
         bool acquired = guard.try_lock_for(std::chrono::milliseconds(10));
         FATP_ASSERT_TRUE(!acquired, "Should timeout on contended lock");
     }
@@ -1013,7 +1013,7 @@ FATP_TEST_CASE(SharedTimedMutexPolicy)
     std::atomic<int> value{0};
 
     {
-        auto guard = policy.lock();
+        [[maybe_unused]] auto guard = policy.lock();
         value.store(42);
     }
 
@@ -1025,7 +1025,7 @@ FATP_TEST_CASE(SharedTimedMutexPolicy)
         readers.emplace_back([&]() {
             for (int j = 0; j < 1000; ++j)
             {
-                auto guard = policy.lock_shared();
+                [[maybe_unused]] auto guard = policy.lock_shared();
                 read_sum.fetch_add(value.load(), std::memory_order_relaxed);
             }
         });
