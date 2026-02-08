@@ -1371,7 +1371,7 @@ public:
      */
     Tensor reshape(std::vector<size_t> new_shape) const
     {
-        size_t new_size = compute_size(new_shape);
+        [[maybe_unused]] size_t new_size = compute_size(new_shape);
         FATP_ENFORCE(new_size == size_, "Reshape size mismatch: current=", size_, ", requested=", new_size);
 
         std::vector<ptrdiff_t> new_strides = compute_strides(new_shape);

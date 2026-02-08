@@ -319,7 +319,7 @@ private:
  * @details Debug-only version with better error messages
  */
 template <typename T>
-std::shared_ptr<T> checked_lock(const std::weak_ptr<T>& wp, const char* context = "Object")
+std::shared_ptr<T> checked_lock(const std::weak_ptr<T>& wp, [[maybe_unused]] const char* context = "Object")
 {
     auto sp = wp.lock();
     if (!sp)
