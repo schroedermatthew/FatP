@@ -11,7 +11,7 @@ applies_to:
   - tools/**/*.{py,sh,ps1}
   - tooling/**/*.{py,sh,ps1}
 version: 1
-last_updated: 2026-01-31
+last_updated: 2026-02-08
 ---
 
 # FAT-P Meta Header Guidelines
@@ -74,6 +74,12 @@ Legacy compatibility: headers that still use include guards follow the same orde
 1. If the file has a shebang line (`#!...`), keep it first.
 2. Place `FATP_META` immediately after the shebang (or at the top if there is no shebang).
 3. Place `FATP_META` before any executable statements.
+
+### Blank line separation (all file types)
+
+Always leave **one empty line** after the closing of a `FATP_META` block before the next content (includes, code, or other comments). This improves readability and ensures the parser cleanly terminates the metadata region.
+
+For `/* ... */` blocks, the empty line follows the closing `*/`. For line-comment blocks (`//` or `#`), the empty line follows the last metadata line.
 
 ## Format
 
@@ -465,6 +471,7 @@ Reports any header that `#include`s a file from a layer above its own declared `
 - Using unstable or invented component names.
 - Treating `FATP_META` as a substitute for manuals and invariants.
 - **Embedding `*/` inside `FATP_META` values** (this terminates the comment and breaks compilation).
+- Omitting the blank line after the `FATP_META` block (can cause parser issues or reduce readability).
 
 ## Versioning
 
