@@ -243,7 +243,7 @@ void auto_calibration()
     // Test calibrate_iterations
     volatile int sink = 0;
     auto fast_op = [&]() {
-        sink++;
+        sink = sink + 1;
     };
 
     double resolution_ms = HighResolutionTimer::resolution_ms();

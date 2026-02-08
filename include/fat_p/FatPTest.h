@@ -1437,8 +1437,8 @@ inline SubtestTracker& get_subtest_tracker();
         auto&& actual_val = (actual);                                                                                  \
         auto&& expected_val = (expected);                                                                              \
                                                                                                                        \
-        size_t actual_size = std::distance(std::begin(actual_val), std::end(actual_val));                              \
-        size_t expected_size = std::distance(std::begin(expected_val), std::end(expected_val));                        \
+        size_t actual_size = static_cast<size_t>(std::distance(std::begin(actual_val), std::end(actual_val)));          \
+        size_t expected_size = static_cast<size_t>(std::distance(std::begin(expected_val), std::end(expected_val)));    \
                                                                                                                        \
         bool ranges_equal = true;                                                                                      \
         std::ostringstream diff_output;                                                                                \
@@ -1498,8 +1498,8 @@ inline SubtestTracker& get_subtest_tracker();
         auto&& expected_val = (expected);                                                                      \
         auto&& epsilon_val = (epsilon);                                                                        \
                                                                                                                \
-        size_t actual_size = std::distance(std::begin(actual_val), std::end(actual_val));                      \
-        size_t expected_size = std::distance(std::begin(expected_val), std::end(expected_val));                \
+        size_t actual_size = static_cast<size_t>(std::distance(std::begin(actual_val), std::end(actual_val)));  \
+        size_t expected_size = static_cast<size_t>(std::distance(std::begin(expected_val), std::end(expected_val))); \
                                                                                                                \
         bool ranges_equal = true;                                                                              \
         std::ostringstream diff_output;                                                                        \
@@ -1639,7 +1639,11 @@ inline void DoNotOptimize(T const& value) noexcept
 template <typename T>
 inline void DoNotOptimize(T& value) noexcept
 {
+#if defined(__clang__)
     asm volatile("" : "+r,m"(value) : : "memory");
+#else
+    asm volatile("" : "+m"(value) : : "memory");
+#endif
 }
 
 #endif
@@ -2684,7 +2688,7 @@ template <typename Func>
     {
         sum += t;
     }
-    double mean = sum / times.size();
+    double mean = sum / static_cast<double>(times.size());
 
     // Clamp mean to [min, max] to handle floating-point precision issues
     // with extremely small measurements where accumulation errors can
@@ -2699,10 +2703,10 @@ template <typename Func>
         return BenchmarkStats{0, 0, 0, 0, 0, 0, 0, 0, iterations};
     }
 
-    size_t p95_idx = static_cast<size_t>(std::floor((times.size() - 1) * 0.95));
+    size_t p95_idx = static_cast<size_t>(std::floor(static_cast<double>(times.size() - 1) * 0.95));
     double p95 = times[p95_idx];
 
-    size_t p99_idx = static_cast<size_t>(std::floor((times.size() - 1) * 0.99));
+    size_t p99_idx = static_cast<size_t>(std::floor(static_cast<double>(times.size() - 1) * 0.99));
     double p99 = times[p99_idx];
 
     double variance = 0.0;
@@ -2713,7 +2717,7 @@ template <typename Func>
             double diff = t - mean;
             variance += diff * diff;
         }
-        variance /= (times.size() - 1);
+        variance /= static_cast<double>(times.size() - 1);
     }
     double stddev = std::sqrt(variance);
 
@@ -3647,7 +3651,7 @@ public:
             out << "\n";
         }
 
-        result.pass_rate = (100.0 * result.passed) / result.total_runs;
+        result.pass_rate = (100.0 * static_cast<double>(result.passed)) / static_cast<double>(result.total_runs);
 
         out << "  Results: " << colors::green() << result.passed << " passed" << colors::reset() << ", ";
         if (result.failed > 0)
