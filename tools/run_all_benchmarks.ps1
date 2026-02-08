@@ -1,3 +1,9 @@
+# FATP_META:
+#   meta_version: 1
+#   component: BuildSystem
+#   file_role: tooling
+#   path: tools/run_all_benchmarks.ps1
+#   summary: "Windows PowerShell script to execute all Fat-P benchmark suites."
 # ==============================================================================
 # run_all_benchmarks.ps1 - Execute all Fat-P benchmark suites (Windows)
 # ==============================================================================

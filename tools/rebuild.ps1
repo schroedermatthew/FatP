@@ -1,3 +1,9 @@
+# FATP_META:
+#   meta_version: 1
+#   component: BuildSystem
+#   file_role: tooling
+#   path: tools/rebuild.ps1
+#   summary: "Windows PowerShell clean rebuild script."
 $ErrorActionPreference = "Stop"
 
 # Verify we're in project root

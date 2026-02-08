@@ -1,4 +1,10 @@
 #!/bin/bash
+# FATP_META:
+#   meta_version: 1
+#   component: BuildSystem
+#   file_role: tooling
+#   path: tools/rebuild.sh
+#   summary: "Linux/macOS clean rebuild script."
 set -e
 
 # Verify we're in project root

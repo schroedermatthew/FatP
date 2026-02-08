@@ -1,4 +1,10 @@
 #!/bin/bash
+# FATP_META:
+#   meta_version: 1
+#   component: BuildSystem
+#   file_role: tooling
+#   path: tools/build.sh
+#   summary: "Linux/macOS build script for CMake configuration and compilation."
 set -e
 
 # Verify we're in project root

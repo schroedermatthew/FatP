@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# FATP_META:
+#   meta_version: 1
+#   component: BuildSystem
+#   file_role: tooling
+#   path: tools/generate_workflows.py
+#   summary: "Generates all Fat-P CI workflow files from canonical templates."
 """
 Generate all Fat-P CI workflow files from canonical templates.
 Based on object-pool.yml as the reference implementation.
@@ -6,7 +12,7 @@ Based on object-pool.yml as the reference implementation.
 
 import os
 
-OUTPUT_DIR = "/home/claude/output/.github/workflows"
+OUTPUT_DIR = ".github/workflows"
 
 # =============================================================================
 # Component definitions

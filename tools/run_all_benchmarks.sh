@@ -1,4 +1,10 @@
 #!/bin/bash
+# FATP_META:
+#   meta_version: 1
+#   component: BuildSystem
+#   file_role: tooling
+#   path: tools/run_all_benchmarks.sh
+#   summary: "Linux/macOS script to execute all Fat-P benchmark suites."
 # ==============================================================================
 # run_all_benchmarks.sh - Execute all Fat-P benchmark suites
 # ==============================================================================
