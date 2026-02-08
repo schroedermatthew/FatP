@@ -606,6 +606,17 @@ public:
      * @brief Copy assignment
      * @note Implements POCCA (Propagate On Container Copy Assignment) semantics
      */
+    // GCC -Wmaybe-uninitialized false positive: when GCC inlines this operator and
+    // assign() at -O2, it cannot prove that reads from other.data_ (which points to
+    // other.inline_buffer_, a std::byte[]) were initialized by prior writes through
+    // a T* obtained via reinterpret_cast. The writes DID happen (constructor + prior
+    // assign/push_back), but GCC's alias analysis loses the type-punned pointer chain.
+    // This is a known GCC limitation with byte-storage inline buffers; LLVM SmallVector,
+    // Folly small_vector, and Abseil InlinedVector carry identical suppressions.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
     SmallVector& operator=(const SmallVector& other)
     {
         if (this == &other)
@@ -635,6 +646,9 @@ public:
         assert_invariants();
         return *this;
     }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
     /**
      * @brief Move assignment
