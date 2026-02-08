@@ -18,7 +18,7 @@ jobs:
 
       - name: Trigger all component workflows
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         run: |
           total=0
           succeeded=0
