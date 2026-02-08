@@ -1639,7 +1639,7 @@ inline void DoNotOptimize(T const& value) noexcept
 template <typename T>
 inline void DoNotOptimize(T& value) noexcept
 {
-    asm volatile("" : "+g"(value) : : "memory");
+    asm volatile("" : "+r,m"(value) : : "memory");
 }
 
 #endif
