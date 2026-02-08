@@ -135,7 +135,27 @@ FATP_TEST_CASE(policy_traits)
     static_assert(supports_try_lock_v<TimedMutexPolicy>, "Timed supports try_lock");
     static_assert(supports_try_lock_v<PriorityInheritanceLockPolicy>, "PI supports try_lock");
 
-    std::cout << colors::green() << "Policy Traits: All static_asserts passed." << colors::reset() << std::endl;
+    // C++20 concept-based checks (verify concepts match _v variables)
+    static_assert(ConcurrencyPolicy<SingleThreadedPolicy>, "ST satisfies ConcurrencyPolicy");
+    static_assert(ConcurrencyPolicy<MutexSynchronizationPolicy>, "Mutex satisfies ConcurrencyPolicy");
+    static_assert(ConcurrencyPolicy<SharedMutexPolicy>, "SharedMutex satisfies ConcurrencyPolicy");
+    static_assert(!ConcurrencyPolicy<int>, "int does not satisfy ConcurrencyPolicy");
+
+    static_assert(ConcurrencyPolicyTag<SingleThreadedPolicy>, "ST has PolicyTag");
+    static_assert(SharedPolicy<SharedMutexPolicy>, "SharedMutex is SharedPolicy");
+    static_assert(FairPolicy<TicketLockPolicy>, "TicketLock is FairPolicy");
+    static_assert(!FairPolicy<SpinlockSynchronizationPolicy>, "Spinlock not FairPolicy");
+    static_assert(OptimisticPolicy<SeqLockPolicy>, "SeqLock is OptimisticPolicy");
+    static_assert(NumaAwarePolicy<MCSLockPolicy>, "MCS is NumaAwarePolicy");
+    static_assert(RealtimePolicy<PriorityInheritanceLockPolicy>, "PI is RealtimePolicy");
+    static_assert(LockFreePolicy<RCUPolicy<int>>, "RCU is LockFreePolicy");
+    static_assert(AdaptivePolicy<AdaptiveLockPolicy>, "Adaptive is AdaptivePolicy");
+    static_assert(HasContentionTracking<MutexSynchronizationPolicy>, "Mutex has contention tracking");
+    static_assert(RecursivePolicy<RecursiveMutexPolicy>, "RecursiveMutex is RecursivePolicy");
+    static_assert(TimedPolicy<TimedMutexPolicy>, "TimedMutex is TimedPolicy");
+    static_assert(SupportsTryLock<MutexSynchronizationPolicy>, "Mutex supports SupportsTryLock");
+
+    std::cout << colors::green() << "Policy Traits & Concepts: All static_asserts passed." << colors::reset() << std::endl;
     return true;
 }
 

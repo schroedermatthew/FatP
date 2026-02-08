@@ -7,7 +7,7 @@ FATP_META:
   file_role: public_header
   path: include/fat_p/Factory.h
   namespace: fat_p
-  layer: Domain
+  layer: Foundation
   summary: "Public header for Factory."
   api_stability: in_work
   related:
@@ -714,7 +714,7 @@ public:
 
         // Phase 1: Lookup under lock
         {
-            if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
+            if constexpr (is_shared_policy_v<ConcurrencyPolicy>)
             {
                 auto lock = this->ConcurrencyPolicy::lock_shared();
                 mStats.increment_lookups();
@@ -769,7 +769,7 @@ public:
      */
     [[nodiscard]] bool hasType(const K& key) const noexcept
     {
-        if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
+        if constexpr (is_shared_policy_v<ConcurrencyPolicy>)
         {
             auto lock = this->ConcurrencyPolicy::lock_shared();
             mStats.increment_lookups();
@@ -785,7 +785,7 @@ public:
 
     [[nodiscard]] size_t size() const noexcept
     {
-        if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
+        if constexpr (is_shared_policy_v<ConcurrencyPolicy>)
         {
             auto lock = this->ConcurrencyPolicy::lock_shared();
             return mRegistry.size();
@@ -805,7 +805,7 @@ public:
     [[nodiscard]] std::vector<K> getRegisteredKeys() const
     {
         std::vector<K> keys;
-        if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
+        if constexpr (is_shared_policy_v<ConcurrencyPolicy>)
         {
             auto lock = this->ConcurrencyPolicy::lock_shared();
             keys.reserve(mRegistry.size());
@@ -841,7 +841,7 @@ public:
 
     [[nodiscard]] typename StatsType::Snapshot getStats() const noexcept
     {
-        if constexpr (is_shared_policy<ConcurrencyPolicy>::value)
+        if constexpr (is_shared_policy_v<ConcurrencyPolicy>)
         {
             auto lock = this->ConcurrencyPolicy::lock_shared();
             return mStats.snapshot();

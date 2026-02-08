@@ -41,7 +41,7 @@ FATP_META:
  *
  * FEATURES:
  *   - 19 total concurrency policies with production-ready implementations
- *   - Enhanced C++20/C++23 support with jthread and atomic<shared_ptr>
+ *   - C++20 jthread and atomic<shared_ptr> support (where library available)
  *   - Platform-specific priority inheritance (POSIX/Windows)
  *   - Thread-local hazard pointers with proper lifetime management
  *   - Enhanced trait system with contention tracking support
@@ -103,13 +103,6 @@ FATP_META:
 // Cache line size for alignment
 #if !defined(FATP_CACHE_LINE_SIZE)
 #define FATP_CACHE_LINE_SIZE 64
-#endif
-
-// C++23 jthread feature detection
-#if FATP_HAS_CPP23 || FATP_HAS_JTHREAD
-#define FATP_HAS_JTHREAD 1
-#else
-#define FATP_HAS_JTHREAD 0
 #endif
 
 // C++20 atomic<shared_ptr> detection - use internal flag from CppFeatureDetection.h
@@ -185,183 +178,121 @@ namespace fat_p
 {
 
 // =============================================================================
-// Policy Traits
+// Policy Concepts (C++20)
 // =============================================================================
 
-template <typename T, typename = void>
-struct is_concurrency_policy : std::false_type
+/// Full concurrency policy interface: lockable with shared support
+template <typename P>
+concept ConcurrencyPolicy = requires(P p)
 {
+    typename P::LockGuard;
+    typename P::SharedGuard;
+    { p.lock() } -> std::same_as<typename P::LockGuard>;
+    { p.lock_shared() } -> std::same_as<typename P::SharedGuard>;
 };
 
+/// Policy has the basic concurrency policy tag
 template <typename T>
-struct is_concurrency_policy<T, std::void_t<typename T::PolicyTag>> : std::true_type
-{
+concept ConcurrencyPolicyTag = requires { typename T::PolicyTag; };
+
+/// Policy supports shared (read) locking
+template <typename T>
+concept SharedPolicy = requires { typename T::SharedGuard; };
+
+/// Policy's LockGuard supports condition variable wait
+template <typename T>
+concept WaitablePolicy = requires(typename T::LockGuard g, std::condition_variable& cv) {
+    g.wait(cv);
 };
 
+/// Policy provides fair (FIFO) ordering
 template <typename T>
-inline constexpr bool is_concurrency_policy_v = is_concurrency_policy<T>::value;
+concept FairPolicy = requires { typename T::FairOrderingTag; };
 
-template <typename T, typename = void>
-struct is_shared_policy : std::false_type
-{
+/// Policy uses optimistic concurrency (e.g., SeqLock)
+template <typename T>
+concept OptimisticPolicy = requires { typename T::OptimisticTag; };
+
+/// Policy is NUMA-aware (e.g., MCSLock)
+template <typename T>
+concept NumaAwarePolicy = requires { typename T::NUMAAwareTag; };
+
+/// Policy supports real-time priority inheritance
+template <typename T>
+concept RealtimePolicy = requires { typename T::RealtimeTag; };
+
+/// Policy is lock-free
+template <typename T>
+concept LockFreePolicy = requires { typename T::LockFreeTag; };
+
+/// Policy adapts between strategies at runtime
+template <typename T>
+concept AdaptivePolicy = requires { typename T::AdaptiveTag; };
+
+/// Policy tracks contention statistics
+template <typename T>
+concept HasContentionTracking = requires(T t) {
+    t.get_contention();
 };
 
+/// Policy supports recursive locking
 template <typename T>
-struct is_shared_policy<T, std::void_t<typename T::SharedGuard>> : std::true_type
-{
+concept RecursivePolicy = requires { typename T::RecursiveTag; };
+
+/// Policy's LockGuard supports timed locking
+template <typename T>
+concept TimedPolicy = requires(typename T::LockGuard g) {
+    g.try_lock_for(std::chrono::milliseconds(1));
 };
 
+/// Policy supports try_lock()
 template <typename T>
-inline constexpr bool is_shared_policy_v = is_shared_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_waitable_policy : std::false_type
-{
+concept SupportsTryLock = requires(T t) {
+    { t.try_lock() } -> std::convertible_to<bool>;
 };
 
-template <typename T>
-struct is_waitable_policy<
-    T,
-    std::void_t<decltype(std::declval<typename T::LockGuard>().wait(std::declval<std::condition_variable&>()))>>
-    : std::true_type
-{
-};
+// =============================================================================
+// Backward Compatibility (variable templates)
+// =============================================================================
 
 template <typename T>
-inline constexpr bool is_waitable_policy_v = is_waitable_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_fair_policy : std::false_type
-{
-};
+inline constexpr bool is_concurrency_policy_v = ConcurrencyPolicyTag<T>;
 
 template <typename T>
-struct is_fair_policy<T, std::void_t<typename T::FairOrderingTag>> : std::true_type
-{
-};
+inline constexpr bool is_shared_policy_v = SharedPolicy<T>;
 
 template <typename T>
-inline constexpr bool is_fair_policy_v = is_fair_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_optimistic_policy : std::false_type
-{
-};
+inline constexpr bool is_waitable_policy_v = WaitablePolicy<T>;
 
 template <typename T>
-struct is_optimistic_policy<T, std::void_t<typename T::OptimisticTag>> : std::true_type
-{
-};
+inline constexpr bool is_fair_policy_v = FairPolicy<T>;
 
 template <typename T>
-inline constexpr bool is_optimistic_policy_v = is_optimistic_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_numa_aware_policy : std::false_type
-{
-};
+inline constexpr bool is_optimistic_policy_v = OptimisticPolicy<T>;
 
 template <typename T>
-struct is_numa_aware_policy<T, std::void_t<typename T::NUMAAwareTag>> : std::true_type
-{
-};
+inline constexpr bool is_numa_aware_policy_v = NumaAwarePolicy<T>;
 
 template <typename T>
-inline constexpr bool is_numa_aware_policy_v = is_numa_aware_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_realtime_policy : std::false_type
-{
-};
+inline constexpr bool is_realtime_policy_v = RealtimePolicy<T>;
 
 template <typename T>
-struct is_realtime_policy<T, std::void_t<typename T::RealtimeTag>> : std::true_type
-{
-};
+inline constexpr bool is_lockfree_policy_v = LockFreePolicy<T>;
 
 template <typename T>
-inline constexpr bool is_realtime_policy_v = is_realtime_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_lockfree_policy : std::false_type
-{
-};
+inline constexpr bool is_adaptive_policy_v = AdaptivePolicy<T>;
 
 template <typename T>
-struct is_lockfree_policy<T, std::void_t<typename T::LockFreeTag>> : std::true_type
-{
-};
+inline constexpr bool has_contention_tracking_v = HasContentionTracking<T>;
 
 template <typename T>
-inline constexpr bool is_lockfree_policy_v = is_lockfree_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_adaptive_policy : std::false_type
-{
-};
+inline constexpr bool is_recursive_policy_v = RecursivePolicy<T>;
 
 template <typename T>
-struct is_adaptive_policy<T, std::void_t<typename T::AdaptiveTag>> : std::true_type
-{
-};
+inline constexpr bool is_timed_policy_v = TimedPolicy<T>;
 
 template <typename T>
-inline constexpr bool is_adaptive_policy_v = is_adaptive_policy<T>::value;
-
-template <typename T, typename = void>
-struct has_contention_tracking : std::false_type
-{
-};
-
-template <typename T>
-struct has_contention_tracking<T, std::void_t<decltype(std::declval<T>().get_contention())>> : std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool has_contention_tracking_v = has_contention_tracking<T>::value;
-
-template <typename T, typename = void>
-struct is_recursive_policy : std::false_type
-{
-};
-
-template <typename T>
-struct is_recursive_policy<T, std::void_t<typename T::RecursiveTag>> : std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool is_recursive_policy_v = is_recursive_policy<T>::value;
-
-template <typename T, typename = void>
-struct is_timed_policy : std::false_type
-{
-};
-
-template <typename T>
-struct is_timed_policy<
-    T,
-    std::void_t<decltype(std::declval<typename T::LockGuard>().try_lock_for(std::chrono::milliseconds(1)))>>
-    : std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool is_timed_policy_v = is_timed_policy<T>::value;
-
-template <typename T, typename = void>
-struct supports_try_lock : std::false_type
-{
-};
-
-template <typename T>
-struct supports_try_lock<T, std::void_t<decltype(std::declval<T>().try_lock())>> : std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool supports_try_lock_v = supports_try_lock<T>::value;
+inline constexpr bool supports_try_lock_v = SupportsTryLock<T>;
 
 // =============================================================================
 // SingleThreadedPolicy - Zero-cost no-op synchronization
@@ -2487,18 +2418,5 @@ private:
 using NoLocking = SingleThreadedPolicy;
 using ReadWriteLock = SharedMutexPolicy;
 using SpinLock = SpinlockSynchronizationPolicy;
-
-// =============================================================================
-// C++20 Concepts
-// =============================================================================
-
-template <typename P>
-concept ConcurrencyPolicy = requires(P p)
-{
-    typename P::LockGuard;
-    typename P::SharedGuard;
-    {p.lock()}->std::same_as<typename P::LockGuard>;
-    {p.lock_shared()}->std::same_as<typename P::SharedGuard>;
-};
 
 } // namespace fat_p
