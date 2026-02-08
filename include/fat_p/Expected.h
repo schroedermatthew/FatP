@@ -438,6 +438,13 @@ public:
      * @brief Destructor: Destroys the active member if initialized.
      * Checks mInitialized flag before destroying.
      */
+    // GCC 14 emits false-positive -Wmaybe-uninitialized for union members in destructors
+    // after swap, when it can't prove which member is active at compile time. This is safe
+    // because the destructor checks has_value_ before accessing any union member.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
     ~UnionStorage() noexcept
     {
         if (mInitialized)
@@ -459,6 +466,9 @@ public:
         }
         // If not initialized, nothing to destroy
     }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 
     /**
      * @brief Stores a value, destroying any existing member.
