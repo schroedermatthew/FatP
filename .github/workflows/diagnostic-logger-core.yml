@@ -11,11 +11,6 @@
 name: DiagnosticLogger_Core CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/diagnostic-logger-core.yml'
-      - 'include/fat_p/DiagnosticLogger_Core.h'
-      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_Core.cpp'
   workflow_dispatch:
 
 env:
@@ -116,7 +111,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\DiagnosticLogger\tests\test_DiagnosticLogger_Core.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\DiagnosticLogger\tests\test_DiagnosticLogger_Core.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

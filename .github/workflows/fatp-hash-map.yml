@@ -19,12 +19,6 @@
 name: FatPHashMap CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/fatp-hash-map.yml'
-      - 'include/fat_p/FastHashMap.h'
-      - 'include/fat_p/StableHashMap.h'
-      - 'components/FatPHashMap/**'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -170,7 +164,7 @@ jobs:
         run: |
           $std = "${{ matrix.std }}"
           $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
-          cl $stdFlag /W4 /WX /EHsc /permissive- /wd4324 /D_CRT_SECURE_NO_WARNINGS /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_FastHashMap.cpp /Fe:test_fast.exe /link advapi32.lib
+          cl $stdFlag /W4 /WX /EHsc /permissive- /Zc:preprocessor /wd4324 /D_CRT_SECURE_NO_WARNINGS /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_FastHashMap.cpp /Fe:test_fast.exe /link advapi32.lib
           .\test_fast.exe
 
       - name: Build and run StableHashMap tests
@@ -178,7 +172,7 @@ jobs:
         run: |
           $std = "${{ matrix.std }}"
           $stdFlag = if ($std -eq "23") { "/std:c++latest" } else { "/std:c++$std" }
-          cl $stdFlag /W4 /WX /EHsc /permissive- /wd4324 /D_CRT_SECURE_NO_WARNINGS /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_StableHashMap.cpp /Fe:test_stable.exe /link advapi32.lib
+          cl $stdFlag /W4 /WX /EHsc /permissive- /Zc:preprocessor /wd4324 /D_CRT_SECURE_NO_WARNINGS /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.COMPONENT_DIR }}\tests\test_StableHashMap.cpp /Fe:test_stable.exe /link advapi32.lib
           .\test_stable.exe
 
   # ===========================================================================
@@ -490,7 +484,7 @@ jobs:
       - name: Build benchmarks
         shell: pwsh
         run: |
-          cl /nologo /std:c++latest /O2 /DNDEBUG /EHsc /permissive- /wd4324 /D_CRT_SECURE_NO_WARNINGS `
+          cl /nologo /std:c++latest /O2 /DNDEBUG /EHsc /permissive- /Zc:preprocessor /wd4324 /D_CRT_SECURE_NO_WARNINGS `
             /I.\include\fat_p `
             /I.\thirdparty\robin-map\include `
             /I.\thirdparty\unordered_dense\include `

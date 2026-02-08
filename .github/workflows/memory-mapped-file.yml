@@ -11,11 +11,6 @@
 name: MemoryMappedFile CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/memory-mapped-file.yml'
-      - 'include/fat_p/MemoryMappedFile.h'
-      - 'components/MemoryMappedFile/tests/test_MemoryMappedFile.cpp'
   workflow_dispatch:
 
 env:

@@ -12,12 +12,6 @@
 name: FlatMap CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/flat-map.yml'
-      - 'include/fat_p/FlatMap.h'
-      - 'components/FlatMapSet/tests/test_FlatMap.cpp'
-      - 'components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -125,7 +119,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FlatMapSet\tests\test_FlatMap.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FlatMapSet\tests\test_FlatMap.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -391,7 +385,7 @@ jobs:
 
       - name: Build benchmark
         shell: cmd
-        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\FlatMapSet\benchmarks\benchmark_FlatMapSet.cpp /Fe:bench_bin.exe /link advapi32.lib
+        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p components\FlatMapSet\benchmarks\benchmark_FlatMapSet.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:

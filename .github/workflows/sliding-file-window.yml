@@ -11,11 +11,6 @@
 name: SlidingFileWindow CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/sliding-file-window.yml'
-      - 'include/fat_p/SlidingFileWindow.h'
-      - 'components/SlidingFileWindow/tests/test_SlidingFileWindow.cpp'
   workflow_dispatch:
 
 env:

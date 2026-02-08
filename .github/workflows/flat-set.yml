@@ -11,11 +11,6 @@
 name: FlatSet CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/flat-set.yml'
-      - 'include/fat_p/FlatSet.h'
-      - 'components/FlatMapSet/tests/test_FlatSet.cpp'
   workflow_dispatch:
 
 env:
@@ -116,7 +111,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FlatMapSet\tests\test_FlatSet.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FlatMapSet\tests\test_FlatSet.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

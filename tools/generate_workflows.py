@@ -25,7 +25,7 @@ Based on object-pool.yml as the reference implementation.
 
 import os
 
-OUTPUT_DIR = ".github/workflows"
+OUTPUT_DIR = "/home/claude/work/output/.github/workflows"
 
 # =============================================================================
 # Component definitions
@@ -366,24 +366,11 @@ def generate_header_block(filename, component, header, test_src, bench_src):
     return "\n".join(lines)
 
 
-def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src):
-    """Generate the on: trigger block with push path filters."""
-    paths = [
-        f"      - '.github/workflows/{filename}'",
-        f"      - 'include/fat_p/{header}'",
-        f"      - '{test_src}'",
-    ]
-    if bench_src:
-        paths.append(f"      - '{bench_src}'")
-
-    path_block = "\n".join(paths)
-
+def generate_trigger_block(has_benchmarks):
+    """Generate the on: trigger block."""
     if has_benchmarks:
-        return f"""
+        return """
 on:
-  push:
-    paths:
-{path_block}
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -392,11 +379,8 @@ on:
         default: 'false'
         type: boolean"""
     else:
-        return f"""
+        return """
 on:
-  push:
-    paths:
-{path_block}
   workflow_dispatch:"""
 
 
@@ -516,7 +500,7 @@ def generate_windows_msvc_job(test_src):
 
       - name: Build tests
         shell: cmd
-        run: cl ${{{{ matrix.flag }}}} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{{{ matrix.flag }}}} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\\test_bin.exe"""
@@ -584,7 +568,7 @@ def generate_sanitizers():
 
       - name: Run with TSan
         env:
-          TSAN_OPTIONS: halt_on_error=1:suppressions=tools/tsan_suppressions.txt
+          TSAN_OPTIONS: halt_on_error=1
         run: ./test_bin"""
 
 
@@ -795,7 +779,7 @@ def generate_benchmark_jobs(component, bench_src):
 
       - name: Build benchmark
         shell: cmd
-        run: cl /nologo ${{{{ matrix.flag }}}} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\\include\\fat_p {bs_bench} /Fe:bench_bin.exe /link advapi32.lib
+        run: cl /nologo ${{{{ matrix.flag }}}} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /Zc:preprocessor /I.\\include\\fat_p {bs_bench} /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:
@@ -930,7 +914,7 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     parts.append(f"\nname: {component} CI")
 
     # Trigger
-    parts.append(generate_trigger_block(bench_src is not None, filename, header, test_src, bench_src))
+    parts.append(generate_trigger_block(bench_src is not None))
 
     # Env block
     parts.append(generate_env_block(header, test_src, bench_src))

@@ -33,6 +33,8 @@ FATP_META:
  *
  */
 
+#include <algorithm>
+
 #include "DiagnosticLogger_Core.h"
 #include "ScopeGuard.h"
 

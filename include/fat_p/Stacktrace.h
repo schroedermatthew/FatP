@@ -86,10 +86,17 @@ FATP_META:
 // =============================================================================
 
 // C++23 std::stacktrace detection
+// __has_include(<stacktrace>) alone is insufficient — some implementations ship the header
+// without the actual std::stacktrace class (e.g., Clang-17 with libstdc++). The feature-test
+// macro __cpp_lib_stacktrace (P0881R7, >= 202011L) is the authoritative signal.
 #if FATP_CPP23_OR_LATER && defined(__has_include)
 #if __has_include(<stacktrace>)
-#define FATP_HAS_STD_STACKTRACE 1
 #include <stacktrace>
+#if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
+#define FATP_HAS_STD_STACKTRACE 1
+#else
+#define FATP_HAS_STD_STACKTRACE 0
+#endif
 #else
 #define FATP_HAS_STD_STACKTRACE 0
 #endif

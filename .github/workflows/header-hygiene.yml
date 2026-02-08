@@ -9,10 +9,6 @@
 name: Header Hygiene
 
 on:
-  push:
-    paths:
-      - '.github/workflows/header-hygiene.yml'
-      - 'include/fat_p/*.h'
   workflow_dispatch:
 
 jobs:
@@ -172,7 +168,7 @@ jobs:
             $headerName = $_.Name
             Set-Content -Path "test_header.cpp" -Value "#include `"$headerName`"`nint main() { return 0; }"
 
-            $output = cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /I.\include\fat_p /c test_header.cpp 2>&1
+            $output = cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p /c test_header.cpp 2>&1
             if ($LASTEXITCODE -eq 0) {
               $passed++
             } else {

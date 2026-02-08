@@ -12,12 +12,6 @@
 name: SmallVector CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/small-vector.yml'
-      - 'include/fat_p/SmallVector.h'
-      - 'components/SmallVector/tests/test_SmallVector.cpp'
-      - 'components/SmallVector/benchmarks/benchmark_SmallVector.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -125,7 +119,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\SmallVector\tests\test_SmallVector.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\SmallVector\tests\test_SmallVector.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -391,7 +385,7 @@ jobs:
 
       - name: Build benchmark
         shell: cmd
-        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\SmallVector\benchmarks\benchmark_SmallVector.cpp /Fe:bench_bin.exe /link advapi32.lib
+        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p components\SmallVector\benchmarks\benchmark_SmallVector.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:

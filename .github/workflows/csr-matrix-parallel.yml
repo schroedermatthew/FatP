@@ -11,11 +11,6 @@
 name: CSRMatrixParallel CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/csr-matrix-parallel.yml'
-      - 'include/fat_p/CSRMatrixParallel.h'
-      - 'components/CSRMatrix/tests/test_CSRMatrixParallel.cpp'
   workflow_dispatch:
 
 env:
@@ -116,7 +111,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\CSRMatrix\tests\test_CSRMatrixParallel.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\CSRMatrix\tests\test_CSRMatrixParallel.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

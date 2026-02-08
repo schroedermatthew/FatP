@@ -284,7 +284,7 @@ template <typename... Args>
             ::fat_p::json_detail::FATP_JSON_ENFORCE_impl(false,           \
                                                          std::source_location::current(), \
                                                          "condition: ",   \
-                                                         #condition        \
+                                                         #condition       \
                                                          __VA_OPT__(,) __VA_ARGS__);  \
         }                                                                 \
     } while (0)

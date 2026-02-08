@@ -12,12 +12,6 @@
 name: CircularBuffer CI
 
 on:
-  push:
-    paths:
-      - '.github/workflows/circular-buffer.yml'
-      - 'include/fat_p/CircularBuffer.h'
-      - 'components/CircularBuffer/tests/test_CircularBuffer.cpp'
-      - 'components/CircularBuffer/benchmarks/benchmark_CircularBuffer.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -125,7 +119,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\CircularBuffer\tests\test_CircularBuffer.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\CircularBuffer\tests\test_CircularBuffer.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -391,7 +385,7 @@ jobs:
 
       - name: Build benchmark
         shell: cmd
-        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /I.\include\fat_p components\CircularBuffer\benchmarks\benchmark_CircularBuffer.cpp /Fe:bench_bin.exe /link advapi32.lib
+        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p components\CircularBuffer\benchmarks\benchmark_CircularBuffer.cpp /Fe:bench_bin.exe /link advapi32.lib
 
       - name: Run benchmarks
         env:
