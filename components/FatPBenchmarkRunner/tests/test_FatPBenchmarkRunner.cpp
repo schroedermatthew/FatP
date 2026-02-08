@@ -103,7 +103,7 @@ FATP_TEST_CASE(statistics_basic)
     std::vector<double> samples = {1.0, 2.0, 3.0, 4.0, 5.0};
     Statistics stats = Statistics::compute(std::move(samples));
 
-    FATP_ASSERT_EQ(stats.samples, std::size_t(5), "Should have 5 samples");
+    FATP_ASSERT_EQ(stats.samples, 5, "Should have 5 samples");
     FATP_ASSERT_CLOSE(stats.min, 1.0, "Min should be 1.0");
     FATP_ASSERT_CLOSE(stats.max, 5.0, "Max should be 5.0");
     FATP_ASSERT_CLOSE(stats.mean, 3.0, "Mean should be 3.0");
@@ -184,7 +184,7 @@ FATP_TEST_CASE(statistics_single_sample)
     std::vector<double> samples = {42.0};
     Statistics stats = Statistics::compute(std::move(samples));
 
-    FATP_ASSERT_EQ(stats.samples, std::size_t(1), "Should have 1 sample");
+    FATP_ASSERT_EQ(stats.samples, 1, "Should have 1 sample");
     FATP_ASSERT_CLOSE(stats.min, 42.0, "Min should be 42.0");
     FATP_ASSERT_CLOSE(stats.max, 42.0, "Max should be 42.0");
     FATP_ASSERT_CLOSE(stats.mean, 42.0, "Mean should be 42.0");
@@ -426,9 +426,9 @@ FATP_TEST_CASE(runner_results)
     std::cout.rdbuf(oldBuf);
 
     const auto& results = runner.results();
-    FATP_ASSERT_EQ(results.size(), std::size_t(1), "Should have 1 result");
+    FATP_ASSERT_EQ(results.size(), 1, "Should have 1 result");
     FATP_ASSERT_EQ(results[0].name, std::string("simple_add"), "Result should have correct name");
-    FATP_ASSERT_GT(results[0].stats.samples, std::size_t(0), "Should have samples");
+    FATP_ASSERT_GT(results[0].stats.samples, 0, "Should have samples");
 
     return true;
 }

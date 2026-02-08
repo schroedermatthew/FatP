@@ -180,7 +180,7 @@ FATP_TEST_CASE(row_major_iterator)
         collected.push_back(elem);
     }
 
-    FATP_ASSERT_EQ(collected.size(), std::size_t(12), "Should collect 12 elements");
+    FATP_ASSERT_EQ(collected.size(), 12, "Should collect 12 elements");
     for (size_t i = 0; i < collected.size(); ++i)
     {
         FATP_ASSERT_EQ(collected[i], static_cast<int>(i), "Elements should be sequential");
@@ -209,7 +209,7 @@ FATP_TEST_CASE(column_major_iterator)
         collected.push_back(elem);
     }
 
-    FATP_ASSERT_EQ(collected.size(), std::size_t(12), "Should collect 12 elements");
+    FATP_ASSERT_EQ(collected.size(), 12, "Should collect 12 elements");
 
     // Column-major order: col 0 (0, 4, 8), col 1 (1, 5, 9), etc.
     std::vector<int> expected = {0, 4, 8, 1, 5, 9, 2, 6, 10, 3, 7, 11};
@@ -244,7 +244,7 @@ FATP_TEST_CASE(strided_iterator)
     }
 
     // Column 2 should contain: 2, 7, 12, 17
-    FATP_ASSERT_GE(collected.size(), std::size_t(4), "Should have at least 4 elements");
+    FATP_ASSERT_GE(collected.size(), 4, "Should have at least 4 elements");
     FATP_ASSERT_EQ(collected[0], 2.0, "First element should be 2");
 
     return true;
@@ -271,7 +271,7 @@ FATP_TEST_CASE(blocked_iterator)
         collected.push_back(elem);
     }
 
-    FATP_ASSERT_EQ(collected.size(), std::size_t(16), "Should collect 16 elements");
+    FATP_ASSERT_EQ(collected.size(), 16, "Should collect 16 elements");
 
     // Blocked order with 2x2 blocks:
     // Block (0,0): 0, 1, 4, 5
@@ -336,8 +336,8 @@ FATP_TEST_CASE(views)
 
     // Create submatrix view
     auto submat = mat.view({2, 3}, {5, 7});
-    FATP_ASSERT_EQ(submat.dim(0), std::size_t(3), "Submatrix should have 3 rows");
-    FATP_ASSERT_EQ(submat.dim(1), std::size_t(4), "Submatrix should have 4 columns");
+    FATP_ASSERT_EQ(submat.dim(0), 3, "Submatrix should have 3 rows");
+    FATP_ASSERT_EQ(submat.dim(1), 4, "Submatrix should have 4 columns");
 
     // Modify view
     submat(0, 0) = 999.0;
@@ -361,14 +361,14 @@ FATP_TEST_CASE(row_column_views)
 
     // Test row view
     auto row = mat.row(2);
-    FATP_ASSERT_EQ(row.dim(0), std::size_t(1), "Row should have 1 row");
-    FATP_ASSERT_EQ(row.dim(1), std::size_t(4), "Row should have 4 columns");
+    FATP_ASSERT_EQ(row.dim(0), 1, "Row should have 1 row");
+    FATP_ASSERT_EQ(row.dim(1), 4, "Row should have 4 columns");
     FATP_ASSERT_TRUE(row(0, 0) == 8.0, "Row values should be correct");
 
     // Test column view
     auto col = mat.col(1);
-    FATP_ASSERT_EQ(col.dim(0), std::size_t(5), "Column should have 5 rows");
-    FATP_ASSERT_EQ(col.dim(1), std::size_t(1), "Column should have 1 column");
+    FATP_ASSERT_EQ(col.dim(0), 5, "Column should have 5 rows");
+    FATP_ASSERT_EQ(col.dim(1), 1, "Column should have 1 column");
     FATP_ASSERT_TRUE(col(0, 0) == 1.0, "Column values should be correct");
 
     return true;
@@ -389,8 +389,8 @@ FATP_TEST_CASE(transpose)
 
     // Transpose
     auto transposed = mat.transpose();
-    FATP_ASSERT_EQ(transposed.dim(0), std::size_t(4), "Transposed should have 4 rows");
-    FATP_ASSERT_EQ(transposed.dim(1), std::size_t(3), "Transposed should have 3 columns");
+    FATP_ASSERT_EQ(transposed.dim(0), 4, "Transposed should have 4 rows");
+    FATP_ASSERT_EQ(transposed.dim(1), 3, "Transposed should have 3 columns");
 
     // Check values
     FATP_ASSERT_TRUE(transposed(0, 0) == mat(0, 0), "Diagonal should match");
@@ -411,8 +411,8 @@ FATP_TEST_CASE(reshape)
 
     // Reshape to matrix
     auto mat = vec.reshape({3, 4});
-    FATP_ASSERT_EQ(mat.dim(0), std::size_t(3), "Reshaped should have 3 rows");
-    FATP_ASSERT_EQ(mat.dim(1), std::size_t(4), "Reshaped should have 4 columns");
+    FATP_ASSERT_EQ(mat.dim(0), 3, "Reshaped should have 3 rows");
+    FATP_ASSERT_EQ(mat.dim(1), 4, "Reshaped should have 4 columns");
     FATP_ASSERT_TRUE(mat(0, 0) == 0.0, "Values should be preserved");
     FATP_ASSERT_TRUE(mat(1, 0) == 4.0, "Values should follow row-major order");
 
@@ -709,7 +709,7 @@ FATP_TEST_CASE(broadcast_to)
 
     auto& broadcasted = result.value();
     FATP_ASSERT_TRUE(broadcasted.shape() == std::vector<size_t>({3, 4}), "Shape should be {3,4}");
-    FATP_ASSERT_EQ(broadcasted.size(), std::size_t(12), "Size should be 12");
+    FATP_ASSERT_EQ(broadcasted.size(), 12, "Size should be 12");
 
     // All elements should be 5.0
     for (size_t i = 0; i < 3; ++i)
@@ -842,7 +842,7 @@ FATP_TEST_CASE(safe_reshape)
     auto reshape_result = a.reshape_safe({2, 6});
     FATP_ASSERT_TRUE(reshape_result.has_value(), "Valid reshape should succeed");
     FATP_ASSERT_TRUE(reshape_result.value().shape() == std::vector<size_t>({2, 6}), "Shape should be {2,6}");
-    FATP_ASSERT_EQ(reshape_result.value().size(), std::size_t(12), "Size should be preserved");
+    FATP_ASSERT_EQ(reshape_result.value().size(), 12, "Size should be preserved");
 
     // Invalid reshape (size mismatch)
     auto bad_reshape = a.reshape_safe({2, 5});
@@ -1205,7 +1205,7 @@ FATP_TEST_CASE(lifetime_tracking_integration)
     auto slice = tensor.create_tracked_slice({0, 0}, {5, 5});
     auto row = tensor.create_tracked_row(5);
     auto col = tensor.create_tracked_col(5);
-    FATP_ASSERT_EQ(slice.size(), std::size_t(25), "Slice should have correct size");
+    FATP_ASSERT_EQ(slice.size(), 25, "Slice should have correct size");
 #endif
 
     return true;

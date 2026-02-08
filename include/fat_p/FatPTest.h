@@ -182,6 +182,7 @@ cd build * @note This infrastructure provides: assertions, benchmarking, colored
 #include <sstream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 #include <filesystem>
 #include <cstdlib>
@@ -651,6 +652,73 @@ inline SubtestTracker& get_subtest_tracker();
         }                                                                                                             \
     }
 
+// =============================================================================
+// Safe comparison helpers (C++20)
+//
+// Use std::cmp_equal/cmp_less/etc. for integral types to handle mixed
+// signed/unsigned comparisons without warnings. Fall back to regular
+// operators for non-integral types (floats, strings, etc.).
+// =============================================================================
+
+namespace detail
+{
+
+template <typename A, typename B>
+bool safe_eq(const A& a, const B& b)
+{
+    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
+        return std::cmp_equal(a, b);
+    else
+        return a == b;
+}
+
+template <typename A, typename B>
+bool safe_ne(const A& a, const B& b)
+{
+    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
+        return std::cmp_not_equal(a, b);
+    else
+        return a != b;
+}
+
+template <typename A, typename B>
+bool safe_lt(const A& a, const B& b)
+{
+    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
+        return std::cmp_less(a, b);
+    else
+        return a < b;
+}
+
+template <typename A, typename B>
+bool safe_le(const A& a, const B& b)
+{
+    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
+        return std::cmp_less_equal(a, b);
+    else
+        return a <= b;
+}
+
+template <typename A, typename B>
+bool safe_gt(const A& a, const B& b)
+{
+    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
+        return std::cmp_greater(a, b);
+    else
+        return a > b;
+}
+
+template <typename A, typename B>
+bool safe_ge(const A& a, const B& b)
+{
+    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
+        return std::cmp_greater_equal(a, b);
+    else
+        return a >= b;
+}
+
+} // namespace detail
+
 /**
  * @brief Assert with equality comparison, showing actual vs expected
  *
@@ -662,7 +730,7 @@ inline SubtestTracker& get_subtest_tracker();
     {                                                                                                                 \
         auto&& actual_val = (actual);                                                                                 \
         auto&& expected_val = (expected);                                                                             \
-        if (!(actual_val == expected_val))                                                                            \
+        if (!fat_p::testing::detail::safe_eq(actual_val, expected_val))                                                                            \
         {                                                                                                             \
             *fat_p::testing::get_test_config().error                                                                  \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold()                                    \
@@ -695,7 +763,7 @@ inline SubtestTracker& get_subtest_tracker();
     {                                                                                                            \
         auto&& actual_val = (actual);                                                                            \
         auto&& expected_val = (expected);                                                                        \
-        if (actual_val == expected_val)                                                                          \
+        if (fat_p::testing::detail::safe_eq(actual_val, expected_val))                                                                          \
         {                                                                                                        \
             *fat_p::testing::get_test_config().error                                                             \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold()                               \
@@ -728,7 +796,7 @@ inline SubtestTracker& get_subtest_tracker();
     {                                                                                                             \
         auto&& actual_val = (actual);                                                                             \
         auto&& expected_val = (expected);                                                                         \
-        if (!(actual_val < expected_val))                                                                         \
+        if (!fat_p::testing::detail::safe_lt(actual_val, expected_val))                                                                         \
         {                                                                                                         \
             *fat_p::testing::get_test_config().error                                                              \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold()                                \
@@ -761,7 +829,7 @@ inline SubtestTracker& get_subtest_tracker();
     {                                                                                                              \
         auto&& actual_val = (actual);                                                                              \
         auto&& expected_val = (expected);                                                                          \
-        if (!(actual_val <= expected_val))                                                                         \
+        if (!fat_p::testing::detail::safe_le(actual_val, expected_val))                                                                         \
         {                                                                                                          \
             *fat_p::testing::get_test_config().error                                                               \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold()                                 \
@@ -794,7 +862,7 @@ inline SubtestTracker& get_subtest_tracker();
     {                                                                                                             \
         auto&& actual_val = (actual);                                                                             \
         auto&& expected_val = (expected);                                                                         \
-        if (!(actual_val > expected_val))                                                                         \
+        if (!fat_p::testing::detail::safe_gt(actual_val, expected_val))                                                                         \
         {                                                                                                         \
             *fat_p::testing::get_test_config().error                                                              \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold()                                \
@@ -827,7 +895,7 @@ inline SubtestTracker& get_subtest_tracker();
     {                                                                                                              \
         auto&& actual_val = (actual);                                                                              \
         auto&& expected_val = (expected);                                                                          \
-        if (!(actual_val >= expected_val))                                                                         \
+        if (!fat_p::testing::detail::safe_ge(actual_val, expected_val))                                                                         \
         {                                                                                                          \
             *fat_p::testing::get_test_config().error                                                               \
                 << fat_p::testing::colors::red() << fat_p::testing::colors::bold()                                 \

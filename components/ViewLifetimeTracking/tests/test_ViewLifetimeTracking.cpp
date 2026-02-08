@@ -57,7 +57,7 @@ FATP_TEST_CASE(basic_lifetime_tracking)
 
         auto view = tracker.create_view();
         FATP_ASSERT_TRUE(view.is_valid(), "View should be valid");
-        FATP_ASSERT_EQ(view->size(), std::size_t(5), "View should access data");
+        FATP_ASSERT_EQ(view->size(), 5, "View should access data");
 
         std::cout << colors::green() << "[OK] Basic tracking works in debug mode" << colors::reset() << std::endl;
     }
