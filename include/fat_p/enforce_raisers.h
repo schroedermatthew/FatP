@@ -53,6 +53,7 @@ FATP_META:
 #include <atomic>
 #endif
 
+#include <concepts>
 #include <cstdlib>
 #include <functional>
 #include <mutex>
@@ -66,6 +67,15 @@ FATP_META:
 
 namespace fat_p
 {
+
+// ============================================================================
+// Raiser Concepts
+// ============================================================================
+
+/// @brief Constrains exception types usable with CustomRaiser.
+/// The type must be constructible from a diagnostic message string.
+template <typename E>
+concept raiser_exception = std::constructible_from<E, const std::string&>;
 
 // ============================================================================
 // Local SingleThreadedPolicy stub (Foundation layer independence)
@@ -213,11 +223,9 @@ inline void reset_violation_handler()
  * and be constructible from `const std::string&`.
  * @tparam ConcurrencyPolicy Policy for thread-safety in raisers.
  */
-template <typename E, typename ConcurrencyPolicy = detail::LocalSingleThreadedPolicy>
+template <raiser_exception E, typename ConcurrencyPolicy = detail::LocalSingleThreadedPolicy>
 struct CustomRaiser : public ConcurrencyPolicy
 {
-    static_assert(std::is_constructible<E, const std::string&>::value,
-                  "E must be constructible from const std::string&");
 
     /**
      * @brief Logs the failure message and throws the specified exception.
@@ -276,7 +284,7 @@ struct AbortRaiser
      * @brief Logs the failure message to stderr and calls std::abort().
      * @param message The diagnostic message detailing the violation.
      */
-    static void fail(const std::string& message)
+    [[noreturn]] static void fail(const std::string& message) noexcept
     {
         detail::writeToStderr("CONTRACT ABORT: ", message);
         std::abort();
@@ -295,7 +303,7 @@ struct WarningToCerrRaiser
      * @brief Logs the failure message as a warning to std::cerr.
      * @param message The diagnostic message detailing the violation.
      */
-    static void fail(const std::string& message)
+    static void fail(const std::string& message) noexcept
     {
         detail::writeToStderr("CONTRACT WARNING: ", message);
     }
@@ -314,7 +322,7 @@ struct NoThrowRaiser
      * @brief Calls the non-throwing violation handler.
      * @param message The diagnostic message detailing the violation.
      */
-    static void fail(const std::string& message)
+    static void fail(const std::string& message) noexcept
     {
         auto& storage = detail::ViolationHandlerStorage::instance();
         std::lock_guard<std::mutex> lock(storage.mutex);
@@ -334,7 +342,7 @@ struct NoOpRaiser
      * @brief Performs no action, ensuring zero overhead.
      * @param message The diagnostic message (ignored).
      */
-    static void fail(const std::string&)
+    static constexpr void fail(const std::string&) noexcept
     {
     }
 };

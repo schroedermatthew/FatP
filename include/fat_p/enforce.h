@@ -79,7 +79,7 @@ inline constexpr bool FATP_DEBUG_ENFORCE_ENABLED = true;
 // ============================================================================
 
 template <typename Policy>
-[[nodiscard]] auto enforce_policy_impl(bool passed, const char* expression_str, std::source_location loc)
+[[nodiscard]] constexpr auto enforce_policy_impl(bool passed, const char* expression_str, std::source_location loc)
 {
     using Raiser = typename RaiserSelector<Policy>::type;
     return MakeEnforcer<Raiser>(passed, expression_str, loc);

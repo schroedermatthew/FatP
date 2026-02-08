@@ -40,6 +40,7 @@ FATP_META:
 #include "FatPConfig.h"
 
 #include <exception>
+#include <concepts>
 #include <source_location>
 #include <sstream>
 #include <stdexcept>
@@ -63,7 +64,7 @@ namespace fat_p
 /**
  * @brief Utility struct for building the final diagnostic message string.
  *
- * @details This builder uses `std::ostringstream` and a C++17 fold
+ * @details This builder uses `std::ostringstream` and a fold
  * expression with `toString` to safely concatenate any number
  * of streamable arguments into a single message.
  */
@@ -106,19 +107,13 @@ struct MessageBuilder
     }
 };
 
-// Helper trait to detect ExpectedRaiser<E> for any E
-template <typename T>
-struct is_expected_raiser : std::false_type
-{
+/// @brief A Raiser whose fail() is noexcept — used to derive the Enforcer
+/// destructor's noexcept specification automatically. Any raiser that marks
+/// its fail() noexcept will produce a noexcept Enforcer destructor.
+template <typename R>
+concept nothrow_raiser = requires(const std::string& msg) {
+    { R::fail(msg) } noexcept;
 };
-
-template <typename E>
-struct is_expected_raiser<ExpectedRaiser<E>> : std::true_type
-{
-};
-
-template <typename T>
-inline constexpr bool is_expected_raiser_v = is_expected_raiser<T>::value;
 
 // --- 1. The Core Enforcer (Active Check) ---
 /**
@@ -162,8 +157,7 @@ public:
      * @details Calls `Raiser::fail` if the condition was false. The failure
      * path is marked cold to help the optimizer keep the hot path tight.
      */
-    ~Enforcer() noexcept(std::is_same_v<Raiser, NoThrowRaiser> || std::is_same_v<Raiser, WarningToCerrRaiser> ||
-                         std::is_same_v<Raiser, NoOpRaiser>)
+    constexpr ~Enforcer() noexcept(nothrow_raiser<Raiser>)
     {
         if (!mPassed) [[unlikely]]
         {
@@ -257,14 +251,14 @@ public:
     /**
      * @brief Zero-overhead constructor.
      */
-    NoOpEnforcer(bool /* passed */, const char* /* expression_str */, std::source_location /* loc */) noexcept
+    constexpr NoOpEnforcer(bool /* passed */, const char* /* expression_str */, std::source_location /* loc */) noexcept
     {
     }
 
     /**
      * @brief Zero-overhead destructor.
      */
-    ~NoOpEnforcer() noexcept
+    constexpr ~NoOpEnforcer() noexcept
     {
     }
 
@@ -272,14 +266,14 @@ public:
      * @brief Zero-overhead message operator.
      */
     template <typename... Msgs>
-    void operator()(Msgs&&...)
+    constexpr void operator()(Msgs&&...) noexcept
     {
     }
 
     /**
      * @brief Zero-overhead dereference operator.
      */
-    NoOpEnforcer& operator*()
+    constexpr NoOpEnforcer& operator*() noexcept
     {
         return *this;
     }
@@ -290,7 +284,7 @@ public:
  * @brief Factory function that returns the appropriate Enforcer type
  * based on the Raiser policy.
  *
- * @details Uses C++17 `if constexpr` to select between the standard
+ * @details Uses `if constexpr` to select between the standard
  * `Enforcer` and the zero-overhead `NoOpEnforcer` at compile time.
  * @tparam Raiser The failure consequence policy.
  * @param passed The result of the condition check.
@@ -299,7 +293,7 @@ public:
  * @return Either an `Enforcer<Raiser>` or `NoOpEnforcer` instance.
  */
 template <typename Raiser>
-[[nodiscard]] auto MakeEnforcer(bool passed, const char* expression_str, std::source_location loc)
+[[nodiscard]] constexpr auto MakeEnforcer(bool passed, const char* expression_str, std::source_location loc)
 {
     if constexpr (std::is_same_v<Raiser, NoOpRaiser>)
     {
