@@ -863,11 +863,11 @@ FATP_TEST_CASE(shrink_to_fit)
     CSRMatrix<double, int> mat(10, 10);
 
     // Add and remove elements to create excess capacity
-    for (int i = 0; i < 10; ++i)
+    for (size_t i = 0; i < 10; ++i)
     {
         mat.set(i, i, static_cast<double>(i + 1));
     }
-    for (int i = 5; i < 10; ++i)
+    for (size_t i = 5; i < 10; ++i)
     {
         mat.set(i, i, 0.0);
     }

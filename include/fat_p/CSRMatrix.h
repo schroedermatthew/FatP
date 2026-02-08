@@ -116,6 +116,9 @@ private:
     std::vector<IndexType> col_indices_;
     std::vector<ptr_type> row_ptrs_;
 
+    /// Cast IndexType to size_type for safe vector indexing
+    static constexpr size_type idx(IndexType i) noexcept { return static_cast<size_type>(i); }
+
     // Type-aware zero comparison
     template <typename U = T>
     [[nodiscard]] static constexpr bool is_effectively_zero(U val) noexcept
@@ -834,7 +837,7 @@ public:
             for (ptr_type j = start; j < end; ++j)
             {
                 IndexType col = col_indices_[j];
-                ptr_type dest = write_pos[col]++;
+                ptr_type dest = write_pos[idx(col)]++;
                 result.mValues[dest] = mValues[j];
                 result.col_indices_[dest] = static_cast<IndexType>(i);
             }
@@ -1054,20 +1057,20 @@ public:
                 IndexType k = col_indices_[a_ptr];
                 T a_val = mValues[a_ptr];
 
-                ptr_type b_start = B.row_ptrs_[k];
-                ptr_type b_end = B.row_ptrs_[k + 1];
+                ptr_type b_start = B.row_ptrs_[idx(k)];
+                ptr_type b_end = B.row_ptrs_[idx(k + 1)];
 
                 for (ptr_type b_ptr = b_start; b_ptr < b_end; ++b_ptr)
                 {
                     IndexType j = B.col_indices_[b_ptr];
 
-                    if (marker[j] != i)
+                    if (marker[idx(j)] != i)
                     {
-                        marker[j] = i;
+                        marker[idx(j)] = i;
                         touched_cols.push_back(j);
                     }
 
-                    accumulator[j] += a_val * B.mValues[b_ptr];
+                    accumulator[idx(j)] += a_val * B.mValues[b_ptr];
                 }
             }
 
@@ -1076,13 +1079,13 @@ public:
 
             for (IndexType j : touched_cols)
             {
-                T val = accumulator[j];
+                T val = accumulator[idx(j)];
                 if (!is_effectively_zero(val))
                 {
                     result.mValues.push_back(val);
                     result.col_indices_.push_back(j);
                 }
-                accumulator[j] = T{0};
+                accumulator[idx(j)] = T{0};
             }
 
             result.row_ptrs_[i + 1] = result.mValues.size();
@@ -1184,7 +1187,7 @@ public:
             for (ptr_type j = start; j < end; ++j)
             {
                 // Use += to sum duplicates (consistent with matvec/matmul semantics)
-                dense[i * mCols + col_indices_[j]] += mValues[j];
+                dense[i * mCols + idx(col_indices_[j])] += mValues[j];
             }
         }
 
