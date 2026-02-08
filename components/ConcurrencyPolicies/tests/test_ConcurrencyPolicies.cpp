@@ -713,6 +713,9 @@ FATP_TEST_CASE(HazardPointerPolicy)
     hp.retire(old_ptr);
     FATP_ASSERT_TRUE(true, "Retire should work");
 
+    // Clean up remaining allocation in ptr
+    delete ptr.load();
+
     std::atomic<int*> shared_ptr(new int(0));
     std::atomic<int> sum{0};
     std::atomic<bool> stop{false};

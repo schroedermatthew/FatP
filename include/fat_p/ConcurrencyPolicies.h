@@ -902,7 +902,10 @@ struct LockFreeWithFallbackPolicy
         {
             return mPolicy.try_lock();
         }
-        return true;
+        else
+        {
+            return true;
+        }
     }
 
     auto& getLock()
@@ -916,7 +919,10 @@ struct LockFreeWithFallbackPolicy
         {
             return mPolicy.get_contention();
         }
-        return 0;
+        else
+        {
+            return 0;
+        }
     }
 
 private:
