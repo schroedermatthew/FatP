@@ -722,7 +722,7 @@ checked_abs(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
             }
         }
 
-        return (a < 0) ? -a : a;
+        return static_cast<T>((a < 0) ? -a : a);
     }
 }
 

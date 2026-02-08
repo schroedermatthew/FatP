@@ -224,7 +224,7 @@ FATP_TEST_CASE(emplace)
 {
     CircularBuffer<std::string, 4> buffer;
 
-    FATP_ASSERT_TRUE(buffer.emplace(5, 'x'), "Emplace should succeed");
+    FATP_ASSERT_TRUE(buffer.emplace(std::size_t(5), 'x'), "Emplace should succeed");
 
     std::string result;
     FATP_ASSERT_TRUE(buffer.pop(result), "Pop should succeed");
