@@ -271,11 +271,12 @@ public:
  * @brief Helper to init and verify value
  */
 template <typename T, typename... Policies>
-void assert_init_and_get(EnforcedInit<T, Policies...>& obj, const T& init_val, const T& expected)
+bool assert_init_and_get(EnforcedInit<T, Policies...>& obj, const T& init_val, const T& expected)
 {
     auto result = obj.init(init_val);
     FATP_ASSERT_TRUE(result.has_value(), "Init succeeds");
     FATP_ASSERT_EQ(obj.get(), expected, "Value matches");
+    return true;
 }
 
 // ============================================================================
@@ -766,7 +767,7 @@ FATP_TEST_CASE(enforce_init_copy_move_thread_safety)
         std::atomic<int> exceptions{0};
 
         // Multiple threads copy simultaneously
-        for (int i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
+        for (size_t i = 0; i < CONCURRENT_THREAD_COUNT; ++i)
         {
             threads.emplace_back([&original, &copies, &exceptions, i]() {
                 try
