@@ -124,7 +124,8 @@ FATP_TEST_CASE(copy_assignment)
     FATP_ASSERT_TRUE(*v1 == 100, "Value should be 100 after assignment");
 
     Expected<int, std::string> v3(42);
-    v3 = v3;
+    auto& self = v3;
+    v3 = self;
     FATP_ASSERT_TRUE(*v3 == 42, "Self-assignment should work");
 
     return true;

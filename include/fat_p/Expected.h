@@ -651,6 +651,13 @@ public:
      * @param other The other storage to swap with.
      * Handles uninitialized state in both operands.
      */
+    // GCC 14 emits false-positive -Wmaybe-uninitialized for union members during swap
+    // when the active member hasn't been determined at compile time. This is safe because
+    // swap checks has_value_ before accessing any union member.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
     void swap(UnionStorage& other) noexcept(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_swappable_v<T> &&
                                             std::is_nothrow_move_constructible_v<E> && std::is_nothrow_swappable_v<E>)
     {
@@ -756,6 +763,9 @@ public:
             }
         }
     }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 };
 
 /**

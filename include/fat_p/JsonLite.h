@@ -274,7 +274,7 @@ template <typename... Args>
 // - do-while(0) wrapper ensures safe use in all control flow contexts (if/else, etc.)
 // - Condition is stringified (#condition) and included in error message
 // - std::source_location::current() captures source location at the call site
-// - ##__VA_ARGS__ handles the zero-args case (GCC/Clang extension, C++20 standard)
+// - __VA_OPT__(,) handles the zero-args case (C++20 standard)
 // - No ODR issues: macro expands inline, FATP_JSON_ENFORCE_impl is in detail namespace
 #define FATP_JSON_ENFORCE(condition, ...)                                 \
     do                                                                    \
@@ -284,8 +284,8 @@ template <typename... Args>
             ::fat_p::json_detail::FATP_JSON_ENFORCE_impl(false,           \
                                                          std::source_location::current(), \
                                                          "condition: ",   \
-                                                         #condition,      \
-                                                         ##__VA_ARGS__);  \
+                                                         #condition        \
+                                                         __VA_OPT__(,) __VA_ARGS__);  \
         }                                                                 \
     } while (0)
 
