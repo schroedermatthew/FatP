@@ -418,7 +418,7 @@ public:
         if (result.total_interns > 0)
         {
             size_t hits = result.total_interns - result.unique_strings;
-            result.hit_rate = static_cast<double>(hits) / result.total_interns;
+            result.hit_rate = static_cast<double>(hits) / static_cast<double>(result.total_interns);
         }
 
         return result;
