@@ -76,7 +76,7 @@ FATP_TEST_CASE(error_handling)
 
     auto task = async_task([]() -> Expected<int, std::string> {
                     return unexpected<std::string>("error occurred");
-                }).error([&](const std::string& err) {
+                }).error([&](const std::string& /*err*/) {
         error_called = true;
     });
 
