@@ -532,7 +532,7 @@ FATP_TEST_CASE(raiser_locus)
     catch (const std::exception& e)
     {
         std::string msg = e.what();
-        FATP_ASSERT_TRUE(msg.find("Locus:") != std::string::npos, "Exception message contains locus label");
+        FATP_ASSERT_TRUE(msg.find("Location:") != std::string::npos, "Exception message contains location label");
         FATP_ASSERT_TRUE(msg.find(".cpp") != std::string::npos, "Exception message contains file name");
     }
 

@@ -29,8 +29,6 @@ FATP_META:
  * @brief Defines type traits and policy tags essential for contextual contract
  * enforcement.
  *
- *
- *
  * @details The core component is the is_noexcept_function_ptr trait, which
  * detects the 'noexcept' specification on function and method pointers at
  * compile time. This information is used to select the correct Raiser
@@ -38,7 +36,6 @@ FATP_META:
  */
 
 #include <type_traits>
-#include <utility>
 
 namespace fat_p
 {
@@ -46,152 +43,101 @@ namespace fat_p
 struct NoThrowRaiser;
 
 // --- Policy Tags ---
-/**
- * @brief Policy tag selected when the function is marked 'noexcept'.
- * @details This policy directs the system to use NoThrowRaiser, adhering to
- * the function's exception safety guarantee.
- */
+
+/// @brief Policy tag selected when the function is marked 'noexcept'.
+/// Directs the system to use NoThrowRaiser, adhering to the function's
+/// exception safety guarantee.
 struct NoexceptFunctionPolicy
 {
 };
-/**
- * @brief Policy tag selected when the function is capable of throwing.
- * @details This policy directs the system to use the default throwing
- * raiser (mapped from PredicateType or explicitly
- * specified) unless explicitly overridden.
- */
+
+/// @brief Policy tag selected when the function is capable of throwing.
+/// Directs the system to use the default throwing raiser (mapped from
+/// PredicateType or explicitly specified) unless explicitly overridden.
 struct ThrowingFunctionPolicy
 {
 };
-// --- Function Trait Checker (Detects noexcept in signature) ---
-/**
- * @brief Base trait for function pointer noexcept detection.
- * @tparam T The function or member function pointer type.
- * @details The primary template defaults to std::false_type.
- */
+
+// --- Function Trait: noexcept Detection ---
+//
+// Detects whether a function pointer or member function pointer type carries
+// the noexcept specification.  C++17 made noexcept part of the type system,
+// so each cv/ref-qualified member function pointer is a distinct type that
+// requires its own partial specialization.
+//
+// Layout:
+//   - Primary template ............ false (non-function or non-noexcept)
+//   - Free function pointer ....... R(*)(Args...) noexcept
+//   - Member function pointers .... all 12 cv/ref-qualifier combinations
+
+// Primary template: not a noexcept function pointer.
 template <typename T>
-struct is_noexcept_function_ptr : std::false_type
-{
-};
+inline constexpr bool is_noexcept_function_ptr_v = false;
+
 // -----------------------------------------------------------------
-// Specializations for C-Style Function Pointers (R(*)(Args...))
+// Free function pointers
 // -----------------------------------------------------------------
-/**
- * @brief Specialization for noexcept C-style function pointers.
- * @tparam R The return type.
- * @tparam Args The parameter types.
- */
 template <typename R, typename... Args>
-struct is_noexcept_function_ptr<R (*)(Args...) noexcept> : std::true_type
-{
-};
+inline constexpr bool is_noexcept_function_ptr_v<R (*)(Args...) noexcept> = true;
+
 // -----------------------------------------------------------------
-// Specializations for Member Function Pointers (R(C::*)(Args...) [Qualifiers])
+// Member function pointers — all cv/ref-qualifier × noexcept combinations
 // -----------------------------------------------------------------
-/**
- * @brief Specialization for non-qualified, noexcept member function pointers.
- */
 template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) noexcept> : std::true_type
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) const noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) volatile noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) const volatile noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) & noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) && noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) const & noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) const && noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) volatile & noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) volatile && noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) const volatile & noexcept> = true;
+
+template <typename R, typename C, typename... Args>
+inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) const volatile && noexcept> = true;
+
+/// @brief Struct wrapper for is_noexcept_function_ptr_v.
+/// Provided for backward compatibility and use in template-template contexts.
+template <typename T>
+struct is_noexcept_function_ptr : std::bool_constant<is_noexcept_function_ptr_v<T>>
 {
 };
-/**
- * @brief Specialization for const-qualified, noexcept member function pointers.
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) const noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for volatile-qualified, noexcept member function
- * pointers.
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) volatile noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for const volatile-qualified, noexcept member function
- * pointers.
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) const volatile noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for lvalue reference-qualified, noexcept member
- * function pointers (trailing &).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) & noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for rvalue reference-qualified, noexcept member
- * function pointers (trailing &&).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) && noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for const lvalue reference-qualified, noexcept member
- * function pointers (const &).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) const & noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for const rvalue reference-qualified, noexcept member
- * function pointers (const &&).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) const && noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for volatile lvalue reference-qualified, noexcept member
- * function pointers (volatile &).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) volatile & noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for volatile rvalue reference-qualified, noexcept member
- * function pointers (volatile &&).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) volatile && noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for const volatile lvalue reference-qualified, noexcept
- * member function pointers (const volatile &).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) const volatile & noexcept> : std::true_type
-{
-};
-/**
- * @brief Specialization for const volatile rvalue reference-qualified, noexcept
- * member function pointers (const volatile &&).
- */
-template <typename R, typename C, typename... Args>
-struct is_noexcept_function_ptr<R (C::*)(Args...) const volatile && noexcept> : std::true_type
-{
-};
-// --- Contextual Raiser Resolver (Updates: Extensible with more policies) ---
+
+// --- Contextual Raiser Resolver ---
+
 template <typename NoexceptPolicy, typename ThrowingRaiser>
 struct ContextualRaiserResolver
 {
     using type = ThrowingRaiser;
 };
+
 template <typename ThrowingRaiser>
 struct ContextualRaiserResolver<NoexceptFunctionPolicy, ThrowingRaiser>
 {
     using type = NoThrowRaiser;
 };
-// Add custom resolver specializations if needed (extensibility)
+
 } // namespace fat_p

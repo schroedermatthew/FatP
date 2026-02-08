@@ -30,11 +30,13 @@ FATP_META:
  * perform specialized, type-safe checks on various C++ types (pointers,
  * containers, arithmetic values).
  *
- *
- *
  * @details Each predicate provides a static `check` method that returns a
  * boolean result. They use C++20 concepts and `if constexpr` to offer
  * zero-overhead checks whenever possible.
+ *
+ * Interface contract: Every predicate exposes one or more static `check`
+ * overloads. That is the sole public API consumed by the enforce macros
+ * and by user code.
  */
 
 #include <algorithm>
@@ -43,7 +45,6 @@ FATP_META:
 #include <cstddef>
 #include <iterator>
 #include <ranges>
-#include <stdexcept>
 #include <type_traits>
 #include <unordered_set>
 #include <utility>
@@ -55,22 +56,25 @@ namespace fat_p
 {
 
 // ===================================================================
+// Local arithmetic concept (std::integral || std::floating_point)
+// ===================================================================
+// C++20 <concepts> provides std::integral and std::floating_point but
+// no combined "arithmetic" concept. This bridges the gap for predicates
+// that accept both integral and floating-point types.
+
+namespace detail_predicates
+{
+template <typename T>
+concept arithmetic = std::integral<T> || std::floating_point<T>;
+} // namespace detail_predicates
+
+// ===================================================================
 // 1. Core Predicates
 // ===================================================================
 
 struct BooleanPredicate
 {
     static constexpr bool check(bool condition) noexcept
-    {
-        return condition;
-    }
-
-    constexpr bool operator()(bool condition) const noexcept
-    {
-        return check(condition);
-    }
-
-    static bool check_runtime(bool condition) noexcept
     {
         return condition;
     }
@@ -83,36 +87,12 @@ struct NotNullPredicate
     {
         return ptr != nullptr;
     }
-
-    template <typename T>
-    constexpr bool operator()(const T ptr) const noexcept
-    {
-        return check(ptr);
-    }
-
-    template <typename T>
-    static bool check_runtime(const T ptr) noexcept
-    {
-        return ptr != nullptr;
-    }
 };
 
 struct IsNullPredicate
 {
     template <typename T>
     static constexpr bool check(const T ptr) noexcept
-    {
-        return ptr == nullptr;
-    }
-
-    template <typename T>
-    constexpr bool operator()(const T ptr) const noexcept
-    {
-        return check(ptr);
-    }
-
-    template <typename T>
-    static bool check_runtime(const T ptr) noexcept
     {
         return ptr == nullptr;
     }
@@ -126,41 +106,13 @@ struct NotEmptyPredicate
     {
         return !value.empty();
     }
-
-    template <typename T>
-        requires concepts::has_empty<T>
-    constexpr bool operator()(const T& value) const noexcept
-    {
-        return check(value);
-    }
-
-    template <typename T>
-        requires concepts::has_empty<T>
-    static bool check_runtime(const T& value) noexcept
-    {
-        return !value.empty();
-    }
 };
 
 struct IsPositivePredicate
 {
     template <typename T>
-        requires std::is_arithmetic_v<T>
+        requires detail_predicates::arithmetic<T>
     static constexpr bool check(T value) noexcept
-    {
-        return value > T{0};
-    }
-
-    template <typename T>
-        requires std::is_arithmetic_v<T>
-    constexpr bool operator()(T value) const noexcept
-    {
-        return check(value);
-    }
-
-    template <typename T>
-        requires std::is_arithmetic_v<T>
-    static bool check_runtime(T value) noexcept
     {
         return value > T{0};
     }
@@ -169,22 +121,8 @@ struct IsPositivePredicate
 struct IsNonNegativePredicate
 {
     template <typename T>
-        requires std::is_arithmetic_v<T>
+        requires detail_predicates::arithmetic<T>
     static constexpr bool check(T value) noexcept
-    {
-        return value >= T{0};
-    }
-
-    template <typename T>
-        requires std::is_arithmetic_v<T>
-    constexpr bool operator()(T value) const noexcept
-    {
-        return check(value);
-    }
-
-    template <typename T>
-        requires std::is_arithmetic_v<T>
-    static bool check_runtime(T value) noexcept
     {
         return value >= T{0};
     }
@@ -195,19 +133,7 @@ struct IsIntegralPredicate
     template <typename T>
     static constexpr bool check(const T&) noexcept
     {
-        return std::is_integral_v<T>;
-    }
-
-    template <typename T>
-    constexpr bool operator()(const T&) const noexcept
-    {
-        return check<T>(T{});
-    }
-
-    template <typename T>
-    static bool check_runtime(const T&) noexcept
-    {
-        return std::is_integral_v<T>;
+        return std::integral<T>;
     }
 };
 
@@ -251,13 +177,6 @@ struct ContainerIsUniquePredicate
             return true;
         }
     }
-
-    template <typename Container>
-        requires std::ranges::range<Container>
-    static bool check_runtime(const Container& container) noexcept(false)
-    {
-        return check(container);
-    }
 };
 
 struct HasNoNullElementsPredicate
@@ -265,20 +184,6 @@ struct HasNoNullElementsPredicate
     template <typename Container>
         requires std::ranges::range<Container>
     static constexpr bool check(const Container& container) noexcept
-    {
-        for (const auto& element : container)
-        {
-            if (element == nullptr)
-            {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    template <typename Container>
-        requires std::ranges::range<Container>
-    static bool check_runtime(const Container& container) noexcept
     {
         for (const auto& element : container)
         {
@@ -306,20 +211,6 @@ struct HasSizePredicate
     {
         return container.size() == Size::value;
     }
-
-    template <typename Size, typename Container>
-        requires concepts::sized<Container>
-    static bool check_runtime(Size expected, const Container& container) noexcept
-    {
-        return container.size() == static_cast<typename Container::size_type>(expected);
-    }
-
-    template <typename Size, typename Container>
-        requires concepts::sized<Container>
-    static bool check_runtime(const Container& container) noexcept
-    {
-        return container.size() == Size::value;
-    }
 };
 
 struct IsSortedPredicate
@@ -337,20 +228,6 @@ struct IsSortedPredicate
     {
         return std::is_sorted(std::begin(container), std::end(container), comp);
     }
-
-    template <typename Container, typename Compare = std::less<>>
-        requires std::ranges::range<Container>
-    static bool check_runtime(const Container& container)
-    {
-        return std::is_sorted(std::begin(container), std::end(container), Compare{});
-    }
-
-    template <typename Container, typename CompareFunc>
-        requires std::ranges::range<Container>
-    static bool check_runtime(const Container& container, CompareFunc comp)
-    {
-        return std::is_sorted(std::begin(container), std::end(container), comp);
-    }
 };
 
 using ContainerIsSortedPredicate = IsSortedPredicate;
@@ -360,13 +237,6 @@ struct AllSatisfyPredicate
     template <typename PredFunc, typename Container>
         requires std::ranges::range<Container>
     static bool check(PredFunc pred, const Container& container)
-    {
-        return std::all_of(std::begin(container), std::end(container), pred);
-    }
-
-    template <typename PredFunc, typename Container>
-        requires std::ranges::range<Container>
-    static bool check_runtime(PredFunc pred, const Container& container)
     {
         return std::all_of(std::begin(container), std::end(container), pred);
     }
@@ -380,13 +250,6 @@ struct AnySatisfyPredicate
     {
         return std::any_of(std::begin(container), std::end(container), pred);
     }
-
-    template <typename PredFunc, typename Container>
-        requires std::ranges::range<Container>
-    static bool check_runtime(PredFunc pred, const Container& container)
-    {
-        return std::any_of(std::begin(container), std::end(container), pred);
-    }
 };
 
 struct ContainerHasElementPredicate
@@ -397,13 +260,6 @@ struct ContainerHasElementPredicate
     {
         return std::find(std::begin(container), std::end(container), element) != std::end(container);
     }
-
-    template <typename Container, typename Element>
-        requires std::ranges::range<Container>
-    static bool check_runtime(const Container& container, const Element& element)
-    {
-        return check(container, element);
-    }
 };
 
 // ===================================================================
@@ -413,33 +269,17 @@ struct ContainerHasElementPredicate
 struct InRangePredicate
 {
     template <typename T, typename U = T, typename V = T>
-        requires std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>
+        requires detail_predicates::arithmetic<T> && detail_predicates::arithmetic<U> && detail_predicates::arithmetic<V>
     static constexpr bool check(T value, U min, V max) noexcept
     {
         return value >= min && value <= max;
     }
 
     template <typename MinType, typename MaxType, typename T>
-        requires std::is_arithmetic_v<T>
+        requires detail_predicates::arithmetic<T>
     static constexpr bool check(T value) noexcept
     {
-        static_assert(std::is_arithmetic_v<decltype(MinType::value)> && std::is_arithmetic_v<decltype(MaxType::value)>,
-                      "MinType and MaxType must have arithmetic ::value members.");
-        return value >= MinType::value && value <= MaxType::value;
-    }
-
-    template <typename T, typename U = T, typename V = T>
-        requires std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>
-    static bool check_runtime(T value, U min, V max) noexcept
-    {
-        return value >= min && value <= max;
-    }
-
-    template <typename MinType, typename MaxType, typename T>
-        requires std::is_arithmetic_v<T>
-    static bool check_runtime(T value) noexcept
-    {
-        static_assert(std::is_arithmetic_v<decltype(MinType::value)> && std::is_arithmetic_v<decltype(MaxType::value)>,
+        static_assert(detail_predicates::arithmetic<decltype(MinType::value)> && detail_predicates::arithmetic<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value >= MinType::value && value <= MaxType::value;
     }
@@ -448,26 +288,19 @@ struct InRangePredicate
 struct InExclusiveRangePredicate
 {
     template <typename T, typename U = T, typename V = T>
-        requires std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>
+        requires detail_predicates::arithmetic<T> && detail_predicates::arithmetic<U> && detail_predicates::arithmetic<V>
     static constexpr bool check(T value, U min, V max) noexcept
     {
         return value > min && value < max;
     }
 
     template <typename MinType, typename MaxType, typename T>
-        requires std::is_arithmetic_v<T>
+        requires detail_predicates::arithmetic<T>
     static constexpr bool check(T value) noexcept
     {
-        static_assert(std::is_arithmetic_v<decltype(MinType::value)> && std::is_arithmetic_v<decltype(MaxType::value)>,
+        static_assert(detail_predicates::arithmetic<decltype(MinType::value)> && detail_predicates::arithmetic<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value > MinType::value && value < MaxType::value;
-    }
-
-    template <typename T, typename U = T, typename V = T>
-        requires std::is_arithmetic_v<T> && std::is_arithmetic_v<U> && std::is_arithmetic_v<V>
-    static bool check_runtime(T value, U min, V max) noexcept
-    {
-        return value > min && value < max;
     }
 };
 
@@ -486,41 +319,20 @@ struct ValidIndexPredicate
             return static_cast<size_t>(idx) < container.size();
         }
     }
-
-    template <typename Index, typename Container>
-        requires concepts::sized<Container>
-    static bool check_runtime(Index idx, const Container& container) noexcept
-    {
-        return check(idx, container);
-    }
 };
 
 struct IsPowerOfTwoPredicate
 {
     template <typename T>
-        requires std::is_integral_v<T>
+        requires std::integral<T>
     static constexpr bool check(T value) noexcept
     {
         return value > 0 && (value & (value - 1)) == 0;
     }
 
     template <typename ValueType>
-        requires std::is_integral_v<decltype(ValueType::value)>
+        requires std::integral<decltype(ValueType::value)>
     static constexpr bool check() noexcept
-    {
-        return ValueType::value > 0 && (ValueType::value & (ValueType::value - 1)) == 0;
-    }
-
-    template <typename T>
-        requires std::is_integral_v<T>
-    static bool check_runtime(T value) noexcept
-    {
-        return value > 0 && (value & (value - 1)) == 0;
-    }
-
-    template <typename ValueType>
-        requires std::is_integral_v<decltype(ValueType::value)>
-    static bool check_runtime() noexcept
     {
         return ValueType::value > 0 && (ValueType::value & (ValueType::value - 1)) == 0;
     }
@@ -529,33 +341,17 @@ struct IsPowerOfTwoPredicate
 struct ApproxEqualPredicate
 {
     template <typename Eps, typename T, typename U = T>
-        requires std::is_floating_point_v<T> && std::is_floating_point_v<U> && std::is_floating_point_v<Eps>
+        requires std::floating_point<T> && std::floating_point<U> && std::floating_point<Eps>
     static constexpr bool check(Eps epsilon, T a, U b) noexcept
     {
         return std::abs(a - b) <= epsilon;
     }
 
     template <typename EpsilonType, typename T, typename U = T>
-        requires std::is_floating_point_v<T> && std::is_floating_point_v<U>
+        requires std::floating_point<T> && std::floating_point<U>
     static constexpr bool check(T a, U b) noexcept
     {
-        static_assert(std::is_floating_point_v<decltype(EpsilonType::value)>,
-                      "EpsilonType must have floating-point ::value member.");
-        return std::abs(a - b) <= EpsilonType::value;
-    }
-
-    template <typename Eps, typename T, typename U = T>
-        requires std::is_floating_point_v<T> && std::is_floating_point_v<U> && std::is_floating_point_v<Eps>
-    static bool check_runtime(Eps epsilon, T a, U b) noexcept
-    {
-        return std::abs(a - b) <= epsilon;
-    }
-
-    template <typename EpsilonType, typename T, typename U = T>
-        requires std::is_floating_point_v<T> && std::is_floating_point_v<U>
-    static bool check_runtime(T a, U b) noexcept
-    {
-        static_assert(std::is_floating_point_v<decltype(EpsilonType::value)>,
+        static_assert(std::floating_point<decltype(EpsilonType::value)>,
                       "EpsilonType must have floating-point ::value member.");
         return std::abs(a - b) <= EpsilonType::value;
     }
@@ -568,24 +364,12 @@ struct IsLessThanPredicate
     {
         return lhs < rhs;
     }
-
-    template <typename Lhs, typename Rhs>
-    static bool check_runtime(Lhs lhs, Rhs rhs) noexcept
-    {
-        return lhs < rhs;
-    }
 };
 
 struct IsGreaterThanPredicate
 {
     template <typename Lhs, typename Rhs>
     static constexpr bool check(Lhs lhs, Rhs rhs) noexcept
-    {
-        return lhs > rhs;
-    }
-
-    template <typename Lhs, typename Rhs>
-    static bool check_runtime(Lhs lhs, Rhs rhs) noexcept
     {
         return lhs > rhs;
     }
@@ -598,24 +382,12 @@ struct IsLessThanOrEqualPredicate
     {
         return lhs <= rhs;
     }
-
-    template <typename Lhs, typename Rhs>
-    static bool check_runtime(Lhs lhs, Rhs rhs) noexcept
-    {
-        return lhs <= rhs;
-    }
 };
 
 struct IsGreaterThanOrEqualPredicate
 {
     template <typename Lhs, typename Rhs>
     static constexpr bool check(Lhs lhs, Rhs rhs) noexcept
-    {
-        return lhs >= rhs;
-    }
-
-    template <typename Lhs, typename Rhs>
-    static bool check_runtime(Lhs lhs, Rhs rhs) noexcept
     {
         return lhs >= rhs;
     }
@@ -628,15 +400,8 @@ struct IsGreaterThanOrEqualPredicate
 struct IsFinitePredicate
 {
     template <typename T>
-        requires std::is_floating_point_v<T>
+        requires std::floating_point<T>
     static bool check(T value) noexcept
-    {
-        return std::isfinite(value);
-    }
-
-    template <typename T>
-        requires std::is_floating_point_v<T>
-    static bool check_runtime(T value) noexcept
     {
         return std::isfinite(value);
     }
@@ -645,15 +410,8 @@ struct IsFinitePredicate
 struct IsNormalPredicate
 {
     template <typename T>
-        requires std::is_floating_point_v<T>
+        requires std::floating_point<T>
     static bool check(T value) noexcept
-    {
-        return std::isnormal(value) || value == T{0};
-    }
-
-    template <typename T>
-        requires std::is_floating_point_v<T>
-    static bool check_runtime(T value) noexcept
     {
         return std::isnormal(value) || value == T{0};
     }
@@ -662,15 +420,8 @@ struct IsNormalPredicate
 struct IsNotNaNPredicate
 {
     template <typename T>
-        requires std::is_floating_point_v<T>
+        requires std::floating_point<T>
     static bool check(T value) noexcept
-    {
-        return !std::isnan(value);
-    }
-
-    template <typename T>
-        requires std::is_floating_point_v<T>
-    static bool check_runtime(T value) noexcept
     {
         return !std::isnan(value);
     }
@@ -679,15 +430,8 @@ struct IsNotNaNPredicate
 struct IsNotInfPredicate
 {
     template <typename T>
-        requires std::is_floating_point_v<T>
+        requires std::floating_point<T>
     static bool check(T value) noexcept
-    {
-        return !std::isinf(value);
-    }
-
-    template <typename T>
-        requires std::is_floating_point_v<T>
-    static bool check_runtime(T value) noexcept
     {
         return !std::isinf(value);
     }
@@ -709,20 +453,6 @@ struct IsValidIteratorPredicate
     template <typename ItType>
         requires std::input_or_output_iterator<ItType>
     static constexpr bool check() noexcept
-    {
-        return true;
-    }
-
-    template <typename It, typename End>
-        requires std::input_or_output_iterator<It>
-    static bool check_runtime(It it, End end) noexcept
-    {
-        return it != end;
-    }
-
-    template <typename ItType>
-        requires std::input_or_output_iterator<ItType>
-    static bool check_runtime() noexcept
     {
         return true;
     }

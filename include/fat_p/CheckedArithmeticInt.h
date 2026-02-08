@@ -93,7 +93,7 @@ namespace fat_p
 // Rationale: C++17 constexpr functions may not contain non-literal locals.
 // FATP_ALWAYS_ENFORCE() constructs an RAII enforcer (non-literal type), so we route
 // the failure path through a non-constexpr helper while preserving the caller's
-// FATP_LOCUS for accurate error reporting.
+// std::source_location for accurate error reporting.
 //
 // This helper is intentionally [[noreturn]] to enable dead-code elimination
 // and prevent "control reaches end of non-void function" warnings.
@@ -102,9 +102,9 @@ namespace detail
 {
 
 template <typename... Msgs>
-inline void checked_arithmetic_fail(const char* locus, Msgs&&... msgs)
+inline void checked_arithmetic_fail(std::source_location loc, Msgs&&... msgs)
 {
-    auto enforcer = ::fat_p::enforce_policy_impl<::fat_p::AlwaysEnforcePolicy>(false, "false", locus);
+    auto enforcer = ::fat_p::enforce_policy_impl<::fat_p::AlwaysEnforcePolicy>(false, "false", loc);
     enforcer(std::forward<Msgs>(msgs)...);
     // RAII destructor throws on scope exit
 }
@@ -142,7 +142,7 @@ checked_add(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Addition overflow:", a, "+", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Addition overflow:", a, "+", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -187,7 +187,7 @@ checked_add(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Addition overflow:", a, "+", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Addition overflow:", a, "+", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -234,7 +234,7 @@ checked_sub(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Subtraction overflow:", a, "-", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Subtraction overflow:", a, "-", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -277,7 +277,7 @@ checked_sub(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Subtraction overflow:", a, "-", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Subtraction overflow:", a, "-", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -324,7 +324,7 @@ checked_mul(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Multiplication overflow:", a, "*", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Multiplication overflow:", a, "*", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -368,7 +368,7 @@ checked_mul(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Multiplication overflow:", a, "*", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Multiplication overflow:", a, "*", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -410,7 +410,7 @@ checked_div(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Division by zero:", a, "/", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Division by zero:", a, "/", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -433,7 +433,7 @@ checked_div(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in division (min/-1):", a, "/", b);
+                detail::checked_arithmetic_fail(std::source_location::current(), "Overflow in division (min/-1):", a, "/", b);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -461,7 +461,7 @@ checked_mod(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Modulo by zero:", a, "%", b);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Modulo by zero:", a, "%", b);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -480,7 +480,7 @@ checked_mod(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in mod (min%-1):", a, "%", b);
+                detail::checked_arithmetic_fail(std::source_location::current(), "Overflow in mod (min%-1):", a, "%", b);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -555,7 +555,7 @@ checked_left_shift(T a, S shift) noexcept(PolicyTraits<Policy>::template is_noex
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid left shift amount:", shift);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Invalid left shift amount:", shift);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -574,7 +574,7 @@ checked_left_shift(T a, S shift) noexcept(PolicyTraits<Policy>::template is_noex
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS,
+                detail::checked_arithmetic_fail(std::source_location::current(),
                                                 "Left shift of negative value is undefined:",
                                                 a,
                                                 "<<",
@@ -598,7 +598,7 @@ checked_left_shift(T a, S shift) noexcept(PolicyTraits<Policy>::template is_noex
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Left shift overflow:", a, "<<", shift);
+                detail::checked_arithmetic_fail(std::source_location::current(), "Left shift overflow:", a, "<<", shift);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -631,7 +631,7 @@ checked_right_shift(T a, S shift) noexcept(PolicyTraits<Policy>::template is_noe
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid right shift amount:", shift);
+            detail::checked_arithmetic_fail(std::source_location::current(), "Invalid right shift amount:", shift);
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -673,7 +673,7 @@ checked_negate(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in negation (min):", a);
+                detail::checked_arithmetic_fail(std::source_location::current(), "Overflow in negation (min):", a);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -710,7 +710,7 @@ checked_abs(T a) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Overflow in abs (min):", a);
+                detail::checked_arithmetic_fail(std::source_location::current(), "Overflow in abs (min):", a);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -796,7 +796,7 @@ checked_add(P* ptr, std::ptrdiff_t offset) noexcept(PolicyTraits<Policy>::templa
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
+                detail::checked_arithmetic_fail(std::source_location::current(), "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -872,7 +872,7 @@ checked_sub(P* ptr, std::ptrdiff_t offset) noexcept(PolicyTraits<Policy>::templa
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
+                detail::checked_arithmetic_fail(std::source_location::current(), "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -954,7 +954,7 @@ checked_add_vec(const std::vector<T>& vec_a,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Vector size mismatch in addition");
+            detail::checked_arithmetic_fail(std::source_location::current(), "Vector size mismatch in addition");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1033,7 +1033,7 @@ checked_sub_vec(const std::vector<T>& vec_a,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Vector size mismatch in subtraction");
+            detail::checked_arithmetic_fail(std::source_location::current(), "Vector size mismatch in subtraction");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -1115,7 +1115,7 @@ checked_mul_vec(const std::vector<T>& vec_a,
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Vector size mismatch in multiplication");
+            detail::checked_arithmetic_fail(std::source_location::current(), "Vector size mismatch in multiplication");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {

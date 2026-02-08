@@ -17,7 +17,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 90
+    defines_total: 88
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -42,6 +42,7 @@ FATP_META:
  * The `FATP_ALWAYS_ENFORCE*` macros always generate code regardless of build mode.
  */
 
+#include <source_location>
 #include <type_traits>
 #include <utility>
 
@@ -53,12 +54,11 @@ FATP_META:
 namespace fat_p
 {
 
-// --- Locus Macros ---
-#ifndef FATP_LOCUS
-#define FATP_LOCUS __FILE__ ":" FATP_STRINGIFY(__LINE__)
-#define FATP_STRINGIFY(x) FATP_TOSTRING(x)
-#define FATP_TOSTRING(x) #x
-#endif
+// ============================================================================
+// Source Location
+// ============================================================================
+// All enforcement functions use std::source_location for call-site metadata.
+// Macros pass std::source_location::current() which captures the expansion site.
 
 // ============================================================================
 // Compile-Time Enforcement Control
@@ -79,10 +79,10 @@ inline constexpr bool FATP_DEBUG_ENFORCE_ENABLED = true;
 // ============================================================================
 
 template <typename Policy>
-[[nodiscard]] auto enforce_policy_impl(bool passed, const char* expression_str, const char* locus)
+[[nodiscard]] auto enforce_policy_impl(bool passed, const char* expression_str, std::source_location loc)
 {
     using Raiser = typename RaiserSelector<Policy>::type;
-    return MakeEnforcer<Raiser>(passed, expression_str, locus);
+    return MakeEnforcer<Raiser>(passed, expression_str, loc);
 }
 
 // ============================================================================
@@ -95,82 +95,12 @@ template <typename Policy>
 template <typename... Msgs>
 inline void debug_enforce_impl([[maybe_unused]] bool condition,
                                [[maybe_unused]] const char* expression_str,
-                               [[maybe_unused]] const char* locus,
+                               [[maybe_unused]] std::source_location loc,
                                [[maybe_unused]] Msgs&&... msgs)
 {
     if constexpr (FATP_DEBUG_ENFORCE_ENABLED)
     {
-        auto enforcer = enforce_policy_impl<DebugOnlyPolicy>(condition, expression_str, locus);
-        enforcer(std::forward<Msgs>(msgs)...);
-    }
-}
-
-// 1-argument predicate enforcement
-template <typename Predicate, typename T, typename... Msgs>
-inline void debug_enforce_predicate_1([[maybe_unused]] T&& target,
-                                      [[maybe_unused]] const char* expression_str,
-                                      [[maybe_unused]] const char* locus,
-                                      [[maybe_unused]] Msgs&&... msgs)
-{
-    if constexpr (FATP_DEBUG_ENFORCE_ENABLED)
-    {
-        auto enforcer =
-            enforce_policy_impl<DebugOnlyPolicy>(Predicate::check(std::forward<T>(target)), expression_str, locus);
-        enforcer(std::forward<Msgs>(msgs)...);
-    }
-}
-
-// 2-argument predicate enforcement
-template <typename Predicate, typename T1, typename T2, typename... Msgs>
-inline void debug_enforce_predicate_2([[maybe_unused]] T1&& target1,
-                                      [[maybe_unused]] T2&& target2,
-                                      [[maybe_unused]] const char* expression_str,
-                                      [[maybe_unused]] const char* locus,
-                                      [[maybe_unused]] Msgs&&... msgs)
-{
-    if constexpr (FATP_DEBUG_ENFORCE_ENABLED)
-    {
-        auto enforcer =
-            enforce_policy_impl<DebugOnlyPolicy>(Predicate::check(std::forward<T1>(target1), std::forward<T2>(target2)),
-                                                 expression_str,
-                                                 locus);
-        enforcer(std::forward<Msgs>(msgs)...);
-    }
-}
-
-// 3-argument predicate enforcement
-template <typename Predicate, typename T1, typename T2, typename T3, typename... Msgs>
-inline void debug_enforce_predicate_3([[maybe_unused]] T1&& target1,
-                                      [[maybe_unused]] T2&& target2,
-                                      [[maybe_unused]] T3&& target3,
-                                      [[maybe_unused]] const char* expression_str,
-                                      [[maybe_unused]] const char* locus,
-                                      [[maybe_unused]] Msgs&&... msgs)
-{
-    if constexpr (FATP_DEBUG_ENFORCE_ENABLED)
-    {
-        auto enforcer = enforce_policy_impl<DebugOnlyPolicy>(
-            Predicate::check(std::forward<T1>(target1), std::forward<T2>(target2), std::forward<T3>(target3)),
-            expression_str,
-            locus);
-        enforcer(std::forward<Msgs>(msgs)...);
-    }
-}
-
-// Sorted container with comparator enforcement
-template <typename Comp, typename Container, typename... Msgs>
-inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
-                                           [[maybe_unused]] Container&& container,
-                                           [[maybe_unused]] const char* expression_str,
-                                           [[maybe_unused]] const char* locus,
-                                           [[maybe_unused]] Msgs&&... msgs)
-{
-    if constexpr (FATP_DEBUG_ENFORCE_ENABLED)
-    {
-        auto enforcer = enforce_policy_impl<DebugOnlyPolicy>(
-            IsSortedPredicate::check(std::forward<Container>(container), std::forward<Comp>(comp)),
-            expression_str,
-            locus);
+        auto enforcer = enforce_policy_impl<DebugOnlyPolicy>(condition, expression_str, loc);
         enforcer(std::forward<Msgs>(msgs)...);
     }
 }
@@ -186,35 +116,57 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
 #ifdef NDEBUG
 #define FATP_ENFORCE(condition, ...) ((void)0)
 #else
-#define FATP_ENFORCE(condition, ...) fat_p::debug_enforce_impl((condition), #condition, FATP_LOCUS, ##__VA_ARGS__)
+#define FATP_ENFORCE(condition, ...)                                       \
+    do                                                                     \
+    {                                                                      \
+        if (!(condition)) [[unlikely]]                                     \
+            fat_p::debug_enforce_impl(false, #condition,                   \
+                std::source_location::current() __VA_OPT__(,) __VA_ARGS__); \
+    } while (0)
 #endif
 
-#define FATP_ALWAYS_ENFORCE(condition, ...)                                                                          \
-    do                                                                                                               \
-    {                                                                                                                \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>((condition), #condition, FATP_LOCUS); \
-        enforcer(__VA_ARGS__);                                                                                       \
+#define FATP_ALWAYS_ENFORCE(condition, ...)                                          \
+    do                                                                               \
+    {                                                                                \
+        if (!(condition)) [[unlikely]]                                               \
+        {                                                                            \
+            auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(  \
+                false, #condition, std::source_location::current());                 \
+            enforcer(__VA_ARGS__);                                                   \
+        }                                                                            \
     } while (0)
 
-#define FATP_ENFORCE_WARN(condition, ...)                                                                      \
-    do                                                                                                         \
-    {                                                                                                          \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::WarningPolicy>((condition), #condition, FATP_LOCUS); \
-        enforcer(__VA_ARGS__);                                                                                 \
+#define FATP_ENFORCE_WARN(condition, ...)                                         \
+    do                                                                            \
+    {                                                                             \
+        if (!(condition)) [[unlikely]]                                            \
+        {                                                                         \
+            auto enforcer = fat_p::enforce_policy_impl<fat_p::WarningPolicy>(     \
+                false, #condition, std::source_location::current());              \
+            enforcer(__VA_ARGS__);                                                \
+        }                                                                         \
     } while (0)
 
-#define FATP_NOEXCEPT_ENFORCE(condition, ...)                                                                  \
-    do                                                                                                         \
-    {                                                                                                          \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::NoThrowPolicy>((condition), #condition, FATP_LOCUS); \
-        enforcer(__VA_ARGS__);                                                                                 \
+#define FATP_NOEXCEPT_ENFORCE(condition, ...)                                      \
+    do                                                                              \
+    {                                                                               \
+        if (!(condition)) [[unlikely]]                                              \
+        {                                                                           \
+            auto enforcer = fat_p::enforce_policy_impl<fat_p::NoThrowPolicy>(       \
+                false, #condition, std::source_location::current());                \
+            enforcer(__VA_ARGS__);                                                  \
+        }                                                                           \
     } while (0)
 
-#define FATP_ABORT_ENFORCE(condition, ...)                                                                   \
-    do                                                                                                       \
-    {                                                                                                        \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AbortPolicy>((condition), #condition, FATP_LOCUS); \
-        enforcer(__VA_ARGS__);                                                                               \
+#define FATP_ABORT_ENFORCE(condition, ...)                                        \
+    do                                                                             \
+    {                                                                              \
+        if (!(condition)) [[unlikely]]                                             \
+        {                                                                          \
+            auto enforcer = fat_p::enforce_policy_impl<fat_p::AbortPolicy>(        \
+                false, #condition, std::source_location::current());               \
+            enforcer(__VA_ARGS__);                                                 \
+        }                                                                          \
     } while (0)
 
 // ============================================================================
@@ -227,7 +179,7 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
         {                                                             \
             fat_p::MessageBuilder mb;                                 \
             mb.format(__VA_ARGS__);                                   \
-            std::string msg = mb.get_message(FATP_LOCUS, #condition); \
+            std::string msg = mb.get_message(std::source_location::current(), #condition); \
             fat_p::detail::writeToStderr("Expected Failure: ", msg);  \
             return fat_p::make_unexpected(msg);                       \
         }                                                             \
@@ -240,7 +192,7 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
         {                                                             \
             fat_p::MessageBuilder mb;                                 \
             mb.format(__VA_ARGS__);                                   \
-            std::string msg = mb.get_message(FATP_LOCUS, #condition); \
+            std::string msg = mb.get_message(std::source_location::current(), #condition); \
             fat_p::detail::writeToStderr("Expected Failure: ", msg);  \
             return fat_p::make_unexpected(msg);                       \
         }                                                             \
@@ -254,7 +206,7 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
         {                                                                                 \
             fat_p::MessageBuilder mb;                                                     \
             mb.format(__VA_ARGS__);                                                       \
-            std::string msg = mb.get_message(FATP_LOCUS, #PredicateType "(" #target ")"); \
+            std::string msg = mb.get_message(std::source_location::current(), #PredicateType "(" #target ")"); \
             fat_p::detail::writeToStderr("Expected Failure: ", msg);                      \
             return fat_p::make_unexpected(msg);                                           \
         }                                                                                 \
@@ -262,37 +214,35 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
     })()
 
 // ============================================================================
+// Internal Implementation Macro
+// ============================================================================
+// Single pattern used by all active (non-debug) predicate enforcement macros.
+// Reduces every ALWAYS/WARN/NOEXCEPT/ABORT predicate macro to a one-liner.
+// Do NOT call directly — use the public FATP_*_ENFORCE_* macros.
+
+#define FATP_ENFORCE_PRED_IMPL_(Policy, check_expr, expr_str, ...)        \
+    do                                                                     \
+    {                                                                      \
+        if (!(check_expr)) [[unlikely]]                                    \
+        {                                                                  \
+            auto enforcer = fat_p::enforce_policy_impl<fat_p::Policy>(     \
+                false, (expr_str), std::source_location::current());       \
+            enforcer(__VA_ARGS__);                                         \
+        }                                                                  \
+    } while (0)
+
+// ============================================================================
 // Generic Arity-Based Macros - Always Enforce
 // ============================================================================
 
-#define FATP_ALWAYS_ENFORCE_1(PredicateType, target, ...)                                                           \
-    do                                                                                                              \
-    {                                                                                                               \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::PredicateType::check(target), \
-                                                                               #PredicateType "(" #target ")",      \
-                                                                               FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                                      \
-    } while (0)
+#define FATP_ALWAYS_ENFORCE_1(PredicateType, target, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::PredicateType::check(target), #PredicateType "(" #target ")", __VA_ARGS__)
 
-#define FATP_ALWAYS_ENFORCE_2(PredicateType, target1, target2, ...)                                               \
-    do                                                                                                            \
-    {                                                                                                             \
-        auto enforcer =                                                                                           \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::PredicateType::check(target1, target2), \
-                                                                   #PredicateType "(" #target1 ", " #target2 ")", \
-                                                                   FATP_LOCUS);                                   \
-        enforcer(__VA_ARGS__);                                                                                    \
-    } while (0)
+#define FATP_ALWAYS_ENFORCE_2(PredicateType, target1, target2, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::PredicateType::check(target1, target2), #PredicateType "(" #target1 ", " #target2 ")", __VA_ARGS__)
 
-#define FATP_ALWAYS_ENFORCE_3(PredicateType, target1, target2, target3, ...)    \
-    do                                                                          \
-    {                                                                           \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>( \
-            fat_p::PredicateType::check(target1, target2, target3),             \
-            #PredicateType "(" #target1 ", " #target2 ", " #target3 ")",        \
-            FATP_LOCUS);                                                        \
-        enforcer(__VA_ARGS__);                                                  \
-    } while (0)
+#define FATP_ALWAYS_ENFORCE_3(PredicateType, target1, target2, target3, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::PredicateType::check(target1, target2, target3), #PredicateType "(" #target1 ", " #target2 ", " #target3 ")", __VA_ARGS__)
 
 // ============================================================================
 // Generic Arity-Based Macros - Debug Only (with aliases)
@@ -305,27 +255,20 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
 #define FATP_DEBUG_ENFORCE_2(PredicateType, target1, target2, ...) ((void)0)
 #define FATP_DEBUG_ENFORCE_3(PredicateType, target1, target2, target3, ...) ((void)0)
 #else
-#define FATP_DEBUG_ENFORCE_1(PredicateType, target, ...)                                   \
-    fat_p::debug_enforce_predicate_1<fat_p::PredicateType>(target,                         \
-                                                           #PredicateType "(" #target ")", \
-                                                           FATP_LOCUS,                     \
-                                                           ##__VA_ARGS__)
+#define FATP_DEBUG_ENFORCE_1(PredicateType, target, ...)                                        \
+    do { if (!fat_p::PredicateType::check(target)) [[unlikely]]                                 \
+        fat_p::debug_enforce_impl(false, #PredicateType "(" #target ")",                        \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
 
-#define FATP_DEBUG_ENFORCE_2(PredicateType, target1, target2, ...)                                        \
-    fat_p::debug_enforce_predicate_2<fat_p::PredicateType>(target1,                                       \
-                                                           target2,                                       \
-                                                           #PredicateType "(" #target1 ", " #target2 ")", \
-                                                           FATP_LOCUS,                                    \
-                                                           ##__VA_ARGS__)
+#define FATP_DEBUG_ENFORCE_2(PredicateType, target1, target2, ...)                              \
+    do { if (!fat_p::PredicateType::check(target1, target2)) [[unlikely]]                       \
+        fat_p::debug_enforce_impl(false, #PredicateType "(" #target1 ", " #target2 ")",         \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
 
-#define FATP_DEBUG_ENFORCE_3(PredicateType, target1, target2, target3, ...)                                        \
-    fat_p::debug_enforce_predicate_3<fat_p::PredicateType>(target1,                                                \
-                                                           target2,                                                \
-                                                           target3,                                                \
-                                                           #PredicateType "(" #target1 ", " #target2 ", " #target3 \
-                                                                          ")",                                     \
-                                                           FATP_LOCUS,                                             \
-                                                           ##__VA_ARGS__)
+#define FATP_DEBUG_ENFORCE_3(PredicateType, target1, target2, target3, ...)                     \
+    do { if (!fat_p::PredicateType::check(target1, target2, target3)) [[unlikely]]              \
+        fat_p::debug_enforce_impl(false, #PredicateType "(" #target1 ", " #target2 ", " #target3 ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
 #endif
 
 // Aliases for FATP_ENFORCE_N (debug-only variants)
@@ -337,105 +280,95 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
 // Generic Arity-Based Macros - NoThrow
 // ============================================================================
 
-#define FATP_NOEXCEPT_ENFORCE_1(PredicateType, target, ...)                                                   \
-    do                                                                                                        \
-    {                                                                                                         \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::NoThrowPolicy>(fat_p::PredicateType::check(target), \
-                                                                         #PredicateType "(" #target ")",      \
-                                                                         FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                                \
-    } while (0)
+#define FATP_NOEXCEPT_ENFORCE_1(PredicateType, target, ...) \
+    FATP_ENFORCE_PRED_IMPL_(NoThrowPolicy, fat_p::PredicateType::check(target), #PredicateType "(" #target ")", __VA_ARGS__)
 
-#define FATP_NOEXCEPT_ENFORCE_2(PredicateType, target1, target2, ...)                                       \
-    do                                                                                                      \
-    {                                                                                                       \
-        auto enforcer =                                                                                     \
-            fat_p::enforce_policy_impl<fat_p::NoThrowPolicy>(fat_p::PredicateType::check(target1, target2), \
-                                                             #PredicateType "(" #target1 ", " #target2 ")", \
-                                                             FATP_LOCUS);                                   \
-        enforcer(__VA_ARGS__);                                                                              \
-    } while (0)
+#define FATP_NOEXCEPT_ENFORCE_2(PredicateType, target1, target2, ...) \
+    FATP_ENFORCE_PRED_IMPL_(NoThrowPolicy, fat_p::PredicateType::check(target1, target2), #PredicateType "(" #target1 ", " #target2 ")", __VA_ARGS__)
 
 #define FATP_NOEXCEPT_ENFORCE_3(PredicateType, target1, target2, target3, ...) \
-    do                                                                         \
-    {                                                                          \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::NoThrowPolicy>(      \
-            fat_p::PredicateType::check(target1, target2, target3),            \
-            #PredicateType "(" #target1 ", " #target2 ", " #target3 ")",       \
-            FATP_LOCUS);                                                       \
-        enforcer(__VA_ARGS__);                                                 \
-    } while (0)
+    FATP_ENFORCE_PRED_IMPL_(NoThrowPolicy, fat_p::PredicateType::check(target1, target2, target3), #PredicateType "(" #target1 ", " #target2 ", " #target3 ")", __VA_ARGS__)
 
 // ============================================================================
 // Generic Arity-Based Macros - Abort
 // ============================================================================
 
-#define FATP_ABORT_ENFORCE_1(PredicateType, target, ...)                                                    \
-    do                                                                                                      \
-    {                                                                                                       \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AbortPolicy>(fat_p::PredicateType::check(target), \
-                                                                       #PredicateType "(" #target ")",      \
-                                                                       FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                              \
-    } while (0)
+#define FATP_ABORT_ENFORCE_1(PredicateType, target, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AbortPolicy, fat_p::PredicateType::check(target), #PredicateType "(" #target ")", __VA_ARGS__)
 
-#define FATP_ABORT_ENFORCE_2(PredicateType, target1, target2, ...)                                                    \
-    do                                                                                                                \
-    {                                                                                                                 \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AbortPolicy>(fat_p::PredicateType::check(target1, target2), \
-                                                                       #PredicateType "(" #target1 ", " #target2 ")", \
-                                                                       FATP_LOCUS);                                   \
-        enforcer(__VA_ARGS__);                                                                                        \
-    } while (0)
+#define FATP_ABORT_ENFORCE_2(PredicateType, target1, target2, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AbortPolicy, fat_p::PredicateType::check(target1, target2), #PredicateType "(" #target1 ", " #target2 ")", __VA_ARGS__)
 
 #define FATP_ABORT_ENFORCE_3(PredicateType, target1, target2, target3, ...) \
-    do                                                                      \
-    {                                                                       \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AbortPolicy>(     \
-            fat_p::PredicateType::check(target1, target2, target3),         \
-            #PredicateType "(" #target1 ", " #target2 ", " #target3 ")",    \
-            FATP_LOCUS);                                                    \
-        enforcer(__VA_ARGS__);                                              \
-    } while (0)
+    FATP_ENFORCE_PRED_IMPL_(AbortPolicy, fat_p::PredicateType::check(target1, target2, target3), #PredicateType "(" #target1 ", " #target2 ", " #target3 ")", __VA_ARGS__)
 
 // ============================================================================
 // Generic Arity-Based Macros - Warning
 // ============================================================================
 
-#define FATP_WARN_ENFORCE_1(PredicateType, target, ...)                                                       \
-    do                                                                                                        \
-    {                                                                                                         \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::WarningPolicy>(fat_p::PredicateType::check(target), \
-                                                                         #PredicateType "(" #target ")",      \
-                                                                         FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                                \
-    } while (0)
+#define FATP_WARN_ENFORCE_1(PredicateType, target, ...) \
+    FATP_ENFORCE_PRED_IMPL_(WarningPolicy, fat_p::PredicateType::check(target), #PredicateType "(" #target ")", __VA_ARGS__)
 
-#define FATP_WARN_ENFORCE_2(PredicateType, target1, target2, ...)                                           \
-    do                                                                                                      \
-    {                                                                                                       \
-        auto enforcer =                                                                                     \
-            fat_p::enforce_policy_impl<fat_p::WarningPolicy>(fat_p::PredicateType::check(target1, target2), \
-                                                             #PredicateType "(" #target1 ", " #target2 ")", \
-                                                             FATP_LOCUS);                                   \
-        enforcer(__VA_ARGS__);                                                                              \
-    } while (0)
+#define FATP_WARN_ENFORCE_2(PredicateType, target1, target2, ...) \
+    FATP_ENFORCE_PRED_IMPL_(WarningPolicy, fat_p::PredicateType::check(target1, target2), #PredicateType "(" #target1 ", " #target2 ")", __VA_ARGS__)
 
 #define FATP_WARN_ENFORCE_3(PredicateType, target1, target2, target3, ...) \
-    do                                                                     \
-    {                                                                      \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::WarningPolicy>(  \
-            fat_p::PredicateType::check(target1, target2, target3),        \
-            #PredicateType "(" #target1 ", " #target2 ", " #target3 ")",   \
-            FATP_LOCUS);                                                   \
-        enforcer(__VA_ARGS__);                                             \
-    } while (0)
+    FATP_ENFORCE_PRED_IMPL_(WarningPolicy, fat_p::PredicateType::check(target1, target2, target3), #PredicateType "(" #target1 ", " #target2 ", " #target3 ")", __VA_ARGS__)
+
 
 // ============================================================================
-// Specific Predicate Convenience Macros - AllSatisfy
+// Per-Predicate Convenience Macros
 // ============================================================================
+// These provide human-readable expression strings in diagnostics (e.g.,
+// "not_null(ptr)" instead of "NotNullPredicate(ptr)"). Each is a thin
+// wrapper around FATP_ENFORCE_PRED_IMPL_ or debug_enforce_impl.
+//
+// For predicates not listed here, use the generic arity macros above:
+//   FATP_ALWAYS_ENFORCE_1(PredicateType, target, ...)
+//   FATP_DEBUG_ENFORCE_1(PredicateType, target, ...)
+//   etc.
 
-// Release build: All FATP_DEBUG_ENFORCE_* macros expand to nothing
+// --- Always-Enforce (active in all builds) --------------------------------
+
+#define FATP_ALWAYS_ENFORCE_ALL_SATISFY(pred, container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::AllSatisfyPredicate::check(pred, container), "all_satisfy(" #pred ", " #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_ANY_SATISFY(pred, container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::AnySatisfyPredicate::check(pred, container), "any_satisfy(" #pred ", " #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_HAS_SIZE(expected_size, container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::HasSizePredicate::check(expected_size, container), "has_size(" #expected_size ", " #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_UNIQUE(container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::ContainerIsUniquePredicate::check(container), "is_unique(" #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_APPROX_EQUAL(epsilon, a, b, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::ApproxEqualPredicate::check(epsilon, a, b), "approx_equal(" #epsilon ", " #a ", " #b ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IN_RANGE(min, max, value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::InRangePredicate::check(value, min, max), "in_range(" #min ", " #max ", " #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_VALID_INDEX(idx, container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::ValidIndexPredicate::check(idx, container), "valid_index(" #idx ", " #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_INTEGRAL(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsIntegralPredicate::check(value), "is_integral(" #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_NON_NEGATIVE(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsNonNegativePredicate::check(value), "is_non_negative(" #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_POSITIVE(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsPositivePredicate::check(value), "is_positive(" #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_POWER_OF_TWO(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsPowerOfTwoPredicate::check(value), "is_power_of_two(" #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_SORTED(container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsSortedPredicate::check(container), "is_sorted(" #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_SORTED_WITH(comp, container, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsSortedPredicate::check(container, comp), "is_sorted_with(" #comp ", " #container ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_VALID_ITERATOR(it, end, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsValidIteratorPredicate::check(it, end), "is_valid_iterator(" #it ", " #end ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_NOT_EMPTY(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::NotEmptyPredicate::check(value), "not_empty(" #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::NotNullPredicate::check(ptr), "not_null(" #ptr ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_FINITE(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsFinitePredicate::check(value), "is_finite(" #value ")", __VA_ARGS__)
+#define FATP_ALWAYS_ENFORCE_IS_NORMAL(value, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AlwaysEnforcePolicy, fat_p::IsNormalPredicate::check(value), "is_normal(" #value ")", __VA_ARGS__)
+
+// --- Debug-Only (zero codegen in release) ---------------------------------
+
 #ifdef NDEBUG
 #define FATP_DEBUG_ENFORCE_ALL_SATISFY(pred, container, ...) ((void)0)
 #define FATP_DEBUG_ENFORCE_ANY_SATISFY(pred, container, ...) ((void)0)
@@ -455,424 +388,88 @@ inline void debug_enforce_sorted_with_impl([[maybe_unused]] Comp&& comp,
 #define FATP_DEBUG_ENFORCE_NOT_NULL(ptr, ...) ((void)0)
 #define FATP_DEBUG_ENFORCE_IS_FINITE(value, ...) ((void)0)
 #define FATP_DEBUG_ENFORCE_IS_NORMAL(value, ...) ((void)0)
+#else
+#define FATP_DEBUG_ENFORCE_ALL_SATISFY(pred, container, ...)      \
+    do { if (!fat_p::AllSatisfyPredicate::check(pred, container)) [[unlikely]]  \
+        fat_p::debug_enforce_impl(false, "all_satisfy(" #pred ", " #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_ANY_SATISFY(pred, container, ...)      \
+    do { if (!fat_p::AnySatisfyPredicate::check(pred, container)) [[unlikely]]  \
+        fat_p::debug_enforce_impl(false, "any_satisfy(" #pred ", " #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_HAS_SIZE(expected_size, container, ...) \
+    do { if (!fat_p::HasSizePredicate::check(expected_size, container)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "has_size(" #expected_size ", " #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_UNIQUE(container, ...)              \
+    do { if (!fat_p::ContainerIsUniquePredicate::check(container)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_unique(" #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_APPROX_EQUAL(epsilon, a, b, ...)       \
+    do { if (!fat_p::ApproxEqualPredicate::check(epsilon, a, b)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "approx_equal(" #epsilon ", " #a ", " #b ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IN_RANGE(min, max, value, ...)         \
+    do { if (!fat_p::InRangePredicate::check(value, min, max)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "in_range(" #min ", " #max ", " #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_VALID_INDEX(idx, container, ...)       \
+    do { if (!fat_p::ValidIndexPredicate::check(idx, container)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "valid_index(" #idx ", " #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_INTEGRAL(value, ...)                \
+    do { if (!fat_p::IsIntegralPredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_integral(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_NON_NEGATIVE(value, ...)            \
+    do { if (!fat_p::IsNonNegativePredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_non_negative(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_POSITIVE(value, ...)                \
+    do { if (!fat_p::IsPositivePredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_positive(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_POWER_OF_TWO(value, ...)            \
+    do { if (!fat_p::IsPowerOfTwoPredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_power_of_two(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_SORTED(container, ...)              \
+    do { if (!fat_p::IsSortedPredicate::check(container)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_sorted(" #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_SORTED_WITH(comp, container, ...)   \
+    do { if (!fat_p::IsSortedPredicate::check(container, comp)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_sorted_with(" #comp ", " #container ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_VALID_ITERATOR(it, end, ...)        \
+    do { if (!fat_p::IsValidIteratorPredicate::check(it, end)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_valid_iterator(" #it ", " #end ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_NOT_EMPTY(value, ...)                  \
+    do { if (!fat_p::NotEmptyPredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "not_empty(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_NOT_NULL(ptr, ...)                     \
+    do { if (!fat_p::NotNullPredicate::check(ptr)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "not_null(" #ptr ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_FINITE(value, ...)                  \
+    do { if (!fat_p::IsFinitePredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_finite(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
+#define FATP_DEBUG_ENFORCE_IS_NORMAL(value, ...)                  \
+    do { if (!fat_p::IsNormalPredicate::check(value)) [[unlikely]] \
+        fat_p::debug_enforce_impl(false, "is_normal(" #value ")", \
+            std::source_location::current() __VA_OPT__(,) __VA_ARGS__); } while (0)
 #endif
 
-#define FATP_ALWAYS_ENFORCE_ALL_SATISFY(pred, container, ...)                                                          \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto enforcer =                                                                                                \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::AllSatisfyPredicate::check(pred, container), \
-                                                                   "all_satisfy(" #pred ", " #container ")",           \
-                                                                   FATP_LOCUS);                                        \
-        enforcer(__VA_ARGS__);                                                                                         \
-    } while (0)
+// --- NotNull Multi-Policy Variants ----------------------------------------
 
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_ALL_SATISFY(pred, container, ...)                                               \
-    fat_p::debug_enforce_predicate_2<fat_p::AllSatisfyPredicate>(pred,                                     \
-                                                                 container,                                \
-                                                                 "all_satisfy(" #pred ", " #container ")", \
-                                                                 FATP_LOCUS,                               \
-                                                                 ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - AnySatisfy
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_ANY_SATISFY(pred, container, ...)                                                          \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto enforcer =                                                                                                \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::AnySatisfyPredicate::check(pred, container), \
-                                                                   "any_satisfy(" #pred ", " #container ")",           \
-                                                                   FATP_LOCUS);                                        \
-        enforcer(__VA_ARGS__);                                                                                         \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_ANY_SATISFY(pred, container, ...)                                               \
-    fat_p::debug_enforce_predicate_2<fat_p::AnySatisfyPredicate>(pred,                                     \
-                                                                 container,                                \
-                                                                 "any_satisfy(" #pred ", " #container ")", \
-                                                                 FATP_LOCUS,                               \
-                                                                 ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - HasSize
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_HAS_SIZE(expected_size, container, ...)             \
-    do                                                                          \
-    {                                                                           \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>( \
-            fat_p::HasSizePredicate::check(expected_size, container),           \
-            "has_size(" #expected_size ", " #container ")",                     \
-            FATP_LOCUS);                                                        \
-        enforcer(__VA_ARGS__);                                                  \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_HAS_SIZE(expected_size, container, ...)                                            \
-    fat_p::debug_enforce_predicate_2<fat_p::HasSizePredicate>(expected_size,                                  \
-                                                              container,                                      \
-                                                              "has_size(" #expected_size ", " #container ")", \
-                                                              FATP_LOCUS,                                     \
-                                                              ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - ContainerIsUnique
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_UNIQUE(container, ...)                           \
-    do                                                                          \
-    {                                                                           \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>( \
-            fat_p::ContainerIsUniquePredicate::check(container),                \
-            "is_unique(" #container ")",                                        \
-            FATP_LOCUS);                                                        \
-        enforcer(__VA_ARGS__);                                                  \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_UNIQUE(container, ...)                                                 \
-    fat_p::debug_enforce_predicate_1<fat_p::ContainerIsUniquePredicate>(container,                   \
-                                                                        "is_unique(" #container ")", \
-                                                                        FATP_LOCUS,                  \
-                                                                        ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - ApproxEqual
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_APPROX_EQUAL(epsilon, a, b, ...)                                                          \
-    do                                                                                                                \
-    {                                                                                                                 \
-        auto enforcer =                                                                                               \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::ApproxEqualPredicate::check(epsilon, a, b), \
-                                                                   "approx_equal(" #epsilon ", " #a ", " #b ")",      \
-                                                                   FATP_LOCUS);                                       \
-        enforcer(__VA_ARGS__);                                                                                        \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_APPROX_EQUAL(epsilon, a, b, ...)                                                     \
-    fat_p::debug_enforce_predicate_3<fat_p::ApproxEqualPredicate>(epsilon,                                      \
-                                                                  a,                                            \
-                                                                  b,                                            \
-                                                                  "approx_equal(" #epsilon ", " #a ", " #b ")", \
-                                                                  FATP_LOCUS,                                   \
-                                                                  ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - InRange
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IN_RANGE(min, max, value, ...)                                                          \
-    do                                                                                                              \
-    {                                                                                                               \
-        auto enforcer =                                                                                             \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::InRangePredicate::check(value, min, max), \
-                                                                   "in_range(" #min ", " #max ", " #value ")",      \
-                                                                   FATP_LOCUS);                                     \
-        enforcer(__VA_ARGS__);                                                                                      \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IN_RANGE(min, max, value, ...)                                                 \
-    fat_p::debug_enforce_predicate_3<fat_p::InRangePredicate>(value,                                      \
-                                                              min,                                        \
-                                                              max,                                        \
-                                                              "in_range(" #min ", " #max ", " #value ")", \
-                                                              FATP_LOCUS,                                 \
-                                                              ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - ValidIndex
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_VALID_INDEX(idx, container, ...)                                                          \
-    do                                                                                                                \
-    {                                                                                                                 \
-        auto enforcer =                                                                                               \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::ValidIndexPredicate::check(idx, container), \
-                                                                   "valid_index(" #idx ", " #container ")",           \
-                                                                   FATP_LOCUS);                                       \
-        enforcer(__VA_ARGS__);                                                                                        \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_VALID_INDEX(idx, container, ...)                                               \
-    fat_p::debug_enforce_predicate_2<fat_p::ValidIndexPredicate>(idx,                                     \
-                                                                 container,                               \
-                                                                 "valid_index(" #idx ", " #container ")", \
-                                                                 FATP_LOCUS,                              \
-                                                                 ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsIntegral
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_INTEGRAL(value, ...)                                                          \
-    do                                                                                                       \
-    {                                                                                                        \
-        auto enforcer =                                                                                      \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsIntegralPredicate::check(value), \
-                                                                   "is_integral(" #value ")",                \
-                                                                   FATP_LOCUS);                              \
-        enforcer(__VA_ARGS__);                                                                               \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_INTEGRAL(value, ...)                                          \
-    fat_p::debug_enforce_predicate_1<fat_p::IsIntegralPredicate>(value,                     \
-                                                                 "is_integral(" #value ")", \
-                                                                 FATP_LOCUS,                \
-                                                                 ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsNonNegative
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_NON_NEGATIVE(value, ...)                                                         \
-    do                                                                                                          \
-    {                                                                                                           \
-        auto enforcer =                                                                                         \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsNonNegativePredicate::check(value), \
-                                                                   "is_non_negative(" #value ")",               \
-                                                                   FATP_LOCUS);                                 \
-        enforcer(__VA_ARGS__);                                                                                  \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_NON_NEGATIVE(value, ...)                                             \
-    fat_p::debug_enforce_predicate_1<fat_p::IsNonNegativePredicate>(value,                         \
-                                                                    "is_non_negative(" #value ")", \
-                                                                    FATP_LOCUS,                    \
-                                                                    ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsPositive
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_POSITIVE(value, ...)                                                          \
-    do                                                                                                       \
-    {                                                                                                        \
-        auto enforcer =                                                                                      \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsPositivePredicate::check(value), \
-                                                                   "is_positive(" #value ")",                \
-                                                                   FATP_LOCUS);                              \
-        enforcer(__VA_ARGS__);                                                                               \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_POSITIVE(value, ...)                                          \
-    fat_p::debug_enforce_predicate_1<fat_p::IsPositivePredicate>(value,                     \
-                                                                 "is_positive(" #value ")", \
-                                                                 FATP_LOCUS,                \
-                                                                 ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsPowerOfTwo
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_POWER_OF_TWO(value, ...)                                                        \
-    do                                                                                                         \
-    {                                                                                                          \
-        auto enforcer =                                                                                        \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsPowerOfTwoPredicate::check(value), \
-                                                                   "is_power_of_two(" #value ")",              \
-                                                                   FATP_LOCUS);                                \
-        enforcer(__VA_ARGS__);                                                                                 \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_POWER_OF_TWO(value, ...)                                            \
-    fat_p::debug_enforce_predicate_1<fat_p::IsPowerOfTwoPredicate>(value,                         \
-                                                                   "is_power_of_two(" #value ")", \
-                                                                   FATP_LOCUS,                    \
-                                                                   ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsSorted
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_SORTED(container, ...)                                                          \
-    do                                                                                                         \
-    {                                                                                                          \
-        auto enforcer =                                                                                        \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsSortedPredicate::check(container), \
-                                                                   "is_sorted(" #container ")",                \
-                                                                   FATP_LOCUS);                                \
-        enforcer(__VA_ARGS__);                                                                                 \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_SORTED(container, ...)                                        \
-    fat_p::debug_enforce_predicate_1<fat_p::IsSortedPredicate>(container,                   \
-                                                               "is_sorted(" #container ")", \
-                                                               FATP_LOCUS,                  \
-                                                               ##__VA_ARGS__)
-#endif
-
-#define FATP_ALWAYS_ENFORCE_IS_SORTED_WITH(comp, container, ...)                                                     \
-    do                                                                                                               \
-    {                                                                                                                \
-        auto enforcer =                                                                                              \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsSortedPredicate::check(container, comp), \
-                                                                   "is_sorted_with(" #comp ", " #container ")",      \
-                                                                   FATP_LOCUS);                                      \
-        enforcer(__VA_ARGS__);                                                                                       \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_SORTED_WITH(comp, container, ...)                        \
-    fat_p::debug_enforce_sorted_with_impl(comp,                                        \
-                                          container,                                   \
-                                          "is_sorted_with(" #comp ", " #container ")", \
-                                          FATP_LOCUS,                                  \
-                                          ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsValidIterator
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_VALID_ITERATOR(it, end, ...)                                                         \
-    do                                                                                                              \
-    {                                                                                                               \
-        auto enforcer =                                                                                             \
-            fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsValidIteratorPredicate::check(it, end), \
-                                                                   "is_valid_iterator(" #it ", " #end ")",          \
-                                                                   FATP_LOCUS);                                     \
-        enforcer(__VA_ARGS__);                                                                                      \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_VALID_ITERATOR(it, end, ...)                                                    \
-    fat_p::debug_enforce_predicate_2<fat_p::IsValidIteratorPredicate>(it,                                     \
-                                                                      end,                                    \
-                                                                      "is_valid_iterator(" #it ", " #end ")", \
-                                                                      FATP_LOCUS,                             \
-                                                                      ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - NotEmpty
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_NOT_EMPTY(value, ...)                                                                      \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::NotEmptyPredicate::check(value), \
-                                                                               "not_empty(" #value ")",                \
-                                                                               FATP_LOCUS);                            \
-        enforcer(__VA_ARGS__);                                                                                         \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_NOT_EMPTY(value, ...)                                        \
-    fat_p::debug_enforce_predicate_1<fat_p::NotEmptyPredicate>(value,                   \
-                                                               "not_empty(" #value ")", \
-                                                               FATP_LOCUS,              \
-                                                               ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - NotNull (All Policies)
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, ...)                                                                      \
-    do                                                                                                              \
-    {                                                                                                               \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::NotNullPredicate::check(ptr), \
-                                                                               "not_null(" #ptr ")",                \
-                                                                               FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                                      \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_NOT_NULL(ptr, ...) \
-    fat_p::debug_enforce_predicate_1<fat_p::NotNullPredicate>(ptr, "not_null(" #ptr ")", FATP_LOCUS, ##__VA_ARGS__)
-#endif
-
-#define FATP_WARN_ENFORCE_NOT_NULL(ptr, ...)                                                                  \
-    do                                                                                                        \
-    {                                                                                                         \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::WarningPolicy>(fat_p::NotNullPredicate::check(ptr), \
-                                                                         "not_null(" #ptr ")",                \
-                                                                         FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                                \
-    } while (0)
-
-#define FATP_NOEXCEPT_ENFORCE_NOT_NULL(ptr, ...)                                                              \
-    do                                                                                                        \
-    {                                                                                                         \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::NoThrowPolicy>(fat_p::NotNullPredicate::check(ptr), \
-                                                                         "not_null(" #ptr ")",                \
-                                                                         FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                                \
-    } while (0)
-
-#define FATP_ABORT_ENFORCE_NOT_NULL(ptr, ...)                                                               \
-    do                                                                                                      \
-    {                                                                                                       \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AbortPolicy>(fat_p::NotNullPredicate::check(ptr), \
-                                                                       "not_null(" #ptr ")",                \
-                                                                       FATP_LOCUS);                         \
-        enforcer(__VA_ARGS__);                                                                              \
-    } while (0)
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsFinite
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_FINITE(value, ...)                                                                      \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsFinitePredicate::check(value), \
-                                                                               "is_finite(" #value ")",                \
-                                                                               FATP_LOCUS);                            \
-        enforcer(__VA_ARGS__);                                                                                         \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_FINITE(value, ...)                                        \
-    fat_p::debug_enforce_predicate_1<fat_p::IsFinitePredicate>(value,                   \
-                                                               "is_finite(" #value ")", \
-                                                               FATP_LOCUS,              \
-                                                               ##__VA_ARGS__)
-#endif
-
-// ============================================================================
-// Specific Predicate Convenience Macros - IsNormal
-// ============================================================================
-
-#define FATP_ALWAYS_ENFORCE_IS_NORMAL(value, ...)                                                                      \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto enforcer = fat_p::enforce_policy_impl<fat_p::AlwaysEnforcePolicy>(fat_p::IsNormalPredicate::check(value), \
-                                                                               "is_normal(" #value ")",                \
-                                                                               FATP_LOCUS);                            \
-        enforcer(__VA_ARGS__);                                                                                         \
-    } while (0)
-
-#ifndef NDEBUG
-#define FATP_DEBUG_ENFORCE_IS_NORMAL(value, ...)                                        \
-    fat_p::debug_enforce_predicate_1<fat_p::IsNormalPredicate>(value,                   \
-                                                               "is_normal(" #value ")", \
-                                                               FATP_LOCUS,              \
-                                                               ##__VA_ARGS__)
-#endif
+#define FATP_WARN_ENFORCE_NOT_NULL(ptr, ...) \
+    FATP_ENFORCE_PRED_IMPL_(WarningPolicy, fat_p::NotNullPredicate::check(ptr), "not_null(" #ptr ")", __VA_ARGS__)
+#define FATP_NOEXCEPT_ENFORCE_NOT_NULL(ptr, ...) \
+    FATP_ENFORCE_PRED_IMPL_(NoThrowPolicy, fat_p::NotNullPredicate::check(ptr), "not_null(" #ptr ")", __VA_ARGS__)
+#define FATP_ABORT_ENFORCE_NOT_NULL(ptr, ...) \
+    FATP_ENFORCE_PRED_IMPL_(AbortPolicy, fat_p::NotNullPredicate::check(ptr), "not_null(" #ptr ")", __VA_ARGS__)
 
 } // namespace fat_p

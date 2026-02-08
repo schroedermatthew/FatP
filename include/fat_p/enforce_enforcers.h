@@ -40,6 +40,7 @@ FATP_META:
 #include "FatPConfig.h"
 
 #include <exception>
+#include <source_location>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -55,13 +56,6 @@ FATP_META:
 // ==================================================================================
 
 // FATP_NOINLINE: Provided by FatPConfig.h (Rule F: single source of truth)
-
-// FATP_UNLIKELY_COND: Branch hint (C++20 [[unlikely]] where available, otherwise no-op)
-#if FATP_HAS_EXPECTED || FATP_CPP20_OR_LATER
-#define FATP_UNLIKELY_IF(cond) if (cond) [[unlikely]]
-#else
-#define FATP_UNLIKELY_IF(cond) if (cond)
-#endif
 
 namespace fat_p
 {
@@ -101,13 +95,14 @@ struct MessageBuilder
 
     /**
      * @brief Formats and returns the complete, structured error message.
-     * @param locus The file and line number where the failure occurred.
+     * @param loc The source location where the failure occurred.
      * @param expression The source code text of the failed condition.
      * @return The complete error message string.
      */
-    std::string get_message(const char* locus, const std::string& expression) const
+    std::string get_message(std::source_location loc, const std::string& expression) const
     {
-        return "\n\tCondition: " + expression + "\n\tLocus: " + locus + "\n\tMessage: " + ss.str();
+        return "\n\tCondition: " + expression + "\n\tLocation: " + loc.file_name() + ":" +
+               std::to_string(loc.line()) + "\n\tFunction: " + loc.function_name() + "\n\tMessage: " + ss.str();
     }
 };
 
@@ -133,9 +128,9 @@ inline constexpr bool is_expected_raiser_v = is_expected_raiser<T>::value;
  * result and invoking the Raiser policy on failure.
  *
  * CRITICAL: This class is designed for ZERO overhead when the condition passes.
- * All members are trivially destructible (pointers/bool only). The expensive
- * operations (string building, ostringstream, exception throwing) only happen
- * in the failure path, which is marked cold.
+ * All members are trivially destructible (pointers/bool/source_location only).
+ * The expensive operations (string building, ostringstream, exception throwing)
+ * only happen in the failure path, which is marked cold.
  *
  * @tparam Raiser The failure consequence policy (e.g., throw, log, abort).
  */
@@ -143,7 +138,7 @@ template <typename Raiser>
 class Enforcer
 {
     const bool mPassed;
-    const char* const mLocus;
+    const std::source_location mLoc;
     const char* const mExpression;
     const char* user_message_ = nullptr; // Points to static string or nullptr - NO allocation
 
@@ -152,11 +147,11 @@ public:
      * @brief Constructor for the Enforcer.
      * @param passed The result of the condition check (true if passed).
      * @param expression_str The source code text of the condition.
-     * @param locus The file and line number of the contract call.
+     * @param loc The source location of the contract call.
      */
-    constexpr Enforcer(bool passed, const char* expression_str, const char* locus) noexcept
+    constexpr Enforcer(bool passed, const char* expression_str, std::source_location loc) noexcept
         : mPassed(passed)
-        , mLocus(locus)
+        , mLoc(loc)
         , mExpression(expression_str)
     {
     }
@@ -170,7 +165,7 @@ public:
     ~Enforcer() noexcept(std::is_same_v<Raiser, NoThrowRaiser> || std::is_same_v<Raiser, WarningToCerrRaiser> ||
                          std::is_same_v<Raiser, NoOpRaiser>)
     {
-        FATP_UNLIKELY_IF(!mPassed)
+        if (!mPassed) [[unlikely]]
         {
             fail_impl();
         }
@@ -188,23 +183,19 @@ private:
     {
         std::string full_message = "\n\tCondition: ";
         full_message += mExpression;
-        full_message += "\n\tLocus: ";
-        full_message += mLocus;
+        full_message += "\n\tLocation: ";
+        full_message += mLoc.file_name();
+        full_message += ":";
+        full_message += std::to_string(mLoc.line());
+        full_message += "\n\tFunction: ";
+        full_message += mLoc.function_name();
         if (user_message_)
         {
             full_message += "\n\tMessage: ";
             full_message += user_message_;
         }
 
-        if constexpr (std::is_same_v<Raiser, NoThrowRaiser> || std::is_same_v<Raiser, WarningToCerrRaiser> ||
-                      std::is_same_v<Raiser, NoOpRaiser>)
-        {
-            Raiser::fail(full_message);
-        }
-        else
-        {
-            Raiser::fail(full_message);
-        }
+        Raiser::fail(full_message);
     }
 
 public:
@@ -213,7 +204,7 @@ public:
      */
     void operator()(const char* msg) noexcept
     {
-        FATP_UNLIKELY_IF(!mPassed)
+        if (!mPassed) [[unlikely]]
         {
             user_message_ = msg;
         }
@@ -227,7 +218,7 @@ public:
     template <typename... Msgs>
     void operator()(Msgs&&... msgs)
     {
-        FATP_UNLIKELY_IF(!mPassed)
+        if (!mPassed) [[unlikely]]
         {
             // Build message on heap - only happens on failure
             static thread_local std::string formatted_message;
@@ -263,7 +254,7 @@ public:
     /**
      * @brief Zero-overhead constructor.
      */
-    NoOpEnforcer(bool /* passed */, const char* /* expression_str */, const char* /* locus */) noexcept
+    NoOpEnforcer(bool /* passed */, const char* /* expression_str */, std::source_location /* loc */) noexcept
     {
     }
 
@@ -301,19 +292,19 @@ public:
  * @tparam Raiser The failure consequence policy.
  * @param passed The result of the condition check.
  * @param expression_str The source code text of the condition.
- * @param locus The file and line number of the contract call.
+ * @param loc The source location of the contract call.
  * @return Either an `Enforcer<Raiser>` or `NoOpEnforcer` instance.
  */
 template <typename Raiser>
-[[nodiscard]] auto MakeEnforcer(bool passed, const char* expression_str, const char* locus)
+[[nodiscard]] auto MakeEnforcer(bool passed, const char* expression_str, std::source_location loc)
 {
     if constexpr (std::is_same_v<Raiser, NoOpRaiser>)
     {
-        return NoOpEnforcer(passed, expression_str, locus);
+        return NoOpEnforcer(passed, expression_str, loc);
     }
     else
     {
-        return Enforcer<Raiser>(passed, expression_str, locus);
+        return Enforcer<Raiser>(passed, expression_str, loc);
     }
 }
 

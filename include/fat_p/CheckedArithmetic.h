@@ -109,7 +109,7 @@ checked_clamp(T value, T min_val, T max_val) noexcept(PolicyTraits<Policy>::temp
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid range: min > max");
+            detail::checked_arithmetic_fail(std::source_location::current(), "Invalid range: min > max");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -127,7 +127,7 @@ checked_clamp(T value, T min_val, T max_val) noexcept(PolicyTraits<Policy>::temp
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "NaN in clamp");
+                detail::checked_arithmetic_fail(std::source_location::current(), "NaN in clamp");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -165,7 +165,7 @@ checked_in_range(T value, T min_val, T max_val) noexcept(PolicyTraits<Policy>::t
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "Invalid range: min > max");
+            detail::checked_arithmetic_fail(std::source_location::current(), "Invalid range: min > max");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
@@ -183,7 +183,7 @@ checked_in_range(T value, T min_val, T max_val) noexcept(PolicyTraits<Policy>::t
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "NaN in range check");
+                detail::checked_arithmetic_fail(std::source_location::current(), "NaN in range check");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -310,7 +310,7 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "checked_cast: NaN cannot be converted");
+                detail::checked_arithmetic_fail(std::source_location::current(), "checked_cast: NaN cannot be converted");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -333,7 +333,7 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(FATP_LOCUS, "checked_cast: Inf cannot be converted to integer");
+                detail::checked_arithmetic_fail(std::source_location::current(), "checked_cast: Inf cannot be converted to integer");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -353,7 +353,7 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
     {
         if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
         {
-            detail::checked_arithmetic_fail(FATP_LOCUS, "checked_cast overflow");
+            detail::checked_arithmetic_fail(std::source_location::current(), "checked_cast overflow");
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
