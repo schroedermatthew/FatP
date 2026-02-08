@@ -710,7 +710,8 @@ FATP_TEST_CASE(enforce_init_copy_semantics)
         EnforcedInit<int> value;
         (void)value.init(TEST_VALUE_DEFAULT);
 
-        value = value;
+        auto& self = value;
+        value = self;
         FATP_ASSERT_EQ(value.get(), TEST_VALUE_DEFAULT, "Self-assignment works");
     }
 
