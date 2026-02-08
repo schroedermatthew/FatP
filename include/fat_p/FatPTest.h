@@ -168,6 +168,7 @@ cd build * @note This infrastructure provides: assertions, benchmarking, colored
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <ctime>
 #include <exception>
@@ -309,20 +310,18 @@ namespace primitive
 template <typename T>
 constexpr T RELATIVE_EPSILON_SCALE = static_cast<T>(100);
 
-template <typename T>
+template <std::floating_point T>
 constexpr T get_default_epsilon()
 {
-    static_assert(std::is_floating_point_v<T>, "T must be floating-point");
     return std::numeric_limits<T>::epsilon() * RELATIVE_EPSILON_SCALE<T>;
 }
 
-template <typename T>
+template <std::floating_point T>
 inline bool are_close(T a,
                       T b,
                       T rel_eps = get_default_epsilon<T>(),
                       T abs_eps = get_default_epsilon<T>() / RELATIVE_EPSILON_SCALE<T>)
 {
-    static_assert(std::is_floating_point_v<T>, "T must be floating-point");
 
     if (std::isnan(a) || std::isnan(b))
     {
@@ -663,59 +662,35 @@ inline SubtestTracker& get_subtest_tracker();
 namespace detail
 {
 
+template <std::integral A, std::integral B>
+bool safe_eq(const A& a, const B& b) { return std::cmp_equal(a, b); }
 template <typename A, typename B>
-bool safe_eq(const A& a, const B& b)
-{
-    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
-        return std::cmp_equal(a, b);
-    else
-        return a == b;
-}
+bool safe_eq(const A& a, const B& b) { return a == b; }
 
+template <std::integral A, std::integral B>
+bool safe_ne(const A& a, const B& b) { return std::cmp_not_equal(a, b); }
 template <typename A, typename B>
-bool safe_ne(const A& a, const B& b)
-{
-    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
-        return std::cmp_not_equal(a, b);
-    else
-        return a != b;
-}
+bool safe_ne(const A& a, const B& b) { return a != b; }
 
+template <std::integral A, std::integral B>
+bool safe_lt(const A& a, const B& b) { return std::cmp_less(a, b); }
 template <typename A, typename B>
-bool safe_lt(const A& a, const B& b)
-{
-    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
-        return std::cmp_less(a, b);
-    else
-        return a < b;
-}
+bool safe_lt(const A& a, const B& b) { return a < b; }
 
+template <std::integral A, std::integral B>
+bool safe_le(const A& a, const B& b) { return std::cmp_less_equal(a, b); }
 template <typename A, typename B>
-bool safe_le(const A& a, const B& b)
-{
-    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
-        return std::cmp_less_equal(a, b);
-    else
-        return a <= b;
-}
+bool safe_le(const A& a, const B& b) { return a <= b; }
 
+template <std::integral A, std::integral B>
+bool safe_gt(const A& a, const B& b) { return std::cmp_greater(a, b); }
 template <typename A, typename B>
-bool safe_gt(const A& a, const B& b)
-{
-    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
-        return std::cmp_greater(a, b);
-    else
-        return a > b;
-}
+bool safe_gt(const A& a, const B& b) { return a > b; }
 
+template <std::integral A, std::integral B>
+bool safe_ge(const A& a, const B& b) { return std::cmp_greater_equal(a, b); }
 template <typename A, typename B>
-bool safe_ge(const A& a, const B& b)
-{
-    if constexpr (std::is_integral_v<std::remove_cvref_t<A>> && std::is_integral_v<std::remove_cvref_t<B>>)
-        return std::cmp_greater_equal(a, b);
-    else
-        return a >= b;
-}
+bool safe_ge(const A& a, const B& b) { return a >= b; }
 
 } // namespace detail
 
