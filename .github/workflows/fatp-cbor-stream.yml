@@ -11,6 +11,10 @@
 name: FatPCborStream CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FatPCborStream.h'
+      - 'components/Cbor/tests/test_FatPCborStream.cpp'
   workflow_dispatch:
 
 env:

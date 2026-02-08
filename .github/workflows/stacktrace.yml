@@ -12,6 +12,11 @@
 name: Stacktrace CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/Stacktrace.h'
+      - 'components/Stacktrace/tests/test_Stacktrace.cpp'
+      - 'components/Stacktrace/benchmarks/benchmark_Stacktrace.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

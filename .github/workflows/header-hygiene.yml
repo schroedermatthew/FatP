@@ -9,6 +9,9 @@
 name: Header Hygiene
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/*.h'
   workflow_dispatch:
 
 jobs:

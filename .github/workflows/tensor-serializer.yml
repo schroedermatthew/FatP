@@ -11,6 +11,10 @@
 name: TensorSerializer CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/TensorSerializer.h'
+      - 'components/Tensor/tests/test_TensorSerializer.cpp'
   workflow_dispatch:
 
 env:

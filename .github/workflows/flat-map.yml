@@ -12,6 +12,11 @@
 name: FlatMap CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FlatMap.h'
+      - 'components/FlatMapSet/tests/test_FlatMap.cpp'
+      - 'components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

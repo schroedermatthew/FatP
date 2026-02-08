@@ -12,6 +12,11 @@
 name: BitSet CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/BitSet.h'
+      - 'components/BitSet/tests/test_BitSet.cpp'
+      - 'components/BitSet/benchmarks/benchmark_BitSet.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

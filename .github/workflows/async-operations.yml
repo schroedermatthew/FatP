@@ -11,6 +11,10 @@
 name: AsyncOperations CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/AsyncOperations.h'
+      - 'components/AsyncOperations/tests/test_AsyncOperations.cpp'
   workflow_dispatch:
 
 env:

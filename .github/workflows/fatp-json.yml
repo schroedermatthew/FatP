@@ -11,6 +11,10 @@
 name: FatPJson CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FatPJson.h'
+      - 'components/Json/tests/test_FatPJson.cpp'
   workflow_dispatch:
 
 env:

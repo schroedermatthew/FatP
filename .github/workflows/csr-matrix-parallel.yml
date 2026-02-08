@@ -11,6 +11,10 @@
 name: CSRMatrixParallel CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/CSRMatrixParallel.h'
+      - 'components/CSRMatrix/tests/test_CSRMatrixParallel.cpp'
   workflow_dispatch:
 
 env:

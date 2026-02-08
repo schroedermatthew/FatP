@@ -11,6 +11,10 @@
 name: ConstexprUtilities CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ConstexprUtilities.h'
+      - 'components/ConstexprUtilities/tests/test_ConstexprUtilities.cpp'
   workflow_dispatch:
 
 env:

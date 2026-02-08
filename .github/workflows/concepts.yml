@@ -11,6 +11,10 @@
 name: Concepts CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/Concepts.h'
+      - 'components/Concepts/tests/test_Concepts.cpp'
   workflow_dispatch:
 
 env:

@@ -12,6 +12,11 @@
 name: SmallVector CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/SmallVector.h'
+      - 'components/SmallVector/tests/test_SmallVector.cpp'
+      - 'components/SmallVector/benchmarks/benchmark_SmallVector.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

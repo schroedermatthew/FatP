@@ -19,6 +19,11 @@
 name: FatPHashMap CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FastHashMap.h'
+      - 'include/fat_p/StableHashMap.h'
+      - 'components/FatPHashMap/**'
   workflow_dispatch:
     inputs:
       run_benchmarks:

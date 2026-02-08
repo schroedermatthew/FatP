@@ -11,6 +11,10 @@
 name: NumaAllocator CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/NumaAllocator.h'
+      - 'components/NumaAllocator/tests/test_NumaAllocator.cpp'
   workflow_dispatch:
 
 env:

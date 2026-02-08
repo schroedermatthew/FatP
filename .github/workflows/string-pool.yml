@@ -11,6 +11,10 @@
 name: StringPool CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/StringPool.h'
+      - 'components/StringPool/tests/test_StringPool.cpp'
   workflow_dispatch:
 
 env:

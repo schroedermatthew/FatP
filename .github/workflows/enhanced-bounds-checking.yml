@@ -11,6 +11,10 @@
 name: EnhancedBoundsChecking CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/EnhancedBoundsChecking.h'
+      - 'components/EnhancedBoundsChecking/tests/test_EnhancedBoundsChecking.cpp'
   workflow_dispatch:
 
 env:

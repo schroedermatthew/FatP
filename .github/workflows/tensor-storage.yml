@@ -11,6 +11,10 @@
 name: TensorStorage CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/TensorStorage.h'
+      - 'components/Tensor/tests/test_TensorStorage.cpp'
   workflow_dispatch:
 
 env:

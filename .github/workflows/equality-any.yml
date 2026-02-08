@@ -11,6 +11,10 @@
 name: EqualityAny CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/EqualityAny.h'
+      - 'components/Equality/tests/test_EqualityAny.cpp'
   workflow_dispatch:
 
 env:

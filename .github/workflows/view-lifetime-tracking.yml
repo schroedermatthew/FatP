@@ -11,6 +11,10 @@
 name: ViewLifetimeTracking CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ViewLifetimeTracking.h'
+      - 'components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp'
   workflow_dispatch:
 
 env:

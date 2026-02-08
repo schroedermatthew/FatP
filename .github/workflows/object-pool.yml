@@ -12,6 +12,11 @@
 name: ObjectPool CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ObjectPool.h'
+      - 'components/ObjectPool/tests/test_ObjectPool.cpp'
+      - 'components/ObjectPool/benchmarks/benchmark_ObjectPool.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

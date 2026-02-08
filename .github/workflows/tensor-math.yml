@@ -11,6 +11,10 @@
 name: TensorMath CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/TensorMath.h'
+      - 'components/Tensor/tests/test_TensorMath.cpp'
   workflow_dispatch:
 
 env:

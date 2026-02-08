@@ -1,6 +1,10 @@
 name: FATP_META Compliance
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/*.h'
+      - 'tools/fatp_meta_*.py'
   workflow_dispatch:
 
 permissions:

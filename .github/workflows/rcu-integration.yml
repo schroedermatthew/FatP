@@ -11,6 +11,10 @@
 name: RcuIntegration CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ConcurrencyPolicies.h'
+      - 'components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp'
   workflow_dispatch:
 
 env:

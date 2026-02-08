@@ -11,6 +11,10 @@
 name: ScopeGuard CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ScopeGuard.h'
+      - 'components/ScopeGuard/tests/test_ScopeGuard.cpp'
   workflow_dispatch:
 
 env:

@@ -12,6 +12,11 @@
 name: AlignedVector CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/AlignedVector.h'
+      - 'components/AlignedVector/tests/test_AlignedVector.cpp'
+      - 'components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

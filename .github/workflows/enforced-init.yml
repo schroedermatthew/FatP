@@ -11,6 +11,10 @@
 name: EnforcedInit CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/EnforcedInit.h'
+      - 'components/EnforcedInit/tests/test_EnforcedInit.cpp'
   workflow_dispatch:
 
 env:

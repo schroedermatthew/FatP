@@ -11,6 +11,10 @@
 name: Expected CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/Expected.h'
+      - 'components/Expected/tests/test_Expected.cpp'
   workflow_dispatch:
 
 env:

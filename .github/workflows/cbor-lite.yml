@@ -11,6 +11,10 @@
 name: CborLite CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/CborLite.h'
+      - 'components/Cbor/tests/test_CborLite.cpp'
   workflow_dispatch:
 
 env:

@@ -11,6 +11,10 @@
 name: FatPBenchmarkRunner CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FatPBenchmarkRunner.h'
+      - 'components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp'
   workflow_dispatch:
 
 env:

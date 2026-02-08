@@ -11,6 +11,10 @@
 name: TypeTraits CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/TypeTraits.h'
+      - 'components/TypeTraits/tests/test_TypeTraits.cpp'
   workflow_dispatch:
 
 env:

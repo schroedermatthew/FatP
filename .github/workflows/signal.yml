@@ -11,6 +11,10 @@
 name: Signal CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/Signal.h'
+      - 'components/Signal/tests/test_Signal.cpp'
   workflow_dispatch:
 
 env:

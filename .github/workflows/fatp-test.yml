@@ -11,6 +11,10 @@
 name: FatPTest CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FatPTest.h'
+      - 'components/FatPTest/tests/test_FatPTest.cpp'
   workflow_dispatch:
 
 env:

@@ -11,6 +11,10 @@
 name: TensorComparison CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/EqualityTensor.h'
+      - 'components/Tensor/tests/test_TensorComparison.cpp'
   workflow_dispatch:
 
 env:

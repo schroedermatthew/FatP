@@ -11,6 +11,10 @@
 name: DebugOnly CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/DebugOnly.h'
+      - 'components/DebugOnly/tests/test_DebugOnly.cpp'
   workflow_dispatch:
 
 env:

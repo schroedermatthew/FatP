@@ -12,6 +12,11 @@
 name: PolicyIterator CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/PolicyIterator.h'
+      - 'components/PolicyIterator/tests/test_PolicyIterator.cpp'
+      - 'components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

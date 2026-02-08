@@ -11,6 +11,10 @@
 name: CoroutineTask CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/CoroutineTask.h'
+      - 'components/CoroutineTask/tests/test_CoroutineTask.cpp'
   workflow_dispatch:
 
 env:

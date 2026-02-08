@@ -12,6 +12,11 @@
 name: SparseSet CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/SparseSet.h'
+      - 'components/SparseSet/tests/test_SparseSet.cpp'
+      - 'components/SparseSet/benchmarks/benchmark_SparseSet.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

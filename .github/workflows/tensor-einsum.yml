@@ -11,6 +11,10 @@
 name: TensorEinsum CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/TensorEinsum.h'
+      - 'components/Tensor/tests/test_TensorEinsum.cpp'
   workflow_dispatch:
 
 env:

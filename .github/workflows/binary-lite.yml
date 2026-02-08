@@ -11,6 +11,10 @@
 name: BinaryLite CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/BinaryLite.h'
+      - 'components/BinarySerialization/tests/test_BinaryLite.cpp'
   workflow_dispatch:
 
 env:

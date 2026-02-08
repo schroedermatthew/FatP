@@ -6,7 +6,7 @@ Based on object-pool.yml as the reference implementation.
 
 import os
 
-OUTPUT_DIR = "/home/claude/work/output/.github/workflows"
+OUTPUT_DIR = "/home/claude/output/.github/workflows"
 
 # =============================================================================
 # Component definitions
@@ -347,11 +347,23 @@ def generate_header_block(filename, component, header, test_src, bench_src):
     return "\n".join(lines)
 
 
-def generate_trigger_block(has_benchmarks):
-    """Generate the on: trigger block."""
+def generate_trigger_block(has_benchmarks, header, test_src, bench_src):
+    """Generate the on: trigger block with push path filters."""
+    paths = [
+        f"      - 'include/fat_p/{header}'",
+        f"      - '{test_src}'",
+    ]
+    if bench_src:
+        paths.append(f"      - '{bench_src}'")
+
+    path_block = "\n".join(paths)
+
     if has_benchmarks:
-        return """
+        return f"""
 on:
+  push:
+    paths:
+{path_block}
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -360,8 +372,11 @@ on:
         default: 'false'
         type: boolean"""
     else:
-        return """
+        return f"""
 on:
+  push:
+    paths:
+{path_block}
   workflow_dispatch:"""
 
 
@@ -895,7 +910,7 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     parts.append(f"\nname: {component} CI")
 
     # Trigger
-    parts.append(generate_trigger_block(bench_src is not None))
+    parts.append(generate_trigger_block(bench_src is not None, header, test_src, bench_src))
 
     # Env block
     parts.append(generate_env_block(header, test_src, bench_src))

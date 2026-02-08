@@ -11,6 +11,10 @@
 name: JsonLite CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/JsonLite.h'
+      - 'components/Json/tests/test_JsonLite.cpp'
   workflow_dispatch:
 
 env:

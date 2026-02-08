@@ -11,6 +11,10 @@
 name: SimdVector CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/SimdVector.h'
+      - 'components/SimdVector/tests/test_SimdVector.cpp'
   workflow_dispatch:
 
 env:

@@ -11,6 +11,10 @@
 name: PipeOperator CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/PipeOperator.h'
+      - 'components/PipeOperator/tests/test_PipeOperator.cpp'
   workflow_dispatch:
 
 env:

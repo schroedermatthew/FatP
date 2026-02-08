@@ -12,6 +12,11 @@
 name: Stringify CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/Stringify.h'
+      - 'components/Stringify/tests/test_Stringify.cpp'
+      - 'components/Stringify/benchmarks/benchmark_Stringify.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

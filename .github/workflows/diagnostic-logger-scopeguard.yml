@@ -11,6 +11,10 @@
 name: DiagnosticLogger_ScopeGuard CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/DiagnosticLogger_IO.h'
+      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_ScopeGuard.cpp'
   workflow_dispatch:
 
 env:

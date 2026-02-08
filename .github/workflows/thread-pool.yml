@@ -11,6 +11,10 @@
 name: ThreadPool CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ThreadPool.h'
+      - 'components/ThreadPool/tests/test_ThreadPool.cpp'
   workflow_dispatch:
 
 env:

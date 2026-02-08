@@ -11,6 +11,10 @@
 name: ContractException CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/ContractException.h'
+      - 'components/ContractException/tests/test_ContractException.cpp'
   workflow_dispatch:
 
 env:

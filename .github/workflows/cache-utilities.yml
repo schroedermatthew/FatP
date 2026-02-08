@@ -11,6 +11,10 @@
 name: CacheUtilities CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/CacheUtilities.h'
+      - 'components/CacheUtilities/tests/test_CacheUtilities.cpp'
   workflow_dispatch:
 
 env:

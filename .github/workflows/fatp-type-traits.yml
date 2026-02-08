@@ -11,6 +11,10 @@
 name: FatPTypeTraits CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FatPTypeTraits.h'
+      - 'components/TypeTraits/tests/test_FatPTypeTraits.cpp'
   workflow_dispatch:
 
 env:

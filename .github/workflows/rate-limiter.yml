@@ -11,6 +11,10 @@
 name: RateLimiter CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/RateLimiter.h'
+      - 'components/RateLimiter/tests/test_RateLimiter.cpp'
   workflow_dispatch:
 
 env:

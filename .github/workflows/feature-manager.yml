@@ -12,6 +12,11 @@
 name: FeatureManager CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/FeatureManager.h'
+      - 'components/FeatureManager/tests/test_FeatureManager.cpp'
+      - 'components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

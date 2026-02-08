@@ -12,6 +12,11 @@
 name: AllocationStrategies CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/AllocationStrategies.h'
+      - 'components/AllocationStrategies/tests/test_AllocationStrategies.cpp'
+      - 'components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp'
   workflow_dispatch:
     inputs:
       run_benchmarks:

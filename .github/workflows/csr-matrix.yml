@@ -11,6 +11,10 @@
 name: CSRMatrix CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/CSRMatrix.h'
+      - 'components/CSRMatrix/tests/test_CSRMatrix.cpp'
   workflow_dispatch:
 
 env:
