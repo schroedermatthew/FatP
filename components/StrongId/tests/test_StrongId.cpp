@@ -115,6 +115,7 @@ FATP_TEST_CASE(type_safety)
 {
     UserId user_id(100);
     TransactionId trans_id(100);
+    (void)trans_id;
 
     // These should not compile (different types):
     // user_id = trans_id;  // Error: different types
@@ -459,7 +460,14 @@ FATP_TEST_CASE(move_assignment)
 FATP_TEST_CASE(self_assignment)
 {
     UserId id(100);
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
     id = id;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
     FATP_ASSERT_EQ(id.get(), 100, "Self-assignment should be safe");
     return true;
 }
