@@ -194,11 +194,10 @@ auto operator|(T&& value, Func&& func) noexcept(pipe_detail::is_nothrow_invocabl
  * - If U is void or non-trivial: falls back to UnionStorage
  */
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(ExpectedImpl<T, E, Storage>&& exp,
+    requires (!std::is_void_v<T> && !concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>)
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, T&&>, E, Storage> operator|(ExpectedImpl<T, E, Storage>&& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
                                      std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<!std::is_void_v<T> && !concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>,
-                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, T&&>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func, T&&>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -228,11 +227,10 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp,
  * return type, not the input's storage policy.
  */
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(ExpectedImpl<T, E, Storage>&& exp,
+    requires (!std::is_void_v<T> && concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>)
+std::decay_t<pipe_detail::invoke_result_t<Func, T&&>> operator|(ExpectedImpl<T, E, Storage>&& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
                                      std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<!std::is_void_v<T> && concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>,
-                        std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>;
 
@@ -247,12 +245,11 @@ auto operator|(ExpectedImpl<T, E, Storage>&& exp,
  * @brief Const map: const Expected<T>& | (T -> U) -> Expected<U>
  */
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(const ExpectedImpl<T, E, Storage>& exp,
+    requires (!std::is_void_v<T> &&
+                            !concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>)
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, const T&>, E, Storage> operator|(const ExpectedImpl<T, E, Storage>& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
                                      std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<!std::is_void_v<T> &&
-                            !concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>,
-                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, const T&>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func, const T&>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -276,11 +273,10 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp,
  * @brief Const bind: const Expected<T>& | (T -> Expected<U>) -> Expected<U>
  */
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(const ExpectedImpl<T, E, Storage>& exp,
+    requires (!std::is_void_v<T> && concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>)
+std::decay_t<pipe_detail::invoke_result_t<Func, const T&>> operator|(const ExpectedImpl<T, E, Storage>& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
                                      std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<!std::is_void_v<T> && concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>,
-                        std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>;
 
@@ -301,10 +297,9 @@ auto operator|(const ExpectedImpl<T, E, Storage>& exp,
  * Applies zero-argument function when Expected<void> has value.
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+    requires (!concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage> operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
                                                                            std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<!concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
-                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -328,10 +323,9 @@ auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_
  * @brief Void bind: Expected<void>&& | (() -> Expected<U>) -> Expected<U>
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+    requires (concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
+std::decay_t<pipe_detail::invoke_result_t<Func>> operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
                                                                            std::is_nothrow_move_constructible_v<E>)
-    -> std::enable_if_t<concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
-                        std::decay_t<pipe_detail::invoke_result_t<Func>>>
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func>>;
 
@@ -346,11 +340,10 @@ auto operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_
  * @brief Const void map: const Expected<void>& | (() -> U) -> Expected<U>
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(const ExpectedImpl<void, E, Storage>& exp,
+    requires (!concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage> operator|(const ExpectedImpl<void, E, Storage>& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
                                      std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<!concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
-                        pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>>
 {
     using ResultType = pipe_detail::invoke_result_t<Func>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -374,11 +367,10 @@ auto operator|(const ExpectedImpl<void, E, Storage>& exp,
  * @brief Const void bind: const Expected<void>& | (() -> Expected<U>) -> Expected<U>
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
-auto operator|(const ExpectedImpl<void, E, Storage>& exp,
+    requires (concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
+std::decay_t<pipe_detail::invoke_result_t<Func>> operator|(const ExpectedImpl<void, E, Storage>& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
                                      std::is_nothrow_copy_constructible_v<E>)
-    -> std::enable_if_t<concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>,
-                        std::decay_t<pipe_detail::invoke_result_t<Func>>>
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func>>;
 

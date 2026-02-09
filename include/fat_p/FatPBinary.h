@@ -175,7 +175,8 @@ public:
         writeLe(value);
     }
 
-    template <typename UInt, typename = std::enable_if_t<std::is_unsigned_v<UInt> && std::is_integral_v<UInt>>>
+    template <typename UInt>
+        requires (std::is_unsigned_v<UInt> && std::is_integral_v<UInt>)
     void writeUint(UInt value)
     {
         if constexpr (sizeof(UInt) == 1)
@@ -224,7 +225,8 @@ public:
         writeLe(value);
     }
 
-    template <typename SInt, typename = std::enable_if_t<std::is_signed_v<SInt> && std::is_integral_v<SInt>>>
+    template <typename SInt>
+        requires (std::is_signed_v<SInt> && std::is_integral_v<SInt>)
     void writeInt(SInt value)
     {
         if constexpr (sizeof(SInt) == 1)
@@ -334,7 +336,8 @@ public:
     {
     }
 
-    template <typename Container, typename = std::enable_if_t<detail::is_binary_byte_container_v<Container>>>
+    template <typename Container>
+        requires detail::is_binary_byte_container_v<Container>
     explicit BinaryReader(const Container& buffer) noexcept
         : BinaryReader(buffer.data(), buffer.size())
     {
@@ -612,7 +615,7 @@ private:
 // BinaryTraits: Fat-P style trait layer for binary serialization
 // ============================================================================
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct BinaryTraits;
 
 // ----------------------------------------------------------------------------
@@ -620,7 +623,8 @@ struct BinaryTraits;
 // ----------------------------------------------------------------------------
 
 template <typename T>
-struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>>
+    requires (std::is_integral_v<T> && std::is_signed_v<T>)
+struct BinaryTraits<T>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)
@@ -700,7 +704,8 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_
 // ----------------------------------------------------------------------------
 
 template <typename T>
-struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
+    requires (std::is_integral_v<T> && std::is_unsigned_v<T>)
+struct BinaryTraits<T>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)
@@ -779,7 +784,8 @@ struct BinaryTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigne
 // ----------------------------------------------------------------------------
 
 template <typename T>
-struct BinaryTraits<T, std::enable_if_t<std::is_enum_v<T>>>
+    requires std::is_enum_v<T>
+struct BinaryTraits<T>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)

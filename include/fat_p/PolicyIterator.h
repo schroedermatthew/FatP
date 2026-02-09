@@ -406,24 +406,24 @@ public:
     // --- Standard policies (non-functor, non-tensor) ---
 
     /// Create a begin iterator for standard policies
-    template <typename P = Policy,
-              std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
+    template <typename P = Policy>
+        requires (!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value)
     [[nodiscard]] static PolicyIterator begin(T* base, T* end)
     {
         return PolicyIterator(base, end, base, Policy{});
     }
 
     /// Create a begin iterator for standard policies with explicit policy
-    template <typename P = Policy,
-              std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
+    template <typename P = Policy>
+        requires (!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value)
     [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy)
     {
         return PolicyIterator(base, end, base, std::move(policy));
     }
 
     /// Create an end iterator for standard policies
-    template <typename P = Policy,
-              std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
+    template <typename P = Policy>
+        requires (!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value)
     [[nodiscard]] static PolicyIterator end(T* base, T* end)
     {
         Policy policy{};
@@ -436,8 +436,8 @@ public:
     }
 
     /// Create an end iterator for standard policies with explicit policy
-    template <typename P = Policy,
-              std::enable_if_t<!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value, int> = 0>
+    template <typename P = Policy>
+        requires (!detail::requires_functor<P>::value && !detail::is_tensor_policy<P>::value)
     [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy)
     {
         T* ptr = end;
@@ -451,7 +451,8 @@ public:
     // --- Filter policies ---
 
     /// Create a begin iterator for filter policies
-    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_predicate<P>::value, int> = 0>
+    template <typename Func, typename P = Policy>
+        requires detail::has_predicate<P>::value
     [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy, Func&& func)
     {
         PolicyIterator it(base, end, base, std::move(policy), std::forward<Func>(func));
@@ -464,7 +465,8 @@ public:
     }
 
     /// Create an end iterator for filter policies
-    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_predicate<P>::value, int> = 0>
+    template <typename Func, typename P = Policy>
+        requires detail::has_predicate<P>::value
     [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy, Func&& func)
     {
         return PolicyIterator(base, end, end, std::move(policy), std::forward<Func>(func));
@@ -473,14 +475,16 @@ public:
     // --- Transform policies ---
 
     /// Create a begin iterator for transform policies
-    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_transformer<P>::value, int> = 0>
+    template <typename Func, typename P = Policy>
+        requires detail::has_transformer<P>::value
     [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy, Func&& func)
     {
         return PolicyIterator(base, end, base, std::move(policy), std::forward<Func>(func));
     }
 
     /// Create an end iterator for transform policies
-    template <typename Func, typename P = Policy, std::enable_if_t<detail::has_transformer<P>::value, int> = 0>
+    template <typename Func, typename P = Policy>
+        requires detail::has_transformer<P>::value
     [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy, Func&& func)
     {
         return PolicyIterator(base, end, end, std::move(policy), std::forward<Func>(func));
@@ -489,7 +493,8 @@ public:
     // --- Tensor policies ---
 
     /// Create a begin iterator for tensor policies
-    template <typename P = Policy, std::enable_if_t<detail::is_tensor_policy<P>::value, int> = 0>
+    template <typename P = Policy>
+        requires detail::is_tensor_policy<P>::value
     [[nodiscard]] static PolicyIterator begin(T* base, T* end, Policy policy)
     {
         PolicyIterator it(base, end, base, std::move(policy));
@@ -498,7 +503,8 @@ public:
     }
 
     /// Create an end iterator for tensor policies
-    template <typename P = Policy, std::enable_if_t<detail::is_tensor_policy<P>::value, int> = 0>
+    template <typename P = Policy>
+        requires detail::is_tensor_policy<P>::value
     [[nodiscard]] static PolicyIterator end(T* base, T* end, Policy policy)
     {
         PolicyIterator it(base, end, end, std::move(policy));

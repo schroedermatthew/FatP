@@ -1476,7 +1476,8 @@ public:
      * @brief AVX-512 element-wise addition (16 floats or 8 doubles per instruction)
      */
     template <typename U = T>
-    std::enable_if_t<std::is_same_v<U, float>, void> add_avx512(const T* a, const T* b, T* result, size_t count) const
+        requires std::is_same_v<U, float>
+    void add_avx512(const T* a, const T* b, T* result, size_t count) const
     {
         size_t i = 0;
         const size_t vec_size = 16; // 512 bits / 32 bits per float
@@ -1502,7 +1503,8 @@ public:
     }
 
     template <typename U = T>
-    std::enable_if_t<std::is_same_v<U, double>, void> add_avx512(const T* a, const T* b, T* result, size_t count) const
+        requires std::is_same_v<U, double>
+    void add_avx512(const T* a, const T* b, T* result, size_t count) const
     {
         size_t i = 0;
         const size_t vec_size = 8; // 512 bits / 64 bits per double
@@ -1531,7 +1533,8 @@ public:
      * @brief AVX-512 element-wise multiplication with FMA
      */
     template <typename U = T>
-    std::enable_if_t<std::is_same_v<U, float>, void> mul_avx512(const T* a, const T* b, T* result, size_t count) const
+        requires std::is_same_v<U, float>
+    void mul_avx512(const T* a, const T* b, T* result, size_t count) const
     {
         size_t i = 0;
         const size_t vec_size = 16;
@@ -1555,7 +1558,8 @@ public:
     }
 
     template <typename U = T>
-    std::enable_if_t<std::is_same_v<U, double>, void> mul_avx512(const T* a, const T* b, T* result, size_t count) const
+        requires std::is_same_v<U, double>
+    void mul_avx512(const T* a, const T* b, T* result, size_t count) const
     {
         size_t i = 0;
         const size_t vec_size = 8;
@@ -2620,7 +2624,8 @@ public:
      * @tparam Expr Expression type (LazyAdd, LazySubtract, etc.)
      */
     template <typename Expr>
-    std::enable_if_t<is_tensor_expression<Expr>::value, Tensor&> operator=(const Expr& expr)
+    Tensor& operator=(const Expr& expr)
+        requires is_tensor_expression<Expr>::value
     {
         if (mShape != expr.shape())
         {

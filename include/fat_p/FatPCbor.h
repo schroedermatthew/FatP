@@ -127,13 +127,15 @@ public:
     CborWriter(const CborWriter&) = delete;
     CborWriter& operator=(const CborWriter&) = delete;
 
-    template <typename UInt, typename = std::enable_if_t<std::is_unsigned_v<UInt> && std::is_integral_v<UInt>>>
+    template <typename UInt>
+        requires (std::is_unsigned_v<UInt> && std::is_integral_v<UInt>)
     void writeUint(UInt value)
     {
         writeMajorType(0U, static_cast<std::uint64_t>(value));
     }
 
-    template <typename SInt, typename = std::enable_if_t<std::is_signed_v<SInt> && std::is_integral_v<SInt>>>
+    template <typename SInt>
+        requires (std::is_signed_v<SInt> && std::is_integral_v<SInt>)
     void writeInt(SInt value)
     {
         if (value >= 0)
@@ -265,7 +267,8 @@ public:
     {
     }
 
-    template <typename Container, typename = std::enable_if_t<detail::is_byte_container_v<Container>>>
+    template <typename Container>
+        requires detail::is_byte_container_v<Container>
     explicit CborReader(const Container& buffer) noexcept
         : CborReader(buffer.data(), buffer.size())
     {
@@ -542,12 +545,13 @@ private:
 // CborTraits: Fat-P-style trait layer over CBOR
 // ============================================================================
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct CborTraits;
 
 // Signed integers
 template <typename T>
-struct CborTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>>>
+    requires (std::is_integral_v<T> && std::is_signed_v<T>)
+struct CborTraits<T>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)
@@ -576,7 +580,8 @@ struct CborTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<
 
 // Unsigned integers
 template <typename T>
-struct CborTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T>>>
+    requires (std::is_integral_v<T> && std::is_unsigned_v<T>)
+struct CborTraits<T>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)
@@ -604,7 +609,8 @@ struct CborTraits<T, std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_
 
 // Enums (via underlying type)
 template <typename T>
-struct CborTraits<T, std::enable_if_t<std::is_enum_v<T>>>
+    requires std::is_enum_v<T>
+struct CborTraits<T>
 {
     template <typename Writer>
     static void encode(Writer& writer, T value)

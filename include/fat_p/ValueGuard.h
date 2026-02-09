@@ -204,8 +204,8 @@ public:
      * @param target Mutable reference to the variable to guard.
      * @param new_value The temporary value to assign.
      */
-    template <typename U = T,
-              std::enable_if_t<std::is_copy_constructible_v<U> && std::is_copy_assignable_v<U>, int> = 0>
+    template <typename U = T>
+        requires (std::is_copy_constructible_v<U> && std::is_copy_assignable_v<U>)
     ValueGuard(T& target, const T& new_value)
         : Policy()
         , mTarget(&target)
@@ -251,7 +251,8 @@ public:
      * @param new_value The temporary value to assign.
      * @param restorer The function to call for restoration.
      */
-    template <typename F, typename = std::enable_if_t<std::is_invocable_v<F, T&, T&&>>>
+    template <typename F>
+        requires std::is_invocable_v<F, T&, T&&>
     ValueGuard(T& target, const T& new_value, F&& restorer)
         : Policy(std::forward<F>(restorer))
         , mTarget(&target)
@@ -275,7 +276,8 @@ public:
      * @param new_value Rvalue reference to the temporary value to assign.
      * @param restorer The function to call for restoration.
      */
-    template <typename F, typename = std::enable_if_t<std::is_invocable_v<F, T&, T&&>>>
+    template <typename F>
+        requires std::is_invocable_v<F, T&, T&&>
     ValueGuard(T& target, T&& new_value, F&& restorer)
         : Policy(std::forward<F>(restorer))
         , mTarget(&target)
@@ -299,11 +301,9 @@ public:
      * @param new_value Rvalue reference to the temporary value to assign.
      * @param condition Condition to evaluate for restoration.
      */
-    template <
-        typename Cond,
-        typename PolicyType = Policy,
-        typename = std::enable_if_t<std::is_same_v<PolicyType, ValueGuardConditionalPolicy<T, std::decay_t<Cond>>> &&
-                                    std::is_invocable_r_v<bool, Cond>>>
+    template <typename Cond>
+        requires (std::is_same_v<Policy, ValueGuardConditionalPolicy<T, std::decay_t<Cond>>> &&
+                  std::is_invocable_r_v<bool, Cond>)
     ValueGuard(T& target, T&& new_value, Cond&& condition)
         : Policy(std::forward<Cond>(condition))
         , mTarget(&target)
@@ -472,18 +472,16 @@ ValueGuard(T&, T&&) -> ValueGuard<T, ValueGuardMovePolicy<T>>;
  * @brief Deduction guide for custom restorer (copy new_value).
  * @note Constrained: F must be invocable with (T&, T&&) and NOT invocable with zero args.
  */
-template <typename T,
-          typename F,
-          typename = std::enable_if_t<std::is_invocable_v<F, T&, T&&> && !std::is_invocable_v<F>>>
+template <typename T, typename F>
+    requires (std::is_invocable_v<F, T&, T&&> && !std::is_invocable_v<F>)
 ValueGuard(T&, const T&, F&&) -> ValueGuard<T, ValueGuardCustomPolicy<T, std::decay_t<F>>>;
 
 /**
  * @brief Deduction guide for custom restorer (move new_value).
  * @note Constrained: F must be invocable with (T&, T&&) and NOT invocable with zero args.
  */
-template <typename T,
-          typename F,
-          typename = std::enable_if_t<std::is_invocable_v<F, T&, T&&> && !std::is_invocable_v<F>>>
+template <typename T, typename F>
+    requires (std::is_invocable_v<F, T&, T&&> && !std::is_invocable_v<F>)
 ValueGuard(T&, T&&, F&&) -> ValueGuard<T, ValueGuardCustomPolicy<T, std::decay_t<F>>>;
 
 /**
@@ -491,9 +489,8 @@ ValueGuard(T&, T&&, F&&) -> ValueGuard<T, ValueGuardCustomPolicy<T, std::decay_t
  * @note Constrained: Cond must be invocable with zero args returning bool,
  * and NOT invocable with (T&, T&&).
  */
-template <typename T,
-          typename Cond,
-          typename = std::enable_if_t<std::is_invocable_r_v<bool, Cond> && !std::is_invocable_v<Cond, T&, T&&>>>
+template <typename T, typename Cond>
+    requires (std::is_invocable_r_v<bool, Cond> && !std::is_invocable_v<Cond, T&, T&&>)
 ValueGuard(T&, T&&, Cond&&) -> ValueGuard<T, ValueGuardConditionalPolicy<T, std::decay_t<Cond>>>;
 
 // --- Factory Functions ---
