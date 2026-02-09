@@ -16,7 +16,19 @@
 name: StateMachine CI
 
 on:
+  push:
+    paths:
+      - 'include/fat_p/StateMachine.h'
+      - 'components/StateMachine/tests/**'
+      - 'components/StateMachine/benchmarks/**'
+      - '.github/workflows/state-machine.yml'
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
   INCLUDE_DIR: include/fat_p

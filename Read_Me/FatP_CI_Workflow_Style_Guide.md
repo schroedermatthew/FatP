@@ -44,12 +44,18 @@ scripts/                                    # Verification scripts
 
 ## 3. Workflow Trigger Policy
 
-**Fat-P component CI workflows MUST NOT auto-trigger on push or pull_request.**  
-Component workflows are **manual-only** and must use `workflow_dispatch` as the sole trigger.
+**Fat-P component CI workflows MUST trigger on push and support manual dispatch.**  
+Each component workflow triggers on pushes that modify its own files, plus manual dispatch for on-demand runs.
 
 **Required trigger block (component workflows):**
 ```yaml
 on:
+  push:
+    paths:
+      - 'include/fat_p/<Header>.h'
+      - 'components/<Component>/tests/**'
+      - 'components/<Component>/benchmarks/**'
+      - '.github/workflows/<workflow>.yml'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -59,9 +65,12 @@ on:
         type: boolean
 ```
 
+Replace `<Header>`, `<Component>`, and `<workflow>` with the actual component names.
+
 Rationale:
-- Component workflows are designed to be run **selectively** (per-component) to control CI cost.
-- Project-wide verification workflows provide continuous coverage where required.
+- Push triggers with path filtering ensure changes are validated immediately without running unrelated workflows.
+- `workflow_dispatch` remains available for manual reruns and benchmark runs.
+- The workflow file itself is included in paths so CI changes are self-testing.
 
 ---
 
