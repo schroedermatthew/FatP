@@ -483,11 +483,23 @@ Provide analysis as a prioritized list with:
 - Priority level (Critical / High / Medium / Low)
 - Comments explaining rationale
 
+**A review is analysis, not a rewrite.** The output of a review is a list of findings with targeted patches — not a complete rewritten file. This distinction is load-bearing.
+
+| Review output | Allowed |
+|---------------|---------|
+| Prioritized finding list with evidence | **Yes** — this is the primary deliverable |
+| Targeted code patch (the specific lines that fix a finding) | **Yes** — keeps fixes auditable |
+| Complete rewritten file | **No** — unless the human explicitly requests it |
+| Unsolicited refactoring beyond the finding | **No** — review scope is the reported issue |
+
+**Why this matters:** When an AI returns a complete rewritten file instead of a finding list, the human cannot distinguish reviewed changes from unreviewed ones. Every line becomes suspect. Targeted patches make review findings auditable — the human can see exactly what changed and why.
+
+**Escalation path:** If a finding requires changes so extensive that a targeted patch would be impractical, describe the scope of the change and ask whether the human wants a complete rewritten file. Do not provide one unprompted.
+
 ### 4.3 Dependency Analysis
 
 - If internal dependencies are not explicitly provided, assume they exist and compile
 - If a thorough analysis requires seeing a dependency, **ask for it** before proceeding
-- Do **not** generate code unless explicitly asked
 
 ---
 
@@ -497,7 +509,7 @@ Provide analysis as a prioritized list with:
 
 | Rule | Detail |
 |------|--------|
-| **No code unless requested** | Do not generate code unless explicitly asked |
+| **No unsolicited code** | Do not generate complete files unless the task is implementation (see §5.1.1 below) |
 | **No explanatory files** | Do not generate `.md`, `.txt`, or explanation files unless requested |
 | **Preserve naming** | Never change file names or internal class names when modifying components |
 | **Complete files only** | **NEVER provide truncated files** -- always provide entire files (code, docs, tests, configs) |
@@ -506,7 +518,21 @@ Provide analysis as a prioritized list with:
 | **Provide download links** | If files are modified, always provide download links **for modified files only** (do not attach unchanged files unless explicitly requested) |
 | **No backwards compat** | Never add deprecated aliases or compatibility shims |
 
-#### 5.1.1 Verification and Auditability (Compile / Run Claims)
+#### 5.1.1 Code Generation Context
+
+The "no unsolicited code" rule depends on which mode the AI is operating in:
+
+| Mode | When | Code generation |
+|------|------|-----------------|
+| **Review / Advisory** | "Review this", "analyze", "what do you think of" | Findings list + targeted patches only. Never complete rewritten files (see §4.2). |
+| **Implementation** | "Implement this", "build", "create", "write the code" | Full file generation is the task. Produce complete, compilable files. |
+| **Modification** | "Fix this bug", "add this feature", "update" | Complete modified files with download links. Follow deliverable packaging protocol (§11.4). |
+
+**When in doubt, ask.** If the request is ambiguous ("here's the code, what do you think?" could be review or a request to fix), ask whether the human wants analysis or modified files.
+
+**The "complete files only" rule applies when files ARE being generated.** It does not mean every interaction requires file generation. It means: if you are producing a file, never truncate it.
+
+#### 5.1.2 Verification and Auditability (Compile / Run Claims)
 
 - I will never say “compiled/ran” unless I actually did it in this session.
 - When I do compile/run, I’ll include the exact commands and a verbatim snippet of the output (or a build log file), so it’s auditable.
@@ -534,7 +560,7 @@ The `ColumnLimit` is set to 120 with a high `PenaltyExcessCharacter` to discoura
 # Column policy: Target 100, Hard limit 120
 
 Language: Cpp
-Standard: c++17
+Standard: c++20
 
 BasedOnStyle: LLVM
 
@@ -1782,13 +1808,13 @@ Use Mermaid diagrams for complex concepts:
 
 **Debug build (MSVC 2022):**
 ```
-/std:c++17 /Od /ZI /RTC1 /MDd /EHsc /W3 /sdl /GS
+/std:c++20 /Od /ZI /RTC1 /MDd /EHsc /W3 /sdl /GS
 /D "_DEBUG" /D "_CONSOLE" /D "NOMINMAX" /D "WIN32_LEAN_AND_MEAN"
 ```
 
 **Release build (MSVC 2022 -- for benchmarks):**
 ```
-/std:c++17 /O2 /DNDEBUG /MD /EHsc /W3
+/std:c++20 /O2 /DNDEBUG /MD /EHsc /W3
 /D "NOMINMAX" /D "WIN32_LEAN_AND_MEAN"
 ```
 
@@ -1796,12 +1822,12 @@ Use Mermaid diagrams for complex concepts:
 
 **Debug build (GCC 11+):**
 ```bash
-g++ -std=c++17 -O0 -g -Wall -Wextra -fsanitize=address,undefined
+g++ -std=c++20 -O0 -g -Wall -Wextra -fsanitize=address,undefined
 ```
 
 **Release build (GCC 11+ -- for benchmarks):**
 ```bash
-g++ -std=c++17 -O3 -DNDEBUG -march=native -flto
+g++ -std=c++20 -O3 -DNDEBUG -march=native -flto
 ```
 
 > **Critical:** Benchmarks must always run with Release/optimized builds (`/O2` or `-O3`), never Debug builds which disable optimizations and add runtime checks.
@@ -1901,6 +1927,7 @@ AI assistants **must not**:
 8. Suggest "gradual adoption", "incremental migration", or "backward compatible" approaches
 9. Preserve existing patterns solely because they exist
 10. Weigh "disruption" as a negative when evaluating fixes
+11. Return complete rewritten files when asked to **review** -- review output is a findings list with targeted patches, not a rewrite (see §4.2 and §5.1.1)
 
 ### 11.4 Required AI Behaviors
 
@@ -2192,6 +2219,7 @@ These governance mechanisms directly control AI output quality. Weakening them w
 | **Template structures** | Four-Part Arc, container documentation format. Constrains generation paths. |
 | **Test namespace pattern** | `fat_p::testing::componentns` — prevents ODR violations across test files. |
 | **Evidence requirements** (Section 11.8) | Counterexamples, verbatim quotes. Prevents hallucinated bug reports. |
+| **Review ≠ Rewrite** (Sections 4.2, 5.1.1) | Reviews produce findings + targeted patches, never complete rewritten files. Without this, review output is unauditable. |
 
 ### 12.2 Safe to Modify
 
@@ -2213,6 +2241,14 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 ---
 
 ## Changelog
+
+### v3.3 (February 2026)
+- Fixed stale C++17 references in benchmark build commands (Section 9.1, 9.2) and clang-format config (Section 5.2)
+- Clarified "no code unless requested" rule: renamed to "no unsolicited code" with explicit mode table (§5.1.1: Review / Implementation / Modification)
+- Expanded Section 4.2: Review output is findings + targeted patches, never complete rewritten files; added escalation path
+- Added item 11 to AI Non-Goals (§11.3): prohibition on returning rewritten files during review
+- Added "Review ≠ Rewrite" to Load-Bearing Elements (§12.1)
+- Removed redundant "do not generate code" from Section 4.3 (now covered by §4.2 and §5.1.1)
 
 ### v3.2 (January 2026)
 - **BREAKING:** Changed minimum C++ standard from C++17 to C++20
@@ -2327,4 +2363,4 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.2 -- January 2026*
+*Fat-P Library Development Guidelines v3.3 -- February 2026*

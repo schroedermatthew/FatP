@@ -358,6 +358,7 @@ public:
      */
     [[nodiscard]] size_t size() const noexcept
     {
+        // First attempt: load write then read.
         const size_t write = write_idx_.load(std::memory_order_acquire);
         const size_t read = read_idx_.load(std::memory_order_acquire);
 
@@ -367,20 +368,25 @@ public:
             return distance;
         }
 
-        // Under contention, loads may observe indices from different moments,
-        // producing a distance > Capacity. We cannot recover the true count
-        // from an inconsistent snapshot. Retry once with fresh loads.
-        const size_t write2 = write_idx_.load(std::memory_order_acquire);
+        // Retry with reversed load order. Reading read-then-write gives a
+        // different snapshot bias than write-then-read, making it far more
+        // likely that at least one attempt captures a consistent pair.
         const size_t read2 = read_idx_.load(std::memory_order_acquire);
+        const size_t write2 = write_idx_.load(std::memory_order_acquire);
         const size_t retry = index_distance(write2, read2);
         if (retry <= Capacity)
         {
             return retry;
         }
 
-        // Still inconsistent — clamp to Capacity (conservative upper bound).
-        // Callers should treat size() as approximate under contention.
-        return Capacity;
+        // Both snapshots inconsistent: the observed distance wrapped around
+        // the index space because read advanced past write's snapshot (or
+        // vice versa). The complement (BUFFER_SIZE - distance) reverses the
+        // wrap and approximates the true element count. Take the minimum of
+        // the two complements for the most conservative estimate.
+        const size_t alt1 = BUFFER_SIZE - distance;
+        const size_t alt2 = BUFFER_SIZE - retry;
+        return (alt1 < alt2) ? alt1 : alt2;
     }
 
     /**

@@ -1,7 +1,7 @@
 ---
 doc_id: readme-fatp-meta-header-guidelines
 doc_type: governance
-status: draft
+status: active
 audience: contributors
 applies_to:
   - include/fat_p/**/*.{h,hpp,inl}
