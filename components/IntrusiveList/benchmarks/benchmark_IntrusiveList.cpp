@@ -159,13 +159,11 @@ void* operator new[](size_t size, size_t, size_t, const char*, int, unsigned, co
 
 // LLVM ilist - Compiler infrastructure intrusive list
 // Install: vcpkg install llvm  OR  apt install llvm-dev
+// NOTE: Prefixed paths like <llvm-18/llvm/ADT/...> do not work because internal LLVM
+// headers use non-prefixed includes that fail without -isystem.
 #if __has_include(<llvm/ADT/simple_ilist.h>)
 #include <llvm/ADT/ilist_node.h>
 #include <llvm/ADT/simple_ilist.h>
-#define HAS_LLVM_ILIST 1
-#elif __has_include(<llvm-18/llvm/ADT/simple_ilist.h>)
-#include <llvm-18/llvm/ADT/ilist_node.h>
-#include <llvm-18/llvm/ADT/simple_ilist.h>
 #define HAS_LLVM_ILIST 1
 #else
 #define HAS_LLVM_ILIST 0

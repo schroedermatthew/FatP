@@ -109,23 +109,13 @@ FATP_META:
 
 // LLVM SparseSet - direct competitor (same data structure design)
 // vcpkg install llvm, or Linux: apt install llvm-dev
+// NOTE: Prefixed paths like <llvm-18/llvm/ADT/...> do not work because internal LLVM
+// headers use non-prefixed includes that fail without -isystem.
 #if __has_include(<llvm/ADT/SparseSet.h>)
 #include <llvm/ADT/SparseSet.h>
 #define HAS_LLVM_SPARSESET 1
 #if defined(_WIN32) || defined(_WIN64)
 #pragma comment(lib, "ws2_32.lib") // LLVMSupport.lib requires Windows Sockets
-#endif
-#elif __has_include(<llvm-18/llvm/ADT/SparseSet.h>)
-#include <llvm-18/llvm/ADT/SparseSet.h>
-#define HAS_LLVM_SPARSESET 1
-#if defined(_WIN32) || defined(_WIN64)
-#pragma comment(lib, "ws2_32.lib")
-#endif
-#elif __has_include(<llvm-17/llvm/ADT/SparseSet.h>)
-#include <llvm-17/llvm/ADT/SparseSet.h>
-#define HAS_LLVM_SPARSESET 1
-#if defined(_WIN32) || defined(_WIN64)
-#pragma comment(lib, "ws2_32.lib")
 #endif
 #else
 #define HAS_LLVM_SPARSESET 0

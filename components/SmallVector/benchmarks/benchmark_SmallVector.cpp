@@ -130,18 +130,11 @@ FATP_META:
 #endif
 
 // vcpkg installs to: vcpkg_installed/x64-windows/x64-windows/include/llvm/ADT/
-// Linux may have it at /usr/include/llvm-18/llvm/ADT/ or similar
-// NOTE: Must also check for llvm/Support/Compiler.h (transitive dependency) because
-// some CI runners (e.g. Ubuntu GCC images) have partial LLVM headers installed where
-// ADT/SmallVector.h exists but Support/Compiler.h does not.
+// Linux: apt install llvm-dev (provides <llvm/ADT/SmallVector.h> on the standard path)
+// NOTE: Prefixed paths like <llvm-18/llvm/ADT/...> do not work because internal LLVM
+// headers use non-prefixed includes that fail without -isystem.
 #if __has_include(<llvm/ADT/SmallVector.h>) && __has_include(<llvm/Support/Compiler.h>)
 #include <llvm/ADT/SmallVector.h>
-#define HAS_LLVM 1
-#if defined(_WIN32) || defined(_WIN64)
-#pragma comment(lib, "ws2_32.lib") // LLVMSupport.lib requires Windows Sockets
-#endif
-#elif __has_include(<llvm-18/llvm/ADT/SmallVector.h>) && __has_include(<llvm-18/llvm/Support/Compiler.h>)
-#include <llvm-18/llvm/ADT/SmallVector.h>
 #define HAS_LLVM 1
 #if defined(_WIN32) || defined(_WIN64)
 #pragma comment(lib, "ws2_32.lib") // LLVMSupport.lib requires Windows Sockets
