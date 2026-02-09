@@ -2688,7 +2688,7 @@ private:
     {
         if constexpr (std::is_same_v<T, float>)
         {
-            return T{1e-6};
+            return T{1e-6f};
         }
         else if constexpr (std::is_same_v<T, double>)
         {
