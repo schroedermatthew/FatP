@@ -305,9 +305,9 @@ FATP_TEST_CASE(iteration)
     }
 
     FATP_ASSERT_EQ(values.size(), size_t(3), "Should iterate over all elements");
-    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), 100) != values.end(), "Should find 100");
-    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), 200) != values.end(), "Should find 200");
-    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), 300) != values.end(), "Should find 300");
+    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), uint32_t(100)) != values.end(), "Should find 100");
+    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), uint32_t(200)) != values.end(), "Should find 200");
+    FATP_ASSERT_TRUE(std::find(values.begin(), values.end(), uint32_t(300)) != values.end(), "Should find 300");
 
     return true;
 }
