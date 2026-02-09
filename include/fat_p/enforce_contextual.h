@@ -3,7 +3,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: Enforce
+  component: enforce_contextual
   file_role: public_header
   path: include/fat_p/enforce_contextual.h
   namespace: fat_p
@@ -122,7 +122,7 @@ namespace fat_p
         }                                                                                            \
     } while (0)
 
-// Expected integration with predicate check — returns Expected<bool, string>.
+// Expected integration with predicate check â€” returns Expected<bool, string>.
 #define FATP_CONTEXTUAL_EXPECTED_PRED_IMPL_(func_ptr, PredicateType, check_call, expr_str, ...) \
     ([&]() -> fat_p::Expected<bool, std::string> {                                              \
         auto fatp_pred_result_ = check_call;                                                    \

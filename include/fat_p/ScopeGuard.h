@@ -18,7 +18,7 @@ FATP_META:
     pragma_once: true
     include_guard: false
     defines_total: 14
-    defines_unprefixed: 10
+    defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
   generated:

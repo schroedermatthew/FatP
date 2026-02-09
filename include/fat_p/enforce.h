@@ -3,7 +3,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: Enforce
+  component: enforce
   file_role: public_header
   path: include/fat_p/enforce.h
   namespace: fat_p
@@ -218,7 +218,7 @@ inline void debug_enforce_impl([[maybe_unused]] bool condition,
 // ============================================================================
 // Single pattern used by all active (non-debug) predicate enforcement macros.
 // Reduces every ALWAYS/WARN/NOEXCEPT/ABORT predicate macro to a one-liner.
-// Do NOT call directly — use the public FATP_*_ENFORCE_* macros.
+// Do NOT call directly â€” use the public FATP_*_ENFORCE_* macros.
 
 #define FATP_ENFORCE_PRED_IMPL_(Policy, check_expr, expr_str, ...)        \
     do                                                                     \

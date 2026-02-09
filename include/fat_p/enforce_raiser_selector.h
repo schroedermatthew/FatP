@@ -3,7 +3,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: Enforce
+  component: enforce_raiser_selector
   file_role: public_header
   path: include/fat_p/enforce_raiser_selector.h
   namespace: fat_p

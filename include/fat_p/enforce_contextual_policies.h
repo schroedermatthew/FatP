@@ -3,7 +3,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: Enforce
+  component: enforce_contextual_policies
   file_role: public_header
   path: include/fat_p/enforce_contextual_policies.h
   namespace: fat_p
@@ -81,7 +81,7 @@ template <typename R, typename... Args>
 inline constexpr bool is_noexcept_function_ptr_v<R (*)(Args...) noexcept> = true;
 
 // -----------------------------------------------------------------
-// Member function pointers — all cv/ref-qualifier × noexcept combinations
+// Member function pointers â€” all cv/ref-qualifier Ã— noexcept combinations
 // -----------------------------------------------------------------
 template <typename R, typename C, typename... Args>
 inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) noexcept> = true;

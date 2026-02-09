@@ -2,7 +2,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: Benchmark
+  component: FatPBenchmarkHeader
   file_role: internal_header
   path: include/fat_p/FatPBenchmarkHeader.h
   namespace: fat_p::bench

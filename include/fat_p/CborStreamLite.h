@@ -18,7 +18,7 @@ FATP_META:
     pragma_once: true
     include_guard: false
     defines_total: 1
-    defines_unprefixed: 1
+    defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
   generated:
@@ -115,7 +115,7 @@ struct CborTagged
     CborTagged(const CborTagged& other);
     CborTagged& operator=(const CborTagged& other);
 
-    // Move support — defined after CborValue is complete
+    // Move support â€” defined after CborValue is complete
     CborTagged(CborTagged&&) noexcept;
     CborTagged& operator=(CborTagged&&) noexcept;
 

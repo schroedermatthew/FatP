@@ -17,8 +17,8 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: true
-    defines_total: 7
-    defines_unprefixed: 4
+    defines_total: 6
+    defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
   generated:

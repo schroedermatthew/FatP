@@ -3,7 +3,7 @@
 /*
 FATP_META:
   meta_version: 1
-  component: Enforce
+  component: enforce_enforcers
   file_role: public_header
   path: include/fat_p/enforce_enforcers.h
   namespace: fat_p
@@ -107,7 +107,7 @@ struct MessageBuilder
     }
 };
 
-/// @brief A Raiser whose fail() is noexcept — used to derive the Enforcer
+/// @brief A Raiser whose fail() is noexcept â€” used to derive the Enforcer
 /// destructor's noexcept specification automatically. Any raiser that marks
 /// its fail() noexcept will produce a noexcept Enforcer destructor.
 template <typename R>
