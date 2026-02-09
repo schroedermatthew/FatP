@@ -570,7 +570,7 @@ public:
      *
      * @note Complexity: O(distance(first, last))
      */
-    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <std::input_iterator InputIt>
     AlignedVector(InputIt first, InputIt last)
         : mAllocator()
         , mData(nullptr)
@@ -1098,7 +1098,7 @@ public:
      * @note Complexity: O(size() + distance(first, last))
      * @note Exception safety: Strong guarantee
      */
-    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <std::input_iterator InputIt>
     void assign(InputIt first, InputIt last)
     {
         // Build new vector, then swap (strong exception guarantee)
@@ -1385,7 +1385,7 @@ public:
      * @note Exception safety: Basic guarantee
      * @note Handles self-insertion safely
      */
-    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <std::input_iterator InputIt>
     iterator insert(const_iterator pos, InputIt first, InputIt last)
     {
         size_type index = indexFrom(pos);

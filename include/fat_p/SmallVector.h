@@ -496,7 +496,7 @@ public:
     }
 
     /** @brief Range constructor from [first, last) */
-    template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
+    template <std::input_iterator InputIt>
     SmallVector(InputIt first, InputIt last, const Allocator& alloc = Allocator())
         : SmallVector(alloc)
     {
@@ -762,7 +762,7 @@ public:
      * @note Supports input iterators (single-pass) as well as forward iterators
      * @note Provides Strong* exception safety for forward+ iterators (see class documentation)
      */
-    template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
+    template <std::input_iterator InputIt>
     void assign(InputIt first, InputIt last)
     {
         using IterCategory = typename std::iterator_traits<InputIt>::iterator_category;
@@ -1276,7 +1276,7 @@ public:
      * @note Provides Strong* exception safety with realloc for forward+ iters;
      *       Basic for input iters or in-place insertion (see class documentation)
      */
-    template <class InputIt, std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
+    template <std::input_iterator InputIt>
     iterator insert(const_iterator pos, InputIt first, InputIt last)
     {
         size_t idx = static_cast<size_t>(pos - data_);
@@ -2115,9 +2115,8 @@ template <class T, class Alloc = std::allocator<T>>
 SmallVector(std::initializer_list<T>, Alloc = Alloc()) -> SmallVector<T, 8, Alloc>;
 
 // Allows: SmallVector v(iter, iter);  -> SmallVector<iter::value_type, 8>
-template <class InputIt,
-          class Alloc = std::allocator<typename std::iterator_traits<InputIt>::value_type>,
-          std::enable_if_t<!std::is_integral_v<InputIt>, int> = 0>
+template <std::input_iterator InputIt,
+          class Alloc = std::allocator<typename std::iterator_traits<InputIt>::value_type>>
 SmallVector(InputIt, InputIt, Alloc = Alloc())
     -> SmallVector<typename std::iterator_traits<InputIt>::value_type, 8, Alloc>;
 

@@ -336,7 +336,7 @@ public:
         }
     }
 
-    template <typename InputIt, typename = std::enable_if_t<!std::is_integral_v<InputIt>>>
+    template <std::input_iterator InputIt>
     HpcVector(InputIt first, InputIt last, const allocator_type& alloc = allocator_type())
         : mAllocator(alloc)
         , data_(nullptr)
@@ -842,9 +842,7 @@ public:
      * @param last Iterator past the last element to insert
      * @return Iterator to the first inserted element, or pos if first == last
      */
-    template <typename InputIt,
-              typename = std::enable_if_t<std::is_base_of_v<std::input_iterator_tag,
-                                                            typename std::iterator_traits<InputIt>::iterator_category>>>
+    template <std::input_iterator InputIt>
     iterator insert(const_iterator pos, InputIt first, InputIt last)
     {
         size_type index = static_cast<size_type>(pos - data_);
