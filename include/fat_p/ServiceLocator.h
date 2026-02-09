@@ -708,7 +708,7 @@ public:
         entry.mLifetime = ServiceLifetime::Singleton;
         entry.mInstance = std::addressof(instance);
 
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
 
         if (name.empty())
         {
@@ -755,7 +755,7 @@ public:
         entry.mLifetime = ServiceLifetime::Singleton;
         entry.mShared = std::move(instance);
 
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
 
         if (name.empty())
         {
@@ -804,7 +804,7 @@ public:
             return sp;
         };
 
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
 
         if (name.empty())
         {
@@ -835,7 +835,7 @@ public:
     [[nodiscard]] bool unregister(std::string_view name = {})
     {
         const void* typeId = TypeKeyPolicy::template typeId<T>();
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
 
         bool removed = false;
         if (name.empty())
@@ -858,7 +858,7 @@ public:
 
     void clear()
     {
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
         const size_t count = mUnnamedRegistry.size() + mNamedRegistry.size();
         mUnnamedRegistry.clear();
         mNamedRegistry.clear();
@@ -871,7 +871,7 @@ public:
 
     [[nodiscard]] size_t size() const
     {
-        auto lock = readLock();
+        [[maybe_unused]] auto lock = readLock();
         return mUnnamedRegistry.size() + mNamedRegistry.size();
     }
 
@@ -886,7 +886,7 @@ public:
         const void* typeId = TypeKeyPolicy::template typeId<T>();
 
         {
-            auto lock = readLock();
+            [[maybe_unused]] auto lock = readLock();
 
             if (name.empty())
             {
@@ -931,7 +931,7 @@ public:
         bool needsFactoryCreation = false;
 
         {
-            auto lock = readLock();
+            [[maybe_unused]] auto lock = readLock();
 
             // Find entry (two-level lookup)
             ServiceEntry* entry = nullptr;
@@ -1069,7 +1069,7 @@ public:
         bool needsFactoryCreation = false;
 
         {
-            auto lock = readLock();
+            [[maybe_unused]] auto lock = readLock();
 
             // Find entry (two-level lookup)
             ServiceEntry* entry = nullptr;
@@ -1224,7 +1224,7 @@ public:
         std::function<std::shared_ptr<void>()> factoryCopy;
 
         {
-            auto lock = readLock();
+            [[maybe_unused]] auto lock = readLock();
 
             ServiceEntry* entry = nullptr;
             if (name.empty())
@@ -1342,7 +1342,7 @@ public:
         bool needsFactoryCreation = false;
 
         {
-            auto lock = readLock();
+            [[maybe_unused]] auto lock = readLock();
 
             ServiceEntry* entry = nullptr;
             if (name.empty())
@@ -1654,7 +1654,7 @@ private:
 
     [[nodiscard]] bool unregisterUntyped(const void* typeId, std::string_view name)
     {
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
 
         bool removed = false;
         if (name.empty())
@@ -1683,7 +1683,7 @@ private:
         std::shared_ptr<typename ServiceEntry::SingletonState> state;
         std::function<std::shared_ptr<void>()> factoryCopy;
         {
-            auto lock = writeLock();
+            [[maybe_unused]] auto lock = writeLock();
 
             // Find entry
             ServiceEntry* entry = nullptr;
@@ -1850,7 +1850,7 @@ private:
     publishSingleton(const void* typeId, std::string_view name,
                      const std::shared_ptr<typename ServiceEntry::SingletonState>& state) const
     {
-        auto lock = writeLock();
+        [[maybe_unused]] auto lock = writeLock();
 
         ServiceEntry* entry = nullptr;
         if (name.empty())
