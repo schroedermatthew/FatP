@@ -54,7 +54,7 @@ jobs:
             link_libs: ""
           - version: 14
             std: 23
-            link_libs: "-lstdc++_libbacktrace"
+            link_libs: "-lstdc++exp"
     steps:
       - uses: actions/checkout@v4
 
@@ -280,7 +280,7 @@ jobs:
             link_libs: ""
           - version: 14
             std: 23
-            link_libs: "-lstdc++_libbacktrace"
+            link_libs: "-lstdc++exp"
 
     steps:
       - uses: actions/checkout@v4
