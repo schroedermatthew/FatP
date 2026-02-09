@@ -44,18 +44,12 @@ scripts/                                    # Verification scripts
 
 ## 3. Workflow Trigger Policy
 
-**Fat-P component CI workflows MUST trigger on push and support manual dispatch.**  
-Each component workflow triggers on pushes that modify its own files, plus manual dispatch for on-demand runs.
+**Fat-P component CI workflows MUST trigger on push, pull_request, and support manual dispatch.**  
+Each component workflow triggers on pushes and PRs that modify its own files, plus manual dispatch for on-demand runs.
 
 **Required trigger block (component workflows):**
 ```yaml
 on:
-  push:
-    paths:
-      - 'include/fat_p/<Header>.h'
-      - 'components/<Component>/tests/**'
-      - 'components/<Component>/benchmarks/**'
-      - '.github/workflows/<workflow>.yml'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -63,12 +57,25 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/<Header>.h'
+      - 'components/<Component>/tests/<test_file>.cpp'
+      - 'components/<Component>/benchmarks/<bench_file>.cpp'
+      - '.github/workflows/<workflow>.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/<Header>.h'
+      - 'components/<Component>/tests/<test_file>.cpp'
+      - 'components/<Component>/benchmarks/<bench_file>.cpp'
+      - '.github/workflows/<workflow>.yml'
 ```
 
-Replace `<Header>`, `<Component>`, and `<workflow>` with the actual component names.
+Replace `<Header>`, `<Component>`, `<test_file>`, `<bench_file>`, and `<workflow>` with the actual component names. The `push` and `pull_request` paths must be identical.
 
 Rationale:
 - Push triggers with path filtering ensure changes are validated immediately without running unrelated workflows.
+- Pull request triggers provide pre-merge validation.
 - `workflow_dispatch` remains available for manual reruns and benchmark runs.
 - The workflow file itself is included in paths so CI changes are self-testing.
 

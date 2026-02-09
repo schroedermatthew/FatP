@@ -16,12 +16,6 @@
 name: StateMachine CI
 
 on:
-  push:
-    paths:
-      - 'include/fat_p/StateMachine.h'
-      - 'components/StateMachine/tests/**'
-      - 'components/StateMachine/benchmarks/**'
-      - '.github/workflows/state-machine.yml'
   workflow_dispatch:
     inputs:
       run_benchmarks:
@@ -29,6 +23,20 @@ on:
         required: false
         default: 'false'
         type: boolean
+  push:
+    paths:
+      - 'include/fat_p/StateMachine.h'
+      - 'components/StateMachine/tests/test_StateMachine.cpp'
+      - 'components/StateMachine/tests/compile_fail/**'
+      - 'components/StateMachine/benchmarks/benchmark_StateMachine.cpp'
+      - '.github/workflows/state-machine.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/StateMachine.h'
+      - 'components/StateMachine/tests/test_StateMachine.cpp'
+      - 'components/StateMachine/tests/compile_fail/**'
+      - 'components/StateMachine/benchmarks/benchmark_StateMachine.cpp'
+      - '.github/workflows/state-machine.yml'
 
 env:
   INCLUDE_DIR: include/fat_p

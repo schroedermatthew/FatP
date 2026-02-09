@@ -25,6 +25,22 @@ on:
         description: 'Run benchmarks'
         type: boolean
         default: false
+  push:
+    paths:
+      - 'include/fat_p/FastHashMap.h'
+      - 'include/fat_p/StableHashMap.h'
+      - 'components/FatPHashMap/tests/test_FastHashMap.cpp'
+      - 'components/FatPHashMap/tests/test_StableHashMap.cpp'
+      - 'components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp'
+      - '.github/workflows/fatp-hash-map.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/FastHashMap.h'
+      - 'include/fat_p/StableHashMap.h'
+      - 'components/FatPHashMap/tests/test_FastHashMap.cpp'
+      - 'components/FatPHashMap/tests/test_StableHashMap.cpp'
+      - 'components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp'
+      - '.github/workflows/fatp-hash-map.yml'
 env:
   COMPONENT_DIR: components/FatPHashMap
 
