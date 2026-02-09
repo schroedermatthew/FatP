@@ -491,7 +491,7 @@ public:
     void_result_type
     open(const std::string& filename, size_t element_size, size_t window_size = 5000, size_t lag_offset = 0)
     {
-        auto guard = mMutex.lock();
+        [[maybe_unused]] auto guard = mMutex.lock();
 
         close_impl();
 
@@ -550,7 +550,7 @@ public:
         // Load initial window
         mWindow.clear();
 
-        mFile.seekg(begin_index_ * element_size_, std::ios::beg);
+        mFile.seekg(static_cast<std::streamoff>(begin_index_ * element_size_), std::ios::beg);
         for (size_t i = 0; i < window_size_; ++i)
         {
             ElementType elem;
@@ -571,7 +571,7 @@ public:
      */
     void close()
     {
-        auto guard = mMutex.lock();
+        [[maybe_unused]] auto guard = mMutex.lock();
         close_impl();
     }
 
@@ -593,7 +593,7 @@ public:
      */
     result_type operator[](size_t index)
     {
-        auto guard = mMutex.lock();
+        [[maybe_unused]] auto guard = mMutex.lock();
 
         if (!mFile.is_open())
         {
@@ -665,7 +665,7 @@ public:
             // Write back current element if dirty
             if (current_index_ < file_size_)
             {
-                mFile.seekp(current_index_ * element_size_, std::ios::beg);
+                mFile.seekp(static_cast<std::streamoff>(current_index_ * element_size_), std::ios::beg);
                 if (!SerializationPolicy::write(mFile, current_element_))
                 {
                     return ErrorPolicy::report_error(FileError::WriteFailure);
@@ -674,7 +674,7 @@ public:
 
             // Read new element
             current_index_ = index;
-            mFile.seekg(current_index_ * element_size_, std::ios::beg);
+            mFile.seekg(static_cast<std::streamoff>(current_index_ * element_size_), std::ios::beg);
             if (!SerializationPolicy::read(mFile, current_element_))
             {
                 return ErrorPolicy::report_error(FileError::ReadFailure);
@@ -692,7 +692,7 @@ public:
      */
     const_result_type operator[](size_t index) const
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
 
         if (!mFile.is_open())
         {
@@ -743,7 +743,7 @@ public:
      */
     void_result_type shift_to_index(size_t target_index)
     {
-        auto guard = mMutex.lock();
+        [[maybe_unused]] auto guard = mMutex.lock();
 
         if (window_size_ == file_size_ || mWindow.empty())
         {
@@ -766,37 +766,37 @@ public:
 
     size_t size() const noexcept
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
         return file_size_;
     }
 
     bool empty() const noexcept
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
         return file_size_ == 0;
     }
 
     bool is_open() const noexcept
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
         return mFile.is_open();
     }
 
     size_t window_size() const noexcept
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
         return window_size_;
     }
 
     size_t begin_index() const noexcept
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
         return begin_index_;
     }
 
     size_t end_index() const noexcept
     {
-        auto guard = mMutex.lock_shared();
+        [[maybe_unused]] auto guard = mMutex.lock_shared();
         return end_index_;
     }
 
@@ -865,7 +865,7 @@ private:
         size_t write_index = begin_index_;
         for (const auto& elem : mWindow)
         {
-            mFile.seekp(write_index * element_size_, std::ios::beg);
+            mFile.seekp(static_cast<std::streamoff>(write_index * element_size_), std::ios::beg);
             SerializationPolicy::write(mFile, elem);
             ++write_index;
         }
@@ -881,7 +881,7 @@ private:
         }
 
         // Write front element back to file
-        mFile.seekp(begin_index_ * element_size_, std::ios::beg);
+        mFile.seekp(static_cast<std::streamoff>(begin_index_ * element_size_), std::ios::beg);
         if (!SerializationPolicy::write(mFile, mWindow.front()))
         {
             return false;
@@ -891,7 +891,7 @@ private:
         ++begin_index_;
 
         // Read new element at end
-        mFile.seekg(end_index_ * element_size_, std::ios::beg);
+        mFile.seekg(static_cast<std::streamoff>(end_index_ * element_size_), std::ios::beg);
         ElementType temp;
         if (!SerializationPolicy::read(mFile, temp))
         {
@@ -912,7 +912,7 @@ private:
         }
 
         // Write back element back to file
-        mFile.seekp((end_index_ - 1) * element_size_, std::ios::beg);
+        mFile.seekp(static_cast<std::streamoff>((end_index_ - 1) * element_size_), std::ios::beg);
         if (!SerializationPolicy::write(mFile, mWindow.back()))
         {
             return false;
@@ -923,7 +923,7 @@ private:
 
         // Read new element at front
         --begin_index_;
-        mFile.seekg(begin_index_ * element_size_, std::ios::beg);
+        mFile.seekg(static_cast<std::streamoff>(begin_index_ * element_size_), std::ios::beg);
         ElementType temp;
         if (!SerializationPolicy::read(mFile, temp))
         {
