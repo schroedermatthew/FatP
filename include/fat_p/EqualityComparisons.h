@@ -91,7 +91,7 @@ struct HasEqual : std::false_type
 template <typename T>
 struct HasEqual<
     T,
-    std::enable_if_t<std::is_convertible_v<decltype(std::declval<const T&>() == std::declval<const T&>()), bool>>>
+    std::void_t<decltype(std::declval<const T&>() == std::declval<const T&>())>>
     : std::true_type
 {
 };
@@ -184,7 +184,7 @@ struct HasToString : std::false_type
 
 template <typename T>
 struct HasToString<T,
-                   std::enable_if_t<std::is_convertible_v<decltype(toString(std::declval<const T&>())), std::string>>>
+                   std::void_t<decltype(toString(std::declval<const T&>()))>>
     : std::true_type
 {
 };

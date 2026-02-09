@@ -99,7 +99,8 @@ inline void conditionalPrintError(const char* message)
     std::cerr << "[ScopeGuard ERROR] " << message << std::endl;
 }
 
-template <typename MessageGen, typename = std::enable_if_t<std::is_invocable_r_v<std::string, MessageGen>>>
+template <typename MessageGen>
+    requires std::is_invocable_r_v<std::string, MessageGen>
 inline void conditionalPrintError(MessageGen&& messageGen)
 {
     try

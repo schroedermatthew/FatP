@@ -338,7 +338,8 @@ public:
      * @note Only enabled for trivially destructible T.
      */
     template <typename U = T>
-    [[nodiscard]] std::enable_if_t<std::is_trivially_destructible_v<U>, T*> acquire_uninitialized()
+        requires std::is_trivially_destructible_v<U>
+    [[nodiscard]] T* acquire_uninitialized()
     {
         [[maybe_unused]] auto guard = sync_policy_.lock();
 
@@ -371,9 +372,8 @@ public:
      * @note This zeroes bytes; it is not equivalent to value-initialization for all T.
      */
     template <typename U = T>
-    [[nodiscard]] std::enable_if_t<std::is_trivially_constructible_v<U> &&
-                                   std::is_trivially_destructible_v<U>,
-                                   T*>
+        requires (std::is_trivially_constructible_v<U> && std::is_trivially_destructible_v<U>)
+    [[nodiscard]] T*
     acquire_zeroed()
     {
         [[maybe_unused]] auto guard = sync_policy_.lock();

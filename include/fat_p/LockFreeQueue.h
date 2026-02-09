@@ -264,11 +264,6 @@ public:
             if (diff == 0)
             {
                 // Slot is ready to dequeue
-                // memory_order_relaxed is safe here because the acquire load of
-                // slot->sequence (above) already synchronizes with the producer's
-                // release store after enqueue. The CAS only needs to atomically
-                // claim this position; no additional memory ordering is required.
-                // See: Vyukov, "Bounded MPMC Queue", 1024cores.net
                 if (mDequeuePos.compare_exchange_weak(pos,
                                                       pos + 1,
                                                       std::memory_order_relaxed))
@@ -347,7 +342,8 @@ public:
      * @note Only available when EnableStats = true
      */
     template <bool E = EnableStats>
-    [[nodiscard]] std::enable_if_t<E, stats_type> stats() const noexcept
+        requires E
+    [[nodiscard]] stats_type stats() const noexcept
     {
         stats_type result;
         result.totalEnqueues = mStats.totalEnqueues.load(std::memory_order_relaxed);
@@ -364,7 +360,8 @@ public:
      * @note Only available when EnableStats = true
      */
     template <bool E = EnableStats>
-    std::enable_if_t<E> resetStats() noexcept
+        requires E
+    void resetStats() noexcept
     {
         mStats.totalEnqueues.store(0, std::memory_order_relaxed);
         mStats.totalDequeues.store(0, std::memory_order_relaxed);
@@ -390,11 +387,6 @@ private:
             if (diff == 0)
             {
                 // Slot is ready to enqueue
-                // memory_order_relaxed is safe here because the acquire load of
-                // slot->sequence (above) already synchronizes with the consumer's
-                // release store after dequeue. The CAS only needs to atomically
-                // claim this position; no additional memory ordering is required.
-                // See: Vyukov, "Bounded MPMC Queue", 1024cores.net
                 if (mEnqueuePos.compare_exchange_weak(pos,
                                                       pos + 1,
                                                       std::memory_order_relaxed))

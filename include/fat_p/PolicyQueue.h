@@ -191,13 +191,15 @@ public:
     }
 
     template <bool E = EnableStats>
-    [[nodiscard]] std::enable_if_t<E, stats_type> stats() const noexcept
+        requires E
+    [[nodiscard]] stats_type stats() const noexcept
     {
         return mQueue.stats();
     }
 
     template <bool E = EnableStats>
-    std::enable_if_t<E> resetStats() noexcept
+        requires E
+    void resetStats() noexcept
     {
         mQueue.resetStats();
     }

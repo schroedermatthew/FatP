@@ -1706,7 +1706,7 @@ inline void check_dump_depth(int indent)
  * @tparam T Type to serialize
  * @tparam Policy JSON serialization policy
  */
-template <typename T, typename Policy, typename = void>
+template <typename T, typename Policy>
 struct JsonDispatcher;
 
 /**
@@ -1733,11 +1733,9 @@ struct JsonDispatcher<std::nullptr_t, Policy>
  * User-defined types with to_json overloads are converted via that overload.
  */
 template <typename T, typename Policy>
-struct JsonDispatcher<
-    T,
-    Policy,
-    std::enable_if_t<(!json_detail::IsIterable<T>::value || std::is_same_v<std::decay_t<T>, std::string>) &&
-                     !json_detail::is_optional_v<T> && !json_detail::is_pair_v<T> && !json_detail::is_tuple_v<T>>>
+    requires ((!json_detail::IsIterable<T>::value || std::is_same_v<std::decay_t<T>, std::string>) &&
+              !json_detail::is_optional_v<T> && !json_detail::is_pair_v<T> && !json_detail::is_tuple_v<T>)
+struct JsonDispatcher<T, Policy>
 {
     template <typename Os>
     static void dump(Os& os, const T& obj, bool pretty = Policy::pretty_print, int indent = 0)
@@ -1842,11 +1840,9 @@ struct JsonDispatcher<std::tuple<Ts...>, Policy>
  * @note std::string is excluded (handled as scalar despite being iterable)
  */
 template <typename T, typename Policy>
-struct JsonDispatcher<
-    T,
-    Policy,
-    std::enable_if_t<json_detail::IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> &&
-                     !json_detail::HasMappedType<T>::value>>
+    requires (json_detail::IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> &&
+              !json_detail::HasMappedType<T>::value)
+struct JsonDispatcher<T, Policy>
 {
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0)
@@ -1892,11 +1888,9 @@ struct JsonDispatcher<
  * Outputs as JSON object. Non-string keys are converted via operator<<.
  */
 template <typename T, typename Policy>
-struct JsonDispatcher<
-    T,
-    Policy,
-    std::enable_if_t<json_detail::IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> &&
-                     json_detail::HasMappedType<T>::value>>
+    requires (json_detail::IsIterable<T>::value && !std::is_same_v<std::decay_t<T>, std::string> &&
+              json_detail::HasMappedType<T>::value)
+struct JsonDispatcher<T, Policy>
 {
     template <typename Os>
     static void dump(Os& os, const T& cont, bool pretty = Policy::pretty_print, int indent = 0)

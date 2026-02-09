@@ -169,18 +169,16 @@ public:
     {
     }
 
-    template <
-        typename T,
-        std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, std::int64_t>, int> = 0>
+    template <typename T>
+        requires (std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, std::int64_t>)
     explicit CborValue(T v)
         : data_(static_cast<std::int64_t>(v))
     {
     }
 
-    template <typename T,
-              std::enable_if_t<std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, std::uint64_t> &&
-                                   !std::is_same_v<T, bool>,
-                               int> = 0>
+    template <typename T>
+        requires (std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, std::uint64_t> &&
+                  !std::is_same_v<T, bool>)
     explicit CborValue(T v)
         : data_(static_cast<std::uint64_t>(v))
     {

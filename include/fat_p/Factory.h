@@ -659,7 +659,8 @@ public:
     Factory() = default;
 
     template <typename L = LifetimePolicy>
-    static std::enable_if_t<L::is_singleton, Factory&> instance()
+        requires L::is_singleton
+    static Factory& instance()
     {
         static Factory inst;
         return inst;

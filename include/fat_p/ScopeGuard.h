@@ -185,11 +185,10 @@ public:
      * @tparam Args Argument types for F's constructor.
      * @param args Arguments forwarded to F's constructor.
      */
-    template <typename... Args,
-              typename = std::enable_if_t<
-                  std::is_constructible_v<ActionStorage, Args...> &&
+    template <typename... Args>
+        requires (std::is_constructible_v<ActionStorage, Args...> &&
                   !(sizeof...(Args) == 1 &&
-                    std::is_same_v<std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>, ScopeGuard>)>>
+                    std::is_same_v<std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>, ScopeGuard>))
     explicit ScopeGuard(Args&&... args) noexcept(std::is_nothrow_constructible_v<ActionStorage, Args&&...>)
         : mActionStorage(std::forward<Args>(args)...)
         , mExecute(true)

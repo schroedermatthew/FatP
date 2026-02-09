@@ -527,19 +527,22 @@ constexpr T right_shift()
     return a >> shift;
 }
 
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <typename T>
+    requires std::is_integral_v<T>
 constexpr T and_op(T a, T b)
 {
     return a & b;
 }
 
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <typename T>
+    requires std::is_integral_v<T>
 constexpr T or_op(T a, T b)
 {
     return a | b;
 }
 
-template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+template <typename T>
+    requires std::is_integral_v<T>
 constexpr T xor_op(T a, T b)
 {
     return a ^ b;

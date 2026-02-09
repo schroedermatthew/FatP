@@ -309,16 +309,18 @@ public:
     template <typename... Args>
     Expected<void, std::string> init(Args&&... args);
 
-    template <typename U, typename = std::enable_if_t<std::is_constructible_v<T, std::initializer_list<U>>>>
+    template <typename U>
+        requires std::is_constructible_v<T, std::initializer_list<U>>
     Expected<void, std::string> init(std::initializer_list<U> ilist);
 
     Expected<void, std::string> reset() noexcept(std::is_same_v<ResetPolicy, AllowResetPolicy>);
 
-    template <typename F, typename = std::enable_if_t<std::is_invocable_r_v<T, F>>>
+    template <typename F>
+        requires std::is_invocable_r_v<T, F>
     void lazy_init(F&& f);
 
-    template <typename F,
-              typename = std::enable_if_t<std::is_invocable_r_v<T, F> && !std::is_same_v<std::decay_t<F>, T>>>
+    template <typename F>
+        requires (std::is_invocable_r_v<T, F> && !std::is_same_v<std::decay_t<F>, T>)
     [[nodiscard]] T& get(F&& f);
 
     [[nodiscard]] T& get();

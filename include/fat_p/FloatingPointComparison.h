@@ -499,8 +499,9 @@ struct HybridComparisonPolicy
  * @endcode
  */
 template <typename T>
+    requires std::is_floating_point_v<T>
 [[nodiscard]]
-std::enable_if_t<std::is_floating_point_v<T>, bool>
+bool
 approximateEqual(const T& a, const T& b, T relEps = getDefaultEpsilon<T>(), T absEps = getDefaultEpsilon<T>())
 {
     return HybridComparisonPolicy::epsilonMatch(a, b, relEps, absEps);
@@ -539,8 +540,9 @@ approximateEqual(const T& a, const T& b, T relEps = getDefaultEpsilon<T>(), T ab
  * @endcode
  */
 template <typename T, typename Policy = StandardComparisonPolicy, typename... EpsParams>
+    requires std::is_floating_point_v<T>
 [[nodiscard]]
-std::enable_if_t<std::is_floating_point_v<T>, bool> floatEqual(const T& a, const T& b, EpsParams... eps)
+bool floatEqual(const T& a, const T& b, EpsParams... eps)
 {
     return Policy::epsilonMatch(a, b, eps...);
 }

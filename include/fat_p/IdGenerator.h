@@ -108,7 +108,7 @@ struct has_underlying_type<T, std::void_t<typename T::underlying_type>> : std::t
 };
 
 // Primary template - for integral types
-template <typename T, typename = void>
+template <typename T>
 struct extract_value_type
 {
     static_assert(std::is_integral_v<T> || has_value_type<T>::value || has_underlying_type<T>::value,
@@ -118,23 +118,24 @@ struct extract_value_type
 
 // Specialization for integral types
 template <typename T>
-struct extract_value_type<T, std::enable_if_t<std::is_integral_v<T>>>
+    requires std::is_integral_v<T>
+struct extract_value_type<T>
 {
     using type = T;
 };
 
 // Specialization for types with value_type (like StrongId)
 template <typename T>
-struct extract_value_type<T, std::enable_if_t<!std::is_integral_v<T> && has_value_type<T>::value>>
+    requires (!std::is_integral_v<T> && has_value_type<T>::value)
+struct extract_value_type<T>
 {
     using type = typename T::value_type;
 };
 
 // Specialization for types with underlying_type but not value_type
 template <typename T>
-struct extract_value_type<
-    T,
-    std::enable_if_t<!std::is_integral_v<T> && !has_value_type<T>::value && has_underlying_type<T>::value>>
+    requires (!std::is_integral_v<T> && !has_value_type<T>::value && has_underlying_type<T>::value)
+struct extract_value_type<T>
 {
     using type = typename T::underlying_type;
 };
@@ -771,7 +772,8 @@ public:
      * @param tag Disambiguation tag (use `seed_tag`)
      * @param seed The seed value for the random number generator
      */
-    template <typename AP = AllocationPolicy, typename = std::enable_if_t<detail::is_random_policy_v<AP>>>
+    template <typename AP = AllocationPolicy>
+        requires detail::is_random_policy_v<AP>
     IdGenerator(seed_tag_t /*tag*/, uint64_t seed)
         : AllocationPolicy(seed, 0)
         , RecyclingPolicy()

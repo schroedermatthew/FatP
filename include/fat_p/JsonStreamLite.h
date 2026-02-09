@@ -101,7 +101,8 @@ public:
     {
     }
 
-    template <typename T, typename = std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>>
+    template <typename T>
+        requires (std::is_integral_v<T> && !std::is_same_v<T, bool>)
     JsonValue(T v)
         : data_(static_cast<std::int64_t>(v))
     {

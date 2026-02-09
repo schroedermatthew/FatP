@@ -816,7 +816,8 @@ public:
      *
      * @note Complexity: O(log N) search + O(N) insertion.
      */
-    template <typename U = T, typename... EpsParams, typename = std::enable_if_t<std::is_convertible_v<U, T>>>
+    template <typename U = T, typename... EpsParams>
+        requires std::is_convertible_v<U, T>
     [[nodiscard]] Expected<bool, std::string> insert(U&& value, EpsParams... eps)
     {
         [[maybe_unused]] auto guard = this->lock();

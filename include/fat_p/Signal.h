@@ -784,8 +784,8 @@ public:
      * @note Only available when R is not void
      */
     template <typename Ret = R,
-              typename Container = SmallVector<Ret, InlineCapacity>,
-              typename = std::enable_if_t<!std::is_void_v<Ret>>>
+              typename Container = SmallVector<Ret, InlineCapacity>>
+        requires (!std::is_void_v<Ret>)
     [[nodiscard]] Container emitCollect(Args... args)
     {
         Container results;
@@ -842,7 +842,8 @@ public:
      *
      * @note Only available when R is convertible to bool
      */
-    template <typename Ret = R, typename = std::enable_if_t<!std::is_void_v<Ret> && std::is_convertible_v<Ret, bool>>>
+    template <typename Ret = R>
+        requires (!std::is_void_v<Ret> && std::is_convertible_v<Ret, bool>)
     [[nodiscard]] Ret emitUntil(Args... args)
     {
         Ret result{};
