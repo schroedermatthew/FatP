@@ -1281,7 +1281,8 @@ public:
 
     /// Find a key. Returns pointer to value or nullptr.
     /// SFINAE-gated to prevent hard errors with incompatible key types.
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     Value* find(const K& key)
     {
         size_t h = hash_key(key);
@@ -1289,7 +1290,8 @@ public:
         return found ? &mNodes[idx]->value : nullptr;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     const Value* find(const K& key) const
     {
         size_t h = hash_key(key);
@@ -1297,7 +1299,8 @@ public:
         return found ? &mNodes[idx]->value : nullptr;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     bool contains(const K& key) const
     {
         size_t h = hash_key(key);
@@ -1305,14 +1308,16 @@ public:
         return found;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     size_t count(const K& key) const
     {
         return contains(key) ? 1 : 0;
     }
 
     /// Erase a key. After this call, any pointers to the erased value are INVALID.
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     bool erase(const K& key)
     {
         size_t h = hash_key(key);

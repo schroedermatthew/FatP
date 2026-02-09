@@ -1114,7 +1114,8 @@ private:
         }
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     std::pair<size_t, bool> find_slot(const K& k) const
     {
         if (mCapacity == 0)
@@ -1437,7 +1438,8 @@ public:
     // Move constructor - only available when allocator supports pointer stealing
     // For inline-storage allocators (FixedAllocator), moves are deleted because
     // pointers into the embedded buffer would dangle after move.
-    template <typename A = Allocator, std::enable_if_t<A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator>
+        requires A::kPointerStealSafe
     FastHashMap(FastHashMap&& other) noexcept(is_nothrow_move_constructible_v)
         : mCtrl(other.mCtrl)
         , mSlots(other.mSlots)
@@ -1465,7 +1467,8 @@ public:
     }
 
     // Deleted move constructor for inline-storage allocators
-    template <typename A = Allocator, std::enable_if_t<!A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator>
+        requires (!A::kPointerStealSafe)
     FastHashMap(FastHashMap&&) = delete;
 
     FastHashMap& operator=(const FastHashMap& other)
@@ -1479,7 +1482,8 @@ public:
     }
 
     // Move assignment - only available when allocator supports pointer stealing
-    template <typename A = Allocator, std::enable_if_t<A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator>
+        requires A::kPointerStealSafe
     FastHashMap& operator=(FastHashMap&& other) noexcept(is_nothrow_move_assignable_v)
     {
         if (this != &other)
@@ -1512,11 +1516,13 @@ public:
     }
 
     // Deleted move assignment for inline-storage allocators
-    template <typename A = Allocator, std::enable_if_t<!A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator>
+        requires (!A::kPointerStealSafe)
     FastHashMap& operator=(FastHashMap&&) = delete;
 
     // Swap - only available when allocator supports pointer stealing
-    template <typename A = Allocator, std::enable_if_t<A::kPointerStealSafe, int> = 0>
+    template <typename A = Allocator>
+        requires A::kPointerStealSafe
     void swap(FastHashMap& other) noexcept(is_nothrow_swappable_v)
     {
         std::swap(mCtrl, other.mCtrl);
@@ -1781,7 +1787,8 @@ public:
     }
 
     /// Erase a key. Supports heterogeneous lookup.
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     bool erase(const K& key)
     {
         assert(!mFrozen && "FastHashMap::erase() called on frozen map");
@@ -1795,34 +1802,39 @@ public:
     }
 
     // Lookup - Supports heterogeneous lookup (e.g., find with string_view for string keys)
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     Value* find(const K& key)
     {
         auto [idx, found] = find_slot(key);
         return found ? &mSlots[idx].value() : nullptr;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     const Value* find(const K& key) const
     {
         auto [idx, found] = find_slot(key);
         return found ? &mSlots[idx].value() : nullptr;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     bool contains(const K& key) const
     {
         auto [idx, found] = find_slot(key);
         return found;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     size_t count(const K& key) const
     {
         return contains(key) ? 1 : 0;
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     Value& at(const K& key)
     {
         auto [idx, found] = find_slot(key);
@@ -1833,7 +1845,8 @@ public:
         return mSlots[idx].value();
     }
 
-    template <typename K, std::enable_if_t<is_hetero_lookup_enabled<K>, int> = 0>
+    template <typename K>
+        requires is_hetero_lookup_enabled<K>
     const Value& at(const K& key) const
     {
         auto [idx, found] = find_slot(key);
