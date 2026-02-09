@@ -97,7 +97,7 @@ FATP_META:
 #include <functional>  // For std::hash
 #include <stdexcept>   // For std::logic_error
 #include <string>      // Default error type
-#include <type_traits> // For std::enable_if, std::is_constructible, etc.
+#include <type_traits> // For std::is_constructible, std::is_same, etc.
 #include <utility>     // For std::move, std::forward, etc.
 
 #include "CppFeatureDetection.h"
@@ -311,10 +311,10 @@ struct unexpected
      * @tparam Err Deduced type of the forwarded error.
      * @param err The error to wrap.
      */
-    template <typename Err = E,
-              typename = std::enable_if_t<!std::is_same_v<std::decay_t<Err>, unexpected> &&
-                                          !std::is_same_v<std::decay_t<Err>, std::in_place_t> &&
-                                          std::is_constructible_v<E, Err>>>
+    template <typename Err = E>
+        requires (!std::is_same_v<std::decay_t<Err>, unexpected> &&
+                  !std::is_same_v<std::decay_t<Err>, std::in_place_t> &&
+                  std::is_constructible_v<E, Err>)
     constexpr explicit unexpected(Err&& err) noexcept(std::is_nothrow_constructible_v<E, Err>)
         : mError(std::forward<Err>(err))
     {
@@ -323,7 +323,8 @@ struct unexpected
     /**
      * @brief In-place construction of error.
      */
-    template <typename... Args, typename = std::enable_if_t<std::is_constructible_v<E, Args...>>>
+    template <typename... Args>
+        requires std::is_constructible_v<E, Args...>
     constexpr explicit unexpected(std::in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible_v<E, Args...>)
         : mError(std::forward<Args>(args)...)
     {
@@ -918,8 +919,7 @@ struct VariantStorage
     /**
      * @brief Default constructor: Initializes in value state with default T (if T is default-constructible).
      */
-    template <typename Dummy = void, typename = std::enable_if_t<std::is_default_constructible_v<T>, Dummy>>
-    VariantStorage()
+    VariantStorage() requires std::is_default_constructible_v<T>
         : data_(T{})
     {
     }
@@ -1158,8 +1158,8 @@ public:
     /**
      * @brief Default constructor: Delegates to policy (value state), available only if T is default-constructible.
      */
-    template <typename Dummy = void, typename = std::enable_if_t<std::is_default_constructible_v<T>, Dummy>>
     constexpr ExpectedImpl() noexcept(std::is_nothrow_default_constructible_v<T>)
+        requires std::is_default_constructible_v<T>
     {
         mStorage.store_value();
     }
@@ -1173,10 +1173,10 @@ public:
      * @brief Copy constructs from T.
      * @param v Const reference to T.
      */
-    template <typename U = T,
-              typename = std::enable_if_t<std::is_constructible_v<T, const U&> &&
-                                          !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
-                                          !std::is_same_v<std::decay_t<U>, ExpectedImpl>>>
+    template <typename U = T>
+        requires (std::is_constructible_v<T, const U&> &&
+                  !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
+                  !std::is_same_v<std::decay_t<U>, ExpectedImpl>)
     constexpr ExpectedImpl(const U& v) noexcept(std::is_nothrow_constructible_v<T, const U&>)
     {
         mStorage.store_value(v);
@@ -1186,10 +1186,10 @@ public:
      * @brief Move constructs from T.
      * @param v Rvalue reference to T.
      */
-    template <typename U = T,
-              typename = std::enable_if_t<std::is_constructible_v<T, U&&> &&
-                                          !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
-                                          !std::is_same_v<std::decay_t<U>, ExpectedImpl>>>
+    template <typename U = T>
+        requires (std::is_constructible_v<T, U&&> &&
+                  !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
+                  !std::is_same_v<std::decay_t<U>, ExpectedImpl>)
     constexpr ExpectedImpl(U&& v) noexcept(std::is_nothrow_constructible_v<T, U&&>)
     {
         mStorage.store_value(std::forward<U>(v));
@@ -1199,7 +1199,8 @@ public:
      * @brief In-place value construction.
      * @tparam Args Arguments for T's constructor.
      */
-    template <typename... Args, typename = std::enable_if_t<std::is_constructible_v<T, Args...>>>
+    template <typename... Args>
+        requires std::is_constructible_v<T, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t,
                                     Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
@@ -1210,8 +1211,8 @@ public:
      * @brief In-place value construction with initializer list.
      */
     template <typename U,
-              typename... Args,
-              typename = std::enable_if_t<std::is_constructible_v<T, std::initializer_list<U>&, Args...>>>
+              typename... Args>
+        requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)
     {
@@ -1224,7 +1225,8 @@ public:
      *
      * This is the primary way to construct errors, eliminating ambiguity.
      */
-    template <typename... Args, typename = std::enable_if_t<std::is_constructible_v<E, Args...>>>
+    template <typename... Args>
+        requires std::is_constructible_v<E, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t,
                                     Args&&... args) noexcept(std::is_nothrow_constructible_v<E, Args...>)
     {
@@ -1235,8 +1237,8 @@ public:
      * @brief In-place error construction with initializer list.
      */
     template <typename U,
-              typename... Args,
-              typename = std::enable_if_t<std::is_constructible_v<E, std::initializer_list<U>&, Args...>>>
+              typename... Args>
+        requires std::is_constructible_v<E, std::initializer_list<U>&, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible_v<E, std::initializer_list<U>&, Args...>)
     {
@@ -1250,7 +1252,8 @@ public:
      *
      * Unambiguous way to construct error state.
      */
-    template <typename G, typename = std::enable_if_t<std::is_constructible_v<E, const G&>>>
+    template <typename G>
+        requires std::is_constructible_v<E, const G&>
     constexpr ExpectedImpl(const unexpected<G>& ue) noexcept(std::is_nothrow_constructible_v<E, const G&>)
     {
         mStorage.store_error(ue.value());
@@ -1261,7 +1264,8 @@ public:
      * @tparam G Type convertible to E.
      * @param ue The unexpected wrapper.
      */
-    template <typename G, typename = std::enable_if_t<std::is_constructible_v<E, G&&>>>
+    template <typename G>
+        requires std::is_constructible_v<E, G&&>
     constexpr ExpectedImpl(unexpected<G>&& ue) noexcept(std::is_nothrow_constructible_v<E, G&&>)
     {
         mStorage.store_error(std::move(ue).value());
@@ -1309,16 +1313,16 @@ public:
     template <
         typename U,
         typename G,
-        template <typename, typename> class SP,
-        typename = std::enable_if_t<std::is_constructible_v<T, const U&> && std::is_constructible_v<E, const G&> &&
-                                    !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&> &&
-                                    !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&> &&
-                                    !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&&> &&
-                                    !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&&> &&
-                                    !std::is_convertible_v<ExpectedImpl<U, G, SP>&, T> &&
-                                    !std::is_convertible_v<const ExpectedImpl<U, G, SP>&, T> &&
-                                    !std::is_convertible_v<ExpectedImpl<U, G, SP>&&, T> &&
-                                    !std::is_convertible_v<const ExpectedImpl<U, G, SP>&&, T>>>
+        template <typename, typename> class SP>
+        requires (std::is_constructible_v<T, const U&> && std::is_constructible_v<E, const G&> &&
+                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&> &&
+                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&> &&
+                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&&> &&
+                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&&> &&
+                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&, T> &&
+                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&, T> &&
+                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&&, T> &&
+                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&&, T>)
     explicit ExpectedImpl(const ExpectedImpl<U, G, SP>& other) noexcept(std::is_nothrow_constructible_v<T, const U&> &&
                                                                         std::is_nothrow_constructible_v<E, const G&>)
     {
@@ -1337,16 +1341,16 @@ public:
      */
     template <typename U,
               typename G,
-              template <typename, typename> class SP,
-              typename = std::enable_if_t<std::is_constructible_v<T, U&&> && std::is_constructible_v<E, G&&> &&
-                                          !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&> &&
-                                          !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&> &&
-                                          !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&&> &&
-                                          !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&&> &&
-                                          !std::is_convertible_v<ExpectedImpl<U, G, SP>&, T> &&
-                                          !std::is_convertible_v<const ExpectedImpl<U, G, SP>&, T> &&
-                                          !std::is_convertible_v<ExpectedImpl<U, G, SP>&&, T> &&
-                                          !std::is_convertible_v<const ExpectedImpl<U, G, SP>&&, T>>>
+              template <typename, typename> class SP>
+        requires (std::is_constructible_v<T, U&&> && std::is_constructible_v<E, G&&> &&
+                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&> &&
+                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&> &&
+                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&&> &&
+                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&&> &&
+                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&, T> &&
+                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&, T> &&
+                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&&, T> &&
+                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&&, T>)
     explicit ExpectedImpl(ExpectedImpl<U, G, SP>&& other) noexcept(std::is_nothrow_constructible_v<T, U&&> &&
                                                                    std::is_nothrow_constructible_v<E, G&&>)
     {
@@ -1455,9 +1459,9 @@ public:
      * @param v Const reference to T.
      * @return Reference to this.
      */
-    template <typename U = T,
-              typename = std::enable_if_t<!std::is_same_v<std::decay_t<U>, ExpectedImpl> &&
-                                          std::is_constructible_v<T, U> && std::is_assignable_v<T&, U>>>
+    template <typename U = T>
+        requires (!std::is_same_v<std::decay_t<U>, ExpectedImpl> &&
+                  std::is_constructible_v<T, U> && std::is_assignable_v<T&, U>)
     ExpectedImpl& operator=(U&& v) noexcept(std::is_nothrow_constructible_v<T, U> &&
                                             std::is_nothrow_assignable_v<T&, U>)
     {
@@ -3267,35 +3271,38 @@ public:
     {
     }
 
-    template <
-        typename U = T,
-        typename = std::enable_if_t<std::is_constructible_v<T, U&&> && !std::is_same_v<std::decay_t<U>, ExpectedImpl> &&
-                                    !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
-                                    !std::is_same_v<std::decay_t<U>, unexpect_tag_t>>>
+    template <typename U = T>
+        requires (std::is_constructible_v<T, U&&> && !std::is_same_v<std::decay_t<U>, ExpectedImpl> &&
+                  !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
+                  !std::is_same_v<std::decay_t<U>, unexpect_tag_t>)
     constexpr ExpectedImpl(U&& v)
         : mStorage(std::in_place, std::forward<U>(v))
     {
     }
 
-    template <typename... Args, typename = std::enable_if_t<std::is_constructible_v<T, Args...>>>
+    template <typename... Args>
+        requires std::is_constructible_v<T, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t, Args&&... args)
         : mStorage(std::in_place, std::forward<Args>(args)...)
     {
     }
 
-    template <typename... Args, typename = std::enable_if_t<std::is_constructible_v<E, Args...>>>
+    template <typename... Args>
+        requires std::is_constructible_v<E, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t, Args&&... args)
         : mStorage(unexpect, std::forward<Args>(args)...)
     {
     }
 
-    template <typename G, typename = std::enable_if_t<std::is_constructible_v<E, const G&>>>
+    template <typename G>
+        requires std::is_constructible_v<E, const G&>
     constexpr ExpectedImpl(const unexpected<G>& ue)
         : mStorage(unexpect, ue.value())
     {
     }
 
-    template <typename G, typename = std::enable_if_t<std::is_constructible_v<E, G&&>>>
+    template <typename G>
+        requires std::is_constructible_v<E, G&&>
     constexpr ExpectedImpl(unexpected<G>&& ue)
         : mStorage(unexpect, std::move(ue).value())
     {
