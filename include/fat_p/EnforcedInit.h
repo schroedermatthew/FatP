@@ -445,7 +445,8 @@ EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::ini
 }
 
 template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-template <typename U, typename>
+template <typename U>
+    requires std::is_constructible_v<T, std::initializer_list<U>>
 Expected<void, std::string>
 EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::init(std::initializer_list<U> ilist)
 {
@@ -478,7 +479,8 @@ EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::res
 }
 
 template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-template <typename F, typename>
+template <typename F>
+    requires std::is_invocable_r_v<T, F>
 void EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::lazy_init(F&& f)
 {
     [[maybe_unused]] auto guard = this->lock();
@@ -491,7 +493,8 @@ void EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>
 }
 
 template <typename T, typename ConcurrencyPolicy, typename CheckPolicy, typename ResetPolicy, typename StoragePolicy>
-template <typename F, typename>
+template <typename F>
+    requires (std::is_invocable_r_v<T, F> && !std::is_same_v<std::decay_t<F>, T>)
 T& EnforcedInit<T, ConcurrencyPolicy, CheckPolicy, ResetPolicy, StoragePolicy>::get(F&& f)
 {
     lazy_init(std::forward<F>(f));
