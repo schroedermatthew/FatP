@@ -1273,10 +1273,6 @@ FATP_TEST_CASE(dirty_max_insert)
 // Benchmarks
 // =============================================================================
 
-// Benchmark configuration constants
-constexpr size_t kBenchmarkIterations = 100000;
-constexpr size_t kStandardWarmup = 1000;
-constexpr size_t kReducedIterations = 10000; // For slower operations
 } // namespace fat_p::testing::idgenerator
 
 namespace fat_p::testing
