@@ -624,7 +624,19 @@ FATP_TEST_CASE(self_move_assignment)
         FATP_ASSERT_EQ(value, 100, "Value changed");
 
         // Self-move-assignment should be a no-op
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-move"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wself-move"
+#endif
         guard = std::move(guard);
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
         FATP_ASSERT_TRUE(guard.is_active(), "Guard still active after self-move");
         FATP_ASSERT_EQ(value, 100, "Value unchanged after self-move");
@@ -1039,7 +1051,19 @@ FATP_TEST_CASE(self_assignment_prevention)
         ValueGuard guard(value, 100);
 
         // Self-assignment should be a no-op
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-move"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wself-move"
+#endif
         guard = std::move(guard);
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
         FATP_ASSERT_TRUE(guard.is_active(), "Guard still active");
         FATP_ASSERT_EQ(value, 100, "Value unchanged");

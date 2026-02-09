@@ -359,7 +359,11 @@ private:
         ConnectionId id{InvalidConnectionId};
         Callback func;
         int priority = 0;
-        bool active = true; // Soft-delete flag for deferred cleanup
+        // Atomic because disconnect() flips this under lock_shared() while emit()
+        // reads it under lock_shared() on another thread. Cannot upgrade to write
+        // lock because user callbacks may call disconnect() during emission, which
+        // would deadlock on non-recursive shared_mutex.
+        std::atomic<bool> active{true};
 
         Slot() = default;
 
@@ -369,6 +373,49 @@ private:
             , priority(prio)
             , active(true)
         {
+        }
+
+        // std::atomic is non-copyable/non-movable, so Slot needs explicit
+        // move/copy to work in SmallVector. The active flag is always loaded
+        // relaxed during structural operations (move/copy happen under write lock).
+        Slot(const Slot& other)
+            : id(other.id)
+            , func(other.func)
+            , priority(other.priority)
+            , active(other.active.load(std::memory_order_relaxed))
+        {
+        }
+
+        Slot(Slot&& other) noexcept
+            : id(other.id)
+            , func(std::move(other.func))
+            , priority(other.priority)
+            , active(other.active.load(std::memory_order_relaxed))
+        {
+        }
+
+        Slot& operator=(const Slot& other)
+        {
+            if (this != &other)
+            {
+                id = other.id;
+                func = other.func;
+                priority = other.priority;
+                active.store(other.active.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            }
+            return *this;
+        }
+
+        Slot& operator=(Slot&& other) noexcept
+        {
+            if (this != &other)
+            {
+                id = other.id;
+                func = std::move(other.func);
+                priority = other.priority;
+                active.store(other.active.load(std::memory_order_relaxed), std::memory_order_relaxed);
+            }
+            return *this;
         }
 
         // For priority-based sorting (higher priority = earlier in list)
@@ -417,7 +464,7 @@ public:
     {
         if (this != &other)
         {
-            auto lock = this->lock();
+            [[maybe_unused]] auto lock = this->lock();
             mSlots = std::move(other.mSlots);
             mNextId.store(other.mNextId.load(std::memory_order_relaxed), std::memory_order_relaxed);
             mRecursionDepth.store(0, std::memory_order_relaxed);
@@ -462,7 +509,7 @@ public:
      */
     ConnectionId connectManual(Callback callback, int priority = 0)
     {
-        auto lock = this->lock();
+        [[maybe_unused]] auto lock = this->lock();
 
         ConnectionId id(mNextId.fetch_add(1, std::memory_order_relaxed));
 
@@ -523,13 +570,13 @@ public:
         {
             // We might be inside emit() on this or another thread
             // Use read lock for soft delete to avoid deadlock
-            auto lock = this->lock_shared();
+            [[maybe_unused]] auto lock = this->lock_shared();
 
             for (auto& slot : mSlots)
             {
-                if (slot.id == id && slot.active)
+                if (slot.id == id && slot.active.load(std::memory_order_relaxed))
                 {
-                    slot.active = false; // Soft delete
+                    slot.active.store(false, std::memory_order_relaxed); // Soft delete
                     mNeedsCleanup.store(true, std::memory_order_release);
                     return true;
                 }
@@ -538,7 +585,7 @@ public:
         }
 
         // Not emitting: acquire write lock for immediate removal
-        auto lock = this->lock();
+        [[maybe_unused]] auto lock = this->lock();
 
         // Re-check recursion depth under write lock
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
@@ -546,9 +593,9 @@ public:
             // Race: emission started between our checks
             for (auto& slot : mSlots)
             {
-                if (slot.id == id && slot.active)
+                if (slot.id == id && slot.active.load(std::memory_order_relaxed))
                 {
-                    slot.active = false;
+                    slot.active.store(false, std::memory_order_relaxed);
                     mNeedsCleanup.store(true, std::memory_order_release);
                     return true;
                 }
@@ -576,23 +623,23 @@ public:
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
         {
             // During emission: soft delete with read lock
-            auto lock = this->lock_shared();
+            [[maybe_unused]] auto lock = this->lock_shared();
             for (auto& slot : mSlots)
             {
-                slot.active = false;
+                slot.active.store(false, std::memory_order_relaxed);
             }
             mNeedsCleanup.store(true, std::memory_order_release);
             return;
         }
 
-        auto lock = this->lock();
+        [[maybe_unused]] auto lock = this->lock();
 
         // Re-check under write lock
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
         {
             for (auto& slot : mSlots)
             {
-                slot.active = false;
+                slot.active.store(false, std::memory_order_relaxed);
             }
             mNeedsCleanup.store(true, std::memory_order_release);
         }
@@ -619,7 +666,7 @@ public:
         bool shouldCleanup = false;
 
         {
-            auto lock = this->lock_shared();
+            [[maybe_unused]] auto lock = this->lock_shared();
 
             // Enter emission context
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
@@ -638,7 +685,7 @@ public:
             // Invoke all active slots
             for (auto& slot : mSlots)
             {
-                if (slot.active)
+                if (slot.active.load(std::memory_order_relaxed))
                 {
                     EmissionPolicy::invoke(slot.func, args...);
                 }
@@ -675,7 +722,7 @@ public:
      */
     [[nodiscard]] size_t slotCount() const
     {
-        auto lock = this->lock_shared();
+        [[maybe_unused]] auto lock = this->lock_shared();
         return mSlots.size();
     }
 
@@ -684,10 +731,10 @@ public:
      */
     [[nodiscard]] size_t activeSlotCount() const
     {
-        auto lock = this->lock_shared();
-        return std::count_if(mSlots.begin(), mSlots.end(), [](const Slot& s) {
-            return s.active;
-        });
+        [[maybe_unused]] auto lock = this->lock_shared();
+        return static_cast<size_t>(std::count_if(mSlots.begin(), mSlots.end(), [](const Slot& s) {
+            return s.active.load(std::memory_order_relaxed);
+        }));
     }
 
     /**
@@ -711,13 +758,13 @@ public:
      */
     [[nodiscard]] bool isConnected(ConnectionId id) const
     {
-        auto lock = this->lock_shared();
+        [[maybe_unused]] auto lock = this->lock_shared();
 
         for (const auto& slot : mSlots)
         {
             if (slot.id == id)
             {
-                return slot.active;
+                return slot.active.load(std::memory_order_relaxed);
             }
         }
         return false;
@@ -745,7 +792,7 @@ public:
         bool shouldCleanup = false;
 
         {
-            auto lock = this->lock_shared();
+            [[maybe_unused]] auto lock = this->lock_shared();
 
             results.reserve(mSlots.size());
 
@@ -761,7 +808,7 @@ public:
 
             for (auto& slot : mSlots)
             {
-                if (slot.active)
+                if (slot.active.load(std::memory_order_relaxed))
                 {
                     try
                     {
@@ -802,7 +849,7 @@ public:
         bool shouldCleanup = false;
 
         {
-            auto lock = this->lock_shared();
+            [[maybe_unused]] auto lock = this->lock_shared();
 
             mRecursionDepth.fetch_add(1, std::memory_order_acquire);
 
@@ -816,7 +863,7 @@ public:
 
             for (auto& slot : mSlots)
             {
-                if (slot.active)
+                if (slot.active.load(std::memory_order_relaxed))
                 {
                     try
                     {
@@ -859,7 +906,7 @@ private:
      */
     void performDeferredCleanup()
     {
-        auto lock = this->lock();
+        [[maybe_unused]] auto lock = this->lock();
 
         // Only cleanup if no longer emitting
         if (mRecursionDepth.load(std::memory_order_acquire) == 0)
@@ -867,7 +914,7 @@ private:
             mSlots.erase(std::remove_if(mSlots.begin(),
                                         mSlots.end(),
                                         [](const Slot& s) {
-                                            return !s.active;
+                                            return !s.active.load(std::memory_order_relaxed);
                                         }),
                          mSlots.end());
             mNeedsCleanup.store(false, std::memory_order_release);
