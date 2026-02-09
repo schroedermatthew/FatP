@@ -743,9 +743,14 @@ FATP_TEST_CASE(size_semantic_correctness)
         if (error > TOLERANCE)
         {
             // Could be a transient snapshot inconsistency -- only flag if the
-            // error is catastrophic (> Capacity/4), which would indicate the
-            // free-space bug rather than normal timing skew.
-            if (error > CAP / 4)
+            // error is catastrophic (> Capacity/2), which would indicate the
+            // free-space bug rather than normal timing skew. Under sanitizers
+            // (UBSan, TSan, ASan) the instrumentation overhead widens the gap
+            // between reading size() and ref_count, so the threshold must
+            // accommodate several hundred elements of drift on a 1024-cap buffer.
+            // The free-space bug produces errors near Capacity (~1020), so
+            // Capacity/2 still catches it with wide margin.
+            if (error > CAP / 2)
             {
                 semantic_violations.fetch_add(1, std::memory_order_relaxed);
             }
@@ -808,7 +813,7 @@ FATP_TEST_CASE(size_fill_drain_consistency)
             // Fill to capacity
             for (size_t i = 0; i < CAP; ++i)
             {
-                buffer.push(static_cast<int>(i));
+                (void)buffer.push(static_cast<int>(i));
             }
             // Drain completely
             int val = 0;
