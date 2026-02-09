@@ -5,7 +5,7 @@
 #
 # Directory structure:
 #   Headers:    include/fat_p/FatPTest.h
-#   Tests:      components/FatPTest/tests/test_FatP.cpp
+#   Tests:      components/FatPTest/tests/test_FatPTest.cpp
 # =============================================================================
 
 name: FatP CI
@@ -15,17 +15,17 @@ on:
   push:
     paths:
       - 'include/fat_p/FatPTest.h'
-      - 'components/FatPTest/tests/test_FatP.cpp'
+      - 'components/FatPTest/tests/test_FatPTest.cpp'
       - '.github/workflows/fatp-test-core.yml'
   pull_request:
     paths:
       - 'include/fat_p/FatPTest.h'
-      - 'components/FatPTest/tests/test_FatP.cpp'
+      - 'components/FatPTest/tests/test_FatPTest.cpp'
       - '.github/workflows/fatp-test-core.yml'
 
 env:
   HEADER: FatPTest.h
-  TEST_SRC: components/FatPTest/tests/test_FatP.cpp
+  TEST_SRC: components/FatPTest/tests/test_FatPTest.cpp
 
 jobs:
   # ===========================================================================
@@ -121,7 +121,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FatPTest\tests\test_FatP.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FatPTest\tests\test_FatPTest.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
