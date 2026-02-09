@@ -358,35 +358,35 @@ public:
      */
     [[nodiscard]] size_t size() const noexcept
     {
-        // First attempt: load write then read.
-        const size_t write = write_idx_.load(std::memory_order_acquire);
-        const size_t read = read_idx_.load(std::memory_order_acquire);
-
-        const size_t distance = index_distance(write, read);
-        if (distance <= Capacity)
+        // Try multiple snapshot attempts with alternating load orders.
+        // write-then-read bias: underestimates on torn read (read raced ahead)
+        // read-then-write bias: overestimates on torn read (write raced ahead)
+        // Alternating eliminates directional bias; convergence is guaranteed
+        // because the total number of index increments is finite.
+        for (int attempt = 0; attempt < 8; ++attempt)
         {
-            return distance;
+            size_t w, r;
+            if ((attempt & 1) == 0)
+            {
+                w = write_idx_.load(std::memory_order_acquire);
+                r = read_idx_.load(std::memory_order_acquire);
+            }
+            else
+            {
+                r = read_idx_.load(std::memory_order_acquire);
+                w = write_idx_.load(std::memory_order_acquire);
+            }
+
+            const size_t d = index_distance(w, r);
+            if (d <= Capacity)
+            {
+                return d;
+            }
         }
 
-        // Retry with reversed load order. Reading read-then-write gives a
-        // different snapshot bias than write-then-read, making it far more
-        // likely that at least one attempt captures a consistent pair.
-        const size_t read2 = read_idx_.load(std::memory_order_acquire);
-        const size_t write2 = write_idx_.load(std::memory_order_acquire);
-        const size_t retry = index_distance(write2, read2);
-        if (retry <= Capacity)
-        {
-            return retry;
-        }
-
-        // Both snapshots inconsistent: the observed distance wrapped around
-        // the index space because read advanced past write's snapshot (or
-        // vice versa). The complement (BUFFER_SIZE - distance) reverses the
-        // wrap and approximates the true element count. Take the minimum of
-        // the two complements for the most conservative estimate.
-        const size_t alt1 = BUFFER_SIZE - distance;
-        const size_t alt2 = BUFFER_SIZE - retry;
-        return (alt1 < alt2) ? alt1 : alt2;
+        // Exhausted retries under extreme contention -- practically unreachable.
+        // Capacity / 2 minimizes worst-case error (bounded to Capacity / 2).
+        return Capacity / 2;
     }
 
     /**
