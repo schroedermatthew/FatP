@@ -33,7 +33,7 @@ FATP_META:
   hygiene:
     pragma_once: false
     include_guard: false
-    defines_total: 0
+    defines_total: 2
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -41,6 +41,13 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
+#ifdef _MSC_VER
+#ifndef _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS 1
+#define FATP_DEFINED_CRT_SECURE_NO_WARNINGS_SM_TEST
+#endif
+#endif
 
 #include <iostream>
 #include <stdexcept>

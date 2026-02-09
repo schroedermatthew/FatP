@@ -311,20 +311,54 @@ class StateMachine
     }
 
     // --- Action dispatch tables ---
+    // NOTE: Separate noexcept/non-noexcept overloads are required because Clang
+    // (all versions through 17) cannot resolve noexcept(dependent_bool) when
+    // taking function template addresses in pack expansion. GCC and MSVC handle
+    // the conditional form, but Clang rejects &fn<T>... when fn has
+    // noexcept(kNoexceptActions). Two explicit overloads with if-constexpr
+    // selection avoids the issue portably.
     template <typename TState>
-    static void entryAction(Context& ctx) noexcept(kNoexceptActions)
+    static void entryActionNoexcept(Context& ctx) noexcept
     {
         TState{}.on_entry(ctx);
     }
 
     template <typename TState>
-    static void exitAction(Context& ctx) noexcept(kNoexceptActions)
+    static void entryActionMayThrow(Context& ctx)
+    {
+        TState{}.on_entry(ctx);
+    }
+
+    template <typename TState>
+    static void exitActionNoexcept(Context& ctx) noexcept
     {
         TState{}.on_exit(ctx);
     }
 
-    static constexpr std::array<ActionFn, kNumStates> kEntryActions = {&entryAction<States>...};
-    static constexpr std::array<ActionFn, kNumStates> kExitActions = {&exitAction<States>...};
+    template <typename TState>
+    static void exitActionMayThrow(Context& ctx)
+    {
+        TState{}.on_exit(ctx);
+    }
+
+    static constexpr std::array<ActionFn, kNumStates> makeEntryActions()
+    {
+        if constexpr (kNoexceptActions)
+            return {&entryActionNoexcept<States>...};
+        else
+            return {&entryActionMayThrow<States>...};
+    }
+
+    static constexpr std::array<ActionFn, kNumStates> makeExitActions()
+    {
+        if constexpr (kNoexceptActions)
+            return {&exitActionNoexcept<States>...};
+        else
+            return {&exitActionMayThrow<States>...};
+    }
+
+    static constexpr std::array<ActionFn, kNumStates> kEntryActions = makeEntryActions();
+    static constexpr std::array<ActionFn, kNumStates> kExitActions = makeExitActions();
 
     void dispatchExitAction(std::size_t stateIndex) noexcept(kNoexceptActions)
     {

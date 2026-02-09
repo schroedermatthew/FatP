@@ -75,14 +75,19 @@ jobs:
         include:
           - version: 15
             std: 20
+            std_flag: c++20
           - version: 16
             std: 20
+            std_flag: c++20
           - version: 16
             std: 23
+            std_flag: c++2b
           - version: 17
             std: 20
+            std_flag: c++20
           - version: 17
             std: 23
+            std_flag: c++23
 
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +100,7 @@ jobs:
 
       - name: Build tests
         run: |
-          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+          clang++-${{ matrix.version }} -std=${{ matrix.std_flag }} \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
@@ -341,6 +346,7 @@ jobs:
             }
             Write-Host "OK: Failed as expected"
           }
+          exit 0
 
   # ===========================================================================
   # CI Gate
