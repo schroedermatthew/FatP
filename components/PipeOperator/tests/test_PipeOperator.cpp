@@ -61,7 +61,7 @@ FATP_TEST_CASE(string_pipe)
     auto to_upper = [](std::string s) {
         for (auto& c : s)
         {
-            c = std::toupper(c);
+            c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
         }
         return s;
     };
