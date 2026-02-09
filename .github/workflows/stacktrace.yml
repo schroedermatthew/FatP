@@ -51,8 +51,10 @@ jobs:
         include:
           - version: 13
             std: 20
+            link_libs: ""
           - version: 14
             std: 23
+            link_libs: "-lstdc++_libbacktrace"
     steps:
       - uses: actions/checkout@v4
 
@@ -66,7 +68,7 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_bin ${{ matrix.link_libs }}
 
       - name: Run tests
         run: ./test_bin
@@ -275,8 +277,10 @@ jobs:
         include:
           - version: 13
             std: 20
+            link_libs: ""
           - version: 14
             std: 23
+            link_libs: "-lstdc++_libbacktrace"
 
     steps:
       - uses: actions/checkout@v4
@@ -297,7 +301,7 @@ jobs:
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -mavx2 -mfma \
             -I./include/fat_p \
-            ${{ env.BENCH_SRC }} -o bench_bin -pthread
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread ${{ matrix.link_libs }}
 
       - name: Run benchmarks
         env:
