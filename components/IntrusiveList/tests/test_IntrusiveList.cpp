@@ -99,7 +99,8 @@ struct LifecycleNode : fat_p::IntrusiveListNode<LifecycleNode>
         ++constructCount;
     }
 
-    LifecycleNode& operator=(const LifecycleNode&) = default;
+    // Copy assignment is implicitly deleted (IntrusiveListNode base is non-copyable)
+    // Move is implicitly deleted (user-defined copy ctor + destructor)
 
     static void reset()
     {
@@ -118,8 +119,22 @@ struct MoveOnlyNode : fat_p::IntrusiveListNode<MoveOnlyNode>
     {
     }
 
-    MoveOnlyNode(MoveOnlyNode&&) = default;
-    MoveOnlyNode& operator=(MoveOnlyNode&&) = default;
+    // IntrusiveListNode base has no move ctor/assign (deleted copy + user dtor),
+    // so default move would be implicitly deleted. Provide explicit moves that
+    // transfer the data while leaving the base in default (unlinked) state.
+    MoveOnlyNode(MoveOnlyNode&& other) noexcept
+        : data(std::move(other.data))
+    {
+    }
+
+    MoveOnlyNode& operator=(MoveOnlyNode&& other) noexcept
+    {
+        if (this != &other)
+        {
+            data = std::move(other.data);
+        }
+        return *this;
+    }
 
     MoveOnlyNode(const MoveOnlyNode&) = delete;
     MoveOnlyNode& operator=(const MoveOnlyNode&) = delete;
