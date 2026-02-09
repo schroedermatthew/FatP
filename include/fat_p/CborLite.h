@@ -283,6 +283,9 @@ private:
 class Decoder
 {
 public:
+    /// Default maximum nesting depth for arrays/maps (matches JsonLite policy)
+    static constexpr std::size_t kDefaultMaxDepth = 64;
+
     Decoder(const byte* data, std::size_t size) noexcept
         : mData(data)
         , mSize(size)
@@ -295,6 +298,18 @@ public:
         , mSize(b.size())
         , mPos(0)
     {
+    }
+
+    /// Set maximum nesting depth for array/map decoding (default: 64)
+    void set_max_depth(std::size_t depth) noexcept
+    {
+        mMaxDepth = depth;
+    }
+
+    /// Get current nesting depth
+    [[nodiscard]] std::size_t depth() const noexcept
+    {
+        return mDepth;
     }
 
     bool eof() const noexcept
@@ -413,6 +428,10 @@ public:
         return out;
     }
 
+    /**
+     * @brief Read array length with nesting depth enforcement
+     * @throws std::runtime_error if nesting exceeds max_depth
+     */
     std::size_t readArrayLength()
     {
         const ItemHeader header = readHeader();
@@ -420,9 +439,18 @@ public:
         {
             throw std::runtime_error("CBOR: expected array");
         }
+        if (mDepth >= mMaxDepth)
+        {
+            throw std::runtime_error("CBOR: maximum nesting depth exceeded");
+        }
+        ++mDepth;
         return safeToSizeT(header.argument, "array");
     }
 
+    /**
+     * @brief Read map length with nesting depth enforcement
+     * @throws std::runtime_error if nesting exceeds max_depth
+     */
     std::size_t readMapLength()
     {
         const ItemHeader header = readHeader();
@@ -430,13 +458,35 @@ public:
         {
             throw std::runtime_error("CBOR: expected map");
         }
+        if (mDepth >= mMaxDepth)
+        {
+            throw std::runtime_error("CBOR: maximum nesting depth exceeded");
+        }
+        ++mDepth;
         return safeToSizeT(header.argument, "map");
+    }
+
+    /**
+     * @brief Notify decoder that a container (array/map) has been fully consumed
+     *
+     * Call after iterating all elements of an array or map to restore depth.
+     * Forgetting to call this is safe (depth only increases), but may cause
+     * spurious depth-exceeded errors on subsequent containers.
+     */
+    void endContainer() noexcept
+    {
+        if (mDepth > 0)
+        {
+            --mDepth;
+        }
     }
 
 private:
     const byte* mData;
     std::size_t mSize;
     std::size_t mPos;
+    std::size_t mDepth = 0;
+    std::size_t mMaxDepth = kDefaultMaxDepth;
 };
 
 } // namespace cbor

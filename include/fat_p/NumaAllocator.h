@@ -17,9 +17,9 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 6
+    defines_total: 8
     defines_unprefixed: 2
-    undefs_total: 1
+    undefs_total: 5
     includes_windows_h: true
   generated:
     by: fatp-meta-tool
@@ -94,12 +94,23 @@ FATP_META:
 #elif defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
+#define FATP_DEFINED_NOMINMAX_NUMA
 #endif
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#define FATP_DEFINED_WIN32_LEAN_AND_MEAN_NUMA
 #endif
 #include <malloc.h>
 #include <windows.h>
+// Clean up Windows macros we defined to avoid polluting user's compile environment
+#ifdef FATP_DEFINED_NOMINMAX_NUMA
+#undef NOMINMAX
+#undef FATP_DEFINED_NOMINMAX_NUMA
+#endif
+#ifdef FATP_DEFINED_WIN32_LEAN_AND_MEAN_NUMA
+#undef WIN32_LEAN_AND_MEAN
+#undef FATP_DEFINED_WIN32_LEAN_AND_MEAN_NUMA
+#endif
 #define FATP_HAS_NUMA_SUPPORT 1
 #else
 #define FATP_HAS_NUMA_SUPPORT 0

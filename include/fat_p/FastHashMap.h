@@ -221,12 +221,17 @@ struct HeapAllocator
     void* allocate(size_t size, size_t alignment)
     {
 #if defined(_MSC_VER)
-        return _aligned_malloc(size, alignment);
+        void* ptr = _aligned_malloc(size, alignment);
+        if (!ptr)
+        {
+            throw std::bad_alloc();
+        }
+        return ptr;
 #else
         void* ptr = nullptr;
         if (posix_memalign(&ptr, alignment, size) != 0)
         {
-            return nullptr;
+            throw std::bad_alloc();
         }
         return ptr;
 #endif
@@ -305,7 +310,7 @@ public:
 
         if (aligned_offset + size > BufferSize)
         {
-            return nullptr; // Caller will throw std::bad_alloc
+            throw std::bad_alloc(); // Buffer exhausted
         }
 
         void* ptr = mBuffer + aligned_offset;
