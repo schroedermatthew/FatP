@@ -54,7 +54,11 @@ template <typename E>
 struct EnumSizeTrait;
 
 template <typename E, bool Enable = false>
-struct EnableOverloadedOperators;
+struct EnableOverloadedOperators : std::bool_constant<Enable> {};
+
+/// Concept: E has opted into bitwise operators via EnableOverloadedOperators
+template <typename E>
+concept enum_with_operators = EnableOverloadedOperators<E>::value;
 
 template <typename E>
 struct EnumStringPolicy;
@@ -94,7 +98,8 @@ struct NoBoundsCheckPolicy
 // ============================================================================
 
 template <typename E>
-constexpr auto to_underlying(E value) noexcept -> std::enable_if_t<std::is_enum_v<E>, std::underlying_type_t<E>>
+    requires std::is_enum_v<E>
+constexpr std::underlying_type_t<E> to_underlying(E value) noexcept
 {
     return static_cast<std::underlying_type_t<E>>(value);
 }
@@ -168,98 +173,102 @@ private:
 // ============================================================================
 
 template <typename E>
-constexpr auto operator|(EnumPlusWrapper<E> lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator|(EnumPlusWrapper<E> lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() | rhs.underlying()));
 }
 
 template <typename E>
-constexpr auto operator|(E lhs, E rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E>
+    requires enum_with_operators<E>
+constexpr E operator|(E lhs, E rhs) noexcept
 {
     using U = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<U>(lhs) | static_cast<U>(rhs));
 }
 
 template <typename E>
-constexpr auto operator|(EnumPlusWrapper<E> lhs, E rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator|(EnumPlusWrapper<E> lhs, E rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() | static_cast<std::underlying_type_t<E>>(rhs)));
 }
 
 template <typename E>
-constexpr auto operator|(E lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator|(E lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(static_cast<std::underlying_type_t<E>>(lhs) | rhs.underlying()));
 }
 
 template <typename E>
-constexpr auto operator&(EnumPlusWrapper<E> lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator&(EnumPlusWrapper<E> lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() & rhs.underlying()));
 }
 
 template <typename E>
-constexpr auto operator&(E lhs, E rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E>
+    requires enum_with_operators<E>
+constexpr E operator&(E lhs, E rhs) noexcept
 {
     using U = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<U>(lhs) & static_cast<U>(rhs));
 }
 
 template <typename E>
-constexpr auto operator&(EnumPlusWrapper<E> lhs, E rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator&(EnumPlusWrapper<E> lhs, E rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() & static_cast<std::underlying_type_t<E>>(rhs)));
 }
 
 template <typename E>
-constexpr auto operator&(E lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator&(E lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(static_cast<std::underlying_type_t<E>>(lhs) & rhs.underlying()));
 }
 
 template <typename E>
-constexpr auto operator^(EnumPlusWrapper<E> lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator^(EnumPlusWrapper<E> lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() ^ rhs.underlying()));
 }
 
 template <typename E>
-constexpr auto operator^(E lhs, E rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E>
+    requires enum_with_operators<E>
+constexpr E operator^(E lhs, E rhs) noexcept
 {
     using U = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<U>(lhs) ^ static_cast<U>(rhs));
 }
 
 template <typename E>
-constexpr auto operator^(EnumPlusWrapper<E> lhs, E rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator^(EnumPlusWrapper<E> lhs, E rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() ^ static_cast<std::underlying_type_t<E>>(rhs)));
 }
 
 template <typename E>
-constexpr auto operator^(E lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator^(E lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(static_cast<std::underlying_type_t<E>>(lhs) ^ rhs.underlying()));
 }
 
 template <typename E>
-constexpr auto operator~(EnumPlusWrapper<E> value) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator~(EnumPlusWrapper<E> value) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(~value.underlying()));
 }
 
 template <typename E>
-constexpr auto operator~(E value) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E>
+    requires enum_with_operators<E>
+constexpr E operator~(E value) noexcept
 {
     using U = std::underlying_type_t<E>;
     return static_cast<E>(~static_cast<U>(value));
@@ -267,69 +276,72 @@ constexpr auto operator~(E value) noexcept -> std::enable_if_t<EnableOverloadedO
 
 // Compound assignment operators
 template <typename E>
-auto operator|=(EnumPlusWrapper<E>& lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator|=(EnumPlusWrapper<E>& lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     lhs = lhs | rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator|=(E& lhs, E rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E&>
+    requires enum_with_operators<E>
+E& operator|=(E& lhs, E rhs) noexcept
 {
     lhs = lhs | rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator|=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator|=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
 {
     lhs = lhs | rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator&=(EnumPlusWrapper<E>& lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator&=(EnumPlusWrapper<E>& lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     lhs = lhs & rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator&=(E& lhs, E rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E&>
+    requires enum_with_operators<E>
+E& operator&=(E& lhs, E rhs) noexcept
 {
     lhs = lhs & rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator&=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator&=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
 {
     lhs = lhs & rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator^=(EnumPlusWrapper<E>& lhs, EnumPlusWrapper<E> rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator^=(EnumPlusWrapper<E>& lhs, EnumPlusWrapper<E> rhs) noexcept
 {
     lhs = lhs ^ rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator^=(E& lhs, E rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E&>
+    requires enum_with_operators<E>
+E& operator^=(E& lhs, E rhs) noexcept
 {
     lhs = lhs ^ rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator^=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator^=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
 {
     lhs = lhs ^ rhs;
     return lhs;
@@ -340,58 +352,62 @@ auto operator^=(EnumPlusWrapper<E>& lhs, E rhs) noexcept
 // ============================================================================
 
 template <typename E>
-constexpr auto operator<<(EnumPlusWrapper<E> lhs, int rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator<<(EnumPlusWrapper<E> lhs, int rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() << rhs));
 }
 
 template <typename E>
-constexpr auto operator<<(E lhs, int rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E>
+    requires enum_with_operators<E>
+constexpr E operator<<(E lhs, int rhs) noexcept
 {
     using U = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<U>(lhs) << rhs);
 }
 
 template <typename E>
-auto operator<<=(EnumPlusWrapper<E>& lhs, int rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator<<=(EnumPlusWrapper<E>& lhs, int rhs) noexcept
 {
     lhs = lhs << rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator<<=(E& lhs, int rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E&>
+    requires enum_with_operators<E>
+E& operator<<=(E& lhs, int rhs) noexcept
 {
     lhs = lhs << rhs;
     return lhs;
 }
 
 template <typename E>
-constexpr auto operator>>(EnumPlusWrapper<E> lhs, int rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>>
+    requires enum_with_operators<E>
+constexpr EnumPlusWrapper<E> operator>>(EnumPlusWrapper<E> lhs, int rhs) noexcept
 {
     return EnumPlusWrapper<E>(static_cast<E>(lhs.underlying() >> rhs));
 }
 
 template <typename E>
-constexpr auto operator>>(E lhs, int rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E>
+    requires enum_with_operators<E>
+constexpr E operator>>(E lhs, int rhs) noexcept
 {
     using U = std::underlying_type_t<E>;
     return static_cast<E>(static_cast<U>(lhs) >> rhs);
 }
 
 template <typename E>
-auto operator>>=(EnumPlusWrapper<E>& lhs, int rhs) noexcept
-    -> std::enable_if_t<EnableOverloadedOperators<E>::value, EnumPlusWrapper<E>&>
+    requires enum_with_operators<E>
+EnumPlusWrapper<E>& operator>>=(EnumPlusWrapper<E>& lhs, int rhs) noexcept
 {
     lhs = lhs >> rhs;
     return lhs;
 }
 
 template <typename E>
-auto operator>>=(E& lhs, int rhs) noexcept -> std::enable_if_t<EnableOverloadedOperators<E>::value, E&>
+    requires enum_with_operators<E>
+E& operator>>=(E& lhs, int rhs) noexcept
 {
     lhs = lhs >> rhs;
     return lhs;
@@ -453,11 +469,10 @@ public:
     // 1. Single argument of type T or convertible to T (use fill constructor)
     // 2. Single callable argument (use generator constructor)
     template <typename Arg1,
-              typename... Args,
-              std::enable_if_t<(sizeof...(Args) > 0) ||                  // Multiple args: always enabled
-                                   (!std::is_convertible_v<Arg1, T> &&   // Single arg: not convertible to T
-                                    !std::is_invocable_r_v<T, Arg1, E>), // and not a generator function
-                               int> = 0>
+              typename... Args>
+        requires ((sizeof...(Args) > 0) ||                  // Multiple args: always enabled
+                  (!std::is_convertible_v<Arg1, T> &&        // Single arg: not convertible to T
+                   !std::is_invocable_r_v<T, Arg1, E>))     // and not a generator function
     constexpr EnumPlusMap(Arg1&& arg1, Args&&... args)
         : data_{std::forward<Arg1>(arg1), std::forward<Args>(args)...}
     {
@@ -471,7 +486,8 @@ public:
 
     // Constructor with generator function
     template <typename Func>
-    constexpr explicit EnumPlusMap(Func&& generator, std::enable_if_t<std::is_invocable_r_v<T, Func, E>>* = nullptr)
+        requires std::is_invocable_r_v<T, Func, E>
+    constexpr explicit EnumPlusMap(Func&& generator)
     {
         for (size_type i = 0; i < enum_size; ++i)
         {
@@ -592,21 +608,23 @@ private:
 // Check if an integer value is a valid enum value
 // Requires EnumSizeTrait<E> to be specialized (assumes contiguous 0-based enum)
 template <typename E>
-constexpr auto is_valid_enum(std::underlying_type_t<E> value) noexcept -> std::enable_if_t<std::is_enum_v<E>, bool>
+    requires std::is_enum_v<E>
+constexpr bool is_valid_enum(std::underlying_type_t<E> value) noexcept
 {
     return value >= 0 && static_cast<std::size_t>(value) < EnumSizeTrait<E>::size;
 }
 
 template <typename E>
-constexpr auto is_valid_enum(E value) noexcept -> std::enable_if_t<std::is_enum_v<E>, bool>
+    requires std::is_enum_v<E>
+constexpr bool is_valid_enum(E value) noexcept
 {
     return is_valid_enum<E>(to_underlying(value));
 }
 
 // Safe conversion to underlying - returns nullopt if invalid
 template <typename E>
-constexpr auto safe_to_underlying(E value) noexcept
-    -> std::enable_if_t<std::is_enum_v<E>, std::optional<std::underlying_type_t<E>>>
+    requires std::is_enum_v<E>
+constexpr std::optional<std::underlying_type_t<E>> safe_to_underlying(E value) noexcept
 {
     if (is_valid_enum(value))
     {
@@ -617,8 +635,8 @@ constexpr auto safe_to_underlying(E value) noexcept
 
 // Safe cast from underlying type to enum
 template <typename E>
-constexpr auto safe_enum_cast(std::underlying_type_t<E> value) noexcept
-    -> std::enable_if_t<std::is_enum_v<E>, std::optional<E>>
+    requires std::is_enum_v<E>
+constexpr std::optional<E> safe_enum_cast(std::underlying_type_t<E> value) noexcept
 {
     if (is_valid_enum<E>(value))
     {
@@ -630,7 +648,8 @@ constexpr auto safe_enum_cast(std::underlying_type_t<E> value) noexcept
 // Get the 0-based index of an enum value
 // Returns nullopt if the value is invalid
 template <typename E>
-constexpr auto enum_index(E value) noexcept -> std::enable_if_t<std::is_enum_v<E>, std::optional<std::size_t>>
+    requires std::is_enum_v<E>
+constexpr std::optional<std::size_t> enum_index(E value) noexcept
 {
     auto underlying = to_underlying(value);
     if (is_valid_enum<E>(underlying))
@@ -643,7 +662,8 @@ constexpr auto enum_index(E value) noexcept -> std::enable_if_t<std::is_enum_v<E
 // Get the enum value at a given index
 // Returns nullopt if the index is out of range
 template <typename E>
-constexpr auto enum_value(std::size_t index) noexcept -> std::enable_if_t<std::is_enum_v<E>, std::optional<E>>
+    requires std::is_enum_v<E>
+constexpr std::optional<E> enum_value(std::size_t index) noexcept
 {
     if (index < EnumSizeTrait<E>::size)
     {
@@ -654,7 +674,8 @@ constexpr auto enum_value(std::size_t index) noexcept -> std::enable_if_t<std::i
 
 // Check if an enum value is valid (more explicit alias for is_valid_enum)
 template <typename E>
-constexpr auto enum_contains(E value) noexcept -> std::enable_if_t<std::is_enum_v<E>, bool>
+    requires std::is_enum_v<E>
+constexpr bool enum_contains(E value) noexcept
 {
     return is_valid_enum(value);
 }
@@ -665,7 +686,8 @@ inline constexpr std::size_t enum_count = EnumSizeTrait<E>::size;
 
 // Get all enum values as an array
 template <typename E>
-constexpr auto enum_values() noexcept -> std::enable_if_t<std::is_enum_v<E>, std::array<E, EnumSizeTrait<E>::size>>
+    requires std::is_enum_v<E>
+constexpr std::array<E, EnumSizeTrait<E>::size> enum_values() noexcept
 {
     std::array<E, EnumSizeTrait<E>::size> values{};
     for (std::size_t i = 0; i < EnumSizeTrait<E>::size; ++i)
