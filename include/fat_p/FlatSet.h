@@ -13,7 +13,6 @@ FATP_META:
   related:
     docs_search: "FlatSet"
     tests:
-      - tests/test_FatPTypeTraits.cpp
       - components/FlatMapSet/tests/test_FlatSet.cpp
     benchmarks:
       - components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp

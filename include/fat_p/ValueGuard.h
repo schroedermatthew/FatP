@@ -13,7 +13,6 @@ FATP_META:
   related:
     docs_search: "ValueGuard"
     tests:
-      - tests/test_FatPTypeTraits.cpp
       - components/ValueGuard/tests/test_ValueGuard.cpp
   hygiene:
     pragma_once: true
