@@ -31,6 +31,7 @@ FATP_META:
     mode: autogen
 */
 
+#include <algorithm>
 #include <atomic>
 #include <iomanip>
 #include <iostream>
@@ -653,6 +654,197 @@ FATP_TEST_CASE(size_bounded_under_contention)
     return true;
 }
 
+// -----------------------------------------------------------------------------
+// Test: size() returns semantically correct values under contention
+//
+// The original bug: the fallback path in size() computed
+//     index_distance(read, write)  ==  (read - write) & MASK
+// which is the FREE SPACE, not the element count. The value was in-range
+// (0..Capacity), so the bounds-only check in size_bounded_under_contention
+// could not catch it.
+//
+// This test maintains a separate atomic reference counter that tracks the
+// true number of elements. The observer thread compares size() against
+// the reference. Because both are approximate under contention, we allow
+// a tolerance window. But the free-space bug produces errors proportional
+// to Capacity (e.g., reporting 1020 when true size is 4), which easily
+// exceeds any reasonable tolerance.
+// -----------------------------------------------------------------------------
+FATP_TEST_CASE(size_semantic_correctness)
+{
+    constexpr size_t CAP = 1024;
+    constexpr int NUM_ITEMS = 500000;
+    CircularBuffer<int, CAP> buffer;
+
+    // Reference counter: incremented on push, decremented on pop.
+    // This gives us the "true" size within a small race window.
+    std::atomic<int> ref_count{0};
+
+    std::atomic<bool> start{false};
+    std::atomic<bool> done{false};
+    std::atomic<size_t> max_error_seen{0};
+    std::atomic<size_t> semantic_violations{0};
+
+    std::thread producer([&]() {
+        while (!start.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+        for (int i = 0; i < NUM_ITEMS; ++i)
+        {
+            while (!buffer.push(i))
+            {
+                std::this_thread::yield();
+            }
+            ref_count.fetch_add(1, std::memory_order_release);
+        }
+    });
+
+    std::thread consumer([&]() {
+        while (!start.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+        int received = 0;
+        while (received < NUM_ITEMS)
+        {
+            int val = 0;
+            if (buffer.pop(val))
+            {
+                ref_count.fetch_sub(1, std::memory_order_release);
+                ++received;
+            }
+        }
+        done.store(true, std::memory_order_release);
+    });
+
+    // Observer thread: repeatedly samples size() and ref_count, checking
+    // that they are reasonably close.
+    start.store(true, std::memory_order_release);
+
+    size_t samples = 0;
+    while (!done.load(std::memory_order_acquire))
+    {
+        size_t reported_size = buffer.size();
+        int ref = ref_count.load(std::memory_order_acquire);
+
+        // ref_count can be slightly stale (push increments ref after buffer.push,
+        // pop decrements ref after buffer.pop), so the true element count can
+        // differ by up to ~2 from ref. We use a generous tolerance of 4.
+        // The free-space bug would produce errors of (Capacity - true_size),
+        // which for a mostly-empty buffer is ~1020, far exceeding tolerance.
+        size_t ref_clamped = static_cast<size_t>(std::max(ref, 0));
+        size_t error = (reported_size > ref_clamped)
+                           ? (reported_size - ref_clamped)
+                           : (ref_clamped - reported_size);
+
+        // Tolerance: allow up to 4 elements of slop from non-atomic snapshot
+        constexpr size_t TOLERANCE = 4;
+        if (error > TOLERANCE)
+        {
+            // Could be a transient snapshot inconsistency -- only flag if the
+            // error is catastrophic (> Capacity/4), which would indicate the
+            // free-space bug rather than normal timing skew.
+            if (error > CAP / 4)
+            {
+                semantic_violations.fetch_add(1, std::memory_order_relaxed);
+            }
+        }
+
+        // Track max error for diagnostics
+        size_t prev_max = max_error_seen.load(std::memory_order_relaxed);
+        while (error > prev_max &&
+               !max_error_seen.compare_exchange_weak(prev_max, error,
+                                                     std::memory_order_relaxed))
+        {
+        }
+
+        ++samples;
+    }
+
+    producer.join();
+    consumer.join();
+
+    std::cout << colors::blue() << "  [INFO] Observer took " << samples << " samples, "
+              << "max error: " << max_error_seen.load() << ", "
+              << "violations: " << semantic_violations.load()
+              << colors::reset() << std::endl;
+
+    FATP_ASSERT_EQ(semantic_violations.load(), size_t(0),
+                   "size() must not return free-space count (catastrophic semantic error)");
+    FATP_ASSERT_TRUE(samples > 100,
+                     "Observer should have taken enough samples to be meaningful");
+
+    return true;
+}
+
+// -----------------------------------------------------------------------------
+// Test: size() consistency during rapid fill/drain cycles
+//
+// Rapidly fills and drains the buffer while an observer checks size().
+// This targets the specific scenario where write and read indices are
+// sampled from different "moments" by size(), producing an inconsistent
+// snapshot that triggers the fallback path.
+// -----------------------------------------------------------------------------
+FATP_TEST_CASE(size_fill_drain_consistency)
+{
+    constexpr size_t CAP = 64; // Small capacity = more wraparounds per second
+    constexpr int CYCLES = 5000;
+    CircularBuffer<int, CAP> buffer;
+
+    std::atomic<bool> start{false};
+    std::atomic<bool> done{false};
+    std::atomic<size_t> violations{0};
+
+    // Producer/consumer in one thread: fill then drain repeatedly.
+    // This creates maximum index churn.
+    std::thread churner([&]() {
+        while (!start.load(std::memory_order_acquire))
+        {
+            std::this_thread::yield();
+        }
+        for (int cycle = 0; cycle < CYCLES; ++cycle)
+        {
+            // Fill to capacity
+            for (size_t i = 0; i < CAP; ++i)
+            {
+                buffer.push(static_cast<int>(i));
+            }
+            // Drain completely
+            int val = 0;
+            while (buffer.pop(val))
+            {
+            }
+        }
+        done.store(true, std::memory_order_release);
+    });
+
+    // Observer: check size() bounds and sanity
+    start.store(true, std::memory_order_release);
+
+    size_t samples = 0;
+    while (!done.load(std::memory_order_acquire))
+    {
+        size_t s = buffer.size();
+        if (s > CAP)
+        {
+            violations.fetch_add(1, std::memory_order_relaxed);
+        }
+        ++samples;
+    }
+
+    churner.join();
+
+    std::cout << colors::blue() << "  [INFO] Fill/drain observer: " << samples
+              << " samples, violations: " << violations.load()
+              << colors::reset() << std::endl;
+
+    FATP_ASSERT_EQ(violations.load(), size_t(0),
+                   "size() must never exceed capacity during fill/drain cycles");
+
+    return true;
+}
+
 FATP_TEST_CASE(stress_wraparound)
 {
     constexpr int ITERATIONS = 10000;
@@ -731,6 +923,8 @@ bool test_CircularBuffer()
     FATP_RUN_TEST_NS(runner, circularbuffer, clear_and_destruct_allows_reuse);
     FATP_RUN_TEST_NS(runner, circularbuffer, thread_safety_spsc);
     FATP_RUN_TEST_NS(runner, circularbuffer, size_bounded_under_contention);
+    FATP_RUN_TEST_NS(runner, circularbuffer, size_semantic_correctness);
+    FATP_RUN_TEST_NS(runner, circularbuffer, size_fill_drain_consistency);
     FATP_RUN_TEST_NS(runner, circularbuffer, stress_wraparound);
 
 

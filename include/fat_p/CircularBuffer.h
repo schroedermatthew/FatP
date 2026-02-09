@@ -367,14 +367,19 @@ public:
             return distance;
         }
 
-        // Under contention, loads may observe indices from different moments.
-        // Bound the result to the public Capacity contract.
-        const size_t alt = index_distance(read, write);
-        if (alt <= Capacity)
+        // Under contention, loads may observe indices from different moments,
+        // producing a distance > Capacity. We cannot recover the true count
+        // from an inconsistent snapshot. Retry once with fresh loads.
+        const size_t write2 = write_idx_.load(std::memory_order_acquire);
+        const size_t read2 = read_idx_.load(std::memory_order_acquire);
+        const size_t retry = index_distance(write2, read2);
+        if (retry <= Capacity)
         {
-            return alt;
+            return retry;
         }
 
+        // Still inconsistent — clamp to Capacity (conservative upper bound).
+        // Callers should treat size() as approximate under contention.
         return Capacity;
     }
 

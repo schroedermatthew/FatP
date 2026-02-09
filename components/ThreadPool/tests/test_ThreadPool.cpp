@@ -434,6 +434,119 @@ FATP_TEST_CASE(wait_idle_stress)
 }
 
 // ----------------------------------------------------------------------------
+// Test: wait_idle() completion guarantee via non-atomic side effects
+//
+// The original bug: relaxed memory ordering on mActiveTasks/mPendingTasks
+// allowed wait_idle() to return before tasks actually completed, because
+// on weakly-ordered architectures (ARM/POWER) the counter decrements could
+// be observed out of order.
+//
+// This test detects "returns too early" by checking a NON-ATOMIC side effect.
+// If wait_idle() returns before the task's store is visible, the non-atomic
+// read sees stale data. On x86 (TSO) this is hard to trigger, but on ARM
+// or under TSan it becomes observable.
+// ----------------------------------------------------------------------------
+FATP_TEST_CASE(wait_idle_completion_guarantee)
+{
+    ThreadPool pool(4);
+    constexpr int iterations = 5000;
+
+    // Non-atomic array -- any premature return from wait_idle() means the task
+    // hasn't finished writing, and we read uninitialised/stale data.
+    std::vector<int> results(iterations, 0);
+
+    for (int i = 0; i < iterations; ++i)
+    {
+        (void)pool.submit([&results, i]() {
+            // Simulate some work to widen the race window
+            volatile int dummy = 0;
+            for (int k = 0; k < 50; ++k)
+            {
+                dummy += k;
+            }
+            (void)dummy;
+
+            // Non-atomic write -- only safe if wait_idle() truly waits
+            results[static_cast<size_t>(i)] = i + 1;
+        });
+
+        pool.wait_idle();
+
+        // If wait_idle() returned too early, this read may see 0
+        if (results[static_cast<size_t>(i)] != i + 1)
+        {
+            std::cerr << "wait_idle completion violation at iteration " << i
+                      << ": expected " << (i + 1) << ", got "
+                      << results[static_cast<size_t>(i)] << std::endl;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------
+// Test: wait_idle() concurrent submission stress
+//
+// Multiple producer threads submit tasks while one thread repeatedly calls
+// wait_idle(). After wait_idle() returns, ALL previously submitted tasks
+// must have completed. This catches the cross-atomic ordering bug where
+// pending==0 && active==0 is observed transiently during the
+// active++ / pending-- transition.
+// ----------------------------------------------------------------------------
+FATP_TEST_CASE(wait_idle_concurrent_stress)
+{
+    ThreadPool pool(4);
+    std::atomic<int> total_submitted{0};
+    std::atomic<int> total_completed{0};
+    std::atomic<bool> stop{false};
+
+    // Producer threads: continuously submit short tasks
+    std::vector<std::thread> producers;
+    for (int p = 0; p < 3; ++p)
+    {
+        producers.emplace_back([&]() {
+            while (!stop.load(std::memory_order_acquire))
+            {
+                (void)pool.submit([&total_completed]() {
+                    total_completed.fetch_add(1, std::memory_order_release);
+                });
+                total_submitted.fetch_add(1, std::memory_order_release);
+                // Small delay to avoid overwhelming the queue
+                if (total_submitted.load(std::memory_order_relaxed) % 100 == 0)
+                {
+                    std::this_thread::yield();
+                }
+            }
+        });
+    }
+
+    // Let producers run for a bit
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Stop submissions and wait for everything to drain
+    stop.store(true, std::memory_order_release);
+
+    for (auto& t : producers)
+    {
+        t.join();
+    }
+
+    pool.wait_idle();
+
+    int submitted = total_submitted.load(std::memory_order_acquire);
+    int completed = total_completed.load(std::memory_order_acquire);
+
+    FATP_ASSERT_EQ(completed, submitted,
+                   "After wait_idle, all submitted tasks must have completed");
+
+    std::cout << colors::blue() << "  [INFO] Submitted: " << submitted
+              << ", Completed: " << completed << colors::reset() << std::endl;
+
+    return true;
+}
+
+// ----------------------------------------------------------------------------
 // Benchmarks
 // ----------------------------------------------------------------------------
 } // namespace fat_p::testing::thread_pool
@@ -473,6 +586,8 @@ bool test_ThreadPool()
     FATP_RUN_TEST_NS(runner, thread_pool, auto_thread_count);
     FATP_RUN_TEST_NS(runner, thread_pool, task_counters);
     FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_stress);
+    FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_completion_guarantee);
+    FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_concurrent_stress);
 
 
     return 0 == runner.print_summary();

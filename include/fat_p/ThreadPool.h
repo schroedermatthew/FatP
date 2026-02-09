@@ -434,7 +434,7 @@ public:
                 if (func)
                 {
                     mGlobalQueue.emplace(func, Priority::Normal);
-                    mPendingTasks.fetch_add(1, std::memory_order_relaxed);
+                    mPendingTasks.fetch_add(1, std::memory_order_release);
                 }
             }
         }
@@ -543,7 +543,7 @@ private:
      */
     void enqueue_task(ThreadPoolTask task, Priority priority, bool notify)
     {
-        mPendingTasks.fetch_add(1, std::memory_order_relaxed);
+        mPendingTasks.fetch_add(1, std::memory_order_release);
 
         if (priority >= Priority::High)
         {
@@ -608,9 +608,12 @@ private:
             {
                 // Transition: pending -> active
                 // CRITICAL: Increment active BEFORE decrementing pending to prevent
-                // wait_idle() from seeing (pending==0 && active==0) while task is in-flight
-                mActiveTasks.fetch_add(1, std::memory_order_relaxed);
-                mPendingTasks.fetch_sub(1, std::memory_order_relaxed);
+                // wait_idle() from seeing (pending==0 && active==0) while task is in-flight.
+                // Release ordering ensures that any thread which observes the pending
+                // decrement (via acquire) also sees the prior active increment, because
+                // happens-before is transitive across sequenced-before + synchronizes-with.
+                mActiveTasks.fetch_add(1, std::memory_order_release);
+                mPendingTasks.fetch_sub(1, std::memory_order_release);
 
                 try
                 {
@@ -624,9 +627,14 @@ private:
                     mExceptionCount.fetch_add(1, std::memory_order_relaxed);
                 }
 
-                mActiveTasks.fetch_sub(1, std::memory_order_relaxed);
+                mActiveTasks.fetch_sub(1, std::memory_order_release);
 
-                // Signal idle waiters if pool may be idle
+                // Signal idle waiters if pool may be idle.
+                // The acquire loads here synchronize with the release stores above,
+                // giving us a consistent cross-atomic snapshot on this thread.
+                // Locking mIdle_mutex before notify_all ensures the standard CV
+                // protocol: either the waiter sees the idle state in its predicate
+                // (no wait needed) or it is waiting and receives the notification.
                 if (mPendingTasks.load(std::memory_order_acquire) == 0 &&
                     mActiveTasks.load(std::memory_order_acquire) == 0)
                 {

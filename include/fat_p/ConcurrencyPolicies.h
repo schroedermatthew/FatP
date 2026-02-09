@@ -1720,42 +1720,65 @@ struct AdaptiveLockPolicy
             , spin_lock_(policy.spin_lock_)
             , contention_counter_(policy.contention_counter_)
             , use_mutex_(policy.use_mutex_)
-            , using_mutex_(use_mutex_.load(std::memory_order_relaxed))
+            , using_mutex_(false)
         {
-            if (using_mutex_)
+            // Always acquire the mutex first — it is the single authority for
+            // mutual exclusion. The spinlock is an optimization: when contention
+            // is low, threads spin briefly on the flag instead of entering the
+            // kernel. But the mutex is *always* held while in the critical section,
+            // so there is never a window where two threads hold different locks.
+            //
+            // Fast path (low contention): spin on the flag, then lock mutex.
+            // Slow path (high contention / spin exhausted): skip flag, lock mutex.
+
+            if (!use_mutex_.load(std::memory_order_acquire))
             {
-                mMutex.lock();
-            }
-            else
-            {
+                // Try the fast spin path
                 uint32_t spins = 0;
-                while (spin_lock_.test_and_set(std::memory_order_acquire))
+                bool got_spin = false;
+
+                while (!(got_spin = !spin_lock_.test_and_set(std::memory_order_acquire)))
                 {
                     if (++spins > SPIN_THRESHOLD)
                     {
+                        // Spin budget exhausted — fall through to mutex-only path
                         uint32_t count = contention_counter_.fetch_add(1, std::memory_order_relaxed);
                         if (count > ADAPT_WINDOW / 10)
                         {
-                            use_mutex_.store(true, std::memory_order_relaxed);
+                            use_mutex_.store(true, std::memory_order_release);
                         }
-                        spin_lock_.clear(std::memory_order_release);
-                        mMutex.lock();
-                        using_mutex_ = true;
-                        return;
+                        break;
                     }
                     std::this_thread::yield();
                 }
+
+                if (got_spin)
+                {
+                    // Won the spin — now acquire the mutex while holding the flag.
+                    // This ensures no other thread can enter via either path.
+                    mMutex.lock();
+                    // Release the flag; we now hold the mutex exclusively.
+                    spin_lock_.clear(std::memory_order_release);
+                    using_mutex_ = true;
+
+                    // Adaptive back-off: periodically consider re-enabling spin path
+                    uint32_t count = contention_counter_.load(std::memory_order_relaxed);
+                    if (count > ADAPT_WINDOW)
+                    {
+                        if (count < ADAPT_WINDOW + ADAPT_WINDOW / 10)
+                        {
+                            use_mutex_.store(false, std::memory_order_release);
+                        }
+                        contention_counter_.store(0, std::memory_order_relaxed);
+                    }
+                    return;
+                }
+                // Spin budget exhausted — fall through to mutex-only
             }
 
-            uint32_t count = contention_counter_.load(std::memory_order_relaxed);
-            if (count > ADAPT_WINDOW)
-            {
-                if (count < ADAPT_WINDOW + ADAPT_WINDOW / 10)
-                {
-                    use_mutex_.store(false, std::memory_order_relaxed);
-                }
-                contention_counter_.store(0, std::memory_order_relaxed);
-            }
+            // Mutex-only path (high contention or adaptive switch)
+            mMutex.lock();
+            using_mutex_ = true;
         }
 
         LockGuard(const LockGuard&) = delete;
@@ -1766,10 +1789,6 @@ struct AdaptiveLockPolicy
             if (using_mutex_)
             {
                 mMutex.unlock();
-            }
-            else
-            {
-                spin_lock_.clear(std::memory_order_release);
             }
         }
 
@@ -1796,11 +1815,9 @@ struct AdaptiveLockPolicy
 
     [[nodiscard]] bool try_lock()
     {
-        if (use_mutex_.load(std::memory_order_relaxed))
-        {
-            return mMutex.try_lock();
-        }
-        return !spin_lock_.test_and_set(std::memory_order_acquire);
+        // The mutex is the sole authority for mutual exclusion in the
+        // redesigned lock. try_lock() simply attempts the mutex.
+        return mMutex.try_lock();
     }
 
     AdaptiveLockPolicy& getLock()
