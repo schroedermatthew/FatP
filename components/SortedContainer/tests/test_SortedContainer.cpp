@@ -59,8 +59,6 @@ namespace fat_p::testing::sortedcontainer
 // Test Constants
 // ============================================================================
 
-constexpr int TEST_VALUE_DEFAULT = 42;
-constexpr int TEST_VALUE_ALTERNATE = 100;
 constexpr int TEST_RANGE_SIZE = 1000;
 constexpr int CONCURRENT_THREAD_COUNT = 10;
 constexpr int CONCURRENT_ITERATIONS = 500;
