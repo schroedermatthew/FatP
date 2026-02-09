@@ -1057,14 +1057,14 @@ Include in file header:
 ```cpp
 /**
  * Compile (minimal):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark_X.cpp -o bench_x
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_X.cpp -o bench_x
  *
  * Compile (with competitors):
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native -I/path/to/tsl \
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -I/path/to/tsl \
  *       benchmark_X.cpp -o bench_x
  *
  * Windows (MSVC):
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark_X.cpp
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_X.cpp
  */
 ```
 

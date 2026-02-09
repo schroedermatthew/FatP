@@ -53,6 +53,7 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -428,7 +429,7 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
 {
     std::set<std::string> features;
     StateComputer<StateEnum> state_computer;
-    mutable StateEnum cached_state;
+    mutable std::atomic<StateEnum> cached_state;
 
     FeatureGroupInfo(const std::vector<std::string>& f,
                      StateComputer<StateEnum> comp = FeatureGroupStatePolicy<StateEnum>::compute)
@@ -457,17 +458,18 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
     {
         if constexpr (named_enum<StateEnum>)
         {
-            return std::string(EnumStringPolicy<StateEnum>::to_string(cached_state));
+            return std::string(EnumStringPolicy<StateEnum>::to_string(
+                cached_state.load(std::memory_order_relaxed)));
         }
         else
         {
-            return toString(cached_state);
+            return toString(cached_state.load(std::memory_order_relaxed));
         }
     }
 
     void update_cached_state(StateEnum state) const
     {
-        cached_state = state;
+        cached_state.store(state, std::memory_order_relaxed);
     }
 };
 

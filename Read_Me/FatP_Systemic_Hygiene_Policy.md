@@ -5,7 +5,7 @@ title: "Fat-P Systemic Hygiene Policy"
 fatp_components: []
 topics: ["header composability", "ODR", "namespace collision", "include order", "macro hygiene", "self-contained headers"]
 constraints: ["header-only library", "multiple TU inclusion", "warning cleanliness"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"
@@ -16,7 +16,7 @@ status: "reviewed"
 **Status:** Reviewed  
 **Version:** 1.0  
 **Applies to:** All public Fat-P headers and their tests/benchmarks  
-**Baseline:** C++17, header-only, standard library only (no external dependencies)  
+**Baseline:** C++20, header-only, standard library only (no external dependencies)  
 **Authority:** Subordinate to the *Fat-P Library Development Guidelines*. In case of conflict, the Development Guidelines take precedence.
 
 This policy exists to keep Fat-P **composable, predictable, and shippable** as the codebase grows. It defines hard rules that prevent the class of problems that typically kill header-only libraries at scale:

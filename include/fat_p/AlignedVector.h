@@ -309,6 +309,7 @@ private:
         {
             if (count > 0)
             {
+                assert(count <= std::numeric_limits<size_t>::max() / sizeof(T));
                 std::memcpy(dest, src, count * sizeof(T));
             }
         }
@@ -341,6 +342,7 @@ private:
         {
             if (count > 0)
             {
+                assert(count <= std::numeric_limits<size_t>::max() / sizeof(T));
                 std::memcpy(dest, src, count * sizeof(T));
             }
         }
@@ -463,6 +465,7 @@ public:
 
             if constexpr (std::is_trivially_default_constructible_v<T>)
             {
+                assert(count <= std::numeric_limits<size_t>::max() / sizeof(T));
                 std::memset(mData, 0, count * sizeof(T));
                 mSize = count;
             }

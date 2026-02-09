@@ -653,7 +653,7 @@ int main()
 #endif
 ```
 
-Compile standalone: `g++ -std=c++17 -O2 -DENABLE_TEST_APPLICATION test_Component.cpp`
+Compile standalone: `g++ -std=c++20 -O2 -DENABLE_TEST_APPLICATION test_Component.cpp`
 
 ---
 

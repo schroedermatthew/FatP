@@ -2087,45 +2087,17 @@ void swap(SmallVector<T, N, Alloc>& lhs, SmallVector<T, N, Alloc>& rhs) noexcept
 // These operators allow comparison between SmallVectors with different InlineCapacity.
 // E.g., SmallVector<int,8> can be compared with SmallVector<int,16>.
 
+// C++20: operator== provides == and != (via rewriting).
+// operator<=> provides <, <=, >, >= (via synthesis).
 template <class T, size_t N1, size_t N2, class Alloc>
 bool operator==(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
 {
     return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
 }
 
-template <class T, size_t N1, size_t N2, class Alloc>
-bool operator!=(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
-{
-    return !(lhs == rhs);
-}
-
-template <class T, size_t N1, size_t N2, class Alloc>
-bool operator<(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
-{
-    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
-}
-
-template <class T, size_t N1, size_t N2, class Alloc>
-bool operator<=(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
-{
-    return !(rhs < lhs);
-}
-
-template <class T, size_t N1, size_t N2, class Alloc>
-bool operator>(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
-{
-    return rhs < lhs;
-}
-
-template <class T, size_t N1, size_t N2, class Alloc>
-bool operator>=(const SmallVector<T, N1, Alloc>& lhs, const SmallVector<T, N2, Alloc>& rhs)
-{
-    return !(lhs < rhs);
-}
-
 /**
  * @brief Three-way comparison operator (spaceship)
- * @note Enables all comparison operators via rewriting.
+ * @note Enables <, <=, >, >= via synthesis.
  * @note Cross-capacity: can compare SmallVector<T,N1> with SmallVector<T,N2>
  */
 template <class T, size_t N1, size_t N2, class Alloc>

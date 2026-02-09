@@ -434,7 +434,7 @@ public:
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<MutexSynchronizationPolicy&>(*this));
+        return SharedGuard(mMutex);
     }
 
     [[nodiscard]] bool try_lock()
@@ -514,7 +514,7 @@ struct SharedMutexPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::shared_mutex&>(mMutex));
+        return SharedGuard(mMutex);
     }
 
     [[nodiscard]] bool try_lock()
@@ -523,12 +523,12 @@ struct SharedMutexPolicy
     }
     [[nodiscard]] bool try_lock_shared() const
     {
-        return const_cast<std::shared_mutex&>(mMutex).try_lock_shared();
+        return mMutex.try_lock_shared();
     }
 
     std::shared_mutex& getLock() const
     {
-        return const_cast<std::shared_mutex&>(mMutex);
+        return mMutex;
     }
 
     static std::shared_mutex& getStaticLock()
@@ -649,7 +649,7 @@ struct SpinlockSynchronizationPolicy
     SpinlockSynchronizationPolicy& operator=(const SpinlockSynchronizationPolicy&) = delete;
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic_flag lock_flag_ = ATOMIC_FLAG_INIT;
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic_flag lock_flag_ = ATOMIC_FLAG_INIT;
     alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mContention{0};
 
 public:
@@ -665,7 +665,7 @@ public:
     class LockGuard
     {
     public:
-        explicit LockGuard(SpinlockSynchronizationPolicy& policy)
+        explicit LockGuard(const SpinlockSynchronizationPolicy& policy)
             : lock_flag_(policy.lock_flag_)
             , mContention(policy.mContention)
         {
@@ -699,7 +699,7 @@ public:
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<SpinlockSynchronizationPolicy&>(*this));
+        return SharedGuard(*this);
     }
 
     [[nodiscard]] bool try_lock()
@@ -716,9 +716,9 @@ public:
     {
         return *this;
     }
-    SpinlockSynchronizationPolicy& getLock() const
+    const SpinlockSynchronizationPolicy& getLock() const
     {
-        return const_cast<SpinlockSynchronizationPolicy&>(*this);
+        return *this;
     }
 
     static SpinlockSynchronizationPolicy& getStaticLock()
@@ -929,7 +929,7 @@ struct WaitableSynchronizationPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::mutex&>(mMutex));
+        return SharedGuard(mMutex);
     }
 
     [[nodiscard]] bool try_lock()
@@ -939,11 +939,11 @@ struct WaitableSynchronizationPolicy
 
     std::mutex& getLock() const
     {
-        return const_cast<std::mutex&>(mMutex);
+        return mMutex;
     }
     std::condition_variable& getCondition() const
     {
-        return const_cast<std::condition_variable&>(mCondition);
+        return mCondition;
     }
 
     static std::mutex& getStaticLock()
@@ -1071,7 +1071,7 @@ struct SeqLockPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::atomic<uint64_t>&>(mSequence));
+        return SharedGuard(mSequence);
     }
 
     std::atomic<uint64_t>& getLock()
@@ -1095,7 +1095,7 @@ struct SeqLockPolicy
     }
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> mSequence{0};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mSequence{0};
 };
 #endif // FATP_USE_ATOMIC
 
@@ -1116,7 +1116,7 @@ struct TicketLockPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(TicketLockPolicy& policy)
+        explicit LockGuard(const TicketLockPolicy& policy)
             : now_serving_(policy.now_serving_)
         {
             my_ticket_ = policy.next_ticket_.fetch_add(1, std::memory_order_relaxed);
@@ -1149,7 +1149,7 @@ struct TicketLockPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<TicketLockPolicy&>(*this));
+        return SharedGuard(*this);
     }
 
     [[nodiscard]] bool try_lock()
@@ -1188,8 +1188,8 @@ struct TicketLockPolicy
     }
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> next_ticket_{0};
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> now_serving_{0};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> next_ticket_{0};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> now_serving_{0};
 };
 #endif // FATP_USE_ATOMIC
 
@@ -1272,7 +1272,7 @@ struct MCSLockPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::atomic<QNode*>&>(mTail));
+        return SharedGuard(mTail);
     }
 
     std::atomic<QNode*>& getLock()
@@ -1292,7 +1292,7 @@ struct MCSLockPolicy
     }
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<QNode*> mTail{nullptr};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<QNode*> mTail{nullptr};
 };
 #endif // FATP_USE_ATOMIC
 
@@ -1715,7 +1715,7 @@ struct AdaptiveLockPolicy
     class LockGuard
     {
     public:
-        explicit LockGuard(AdaptiveLockPolicy& policy)
+        explicit LockGuard(const AdaptiveLockPolicy& policy)
             : mMutex(policy.mMutex)
             , spin_lock_(policy.spin_lock_)
             , contention_counter_(policy.contention_counter_)
@@ -1791,7 +1791,7 @@ struct AdaptiveLockPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<AdaptiveLockPolicy&>(*this));
+        return SharedGuard(*this);
     }
 
     [[nodiscard]] bool try_lock()
@@ -1828,10 +1828,10 @@ struct AdaptiveLockPolicy
     }
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) std::mutex mMutex;
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic_flag spin_lock_ = ATOMIC_FLAG_INIT;
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint32_t> contention_counter_{0};
-    std::atomic<bool> use_mutex_{false};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::mutex mMutex;
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic_flag spin_lock_ = ATOMIC_FLAG_INIT;
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint32_t> contention_counter_{0};
+    mutable std::atomic<bool> use_mutex_{false};
 };
 #endif // FATP_USE_ATOMIC && FATP_USE_MUTEX
 
@@ -1936,7 +1936,7 @@ struct PriorityInheritanceLockPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<pthread_mutex_t&>(mMutex));
+        return SharedGuard(mMutex);
     }
 
     [[nodiscard]] bool try_lock()
@@ -1964,7 +1964,7 @@ struct PriorityInheritanceLockPolicy
     }
 
 private:
-    pthread_mutex_t mMutex;
+    mutable pthread_mutex_t mMutex;
 
 #elif FATP_HAS_WIN32_CRITICAL_SECTION
     [[nodiscard]] LockGuard lock()
@@ -1973,7 +1973,7 @@ private:
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<CRITICAL_SECTION&>(mCs));
+        return SharedGuard(mCs);
     }
 
     [[nodiscard]] bool try_lock()
@@ -1997,7 +1997,7 @@ private:
     }
 
 private:
-    CRITICAL_SECTION mCs;
+    mutable CRITICAL_SECTION mCs;
 
 #else
     [[nodiscard]] LockGuard lock()
@@ -2006,7 +2006,7 @@ private:
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::mutex&>(mMutex));
+        return SharedGuard(mMutex);
     }
 
     [[nodiscard]] bool try_lock()
@@ -2026,7 +2026,7 @@ private:
     }
 
 private:
-    std::mutex mMutex;
+    mutable std::mutex mMutex;
 #endif
 
 public:
@@ -2139,7 +2139,7 @@ struct VersionedLockPolicy
 
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::atomic<uint64_t>&>(mVersion));
+        return SharedGuard(mVersion);
     }
 
     [[nodiscard]] bool try_lock()
@@ -2169,8 +2169,8 @@ struct VersionedLockPolicy
     }
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) std::atomic<uint64_t> mVersion{0};
-    std::mutex write_lock_;
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mVersion{0};
+    mutable std::mutex write_lock_;
 };
 #endif // FATP_USE_ATOMIC
 
@@ -2199,7 +2199,7 @@ struct RecursiveMutexPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::recursive_mutex&>(mLock));
+        return SharedGuard(mLock);
     }
 
     [[nodiscard]] bool try_lock()
@@ -2209,7 +2209,7 @@ struct RecursiveMutexPolicy
 
     std::recursive_mutex& getLock() const
     {
-        return const_cast<std::recursive_mutex&>(mLock);
+        return mLock;
     }
 
     static std::recursive_mutex& getStaticLock()
@@ -2303,7 +2303,7 @@ struct TimedMutexPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::timed_mutex&>(mLock));
+        return SharedGuard(mLock);
     }
     [[nodiscard]] LockGuard lock_deferred()
     {
@@ -2323,7 +2323,7 @@ struct TimedMutexPolicy
 
     std::timed_mutex& getLock() const
     {
-        return const_cast<std::timed_mutex&>(mLock);
+        return mLock;
     }
 
     static std::timed_mutex& getStaticLock()
@@ -2366,7 +2366,7 @@ struct SharedTimedMutexPolicy
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(const_cast<std::shared_timed_mutex&>(mLock));
+        return SharedGuard(mLock);
     }
 
     [[nodiscard]] bool try_lock()
@@ -2375,7 +2375,7 @@ struct SharedTimedMutexPolicy
     }
     [[nodiscard]] bool try_lock_shared() const
     {
-        return const_cast<std::shared_timed_mutex&>(mLock).try_lock_shared();
+        return mLock.try_lock_shared();
     }
 
     template <typename Rep, typename Period>
@@ -2387,12 +2387,12 @@ struct SharedTimedMutexPolicy
     template <typename Rep, typename Period>
     [[nodiscard]] bool try_lock_shared_for(const std::chrono::duration<Rep, Period>& timeout) const
     {
-        return const_cast<std::shared_timed_mutex&>(mLock).try_lock_shared_for(timeout);
+        return mLock.try_lock_shared_for(timeout);
     }
 
     std::shared_timed_mutex& getLock() const
     {
-        return const_cast<std::shared_timed_mutex&>(mLock);
+        return mLock;
     }
 
     static std::shared_timed_mutex& getStaticLock()

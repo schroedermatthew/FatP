@@ -185,6 +185,13 @@ struct SlotMapHandle
  * - Iteration: O(n)
  *
  * @note Thread Safety: Not thread-safe. External synchronization required.
+ *
+ * @warning Generation counters are 32-bit and wrap after 2^32 insert/erase
+ *          cycles per slot. After wrap, a stale handle may falsely validate
+ *          against a new object at the same slot index. For most applications
+ *          (games, ECS) this is irrelevant — a single slot would need 4 billion
+ *          reuses. If your use case involves extremely high churn on individual
+ *          slots, consider using SlotMap with a 64-bit generation counter.
  */
 template <typename T, typename Allocator = std::allocator<T>>
 class SlotMap
@@ -489,7 +496,9 @@ public:
 
         Slot& slot = mSlots[slot_index];
 
-        // Increment generation, skipping 0 to preserve is_null() semantics
+        // Wrap to 1 (not 0): generation 0 is reserved as "never used" sentinel.
+        // This creates a theoretical ABA window after 2^32 cycles on one slot.
+        // See class documentation for details.
         if (++slot.generation == 0)
         {
             slot.generation = 1;

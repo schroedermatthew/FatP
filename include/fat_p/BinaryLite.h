@@ -39,6 +39,7 @@ FATP_META:
  * fat_p type serialization), use FatPBinary.h instead.
  */
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <istream>
@@ -65,24 +66,9 @@ namespace binary
 namespace detail
 {
 
-// Compile-time endianness detection
-// C++20 has std::endian; for C++17 we use compiler intrinsics
-#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__)
-// GCC, Clang, and most modern compilers
-inline constexpr bool kIsLittleEndian = (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
-inline constexpr bool kIsBigEndian = (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__);
-#elif defined(_MSC_VER)
-// MSVC: x86/x64 is always little-endian
-inline constexpr bool kIsLittleEndian = true;
-inline constexpr bool kIsBigEndian = false;
-#else
-// Fallback: runtime detection (evaluated once at startup)
-inline const bool kIsLittleEndian = []() {
-    const std::uint32_t test = 0x01020304;
-    return *reinterpret_cast<const std::uint8_t*>(&test) == 0x04;
-}();
-inline const bool kIsBigEndian = !kIsLittleEndian;
-#endif
+// Compile-time endianness detection (C++20: std::endian is guaranteed)
+inline constexpr bool kIsLittleEndian = (std::endian::native == std::endian::little);
+inline constexpr bool kIsBigEndian    = (std::endian::native == std::endian::big);
 
 // Byte swap functions for converting between native and little-endian
 inline std::uint8_t byteSwap(std::uint8_t v) noexcept
