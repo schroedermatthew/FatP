@@ -50,6 +50,7 @@ FATP_META:
 #include <utility>
 #include <vector>
 
+#include "Concepts.h"
 #include "enforce.h"
 
 namespace fat_p
@@ -467,13 +468,15 @@ private:
         }
 
         // Heterogeneous lookup overloads - enabled when Compare has is_transparent
-        template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+        template <typename K>
+        requires concepts::transparent<Compare>
         bool operator()(const InternalPair& a, const K& b) const
         {
             return mComp(a.first, b);
         }
 
-        template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+        template <typename K>
+        requires concepts::transparent<Compare>
         bool operator()(const K& a, const InternalPair& b) const
         {
             return mComp(a, b.first);
@@ -1154,13 +1157,15 @@ public:
     // allowing lookups without constructing a Key object (e.g., find("literal")
     // on FlatMap<std::string, T, std::less<>> avoids std::string construction).
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     [[nodiscard]] size_type count(const K& key) const
     {
         return find(key) != end() ? 1 : 0;
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     [[nodiscard]] iterator find(const K& key)
     {
         auto it = std::lower_bound(mData.begin(), mData.end(), key, keyValueComp());
@@ -1171,7 +1176,8 @@ public:
         return end();
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     [[nodiscard]] const_iterator find(const K& key) const
     {
         auto it = std::lower_bound(mData.begin(), mData.end(), key, keyValueComp());
@@ -1182,43 +1188,50 @@ public:
         return end();
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     [[nodiscard]] bool contains(const K& key) const
     {
         return find(key) != end();
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     std::pair<iterator, iterator> equal_range(const K& key)
     {
         return {lower_bound(key), upper_bound(key)};
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     std::pair<const_iterator, const_iterator> equal_range(const K& key) const
     {
         return {lower_bound(key), upper_bound(key)};
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     iterator lower_bound(const K& key)
     {
         return iterator(std::lower_bound(mData.begin(), mData.end(), key, keyValueComp()));
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     const_iterator lower_bound(const K& key) const
     {
         return const_iterator(std::lower_bound(mData.begin(), mData.end(), key, keyValueComp()));
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     iterator upper_bound(const K& key)
     {
         return iterator(std::upper_bound(mData.begin(), mData.end(), key, keyValueComp()));
     }
 
-    template <typename K, typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
+    template <typename K>
+        requires concepts::transparent<Compare>
     const_iterator upper_bound(const K& key) const
     {
         return const_iterator(std::upper_bound(mData.begin(), mData.end(), key, keyValueComp()));
