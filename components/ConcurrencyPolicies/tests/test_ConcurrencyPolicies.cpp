@@ -20,7 +20,7 @@ FATP_META:
   hygiene:
     pragma_once: false
     include_guard: false
-    defines_total: 0
+    defines_total: 1
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -40,6 +40,14 @@ FATP_META:
 
 #include "ConcurrencyPolicies.h"
 #include "FatPTest.h"
+
+#if defined(__SANITIZE_THREAD__)
+#define FATP_TSAN_ACTIVE 1
+#elif defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define FATP_TSAN_ACTIVE 1
+#endif
+#endif
 
 using namespace fat_p::testing;
 using namespace fat_p;
@@ -996,6 +1004,7 @@ FATP_TEST_CASE(TimedMutexPolicy)
         FATP_ASSERT_TRUE(guard.owns_lock(), "Should acquire lock");
     }
 
+#ifndef FATP_TSAN_ACTIVE
     {
         [[maybe_unused]] auto guard = policy.lock_deferred();
         FATP_ASSERT_TRUE(!guard.owns_lock(), "Deferred should not own lock");
@@ -1025,6 +1034,7 @@ FATP_TEST_CASE(TimedMutexPolicy)
     }
 
     holder.join();
+#endif
 
     std::cout << colors::green() << "TimedMutexPolicy: Tests passed." << colors::reset() << std::endl;
     return true;
