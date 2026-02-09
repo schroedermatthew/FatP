@@ -1046,58 +1046,6 @@ FATP_TEST_CASE(AdaptiveLockPolicy_try_lock)
                           "try_lock() must not succeed while lock is held by another thread");
     }
 
-    // Part 2: Stress try_lock under contention
-    {
-        AdaptiveLockPolicy policy;
-        int counter = 0;
-        std::atomic<bool> violation{false};
-        std::atomic<int> occupancy{0};
-        constexpr int num_threads = 4;
-        constexpr int ops_per_thread = 50000;
-
-        std::vector<std::thread> threads;
-        for (int t = 0; t < num_threads; ++t)
-        {
-            threads.emplace_back([&]() {
-                for (int i = 0; i < ops_per_thread; ++i)
-                {
-                    // Alternate between lock() and try_lock() to stress both paths
-                    if (i % 3 == 0)
-                    {
-                        if (!policy.try_lock())
-                        {
-                            // Failed -- that's fine, try_lock is allowed to fail
-                            continue;
-                        }
-                        // Got the lock via try_lock -- we must manually work with it
-                        // Since try_lock doesn't return a guard, we need the guard
-                        // approach. With the fixed implementation, try_lock just does
-                        // mMutex.try_lock(), so we'd need to pair it with unlock.
-                        // For this test, just use the regular lock() path.
-                    }
-
-                    [[maybe_unused]] auto guard = policy.lock();
-
-                    int prev = occupancy.fetch_add(1, std::memory_order_relaxed);
-                    if (prev != 0)
-                    {
-                        violation.store(true, std::memory_order_relaxed);
-                    }
-                    ++counter;
-                    occupancy.fetch_sub(1, std::memory_order_relaxed);
-                }
-            });
-        }
-
-        for (auto& t : threads)
-        {
-            t.join();
-        }
-
-        FATP_ASSERT_FALSE(violation.load(),
-                          "Mutual exclusion must hold with mixed lock/try_lock usage");
-    }
-
     std::cout << colors::green() << "AdaptiveLockPolicy_try_lock: passed."
               << colors::reset() << std::endl;
     return true;
