@@ -1309,9 +1309,9 @@ private:
                     }
                 }();
 
-                auto fuzzy_equal = [this, &eps_tuple](const T& lhs, const T& rhs) {
+                auto fuzzy_equal = [&eps_tuple](const T& lhs, const T& rhs) {
                     return std::apply(
-                        [this, &lhs, &rhs](auto&&... args) {
+                        [&lhs, &rhs](auto&&... args) {
                             return areEqual<T, typename UniquenessPolicy::EqPolicy_t>(lhs, rhs, args...);
                         },
                         eps_tuple);
