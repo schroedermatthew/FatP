@@ -283,7 +283,7 @@ FATP_TEST_CASE(concurrent_mixed_ops)
                 TensorStorage<float, Alloc> copy1 = shared;
 
                 // Verify access
-                if (copy1[t] != static_cast<float>(t))
+                if (copy1[static_cast<size_t>(t)] != static_cast<float>(t))
                 {
                     error_flag.store(true, std::memory_order_relaxed);
                 }
@@ -295,7 +295,7 @@ FATP_TEST_CASE(concurrent_mixed_ops)
                 TensorStorage<float, Alloc> copy3 = std::move(copy2);
 
                 // Verify again
-                if (copy3[t * 10 % 100] != static_cast<float>(t * 10 % 100))
+                if (copy3[static_cast<size_t>(t * 10 % 100)] != static_cast<float>(t * 10 % 100))
                 {
                     error_flag.store(true, std::memory_order_relaxed);
                 }
@@ -358,7 +358,7 @@ void benchmark_tensor_storage()
         TensorStorage<double, Alloc> storage(new_data, size, alloc);
 
         double access_time = measure_perf(
-            [&storage, i = 0]() mutable {
+            [&storage, i = size_t{0}]() mutable {
                 double val = storage[i % 1000];
                 DoNotOptimize(val);
                 ++i;

@@ -219,6 +219,7 @@ FATP_TEST_CASE(scalar_multiplication_reversed)
 FATP_TEST_CASE(unchecked_policy_allows_operations)
 {
     Vec2<int> v{INT_MAX, 1};
+    (void)v;
     // This would overflow, but UncheckedPolicy doesn't check
     FATP_ASSERT_TRUE(true, "UncheckedPolicy allows operations without checks");
     return true;
