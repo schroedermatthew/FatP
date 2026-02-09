@@ -255,7 +255,7 @@ FATP_TEST_CASE(random_small_type)
 
     std::set<uint8_t> generated_ids;
     size_t success_count = 0;
-    size_t collision_error_count = 0;
+    [[maybe_unused]] size_t collision_error_count = 0;
 
     // Try to generate some IDs - collisions are expected with small type
     for (size_t i = 0; i < 50; ++i)
@@ -693,7 +693,7 @@ FATP_TEST_CASE(threadsafe_batch_generation)
 
     for (size_t t = 0; t < num_threads; ++t)
     {
-        threads.emplace_back([&gen, &thread_ids, t, batch_size]() {
+        threads.emplace_back([&gen, &thread_ids, t]() {
             auto batch = gen.generate_batch(batch_size);
             if (batch.has_value())
             {
@@ -742,7 +742,7 @@ FATP_TEST_CASE(batch_overflow_rollback)
     FATP_ASSERT_TRUE(batch2.error() == IdError::Overflow, "Error should be Overflow");
 
     // Enhanced verification: Check individual ID states after rollback
-    for (uint8_t id : {250, 251, 252, 253, 254})
+    for (auto id : {uint8_t{250}, uint8_t{251}, uint8_t{252}, uint8_t{253}, uint8_t{254}})
     {
         FATP_ASSERT_TRUE(gen.is_active(id), "Original IDs should remain active after rollback");
     }

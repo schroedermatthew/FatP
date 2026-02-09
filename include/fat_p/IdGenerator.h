@@ -809,7 +809,7 @@ public:
 
     result_type generate()
     {
-        auto lock = ConcurrencyPolicy::lock();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
 
         // Try recycled IDs first (guaranteed unique, no retry needed)
         if (auto recycled = RecyclingPolicy::get_recycled())
@@ -875,7 +875,7 @@ public:
 
     Expected<void, IdError> release(IdType_ id) noexcept
     {
-        auto lock = ConcurrencyPolicy::lock();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
 
         underlying_type raw_id;
         if constexpr (std::is_same_v<IdType_, underlying_type>)
@@ -917,7 +917,7 @@ public:
             return std::vector<id_type>{};
         }
 
-        auto lock = ConcurrencyPolicy::lock();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
 
         // Track the max before batch for smart rollback
         auto pre_batch_max = ids_in_use_.max_element();
@@ -1010,7 +1010,7 @@ public:
             return {};
         }
 
-        auto lock = ConcurrencyPolicy::lock();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
 
         for (const auto& id : ids)
         {
@@ -1089,7 +1089,7 @@ public:
 
     bool is_active(IdType_ id) const noexcept
     {
-        auto lock = ConcurrencyPolicy::lock_shared();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock_shared();
         underlying_type raw_id;
         if constexpr (std::is_same_v<IdType_, underlying_type>)
         {
@@ -1104,19 +1104,19 @@ public:
 
     size_t active_count() const noexcept
     {
-        auto lock = ConcurrencyPolicy::lock_shared();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock_shared();
         return ids_in_use_.size();
     }
 
     size_t recycled_count() const noexcept
     {
-        auto lock = ConcurrencyPolicy::lock_shared();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock_shared();
         return RecyclingPolicy::recycled_count();
     }
 
     void reset() noexcept
     {
-        auto lock = ConcurrencyPolicy::lock();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
         ids_in_use_.clear();
         RecyclingPolicy::clear();
         AllocationPolicy::reset(base_id_);
