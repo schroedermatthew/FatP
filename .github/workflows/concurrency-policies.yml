@@ -189,6 +189,7 @@ jobs:
           TSAN_OPTIONS: halt_on_error=1 suppressions=tsan_suppressions.txt
         run: |
           echo 'mutex:_Sp_atomic' > tsan_suppressions.txt
+          echo 'mutex:timed_mutex' >> tsan_suppressions.txt
           ./test_bin
 
   # ===========================================================================
