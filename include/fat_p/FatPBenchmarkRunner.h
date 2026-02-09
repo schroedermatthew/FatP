@@ -222,7 +222,7 @@ struct CpuFreqInfo
     /// With estimated base, use slightly higher threshold (15%) to account for estimation error.
     [[nodiscard]] bool is_throttled(double thresholdPct = 10.0) const
     {
-        double effectiveThreshold = mRefIsEstimated ? std::max(thresholdPct, 15.0) : thresholdPct;
+        double effectiveThreshold = mRefIsEstimated ? (std::max)(thresholdPct, 15.0) : thresholdPct;
         return has_reliable_detection() && throttle_percentage() > effectiveThreshold;
     }
 
