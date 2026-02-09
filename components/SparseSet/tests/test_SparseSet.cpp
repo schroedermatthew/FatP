@@ -503,7 +503,14 @@ FATP_TEST_CASE(self_assignment)
     set.insert(2);
     set.insert(3);
 
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wself-assign-overloaded"
+#endif
     set = set;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
     FATP_ASSERT_EQ(set.size(), size_t(3), "Self-assignment should preserve size");
     FATP_ASSERT_TRUE(set.contains(1), "Self-assignment should preserve elements");
