@@ -123,7 +123,7 @@ class SparseSet;
 template <typename T, typename Data>
 class SparseSetWithData;
 
-template <typename T, typename Allocator>
+template <typename T, typename GenerationType, typename Allocator>
 class SlotMap;
 
 template <typename T, typename Allocator, typename IteratorPolicy, typename ConcurrencyPolicy>
@@ -281,8 +281,8 @@ struct is_slot_map_impl : std::false_type
 {
 };
 
-template <typename T, typename A>
-struct is_slot_map_impl<SlotMap<T, A>> : std::true_type
+template <typename T, typename G, typename A>
+struct is_slot_map_impl<SlotMap<T, G, A>> : std::true_type
 {
 };
 
