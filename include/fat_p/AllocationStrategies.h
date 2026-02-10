@@ -70,8 +70,9 @@ namespace fat_p
  * allocated from the heap. This often provides better cache locality for
  * lookups due to malloc's allocation patterns.
  *
- * Supports over-aligned types (alignof(T) > alignof(std::max_align_t)) via
- * C++17 aligned new/delete. Examples: SIMD types, cache-line aligned structs.
+ * Supports over-aligned types (alignof(T) > alignof(std::max_align_t))
+ * automatically via C++17+ aligned new/delete.
+ * Examples: SIMD types, cache-line aligned structs.
  *
  * @tparam T Element type to allocate.
  *
@@ -89,8 +90,6 @@ namespace fat_p
 template <typename T>
 class NewDeleteAllocator
 {
-    static constexpr bool kIsOveraligned = alignof(T) > alignof(std::max_align_t);
-
 public:
     NewDeleteAllocator() = default;
     NewDeleteAllocator(const NewDeleteAllocator&) = default;
@@ -112,17 +111,7 @@ public:
     template <typename... Args>
     T* allocate(Args&&... args)
     {
-        if constexpr (kIsOveraligned)
-        {
-            // Over-aligned: use aligned allocation + placement new
-            void* mem = ::operator new(sizeof(T), std::align_val_t{alignof(T)});
-            return new (mem) T(std::forward<Args>(args)...);
-        }
-        else
-        {
-            // Normal alignment: standard new handles it
-            return new T(std::forward<Args>(args)...);
-        }
+        return new T(std::forward<Args>(args)...);
     }
 
     /**
@@ -135,16 +124,7 @@ public:
      */
     void deallocate(T* ptr)
     {
-        if constexpr (kIsOveraligned)
-        {
-            // Over-aligned: explicit destructor + aligned delete
-            ptr->~T();
-            ::operator delete(ptr, std::align_val_t{alignof(T)});
-        }
-        else
-        {
-            delete ptr;
-        }
+        delete ptr;
     }
 };
 
@@ -156,7 +136,7 @@ public:
  * free list for reuse.
  *
  * Supports over-aligned types via alignas propagation - the Block struct
- * inherits T's alignment, and C++17 new handles over-aligned structs.
+ * inherits T's alignment, and new-expressions handle alignment automatically.
  *
  * @tparam T Element type to allocate. Must be at least sizeof(void*).
  *
