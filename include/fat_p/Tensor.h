@@ -334,8 +334,8 @@ struct ColumnMajorPolicy
         ColumnIterator(T* ptr, const std::vector<size_t>& shape, size_t row, size_t col)
             : mPtr(ptr)
             , mShape(shape)
-            , current_row_(row)
-            , current_col_(col)
+            , mCurrentRow(row)
+            , mCurrentCol(col)
         {
             if (mShape.size() < 2)
             {
@@ -345,21 +345,21 @@ struct ColumnMajorPolicy
 
         reference operator*() const
         {
-            return mPtr[current_row_ * mShape[1] + current_col_];
+            return mPtr[mCurrentRow * mShape[1] + mCurrentCol];
         }
 
         pointer operator->() const
         {
-            return &mPtr[current_row_ * mShape[1] + current_col_];
+            return &mPtr[mCurrentRow * mShape[1] + mCurrentCol];
         }
 
         ColumnIterator& operator++()
         {
-            ++current_row_;
-            if (current_row_ >= mShape[0])
+            ++mCurrentRow;
+            if (mCurrentRow >= mShape[0])
             {
-                current_row_ = 0;
-                ++current_col_;
+                mCurrentRow = 0;
+                ++mCurrentCol;
             }
             return *this;
         }
@@ -373,7 +373,7 @@ struct ColumnMajorPolicy
 
         bool operator==(const ColumnIterator& other) const
         {
-            return current_row_ == other.current_row_ && current_col_ == other.current_col_;
+            return mCurrentRow == other.mCurrentRow && mCurrentCol == other.mCurrentCol;
         }
 
         bool operator!=(const ColumnIterator& other) const
@@ -384,8 +384,8 @@ struct ColumnMajorPolicy
     private:
         T* mPtr;
         std::vector<size_t> mShape;
-        size_t current_row_;
-        size_t current_col_;
+        size_t mCurrentRow;
+        size_t mCurrentCol;
     };
 
     template <typename T>
@@ -579,10 +579,10 @@ struct BlockedPolicy
                       size_t in_block_col)
             : mPtr(ptr)
             , mShape(shape)
-            , block_row_(block_row)
-            , block_col_(block_col)
-            , in_block_row_(in_block_row)
-            , in_block_col_(in_block_col)
+            , mBlockRow(block_row)
+            , mBlockCol(block_col)
+            , mInBlockRow(in_block_row)
+            , mInBlockCol(in_block_col)
         {
             if (mShape.size() < 2)
             {
@@ -592,33 +592,33 @@ struct BlockedPolicy
 
         reference operator*() const
         {
-            size_t global_row = std::min(block_row_ * BlockSize + in_block_row_, mShape[0] - 1);
-            size_t global_col = std::min(block_col_ * BlockSize + in_block_col_, mShape[1] - 1);
+            size_t global_row = std::min(mBlockRow * BlockSize + mInBlockRow, mShape[0] - 1);
+            size_t global_col = std::min(mBlockCol * BlockSize + mInBlockCol, mShape[1] - 1);
             return mPtr[global_row * mShape[1] + global_col];
         }
 
         pointer operator->() const
         {
-            size_t global_row = std::min(block_row_ * BlockSize + in_block_row_, mShape[0] - 1);
-            size_t global_col = std::min(block_col_ * BlockSize + in_block_col_, mShape[1] - 1);
+            size_t global_row = std::min(mBlockRow * BlockSize + mInBlockRow, mShape[0] - 1);
+            size_t global_col = std::min(mBlockCol * BlockSize + mInBlockCol, mShape[1] - 1);
             return &mPtr[global_row * mShape[1] + global_col];
         }
 
         BlockIterator& operator++()
         {
-            ++in_block_col_;
-            if (in_block_col_ >= BlockSize || block_col_ * BlockSize + in_block_col_ >= mShape[1])
+            ++mInBlockCol;
+            if (mInBlockCol >= BlockSize || mBlockCol * BlockSize + mInBlockCol >= mShape[1])
             {
-                in_block_col_ = 0;
-                ++in_block_row_;
-                if (in_block_row_ >= BlockSize || block_row_ * BlockSize + in_block_row_ >= mShape[0])
+                mInBlockCol = 0;
+                ++mInBlockRow;
+                if (mInBlockRow >= BlockSize || mBlockRow * BlockSize + mInBlockRow >= mShape[0])
                 {
-                    in_block_row_ = 0;
-                    ++block_col_;
-                    if (block_col_ * BlockSize >= mShape[1])
+                    mInBlockRow = 0;
+                    ++mBlockCol;
+                    if (mBlockCol * BlockSize >= mShape[1])
                     {
-                        block_col_ = 0;
-                        ++block_row_;
+                        mBlockCol = 0;
+                        ++mBlockRow;
                     }
                 }
             }
@@ -634,8 +634,8 @@ struct BlockedPolicy
 
         bool operator==(const BlockIterator& other) const
         {
-            return block_row_ == other.block_row_ && block_col_ == other.block_col_ &&
-                   in_block_row_ == other.in_block_row_ && in_block_col_ == other.in_block_col_;
+            return mBlockRow == other.mBlockRow && mBlockCol == other.mBlockCol &&
+                   mInBlockRow == other.mInBlockRow && mInBlockCol == other.mInBlockCol;
         }
 
         bool operator!=(const BlockIterator& other) const
@@ -646,8 +646,8 @@ struct BlockedPolicy
     private:
         T* mPtr;
         std::vector<size_t> mShape;
-        size_t block_row_, block_col_;
-        size_t in_block_row_, in_block_col_;
+        size_t mBlockRow, mBlockCol;
+        size_t mInBlockRow, mInBlockCol;
     };
 
     template <typename T>
@@ -952,8 +952,8 @@ public:
      * @brief Default constructor (empty tensor)
      */
     Tensor()
-        : data_(nullptr)
-        , size_(0)
+        : mData(nullptr)
+        , mSize(0)
     {
     }
 
@@ -962,16 +962,16 @@ public:
      */
     explicit Tensor(std::vector<size_t> shape)
         : mShape(std::move(shape))
-        , size_(compute_size(mShape))
+        , mSize(compute_size(mShape))
     {
-        if (size_ > 0)
+        if (mSize > 0)
         {
-            T* raw = mAllocator.allocate(size_);
+            T* raw = mAllocator.allocate(mSize);
             shared_data_ = std::shared_ptr<T[]>(raw, [this](T* p) {
-                mAllocator.deallocate(p, size_);
+                mAllocator.deallocate(p, mSize);
             });
-            data_ = shared_data_.get();
-            std::fill(data_, data_ + size_, T{});
+            mData = shared_data_.get();
+            std::fill(mData, mData + mSize, T{});
         }
         mStrides = compute_strides(mShape);
     }
@@ -991,16 +991,16 @@ public:
     Tensor(const Tensor& other)
         : mShape(other.mShape)
         , mStrides(other.mStrides)
-        , size_(other.size_)
+        , mSize(other.mSize)
     {
-        if (size_ > 0)
+        if (mSize > 0)
         {
-            T* raw = mAllocator.allocate(size_);
+            T* raw = mAllocator.allocate(mSize);
             shared_data_ = std::shared_ptr<T[]>(raw, [this](T* p) {
-                mAllocator.deallocate(p, size_);
+                mAllocator.deallocate(p, mSize);
             });
-            data_ = shared_data_.get();
-            std::copy(other.data_, other.data_ + size_, data_);
+            mData = shared_data_.get();
+            std::copy(other.mData, other.mData + mSize, mData);
         }
     }
 
@@ -1009,13 +1009,13 @@ public:
      */
     Tensor(Tensor&& other) noexcept
         : shared_data_(std::move(other.shared_data_))
-        , data_(other.data_)
+        , mData(other.mData)
         , mShape(std::move(other.mShape))
         , mStrides(std::move(other.mStrides))
-        , size_(other.size_)
+        , mSize(other.mSize)
     {
-        other.data_ = nullptr;
-        other.size_ = 0;
+        other.mData = nullptr;
+        other.mSize = 0;
     }
 
     /**
@@ -1054,13 +1054,13 @@ public:
     template <typename... Indices>
     reference operator()(Indices... indices)
     {
-        return data_[compute_offset(static_cast<size_t>(indices)...)];
+        return mData[compute_offset(static_cast<size_t>(indices)...)];
     }
 
     template <typename... Indices>
     const_reference operator()(Indices... indices) const
     {
-        return data_[compute_offset(static_cast<size_t>(indices)...)];
+        return mData[compute_offset(static_cast<size_t>(indices)...)];
     }
 
     /**
@@ -1101,7 +1101,7 @@ public:
 #endif
 
         size_t offset = compute_offset(static_cast<size_t>(indices)...);
-        return data_[offset];
+        return mData[offset];
     }
 
     template <typename... Indices>
@@ -1137,7 +1137,7 @@ public:
 #endif
 
         size_t offset = compute_offset(static_cast<size_t>(indices)...);
-        return data_[offset];
+        return mData[offset];
     }
 
     /**
@@ -1145,32 +1145,32 @@ public:
      */
     reference at_linear(size_t index)
     {
-        if (index >= size_)
+        if (index >= mSize)
         {
 #ifndef NDEBUG
             std::ostringstream oss;
-            oss << "Tensor::at_linear index " << index << " out of range [0, " << size_ << ")";
+            oss << "Tensor::at_linear index " << index << " out of range [0, " << mSize << ")";
             throw std::out_of_range(oss.str());
 #else
             throw std::out_of_range("Tensor::at_linear index out of bounds");
 #endif
         }
-        return data_[index];
+        return mData[index];
     }
 
     const_reference at_linear(size_t index) const
     {
-        if (index >= size_)
+        if (index >= mSize)
         {
 #ifndef NDEBUG
             std::ostringstream oss;
-            oss << "Tensor::at_linear index " << index << " out of range [0, " << size_ << ")";
+            oss << "Tensor::at_linear index " << index << " out of range [0, " << mSize << ")";
             throw std::out_of_range(oss.str());
 #else
             throw std::out_of_range("Tensor::at_linear index out of bounds");
 #endif
         }
-        return data_[index];
+        return mData[index];
     }
 
     /**
@@ -1178,11 +1178,11 @@ public:
      */
     reference operator[](size_t index)
     {
-        return data_[index];
+        return mData[index];
     }
     const_reference operator[](size_t index) const
     {
-        return data_[index];
+        return mData[index];
     }
 
     // =========================================================================
@@ -1191,22 +1191,22 @@ public:
 
     iterator begin()
     {
-        return IteratorPolicy::template make_begin<T>(data_, mShape, mStrides);
+        return IteratorPolicy::template make_begin<T>(mData, mShape, mStrides);
     }
 
     iterator end()
     {
-        return IteratorPolicy::template make_end<T>(data_, mShape, mStrides, size_);
+        return IteratorPolicy::template make_end<T>(mData, mShape, mStrides, mSize);
     }
 
     const_iterator begin() const
     {
-        return IteratorPolicy::template make_begin<const T>(data_, mShape, mStrides);
+        return IteratorPolicy::template make_begin<const T>(mData, mShape, mStrides);
     }
 
     const_iterator end() const
     {
-        return IteratorPolicy::template make_end<const T>(data_, mShape, mStrides, size_);
+        return IteratorPolicy::template make_end<const T>(mData, mShape, mStrides, mSize);
     }
 
     const_iterator cbegin() const
@@ -1232,7 +1232,7 @@ public:
     }
     size_t size() const
     {
-        return size_;
+        return mSize;
     }
     size_t ndim() const
     {
@@ -1244,16 +1244,16 @@ public:
     }
     bool empty() const
     {
-        return size_ == 0;
+        return mSize == 0;
     }
 
     T* data()
     {
-        return data_;
+        return mData;
     }
     const T* data() const
     {
-        return data_;
+        return mData;
     }
 
     /**
@@ -1330,7 +1330,7 @@ public:
         }
 
         size_t offset = compute_offset_from_vector(start);
-        return Tensor(shared_data_, data_ + offset, new_shape, mStrides);
+        return Tensor(shared_data_, mData + offset, new_shape, mStrides);
     }
 
     /**
@@ -1363,7 +1363,7 @@ public:
         std::vector<size_t> new_shape = {mShape[1], mShape[0]};
         std::vector<ptrdiff_t> new_strides = {mStrides[1], mStrides[0]};
 
-        return Tensor(shared_data_, data_, new_shape, new_strides);
+        return Tensor(shared_data_, mData, new_shape, new_strides);
     }
 
     /**
@@ -1372,10 +1372,10 @@ public:
     Tensor reshape(std::vector<size_t> new_shape) const
     {
         [[maybe_unused]] size_t new_size = compute_size(new_shape);
-        FATP_ENFORCE(new_size == size_, "Reshape size mismatch: current=", size_, ", requested=", new_size);
+        FATP_ENFORCE(new_size == mSize, "Reshape size mismatch: current=", mSize, ", requested=", new_size);
 
         std::vector<ptrdiff_t> new_strides = compute_strides(new_shape);
-        return Tensor(shared_data_, data_, new_shape, new_strides);
+        return Tensor(shared_data_, mData, new_shape, new_strides);
     }
 
     // =========================================================================
@@ -1622,19 +1622,19 @@ public:
             size_t i = 0;
             const size_t vec_size = 16;
 
-            for (; i + vec_size <= size_; i += vec_size)
+            for (; i + vec_size <= mSize; i += vec_size)
             {
-                __m512 va = _mm512_loadu_ps(data_ + i);
+                __m512 va = _mm512_loadu_ps(mData + i);
                 __m512 vr = _mm512_add_ps(va, vs);
-                _mm512_storeu_ps(result.data_ + i, vr);
+                _mm512_storeu_ps(result.mData + i, vr);
             }
 
-            if (i < size_)
+            if (i < mSize)
             {
-                __mmask16 mask = (__mmask16)((1ULL << (size_ - i)) - 1);
-                __m512 va = _mm512_maskz_loadu_ps(mask, data_ + i);
+                __mmask16 mask = (__mmask16)((1ULL << (mSize - i)) - 1);
+                __m512 va = _mm512_maskz_loadu_ps(mask, mData + i);
                 __m512 vr = _mm512_add_ps(va, vs);
-                _mm512_mask_storeu_ps(result.data_ + i, mask, vr);
+                _mm512_mask_storeu_ps(result.mData + i, mask, vr);
             }
         }
         else if constexpr (std::is_same_v<T, double>)
@@ -1643,19 +1643,19 @@ public:
             size_t i = 0;
             const size_t vec_size = 8;
 
-            for (; i + vec_size <= size_; i += vec_size)
+            for (; i + vec_size <= mSize; i += vec_size)
             {
-                __m512d va = _mm512_loadu_pd(data_ + i);
+                __m512d va = _mm512_loadu_pd(mData + i);
                 __m512d vr = _mm512_add_pd(va, vs);
-                _mm512_storeu_pd(result.data_ + i, vr);
+                _mm512_storeu_pd(result.mData + i, vr);
             }
 
-            if (i < size_)
+            if (i < mSize)
             {
-                __mmask8 mask = (__mmask8)((1ULL << (size_ - i)) - 1);
-                __m512d va = _mm512_maskz_loadu_pd(mask, data_ + i);
+                __mmask8 mask = (__mmask8)((1ULL << (mSize - i)) - 1);
+                __m512d va = _mm512_maskz_loadu_pd(mask, mData + i);
                 __m512d vr = _mm512_add_pd(va, vs);
-                _mm512_mask_storeu_pd(result.data_ + i, mask, vr);
+                _mm512_mask_storeu_pd(result.mData + i, mask, vr);
             }
         }
         else
@@ -1666,16 +1666,16 @@ public:
             size_t i = 0;
             const size_t vec_size = 8;
 
-            for (; i + vec_size <= size_; i += vec_size)
+            for (; i + vec_size <= mSize; i += vec_size)
             {
-                __m256 va = _mm256_loadu_ps(data_ + i);
+                __m256 va = _mm256_loadu_ps(mData + i);
                 __m256 vr = _mm256_add_ps(va, vs);
-                _mm256_storeu_ps(result.data_ + i, vr);
+                _mm256_storeu_ps(result.mData + i, vr);
             }
 
-            for (; i < size_; ++i)
+            for (; i < mSize; ++i)
             {
-                result.data_[i] = data_[i] + scalar;
+                result.mData[i] = mData[i] + scalar;
             }
         }
         else if constexpr (std::is_same_v<T, double>)
@@ -1684,25 +1684,25 @@ public:
             size_t i = 0;
             const size_t vec_size = 4;
 
-            for (; i + vec_size <= size_; i += vec_size)
+            for (; i + vec_size <= mSize; i += vec_size)
             {
-                __m256d va = _mm256_loadu_pd(data_ + i);
+                __m256d va = _mm256_loadu_pd(mData + i);
                 __m256d vr = _mm256_add_pd(va, vs);
-                _mm256_storeu_pd(result.data_ + i, vr);
+                _mm256_storeu_pd(result.mData + i, vr);
             }
 
-            for (; i < size_; ++i)
+            for (; i < mSize; ++i)
             {
-                result.data_[i] = data_[i] + scalar;
+                result.mData[i] = mData[i] + scalar;
             }
         }
         else
 #endif
         {
             // Fallback: scalar code
-            for (size_t i = 0; i < size_; ++i)
+            for (size_t i = 0; i < mSize; ++i)
             {
-                result.data_[i] = data_[i] + scalar;
+                result.mData[i] = mData[i] + scalar;
             }
         }
 
@@ -1803,7 +1803,7 @@ public:
      */
     void fill(const T& value)
     {
-        std::fill(data_, data_ + size_, value);
+        std::fill(mData, mData + mSize, value);
     }
 
 private:
@@ -2250,7 +2250,7 @@ public:
         Tensor output(target_shape);
 
         // Fill output using broadcasting rules
-        for (size_t i = 0; i < output.size_; ++i)
+        for (size_t i = 0; i < output.mSize; ++i)
         {
             std::vector<size_t> out_indices(target_shape.size());
             size_t temp = i;
@@ -2269,7 +2269,7 @@ public:
                 in_indices[d] = (mShape[d] == 1) ? 0 : out_idx;
             }
 
-            output.data_[i] = data_[compute_offset_from_vector(in_indices)];
+            output.mData[i] = mData[compute_offset_from_vector(in_indices)];
         }
 
         return output;
@@ -2284,7 +2284,7 @@ public:
     {
         check_shape_compatibility(other, "addition");
         Tensor result(mShape);
-        parallel_simd_add(data_, other.data_, result.data_, size_);
+        parallel_simd_add(mData, other.mData, result.mData, mSize);
         return result;
     }
 
@@ -2298,7 +2298,7 @@ public:
         {
             // Fast path: same shape
             Tensor result(mShape);
-            parallel_simd_add(data_, other.data_, result.data_, size_);
+            parallel_simd_add(mData, other.mData, result.mData, mSize);
             return result;
         }
 
@@ -2323,7 +2323,7 @@ public:
         }
 
         Tensor result(bcast_shape.value());
-        parallel_simd_add(lhs_bcast.value().data_, rhs_bcast.value().data_, result.data_, result.size_);
+        parallel_simd_add(lhs_bcast.value().mData, rhs_bcast.value().mData, result.mData, result.mSize);
         return result;
     }
 
@@ -2334,7 +2334,7 @@ public:
     {
         check_shape_compatibility(other, "subtraction");
         Tensor result(mShape);
-        parallel_simd_sub(data_, other.data_, result.data_, size_);
+        parallel_simd_sub(mData, other.mData, result.mData, mSize);
         return result;
     }
 
@@ -2346,7 +2346,7 @@ public:
         if (mShape == other.mShape)
         {
             Tensor result(mShape);
-            parallel_simd_sub(data_, other.data_, result.data_, size_);
+            parallel_simd_sub(mData, other.mData, result.mData, mSize);
             return result;
         }
 
@@ -2369,7 +2369,7 @@ public:
         }
 
         Tensor result(bcast_shape.value());
-        parallel_simd_sub(lhs_bcast.value().data_, rhs_bcast.value().data_, result.data_, result.size_);
+        parallel_simd_sub(lhs_bcast.value().mData, rhs_bcast.value().mData, result.mData, result.mSize);
         return result;
     }
 
@@ -2380,7 +2380,7 @@ public:
     {
         check_shape_compatibility(other, "multiplication");
         Tensor result(mShape);
-        parallel_simd_mul(data_, other.data_, result.data_, size_);
+        parallel_simd_mul(mData, other.mData, result.mData, mSize);
         return result;
     }
 
@@ -2392,7 +2392,7 @@ public:
         if (mShape == other.mShape)
         {
             Tensor result(mShape);
-            parallel_simd_mul(data_, other.data_, result.data_, size_);
+            parallel_simd_mul(mData, other.mData, result.mData, mSize);
             return result;
         }
 
@@ -2415,7 +2415,7 @@ public:
         }
 
         Tensor result(bcast_shape.value());
-        parallel_simd_mul(lhs_bcast.value().data_, rhs_bcast.value().data_, result.data_, result.size_);
+        parallel_simd_mul(lhs_bcast.value().mData, rhs_bcast.value().mData, result.mData, result.mSize);
         return result;
     }
 
@@ -2457,7 +2457,7 @@ public:
             new_size *= dim;
         }
 
-        if (new_size != size_)
+        if (new_size != mSize)
         {
             return make_unexpected(std::string("Reshape size mismatch"));
         }
@@ -2487,7 +2487,7 @@ public:
     Tensor operator*(const T& scalar) const
     {
         Tensor result(mShape);
-        simd_scalar_mul(data_, scalar, result.data_, size_);
+        simd_scalar_mul(mData, scalar, result.mData, mSize);
         return result;
     }
 
@@ -2498,7 +2498,7 @@ public:
     {
         FATP_ENFORCE(scalar != T{0}, "Division by zero in tensor scalar division");
         Tensor result(mShape);
-        simd_scalar_mul(data_, T{1} / scalar, result.data_, size_);
+        simd_scalar_mul(mData, T{1} / scalar, result.mData, mSize);
         return result;
     }
 
@@ -2517,7 +2517,7 @@ public:
         {
             return false;
         }
-        if (size_ != other.size_)
+        if (mSize != other.mSize)
         {
             return false;
         }
@@ -2525,7 +2525,7 @@ public:
         // Exact comparison using iterators (stride-aware)
         auto it1 = begin();
         auto it2 = other.begin();
-        for (size_t i = 0; i < size_; ++i, ++it1, ++it2)
+        for (size_t i = 0; i < mSize; ++i, ++it1, ++it2)
         {
             if (*it1 != *it2)
             {
@@ -2560,7 +2560,7 @@ public:
         {
             return false;
         }
-        if (size_ != other.size_)
+        if (mSize != other.mSize)
         {
             return false;
         }
@@ -2571,7 +2571,7 @@ public:
 
         if constexpr (std::is_floating_point_v<T>)
         {
-            for (size_t i = 0; i < size_; ++i, ++it1, ++it2)
+            for (size_t i = 0; i < mSize; ++i, ++it1, ++it2)
             {
                 T diff = std::abs(*it1 - *it2);
                 T max_val = std::max(std::abs(*it1), std::abs(*it2));
@@ -2596,7 +2596,7 @@ public:
         else
         {
             // For integer types, fall back to exact comparison
-            for (size_t i = 0; i < size_; ++i, ++it1, ++it2)
+            for (size_t i = 0; i < mSize; ++i, ++it1, ++it2)
             {
                 if (*it1 != *it2)
                 {
@@ -2631,20 +2631,20 @@ public:
         {
             // Reallocate if shapes don't match
             mShape = expr.shape();
-            size_ = compute_size(mShape);
+            mSize = compute_size(mShape);
             mStrides = compute_strides(mShape);
 
-            T* raw = mAllocator.allocate(size_);
+            T* raw = mAllocator.allocate(mSize);
             shared_data_ = std::shared_ptr<T[]>(raw, [this](T* p) {
-                mAllocator.deallocate(p, size_);
+                mAllocator.deallocate(p, mSize);
             });
-            data_ = shared_data_.get();
+            mData = shared_data_.get();
         }
 
         // Evaluate expression in single pass (loop fusion)
-        for (size_t i = 0; i < size_; ++i)
+        for (size_t i = 0; i < mSize; ++i)
         {
-            data_[i] = expr[i];
+            mData[i] = expr[i];
         }
         return *this;
     }
@@ -2711,7 +2711,7 @@ public:
      */
     T sum() const
     {
-        return std::accumulate(data_, data_ + size_, T{0});
+        return std::accumulate(mData, mData + mSize, T{0});
     }
 
     /**
@@ -2719,7 +2719,7 @@ public:
      */
     T mean() const
     {
-        return sum() / static_cast<T>(size_);
+        return sum() / static_cast<T>(mSize);
     }
 
     /**
@@ -2727,7 +2727,7 @@ public:
      */
     T max() const
     {
-        return *std::max_element(data_, data_ + size_);
+        return *std::max_element(mData, mData + mSize);
     }
 
     /**
@@ -2735,7 +2735,7 @@ public:
      */
     T min() const
     {
-        return *std::min_element(data_, data_ + size_);
+        return *std::min_element(mData, mData + mSize);
     }
 
     // =========================================================================
@@ -2745,20 +2745,20 @@ public:
     void swap(Tensor& other) noexcept
     {
         std::swap(shared_data_, other.shared_data_);
-        std::swap(data_, other.data_);
+        std::swap(mData, other.mData);
         std::swap(mShape, other.mShape);
         std::swap(mStrides, other.mStrides);
-        std::swap(size_, other.size_);
+        std::swap(mSize, other.mSize);
     }
 
 private:
     // Private constructor for views
     Tensor(std::shared_ptr<T[]> shared_data, T* data, std::vector<size_t> shape, std::vector<ptrdiff_t> strides)
         : shared_data_(std::move(shared_data))
-        , data_(data)
+        , mData(data)
         , mShape(std::move(shape))
         , mStrides(std::move(strides))
-        , size_(compute_size(mShape))
+        , mSize(compute_size(mShape))
     {
     }
 
@@ -2866,10 +2866,10 @@ private:
 
     std::shared_ptr<T[]>
         shared_data_; // Using std::shared_ptr for now - consider TensorStorage for 10-20% performance gain
-    T* data_;
+    T* mData;
     std::vector<size_t> mShape;
     std::vector<ptrdiff_t> mStrides;
-    size_t size_;
+    size_t mSize;
     Allocator mAllocator;
 };
 

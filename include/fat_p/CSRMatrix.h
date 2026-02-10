@@ -44,8 +44,8 @@ FATP_META:
  *
  * CSR Format:
  * - mValues: Non-zero values (size = nnz)
- * - col_indices_: Column index of each non-zero (size = nnz)
- * - row_ptrs_: Start of each row in values array (size = rows + 1)
+ * - mColIndices: Column index of each non-zero (size = nnz)
+ * - mRowPtrs: Start of each row in values array (size = rows + 1)
  *
  * Design Notes:
  * - Enforces sparse semantics: explicit zeros are removed automatically
@@ -113,8 +113,8 @@ private:
     size_type mRows;
     size_type mCols;
     std::vector<T> mValues;
-    std::vector<IndexType> col_indices_;
-    std::vector<ptr_type> row_ptrs_;
+    std::vector<IndexType> mColIndices;
+    std::vector<ptr_type> mRowPtrs;
 
     /// Cast IndexType to size_type for safe vector indexing
     static constexpr size_type idx(IndexType i) noexcept { return static_cast<size_type>(i); }
@@ -171,7 +171,7 @@ public:
         : mRows(0)
         , mCols(0)
     {
-        row_ptrs_.push_back(0);
+        mRowPtrs.push_back(0);
     }
 
     // Explicitly defaulted special members with noexcept for optimal STL container behavior
@@ -186,7 +186,7 @@ public:
         , mCols(cols)
     {
         validate_dimensions(rows, cols);
-        row_ptrs_.resize(rows + 1, 0);
+        mRowPtrs.resize(rows + 1, 0);
     }
 
     /**
@@ -221,7 +221,7 @@ public:
 
         if (nnz_input == 0)
         {
-            row_ptrs_.resize(rows + 1, 0);
+            mRowPtrs.resize(rows + 1, 0);
             return;
         }
 
@@ -297,8 +297,8 @@ public:
 
         // Build CSR structure - always filter zeros for sparse semantics
         mValues.reserve(processed.size());
-        col_indices_.reserve(processed.size());
-        row_ptrs_.resize(rows + 1, 0);
+        mColIndices.reserve(processed.size());
+        mRowPtrs.resize(rows + 1, 0);
 
         for (const auto& [row, col, val] : processed)
         {
@@ -306,15 +306,15 @@ public:
             if (!is_effectively_zero(val))
             {
                 mValues.push_back(val);
-                col_indices_.push_back(col);
-                row_ptrs_[static_cast<size_type>(row) + 1]++;
+                mColIndices.push_back(col);
+                mRowPtrs[static_cast<size_type>(row) + 1]++;
             }
         }
 
         // Convert counts to cumulative sum
         for (size_type i = 0; i < rows; ++i)
         {
-            row_ptrs_[i + 1] += row_ptrs_[i];
+            mRowPtrs[i + 1] += mRowPtrs[i];
         }
     }
 
@@ -344,7 +344,7 @@ public:
 
         CSRMatrix result(rows, cols);
         result.mValues.reserve(rows * std::min(cols, size_type{16}));
-        result.col_indices_.reserve(rows * std::min(cols, size_type{16}));
+        result.mColIndices.reserve(rows * std::min(cols, size_type{16}));
 
         using std::abs;
         for (size_type i = 0; i < rows; ++i)
@@ -366,10 +366,10 @@ public:
                 if (is_nonzero)
                 {
                     result.mValues.push_back(val);
-                    result.col_indices_.push_back(static_cast<IndexType>(j));
+                    result.mColIndices.push_back(static_cast<IndexType>(j));
                 }
             }
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -402,11 +402,11 @@ public:
     }
     [[nodiscard]] const std::vector<IndexType>& col_indices() const noexcept
     {
-        return col_indices_;
+        return mColIndices;
     }
     [[nodiscard]] const std::vector<ptr_type>& row_ptrs() const noexcept
     {
-        return row_ptrs_;
+        return mRowPtrs;
     }
 
     // =========================================================================
@@ -428,8 +428,8 @@ public:
             throw std::out_of_range("CSRMatrix: index out of range");
         }
 
-        ptr_type start = row_ptrs_[row];
-        ptr_type end = row_ptrs_[row + 1];
+        ptr_type start = mRowPtrs[row];
+        ptr_type end = mRowPtrs[row + 1];
 
         // Sum all entries at this (row, col) for consistency with matvec/to_dense
         // This handles DuplicatePolicy::Keep correctly
@@ -438,11 +438,11 @@ public:
 
         for (ptr_type j = start; j < end; ++j)
         {
-            if (col_indices_[j] == target_col)
+            if (mColIndices[j] == target_col)
             {
                 sum += mValues[j];
             }
-            else if (col_indices_[j] > target_col)
+            else if (mColIndices[j] > target_col)
             {
                 // Columns are sorted, no more matches possible
                 break;
@@ -455,7 +455,7 @@ public:
     /**
      * @brief Set element at (row, col)
      * @details O(nnz + rows) worst-case complexity: insertion/removal shifts all
-     *          subsequent elements in mValues and col_indices_, and updates row_ptrs_
+     *          subsequent elements in mValues and mColIndices, and updates mRowPtrs
      *          for all rows after the modified one. For bulk construction, use COO
      *          constructor instead. Setting to zero removes the entry to maintain
      *          sparse invariant.
@@ -475,8 +475,8 @@ public:
             throw std::out_of_range("CSRMatrix: index out of range");
         }
 
-        ptr_type start = row_ptrs_[row];
-        ptr_type end = row_ptrs_[row + 1];
+        ptr_type start = mRowPtrs[row];
+        ptr_type end = mRowPtrs[row + 1];
         IndexType target_col = static_cast<IndexType>(col);
 
         // First, remove all existing entries at this position (handles duplicates)
@@ -484,12 +484,12 @@ public:
         size_type removed_count = 0;
         for (ptr_type i = start; i < end; ++i)
         {
-            if (col_indices_[i] != target_col)
+            if (mColIndices[i] != target_col)
             {
                 if (write_pos != i)
                 {
                     mValues[write_pos] = mValues[i];
-                    col_indices_[write_pos] = col_indices_[i];
+                    mColIndices[write_pos] = mColIndices[i];
                 }
                 ++write_pos;
             }
@@ -506,17 +506,17 @@ public:
             std::move(mValues.begin() + static_cast<std::ptrdiff_t>(end),
                       mValues.end(),
                       mValues.begin() + static_cast<std::ptrdiff_t>(end - removed_count));
-            std::move(col_indices_.begin() + static_cast<std::ptrdiff_t>(end),
-                      col_indices_.end(),
-                      col_indices_.begin() + static_cast<std::ptrdiff_t>(end - removed_count));
+            std::move(mColIndices.begin() + static_cast<std::ptrdiff_t>(end),
+                      mColIndices.end(),
+                      mColIndices.begin() + static_cast<std::ptrdiff_t>(end - removed_count));
 
             mValues.resize(mValues.size() - removed_count);
-            col_indices_.resize(col_indices_.size() - removed_count);
+            mColIndices.resize(mColIndices.size() - removed_count);
 
             // Update row pointers
             for (size_type r = row + 1; r <= mRows; ++r)
             {
-                row_ptrs_[r] -= removed_count;
+                mRowPtrs[r] -= removed_count;
             }
         }
 
@@ -524,12 +524,12 @@ public:
         if (!is_effectively_zero(value))
         {
             // Find insertion position (maintain sorted order)
-            start = row_ptrs_[row];
-            end = row_ptrs_[row + 1];
+            start = mRowPtrs[row];
+            end = mRowPtrs[row + 1];
             ptr_type insert_pos = start;
             for (ptr_type i = start; i < end; ++i)
             {
-                if (col_indices_[i] > target_col)
+                if (mColIndices[i] > target_col)
                 {
                     break;
                 }
@@ -537,10 +537,10 @@ public:
             }
 
             mValues.insert(mValues.begin() + static_cast<std::ptrdiff_t>(insert_pos), value);
-            col_indices_.insert(col_indices_.begin() + static_cast<std::ptrdiff_t>(insert_pos), target_col);
+            mColIndices.insert(mColIndices.begin() + static_cast<std::ptrdiff_t>(insert_pos), target_col);
             for (size_type r = row + 1; r <= mRows; ++r)
             {
-                row_ptrs_[r]++;
+                mRowPtrs[r]++;
             }
         }
     }
@@ -601,38 +601,38 @@ public:
         };
 
         RowView(const IndexType* col_begin, const IndexType* col_end, const T* val_begin)
-            : col_begin_(col_begin)
-            , col_end_(col_end)
-            , val_begin_(val_begin)
+            : mColBegin(col_begin)
+            , mColEnd(col_end)
+            , mValBegin(val_begin)
         {
         }
 
         [[nodiscard]] Iterator begin() const
         {
-            return Iterator(col_begin_, val_begin_);
+            return Iterator(mColBegin, mValBegin);
         }
         [[nodiscard]] Iterator end() const
         {
-            return Iterator(col_end_, val_begin_ + (col_end_ - col_begin_));
+            return Iterator(mColEnd, mValBegin + (mColEnd - mColBegin));
         }
         [[nodiscard]] size_type size() const
         {
-            return static_cast<size_type>(col_end_ - col_begin_);
+            return static_cast<size_type>(mColEnd - mColBegin);
         }
         [[nodiscard]] bool empty() const
         {
-            return col_begin_ == col_end_;
+            return mColBegin == mColEnd;
         }
 
         [[nodiscard]] std::pair<IndexType, T> operator[](size_type idx) const
         {
-            return {col_begin_[idx], val_begin_[idx]};
+            return {mColBegin[idx], mValBegin[idx]};
         }
 
     private:
-        const IndexType* col_begin_;
-        const IndexType* col_end_;
-        const T* val_begin_;
+        const IndexType* mColBegin;
+        const IndexType* mColEnd;
+        const T* mValBegin;
     };
 
     /**
@@ -646,9 +646,9 @@ public:
         {
             throw std::out_of_range("CSRMatrix: row index out of range");
         }
-        ptr_type start = row_ptrs_[row];
-        ptr_type end = row_ptrs_[row + 1];
-        return RowView(col_indices_.data() + start, col_indices_.data() + end, mValues.data() + start);
+        ptr_type start = mRowPtrs[row];
+        ptr_type end = mRowPtrs[row + 1];
+        return RowView(mColIndices.data() + start, mColIndices.data() + end, mValues.data() + start);
     }
 
     // =========================================================================
@@ -663,12 +663,12 @@ public:
         for (size_type i = 0; i < mRows; ++i)
         {
             T sum = T{0};
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += mValues[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[mColIndices[j]];
             }
             y[i] = sum;
         }
@@ -683,12 +683,12 @@ public:
         for (size_type i = 0; i < mRows; ++i)
         {
             T sum = T{0};
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += mValues[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[mColIndices[j]];
             }
 
             // Safe overwrite when beta is zero to avoid NaN propagation
@@ -743,12 +743,12 @@ public:
         for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mRows); ++i)
         {
             T sum = T{0};
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += mValues[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[mColIndices[j]];
             }
             y[i] = sum;
         }
@@ -770,12 +770,12 @@ public:
         for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(mRows); ++i)
         {
             T sum = T{0};
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                sum += mValues[j] * x[col_indices_[j]];
+                sum += mValues[j] * x[mColIndices[j]];
             }
 
             // Safe overwrite when beta is zero to avoid NaN propagation
@@ -812,7 +812,7 @@ public:
 
         // Count entries per column (rows in transposed)
         std::vector<ptr_type> col_counts(mCols + 1, 0);
-        for (IndexType col : col_indices_)
+        for (IndexType col : mColIndices)
         {
             col_counts[static_cast<size_type>(col) + 1]++;
         }
@@ -823,23 +823,23 @@ public:
             col_counts[i + 1] += col_counts[i];
         }
 
-        result.row_ptrs_ = col_counts;
+        result.mRowPtrs = col_counts;
         result.mValues.resize(nnz());
-        result.col_indices_.resize(nnz());
+        result.mColIndices.resize(nnz());
 
         // Fill transposed values
         std::vector<ptr_type> write_pos = col_counts;
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                IndexType col = col_indices_[j];
+                IndexType col = mColIndices[j];
                 ptr_type dest = write_pos[idx(col)]++;
                 result.mValues[dest] = mValues[j];
-                result.col_indices_[dest] = static_cast<IndexType>(i);
+                result.mColIndices[dest] = static_cast<IndexType>(i);
             }
         }
 
@@ -860,33 +860,33 @@ public:
 
         CSRMatrix result(mRows, mCols);
         result.mValues.reserve(nnz() + other.nnz());
-        result.col_indices_.reserve(nnz() + other.nnz());
+        result.mColIndices.reserve(nnz() + other.nnz());
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type a_ptr = row_ptrs_[i];
-            ptr_type a_end = row_ptrs_[i + 1];
-            ptr_type b_ptr = other.row_ptrs_[i];
-            ptr_type b_end = other.row_ptrs_[i + 1];
+            ptr_type a_ptr = mRowPtrs[i];
+            ptr_type a_end = mRowPtrs[i + 1];
+            ptr_type b_ptr = other.mRowPtrs[i];
+            ptr_type b_end = other.mRowPtrs[i + 1];
 
             // Merge rows, consolidating all duplicates at each column position
             while (a_ptr < a_end || b_ptr < b_end)
             {
                 // Determine the current minimum column
-                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? mColIndices[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.mColIndices[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T sum = T{0};
 
                 // Consume ALL entries at cur_col from A (handles duplicates)
-                while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
+                while (a_ptr < a_end && mColIndices[a_ptr] == cur_col)
                 {
                     sum += mValues[a_ptr++];
                 }
 
                 // Consume ALL entries at cur_col from B (handles duplicates)
-                while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
+                while (b_ptr < b_end && other.mColIndices[b_ptr] == cur_col)
                 {
                     sum += other.mValues[b_ptr++];
                 }
@@ -895,11 +895,11 @@ public:
                 if (!is_effectively_zero(sum))
                 {
                     result.mValues.push_back(sum);
-                    result.col_indices_.push_back(cur_col);
+                    result.mColIndices.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -919,33 +919,33 @@ public:
 
         CSRMatrix result(mRows, mCols);
         result.mValues.reserve(nnz() + other.nnz());
-        result.col_indices_.reserve(nnz() + other.nnz());
+        result.mColIndices.reserve(nnz() + other.nnz());
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type a_ptr = row_ptrs_[i];
-            ptr_type a_end = row_ptrs_[i + 1];
-            ptr_type b_ptr = other.row_ptrs_[i];
-            ptr_type b_end = other.row_ptrs_[i + 1];
+            ptr_type a_ptr = mRowPtrs[i];
+            ptr_type a_end = mRowPtrs[i + 1];
+            ptr_type b_ptr = other.mRowPtrs[i];
+            ptr_type b_end = other.mRowPtrs[i + 1];
 
             // Merge rows, consolidating all duplicates at each column position
             while (a_ptr < a_end || b_ptr < b_end)
             {
                 // Determine the current minimum column
-                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? mColIndices[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.mColIndices[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T diff = T{0};
 
                 // Consume ALL entries at cur_col from A (handles duplicates)
-                while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
+                while (a_ptr < a_end && mColIndices[a_ptr] == cur_col)
                 {
                     diff += mValues[a_ptr++];
                 }
 
                 // Subtract ALL entries at cur_col from B (handles duplicates)
-                while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
+                while (b_ptr < b_end && other.mColIndices[b_ptr] == cur_col)
                 {
                     diff -= other.mValues[b_ptr++];
                 }
@@ -954,11 +954,11 @@ public:
                 if (!is_effectively_zero(diff))
                 {
                     result.mValues.push_back(diff);
-                    result.col_indices_.push_back(cur_col);
+                    result.mColIndices.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -994,8 +994,8 @@ public:
         if (is_effectively_zero(alpha))
         {
             mValues.clear();
-            col_indices_.clear();
-            std::fill(row_ptrs_.begin(), row_ptrs_.end(), ptr_type{0});
+            mColIndices.clear();
+            std::fill(mRowPtrs.begin(), mRowPtrs.end(), ptr_type{0});
             return *this;
         }
 
@@ -1036,7 +1036,7 @@ public:
 
         CSRMatrix result(mRows, B.mCols);
         result.mValues.reserve(std::max(nnz(), B.nnz()));
-        result.col_indices_.reserve(std::max(nnz(), B.nnz()));
+        result.mColIndices.reserve(std::max(nnz(), B.nnz()));
 
         // Workspace (hoisted out of loop for performance)
         std::vector<T> accumulator(B.mCols, T{0});
@@ -1049,20 +1049,20 @@ public:
         {
             touched_cols.clear();
 
-            ptr_type a_start = row_ptrs_[i];
-            ptr_type a_end = row_ptrs_[i + 1];
+            ptr_type a_start = mRowPtrs[i];
+            ptr_type a_end = mRowPtrs[i + 1];
 
             for (ptr_type a_ptr = a_start; a_ptr < a_end; ++a_ptr)
             {
-                IndexType k = col_indices_[a_ptr];
+                IndexType k = mColIndices[a_ptr];
                 T a_val = mValues[a_ptr];
 
-                ptr_type b_start = B.row_ptrs_[idx(k)];
-                ptr_type b_end = B.row_ptrs_[idx(k + 1)];
+                ptr_type b_start = B.mRowPtrs[idx(k)];
+                ptr_type b_end = B.mRowPtrs[idx(k + 1)];
 
                 for (ptr_type b_ptr = b_start; b_ptr < b_end; ++b_ptr)
                 {
-                    IndexType j = B.col_indices_[b_ptr];
+                    IndexType j = B.mColIndices[b_ptr];
 
                     if (marker[idx(j)] != i)
                     {
@@ -1083,12 +1083,12 @@ public:
                 if (!is_effectively_zero(val))
                 {
                     result.mValues.push_back(val);
-                    result.col_indices_.push_back(j);
+                    result.mColIndices.push_back(j);
                 }
                 accumulator[idx(j)] = T{0};
             }
 
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1111,7 +1111,7 @@ public:
         {
             return false;
         }
-        return row_ptrs_ == other.row_ptrs_ && col_indices_ == other.col_indices_ && mValues == other.mValues;
+        return mRowPtrs == other.mRowPtrs && mColIndices == other.mColIndices && mValues == other.mValues;
     }
 
     [[nodiscard]] bool operator!=(const CSRMatrix& other) const
@@ -1130,7 +1130,7 @@ public:
         {
             return false;
         }
-        if (row_ptrs_ != other.row_ptrs_ || col_indices_ != other.col_indices_)
+        if (mRowPtrs != other.mRowPtrs || mColIndices != other.mColIndices)
         {
             return false;
         }
@@ -1181,13 +1181,13 @@ public:
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
                 // Use += to sum duplicates (consistent with matvec/matmul semantics)
-                dense[i * mCols + idx(col_indices_[j])] += mValues[j];
+                dense[i * mCols + idx(mColIndices[j])] += mValues[j];
             }
         }
 
@@ -1240,7 +1240,7 @@ public:
             return false;
         }
 
-        if (row_ptrs_ != AT.row_ptrs_ || col_indices_ != AT.col_indices_)
+        if (mRowPtrs != AT.mRowPtrs || mColIndices != AT.mColIndices)
         {
             return false;
         }
@@ -1277,10 +1277,10 @@ public:
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type read_start = row_ptrs_[i];
-            row_ptrs_[i] = write_pos;
+            ptr_type read_start = mRowPtrs[i];
+            mRowPtrs[i] = write_pos;
 
-            ptr_type read_end = row_ptrs_[i + 1];
+            ptr_type read_end = mRowPtrs[i + 1];
             for (ptr_type j = read_start; j < read_end; ++j)
             {
                 using std::abs;
@@ -1298,15 +1298,15 @@ public:
                 if (is_nonzero)
                 {
                     mValues[write_pos] = mValues[j];
-                    col_indices_[write_pos] = col_indices_[j];
+                    mColIndices[write_pos] = mColIndices[j];
                     ++write_pos;
                 }
             }
         }
 
-        row_ptrs_[mRows] = write_pos;
+        mRowPtrs[mRows] = write_pos;
         mValues.resize(write_pos);
-        col_indices_.resize(write_pos);
+        mColIndices.resize(write_pos);
     }
 
     /**
@@ -1315,8 +1315,8 @@ public:
     void shrink_to_fit()
     {
         mValues.shrink_to_fit();
-        col_indices_.shrink_to_fit();
-        row_ptrs_.shrink_to_fit();
+        mColIndices.shrink_to_fit();
+        mRowPtrs.shrink_to_fit();
     }
 
     /**
@@ -1328,7 +1328,7 @@ public:
         {
             throw std::out_of_range("CSRMatrix: row index out of range");
         }
-        return row_ptrs_[row + 1] - row_ptrs_[row];
+        return mRowPtrs[row + 1] - mRowPtrs[row];
     }
 
     // =========================================================================

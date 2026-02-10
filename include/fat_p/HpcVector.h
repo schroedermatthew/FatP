@@ -156,7 +156,7 @@ public:
 private:
     allocator_type mAllocator;
     pointer data_;
-    size_type size_;
+    size_type mSize;
     size_type mCapacity;
 
     // Internal helpers
@@ -226,16 +226,16 @@ private:
             if constexpr (std::is_trivially_copyable_v<T>)
             {
                 // Fast path: memcpy is noexcept, no partial construction possible
-                if (size_ > 0)
+                if (mSize > 0)
                 {
-                    std::memcpy(new_data, data_, size_ * sizeof(T));
+                    std::memcpy(new_data, data_, mSize * sizeof(T));
                 }
-                constructed_count = size_;
+                constructed_count = mSize;
             }
             else
             {
                 // Slow path: track progress for exception safety
-                for (; constructed_count < size_; ++constructed_count)
+                for (; constructed_count < mSize; ++constructed_count)
                 {
                     new (new_data + constructed_count) T(std::move(data_[constructed_count]));
                 }
@@ -255,7 +255,7 @@ private:
             throw;
         }
 
-        destroy_range(data_, data_ + size_);
+        destroy_range(data_, data_ + mSize);
         mAllocator.deallocate(data_, mCapacity);
 
         data_ = new_data;
@@ -270,7 +270,7 @@ public:
     HpcVector() noexcept
         : mAllocator()
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
     }
@@ -278,7 +278,7 @@ public:
     explicit HpcVector(const allocator_type& alloc) noexcept
         : mAllocator(alloc)
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
     }
@@ -286,7 +286,7 @@ public:
     explicit HpcVector(const Policy& policy) noexcept
         : mAllocator(policy)
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
     }
@@ -294,7 +294,7 @@ public:
     explicit HpcVector(size_type count, const allocator_type& alloc = allocator_type())
         : mAllocator(alloc)
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
         if (count > 0)
@@ -306,13 +306,13 @@ public:
             {
                 assert(count <= std::numeric_limits<size_t>::max() / sizeof(T));
                 std::memset(data_, 0, count * sizeof(T));
-                size_ = count;
+                mSize = count;
             }
             else
             {
-                for (size_ = 0; size_ < count; ++size_)
+                for (mSize = 0; mSize < count; ++mSize)
                 {
-                    new (data_ + size_) T();
+                    new (data_ + mSize) T();
                 }
             }
         }
@@ -321,7 +321,7 @@ public:
     HpcVector(size_type count, const T& value, const allocator_type& alloc = allocator_type())
         : mAllocator(alloc)
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
         if (count > 0)
@@ -329,9 +329,9 @@ public:
             data_ = mAllocator.allocate(count);
             mCapacity = count;
 
-            for (size_ = 0; size_ < count; ++size_)
+            for (mSize = 0; mSize < count; ++mSize)
             {
-                new (data_ + size_) T(value);
+                new (data_ + mSize) T(value);
             }
         }
     }
@@ -340,7 +340,7 @@ public:
     HpcVector(InputIt first, InputIt last, const allocator_type& alloc = allocator_type())
         : mAllocator(alloc)
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
         size_type count = static_cast<size_type>(std::distance(first, last));
@@ -349,9 +349,9 @@ public:
             data_ = mAllocator.allocate(count);
             mCapacity = count;
 
-            for (; first != last; ++first, ++size_)
+            for (; first != last; ++first, ++mSize)
             {
-                new (data_ + size_) T(*first);
+                new (data_ + mSize) T(*first);
             }
         }
     }
@@ -365,15 +365,15 @@ public:
     HpcVector(const HpcVector& other)
         : mAllocator(other.mAllocator)
         , data_(nullptr)
-        , size_(0)
+        , mSize(0)
         , mCapacity(0)
     {
-        if (other.size_ > 0)
+        if (other.mSize > 0)
         {
-            data_ = mAllocator.allocate(other.size_);
-            mCapacity = other.size_;
-            construct_range_copy(data_, other.data_, other.size_);
-            size_ = other.size_;
+            data_ = mAllocator.allocate(other.mSize);
+            mCapacity = other.mSize;
+            construct_range_copy(data_, other.data_, other.mSize);
+            mSize = other.mSize;
         }
     }
 
@@ -381,18 +381,18 @@ public:
     HpcVector(HpcVector&& other) noexcept
         : mAllocator(std::move(other.mAllocator))
         , data_(other.data_)
-        , size_(other.size_)
+        , mSize(other.mSize)
         , mCapacity(other.mCapacity)
     {
         other.data_ = nullptr;
-        other.size_ = 0;
+        other.mSize = 0;
         other.mCapacity = 0;
     }
 
     // Destructor
     ~HpcVector()
     {
-        destroy_range(data_, data_ + size_);
+        destroy_range(data_, data_ + mSize);
         mAllocator.deallocate(data_, mCapacity);
     }
 
@@ -414,16 +414,16 @@ public:
     {
         if (this != &other)
         {
-            destroy_range(data_, data_ + size_);
+            destroy_range(data_, data_ + mSize);
             mAllocator.deallocate(data_, mCapacity);
 
             mAllocator = std::move(other.mAllocator);
             data_ = other.data_;
-            size_ = other.size_;
+            mSize = other.mSize;
             mCapacity = other.mCapacity;
 
             other.data_ = nullptr;
-            other.size_ = 0;
+            other.mSize = 0;
             other.mCapacity = 0;
         }
         return *this;
@@ -452,7 +452,7 @@ public:
 
     [[nodiscard]] reference at(size_type pos)
     {
-        if (pos >= size_)
+        if (pos >= mSize)
         {
             throw std::out_of_range("HpcVector::at: index out of range");
         }
@@ -461,7 +461,7 @@ public:
 
     [[nodiscard]] const_reference at(size_type pos) const
     {
-        if (pos >= size_)
+        if (pos >= mSize)
         {
             throw std::out_of_range("HpcVector::at: index out of range");
         }
@@ -478,11 +478,11 @@ public:
     }
     [[nodiscard]] reference back() noexcept
     {
-        return data_[size_ - 1];
+        return data_[mSize - 1];
     }
     [[nodiscard]] const_reference back() const noexcept
     {
-        return data_[size_ - 1];
+        return data_[mSize - 1];
     }
 
     [[nodiscard]] pointer data() noexcept
@@ -583,15 +583,15 @@ public:
     }
     [[nodiscard]] iterator end() noexcept
     {
-        return data_ + size_;
+        return data_ + mSize;
     }
     [[nodiscard]] const_iterator end() const noexcept
     {
-        return data_ + size_;
+        return data_ + mSize;
     }
     [[nodiscard]] const_iterator cend() const noexcept
     {
-        return data_ + size_;
+        return data_ + mSize;
     }
     [[nodiscard]] reverse_iterator rbegin() noexcept
     {
@@ -624,11 +624,11 @@ public:
 
     [[nodiscard]] bool empty() const noexcept
     {
-        return size_ == 0;
+        return mSize == 0;
     }
     [[nodiscard]] size_type size() const noexcept
     {
-        return size_;
+        return mSize;
     }
     [[nodiscard]] size_type capacity() const noexcept
     {
@@ -650,9 +650,9 @@ public:
 
     void shrink_to_fit()
     {
-        if (mCapacity > size_ && size_ > 0)
+        if (mCapacity > mSize && mSize > 0)
         {
-            reallocate(size_);
+            reallocate(mSize);
         }
     }
 
@@ -662,56 +662,56 @@ public:
 
     void clear() noexcept
     {
-        destroy_range(data_, data_ + size_);
-        size_ = 0;
+        destroy_range(data_, data_ + mSize);
+        mSize = 0;
     }
 
     void push_back(const T& value)
     {
-        if (size_ >= mCapacity)
+        if (mSize >= mCapacity)
         {
             size_type new_cap = mCapacity == 0 ? 1 : mCapacity * 2;
             reallocate(new_cap);
         }
-        new (data_ + size_) T(value);
-        ++size_;
+        new (data_ + mSize) T(value);
+        ++mSize;
     }
 
     void push_back(T&& value)
     {
-        if (size_ >= mCapacity)
+        if (mSize >= mCapacity)
         {
             size_type new_cap = mCapacity == 0 ? 1 : mCapacity * 2;
             reallocate(new_cap);
         }
-        new (data_ + size_) T(std::move(value));
-        ++size_;
+        new (data_ + mSize) T(std::move(value));
+        ++mSize;
     }
 
     template <typename... Args>
     reference emplace_back(Args&&... args)
     {
-        if (size_ >= mCapacity)
+        if (mSize >= mCapacity)
         {
             size_type new_cap = mCapacity == 0 ? 1 : mCapacity * 2;
             reallocate(new_cap);
         }
-        new (data_ + size_) T(std::forward<Args>(args)...);
-        return data_[size_++];
+        new (data_ + mSize) T(std::forward<Args>(args)...);
+        return data_[mSize++];
     }
 
     void pop_back() noexcept
     {
-        if (size_ > 0)
+        if (mSize > 0)
         {
-            --size_;
-            data_[size_].~T();
+            --mSize;
+            data_[mSize].~T();
         }
     }
 
     void resize(size_type count)
     {
-        if (count > size_)
+        if (count > mSize)
         {
             if (count > mCapacity)
             {
@@ -719,41 +719,41 @@ public:
             }
             if constexpr (std::is_trivially_default_constructible_v<T>)
             {
-                std::memset(data_ + size_, 0, (count - size_) * sizeof(T));
+                std::memset(data_ + mSize, 0, (count - mSize) * sizeof(T));
             }
             else
             {
-                for (size_type i = size_; i < count; ++i)
+                for (size_type i = mSize; i < count; ++i)
                 {
                     new (data_ + i) T();
                 }
             }
         }
-        else if (count < size_)
+        else if (count < mSize)
         {
-            destroy_range(data_ + count, data_ + size_);
+            destroy_range(data_ + count, data_ + mSize);
         }
-        size_ = count;
+        mSize = count;
     }
 
     void resize(size_type count, const T& value)
     {
-        if (count > size_)
+        if (count > mSize)
         {
             if (count > mCapacity)
             {
                 reallocate(count);
             }
-            for (size_type i = size_; i < count; ++i)
+            for (size_type i = mSize; i < count; ++i)
             {
                 new (data_ + i) T(value);
             }
         }
-        else if (count < size_)
+        else if (count < mSize)
         {
-            destroy_range(data_ + count, data_ + size_);
+            destroy_range(data_ + count, data_ + mSize);
         }
-        size_ = count;
+        mSize = count;
     }
 
     // =========================================================================
@@ -769,22 +769,22 @@ public:
     iterator insert(const_iterator pos, const T& value)
     {
         size_type index = static_cast<size_type>(pos - data_);
-        if (size_ >= mCapacity)
+        if (mSize >= mCapacity)
         {
             size_type new_cap = mCapacity == 0 ? 1 : mCapacity * 2;
             reallocate(new_cap);
         }
 
         // Shift elements to make room
-        if (index < size_)
+        if (index < mSize)
         {
             if constexpr (std::is_trivially_copyable_v<T>)
             {
-                std::memmove(data_ + index + 1, data_ + index, (size_ - index) * sizeof(T));
+                std::memmove(data_ + index + 1, data_ + index, (mSize - index) * sizeof(T));
             }
             else
             {
-                for (size_type i = size_; i > index; --i)
+                for (size_type i = mSize; i > index; --i)
                 {
                     new (data_ + i) T(std::move(data_[i - 1]));
                     data_[i - 1].~T();
@@ -793,7 +793,7 @@ public:
         }
 
         new (data_ + index) T(value);
-        ++size_;
+        ++mSize;
         return data_ + index;
     }
 
@@ -806,22 +806,22 @@ public:
     iterator insert(const_iterator pos, T&& value)
     {
         size_type index = static_cast<size_type>(pos - data_);
-        if (size_ >= mCapacity)
+        if (mSize >= mCapacity)
         {
             size_type new_cap = mCapacity == 0 ? 1 : mCapacity * 2;
             reallocate(new_cap);
         }
 
         // Shift elements to make room
-        if (index < size_)
+        if (index < mSize)
         {
             if constexpr (std::is_trivially_copyable_v<T>)
             {
-                std::memmove(data_ + index + 1, data_ + index, (size_ - index) * sizeof(T));
+                std::memmove(data_ + index + 1, data_ + index, (mSize - index) * sizeof(T));
             }
             else
             {
-                for (size_type i = size_; i > index; --i)
+                for (size_type i = mSize; i > index; --i)
                 {
                     new (data_ + i) T(std::move(data_[i - 1]));
                     data_[i - 1].~T();
@@ -830,7 +830,7 @@ public:
         }
 
         new (data_ + index) T(std::move(value));
-        ++size_;
+        ++mSize;
         return data_ + index;
     }
 
@@ -854,23 +854,23 @@ public:
         }
 
         // Ensure capacity
-        if (size_ + count > mCapacity)
+        if (mSize + count > mCapacity)
         {
-            size_type new_cap = std::max(mCapacity * 2, size_ + count);
+            size_type new_cap = std::max(mCapacity * 2, mSize + count);
             reallocate(new_cap);
         }
 
         // Shift existing elements to make room
-        if (index < size_)
+        if (index < mSize)
         {
             if constexpr (std::is_trivially_copyable_v<T>)
             {
-                std::memmove(data_ + index + count, data_ + index, (size_ - index) * sizeof(T));
+                std::memmove(data_ + index + count, data_ + index, (mSize - index) * sizeof(T));
             }
             else
             {
                 // Move from end to avoid overwriting
-                for (size_type i = size_; i > index; --i)
+                for (size_type i = mSize; i > index; --i)
                 {
                     new (data_ + i - 1 + count) T(std::move(data_[i - 1]));
                     data_[i - 1].~T();
@@ -885,7 +885,7 @@ public:
             new (data_ + insert_idx) T(*it);
         }
 
-        size_ += count;
+        mSize += count;
         return data_ + index;
     }
 
@@ -906,22 +906,22 @@ public:
         }
 
         // Ensure capacity
-        if (size_ + count > mCapacity)
+        if (mSize + count > mCapacity)
         {
-            size_type new_cap = std::max(mCapacity * 2, size_ + count);
+            size_type new_cap = std::max(mCapacity * 2, mSize + count);
             reallocate(new_cap);
         }
 
         // Shift existing elements
-        if (index < size_)
+        if (index < mSize)
         {
             if constexpr (std::is_trivially_copyable_v<T>)
             {
-                std::memmove(data_ + index + count, data_ + index, (size_ - index) * sizeof(T));
+                std::memmove(data_ + index + count, data_ + index, (mSize - index) * sizeof(T));
             }
             else
             {
-                for (size_type i = size_; i > index; --i)
+                for (size_type i = mSize; i > index; --i)
                 {
                     new (data_ + i - 1 + count) T(std::move(data_[i - 1]));
                     data_[i - 1].~T();
@@ -935,7 +935,7 @@ public:
             new (data_ + index + i) T(value);
         }
 
-        size_ += count;
+        mSize += count;
         return data_ + index;
     }
 
@@ -954,7 +954,7 @@ public:
     {
         std::swap(mAllocator, other.mAllocator);
         std::swap(data_, other.data_);
-        std::swap(size_, other.size_);
+        std::swap(mSize, other.mSize);
         std::swap(mCapacity, other.mCapacity);
     }
 

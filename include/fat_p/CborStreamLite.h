@@ -115,7 +115,7 @@ struct CborTagged
     CborTagged(const CborTagged& other);
     CborTagged& operator=(const CborTagged& other);
 
-    // Move support â€” defined after CborValue is complete
+    // Move support Ã¢â‚¬â€ defined after CborValue is complete
     CborTagged(CborTagged&&) noexcept;
     CborTagged& operator=(CborTagged&&) noexcept;
 
@@ -155,24 +155,24 @@ public:
                                  double>;
 
     CborValue()
-        : data_(std::monostate{})
+        : mData(std::monostate{})
     {
     }
 
     explicit CborValue(std::uint64_t v)
-        : data_(v)
+        : mData(v)
     {
     }
 
     explicit CborValue(std::int64_t v)
-        : data_(v)
+        : mData(v)
     {
     }
 
     template <typename T>
         requires (std::is_integral_v<T> && std::is_signed_v<T> && !std::is_same_v<T, std::int64_t>)
     explicit CborValue(T v)
-        : data_(static_cast<std::int64_t>(v))
+        : mData(static_cast<std::int64_t>(v))
     {
     }
 
@@ -180,86 +180,86 @@ public:
         requires (std::is_integral_v<T> && std::is_unsigned_v<T> && !std::is_same_v<T, std::uint64_t> &&
                   !std::is_same_v<T, bool>)
     explicit CborValue(T v)
-        : data_(static_cast<std::uint64_t>(v))
+        : mData(static_cast<std::uint64_t>(v))
     {
     }
 
     explicit CborValue(CborBytes v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     explicit CborValue(std::string v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     explicit CborValue(const char* v)
-        : data_(std::string(v))
+        : mData(std::string(v))
     {
     }
 
     explicit CborValue(CborArray v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     explicit CborValue(CborMap v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     explicit CborValue(CborTagged v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     explicit CborValue(SimpleValue v)
-        : data_(v)
+        : mData(v)
     {
     }
 
     explicit CborValue(double v)
-        : data_(v)
+        : mData(v)
     {
     }
 
     explicit CborValue(float v)
-        : data_(static_cast<double>(v))
+        : mData(static_cast<double>(v))
     {
     }
 
     explicit CborValue(bool v)
-        : data_(v ? SimpleValue::True : SimpleValue::False)
+        : mData(v ? SimpleValue::True : SimpleValue::False)
     {
     }
 
     bool is_null() const
     {
-        auto* sv = std::get_if<SimpleValue>(&data_);
+        auto* sv = std::get_if<SimpleValue>(&mData);
         return sv && *sv == SimpleValue::Null;
     }
 
     bool is_undefined() const
     {
-        auto* sv = std::get_if<SimpleValue>(&data_);
+        auto* sv = std::get_if<SimpleValue>(&mData);
         return sv && *sv == SimpleValue::Undefined;
     }
 
     bool is_bool() const
     {
-        auto* sv = std::get_if<SimpleValue>(&data_);
+        auto* sv = std::get_if<SimpleValue>(&mData);
         return sv && (*sv == SimpleValue::True || *sv == SimpleValue::False);
     }
 
     bool is_unsigned() const
     {
-        return std::holds_alternative<std::uint64_t>(data_);
+        return std::holds_alternative<std::uint64_t>(mData);
     }
 
     bool is_signed() const
     {
-        return std::holds_alternative<std::int64_t>(data_);
+        return std::holds_alternative<std::int64_t>(mData);
     }
 
     bool is_integer() const
@@ -269,37 +269,37 @@ public:
 
     bool is_float() const
     {
-        return std::holds_alternative<double>(data_);
+        return std::holds_alternative<double>(mData);
     }
 
     bool is_bytes() const
     {
-        return std::holds_alternative<CborBytes>(data_);
+        return std::holds_alternative<CborBytes>(mData);
     }
 
     bool is_string() const
     {
-        return std::holds_alternative<std::string>(data_);
+        return std::holds_alternative<std::string>(mData);
     }
 
     bool is_array() const
     {
-        return std::holds_alternative<CborArray>(data_);
+        return std::holds_alternative<CborArray>(mData);
     }
 
     bool is_map() const
     {
-        return std::holds_alternative<CborMap>(data_);
+        return std::holds_alternative<CborMap>(mData);
     }
 
     bool is_tagged() const
     {
-        return std::holds_alternative<CborTagged>(data_);
+        return std::holds_alternative<CborTagged>(mData);
     }
 
     bool as_bool() const
     {
-        auto* sv = std::get_if<SimpleValue>(&data_);
+        auto* sv = std::get_if<SimpleValue>(&mData);
         if (!sv)
         {
             throw std::runtime_error("CborValue: not a boolean");
@@ -317,91 +317,91 @@ public:
 
     std::uint64_t as_unsigned() const
     {
-        return std::get<std::uint64_t>(data_);
+        return std::get<std::uint64_t>(mData);
     }
 
     std::int64_t as_signed() const
     {
-        return std::get<std::int64_t>(data_);
+        return std::get<std::int64_t>(mData);
     }
 
     double as_float() const
     {
-        return std::get<double>(data_);
+        return std::get<double>(mData);
     }
 
     const CborBytes& as_bytes() const
     {
-        return std::get<CborBytes>(data_);
+        return std::get<CborBytes>(mData);
     }
 
     const std::string& as_string() const
     {
-        return std::get<std::string>(data_);
+        return std::get<std::string>(mData);
     }
 
     const CborArray& as_array() const
     {
-        return std::get<CborArray>(data_);
+        return std::get<CborArray>(mData);
     }
 
     const CborMap& as_map() const
     {
-        return std::get<CborMap>(data_);
+        return std::get<CborMap>(mData);
     }
 
     const CborTagged& as_tagged() const
     {
-        return std::get<CborTagged>(data_);
+        return std::get<CborTagged>(mData);
     }
 
     CborBytes& as_bytes()
     {
-        return std::get<CborBytes>(data_);
+        return std::get<CborBytes>(mData);
     }
 
     std::string& as_string()
     {
-        return std::get<std::string>(data_);
+        return std::get<std::string>(mData);
     }
 
     CborArray& as_array()
     {
-        return std::get<CborArray>(data_);
+        return std::get<CborArray>(mData);
     }
 
     CborMap& as_map()
     {
-        return std::get<CborMap>(data_);
+        return std::get<CborMap>(mData);
     }
 
     CborTagged& as_tagged()
     {
-        return std::get<CborTagged>(data_);
+        return std::get<CborTagged>(mData);
     }
 
     bool operator<(const CborValue& other) const
     {
-        return data_ < other.data_;
+        return mData < other.mData;
     }
 
     bool operator==(const CborValue& other) const
     {
-        return data_ == other.data_;
+        return mData == other.mData;
     }
 
     const Variant& variant() const
     {
-        return data_;
+        return mData;
     }
 
     Variant& variant()
     {
-        return data_;
+        return mData;
     }
 
 private:
-    Variant data_;
+    Variant mData;
 };
 
 inline CborTagged::CborTagged()
@@ -640,14 +640,14 @@ public:
         mRoot = CborValue{};
         mStack.clear();
         mArgument = 0;
-        arg_bytes_needed_ = 0;
-        arg_bytes_read_ = 0;
-        content_remaining_ = 0;
-        current_major_ = 0;
-        current_ai_ = 0;
-        byte_buffer_.clear();
-        string_buffer_.clear();
-        pending_map_key_ = CborValue{};
+        mArgBytesNeeded = 0;
+        mArgBytesRead = 0;
+        mContentRemaining = 0;
+        mCurrentMajor = 0;
+        mCurrentAi = 0;
+        mByteBuffer.clear();
+        mStringBuffer.clear();
+        mPendingMapKey = CborValue{};
     }
 
 private:
@@ -699,48 +699,48 @@ private:
 
     ParseStatus process_initial_byte(std::uint8_t byte)
     {
-        current_major_ = byte >> 5;
-        current_ai_ = byte & 0x1F;
+        mCurrentMajor = byte >> 5;
+        mCurrentAi = byte & 0x1F;
 
-        if (current_ai_ == 31)
+        if (mCurrentAi == 31)
         {
-            if (current_major_ >= 2 && current_major_ <= 5)
+            if (mCurrentMajor >= 2 && mCurrentMajor <= 5)
             {
                 mError = ParseError::IndefiniteLengthNotSupported;
                 return ParseStatus::Error;
             }
-            if (current_major_ == 7)
+            if (mCurrentMajor == 7)
             {
                 mError = ParseError::InvalidInitialByte;
                 return ParseStatus::Error;
             }
         }
 
-        if (current_ai_ >= 28 && current_ai_ <= 30)
+        if (mCurrentAi >= 28 && mCurrentAi <= 30)
         {
             mError = ParseError::ReservedAdditionalInfo;
             return ParseStatus::Error;
         }
 
-        if (current_ai_ < 24)
+        if (mCurrentAi < 24)
         {
-            mArgument = current_ai_;
+            mArgument = mCurrentAi;
             return process_complete_item();
         }
 
-        switch (current_ai_)
+        switch (mCurrentAi)
         {
             case 24:
-                arg_bytes_needed_ = 1;
+                mArgBytesNeeded = 1;
                 break;
             case 25:
-                arg_bytes_needed_ = 2;
+                mArgBytesNeeded = 2;
                 break;
             case 26:
-                arg_bytes_needed_ = 4;
+                mArgBytesNeeded = 4;
                 break;
             case 27:
-                arg_bytes_needed_ = 8;
+                mArgBytesNeeded = 8;
                 break;
             default:
                 mError = ParseError::InvalidAdditionalInfo;
@@ -748,7 +748,7 @@ private:
         }
 
         mArgument = 0;
-        arg_bytes_read_ = 0;
+        mArgBytesRead = 0;
         mState = State::ReadingArgument;
         return ParseStatus::NeedMoreData;
     }
@@ -756,9 +756,9 @@ private:
     ParseStatus process_argument_byte(std::uint8_t byte)
     {
         mArgument = (mArgument << 8) | byte;
-        ++arg_bytes_read_;
+        ++mArgBytesRead;
 
-        if (arg_bytes_read_ < arg_bytes_needed_)
+        if (mArgBytesRead < mArgBytesNeeded)
         {
             return ParseStatus::NeedMoreData;
         }
@@ -768,7 +768,7 @@ private:
 
     ParseStatus process_complete_item()
     {
-        switch (current_major_)
+        switch (mCurrentMajor)
         {
             case 0:
                 return emit_value(CborValue(mArgument));
@@ -782,10 +782,10 @@ private:
                     mError = ParseError::MaxStringSizeExceeded;
                     return ParseStatus::Error;
                 }
-                content_remaining_ = static_cast<std::size_t>(mArgument);
-                byte_buffer_.clear();
-                byte_buffer_.reserve(content_remaining_);
-                if (content_remaining_ == 0)
+                mContentRemaining = static_cast<std::size_t>(mArgument);
+                mByteBuffer.clear();
+                mByteBuffer.reserve(mContentRemaining);
+                if (mContentRemaining == 0)
                 {
                     return emit_value(CborValue(CborBytes{}));
                 }
@@ -798,10 +798,10 @@ private:
                     mError = ParseError::MaxStringSizeExceeded;
                     return ParseStatus::Error;
                 }
-                content_remaining_ = static_cast<std::size_t>(mArgument);
-                string_buffer_.clear();
-                string_buffer_.reserve(content_remaining_);
-                if (content_remaining_ == 0)
+                mContentRemaining = static_cast<std::size_t>(mArgument);
+                mStringBuffer.clear();
+                mStringBuffer.reserve(mContentRemaining);
+                if (mContentRemaining == 0)
                 {
                     return emit_value(CborValue(std::string{}));
                 }
@@ -828,36 +828,36 @@ private:
 
     ParseStatus process_bytes_content(std::uint8_t byte)
     {
-        byte_buffer_.push_back(byte);
-        --content_remaining_;
+        mByteBuffer.push_back(byte);
+        --mContentRemaining;
 
-        if (content_remaining_ == 0)
+        if (mContentRemaining == 0)
         {
-            return emit_value(CborValue(std::move(byte_buffer_)));
+            return emit_value(CborValue(std::move(mByteBuffer)));
         }
         return ParseStatus::NeedMoreData;
     }
 
     ParseStatus process_text_content(std::uint8_t byte)
     {
-        string_buffer_.push_back(static_cast<char>(byte));
-        --content_remaining_;
+        mStringBuffer.push_back(static_cast<char>(byte));
+        --mContentRemaining;
 
-        if (content_remaining_ == 0)
+        if (mContentRemaining == 0)
         {
-            return emit_value(CborValue(std::move(string_buffer_)));
+            return emit_value(CborValue(std::move(mStringBuffer)));
         }
         return ParseStatus::NeedMoreData;
     }
 
     ParseStatus process_simple_or_float()
     {
-        if (current_ai_ < 24)
+        if (mCurrentAi < 24)
         {
-            return emit_simple_value(current_ai_);
+            return emit_simple_value(mCurrentAi);
         }
 
-        switch (current_ai_)
+        switch (mCurrentAi)
         {
             case 24:
                 if (mArgument < 32)
@@ -1085,7 +1085,7 @@ private:
         {
             if (!frame.expecting_value)
             {
-                pending_map_key_ = std::move(value);
+                mPendingMapKey = std::move(value);
                 frame.expecting_value = true;
                 --frame.remaining;
                 mState = State::Initial;
@@ -1093,7 +1093,7 @@ private:
             }
             else
             {
-                frame.target->as_map()[std::move(pending_map_key_)] = std::move(value);
+                frame.target->as_map()[std::move(mPendingMapKey)] = std::move(value);
                 frame.expecting_value = false;
                 --frame.remaining;
             }
@@ -1168,17 +1168,17 @@ private:
     CborValue mRoot;
     std::vector<Frame> mStack;
 
-    std::uint8_t current_major_ = 0;
-    std::uint8_t current_ai_ = 0;
+    std::uint8_t mCurrentMajor = 0;
+    std::uint8_t mCurrentAi = 0;
     std::uint64_t mArgument = 0;
-    std::size_t arg_bytes_needed_ = 0;
-    std::size_t arg_bytes_read_ = 0;
+    std::size_t mArgBytesNeeded = 0;
+    std::size_t mArgBytesRead = 0;
 
-    std::size_t content_remaining_ = 0;
-    CborBytes byte_buffer_;
-    std::string string_buffer_;
+    std::size_t mContentRemaining = 0;
+    CborBytes mByteBuffer;
+    std::string mStringBuffer;
 
-    CborValue pending_map_key_;
+    CborValue mPendingMapKey;
 };
 
 // =============================================================================

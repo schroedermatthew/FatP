@@ -321,7 +321,7 @@ class Generator
 public:
     struct promise_type
     {
-        T current_value_;
+        T mCurrentValue;
         std::exception_ptr mException;
 
         Generator get_return_object()
@@ -340,7 +340,7 @@ public:
 
         std::suspend_always yield_value(T value) noexcept
         {
-            current_value_ = std::move(value);
+            mCurrentValue = std::move(value);
             return {};
         }
 
@@ -436,12 +436,12 @@ public:
 
         T& operator*() const
         {
-            return mHandle.promise().current_value_;
+            return mHandle.promise().mCurrentValue;
         }
 
         T* operator->() const
         {
-            return &mHandle.promise().current_value_;
+            return &mHandle.promise().mCurrentValue;
         }
 
         bool operator==(const iterator& other) const

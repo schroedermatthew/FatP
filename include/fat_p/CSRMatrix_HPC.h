@@ -197,8 +197,8 @@ private:
     size_type mRows;
     size_type mCols;
     value_vector mValues;
-    index_vector col_indices_;
-    ptr_vector row_ptrs_;
+    index_vector mColIndices;
+    ptr_vector mRowPtrs;
 
     /// Cast IndexType to size_type for safe vector indexing
     static constexpr size_type idx(IndexType i) noexcept { return static_cast<size_type>(i); }
@@ -272,7 +272,7 @@ public:
         : mRows(0)
         , mCols(0)
     {
-        row_ptrs_.push_back(0);
+        mRowPtrs.push_back(0);
     }
 
     HpcCSRMatrix(const HpcCSRMatrix&) = default;
@@ -289,7 +289,7 @@ public:
         , mCols(cols)
     {
         validate_dimensions(rows, cols);
-        row_ptrs_.resize(rows + 1, 0);
+        mRowPtrs.resize(rows + 1, 0);
     }
 
     /**
@@ -311,7 +311,7 @@ public:
                             "HpcCSRMatrix: COO arrays must have same size");
 
         size_type nnz_input = values.size();
-        row_ptrs_.resize(rows + 1, 0);
+        mRowPtrs.resize(rows + 1, 0);
 
         if (nnz_input == 0)
         {
@@ -345,7 +345,7 @@ public:
         if (dup_policy == DuplicatePolicy::Keep)
         {
             mValues.reserve(nnz_input);
-            col_indices_.reserve(nnz_input);
+            mColIndices.reserve(nnz_input);
 
             for (size_type i = 0; i < nnz_input; ++i)
             {
@@ -356,15 +356,15 @@ public:
                 {
                     size_type r = static_cast<size_type>(row_indices[idx]);
                     mValues.push_back(val);
-                    col_indices_.push_back(static_cast<IndexType>(col_indices[idx]));
-                    row_ptrs_[r + 1]++;
+                    mColIndices.push_back(static_cast<IndexType>(col_indices[idx]));
+                    mRowPtrs[r + 1]++;
                 }
             }
         }
         else
         {
             mValues.reserve(nnz_input);
-            col_indices_.reserve(nnz_input);
+            mColIndices.reserve(nnz_input);
 
             size_type i = 0;
             while (i < nnz_input)
@@ -396,18 +396,18 @@ public:
                 {
                     size_type r = static_cast<size_type>(cur_row);
                     mValues.push_back(sum);
-                    col_indices_.push_back(static_cast<IndexType>(cur_col));
-                    row_ptrs_[r + 1]++;
+                    mColIndices.push_back(static_cast<IndexType>(cur_col));
+                    mRowPtrs[r + 1]++;
                 }
 
                 i = j;
             }
         }
 
-        // Cumulative sum for row_ptrs_
+        // Cumulative sum for mRowPtrs
         for (size_type i = 0; i < mRows; ++i)
         {
-            row_ptrs_[i + 1] += row_ptrs_[i];
+            mRowPtrs[i + 1] += mRowPtrs[i];
         }
     }
 
@@ -423,7 +423,7 @@ public:
 
         HpcCSRMatrix result(rows, cols);
         result.mValues.reserve(rows * std::min(cols, size_type{16}));
-        result.col_indices_.reserve(rows * std::min(cols, size_type{16}));
+        result.mColIndices.reserve(rows * std::min(cols, size_type{16}));
 
         using std::abs;
         for (size_type i = 0; i < rows; ++i)
@@ -451,10 +451,10 @@ public:
                 if (is_nonzero)
                 {
                     result.mValues.push_back(val);
-                    result.col_indices_.push_back(static_cast<IndexType>(j));
+                    result.mColIndices.push_back(static_cast<IndexType>(j));
                 }
             }
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -487,11 +487,11 @@ public:
     }
     [[nodiscard]] const index_vector& col_indices() const noexcept
     {
-        return col_indices_;
+        return mColIndices;
     }
     [[nodiscard]] const ptr_vector& row_ptrs() const noexcept
     {
-        return row_ptrs_;
+        return mRowPtrs;
     }
 
     // =========================================================================
@@ -531,13 +531,13 @@ public:
      */
     [[nodiscard]] IndexType* col_indices_aligned() noexcept
     {
-        return col_indices_.assume_aligned();
+        return mColIndices.assume_aligned();
     }
 
     [[nodiscard]] const IndexType* col_indices_aligned() const noexcept
     {
         // Safe: assume_aligned() is logically const (returns pointer, no mutation)
-        return const_cast<index_vector&>(col_indices_).assume_aligned();
+        return const_cast<index_vector&>(mColIndices).assume_aligned();
     }
 
     // =========================================================================
@@ -552,19 +552,19 @@ public:
         FATP_ALWAYS_ENFORCE(row < mRows, "HpcCSRMatrix: row index out of range: ", row, " >= ", mRows);
         FATP_ALWAYS_ENFORCE(col < mCols, "HpcCSRMatrix: col index out of range: ", col, " >= ", mCols);
 
-        ptr_type start = row_ptrs_[row];
-        ptr_type end = row_ptrs_[row + 1];
+        ptr_type start = mRowPtrs[row];
+        ptr_type end = mRowPtrs[row + 1];
 
         T sum = T{0};
         IndexType target_col = static_cast<IndexType>(col);
 
         for (ptr_type j = start; j < end; ++j)
         {
-            if (col_indices_[j] == target_col)
+            if (mColIndices[j] == target_col)
             {
                 sum += mValues[j];
             }
-            else if (col_indices_[j] > target_col)
+            else if (mColIndices[j] > target_col)
             {
                 break;
             }
@@ -593,8 +593,8 @@ public:
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
 
         const T* vals = mValues.data();
-        const IndexType* cols = col_indices_.data();
-        const ptr_type* ptrs = row_ptrs_.data();
+        const IndexType* cols = mColIndices.data();
+        const ptr_type* ptrs = mRowPtrs.data();
 
         for (size_type i = 0; i < mRows; ++i)
         {
@@ -646,8 +646,8 @@ public:
         FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec: x and y must not alias (use separate buffers)");
 
         const T* vals = mValues.data();
-        const IndexType* cols = col_indices_.data();
-        const ptr_type* ptrs = row_ptrs_.data();
+        const IndexType* cols = mColIndices.data();
+        const ptr_type* ptrs = mRowPtrs.data();
 
         for (size_type i = 0; i < mRows; ++i)
         {
@@ -759,11 +759,11 @@ public:
         num_tasks = std::min(num_tasks, (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
         num_tasks = std::max(num_tasks, std::size_t{1});
 
-        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_tasks);
+        auto partitions = detail::compute_balanced_partitions(mRowPtrs.data(), n_rows, num_tasks);
 
         const T* vals = mValues.data();
-        const IndexType* cols = col_indices_.data();
-        const ptr_type* ptrs = row_ptrs_.data();
+        const IndexType* cols = mColIndices.data();
+        const ptr_type* ptrs = mRowPtrs.data();
         const bool do_prefetch = config.use_prefetch;
 
         std::vector<std::future<void>> futures;
@@ -863,11 +863,11 @@ public:
         num_tasks = std::min(num_tasks, (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
         num_tasks = std::max(num_tasks, std::size_t{1});
 
-        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_tasks);
+        auto partitions = detail::compute_balanced_partitions(mRowPtrs.data(), n_rows, num_tasks);
 
         const T* vals = mValues.data();
-        const IndexType* cols = col_indices_.data();
-        const ptr_type* ptrs = row_ptrs_.data();
+        const IndexType* cols = mColIndices.data();
+        const ptr_type* ptrs = mRowPtrs.data();
         const bool do_prefetch = config.use_prefetch;
 
         std::vector<std::future<void>> futures;
@@ -960,11 +960,11 @@ public:
         num_tasks = std::min(num_tasks, (n_nnz + config.min_nnz_per_task - 1) / config.min_nnz_per_task);
         num_tasks = std::max(num_tasks, std::size_t{1});
 
-        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_tasks);
+        auto partitions = detail::compute_balanced_partitions(mRowPtrs.data(), n_rows, num_tasks);
 
         const T* vals = mValues.data();
-        const IndexType* cols = col_indices_.data();
-        const ptr_type* ptrs = row_ptrs_.data();
+        const IndexType* cols = mColIndices.data();
+        const ptr_type* ptrs = mRowPtrs.data();
         const bool do_prefetch = config.use_prefetch;
 
         std::vector<std::function<void()>> tasks;
@@ -1033,7 +1033,7 @@ public:
         const size_type n_nnz = nnz();
 
         size_t num_threads = pool.thread_count();
-        auto partitions = detail::compute_balanced_partitions(row_ptrs_.data(), n_rows, num_threads);
+        auto partitions = detail::compute_balanced_partitions(mRowPtrs.data(), n_rows, num_threads);
 
         // Phase 1: Count columns in parallel
         std::vector<std::vector<ptr_type>> thread_counts(partitions.size());
@@ -1054,9 +1054,9 @@ public:
                 futures.push_back(pool.submit([this, &thread_counts, t, start_row, end_row]() {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
-                        for (ptr_type j = row_ptrs_[i]; j < row_ptrs_[i + 1]; ++j)
+                        for (ptr_type j = mRowPtrs[i]; j < mRowPtrs[i + 1]; ++j)
                         {
-                            thread_counts[t][idx(col_indices_[j]) + 1]++;
+                            thread_counts[t][idx(mColIndices[j]) + 1]++;
                         }
                     }
                 }));
@@ -1087,11 +1087,11 @@ public:
         // Copy to result
         for (size_type i = 0; i <= n_cols; ++i)
         {
-            result.row_ptrs_[i] = col_counts[i];
+            result.mRowPtrs[i] = col_counts[i];
         }
 
         result.mValues.resize(n_nnz);
-        result.col_indices_.resize(n_nnz);
+        result.mColIndices.resize(n_nnz);
 
         // Phase 2: Scatter in parallel with atomic positions
         std::vector<std::atomic<ptr_type>> write_pos(n_cols);
@@ -1112,13 +1112,13 @@ public:
                 futures.push_back(pool.submit([this, &result, &write_pos, start_row, end_row]() {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
-                        for (ptr_type j = row_ptrs_[i]; j < row_ptrs_[i + 1]; ++j)
+                        for (ptr_type j = mRowPtrs[i]; j < mRowPtrs[i + 1]; ++j)
                         {
-                            IndexType col = col_indices_[j];
+                            IndexType col = mColIndices[j];
                             ptr_type dest = write_pos[idx(col)].fetch_add(1, std::memory_order_relaxed);
 
                             result.mValues[dest] = mValues[j];
-                            result.col_indices_[dest] = static_cast<IndexType>(i);
+                            result.mColIndices[dest] = static_cast<IndexType>(i);
                         }
                     }
                 }));
@@ -1133,7 +1133,7 @@ public:
         // Phase 3: Sort each row by column index (parallel)
         // The atomic scatter may have placed entries out of order
         {
-            auto result_partitions = detail::compute_balanced_partitions(result.row_ptrs_.data(), n_cols, num_threads);
+            auto result_partitions = detail::compute_balanced_partitions(result.mRowPtrs.data(), n_cols, num_threads);
 
             std::vector<std::future<void>> futures;
             futures.reserve(result_partitions.size());
@@ -1146,8 +1146,8 @@ public:
                 futures.push_back(pool.submit([&result, start_row, end_row]() {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
-                        ptr_type row_start = result.row_ptrs_[i];
-                        ptr_type row_end = result.row_ptrs_[i + 1];
+                        ptr_type row_start = result.mRowPtrs[i];
+                        ptr_type row_end = result.mRowPtrs[i + 1];
                         ptr_type row_len = row_end - row_start;
 
                         if (row_len <= 1)
@@ -1160,7 +1160,7 @@ public:
                         std::iota(perm.begin(), perm.end(), ptr_type{0});
 
                         std::sort(perm.begin(), perm.end(), [&result, row_start](ptr_type a, ptr_type b) {
-                            return result.col_indices_[row_start + a] < result.col_indices_[row_start + b];
+                            return result.mColIndices[row_start + a] < result.mColIndices[row_start + b];
                         });
 
                         // Apply permutation
@@ -1169,13 +1169,13 @@ public:
 
                         for (ptr_type k = 0; k < row_len; ++k)
                         {
-                            sorted_cols[k] = result.col_indices_[row_start + perm[k]];
+                            sorted_cols[k] = result.mColIndices[row_start + perm[k]];
                             sorted_vals[k] = result.mValues[row_start + perm[k]];
                         }
 
                         for (ptr_type k = 0; k < row_len; ++k)
                         {
-                            result.col_indices_[row_start + k] = sorted_cols[k];
+                            result.mColIndices[row_start + k] = sorted_cols[k];
                             result.mValues[row_start + k] = sorted_vals[k];
                         }
                     }
@@ -1242,9 +1242,9 @@ public:
 
         // Count entries per column (NUMA-local workspace)
         memory::NumaLocalVector<ptr_type> col_counts(mCols + 1, 0);
-        for (size_type i = 0; i < col_indices_.size(); ++i)
+        for (size_type i = 0; i < mColIndices.size(); ++i)
         {
-            col_counts[static_cast<size_type>(col_indices_[i]) + 1]++;
+            col_counts[static_cast<size_type>(mColIndices[i]) + 1]++;
         }
 
         // Cumulative sum
@@ -1253,28 +1253,28 @@ public:
             col_counts[i + 1] += col_counts[i];
         }
 
-        // Copy to result row_ptrs_
+        // Copy to result mRowPtrs
         for (size_type i = 0; i <= mCols; ++i)
         {
-            result.row_ptrs_[i] = col_counts[i];
+            result.mRowPtrs[i] = col_counts[i];
         }
 
         result.mValues.resize(nnz());
-        result.col_indices_.resize(nnz());
+        result.mColIndices.resize(nnz());
 
         // Fill transposed values (reuse col_counts as write positions)
         memory::NumaLocalVector<ptr_type> write_pos(col_counts.begin(), col_counts.end());
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                IndexType col = col_indices_[j];
+                IndexType col = mColIndices[j];
                 ptr_type dest = write_pos[idx(col)]++;
                 result.mValues[dest] = mValues[j];
-                result.col_indices_[dest] = static_cast<IndexType>(i);
+                result.mColIndices[dest] = static_cast<IndexType>(i);
             }
         }
 
@@ -1291,29 +1291,29 @@ public:
 
         HpcCSRMatrix result(mRows, mCols);
         result.mValues.reserve(nnz() + other.nnz());
-        result.col_indices_.reserve(nnz() + other.nnz());
+        result.mColIndices.reserve(nnz() + other.nnz());
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type a_ptr = row_ptrs_[i];
-            ptr_type a_end = row_ptrs_[i + 1];
-            ptr_type b_ptr = other.row_ptrs_[i];
-            ptr_type b_end = other.row_ptrs_[i + 1];
+            ptr_type a_ptr = mRowPtrs[i];
+            ptr_type a_end = mRowPtrs[i + 1];
+            ptr_type b_ptr = other.mRowPtrs[i];
+            ptr_type b_end = other.mRowPtrs[i + 1];
 
             while (a_ptr < a_end || b_ptr < b_end)
             {
-                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? mColIndices[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.mColIndices[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T sum = T{0};
 
-                while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
+                while (a_ptr < a_end && mColIndices[a_ptr] == cur_col)
                 {
                     sum += mValues[a_ptr++];
                 }
 
-                while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
+                while (b_ptr < b_end && other.mColIndices[b_ptr] == cur_col)
                 {
                     sum += other.mValues[b_ptr++];
                 }
@@ -1321,11 +1321,11 @@ public:
                 if (!is_effectively_zero(sum))
                 {
                     result.mValues.push_back(sum);
-                    result.col_indices_.push_back(cur_col);
+                    result.mColIndices.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1341,29 +1341,29 @@ public:
 
         HpcCSRMatrix result(mRows, mCols);
         result.mValues.reserve(nnz() + other.nnz());
-        result.col_indices_.reserve(nnz() + other.nnz());
+        result.mColIndices.reserve(nnz() + other.nnz());
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type a_ptr = row_ptrs_[i];
-            ptr_type a_end = row_ptrs_[i + 1];
-            ptr_type b_ptr = other.row_ptrs_[i];
-            ptr_type b_end = other.row_ptrs_[i + 1];
+            ptr_type a_ptr = mRowPtrs[i];
+            ptr_type a_end = mRowPtrs[i + 1];
+            ptr_type b_ptr = other.mRowPtrs[i];
+            ptr_type b_end = other.mRowPtrs[i + 1];
 
             while (a_ptr < a_end || b_ptr < b_end)
             {
-                IndexType col_a = (a_ptr < a_end) ? col_indices_[a_ptr] : std::numeric_limits<IndexType>::max();
-                IndexType col_b = (b_ptr < b_end) ? other.col_indices_[b_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_a = (a_ptr < a_end) ? mColIndices[a_ptr] : std::numeric_limits<IndexType>::max();
+                IndexType col_b = (b_ptr < b_end) ? other.mColIndices[b_ptr] : std::numeric_limits<IndexType>::max();
                 IndexType cur_col = std::min(col_a, col_b);
 
                 T diff = T{0};
 
-                while (a_ptr < a_end && col_indices_[a_ptr] == cur_col)
+                while (a_ptr < a_end && mColIndices[a_ptr] == cur_col)
                 {
                     diff += mValues[a_ptr++];
                 }
 
-                while (b_ptr < b_end && other.col_indices_[b_ptr] == cur_col)
+                while (b_ptr < b_end && other.mColIndices[b_ptr] == cur_col)
                 {
                     diff -= other.mValues[b_ptr++];
                 }
@@ -1371,11 +1371,11 @@ public:
                 if (!is_effectively_zero(diff))
                 {
                     result.mValues.push_back(diff);
-                    result.col_indices_.push_back(cur_col);
+                    result.mColIndices.push_back(cur_col);
                 }
             }
 
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1404,10 +1404,10 @@ public:
         if (is_effectively_zero(alpha))
         {
             mValues.clear();
-            col_indices_.clear();
+            mColIndices.clear();
             for (size_type i = 0; i <= mRows; ++i)
             {
-                row_ptrs_[i] = 0;
+                mRowPtrs[i] = 0;
             }
             return *this;
         }
@@ -1441,7 +1441,7 @@ public:
 
         HpcCSRMatrix result(mRows, B.mCols);
         result.mValues.reserve(std::max(nnz(), B.nnz()));
-        result.col_indices_.reserve(std::max(nnz(), B.nnz()));
+        result.mColIndices.reserve(std::max(nnz(), B.nnz()));
 
         // Workspace (hoisted out of loop, NUMA-local for memory locality)
         memory::NumaLocalVector<T> accumulator(B.mCols, T{0});
@@ -1453,20 +1453,20 @@ public:
         {
             touched_cols.clear();
 
-            ptr_type a_start = row_ptrs_[i];
-            ptr_type a_end = row_ptrs_[i + 1];
+            ptr_type a_start = mRowPtrs[i];
+            ptr_type a_end = mRowPtrs[i + 1];
 
             for (ptr_type a_ptr = a_start; a_ptr < a_end; ++a_ptr)
             {
-                IndexType k = col_indices_[a_ptr];
+                IndexType k = mColIndices[a_ptr];
                 T a_val = mValues[a_ptr];
 
-                ptr_type b_start = B.row_ptrs_[idx(k)];
-                ptr_type b_end = B.row_ptrs_[idx(k + 1)];
+                ptr_type b_start = B.mRowPtrs[idx(k)];
+                ptr_type b_end = B.mRowPtrs[idx(k + 1)];
 
                 for (ptr_type b_ptr = b_start; b_ptr < b_end; ++b_ptr)
                 {
-                    IndexType j_signed = B.col_indices_[b_ptr];
+                    IndexType j_signed = B.mColIndices[b_ptr];
                     const size_type j = static_cast<size_type>(j_signed);
 
                     if (marker[j] != i)
@@ -1488,12 +1488,12 @@ public:
                 if (!is_effectively_zero(val))
                 {
                     result.mValues.push_back(val);
-                    result.col_indices_.push_back(j_signed);
+                    result.mColIndices.push_back(j_signed);
                 }
                 accumulator[j] = T{0};
             }
 
-            result.row_ptrs_[i + 1] = result.mValues.size();
+            result.mRowPtrs[i + 1] = result.mValues.size();
         }
 
         return result;
@@ -1514,12 +1514,12 @@ public:
 
         for (size_type i = 0; i < mRows; ++i)
         {
-            ptr_type start = row_ptrs_[i];
-            ptr_type end = row_ptrs_[i + 1];
+            ptr_type start = mRowPtrs[i];
+            ptr_type end = mRowPtrs[i + 1];
 
             for (ptr_type j = start; j < end; ++j)
             {
-                dense[i * mCols + idx(col_indices_[j])] += mValues[j];
+                dense[i * mCols + idx(mColIndices[j])] += mValues[j];
             }
         }
 
@@ -1547,7 +1547,7 @@ public:
     /**
      * @brief Check if matrix is symmetric (checks both structure and values)
      * @details Compares A with A^T. Matrices are symmetric if they have identical
-     *          sparsity patterns (row_ptrs_, col_indices_) AND identical values.
+     *          sparsity patterns (mRowPtrs, mColIndices) AND identical values.
      */
     [[nodiscard]] bool is_symmetric(T epsilon = default_epsilon()) const
     {
@@ -1567,16 +1567,16 @@ public:
         // Check row pointers match
         for (size_type i = 0; i <= mRows; ++i)
         {
-            if (row_ptrs_[i] != trans.row_ptrs_[i])
+            if (mRowPtrs[i] != trans.mRowPtrs[i])
             {
                 return false;
             }
         }
 
         // Check column indices match
-        for (size_type i = 0; i < col_indices_.size(); ++i)
+        for (size_type i = 0; i < mColIndices.size(); ++i)
         {
-            if (col_indices_[i] != trans.col_indices_[i])
+            if (mColIndices[i] != trans.mColIndices[i])
             {
                 return false;
             }
@@ -1628,16 +1628,16 @@ public:
                 return false;
             }
         }
-        for (size_type i = 0; i < col_indices_.size(); ++i)
+        for (size_type i = 0; i < mColIndices.size(); ++i)
         {
-            if (col_indices_[i] != other.col_indices_[i])
+            if (mColIndices[i] != other.mColIndices[i])
             {
                 return false;
             }
         }
-        for (size_type i = 0; i < row_ptrs_.size(); ++i)
+        for (size_type i = 0; i < mRowPtrs.size(); ++i)
         {
-            if (row_ptrs_[i] != other.row_ptrs_[i])
+            if (mRowPtrs[i] != other.mRowPtrs[i])
             {
                 return false;
             }

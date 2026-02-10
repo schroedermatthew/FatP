@@ -426,11 +426,11 @@ public:
     using storage_type = std::array<bool, width>;
 #endif
 
-    storage_type data_;
+    storage_type mData;
 
     SimdMask() = default;
     explicit SimdMask(storage_type data) noexcept
-        : data_(data)
+        : mData(data)
     {
     }
 
@@ -441,44 +441,44 @@ public:
     bool any() const noexcept
     {
 #if defined(FATP_SIMD_AVX512F)
-        return data_ != 0;
+        return mData != 0;
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm256_movemask_ps(data_) != 0;
+            return _mm256_movemask_ps(mData) != 0;
         }
         else
         {
-            return _mm256_movemask_pd(data_) != 0;
+            return _mm256_movemask_pd(mData) != 0;
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm_movemask_ps(data_) != 0;
+            return _mm_movemask_ps(mData) != 0;
         }
         else
         {
-            return _mm_movemask_pd(data_) != 0;
+            return _mm_movemask_pd(mData) != 0;
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
             // Robust: explicit lane OR for any()
-            return (vgetq_lane_u32(data_, 0) | vgetq_lane_u32(data_, 1) | vgetq_lane_u32(data_, 2) |
-                    vgetq_lane_u32(data_, 3)) != 0;
+            return (vgetq_lane_u32(mData, 0) | vgetq_lane_u32(mData, 1) | vgetq_lane_u32(mData, 2) |
+                    vgetq_lane_u32(mData, 3)) != 0;
         }
         else
         {
 #if FATP_SIMD_NEON_AARCH64
-            return (vgetq_lane_u64(data_, 0) | vgetq_lane_u64(data_, 1)) != 0;
+            return (vgetq_lane_u64(mData, 0) | vgetq_lane_u64(mData, 1)) != 0;
 #else
-            return data_; // ARM32 double: scalar bool
+            return mData; // ARM32 double: scalar bool
 #endif
         }
 #else
         for (size_t i = 0; i < width; ++i)
         {
-            if (data_[i])
+            if (mData[i])
             {
                 return true;
             }
@@ -495,44 +495,44 @@ public:
     {
 #if defined(FATP_SIMD_AVX512F)
         constexpr auto all_bits = std::is_same_v<T, float> ? __mmask16(0xFFFF) : __mmask8(0xFF);
-        return (data_ & all_bits) == all_bits;
+        return (mData & all_bits) == all_bits;
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm256_movemask_ps(data_) == 0xFF;
+            return _mm256_movemask_ps(mData) == 0xFF;
         }
         else
         {
-            return _mm256_movemask_pd(data_) == 0xF;
+            return _mm256_movemask_pd(mData) == 0xF;
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm_movemask_ps(data_) == 0xF;
+            return _mm_movemask_ps(mData) == 0xF;
         }
         else
         {
-            return _mm_movemask_pd(data_) == 0x3;
+            return _mm_movemask_pd(mData) == 0x3;
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
             // Robust: explicit lane AND for all()
-            return (vgetq_lane_u32(data_, 0) & vgetq_lane_u32(data_, 1) & vgetq_lane_u32(data_, 2) &
-                    vgetq_lane_u32(data_, 3)) != 0;
+            return (vgetq_lane_u32(mData, 0) & vgetq_lane_u32(mData, 1) & vgetq_lane_u32(mData, 2) &
+                    vgetq_lane_u32(mData, 3)) != 0;
         }
         else
         {
 #if FATP_SIMD_NEON_AARCH64
-            return (vgetq_lane_u64(data_, 0) & vgetq_lane_u64(data_, 1)) != 0;
+            return (vgetq_lane_u64(mData, 0) & vgetq_lane_u64(mData, 1)) != 0;
 #else
-            return data_; // ARM32 double: scalar bool
+            return mData; // ARM32 double: scalar bool
 #endif
         }
 #else
         for (size_t i = 0; i < width; ++i)
         {
-            if (!data_[i])
+            if (!mData[i])
             {
                 return false;
             }
@@ -560,47 +560,47 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return detail::portable_popcount(static_cast<unsigned>(data_ & 0xFFFF));
+            return detail::portable_popcount(static_cast<unsigned>(mData & 0xFFFF));
         }
         else
         {
-            return detail::portable_popcount(static_cast<unsigned>(data_ & 0xFF));
+            return detail::portable_popcount(static_cast<unsigned>(mData & 0xFF));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return detail::portable_popcount(static_cast<unsigned>(_mm256_movemask_ps(data_)));
+            return detail::portable_popcount(static_cast<unsigned>(_mm256_movemask_ps(mData)));
         }
         else
         {
-            return detail::portable_popcount(static_cast<unsigned>(_mm256_movemask_pd(data_)));
+            return detail::portable_popcount(static_cast<unsigned>(_mm256_movemask_pd(mData)));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_ps(data_)));
+            return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_ps(mData)));
         }
         else
         {
-            return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_pd(data_)));
+            return detail::portable_popcount(static_cast<unsigned>(_mm_movemask_pd(mData)));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
             size_t cnt = 0;
-            if (vgetq_lane_u32(data_, 0))
+            if (vgetq_lane_u32(mData, 0))
             {
                 ++cnt;
             }
-            if (vgetq_lane_u32(data_, 1))
+            if (vgetq_lane_u32(mData, 1))
             {
                 ++cnt;
             }
-            if (vgetq_lane_u32(data_, 2))
+            if (vgetq_lane_u32(mData, 2))
             {
                 ++cnt;
             }
-            if (vgetq_lane_u32(data_, 3))
+            if (vgetq_lane_u32(mData, 3))
             {
                 ++cnt;
             }
@@ -610,24 +610,24 @@ public:
         {
 #if FATP_SIMD_NEON_AARCH64
             size_t cnt = 0;
-            if (vgetq_lane_u64(data_, 0))
+            if (vgetq_lane_u64(mData, 0))
             {
                 ++cnt;
             }
-            if (vgetq_lane_u64(data_, 1))
+            if (vgetq_lane_u64(mData, 1))
             {
                 ++cnt;
             }
             return cnt;
 #else
-            return data_ ? 1 : 0; // ARM32 double: scalar
+            return mData ? 1 : 0; // ARM32 double: scalar
 #endif
         }
 #else
         size_t cnt = 0;
         for (size_t i = 0; i < width; ++i)
         {
-            if (data_[i])
+            if (mData[i])
             {
                 ++cnt;
             }
@@ -640,46 +640,46 @@ public:
     SimdMask operator&(const SimdMask& other) const noexcept
     {
 #if defined(FATP_SIMD_AVX512F)
-        return SimdMask(data_ & other.data_);
+        return SimdMask(mData & other.mData);
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(_mm256_and_ps(data_, other.data_));
+            return SimdMask(_mm256_and_ps(mData, other.mData));
         }
         else
         {
-            return SimdMask(_mm256_and_pd(data_, other.data_));
+            return SimdMask(_mm256_and_pd(mData, other.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(_mm_and_ps(data_, other.data_));
+            return SimdMask(_mm_and_ps(mData, other.mData));
         }
         else
         {
-            return SimdMask(_mm_and_pd(data_, other.data_));
+            return SimdMask(_mm_and_pd(mData, other.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(vandq_u32(data_, other.data_));
+            return SimdMask(vandq_u32(mData, other.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdMask(vandq_u64(data_, other.data_));
+            return SimdMask(vandq_u64(mData, other.mData));
         }
 #else
         else
         {
-            return SimdMask(data_ && other.data_);
+            return SimdMask(mData && other.mData);
         }
 #endif
 #else
         storage_type res;
         for (size_t i = 0; i < width; ++i)
         {
-            res[i] = data_[i] && other.data_[i];
+            res[i] = mData[i] && other.mData[i];
         }
         return SimdMask(res);
 #endif
@@ -688,46 +688,46 @@ public:
     SimdMask operator|(const SimdMask& other) const noexcept
     {
 #if defined(FATP_SIMD_AVX512F)
-        return SimdMask(data_ | other.data_);
+        return SimdMask(mData | other.mData);
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(_mm256_or_ps(data_, other.data_));
+            return SimdMask(_mm256_or_ps(mData, other.mData));
         }
         else
         {
-            return SimdMask(_mm256_or_pd(data_, other.data_));
+            return SimdMask(_mm256_or_pd(mData, other.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(_mm_or_ps(data_, other.data_));
+            return SimdMask(_mm_or_ps(mData, other.mData));
         }
         else
         {
-            return SimdMask(_mm_or_pd(data_, other.data_));
+            return SimdMask(_mm_or_pd(mData, other.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(vorrq_u32(data_, other.data_));
+            return SimdMask(vorrq_u32(mData, other.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdMask(vorrq_u64(data_, other.data_));
+            return SimdMask(vorrq_u64(mData, other.mData));
         }
 #else
         else
         {
-            return SimdMask(data_ || other.data_);
+            return SimdMask(mData || other.mData);
         }
 #endif
 #else
         storage_type res;
         for (size_t i = 0; i < width; ++i)
         {
-            res[i] = data_[i] || other.data_[i];
+            res[i] = mData[i] || other.mData[i];
         }
         return SimdMask(res);
 #endif
@@ -736,51 +736,51 @@ public:
     SimdMask operator~() const noexcept
     {
 #if defined(FATP_SIMD_AVX512F)
-        return SimdMask(~data_);
+        return SimdMask(~mData);
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
             __m256 all_ones = _mm256_castsi256_ps(_mm256_set1_epi32(-1));
-            return SimdMask(_mm256_xor_ps(data_, all_ones));
+            return SimdMask(_mm256_xor_ps(mData, all_ones));
         }
         else
         {
             __m256d all_ones = _mm256_castsi256_pd(_mm256_set1_epi64x(-1));
-            return SimdMask(_mm256_xor_pd(data_, all_ones));
+            return SimdMask(_mm256_xor_pd(mData, all_ones));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
             __m128 all_ones = _mm_castsi128_ps(_mm_set1_epi32(-1));
-            return SimdMask(_mm_xor_ps(data_, all_ones));
+            return SimdMask(_mm_xor_ps(mData, all_ones));
         }
         else
         {
             __m128d all_ones = _mm_castsi128_pd(_mm_set1_epi64x(-1));
-            return SimdMask(_mm_xor_pd(data_, all_ones));
+            return SimdMask(_mm_xor_pd(mData, all_ones));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask(vmvnq_u32(data_));
+            return SimdMask(vmvnq_u32(mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         // Note: vmvnq_s64 does not exist in NEON; use XOR with all-ones instead
         else
         {
-            return SimdMask(veorq_u64(data_, vdupq_n_u64(~0ULL)));
+            return SimdMask(veorq_u64(mData, vdupq_n_u64(~0ULL)));
         }
 #else
         else
         {
-            return SimdMask(!data_);
+            return SimdMask(!mData);
         }
 #endif
 #else
         storage_type res;
         for (size_t i = 0; i < width; ++i)
         {
-            res[i] = !data_[i];
+            res[i] = !mData[i];
         }
         return SimdMask(res);
 #endif
@@ -868,7 +868,7 @@ public:
 #endif
 
 private:
-    storage_type data_;
+    storage_type mData;
 
     static bool is_aligned(const void* ptr) noexcept
     {
@@ -878,7 +878,7 @@ private:
 public:
     SimdVector() = default;
     explicit SimdVector(storage_type d) noexcept
-        : data_(d)
+        : mData(d)
     {
     }
 
@@ -890,48 +890,48 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            data_ = _mm512_set1_ps(scalar);
+            mData = _mm512_set1_ps(scalar);
         }
         else
         {
-            data_ = _mm512_set1_pd(scalar);
+            mData = _mm512_set1_pd(scalar);
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            data_ = _mm256_set1_ps(scalar);
+            mData = _mm256_set1_ps(scalar);
         }
         else
         {
-            data_ = _mm256_set1_pd(scalar);
+            mData = _mm256_set1_pd(scalar);
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            data_ = _mm_set1_ps(scalar);
+            mData = _mm_set1_ps(scalar);
         }
         else
         {
-            data_ = _mm_set1_pd(scalar);
+            mData = _mm_set1_pd(scalar);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            data_ = vdupq_n_f32(scalar);
+            mData = vdupq_n_f32(scalar);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            data_ = vdupq_n_f64(scalar);
+            mData = vdupq_n_f64(scalar);
         }
 #else
         else
         {
-            data_ = scalar; // ARM32 double: scalar
+            mData = scalar; // ARM32 double: scalar
         }
 #endif
 #else
-        data_.fill(scalar);
+        mData.fill(scalar);
 #endif
     }
 
@@ -975,48 +975,48 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = _mm512_load_ps(ptr);
+            result.mData = _mm512_load_ps(ptr);
         }
         else
         {
-            result.data_ = _mm512_load_pd(ptr);
+            result.mData = _mm512_load_pd(ptr);
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = _mm256_load_ps(ptr);
+            result.mData = _mm256_load_ps(ptr);
         }
         else
         {
-            result.data_ = _mm256_load_pd(ptr);
+            result.mData = _mm256_load_pd(ptr);
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = _mm_load_ps(ptr);
+            result.mData = _mm_load_ps(ptr);
         }
         else
         {
-            result.data_ = _mm_load_pd(ptr);
+            result.mData = _mm_load_pd(ptr);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = vld1q_f32(ptr);
+            result.mData = vld1q_f32(ptr);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            result.data_ = vld1q_f64(ptr);
+            result.mData = vld1q_f64(ptr);
         }
 #else
         else
         {
-            result.data_ = *ptr;
+            result.mData = *ptr;
         }
 #endif
 #else
-        std::memcpy(result.data_.data(), ptr, width * sizeof(T));
+        std::memcpy(result.mData.data(), ptr, width * sizeof(T));
 #endif
         return result;
     }
@@ -1030,48 +1030,48 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = _mm512_loadu_ps(ptr);
+            result.mData = _mm512_loadu_ps(ptr);
         }
         else
         {
-            result.data_ = _mm512_loadu_pd(ptr);
+            result.mData = _mm512_loadu_pd(ptr);
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = _mm256_loadu_ps(ptr);
+            result.mData = _mm256_loadu_ps(ptr);
         }
         else
         {
-            result.data_ = _mm256_loadu_pd(ptr);
+            result.mData = _mm256_loadu_pd(ptr);
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = _mm_loadu_ps(ptr);
+            result.mData = _mm_loadu_ps(ptr);
         }
         else
         {
-            result.data_ = _mm_loadu_pd(ptr);
+            result.mData = _mm_loadu_pd(ptr);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            result.data_ = vld1q_f32(ptr);
+            result.mData = vld1q_f32(ptr);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            result.data_ = vld1q_f64(ptr);
+            result.mData = vld1q_f64(ptr);
         }
 #else
         else
         {
-            result.data_ = *ptr;
+            result.mData = *ptr;
         }
 #endif
 #else
-        std::memcpy(result.data_.data(), ptr, width * sizeof(T));
+        std::memcpy(result.mData.data(), ptr, width * sizeof(T));
 #endif
         return result;
     }
@@ -1123,48 +1123,48 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            _mm512_store_ps(ptr, data_);
+            _mm512_store_ps(ptr, mData);
         }
         else
         {
-            _mm512_store_pd(ptr, data_);
+            _mm512_store_pd(ptr, mData);
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            _mm256_store_ps(ptr, data_);
+            _mm256_store_ps(ptr, mData);
         }
         else
         {
-            _mm256_store_pd(ptr, data_);
+            _mm256_store_pd(ptr, mData);
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            _mm_store_ps(ptr, data_);
+            _mm_store_ps(ptr, mData);
         }
         else
         {
-            _mm_store_pd(ptr, data_);
+            _mm_store_pd(ptr, mData);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            vst1q_f32(ptr, data_);
+            vst1q_f32(ptr, mData);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            vst1q_f64(ptr, data_);
+            vst1q_f64(ptr, mData);
         }
 #else
         else
         {
-            *ptr = data_;
+            *ptr = mData;
         }
 #endif
 #else
-        std::memcpy(ptr, data_.data(), width * sizeof(T));
+        std::memcpy(ptr, mData.data(), width * sizeof(T));
 #endif
     }
 
@@ -1176,48 +1176,48 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            _mm512_storeu_ps(ptr, data_);
+            _mm512_storeu_ps(ptr, mData);
         }
         else
         {
-            _mm512_storeu_pd(ptr, data_);
+            _mm512_storeu_pd(ptr, mData);
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            _mm256_storeu_ps(ptr, data_);
+            _mm256_storeu_ps(ptr, mData);
         }
         else
         {
-            _mm256_storeu_pd(ptr, data_);
+            _mm256_storeu_pd(ptr, mData);
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            _mm_storeu_ps(ptr, data_);
+            _mm_storeu_ps(ptr, mData);
         }
         else
         {
-            _mm_storeu_pd(ptr, data_);
+            _mm_storeu_pd(ptr, mData);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            vst1q_f32(ptr, data_);
+            vst1q_f32(ptr, mData);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            vst1q_f64(ptr, data_);
+            vst1q_f64(ptr, mData);
         }
 #else
         else
         {
-            *ptr = data_;
+            *ptr = mData;
         }
 #endif
 #else
-        std::memcpy(ptr, data_.data(), width * sizeof(T));
+        std::memcpy(ptr, mData.data(), width * sizeof(T));
 #endif
     }
 
@@ -1240,12 +1240,12 @@ public:
         if constexpr (std::is_same_v<T, float>)
         {
             __mmask16 mask = static_cast<__mmask16>((1u << count) - 1);
-            _mm512_mask_storeu_ps(ptr, mask, data_);
+            _mm512_mask_storeu_ps(ptr, mask, mData);
         }
         else
         {
             __mmask8 mask = static_cast<__mmask8>((1u << count) - 1);
-            _mm512_mask_storeu_pd(ptr, mask, data_);
+            _mm512_mask_storeu_pd(ptr, mask, mData);
         }
 #else
         // MSVC-safe: use properly aligned buffer
@@ -1267,51 +1267,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_add_ps(data_, rhs.data_));
+            return SimdVector(_mm512_add_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm512_add_pd(data_, rhs.data_));
+            return SimdVector(_mm512_add_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_add_ps(data_, rhs.data_));
+            return SimdVector(_mm256_add_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm256_add_pd(data_, rhs.data_));
+            return SimdVector(_mm256_add_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm_add_ps(data_, rhs.data_));
+            return SimdVector(_mm_add_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm_add_pd(data_, rhs.data_));
+            return SimdVector(_mm_add_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vaddq_f32(data_, rhs.data_));
+            return SimdVector(vaddq_f32(mData, rhs.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vaddq_f64(data_, rhs.data_));
+            return SimdVector(vaddq_f64(mData, rhs.mData));
         }
 #else
         else
         {
-            return SimdVector(data_ + rhs.data_);
+            return SimdVector(mData + rhs.mData);
         }
 #endif
 #else
         SimdVector r;
         for (size_t i = 0; i < width; ++i)
         {
-            r.data_[i] = data_[i] + rhs.data_[i];
+            r.mData[i] = mData[i] + rhs.mData[i];
         }
         return r;
 #endif
@@ -1327,51 +1327,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_sub_ps(data_, rhs.data_));
+            return SimdVector(_mm512_sub_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm512_sub_pd(data_, rhs.data_));
+            return SimdVector(_mm512_sub_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_sub_ps(data_, rhs.data_));
+            return SimdVector(_mm256_sub_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm256_sub_pd(data_, rhs.data_));
+            return SimdVector(_mm256_sub_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm_sub_ps(data_, rhs.data_));
+            return SimdVector(_mm_sub_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm_sub_pd(data_, rhs.data_));
+            return SimdVector(_mm_sub_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vsubq_f32(data_, rhs.data_));
+            return SimdVector(vsubq_f32(mData, rhs.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vsubq_f64(data_, rhs.data_));
+            return SimdVector(vsubq_f64(mData, rhs.mData));
         }
 #else
         else
         {
-            return SimdVector(data_ - rhs.data_);
+            return SimdVector(mData - rhs.mData);
         }
 #endif
 #else
         SimdVector r;
         for (size_t i = 0; i < width; ++i)
         {
-            r.data_[i] = data_[i] - rhs.data_[i];
+            r.mData[i] = mData[i] - rhs.mData[i];
         }
         return r;
 #endif
@@ -1382,51 +1382,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_mul_ps(data_, rhs.data_));
+            return SimdVector(_mm512_mul_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm512_mul_pd(data_, rhs.data_));
+            return SimdVector(_mm512_mul_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_mul_ps(data_, rhs.data_));
+            return SimdVector(_mm256_mul_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm256_mul_pd(data_, rhs.data_));
+            return SimdVector(_mm256_mul_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm_mul_ps(data_, rhs.data_));
+            return SimdVector(_mm_mul_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm_mul_pd(data_, rhs.data_));
+            return SimdVector(_mm_mul_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vmulq_f32(data_, rhs.data_));
+            return SimdVector(vmulq_f32(mData, rhs.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vmulq_f64(data_, rhs.data_));
+            return SimdVector(vmulq_f64(mData, rhs.mData));
         }
 #else
         else
         {
-            return SimdVector(data_ * rhs.data_);
+            return SimdVector(mData * rhs.mData);
         }
 #endif
 #else
         SimdVector r;
         for (size_t i = 0; i < width; ++i)
         {
-            r.data_[i] = data_[i] * rhs.data_[i];
+            r.mData[i] = mData[i] * rhs.mData[i];
         }
         return r;
 #endif
@@ -1437,51 +1437,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_div_ps(data_, rhs.data_));
+            return SimdVector(_mm512_div_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm512_div_pd(data_, rhs.data_));
+            return SimdVector(_mm512_div_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_div_ps(data_, rhs.data_));
+            return SimdVector(_mm256_div_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm256_div_pd(data_, rhs.data_));
+            return SimdVector(_mm256_div_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm_div_ps(data_, rhs.data_));
+            return SimdVector(_mm_div_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdVector(_mm_div_pd(data_, rhs.data_));
+            return SimdVector(_mm_div_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vdivq_f32(data_, rhs.data_));
+            return SimdVector(vdivq_f32(mData, rhs.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vdivq_f64(data_, rhs.data_));
+            return SimdVector(vdivq_f64(mData, rhs.mData));
         }
 #else
         else
         {
-            return SimdVector(data_ / rhs.data_);
+            return SimdVector(mData / rhs.mData);
         }
 #endif
 #else
         SimdVector r;
         for (size_t i = 0; i < width; ++i)
         {
-            r.data_[i] = data_[i] / rhs.data_[i];
+            r.mData[i] = mData[i] / rhs.mData[i];
         }
         return r;
 #endif
@@ -1518,51 +1518,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(_mm512_cmp_ps_mask(data_, rhs.data_, _CMP_EQ_OQ));
+            return SimdMask<T>(_mm512_cmp_ps_mask(mData, rhs.mData, _CMP_EQ_OQ));
         }
         else
         {
-            return SimdMask<T>(_mm512_cmp_pd_mask(data_, rhs.data_, _CMP_EQ_OQ));
+            return SimdMask<T>(_mm512_cmp_pd_mask(mData, rhs.mData, _CMP_EQ_OQ));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(_mm256_cmp_ps(data_, rhs.data_, _CMP_EQ_OQ));
+            return SimdMask<T>(_mm256_cmp_ps(mData, rhs.mData, _CMP_EQ_OQ));
         }
         else
         {
-            return SimdMask<T>(_mm256_cmp_pd(data_, rhs.data_, _CMP_EQ_OQ));
+            return SimdMask<T>(_mm256_cmp_pd(mData, rhs.mData, _CMP_EQ_OQ));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(_mm_cmpeq_ps(data_, rhs.data_));
+            return SimdMask<T>(_mm_cmpeq_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdMask<T>(_mm_cmpeq_pd(data_, rhs.data_));
+            return SimdMask<T>(_mm_cmpeq_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(vceqq_f32(data_, rhs.data_));
+            return SimdMask<T>(vceqq_f32(mData, rhs.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdMask<T>(vceqq_f64(data_, rhs.data_));
+            return SimdMask<T>(vceqq_f64(mData, rhs.mData));
         }
 #else
         else
         {
-            return SimdMask<T>(data_ == rhs.data_);
+            return SimdMask<T>(mData == rhs.mData);
         }
 #endif
 #else
         typename SimdMask<T>::storage_type m;
         for (size_t i = 0; i < width; ++i)
         {
-            m[i] = data_[i] == rhs.data_[i];
+            m[i] = mData[i] == rhs.mData[i];
         }
         return SimdMask<T>(m);
 #endif
@@ -1578,51 +1578,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(_mm512_cmp_ps_mask(data_, rhs.data_, _CMP_GT_OQ));
+            return SimdMask<T>(_mm512_cmp_ps_mask(mData, rhs.mData, _CMP_GT_OQ));
         }
         else
         {
-            return SimdMask<T>(_mm512_cmp_pd_mask(data_, rhs.data_, _CMP_GT_OQ));
+            return SimdMask<T>(_mm512_cmp_pd_mask(mData, rhs.mData, _CMP_GT_OQ));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(_mm256_cmp_ps(data_, rhs.data_, _CMP_GT_OQ));
+            return SimdMask<T>(_mm256_cmp_ps(mData, rhs.mData, _CMP_GT_OQ));
         }
         else
         {
-            return SimdMask<T>(_mm256_cmp_pd(data_, rhs.data_, _CMP_GT_OQ));
+            return SimdMask<T>(_mm256_cmp_pd(mData, rhs.mData, _CMP_GT_OQ));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(_mm_cmpgt_ps(data_, rhs.data_));
+            return SimdMask<T>(_mm_cmpgt_ps(mData, rhs.mData));
         }
         else
         {
-            return SimdMask<T>(_mm_cmpgt_pd(data_, rhs.data_));
+            return SimdMask<T>(_mm_cmpgt_pd(mData, rhs.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdMask<T>(vcgtq_f32(data_, rhs.data_));
+            return SimdMask<T>(vcgtq_f32(mData, rhs.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdMask<T>(vcgtq_f64(data_, rhs.data_));
+            return SimdMask<T>(vcgtq_f64(mData, rhs.mData));
         }
 #else
         else
         {
-            return SimdMask<T>(data_ > rhs.data_);
+            return SimdMask<T>(mData > rhs.mData);
         }
 #endif
 #else
         typename SimdMask<T>::storage_type m;
         for (size_t i = 0; i < width; ++i)
         {
-            m[i] = data_[i] > rhs.data_[i];
+            m[i] = mData[i] > rhs.mData[i];
         }
         return SimdMask<T>(m);
 #endif
@@ -1655,63 +1655,63 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_mask_blend_ps(mask.data_, if_false.data_, if_true.data_));
+            return SimdVector(_mm512_mask_blend_ps(mask.mData, if_false.mData, if_true.mData));
         }
         else
         {
-            return SimdVector(_mm512_mask_blend_pd(mask.data_, if_false.data_, if_true.data_));
+            return SimdVector(_mm512_mask_blend_pd(mask.mData, if_false.mData, if_true.mData));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_blendv_ps(if_false.data_, if_true.data_, mask.data_));
+            return SimdVector(_mm256_blendv_ps(if_false.mData, if_true.mData, mask.mData));
         }
         else
         {
-            return SimdVector(_mm256_blendv_pd(if_false.data_, if_true.data_, mask.data_));
+            return SimdVector(_mm256_blendv_pd(if_false.mData, if_true.mData, mask.mData));
         }
 #elif defined(FATP_SIMD_SSE4_1)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm_blendv_ps(if_false.data_, if_true.data_, mask.data_));
+            return SimdVector(_mm_blendv_ps(if_false.mData, if_true.mData, mask.mData));
         }
         else
         {
-            return SimdVector(_mm_blendv_pd(if_false.data_, if_true.data_, mask.data_));
+            return SimdVector(_mm_blendv_pd(if_false.mData, if_true.mData, mask.mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         // SSE2 manual blend: (true & mask) | (false & ~mask)
         if constexpr (std::is_same_v<T, float>)
         {
             return SimdVector(
-                _mm_or_ps(_mm_and_ps(mask.data_, if_true.data_), _mm_andnot_ps(mask.data_, if_false.data_)));
+                _mm_or_ps(_mm_and_ps(mask.mData, if_true.mData), _mm_andnot_ps(mask.mData, if_false.mData)));
         }
         else
         {
             return SimdVector(
-                _mm_or_pd(_mm_and_pd(mask.data_, if_true.data_), _mm_andnot_pd(mask.data_, if_false.data_)));
+                _mm_or_pd(_mm_and_pd(mask.mData, if_true.mData), _mm_andnot_pd(mask.mData, if_false.mData)));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vbslq_f32(mask.data_, if_true.data_, if_false.data_));
+            return SimdVector(vbslq_f32(mask.mData, if_true.mData, if_false.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vbslq_f64(mask.data_, if_true.data_, if_false.data_));
+            return SimdVector(vbslq_f64(mask.mData, if_true.mData, if_false.mData));
         }
 #else
         else
         {
-            return mask.data_ ? if_true : if_false;
+            return mask.mData ? if_true : if_false;
         }
 #endif
 #else
         SimdVector r;
         for (size_t i = 0; i < width; ++i)
         {
-            r.data_[i] = mask.data_[i] ? if_true.data_[i] : if_false.data_[i];
+            r.mData[i] = mask.mData[i] ? if_true.mData[i] : if_false.mData[i];
         }
         return r;
 #endif
@@ -1729,35 +1729,35 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_fmadd_ps(a.data_, b.data_, c.data_));
+            return SimdVector(_mm512_fmadd_ps(a.mData, b.mData, c.mData));
         }
         else
         {
-            return SimdVector(_mm512_fmadd_pd(a.data_, b.data_, c.data_));
+            return SimdVector(_mm512_fmadd_pd(a.mData, b.mData, c.mData));
         }
 #elif defined(FATP_SIMD_AVX2) && defined(__FMA__)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_fmadd_ps(a.data_, b.data_, c.data_));
+            return SimdVector(_mm256_fmadd_ps(a.mData, b.mData, c.mData));
         }
         else
         {
-            return SimdVector(_mm256_fmadd_pd(a.data_, b.data_, c.data_));
+            return SimdVector(_mm256_fmadd_pd(a.mData, b.mData, c.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vfmaq_f32(c.data_, a.data_, b.data_));
+            return SimdVector(vfmaq_f32(c.mData, a.mData, b.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vfmaq_f64(c.data_, a.data_, b.data_));
+            return SimdVector(vfmaq_f64(c.mData, a.mData, b.mData));
         }
 #else
         else
         {
-            return SimdVector(a.data_ * b.data_ + c.data_);
+            return SimdVector(a.mData * b.mData + c.mData);
         }
 #endif
 #else
@@ -1776,37 +1776,37 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_fmsub_ps(a.data_, b.data_, c.data_));
+            return SimdVector(_mm512_fmsub_ps(a.mData, b.mData, c.mData));
         }
         else
         {
-            return SimdVector(_mm512_fmsub_pd(a.data_, b.data_, c.data_));
+            return SimdVector(_mm512_fmsub_pd(a.mData, b.mData, c.mData));
         }
 #elif defined(FATP_SIMD_AVX2) && defined(__FMA__)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_fmsub_ps(a.data_, b.data_, c.data_));
+            return SimdVector(_mm256_fmsub_ps(a.mData, b.mData, c.mData));
         }
         else
         {
-            return SimdVector(_mm256_fmsub_pd(a.data_, b.data_, c.data_));
+            return SimdVector(_mm256_fmsub_pd(a.mData, b.mData, c.mData));
         }
 #elif defined(FATP_SIMD_NEON)
         // vfmsq_f32(a,b,c) = a - b*c, but we want a*b - c
         // Use vfmaq with negated c: vfmaq(-c, a, b) = -c + a*b = a*b - c
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vfmaq_f32(vnegq_f32(c.data_), a.data_, b.data_));
+            return SimdVector(vfmaq_f32(vnegq_f32(c.mData), a.mData, b.mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vfmaq_f64(vnegq_f64(c.data_), a.data_, b.data_));
+            return SimdVector(vfmaq_f64(vnegq_f64(c.mData), a.mData, b.mData));
         }
 #else
         else
         {
-            return SimdVector(a.data_ * b.data_ - c.data_);
+            return SimdVector(a.mData * b.mData - c.mData);
         }
 #endif
 #else
@@ -1819,51 +1819,51 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm512_sqrt_ps(data_));
+            return SimdVector(_mm512_sqrt_ps(mData));
         }
         else
         {
-            return SimdVector(_mm512_sqrt_pd(data_));
+            return SimdVector(_mm512_sqrt_pd(mData));
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm256_sqrt_ps(data_));
+            return SimdVector(_mm256_sqrt_ps(mData));
         }
         else
         {
-            return SimdVector(_mm256_sqrt_pd(data_));
+            return SimdVector(_mm256_sqrt_pd(mData));
         }
 #elif defined(FATP_SIMD_SSE2)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(_mm_sqrt_ps(data_));
+            return SimdVector(_mm_sqrt_ps(mData));
         }
         else
         {
-            return SimdVector(_mm_sqrt_pd(data_));
+            return SimdVector(_mm_sqrt_pd(mData));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return SimdVector(vsqrtq_f32(data_));
+            return SimdVector(vsqrtq_f32(mData));
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return SimdVector(vsqrtq_f64(data_));
+            return SimdVector(vsqrtq_f64(mData));
         }
 #else
         else
         {
-            return SimdVector(std::sqrt(data_));
+            return SimdVector(std::sqrt(mData));
         }
 #endif
 #else
         SimdVector r;
         for (size_t i = 0; i < width; ++i)
         {
-            r.data_[i] = std::sqrt(data_[i]);
+            r.mData[i] = std::sqrt(mData[i]);
         }
         return r;
 #endif
@@ -1895,17 +1895,17 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm512_reduce_add_ps(data_);
+            return _mm512_reduce_add_ps(mData);
         }
         else
         {
-            return _mm512_reduce_add_pd(data_);
+            return _mm512_reduce_add_pd(mData);
         }
 #elif defined(FATP_SIMD_AVX) || defined(FATP_SIMD_AVX2)
         if constexpr (std::is_same_v<T, float>)
         {
-            __m128 lo = _mm256_castps256_ps128(data_);
-            __m128 hi = _mm256_extractf128_ps(data_, 1);
+            __m128 lo = _mm256_castps256_ps128(mData);
+            __m128 hi = _mm256_extractf128_ps(mData, 1);
             __m128 s = _mm_add_ps(lo, hi);
             // SSE2-compatible horizontal add
             __m128 sh = _mm_shuffle_ps(s, s, _MM_SHUFFLE(2, 3, 0, 1));
@@ -1915,8 +1915,8 @@ public:
         }
         else
         {
-            __m128d lo = _mm256_castpd256_pd128(data_);
-            __m128d hi = _mm256_extractf128_pd(data_, 1);
+            __m128d lo = _mm256_castpd256_pd128(mData);
+            __m128d hi = _mm256_extractf128_pd(mData, 1);
             __m128d s = _mm_add_pd(lo, hi);
             return _mm_cvtsd_f64(_mm_add_sd(s, _mm_unpackhi_pd(s, s)));
         }
@@ -1924,37 +1924,37 @@ public:
         if constexpr (std::is_same_v<T, float>)
         {
             // SSE2-compatible: use shuffles instead of SSE3 hadd
-            __m128 sh = _mm_shuffle_ps(data_, data_, _MM_SHUFFLE(2, 3, 0, 1));
-            __m128 s = _mm_add_ps(data_, sh);
+            __m128 sh = _mm_shuffle_ps(mData, mData, _MM_SHUFFLE(2, 3, 0, 1));
+            __m128 s = _mm_add_ps(mData, sh);
             sh = _mm_shuffle_ps(s, s, _MM_SHUFFLE(1, 0, 3, 2));
             return _mm_cvtss_f32(_mm_add_ps(s, sh));
         }
         else
         {
-            __m128d sh = _mm_shuffle_pd(data_, data_, 1);
-            return _mm_cvtsd_f64(_mm_add_pd(data_, sh));
+            __m128d sh = _mm_shuffle_pd(mData, mData, 1);
+            return _mm_cvtsd_f64(_mm_add_pd(mData, sh));
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return vaddvq_f32(data_);
+            return vaddvq_f32(mData);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return vaddvq_f64(data_);
+            return vaddvq_f64(mData);
         }
 #else
         else
         {
-            return data_;
+            return mData;
         }
 #endif
 #else
         T sum = 0;
         for (size_t i = 0; i < width; ++i)
         {
-            sum += data_[i];
+            sum += mData[i];
         }
         return sum;
 #endif
@@ -1965,26 +1965,26 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm512_reduce_max_ps(data_);
+            return _mm512_reduce_max_ps(mData);
         }
         else
         {
-            return _mm512_reduce_max_pd(data_);
+            return _mm512_reduce_max_pd(mData);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return vmaxvq_f32(data_);
+            return vmaxvq_f32(mData);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return vmaxvq_f64(data_);
+            return vmaxvq_f64(mData);
         }
 #else
         else
         {
-            return data_;
+            return mData;
         }
 #endif
 #else
@@ -1999,26 +1999,26 @@ public:
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)
         {
-            return _mm512_reduce_min_ps(data_);
+            return _mm512_reduce_min_ps(mData);
         }
         else
         {
-            return _mm512_reduce_min_pd(data_);
+            return _mm512_reduce_min_pd(mData);
         }
 #elif defined(FATP_SIMD_NEON)
         if constexpr (std::is_same_v<T, float>)
         {
-            return vminvq_f32(data_);
+            return vminvq_f32(mData);
         }
 #if FATP_SIMD_NEON_AARCH64
         else
         {
-            return vminvq_f64(data_);
+            return vminvq_f64(mData);
         }
 #else
         else
         {
-            return data_;
+            return mData;
         }
 #endif
 #else

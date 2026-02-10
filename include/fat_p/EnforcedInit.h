@@ -185,7 +185,7 @@ struct UnionStoragePolicy
 #if FATP_USE_ATOMIC
 struct AtomicPolicy
 {
-    mutable std::atomic<bool> init_flag_{false};
+    mutable std::atomic<bool> mInitFlag{false};
 
     class LockGuard
     {
@@ -217,7 +217,7 @@ struct AtomicPolicy
 
     std::atomic<bool>& getLock() const noexcept
     {
-        return init_flag_;
+        return mInitFlag;
     }
 
     [[nodiscard]] LockGuard lock() noexcept
@@ -233,16 +233,16 @@ struct AtomicPolicy
 
 struct ConditionVarPolicy
 {
-    mutable std::mutex cv_mutex_;
+    mutable std::mutex mCvMutex;
     mutable std::condition_variable mCv;
-    mutable std::atomic<bool> initialized_flag_{false};
+    mutable std::atomic<bool> mInitializedFlag{false};
 
     using LockGuard = std::lock_guard<std::mutex>;
     using SharedGuard = std::lock_guard<std::mutex>;
 
     std::mutex& getLock() const noexcept
     {
-        return cv_mutex_;
+        return mCvMutex;
     }
 
     [[nodiscard]] LockGuard lock() noexcept
@@ -256,16 +256,16 @@ struct ConditionVarPolicy
     template <typename Duration>
     bool wait_for_init(const Duration& timeout) const
     {
-        std::unique_lock<std::mutex> lock(cv_mutex_);
+        std::unique_lock<std::mutex> lock(mCvMutex);
         return mCv.wait_for(lock, timeout, [this] {
-            return initialized_flag_.load(std::memory_order_acquire);
+            return mInitializedFlag.load(std::memory_order_acquire);
         });
     }
 
-    // Called while holding cv_mutex_ lock (from init())
+    // Called while holding mCvMutex lock (from init())
     void notify_init() noexcept
     {
-        initialized_flag_.store(true, std::memory_order_release);
+        mInitializedFlag.store(true, std::memory_order_release);
         // Note: mCv.notify_all() should be called AFTER releasing the lock
         // We do it here because unlock happens when guard destructs
         mCv.notify_all();
@@ -273,7 +273,7 @@ struct ConditionVarPolicy
 
     bool is_notification_initialized() const noexcept
     {
-        return initialized_flag_.load(std::memory_order_acquire);
+        return mInitializedFlag.load(std::memory_order_acquire);
     }
 };
 

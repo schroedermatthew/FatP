@@ -291,28 +291,28 @@ public:
     static constexpr size_t size = ShapeT::size;
 
     // Storage: stack-allocated array (no heap)
-    alignas(32) std::array<T, size> data_;
+    alignas(32) std::array<T, size> mData;
 
     // Constructors
     constexpr StaticTensor()
-        : data_{}
+        : mData{}
     {
     }
 
     constexpr explicit StaticTensor(T scalar)
     {
-        data_.fill(scalar);
+        mData.fill(scalar);
     }
 
     constexpr StaticTensor(std::initializer_list<T> init)
     {
         FATP_ALWAYS_ENFORCE(init.size() == size, "Initializer size mismatch");
-        std::copy(init.begin(), init.end(), data_.begin());
+        std::copy(init.begin(), init.end(), mData.begin());
     }
 
     template <typename... Args>
     constexpr explicit StaticTensor(Args... args)
-        : data_{static_cast<T>(args)...}
+        : mData{static_cast<T>(args)...}
     {
         static_assert(sizeof...(args) == size, "Argument count must match tensor size");
     }
@@ -320,11 +320,11 @@ public:
     // Element access
     constexpr T& operator[](size_t idx) noexcept
     {
-        return data_[idx];
+        return mData[idx];
     }
     constexpr const T& operator[](size_t idx) const noexcept
     {
-        return data_[idx];
+        return mData[idx];
     }
 
     // Multi-dimensional indexing
@@ -332,42 +332,42 @@ public:
     constexpr T& at(Indices... indices)
     {
         static_assert(sizeof...(indices) == rank, "Index count must match tensor rank");
-        return data_[compute_offset(std::array{static_cast<size_t>(indices)...})];
+        return mData[compute_offset(std::array{static_cast<size_t>(indices)...})];
     }
 
     template <typename... Indices>
     constexpr const T& at(Indices... indices) const
     {
         static_assert(sizeof...(indices) == rank, "Index count must match tensor rank");
-        return data_[compute_offset(std::array{static_cast<size_t>(indices)...})];
+        return mData[compute_offset(std::array{static_cast<size_t>(indices)...})];
     }
 
     // Iterators
     auto begin() noexcept
     {
-        return data_.begin();
+        return mData.begin();
     }
     auto end() noexcept
     {
-        return data_.end();
+        return mData.end();
     }
     auto begin() const noexcept
     {
-        return data_.begin();
+        return mData.begin();
     }
     auto end() const noexcept
     {
-        return data_.end();
+        return mData.end();
     }
 
     // Raw data access
     T* data() noexcept
     {
-        return data_.data();
+        return mData.data();
     }
     const T* data() const noexcept
     {
-        return data_.data();
+        return mData.data();
     }
 
 private:
@@ -516,10 +516,10 @@ simd_mul(const StaticTensor<float, Vector<N>, UncheckedPolicy>& a,
 
     for (size_t i = 0; i < simd_blocks; ++i)
     {
-        __m256 va = _mm256_load_ps(&a.data_[i * simd_width]);
-        __m256 vb = _mm256_load_ps(&b.data_[i * simd_width]);
+        __m256 va = _mm256_load_ps(&a.mData[i * simd_width]);
+        __m256 vb = _mm256_load_ps(&b.mData[i * simd_width]);
         __m256 vr = _mm256_mul_ps(va, vb);
-        _mm256_store_ps(&result.data_[i * simd_width], vr);
+        _mm256_store_ps(&result.mData[i * simd_width], vr);
     }
 
     for (size_t i = simd_blocks * simd_width; i < N; ++i)
@@ -544,8 +544,8 @@ inline float simd_dot(const StaticTensor<float, Vector<N>, UncheckedPolicy>& a,
 
     for (size_t i = 0; i < simd_blocks; ++i)
     {
-        __m256 va = _mm256_load_ps(&a.data_[i * simd_width]);
-        __m256 vb = _mm256_load_ps(&b.data_[i * simd_width]);
+        __m256 va = _mm256_load_ps(&a.mData[i * simd_width]);
+        __m256 vb = _mm256_load_ps(&b.mData[i * simd_width]);
         __m256 prod = _mm256_mul_ps(va, vb);
         sum_vec = _mm256_add_ps(sum_vec, prod);
     }

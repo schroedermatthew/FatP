@@ -923,18 +923,18 @@ private:
 
     uint8_t* mCtrl = nullptr;
     Slot* mSlots = nullptr;
-    size_t size_ = 0;
+    size_t mSize = 0;
     size_t mCapacity = 0;
     size_t mMask = 0;
-    size_t growth_threshold_ = 0;
+    size_t mGrowthThreshold = 0;
 
     // Only used with TombstoneDeletion - zero overhead when unused
     FATP_NO_UNIQUE_ADDRESS std::conditional_t<uses_tombstones, size_t, EmptyMember> mTombstones{};
 
-    double max_load_factor_ = 0.875;
+    double mMaxLoadFactor = 0.875;
     bool mFrozen = false; // Read-only mode for high-density lookup tables
     FATP_NO_UNIQUE_ADDRESS Hash mHasher;
-    FATP_NO_UNIQUE_ADDRESS KeyEqual key_equal_;
+    FATP_NO_UNIQUE_ADDRESS KeyEqual mKeyEqual;
     FATP_NO_UNIQUE_ADDRESS Allocator mAllocator;
 
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
@@ -1011,7 +1011,7 @@ private:
         mSlots = new_slots;
         mCapacity = cap;
         mMask = cap - 1;
-        growth_threshold_ = compute_growth_threshold(cap, max_load_factor_);
+        mGrowthThreshold = compute_growth_threshold(cap, mMaxLoadFactor);
     }
 
     void deallocate()
@@ -1134,7 +1134,7 @@ private:
             for (uint32_t i : g.match(h2))
             {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key(), k))
+                if (mKeyEqual(mSlots[idx].key(), k))
                 {
                     return {idx, true};
                 }
@@ -1303,8 +1303,8 @@ private:
         mSlots = new_slots;
         mCapacity = new_cap;
         mMask = new_mask;
-        growth_threshold_ = compute_growth_threshold(new_cap, max_load_factor_);
-        size_ = new_size;
+        mGrowthThreshold = compute_growth_threshold(new_cap, mMaxLoadFactor);
+        mSize = new_size;
         if constexpr (uses_tombstones)
         {
             mTombstones = 0;
@@ -1320,10 +1320,10 @@ private:
         }
         if constexpr (uses_tombstones)
         {
-            if (size_ + mTombstones >= growth_threshold_)
+            if (mSize + mTombstones >= mGrowthThreshold)
             {
                 size_t new_cap = mCapacity;
-                if (size_ >= growth_threshold_ / 2)
+                if (mSize >= mGrowthThreshold / 2)
                 {
                     new_cap = mCapacity ? mCapacity * 2 : kMinCapacity;
                 }
@@ -1332,7 +1332,7 @@ private:
         }
         else
         {
-            if (size_ >= growth_threshold_)
+            if (mSize >= mGrowthThreshold)
             {
                 size_t new_cap = mCapacity ? mCapacity * 2 : kMinCapacity;
                 rehash_internal(new_cap);
@@ -1348,13 +1348,13 @@ private:
             // Tombstone deletion: O(1), mark as deleted
             mSlots[idx].destroy();
             set_ctrl(idx, fasthash_detail::kDeleted);
-            --size_;
+            --mSize;
             ++mTombstones;
         }
         else
         {
             // Backward-shift deletion: shift elements back
-            --size_;
+            --mSize;
 
             size_t hole = idx;
             size_t scan = (hole + 1) & mMask;
@@ -1385,7 +1385,7 @@ public:
     FastHashMap() = default;
 
     explicit FastHashMap(size_t initial_capacity, double load_factor = 0.875)
-        : max_load_factor_(normalize_load_factor(load_factor))
+        : mMaxLoadFactor(normalize_load_factor(load_factor))
     {
         if (initial_capacity > 0)
         {
@@ -1404,10 +1404,10 @@ public:
     }
 
     FastHashMap(const FastHashMap& other)
-        : max_load_factor_(other.max_load_factor_)
+        : mMaxLoadFactor(other.mMaxLoadFactor)
         , mFrozen(other.mFrozen)
         , mHasher(other.mHasher)
-        , key_equal_(other.key_equal_)
+        , mKeyEqual(other.mKeyEqual)
         , mAllocator()
     { // Default construct allocator (can't copy stateful allocators)
         if (other.mCapacity > 0)
@@ -1427,7 +1427,7 @@ public:
                     set_ctrl(i, fasthash_detail::kDeleted);
                 }
             }
-            size_ = other.size_;
+            mSize = other.mSize;
             if constexpr (uses_tombstones)
             {
                 mTombstones = other.mTombstones;
@@ -1443,14 +1443,14 @@ public:
     FastHashMap(FastHashMap&& other) noexcept(is_nothrow_move_constructible_v)
         : mCtrl(other.mCtrl)
         , mSlots(other.mSlots)
-        , size_(other.size_)
+        , mSize(other.mSize)
         , mCapacity(other.mCapacity)
         , mMask(other.mMask)
-        , growth_threshold_(other.growth_threshold_)
-        , max_load_factor_(other.max_load_factor_)
+        , mGrowthThreshold(other.mGrowthThreshold)
+        , mMaxLoadFactor(other.mMaxLoadFactor)
         , mFrozen(other.mFrozen)
         , mHasher(std::move(other.mHasher))
-        , key_equal_(std::move(other.key_equal_))
+        , mKeyEqual(std::move(other.mKeyEqual))
         , mAllocator(std::move(other.mAllocator))
     {
         if constexpr (uses_tombstones)
@@ -1460,7 +1460,7 @@ public:
         }
         other.mCtrl = nullptr;
         other.mSlots = nullptr;
-        other.size_ = 0;
+        other.mSize = 0;
         other.mCapacity = 0;
         other.mMask = 0;
         other.mFrozen = false;
@@ -1491,14 +1491,14 @@ public:
             deallocate();
             mCtrl = other.mCtrl;
             mSlots = other.mSlots;
-            size_ = other.size_;
+            mSize = other.mSize;
             mCapacity = other.mCapacity;
             mMask = other.mMask;
-            growth_threshold_ = other.growth_threshold_;
-            max_load_factor_ = other.max_load_factor_;
+            mGrowthThreshold = other.mGrowthThreshold;
+            mMaxLoadFactor = other.mMaxLoadFactor;
             mFrozen = other.mFrozen;
             mHasher = std::move(other.mHasher);
-            key_equal_ = std::move(other.key_equal_);
+            mKeyEqual = std::move(other.mKeyEqual);
             mAllocator = std::move(other.mAllocator);
             if constexpr (uses_tombstones)
             {
@@ -1507,7 +1507,7 @@ public:
             }
             other.mCtrl = nullptr;
             other.mSlots = nullptr;
-            other.size_ = 0;
+            other.mSize = 0;
             other.mCapacity = 0;
             other.mMask = 0;
             other.mFrozen = false;
@@ -1527,14 +1527,14 @@ public:
     {
         std::swap(mCtrl, other.mCtrl);
         std::swap(mSlots, other.mSlots);
-        std::swap(size_, other.size_);
+        std::swap(mSize, other.mSize);
         std::swap(mCapacity, other.mCapacity);
         std::swap(mMask, other.mMask);
-        std::swap(growth_threshold_, other.growth_threshold_);
-        std::swap(max_load_factor_, other.max_load_factor_);
+        std::swap(mGrowthThreshold, other.mGrowthThreshold);
+        std::swap(mMaxLoadFactor, other.mMaxLoadFactor);
         std::swap(mFrozen, other.mFrozen);
         std::swap(mHasher, other.mHasher);
-        std::swap(key_equal_, other.key_equal_);
+        std::swap(mKeyEqual, other.mKeyEqual);
         std::swap(mAllocator, other.mAllocator);
         if constexpr (uses_tombstones)
         {
@@ -1545,11 +1545,11 @@ public:
     // Capacity
     bool empty() const noexcept
     {
-        return size_ == 0;
+        return mSize == 0;
     }
     size_t size() const noexcept
     {
-        return size_;
+        return mSize;
     }
     size_t capacity() const noexcept
     {
@@ -1557,11 +1557,11 @@ public:
     }
     double load_factor() const noexcept
     {
-        return mCapacity ? static_cast<double>(size_) / static_cast<double>(mCapacity) : 0.0;
+        return mCapacity ? static_cast<double>(mSize) / static_cast<double>(mCapacity) : 0.0;
     }
     double max_load_factor() const noexcept
     {
-        return max_load_factor_;
+        return mMaxLoadFactor;
     }
 
     /// Get allocator reference (for diagnostics/introspection)
@@ -1592,7 +1592,7 @@ public:
     void reserve(size_t count)
     {
         assert(!mFrozen && "FastHashMap::reserve() called on frozen map");
-        size_t required = static_cast<size_t>(static_cast<double>(count) / max_load_factor_) + 1;
+        size_t required = static_cast<size_t>(static_cast<double>(count) / mMaxLoadFactor) + 1;
         if (required > mCapacity)
         {
             size_t new_cap = kMinCapacity;
@@ -1615,7 +1615,7 @@ public:
         bool should_rehash = new_cap > mCapacity;
         if constexpr (uses_tombstones)
         {
-            should_rehash = should_rehash || (mTombstones > size_ / 4);
+            should_rehash = should_rehash || (mTombstones > mSize / 4);
         }
         if (should_rehash)
         {
@@ -1637,7 +1637,7 @@ public:
             }
             // Reset all control bytes including mirrored tail
             std::memset(mCtrl, fasthash_detail::kEmpty, mCapacity + Group::kWidth);
-            size_ = 0;
+            mSize = 0;
             if constexpr (uses_tombstones)
             {
                 mTombstones = 0;
@@ -1670,7 +1670,7 @@ public:
             for (uint32_t i : g.match(h2))
             {
                 const size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key(), key))
+                if (mKeyEqual(mSlots[idx].key(), key))
                 {
                     return nullptr; // Already exists
                 }
@@ -1704,7 +1704,7 @@ public:
 
         // Phase 2: commit metadata (no throw)
         set_ctrl(insert_idx, h2);
-        ++size_;
+        ++mSize;
         if constexpr (uses_tombstones)
         {
             if (reused_tombstone)
@@ -1740,7 +1740,7 @@ public:
             for (uint32_t i : g.match(h2))
             {
                 const size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key(), key))
+                if (mKeyEqual(mSlots[idx].key(), key))
                 {
                     Value& ref = mSlots[idx].value_mut();
                     ref = std::forward<V>(value);
@@ -1774,7 +1774,7 @@ public:
         mSlots[insert_idx].construct(std::forward<K>(key), std::forward<V>(value), home);
 
         set_ctrl(insert_idx, h2);
-        ++size_;
+        ++mSize;
         if constexpr (uses_tombstones)
         {
             if (reused_tombstone)
@@ -1880,7 +1880,7 @@ public:
             for (uint32_t i : g.match(h2))
             {
                 const size_t idx = seq.offset(i);
-                if (key_equal_(mSlots[idx].key(), key))
+                if (mKeyEqual(mSlots[idx].key(), key))
                 {
                     return mSlots[idx].value();
                 }
@@ -1912,7 +1912,7 @@ public:
         mSlots[insert_idx].construct(key, Value{}, home);
 
         set_ctrl(insert_idx, h2);
-        ++size_;
+        ++mSize;
         if constexpr (uses_tombstones)
         {
             if (reused_tombstone)

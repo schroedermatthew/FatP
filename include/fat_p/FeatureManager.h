@@ -499,8 +499,8 @@ private:
     std::map<std::string, FeatureNode> mFeatures;
     std::map<std::string, std::unique_ptr<FeatureGroupInfoBase>> mGroups;
     std::vector<ObserverEntry> mObservers;
-    std::vector<BatchObserverEntry> batch_observers_;
-    ObserverId next_observer_id_ = 1;
+    std::vector<BatchObserverEntry> mBatchObservers;
+    ObserverId mNextObserverId = 1;
     mutable SyncPolicy mSync;
 
     // Maximum dependency depth before aborting to prevent stack overflow
@@ -1149,8 +1149,8 @@ public:
         : mFeatures(std::move(other.mFeatures))
         , mGroups(std::move(other.mGroups))
         , mObservers(std::move(other.mObservers))
-        , batch_observers_(std::move(other.batch_observers_))
-        , next_observer_id_(other.next_observer_id_)
+        , mBatchObservers(std::move(other.mBatchObservers))
+        , mNextObserverId(other.mNextObserverId)
         , mSync()
     {
     }
@@ -1162,8 +1162,8 @@ public:
             mFeatures = std::move(other.mFeatures);
             mGroups = std::move(other.mGroups);
             mObservers = std::move(other.mObservers);
-            batch_observers_ = std::move(other.batch_observers_);
-            next_observer_id_ = other.next_observer_id_;
+            mBatchObservers = std::move(other.mBatchObservers);
+            mNextObserverId = other.mNextObserverId;
             // mSync intentionally not assigned/moved: synchronization primitives (mutexes)
             // are not safely movable. The target keeps its existing mSync instance.
         }
@@ -1175,14 +1175,14 @@ public:
     {
     private:
         FeatureManager* mManager;
-        std::string feature_name_;
-        bool original_state_;
+        std::string mFeatureName;
+        bool mOriginalState;
         bool mValid;
 
     public:
         ScopedFeatureChange(FeatureManager& manager, const std::string& feature_name, bool new_state)
             : mManager(&manager)
-            , feature_name_(feature_name)
+            , mFeatureName(feature_name)
             , mValid(false)
         {
             auto guard = mManager->mSync.lock();
@@ -1190,7 +1190,7 @@ public:
             if (node_res)
             {
                 FeatureNode* node = *node_res;
-                original_state_ = node->enabled;
+                mOriginalState = node->enabled;
                 mValid = true;
                 if (new_state && !node->enabled)
                 {
@@ -1209,10 +1209,10 @@ public:
             {
                 {
                     auto guard = mManager->mSync.lock();
-                    auto node = mManager->get_node(feature_name_);
+                    auto node = mManager->get_node(mFeatureName);
                     if (node)
                     {
-                        (*node)->enabled = original_state_;
+                        (*node)->enabled = mOriginalState;
                     }
                 }
                 // Best-effort validation during cleanup (cannot throw from destructor)
@@ -1551,7 +1551,7 @@ public:
             if (!all_changed.empty())
             {
                 observers_snapshot = mObservers;
-                batch_observers_snapshot = batch_observers_;
+                batch_observers_snapshot = mBatchObservers;
             }
         } // Lock released here
 
@@ -1692,7 +1692,7 @@ public:
             if (!actually_changed.empty())
             {
                 observers_snapshot = mObservers;
-                batch_observers_snapshot = batch_observers_;
+                batch_observers_snapshot = mBatchObservers;
             }
         } // Lock released here
 
@@ -1764,7 +1764,7 @@ public:
     ObserverId add_observer(FeatureObserver callback, int priority = 0)
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        ObserverId id = next_observer_id_++;
+        ObserverId id = mNextObserverId++;
         mObservers.push_back({id, priority, std::move(callback)});
         return id;
     }
@@ -1790,8 +1790,8 @@ public:
     ObserverId add_batch_observer(BatchObserver callback, int priority = 0)
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        ObserverId id = next_observer_id_++;
-        batch_observers_.push_back({id, priority, std::move(callback)});
+        ObserverId id = mNextObserverId++;
+        mBatchObservers.push_back({id, priority, std::move(callback)});
         return id;
     }
 
@@ -1817,12 +1817,12 @@ public:
 
         // Check batch observers
         auto bit =
-            std::find_if(batch_observers_.begin(), batch_observers_.end(), [id](const BatchObserverEntry& entry) {
+            std::find_if(mBatchObservers.begin(), mBatchObservers.end(), [id](const BatchObserverEntry& entry) {
                 return entry.id == id;
             });
-        if (bit != batch_observers_.end())
+        if (bit != mBatchObservers.end())
         {
-            batch_observers_.erase(bit);
+            mBatchObservers.erase(bit);
             return true;
         }
 
@@ -1834,7 +1834,7 @@ public:
     {
         [[maybe_unused]] auto guard = mSync.lock();
         mObservers.clear();
-        batch_observers_.clear();
+        mBatchObservers.clear();
     }
 
     // Get all enabled features
@@ -2138,7 +2138,7 @@ public:
         mFeatures.clear();
         mGroups.clear();
         mObservers.clear();
-        batch_observers_.clear();
+        mBatchObservers.clear();
     }
 };
 

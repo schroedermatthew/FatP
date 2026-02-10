@@ -868,7 +868,7 @@ private:
     Storage mStorage;
 #ifndef NDEBUG
     // Debug-only: store pool address to detect obvious misuse
-    const void* pool_addr_;
+    const void* mPoolAddr;
 #endif
 
 public:
@@ -876,7 +876,7 @@ public:
         : mPool(pool)
         , mStorage()
 #ifndef NDEBUG
-        , pool_addr_(&pool)
+        , mPoolAddr(&pool)
 #endif
     {
     }
@@ -888,7 +888,7 @@ public:
     [[nodiscard]] bool debug_check_pool_address() const noexcept
     {
 #ifndef NDEBUG
-        return pool_addr_ == &mPool;
+        return mPoolAddr == &mPool;
 #else
         return true;
 #endif

@@ -500,7 +500,7 @@ public:
             return ErrorPolicy::report_void_error(FileError::InvalidWindowSize);
         }
 
-        element_size_ = element_size;
+        mElementSize = element_size;
         mFile.open(filename, std::ios::in | std::ios::out | std::ios::binary);
 
         if (!mFile.is_open())
@@ -517,41 +517,41 @@ public:
         }
 
         auto file_bytes = static_cast<size_t>(mFile.tellg());
-        file_size_ = file_bytes / element_size_;
+        mFileSize = file_bytes / mElementSize;
 
-        if (file_size_ == 0)
+        if (mFileSize == 0)
         {
-            window_size_ = 0;
-            begin_index_ = 0;
-            end_index_ = 0;
+            mWindowSize = 0;
+            mBeginIndex = 0;
+            mEndIndex = 0;
             return ErrorPolicy::report_void_success();
         }
 
         // Clamp window size to file size
-        window_size_ = std::min(window_size, file_size_);
+        mWindowSize = std::min(window_size, mFileSize);
 
         // Calculate starting position based on lag offset
-        if (lag_offset > 0 && lag_offset < file_size_)
+        if (lag_offset > 0 && lag_offset < mFileSize)
         {
-            begin_index_ = file_size_ - lag_offset;
+            mBeginIndex = mFileSize - lag_offset;
         }
         else
         {
-            begin_index_ = 0;
+            mBeginIndex = 0;
         }
 
-        end_index_ = begin_index_ + window_size_;
-        if (end_index_ > file_size_)
+        mEndIndex = mBeginIndex + mWindowSize;
+        if (mEndIndex > mFileSize)
         {
-            end_index_ = file_size_;
-            begin_index_ = file_size_ - window_size_;
+            mEndIndex = mFileSize;
+            mBeginIndex = mFileSize - mWindowSize;
         }
 
         // Load initial window
         mWindow.clear();
 
-        mFile.seekg(static_cast<std::streamoff>(begin_index_ * element_size_), std::ios::beg);
-        for (size_t i = 0; i < window_size_; ++i)
+        mFile.seekg(static_cast<std::streamoff>(mBeginIndex * mElementSize), std::ios::beg);
+        for (size_t i = 0; i < mWindowSize; ++i)
         {
             ElementType elem;
             if (!SerializationPolicy::read(mFile, elem))
@@ -607,7 +607,7 @@ public:
             }
         }
 
-        if (index >= file_size_)
+        if (index >= mFileSize)
         {
             if constexpr (is_threadsafe)
             {
@@ -620,7 +620,7 @@ public:
         }
 
         // Fast path: entire file in window
-        if (window_size_ == file_size_)
+        if (mWindowSize == mFileSize)
         {
             if constexpr (is_threadsafe)
             {
@@ -663,24 +663,24 @@ public:
 
             // Fail-safe: direct I/O for out-of-window access
             // Write back current element if dirty
-            if (current_index_ < file_size_)
+            if (mCurrentIndex < mFileSize)
             {
-                mFile.seekp(static_cast<std::streamoff>(current_index_ * element_size_), std::ios::beg);
-                if (!SerializationPolicy::write(mFile, current_element_))
+                mFile.seekp(static_cast<std::streamoff>(mCurrentIndex * mElementSize), std::ios::beg);
+                if (!SerializationPolicy::write(mFile, mCurrentElement))
                 {
                     return ErrorPolicy::report_error(FileError::WriteFailure);
                 }
             }
 
             // Read new element
-            current_index_ = index;
-            mFile.seekg(static_cast<std::streamoff>(current_index_ * element_size_), std::ios::beg);
-            if (!SerializationPolicy::read(mFile, current_element_))
+            mCurrentIndex = index;
+            mFile.seekg(static_cast<std::streamoff>(mCurrentIndex * mElementSize), std::ios::beg);
+            if (!SerializationPolicy::read(mFile, mCurrentElement))
             {
                 return ErrorPolicy::report_error(FileError::ReadFailure);
             }
 
-            return ErrorPolicy::report_success(std::ref(current_element_));
+            return ErrorPolicy::report_success(std::ref(mCurrentElement));
         }
     }
 
@@ -699,12 +699,12 @@ public:
             return make_unexpected(FileError::FileNotOpen);
         }
 
-        if (index >= file_size_)
+        if (index >= mFileSize)
         {
             return make_unexpected(FileError::InvalidIndex);
         }
 
-        if (window_size_ == file_size_)
+        if (mWindowSize == mFileSize)
         {
             if constexpr (is_threadsafe)
             {
@@ -745,12 +745,12 @@ public:
     {
         [[maybe_unused]] auto guard = mMutex.lock();
 
-        if (window_size_ == file_size_ || mWindow.empty())
+        if (mWindowSize == mFileSize || mWindow.empty())
         {
             return ErrorPolicy::report_void_success();
         }
 
-        if (target_index >= file_size_)
+        if (target_index >= mFileSize)
         {
             return ErrorPolicy::report_void_error(FileError::InvalidIndex);
         }
@@ -767,13 +767,13 @@ public:
     size_t size() const noexcept
     {
         [[maybe_unused]] auto guard = mMutex.lock_shared();
-        return file_size_;
+        return mFileSize;
     }
 
     bool empty() const noexcept
     {
         [[maybe_unused]] auto guard = mMutex.lock_shared();
-        return file_size_ == 0;
+        return mFileSize == 0;
     }
 
     bool is_open() const noexcept
@@ -785,19 +785,19 @@ public:
     size_t window_size() const noexcept
     {
         [[maybe_unused]] auto guard = mMutex.lock_shared();
-        return window_size_;
+        return mWindowSize;
     }
 
     size_t begin_index() const noexcept
     {
         [[maybe_unused]] auto guard = mMutex.lock_shared();
-        return begin_index_;
+        return mBeginIndex;
     }
 
     size_t end_index() const noexcept
     {
         [[maybe_unused]] auto guard = mMutex.lock_shared();
-        return end_index_;
+        return mEndIndex;
     }
 
 private:
@@ -808,26 +808,26 @@ private:
     void shift_to_index_impl(size_t target_index) noexcept
     {
         // Check if already in window
-        if (target_index >= begin_index_ && target_index < end_index_)
+        if (target_index >= mBeginIndex && target_index < mEndIndex)
         {
             return;
         }
 
         // Calculate shift direction and distance
-        if (target_index >= end_index_)
+        if (target_index >= mEndIndex)
         {
             // Shift forward
-            size_t shift_count = target_index - end_index_ + 1;
-            for (size_t i = 0; i < shift_count && end_index_ < file_size_; ++i)
+            size_t shift_count = target_index - mEndIndex + 1;
+            for (size_t i = 0; i < shift_count && mEndIndex < mFileSize; ++i)
             {
                 shift_forward_one();
             }
         }
-        else if (target_index < begin_index_)
+        else if (target_index < mBeginIndex)
         {
             // Shift backward
-            size_t shift_count = begin_index_ - target_index;
-            for (size_t i = 0; i < shift_count && begin_index_ > 0; ++i)
+            size_t shift_count = mBeginIndex - target_index;
+            for (size_t i = 0; i < shift_count && mBeginIndex > 0; ++i)
             {
                 shift_backward_one();
             }
@@ -845,12 +845,12 @@ private:
             flush_window();
             mFile.close();
 
-            file_size_ = 0;
-            window_size_ = 0;
-            begin_index_ = 0;
-            end_index_ = 0;
-            element_size_ = 0;
-            current_index_ = std::numeric_limits<size_t>::max();
+            mFileSize = 0;
+            mWindowSize = 0;
+            mBeginIndex = 0;
+            mEndIndex = 0;
+            mElementSize = 0;
+            mCurrentIndex = std::numeric_limits<size_t>::max();
             mWindow.clear();
         }
     }
@@ -862,10 +862,10 @@ private:
             return;
         }
 
-        size_t write_index = begin_index_;
+        size_t write_index = mBeginIndex;
         for (const auto& elem : mWindow)
         {
-            mFile.seekp(static_cast<std::streamoff>(write_index * element_size_), std::ios::beg);
+            mFile.seekp(static_cast<std::streamoff>(write_index * mElementSize), std::ios::beg);
             SerializationPolicy::write(mFile, elem);
             ++write_index;
         }
@@ -875,23 +875,23 @@ private:
 
     bool shift_forward_one() noexcept
     {
-        if (mWindow.empty() || end_index_ >= file_size_)
+        if (mWindow.empty() || mEndIndex >= mFileSize)
         {
             return true;
         }
 
         // Write front element back to file
-        mFile.seekp(static_cast<std::streamoff>(begin_index_ * element_size_), std::ios::beg);
+        mFile.seekp(static_cast<std::streamoff>(mBeginIndex * mElementSize), std::ios::beg);
         if (!SerializationPolicy::write(mFile, mWindow.front()))
         {
             return false;
         }
 
         mWindow.pop_front();
-        ++begin_index_;
+        ++mBeginIndex;
 
         // Read new element at end
-        mFile.seekg(static_cast<std::streamoff>(end_index_ * element_size_), std::ios::beg);
+        mFile.seekg(static_cast<std::streamoff>(mEndIndex * mElementSize), std::ios::beg);
         ElementType temp;
         if (!SerializationPolicy::read(mFile, temp))
         {
@@ -899,31 +899,31 @@ private:
         }
 
         mWindow.push_back(std::move(temp));
-        ++end_index_;
+        ++mEndIndex;
 
         return true;
     }
 
     bool shift_backward_one() noexcept
     {
-        if (mWindow.empty() || begin_index_ == 0)
+        if (mWindow.empty() || mBeginIndex == 0)
         {
             return true;
         }
 
         // Write back element back to file
-        mFile.seekp(static_cast<std::streamoff>((end_index_ - 1) * element_size_), std::ios::beg);
+        mFile.seekp(static_cast<std::streamoff>((mEndIndex - 1) * mElementSize), std::ios::beg);
         if (!SerializationPolicy::write(mFile, mWindow.back()))
         {
             return false;
         }
 
         mWindow.pop_back();
-        --end_index_;
+        --mEndIndex;
 
         // Read new element at front
-        --begin_index_;
-        mFile.seekg(static_cast<std::streamoff>(begin_index_ * element_size_), std::ios::beg);
+        --mBeginIndex;
+        mFile.seekg(static_cast<std::streamoff>(mBeginIndex * mElementSize), std::ios::beg);
         ElementType temp;
         if (!SerializationPolicy::read(mFile, temp))
         {
@@ -937,9 +937,9 @@ private:
 
     std::optional<size_t> get_window_index(size_t file_index) const noexcept
     {
-        if (file_index >= begin_index_ && file_index < end_index_)
+        if (file_index >= mBeginIndex && file_index < mEndIndex)
         {
-            return file_index - begin_index_;
+            return file_index - mBeginIndex;
         }
         return std::nullopt;
     }
@@ -948,18 +948,18 @@ private:
     // Members
     // =============================================================================
 
-    size_t element_size_ = 0;
-    size_t file_size_ = 0;
-    size_t window_size_ = 0;
-    size_t begin_index_ = 0;
-    size_t end_index_ = 0;
+    size_t mElementSize = 0;
+    size_t mFileSize = 0;
+    size_t mWindowSize = 0;
+    size_t mBeginIndex = 0;
+    size_t mEndIndex = 0;
 
     mutable std::fstream mFile;
     std::deque<ElementType> mWindow;
 
     // Fail-safe direct access buffer (single-threaded mode only)
-    ElementType current_element_{};
-    size_t current_index_ = std::numeric_limits<size_t>::max();
+    ElementType mCurrentElement{};
+    size_t mCurrentIndex = std::numeric_limits<size_t>::max();
 
     mutable ConcurrencyPolicy mMutex;
 };

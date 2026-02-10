@@ -1322,15 +1322,15 @@ inline double nsPerOp(double elapsedNs, std::size_t ops)
  */
 class BenchmarkScope
 {
-    DWORD old_priority_ = 0;
-    DWORD_PTR old_affinity_ = 0;
+    DWORD mOldPriority = 0;
+    DWORD_PTR mOldAffinity = 0;
     bool mActive = false;
 
 public:
     explicit BenchmarkScope(bool verbose = false)
     {
         HANDLE proc = GetCurrentProcess();
-        old_priority_ = GetPriorityClass(proc);
+        mOldPriority = GetPriorityClass(proc);
         SetPriorityClass(proc, HIGH_PRIORITY_CLASS);
 
         HANDLE thread = GetCurrentThread();
@@ -1344,7 +1344,7 @@ public:
             DWORD_PTR pick = nonzero ? nonzero : proc_mask;
             target = pick & (~pick + 1); // Lowest set bit
         }
-        old_affinity_ = SetThreadAffinityMask(thread, target);
+        mOldAffinity = SetThreadAffinityMask(thread, target);
         mActive = true;
 
         if (verbose)
@@ -1358,11 +1358,11 @@ public:
         if (mActive)
         {
             HANDLE proc = GetCurrentProcess();
-            SetPriorityClass(proc, old_priority_);
+            SetPriorityClass(proc, mOldPriority);
             HANDLE thread = GetCurrentThread();
-            if (old_affinity_ != 0)
+            if (mOldAffinity != 0)
             {
-                SetThreadAffinityMask(thread, old_affinity_);
+                SetThreadAffinityMask(thread, mOldAffinity);
             }
         }
     }

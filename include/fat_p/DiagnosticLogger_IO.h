@@ -76,7 +76,7 @@ class FileSink : public ISink
     std::unique_ptr<IFormatter> mFormatter;
     LogLevel mMinLevel;
     std::mutex mMutex;
-    bool is_valid_;
+    bool mIsValid;
 
 public:
     /**
@@ -92,11 +92,11 @@ public:
                       bool append = true)
         : mFormatter(std::move(fmt))
         , mMinLevel(minLevel)
-        , is_valid_(false)
+        , mIsValid(false)
     {
         auto mode = std::ios::out | (append ? std::ios::app : std::ios::trunc);
         mFile.open(filename, mode);
-        is_valid_ = mFile.is_open();
+        mIsValid = mFile.is_open();
     }
 
     ~FileSink() noexcept
@@ -115,12 +115,12 @@ public:
 
     bool is_valid() const
     {
-        return is_valid_;
+        return mIsValid;
     }
 
     void write(const LogRecord& record) override
     {
-        if (!is_valid_ || record.level < mMinLevel)
+        if (!mIsValid || record.level < mMinLevel)
         {
             return;
         }
@@ -130,7 +130,7 @@ public:
 
     void flush() override
     {
-        if (!is_valid_)
+        if (!mIsValid)
         {
             return;
         }
@@ -234,7 +234,7 @@ class RotatingFileSink : public ISink
     std::unique_ptr<IFormatter> mFormatter;
     std::ofstream mFile;
     std::mutex mMutex;
-    bool is_valid_;
+    bool mIsValid;
 
 public:
     RotatingFileSink(const std::string& fname,
@@ -245,19 +245,19 @@ public:
         , mMaxBytes(maxBytes)
         , mMaxFiles(maxFiles)
         , mFormatter(std::move(fmt))
-        , is_valid_(false)
+        , mIsValid(false)
     {
         open();
     }
 
     bool is_valid() const
     {
-        return is_valid_;
+        return mIsValid;
     }
 
     void write(const LogRecord& record) override
     {
-        if (!is_valid_)
+        if (!mIsValid)
         {
             return;
         }
@@ -274,7 +274,7 @@ public:
 
     void flush() override
     {
-        if (!is_valid_)
+        if (!mIsValid)
         {
             return;
         }
@@ -286,7 +286,7 @@ private:
     void open()
     {
         mFile.open(mBaseFilename, std::ios::app);
-        is_valid_ = mFile.is_open();
+        mIsValid = mFile.is_open();
     }
 
     void rotate()
@@ -430,8 +430,8 @@ class AsyncSink : public ISink
     std::atomic<bool> mRunning{true};
     std::atomic<uint64_t> mDropped{0};
 
-    std::mutex flush_mutex_;
-    std::condition_variable flush_cv_;
+    std::mutex mFlushMutex;
+    std::condition_variable mFlushCv;
     std::atomic<bool> mProcessing{false};
 
     std::future<void> mWorkerFuture; // Store the future for proper shutdown
@@ -449,7 +449,7 @@ public:
     ~AsyncSink()
     {
         mRunning.store(false, std::memory_order_release);
-        flush_cv_.notify_all();
+        mFlushCv.notify_all();
 
         // Wait for the worker to actually finish, not just the queue to drain
         if (mWorkerFuture.valid())
@@ -466,8 +466,8 @@ public:
 
     void flush() override
     {
-        std::unique_lock<std::mutex> lock(flush_mutex_);
-        flush_cv_.wait(lock, [this] {
+        std::unique_lock<std::mutex> lock(mFlushMutex);
+        mFlushCv.wait(lock, [this] {
             std::lock_guard<std::mutex> qlock(mQueueMutex);
             return mQueue.empty() && !mProcessing.load();
         });
@@ -493,7 +493,7 @@ private:
 
                 if (queueEmpty())
                 {
-                    flush_cv_.notify_all();
+                    mFlushCv.notify_all();
                 }
             }
             else
@@ -526,16 +526,16 @@ class RateLimitingSink : public ISink
 {
     std::shared_ptr<ISink> mTarget;
     std::atomic<uint64_t> mDropped{0};
-    std::chrono::steady_clock::time_point last_refill_;
+    std::chrono::steady_clock::time_point mLastRefill;
     double mTokens;
     const double mRate;
     const double mBurst;
-    std::mutex limiter_mutex_;
+    std::mutex mLimiterMutex;
 
 public:
     RateLimitingSink(std::shared_ptr<ISink> target, double rate_per_sec, double burst = 10.0)
         : mTarget(std::move(target))
-        , last_refill_(std::chrono::steady_clock::now())
+        , mLastRefill(std::chrono::steady_clock::now())
         , mTokens(burst)
         , mRate(rate_per_sec)
         , mBurst(burst)
@@ -566,11 +566,11 @@ public:
 private:
     bool try_acquire()
     {
-        std::lock_guard<std::mutex> lock(limiter_mutex_);
+        std::lock_guard<std::mutex> lock(mLimiterMutex);
         auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration<double>(now - last_refill_).count();
+        auto elapsed = std::chrono::duration<double>(now - mLastRefill).count();
         mTokens = std::min(mBurst, mTokens + elapsed * mRate);
-        last_refill_ = now;
+        mLastRefill = now;
         if (mTokens >= 1.0)
         {
             mTokens -= 1.0;

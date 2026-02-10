@@ -39,7 +39,7 @@ FATP_META:
  * - CRITICAL-2: static_assert for Node layout (prevents fragile cast)
  * - CRITICAL-3: [[nodiscard]] on acquire() (prevents silent leaks)
  * - CRITICAL-4: Debug assertion in destructor (detects unreleased objects)
- * - CRITICAL-5: reserve() before free_list_ modification (exception safety)
+ * - CRITICAL-5: reserve() before mFreeList modification (exception safety)
  * - CRITICAL-6: try-catch in acquire() (constructor exception safety)
  *
  * @version 3.2
@@ -109,16 +109,16 @@ private:
     // Member Variables
     // ========================================================================
 
-    Node* free_list_ = nullptr;
-    size_t free_count_ = 0;
+    Node* mFreeList = nullptr;
+    size_t mFreeCount = 0;
     std::vector<std::unique_ptr<Node[]>> mBlocks;
-    size_t block_size_;
-    mutable SyncPolicy sync_policy_; // mutable for const methods (ALL FOUR agreed)
+    size_t mBlockSize;
+    mutable SyncPolicy mSyncPolicy; // mutable for const methods (ALL FOUR agreed)
 
 #ifndef NDEBUG
-    size_t acquired_count_ = 0; // Debug tracking for leak detection
-    size_t total_acquires_ = 0; // Lifetime statistics
-    size_t total_releases_ = 0;
+    size_t mAcquiredCount = 0; // Debug tracking for leak detection
+    size_t mTotalAcquires = 0; // Lifetime statistics
+    size_t mTotalReleases = 0;
 #endif
 
     // ========================================================================
@@ -127,22 +127,22 @@ private:
 
     void allocate_block()
     {
-        auto block = std::make_unique<Node[]>(block_size_);
+        auto block = std::make_unique<Node[]>(mBlockSize);
         Node* raw_block = block.get();
 
-        // CRITICAL-5 FIX: Exception safety - reserve before modifying free_list_
-        // If reserve throws, unique_ptr cleans up block and free_list_ remains valid
+        // CRITICAL-5 FIX: Exception safety - reserve before modifying mFreeList
+        // If reserve throws, unique_ptr cleans up block and mFreeList remains valid
         mBlocks.reserve(mBlocks.size() + 1);
 
         // Initialize nodes and weave into free list (no-throw after reserve)
-        for (size_t i = 0; i < block_size_; ++i)
+        for (size_t i = 0; i < mBlockSize; ++i)
         {
             Node* node = &raw_block[i];
-            node->next = free_list_;
-            free_list_ = node;
+            node->next = mFreeList;
+            mFreeList = node;
         }
 
-        free_count_ += block_size_;
+        mFreeCount += mBlockSize;
 
         // No-throw guarantee after reserve succeeded
         mBlocks.push_back(std::move(block));
@@ -166,7 +166,7 @@ private:
         for (const auto& block : mBlocks)
         {
             const std::uintptr_t begin = reinterpret_cast<std::uintptr_t>(block.get());
-            const std::uintptr_t end = begin + (block_size_ * sizeof(Node));
+            const std::uintptr_t end = begin + (mBlockSize * sizeof(Node));
 
             if (addr >= begin && addr < end)
             {
@@ -187,9 +187,9 @@ public:
      * @param initial_block_size Number of objects per block (must be > 0)
      */
     explicit ObjectPool(size_t initial_block_size = 64)
-        : block_size_(initial_block_size)
+        : mBlockSize(initial_block_size)
     {
-        assert(block_size_ > 0 && "Block size must be positive");
+        assert(mBlockSize > 0 && "Block size must be positive");
         allocate_block();
     }
 
@@ -208,7 +208,7 @@ public:
     {
 #ifndef NDEBUG
         // CRITICAL-4 FIX: Debug assertion for unreleased objects
-        assert(acquired_count_ == 0 &&
+        assert(mAcquiredCount == 0 &&
                "ObjectPool destroyed with unreleased objects - resource leak!");
 #endif
         // unique_ptr handles block deallocation automatically
@@ -233,16 +233,16 @@ public:
     template <typename... Args>
     [[nodiscard]] T* acquire(Args&&... args) // CRITICAL-3 FIX: [[nodiscard]]
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
-        if (!free_list_)
+        if (!mFreeList)
         {
             allocate_block();
         }
 
-        Node* node = free_list_;
-        free_list_ = node->next;
-        --free_count_;
+        Node* node = mFreeList;
+        mFreeList = node->next;
+        --mFreeCount;
 
 #ifndef NDEBUG
         node->next = acquired_sentinel();
@@ -253,17 +253,17 @@ public:
         {
             T* obj = new (node->storage) T(std::forward<Args>(args)...);
 #ifndef NDEBUG
-            ++acquired_count_;
-            ++total_acquires_;
+            ++mAcquiredCount;
+            ++mTotalAcquires;
 #endif
             return obj;
         }
         catch (...)
         {
             // Restore node to free list before rethrowing
-            node->next = free_list_;
-            free_list_ = node;
-            ++free_count_;
+            node->next = mFreeList;
+            mFreeList = node;
+            ++mFreeCount;
             throw;
         }
     }
@@ -283,16 +283,16 @@ public:
     [[nodiscard]] T* try_acquire(Args&&... args)
         noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
-        if (!free_list_)
+        if (!mFreeList)
         {
             return nullptr; // Pool empty, don't allocate
         }
 
-        Node* node = free_list_;
-        free_list_ = node->next;
-        --free_count_;
+        Node* node = mFreeList;
+        mFreeList = node->next;
+        --mFreeCount;
 
 #ifndef NDEBUG
         node->next = acquired_sentinel();
@@ -303,8 +303,8 @@ public:
         {
             T* obj = new (node->storage) T(std::forward<Args>(args)...);
 #ifndef NDEBUG
-            ++acquired_count_;
-            ++total_acquires_;
+            ++mAcquiredCount;
+            ++mTotalAcquires;
 #endif
             return obj;
         }
@@ -314,16 +314,16 @@ public:
             {
                 T* obj = new (node->storage) T(std::forward<Args>(args)...);
 #ifndef NDEBUG
-                ++acquired_count_;
-                ++total_acquires_;
+                ++mAcquiredCount;
+                ++mTotalAcquires;
 #endif
                 return obj;
             }
             catch (...)
             {
-                node->next = free_list_;
-                free_list_ = node;
-                ++free_count_;
+                node->next = mFreeList;
+                mFreeList = node;
+                ++mFreeCount;
                 throw;
             }
         }
@@ -341,24 +341,24 @@ public:
         requires std::is_trivially_destructible_v<U>
     [[nodiscard]] T* acquire_uninitialized()
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
-        if (!free_list_)
+        if (!mFreeList)
         {
             allocate_block();
         }
 
-        Node* node = free_list_;
-        free_list_ = node->next;
-        --free_count_;
+        Node* node = mFreeList;
+        mFreeList = node->next;
+        --mFreeCount;
 
 #ifndef NDEBUG
         node->next = acquired_sentinel();
 #endif
 
 #ifndef NDEBUG
-        ++acquired_count_;
-        ++total_acquires_;
+        ++mAcquiredCount;
+        ++mTotalAcquires;
 #endif
         return reinterpret_cast<T*>(node->storage);
     }
@@ -376,16 +376,16 @@ public:
     [[nodiscard]] T*
     acquire_zeroed()
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
-        if (!free_list_)
+        if (!mFreeList)
         {
             allocate_block();
         }
 
-        Node* node = free_list_;
-        free_list_ = node->next;
-        --free_count_;
+        Node* node = mFreeList;
+        mFreeList = node->next;
+        --mFreeCount;
 
 #ifndef NDEBUG
         node->next = acquired_sentinel();
@@ -394,8 +394,8 @@ public:
         std::memset(node->storage, 0, sizeof(T));
 
 #ifndef NDEBUG
-        ++acquired_count_;
-        ++total_acquires_;
+        ++mAcquiredCount;
+        ++mTotalAcquires;
 #endif
         return reinterpret_cast<T*>(node->storage);
     }
@@ -415,15 +415,15 @@ public:
             return;
         }
 
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
 #ifndef NDEBUG
         // Double-release and foreign pointer detection
         assert(is_from_pool(obj) && "ObjectPool::release: pointer not from this pool");
         Node* node = reinterpret_cast<Node*>(obj);
         assert(node->next == acquired_sentinel() && "ObjectPool::release: double release detected");
-        --acquired_count_;
-        ++total_releases_;
+        --mAcquiredCount;
+        ++mTotalReleases;
 #endif
 
         // Destroy object
@@ -436,9 +436,9 @@ public:
 #else
         Node* node = reinterpret_cast<Node*>(obj);
 #endif
-        node->next = free_list_;
-        free_list_ = node;
-        ++free_count_;
+        node->next = mFreeList;
+        mFreeList = node;
+        ++mFreeCount;
     }
 
     // ========================================================================
@@ -454,7 +454,7 @@ public:
      */
     void reserve_blocks(size_t n)
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
         while (mBlocks.size() < n)
         {
@@ -480,23 +480,23 @@ public:
      */
     bool try_compact_free_list()
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
         // Only compact when fully free
-        const size_t total_capacity = mBlocks.size() * block_size_;
-        if (free_count_ != total_capacity)
+        const size_t total_capacity = mBlocks.size() * mBlockSize;
+        if (mFreeCount != total_capacity)
         {
             return false; // Objects still acquired
         }
 
 #ifndef NDEBUG
-        assert(acquired_count_ == 0 && "Counter mismatch: free_count_ == capacity but acquired_count_ != 0");
+        assert(mAcquiredCount == 0 && "Counter mismatch: mFreeCount == capacity but mAcquiredCount != 0");
 #endif
 
         // Rebuild free list in address order
         // We want acquires to return memory sequentially, so build list in reverse
         // (LIFO means first node in list is returned first)
-        free_list_ = nullptr;
+        mFreeList = nullptr;
 
         // Collect and sort block pointers by address
         std::vector<Node*> blocks;
@@ -513,11 +513,11 @@ public:
         {
             Node* block_start = *it;
             // Link nodes in reverse order within block
-            for (size_t i = block_size_; i-- > 0;)
+            for (size_t i = mBlockSize; i-- > 0;)
             {
                 Node* node = &block_start[i];
-                node->next = free_list_;
-                free_list_ = node;
+                node->next = mFreeList;
+                mFreeList = node;
             }
         }
 
@@ -548,29 +548,29 @@ public:
      */
     Stats stats() const
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
-        const size_t total = mBlocks.size() * block_size_;
-        const size_t avail = free_count_;
+        const size_t total = mBlocks.size() * mBlockSize;
+        const size_t avail = mFreeCount;
 
 #ifndef NDEBUG
-        assert((acquired_count_ + free_count_) == total && "ObjectPool: counter mismatch");
+        assert((mAcquiredCount + mFreeCount) == total && "ObjectPool: counter mismatch");
 #endif
 
 #ifndef NDEBUG
         return Stats{total,
                      avail,
-                     acquired_count_,
+                     mAcquiredCount,
                      mBlocks.size(),
-                     block_size_,
-                     total_acquires_,
-                     total_releases_};
+                     mBlockSize,
+                     mTotalAcquires,
+                     mTotalReleases};
 #else
         return Stats{total,
                      avail,
                      total - avail,
                      mBlocks.size(),
-                     block_size_,
+                     mBlockSize,
                      0u,
                      0u};
 #endif
@@ -579,21 +579,21 @@ public:
     /// @brief Get the block size
     size_t block_size() const noexcept
     {
-        return block_size_;
+        return mBlockSize;
     }
 
     /// @brief Get total number of blocks allocated
     size_t num_blocks() const
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
         return mBlocks.size();
     }
 
     /// @brief Get total capacity of the pool
     size_t capacity() const
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
-        return mBlocks.size() * block_size_;
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
+        return mBlocks.size() * mBlockSize;
     }
 
     /**
@@ -603,9 +603,9 @@ public:
      */
     size_t available() const
     {
-        [[maybe_unused]] auto guard = sync_policy_.lock();
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
 
-        return free_count_;
+        return mFreeCount;
     }
 
     /**
@@ -615,8 +615,8 @@ public:
     size_t active_count() const
     {
 #ifndef NDEBUG
-        [[maybe_unused]] auto guard = sync_policy_.lock();
-        return acquired_count_;
+        [[maybe_unused]] auto guard = mSyncPolicy.lock();
+        return mAcquiredCount;
 #else
         return 0; // Not tracked in release mode
 #endif

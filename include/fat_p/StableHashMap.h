@@ -568,7 +568,7 @@ public:
             for (uint32_t i : matches)
             {
                 size_t idx = seq.offset(i);
-                if (stablehash_detail::is_full(mCtrl[idx]) && key_equal_(mNodes[idx]->key, key))
+                if (stablehash_detail::is_full(mCtrl[idx]) && mKeyEqual(mNodes[idx]->key, key))
                 {
                     return true;
                 }
@@ -622,15 +622,15 @@ public:
 private:
     uint8_t* mCtrl = nullptr;
     Node** mNodes = nullptr;
-    size_t size_ = 0;
+    size_t mSize = 0;
     size_t mCapacity = 0;
     size_t mMask = 0;
-    size_t growth_threshold_ = 0;
+    size_t mGrowthThreshold = 0;
     size_t mTombstones = 0;
 
-    double max_load_factor_ = 0.8; // Lower than 0.875 for faster miss detection
+    double mMaxLoadFactor = 0.8; // Lower than 0.875 for faster miss detection
     Hash mHasher;
-    KeyEqual key_equal_;
+    KeyEqual mKeyEqual;
     allocator_type mAllocator;
 
     static constexpr size_t kMinCapacity = Group::kWidth * 2;
@@ -723,11 +723,11 @@ private:
 
         // CRITICAL: Always keep at least 1 empty slot to prevent infinite loops
         // in find_slot() and find_or_prepare_insert().
-        size_t threshold = static_cast<size_t>(static_cast<double>(cap) * max_load_factor_);
-        growth_threshold_ = (threshold >= cap) ? cap - 1 : threshold;
-        if (growth_threshold_ == 0 && cap > 0)
+        size_t threshold = static_cast<size_t>(static_cast<double>(cap) * mMaxLoadFactor);
+        mGrowthThreshold = (threshold >= cap) ? cap - 1 : threshold;
+        if (mGrowthThreshold == 0 && cap > 0)
         {
-            growth_threshold_ = 1;
+            mGrowthThreshold = 1;
         }
     }
 
@@ -782,7 +782,7 @@ private:
             for (uint32_t i : matches)
             {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mNodes[idx]->key, key))
+                if (mKeyEqual(mNodes[idx]->key, key))
                 {
                     return {idx, true, SIZE_MAX}; // Found
                 }
@@ -835,7 +835,7 @@ private:
             for (uint32_t i : matches)
             {
                 size_t idx = seq.offset(i);
-                if (key_equal_(mNodes[idx]->key, key))
+                if (mKeyEqual(mNodes[idx]->key, key))
                 {
                     return {idx, true};
                 }
@@ -929,14 +929,14 @@ private:
             mMask = new_mask;
 
             // Recompute growth threshold (keep >=1 empty slot).
-            size_t threshold = static_cast<size_t>(static_cast<double>(new_cap) * max_load_factor_);
-            growth_threshold_ = (threshold >= new_cap) ? new_cap - 1 : threshold;
-            if (growth_threshold_ == 0 && new_cap > 0)
+            size_t threshold = static_cast<size_t>(static_cast<double>(new_cap) * mMaxLoadFactor);
+            mGrowthThreshold = (threshold >= new_cap) ? new_cap - 1 : threshold;
+            if (mGrowthThreshold == 0 && new_cap > 0)
             {
-                growth_threshold_ = 1;
+                mGrowthThreshold = 1;
             }
 
-            size_ = new_size;
+            mSize = new_size;
             mTombstones = 0;
 
             // Release old arrays after commit.
@@ -959,17 +959,17 @@ private:
             mCapacity = old_cap;
             mMask = old_cap ? (old_cap - 1) : 0;
 
-            // growth_threshold_ is unchanged by this function unless commit succeeded.
+            // mGrowthThreshold is unchanged by this function unless commit succeeded.
             throw;
         }
     }
 
     void maybe_rehash()
     {
-        if (size_ + mTombstones >= growth_threshold_)
+        if (mSize + mTombstones >= mGrowthThreshold)
         {
             size_t new_cap = mCapacity;
-            if (mTombstones > size_ / 4)
+            if (mTombstones > mSize / 4)
             {
                 // Just clear tombstones by rehashing to same size
             }
@@ -999,7 +999,7 @@ public:
 
     // Constructor with capacity and max load factor
     StableHashMap(size_t initial_capacity, double load_factor)
-        : max_load_factor_(validate_max_load_factor(load_factor))
+        : mMaxLoadFactor(validate_max_load_factor(load_factor))
     {
         if (initial_capacity > 0)
         {
@@ -1014,7 +1014,7 @@ public:
 
     // Constructor with capacity, load factor, and custom hash
     StableHashMap(size_t initial_capacity, double load_factor, const Hash& hash)
-        : max_load_factor_(validate_max_load_factor(load_factor))
+        : mMaxLoadFactor(validate_max_load_factor(load_factor))
         , mHasher(hash)
     {
         if (initial_capacity > 0)
@@ -1030,9 +1030,9 @@ public:
 
     // Constructor with capacity, load factor, hash, and key_equal
     StableHashMap(size_t initial_capacity, double load_factor, const Hash& hash, const KeyEqual& equal)
-        : max_load_factor_(validate_max_load_factor(load_factor))
+        : mMaxLoadFactor(validate_max_load_factor(load_factor))
         , mHasher(hash)
-        , key_equal_(equal)
+        , mKeyEqual(equal)
     {
         if (initial_capacity > 0)
         {
@@ -1063,19 +1063,19 @@ public:
     StableHashMap(StableHashMap&& other) noexcept(is_nothrow_move_constructible)
         : mCtrl(other.mCtrl)
         , mNodes(other.mNodes)
-        , size_(other.size_)
+        , mSize(other.mSize)
         , mCapacity(other.mCapacity)
         , mMask(other.mMask)
-        , growth_threshold_(other.growth_threshold_)
+        , mGrowthThreshold(other.mGrowthThreshold)
         , mTombstones(other.mTombstones)
-        , max_load_factor_(other.max_load_factor_)
+        , mMaxLoadFactor(other.mMaxLoadFactor)
         , mHasher(std::move(other.mHasher))
-        , key_equal_(std::move(other.key_equal_))
+        , mKeyEqual(std::move(other.mKeyEqual))
         , mAllocator(std::move(other.mAllocator))
     {
         other.mCtrl = nullptr;
         other.mNodes = nullptr;
-        other.size_ = 0;
+        other.mSize = 0;
         other.mCapacity = 0;
     }
 
@@ -1087,19 +1087,19 @@ public:
             deallocate();
             mCtrl = other.mCtrl;
             mNodes = other.mNodes;
-            size_ = other.size_;
+            mSize = other.mSize;
             mCapacity = other.mCapacity;
             mMask = other.mMask;
-            growth_threshold_ = other.growth_threshold_;
+            mGrowthThreshold = other.mGrowthThreshold;
             mTombstones = other.mTombstones;
-            max_load_factor_ = other.max_load_factor_;
+            mMaxLoadFactor = other.mMaxLoadFactor;
             mHasher = std::move(other.mHasher);
-            key_equal_ = std::move(other.key_equal_);
+            mKeyEqual = std::move(other.mKeyEqual);
             mAllocator = std::move(other.mAllocator);
 
             other.mCtrl = nullptr;
             other.mNodes = nullptr;
-            other.size_ = 0;
+            other.mSize = 0;
             other.mCapacity = 0;
         }
         return *this;
@@ -1107,11 +1107,11 @@ public:
 
     // Copy constructor - preserves configuration and functor state
     StableHashMap(const StableHashMap& other)
-        : max_load_factor_(other.max_load_factor_)
+        : mMaxLoadFactor(other.mMaxLoadFactor)
         , mHasher(other.mHasher)
-        , key_equal_(other.key_equal_)
+        , mKeyEqual(other.mKeyEqual)
     {
-        if (other.size_ > 0)
+        if (other.mSize > 0)
         {
             allocate(other.mCapacity);
             try
@@ -1132,7 +1132,7 @@ public:
                         Node* new_node = mAllocator.allocate(k, v);
                         set_ctrl(insert_slot, stablehash_detail::H2(h));
                         mNodes[insert_slot] = new_node;
-                        ++size_;
+                        ++mSize;
                     }
                 }
             }
@@ -1187,7 +1187,7 @@ public:
         {
             --mTombstones;
         }
-        ++size_;
+        ++mSize;
 
         return {&node->value, true};
     }
@@ -1224,7 +1224,7 @@ public:
         {
             --mTombstones;
         }
-        ++size_;
+        ++mSize;
 
         return {&node->value, true};
     }
@@ -1260,7 +1260,7 @@ public:
         {
             --mTombstones;
         }
-        ++size_;
+        ++mSize;
 
         return {&node->value, true};
     }
@@ -1328,7 +1328,7 @@ public:
             mAllocator.deallocate(mNodes[idx]);
             mNodes[idx] = nullptr;
             set_ctrl(idx, stablehash_detail::kDeleted);
-            --size_;
+            --mSize;
             ++mTombstones;
             return true;
         }
@@ -1349,13 +1349,13 @@ public:
             }
             std::memset(mCtrl, stablehash_detail::kEmpty, mCapacity + Group::kWidth);
         }
-        size_ = 0;
+        mSize = 0;
         mTombstones = 0;
     }
 
     void reserve(size_t count)
     {
-        size_t required = static_cast<size_t>(static_cast<double>(count) / max_load_factor_) + 1;
+        size_t required = static_cast<size_t>(static_cast<double>(count) / mMaxLoadFactor) + 1;
         if (required > mCapacity)
         {
             size_t new_cap = kMinCapacity;
@@ -1371,11 +1371,11 @@ public:
 
     size_t size() const
     {
-        return size_;
+        return mSize;
     }
     bool empty() const
     {
-        return size_ == 0;
+        return mSize == 0;
     }
     size_t capacity() const
     {
@@ -1383,11 +1383,11 @@ public:
     }
     double max_load_factor() const noexcept
     {
-        return max_load_factor_;
+        return mMaxLoadFactor;
     }
     double load_factor() const
     {
-        return mCapacity > 0 ? static_cast<double>(size_) / static_cast<double>(mCapacity) : 0.0;
+        return mCapacity > 0 ? static_cast<double>(mSize) / static_cast<double>(mCapacity) : 0.0;
     }
     /// Get the allocator (for custom allocator inspection)
     allocator_type& get_allocator() noexcept

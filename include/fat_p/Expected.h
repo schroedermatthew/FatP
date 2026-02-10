@@ -406,7 +406,7 @@ template <typename T, typename E>
 struct UnionStorage
 {
 private:
-    bool has_value_;   ///< Discriminator: true if value is active
+    bool mHasValue;   ///< Discriminator: true if value is active
     bool mInitialized; ///< True if union has been initialized (either value or error)
     union
     {
@@ -417,7 +417,7 @@ private:
 
     // GCC 14 emits false-positive -Wmaybe-uninitialized for union members when it
     // can't prove which member is active at compile time. This is safe because
-    // destroy_active checks has_value_ before accessing any union member.
+    // destroy_active checks mHasValue before accessing any union member.
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -426,7 +426,7 @@ private:
     {
         if (mInitialized)
         {
-            if (has_value_)
+            if (mHasValue)
             {
                 if constexpr (!std::is_trivially_destructible_v<T>)
                 {
@@ -454,7 +454,7 @@ public:
      * Initializes mDummy member to satisfy C++ Core Guidelines.
      */
     UnionStorage() noexcept
-        : has_value_(false)
+        : mHasValue(false)
         , mInitialized(false)
         , mDummy()
     {
@@ -481,7 +481,7 @@ public:
         destroy_active();
         // Construct new value (placement new required to start object lifetime)
         new (&mValue) T(std::forward<Args>(args)...);
-        has_value_ = true;
+        mHasValue = true;
         mInitialized = true;
     }
 
@@ -496,7 +496,7 @@ public:
         destroy_active();
         // Construct new error (placement new required to start object lifetime)
         new (&mError) E(std::forward<Args>(args)...);
-        has_value_ = false;
+        mHasValue = false;
         mInitialized = true;
     }
 
@@ -509,7 +509,7 @@ public:
     {
         if constexpr (!std::is_trivial_v<T>)
         {
-            assert(has_value_ && mInitialized);
+            assert(mHasValue && mInitialized);
         }
         mValue = std::forward<Arg>(arg);
     }
@@ -523,7 +523,7 @@ public:
     {
         if constexpr (!std::is_trivial_v<E>)
         {
-            assert(!has_value_ && mInitialized);
+            assert(!mHasValue && mInitialized);
         }
         mError = std::forward<Arg>(arg);
     }
@@ -534,7 +534,7 @@ public:
      */
     constexpr bool has_value() const noexcept
     {
-        return has_value_ && mInitialized;
+        return mHasValue && mInitialized;
     }
 
     /**
@@ -554,7 +554,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(has_value_);
+        assert(mHasValue);
         return mValue;
     }
     constexpr const T& get_value() const&
@@ -563,7 +563,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(has_value_);
+        assert(mHasValue);
         return mValue;
     }
     constexpr T&& get_value() &&
@@ -572,7 +572,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(has_value_);
+        assert(mHasValue);
         return std::move(mValue);
     }
     constexpr const T&& get_value() const&&
@@ -581,7 +581,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(has_value_);
+        assert(mHasValue);
         return std::move(mValue);
     }
 
@@ -591,7 +591,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return mError;
     }
     constexpr const E& get_error() const&
@@ -600,7 +600,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return mError;
     }
     constexpr E&& get_error() &&
@@ -609,7 +609,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return std::move(mError);
     }
     constexpr const E&& get_error() const&&
@@ -618,7 +618,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return std::move(mError);
     }
 
@@ -629,7 +629,7 @@ public:
      */
     // GCC 14 emits false-positive -Wmaybe-uninitialized for union members during swap
     // when the active member hasn't been determined at compile time. This is safe because
-    // swap checks has_value_ before accessing any union member.
+    // swap checks mHasValue before accessing any union member.
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
@@ -646,7 +646,7 @@ public:
         if (!mInitialized)
         {
             // This is uninitialized, other is initialized - move from other to this
-            if (other.has_value_)
+            if (other.mHasValue)
             {
                 store_value(std::move(other.mValue));
                 if constexpr (!std::is_trivially_destructible_v<T>)
@@ -669,7 +669,7 @@ public:
         if (!other.mInitialized)
         {
             // Other is uninitialized, this is initialized - move from this to other
-            if (has_value_)
+            if (mHasValue)
             {
                 other.store_value(std::move(mValue));
                 if constexpr (!std::is_trivially_destructible_v<T>)
@@ -690,13 +690,13 @@ public:
         }
 
         // Both initialized - normal swap logic
-        if (has_value_ && other.has_value_)
+        if (mHasValue && other.mHasValue)
         {
             // Both have values - simple swap
             using std::swap;
             swap(mValue, other.mValue);
         }
-        else if (!has_value_ && !other.has_value_)
+        else if (!mHasValue && !other.mHasValue)
         {
             // Both have errors - simple swap
             using std::swap;
@@ -705,7 +705,7 @@ public:
         else
         {
             // Different states - need to swap through temp
-            if (has_value_)
+            if (mHasValue)
             {
                 T temp_val(std::move(mValue));
                 if constexpr (!std::is_trivially_destructible_v<T>)
@@ -718,8 +718,8 @@ public:
                     other.mError.~E();
                 }
                 new (&other.mValue) T(std::move(temp_val));
-                has_value_ = false;
-                other.has_value_ = true;
+                mHasValue = false;
+                other.mHasValue = true;
             }
             else
             {
@@ -734,8 +734,8 @@ public:
                     other.mValue.~T();
                 }
                 new (&other.mError) E(std::move(temp_err));
-                has_value_ = true;
-                other.has_value_ = false;
+                mHasValue = true;
+                other.mHasValue = false;
             }
         }
     }
@@ -777,7 +777,7 @@ private:
         T mValue;
         E mError;
     };
-    bool has_value_ = true; ///< Discriminator (default to value state)
+    bool mHasValue = true; ///< Discriminator (default to value state)
 
 public:
     TrivialStorage() = default;
@@ -790,20 +790,20 @@ public:
     template <typename... Args>
     constexpr explicit TrivialStorage(std::in_place_t, Args&&... args)
         : mValue(std::forward<Args>(args)...)
-        , has_value_(true)
+        , mHasValue(true)
     {
     }
 
     template <typename... Args>
     constexpr explicit TrivialStorage(unexpect_tag_t, Args&&... args)
         : mError(std::forward<Args>(args)...)
-        , has_value_(false)
+        , mHasValue(false)
     {
     }
 
     constexpr bool has_value() const noexcept
     {
-        return has_value_;
+        return mHasValue;
     }
     constexpr bool is_initialized() const noexcept
     {
@@ -831,14 +831,14 @@ public:
     void store_value(Args&&... args)
     {
         mValue = T(std::forward<Args>(args)...);
-        has_value_ = true;
+        mHasValue = true;
     }
 
     template <typename... Args>
     void store_error(Args&&... args)
     {
         mError = E(std::forward<Args>(args)...);
-        has_value_ = false;
+        mHasValue = false;
     }
 
     template <typename Arg>
@@ -879,13 +879,13 @@ template <typename T, typename E>
 struct VariantStorage
 {
     using Unexpected = unexpected<E>;
-    std::variant<T, Unexpected> data_; ///< Underlying variant storage
+    std::variant<T, Unexpected> mData; ///< Underlying variant storage
 
     /**
      * @brief Default constructor: Initializes in value state with default T (if T is default-constructible).
      */
     VariantStorage() requires std::default_initializable<T>
-        : data_(T{})
+        : mData(T{})
     {
     }
 
@@ -896,7 +896,7 @@ struct VariantStorage
     template <typename... Args>
     void store_value(Args&&... args)
     {
-        data_.template emplace<T>(std::forward<Args>(args)...);
+        mData.template emplace<T>(std::forward<Args>(args)...);
     }
 
     /**
@@ -906,7 +906,7 @@ struct VariantStorage
     template <typename... Args>
     void store_error(Args&&... args)
     {
-        data_.template emplace<Unexpected>(std::forward<Args>(args)...);
+        mData.template emplace<Unexpected>(std::forward<Args>(args)...);
     }
 
     /**
@@ -915,8 +915,8 @@ struct VariantStorage
     template <typename Arg>
     void assign_value(Arg&& arg)
     {
-        assert(data_.index() == 0);
-        std::get<T>(data_) = std::forward<Arg>(arg);
+        assert(mData.index() == 0);
+        std::get<T>(mData) = std::forward<Arg>(arg);
     }
 
     /**
@@ -925,8 +925,8 @@ struct VariantStorage
     template <typename Arg>
     void assign_error(Arg&& arg)
     {
-        assert(data_.index() == 1);
-        std::get<Unexpected>(data_).mError = std::forward<Arg>(arg);
+        assert(mData.index() == 1);
+        std::get<Unexpected>(mData).mError = std::forward<Arg>(arg);
     }
 
     /**
@@ -935,7 +935,7 @@ struct VariantStorage
      */
     constexpr bool has_value() const noexcept
     {
-        return data_.index() == 0;
+        return mData.index() == 0;
     }
 
     /**
@@ -951,44 +951,44 @@ struct VariantStorage
 
     T& get_value() &
     {
-        assert(data_.index() == 0);
-        return std::get<T>(data_);
+        assert(mData.index() == 0);
+        return std::get<T>(mData);
     }
     const T& get_value() const&
     {
-        assert(data_.index() == 0);
-        return std::get<T>(data_);
+        assert(mData.index() == 0);
+        return std::get<T>(mData);
     }
     T&& get_value() &&
     {
-        assert(data_.index() == 0);
-        return std::get<T>(std::move(data_));
+        assert(mData.index() == 0);
+        return std::get<T>(std::move(mData));
     }
     const T&& get_value() const&&
     {
-        assert(data_.index() == 0);
-        return std::get<T>(std::move(data_));
+        assert(mData.index() == 0);
+        return std::get<T>(std::move(mData));
     }
 
     E& get_error() &
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(data_).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(mData).mError;
     }
     const E& get_error() const&
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(data_).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(mData).mError;
     }
     E&& get_error() &&
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(std::move(data_)).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(std::move(mData)).mError;
     }
     const E&& get_error() const&&
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(std::move(data_)).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(std::move(mData)).mError;
     }
 
     /**
@@ -997,7 +997,7 @@ struct VariantStorage
      */
     void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<std::variant<T, Unexpected>>)
     {
-        data_.swap(other.data_);
+        mData.swap(other.mData);
     }
 };
 #endif
@@ -2183,17 +2183,17 @@ template <typename E>
 struct UnionStorage<void, E>
 {
 private:
-    bool has_value_;   ///< Discriminator (true for success)
+    bool mHasValue;   ///< Discriminator (true for success)
     bool mInitialized; ///< True if union has been initialized (either value or error)
     union
     {
         char mDummy = '\0'; ///< Dummy member for default construction (initialized to avoid UB)
-        E mError;           ///< Error storage (active when !has_value_)
+        E mError;           ///< Error storage (active when !mHasValue)
     };
 
     void destroy_active() noexcept
     {
-        if (mInitialized && !has_value_)
+        if (mInitialized && !mHasValue)
         {
             if constexpr (!std::is_trivially_destructible_v<E>)
             {
@@ -2204,7 +2204,7 @@ private:
 
 public:
     UnionStorage() noexcept
-        : has_value_(true)
+        : mHasValue(true)
         , mInitialized(true)
         , mDummy()
     {
@@ -2218,7 +2218,7 @@ public:
     void store_value()
     {
         destroy_active();
-        has_value_ = true;
+        mHasValue = true;
         mInitialized = true;
     }
 
@@ -2234,20 +2234,20 @@ public:
         {
             new (&mError) E(std::forward<Args>(args)...);
         }
-        has_value_ = false;
+        mHasValue = false;
         mInitialized = true;
     }
 
     template <typename Arg>
     void assign_error(Arg&& arg) noexcept(std::is_nothrow_assignable_v<E&, Arg>)
     {
-        assert(!has_value_);
+        assert(!mHasValue);
         mError = std::forward<Arg>(arg);
     }
 
     constexpr bool has_value() const noexcept
     {
-        return has_value_ && mInitialized;
+        return mHasValue && mInitialized;
     }
 
     constexpr bool is_initialized() const noexcept
@@ -2263,7 +2263,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return mError;
     }
     constexpr const E& get_error() const&
@@ -2272,7 +2272,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return mError;
     }
     constexpr E&& get_error() &&
@@ -2281,7 +2281,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return std::move(mError);
     }
     constexpr const E&& get_error() const&&
@@ -2290,7 +2290,7 @@ public:
         {
             FATP_EXPECTED_THROW(std::logic_error("Uninitialized Expected access"));
         }
-        assert(!has_value_);
+        assert(!mHasValue);
         return std::move(mError);
     }
 
@@ -2304,7 +2304,7 @@ public:
         if (!mInitialized)
         {
             // This uninit, other init
-            if (other.has_value_)
+            if (other.mHasValue)
             {
                 store_value();
                 other.mInitialized = false;
@@ -2324,7 +2324,7 @@ public:
         if (!other.mInitialized)
         {
             // Other uninit, this init
-            if (has_value_)
+            if (mHasValue)
             {
                 other.store_value();
                 mInitialized = false;
@@ -2342,9 +2342,9 @@ public:
         }
 
         // Both init
-        if (has_value_ == other.has_value_)
+        if (mHasValue == other.mHasValue)
         {
-            if (!has_value_)
+            if (!mHasValue)
             {
                 using std::swap;
                 swap(mError, other.mError);
@@ -2353,15 +2353,15 @@ public:
         }
         else
         {
-            if (has_value_)
+            if (mHasValue)
             {
                 new (&mError) E(std::move(other.mError));
                 if constexpr (!std::is_trivially_destructible_v<E>)
                 {
                     other.mError.~E();
                 }
-                has_value_ = false;
-                other.has_value_ = true;
+                mHasValue = false;
+                other.mHasValue = true;
             }
             else
             {
@@ -2370,8 +2370,8 @@ public:
                 {
                     mError.~E();
                 }
-                has_value_ = true;
-                other.has_value_ = false;
+                mHasValue = true;
+                other.mHasValue = false;
             }
         }
     }
@@ -2387,59 +2387,59 @@ template <typename E>
 struct VariantStorage<void, E>
 {
     using Unexpected = unexpected<E>;
-    std::variant<std::monostate, Unexpected> data_; ///< monostate for void success
+    std::variant<std::monostate, Unexpected> mData; ///< monostate for void success
 
     VariantStorage() = default;
 
     void store_value()
     {
-        data_.template emplace<std::monostate>();
+        mData.template emplace<std::monostate>();
     }
 
     template <typename... Args>
     void store_error(Args&&... args)
     {
-        data_.template emplace<Unexpected>(std::forward<Args>(args)...);
+        mData.template emplace<Unexpected>(std::forward<Args>(args)...);
     }
 
     template <typename Arg>
     void assign_error(Arg&& arg)
     {
-        assert(data_.index() == 1);
-        std::get<Unexpected>(data_).mError = std::forward<Arg>(arg);
+        assert(mData.index() == 1);
+        std::get<Unexpected>(mData).mError = std::forward<Arg>(arg);
     }
 
     constexpr bool has_value() const noexcept
     {
-        return data_.index() == 0;
+        return mData.index() == 0;
     }
 
     // No get_value
 
     E& get_error() &
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(data_).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(mData).mError;
     }
     const E& get_error() const&
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(data_).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(mData).mError;
     }
     E&& get_error() &&
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(std::move(data_)).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(std::move(mData)).mError;
     }
     const E&& get_error() const&&
     {
-        assert(data_.index() == 1);
-        return std::get<Unexpected>(std::move(data_)).mError;
+        assert(mData.index() == 1);
+        return std::get<Unexpected>(std::move(mData)).mError;
     }
 
-    void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<decltype(data_)>)
+    void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<decltype(mData)>)
     {
-        data_.swap(other.data_);
+        mData.swap(other.mData);
     }
 };
 #endif

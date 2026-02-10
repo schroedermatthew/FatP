@@ -261,8 +261,8 @@ class CborReader
 {
 public:
     CborReader(const std::uint8_t* data, std::size_t size) noexcept
-        : data_(data)
-        , size_(size)
+        : mData(data)
+        , mSize(size)
         , mPos(0)
     {
     }
@@ -276,7 +276,7 @@ public:
 
     std::size_t remaining() const noexcept
     {
-        return size_ - mPos;
+        return mSize - mPos;
     }
 
     bool empty() const noexcept
@@ -389,7 +389,7 @@ public:
         std::uint64_t bits = 0;
         for (int i = 7; i >= 0; --i)
         {
-            bits |= static_cast<std::uint64_t>(data_[mPos++]) << (8 * i);
+            bits |= static_cast<std::uint64_t>(mData[mPos++]) << (8 * i);
         }
 
         double value = 0.0;
@@ -429,7 +429,7 @@ public:
 
         std::string out;
         out.resize(static_cast<std::size_t>(len));
-        std::memcpy(out.data(), data_ + mPos, static_cast<std::size_t>(len));
+        std::memcpy(out.data(), mData + mPos, static_cast<std::size_t>(len));
         mPos += static_cast<std::size_t>(len);
         return out;
     }
@@ -445,17 +445,17 @@ public:
     }
 
 private:
-    const std::uint8_t* data_;
-    std::size_t size_;
+    const std::uint8_t* mData;
+    std::size_t mSize;
     std::size_t mPos;
 
     CborResult<std::uint8_t> readByte()
     {
-        if (mPos >= size_)
+        if (mPos >= mSize)
         {
             return make_unexpected(CborError("CBOR underflow reading byte"));
         }
-        return data_[mPos++];
+        return mData[mPos++];
     }
 
     CborResult<std::uint64_t> readArg(std::uint8_t ai)
@@ -472,7 +472,7 @@ private:
 
         if (ai == 24U)
         {
-            return data_[mPos++];
+            return mData[mPos++];
         }
 
         if (ai == 25U)
@@ -482,7 +482,7 @@ private:
                 return make_unexpected(CborError("CBOR underflow"));
             }
             const std::uint64_t v =
-                (static_cast<std::uint64_t>(data_[mPos]) << 8U) | static_cast<std::uint64_t>(data_[mPos + 1U]);
+                (static_cast<std::uint64_t>(mData[mPos]) << 8U) | static_cast<std::uint64_t>(mData[mPos + 1U]);
             mPos += 2U;
             return v;
         }
@@ -497,7 +497,7 @@ private:
             std::uint64_t v = 0;
             for (int i = 3; i >= 0; --i)
             {
-                v |= static_cast<std::uint64_t>(data_[mPos++]) << (8 * i);
+                v |= static_cast<std::uint64_t>(mData[mPos++]) << (8 * i);
             }
             return v;
         }
@@ -512,7 +512,7 @@ private:
             std::uint64_t v = 0;
             for (int i = 7; i >= 0; --i)
             {
-                v |= static_cast<std::uint64_t>(data_[mPos++]) << (8 * i);
+                v |= static_cast<std::uint64_t>(mData[mPos++]) << (8 * i);
             }
             return v;
         }

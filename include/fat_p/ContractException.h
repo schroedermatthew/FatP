@@ -256,7 +256,7 @@ using UnderflowContractError = ContractViolationError<std::underflow_error>;
 class AllocContractError : public std::bad_alloc, public ContractViolationBase
 {
 private:
-    std::string full_message_;
+    std::string mFullMessage;
 
     static constexpr const char* FALLBACK_MESSAGE = "Contract Violation: Bad Allocation (message construction failed)";
 
@@ -273,12 +273,12 @@ public:
     {
         try
         {
-            full_message_ = "Contract Violation: Bad Allocation: " + message;
+            mFullMessage = "Contract Violation: Bad Allocation: " + message;
         }
         catch (...)
         {
             // OOM during message construction - use fallback
-            full_message_.clear();
+            mFullMessage.clear();
         }
     }
 
@@ -292,7 +292,7 @@ public:
 
     const char* what() const noexcept override
     {
-        return full_message_.empty() ? FALLBACK_MESSAGE : full_message_.c_str();
+        return mFullMessage.empty() ? FALLBACK_MESSAGE : mFullMessage.c_str();
     }
 
     const char* category() const noexcept override

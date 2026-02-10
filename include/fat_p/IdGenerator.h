@@ -205,14 +205,14 @@ public:
             {
                 // First element is always max
                 mMax = id;
-                max_valid_ = true;
+                mMaxValid = true;
             }
-            else if (max_valid_ && id > mMax)
+            else if (mMaxValid && id > mMax)
             {
                 // Extend known max
                 mMax = id;
             }
-            // If !max_valid_ and size > 1, leave invalid for lazy recompute
+            // If !mMaxValid and size > 1, leave invalid for lazy recompute
         }
         return inserted;
     }
@@ -222,7 +222,7 @@ public:
         size_t result = mContainer.erase(id);
         if (result > 0 && id == mMax)
         {
-            max_valid_ = false; // Invalidate, recompute lazily
+            mMaxValid = false; // Invalidate, recompute lazily
         }
         return result;
     }
@@ -252,10 +252,10 @@ public:
         {
             return std::nullopt;
         }
-        if (!max_valid_)
+        if (!mMaxValid)
         {
             mMax = *std::max_element(mContainer.begin(), mContainer.end());
-            max_valid_ = true;
+            mMaxValid = true;
         }
         return mMax;
     }
@@ -263,14 +263,14 @@ public:
     void clear() noexcept
     {
         mContainer.clear();
-        max_valid_ = false;
+        mMaxValid = false;
         mMax = T{};
     }
 
 private:
     std::unordered_set<T> mContainer;
     T mMax = T{};
-    bool max_valid_ = false;
+    bool mMaxValid = false;
 };
 
 // =============================================================================
@@ -285,8 +285,8 @@ class SequentialAllocationPolicy
 
 public:
     explicit SequentialAllocationPolicy(IdType base_id = 0)
-        : base_id_(base_id)
-        , next_id_(base_id)
+        : mBaseId(base_id)
+        , mNextId(base_id)
         , mExhausted(false)
     {
     }
@@ -304,9 +304,9 @@ public:
         if (first_call)
         {
             // First call: use our internal counter
-            // If next_id_ is already at max AND we've previously generated max,
+            // If mNextId is already at max AND we've previously generated max,
             // we're exhausted (defensive check for edge cases)
-            candidate = next_id_;
+            candidate = mNextId;
         }
         else
         {
@@ -321,19 +321,19 @@ public:
             // This ensures we never go backwards and respect both recycling gaps
             // and our internal sequence state
             IdType next_after_max = max_id + 1;
-            candidate = (next_id_ > next_after_max) ? next_id_ : next_after_max;
+            candidate = (mNextId > next_after_max) ? mNextId : next_after_max;
         }
 
-        // Update next_id_ for next call
+        // Update mNextId for next call
         if (candidate == std::numeric_limits<IdType>::max())
         {
-            next_id_ = candidate; // Stay at max
+            mNextId = candidate; // Stay at max
             // Mark as exhausted AFTER returning max (max is still a valid ID)
             // The NEXT call will fail
         }
         else
         {
-            next_id_ = candidate + 1;
+            mNextId = candidate + 1;
         }
 
         return candidate;
@@ -355,28 +355,28 @@ public:
         mExhausted = false;
 
         // Protect against underflow
-        if (count > static_cast<size_t>(next_id_ - base_id_))
+        if (count > static_cast<size_t>(mNextId - mBaseId))
         {
-            next_id_ = base_id_;
+            mNextId = mBaseId;
             return;
         }
-        next_id_ -= static_cast<IdType>(count);
-        if (next_id_ < base_id_)
+        mNextId -= static_cast<IdType>(count);
+        if (mNextId < mBaseId)
         {
-            next_id_ = base_id_;
+            mNextId = mBaseId;
         }
     }
 
     void reset(IdType base_id = 0) noexcept
     {
-        base_id_ = base_id;
-        next_id_ = base_id;
+        mBaseId = base_id;
+        mNextId = base_id;
         mExhausted = false;
     }
 
 private:
-    IdType base_id_;
-    IdType next_id_;
+    IdType mBaseId;
+    IdType mNextId;
     bool mExhausted; // Track if we've hit the limit
 };
 
@@ -447,9 +447,9 @@ class BoundedSequentialAllocationPolicy
 public:
     explicit BoundedSequentialAllocationPolicy(IdType base_id = 0,
                                                IdType max_bound = std::numeric_limits<IdType>::max())
-        : base_id_(base_id)
-        , next_id_(base_id)
-        , max_bound_(max_bound)
+        : mBaseId(base_id)
+        , mNextId(base_id)
+        , mMaxBound(max_bound)
     {
     }
 
@@ -459,34 +459,34 @@ public:
 
         if (first_call)
         {
-            candidate = next_id_;
+            candidate = mNextId;
         }
         else
         {
             // Check for overflow before computing max_id + 1
-            if (max_id >= max_bound_)
+            if (max_id >= mMaxBound)
             {
                 return std::nullopt;
             }
 
             IdType next_after_max = max_id + 1;
-            candidate = (next_id_ > next_after_max) ? next_id_ : next_after_max;
+            candidate = (mNextId > next_after_max) ? mNextId : next_after_max;
         }
 
         // Check against custom bound
-        if (candidate > max_bound_)
+        if (candidate > mMaxBound)
         {
             return std::nullopt;
         }
 
-        // Update next_id_ for next call
-        if (candidate == max_bound_)
+        // Update mNextId for next call
+        if (candidate == mMaxBound)
         {
-            next_id_ = candidate; // Stay at max
+            mNextId = candidate; // Stay at max
         }
         else
         {
-            next_id_ = candidate + 1;
+            mNextId = candidate + 1;
         }
 
         return candidate;
@@ -494,9 +494,9 @@ public:
 
     void reset(IdType base_id = 0) noexcept
     {
-        base_id_ = base_id;
-        next_id_ = base_id;
-        // Note: max_bound_ is not reset - it's a construction-time constraint
+        mBaseId = base_id;
+        mNextId = base_id;
+        // Note: mMaxBound is not reset - it's a construction-time constraint
     }
 
     /// @brief Revert the internal counter by a specified count.
@@ -509,22 +509,22 @@ public:
         }
 
         // Protect against underflow
-        if (count > static_cast<size_t>(next_id_ - base_id_))
+        if (count > static_cast<size_t>(mNextId - mBaseId))
         {
-            next_id_ = base_id_;
+            mNextId = mBaseId;
             return;
         }
-        next_id_ -= static_cast<IdType>(count);
-        if (next_id_ < base_id_)
+        mNextId -= static_cast<IdType>(count);
+        if (mNextId < mBaseId)
         {
-            next_id_ = base_id_;
+            mNextId = mBaseId;
         }
     }
 
 private:
-    IdType base_id_;
-    IdType next_id_;
-    IdType max_bound_;
+    IdType mBaseId;
+    IdType mNextId;
+    IdType mMaxBound;
 };
 
 // =============================================================================
@@ -757,8 +757,8 @@ public:
         : AllocationPolicy(base_id)
         , RecyclingPolicy()
         , ConcurrencyPolicy()
-        , base_id_(base_id)
-        , ids_in_use_()
+        , mBaseId(base_id)
+        , mIdsInUse()
     {
     }
 
@@ -778,15 +778,15 @@ public:
         : AllocationPolicy(seed, 0)
         , RecyclingPolicy()
         , ConcurrencyPolicy()
-        , base_id_(0)
-        , ids_in_use_()
+        , mBaseId(0)
+        , mIdsInUse()
     {
     }
 
     /**
      * @brief Destructor that explicitly clears internal state.
      *
-     * @details Clears ids_in_use_ and recycle pools to help AddressSanitizer
+     * @details Clears mIdsInUse and recycle pools to help AddressSanitizer
      * detect use-after-free errors more reliably. If a dangling IdGuard tries
      * to release after destruction, this increases the chance of catching the
      * error rather than silently corrupting memory.
@@ -796,7 +796,7 @@ public:
      */
     ~IdGenerator()
     {
-        ids_in_use_.clear();
+        mIdsInUse.clear();
         RecyclingPolicy::clear();
     }
 
@@ -820,10 +820,10 @@ public:
 
 #ifndef NDEBUG
             // Debug assertion: recycled ID should not be in active set
-            assert(ids_in_use_.count(raw_id) == 0 && "Recycled ID already in use");
+            assert(mIdsInUse.count(raw_id) == 0 && "Recycled ID already in use");
 #endif
 
-            (void)ids_in_use_.insert(raw_id);
+            (void)mIdsInUse.insert(raw_id);
 
             if constexpr (std::is_same_v<IdType_, underlying_type>)
             {
@@ -845,9 +845,9 @@ public:
 
         for (int attempt = 0; attempt < kMaxRetries; ++attempt)
         {
-            bool is_first = ids_in_use_.empty();
-            auto max_opt = ids_in_use_.max_element();
-            underlying_type max_id = is_first ? base_id_ : *max_opt;
+            bool is_first = mIdsInUse.empty();
+            auto max_opt = mIdsInUse.max_element();
+            underlying_type max_id = is_first ? mBaseId : *max_opt;
             auto new_id_opt = AllocationPolicy::next_id(max_id, is_first);
 
             if (!new_id_opt)
@@ -858,7 +858,7 @@ public:
             underlying_type raw_id = *new_id_opt;
 
             // Single-lookup: insert returns false if already present (collision)
-            if (ids_in_use_.insert(raw_id))
+            if (mIdsInUse.insert(raw_id))
             {
                 if constexpr (std::is_same_v<IdType_, underlying_type>)
                 {
@@ -889,7 +889,7 @@ public:
             raw_id = id.get();
         }
 
-        if (ids_in_use_.erase(raw_id) == 0)
+        if (mIdsInUse.erase(raw_id) == 0)
         {
             return make_unexpected(IdError::InvalidRelease);
         }
@@ -922,7 +922,7 @@ public:
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
 
         // Track the max before batch for smart rollback
-        auto pre_batch_max = ids_in_use_.max_element();
+        auto pre_batch_max = mIdsInUse.max_element();
 
         std::vector<id_type> result;
         result.reserve(count);
@@ -938,7 +938,7 @@ public:
             if (auto recycled = RecyclingPolicy::get_recycled())
             {
                 underlying_type raw_id = *recycled;
-                (void)ids_in_use_.insert(raw_id);
+                (void)mIdsInUse.insert(raw_id);
 
                 if constexpr (std::is_same_v<IdType_, underlying_type>)
                 {
@@ -956,9 +956,9 @@ public:
 
             for (int attempt = 0; attempt < kMaxRetries; ++attempt)
             {
-                bool is_first = ids_in_use_.empty();
-                auto max_opt = ids_in_use_.max_element();
-                underlying_type max_id = is_first ? base_id_ : *max_opt;
+                bool is_first = mIdsInUse.empty();
+                auto max_opt = mIdsInUse.max_element();
+                underlying_type max_id = is_first ? mBaseId : *max_opt;
                 auto new_id_opt = AllocationPolicy::next_id(max_id, is_first);
 
                 if (!new_id_opt)
@@ -970,7 +970,7 @@ public:
 
                 underlying_type raw_id = *new_id_opt;
 
-                if (ids_in_use_.insert(raw_id))
+                if (mIdsInUse.insert(raw_id))
                 {
                     if constexpr (std::is_same_v<IdType_, underlying_type>)
                     {
@@ -1026,7 +1026,7 @@ public:
                 raw_id = id.get();
             }
 
-            if (ids_in_use_.erase(raw_id) == 0)
+            if (mIdsInUse.erase(raw_id) == 0)
             {
                 return make_unexpected(IdError::InvalidRelease);
             }
@@ -1061,7 +1061,7 @@ private:
             {
                 raw = id.get();
             }
-            ids_in_use_.erase(raw);
+            mIdsInUse.erase(raw);
 
             // Only recycle IDs that were originally recycled (not newly generated)
             // This preserves density for MinRecyclingPolicy
@@ -1101,13 +1101,13 @@ public:
         {
             raw_id = id.get();
         }
-        return ids_in_use_.count(raw_id) > 0;
+        return mIdsInUse.count(raw_id) > 0;
     }
 
     size_t active_count() const noexcept
     {
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock_shared();
-        return ids_in_use_.size();
+        return mIdsInUse.size();
     }
 
     size_t recycled_count() const noexcept
@@ -1119,9 +1119,9 @@ public:
     void reset() noexcept
     {
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
-        ids_in_use_.clear();
+        mIdsInUse.clear();
         RecyclingPolicy::clear();
-        AllocationPolicy::reset(base_id_);
+        AllocationPolicy::reset(mBaseId);
     }
 
     // =========================================================================
@@ -1234,8 +1234,8 @@ public:
     }
 
 private:
-    underlying_type base_id_;
-    ActiveIdTracker<underlying_type> ids_in_use_;
+    underlying_type mBaseId;
+    ActiveIdTracker<underlying_type> mIdsInUse;
 };
 
 // =============================================================================

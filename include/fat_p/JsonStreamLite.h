@@ -87,71 +87,71 @@ public:
     using Variant = std::variant<std::nullptr_t, bool, std::int64_t, double, std::string, JsonArray, JsonObject>;
 
     JsonValue()
-        : data_(nullptr)
+        : mData(nullptr)
     {
     }
 
     JsonValue(std::nullptr_t)
-        : data_(nullptr)
+        : mData(nullptr)
     {
     }
 
     JsonValue(bool v)
-        : data_(v)
+        : mData(v)
     {
     }
 
     template <typename T>
         requires (std::is_integral_v<T> && !std::is_same_v<T, bool>)
     JsonValue(T v)
-        : data_(static_cast<std::int64_t>(v))
+        : mData(static_cast<std::int64_t>(v))
     {
     }
 
     JsonValue(double v)
-        : data_(v)
+        : mData(v)
     {
     }
 
     JsonValue(const char* v)
-        : data_(std::string(v))
+        : mData(std::string(v))
     {
     }
 
     JsonValue(std::string v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     JsonValue(JsonArray v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     JsonValue(JsonObject v)
-        : data_(std::move(v))
+        : mData(std::move(v))
     {
     }
 
     // Type checks
     bool is_null() const noexcept
     {
-        return std::holds_alternative<std::nullptr_t>(data_);
+        return std::holds_alternative<std::nullptr_t>(mData);
     }
 
     bool is_bool() const noexcept
     {
-        return std::holds_alternative<bool>(data_);
+        return std::holds_alternative<bool>(mData);
     }
 
     bool is_int() const noexcept
     {
-        return std::holds_alternative<std::int64_t>(data_);
+        return std::holds_alternative<std::int64_t>(mData);
     }
 
     bool is_double() const noexcept
     {
-        return std::holds_alternative<double>(data_);
+        return std::holds_alternative<double>(mData);
     }
 
     bool is_number() const noexcept
@@ -161,83 +161,83 @@ public:
 
     bool is_string() const noexcept
     {
-        return std::holds_alternative<std::string>(data_);
+        return std::holds_alternative<std::string>(mData);
     }
 
     bool is_array() const noexcept
     {
-        return std::holds_alternative<JsonArray>(data_);
+        return std::holds_alternative<JsonArray>(mData);
     }
 
     bool is_object() const noexcept
     {
-        return std::holds_alternative<JsonObject>(data_);
+        return std::holds_alternative<JsonObject>(mData);
     }
 
     // Accessors (const)
     bool as_bool() const
     {
-        return std::get<bool>(data_);
+        return std::get<bool>(mData);
     }
 
     std::int64_t as_int() const
     {
-        return std::get<std::int64_t>(data_);
+        return std::get<std::int64_t>(mData);
     }
 
     double as_double() const
     {
         if (is_int())
         {
-            return static_cast<double>(std::get<std::int64_t>(data_));
+            return static_cast<double>(std::get<std::int64_t>(mData));
         }
-        return std::get<double>(data_);
+        return std::get<double>(mData);
     }
 
     const std::string& as_string() const
     {
-        return std::get<std::string>(data_);
+        return std::get<std::string>(mData);
     }
 
     const JsonArray& as_array() const
     {
-        return std::get<JsonArray>(data_);
+        return std::get<JsonArray>(mData);
     }
 
     const JsonObject& as_object() const
     {
-        return std::get<JsonObject>(data_);
+        return std::get<JsonObject>(mData);
     }
 
     // Mutable accessors
     std::string& as_string()
     {
-        return std::get<std::string>(data_);
+        return std::get<std::string>(mData);
     }
 
     JsonArray& as_array()
     {
-        return std::get<JsonArray>(data_);
+        return std::get<JsonArray>(mData);
     }
 
     JsonObject& as_object()
     {
-        return std::get<JsonObject>(data_);
+        return std::get<JsonObject>(mData);
     }
 
     // Access underlying variant
     const Variant& data() const noexcept
     {
-        return data_;
+        return mData;
     }
 
     Variant& data() noexcept
     {
-        return data_;
+        return mData;
     }
 
 private:
-    Variant data_;
+    Variant mData;
 };
 
 // =============================================================================
@@ -511,13 +511,13 @@ public:
         mResult = JsonValue(nullptr);
         mStats = Stats{};
         mStack.clear();
-        value_stack_.clear();
+        mValueStack.clear();
         mToken.clear();
-        unicode_buffer_.clear();
-        unicode_count_ = 0;
-        number_has_dot_ = false;
-        number_has_exp_ = false;
-        number_has_digit_ = false;
+        mUnicodeBuffer.clear();
+        mUnicodeCount = 0;
+        mNumberHasDot = false;
+        mNumberHasExp = false;
+        mNumberHasDigit = false;
     }
 
 private:
@@ -528,13 +528,13 @@ private:
     JsonValue mResult;
 
     std::vector<ContainerContext> mStack;
-    std::vector<JsonValue> value_stack_;
+    std::vector<JsonValue> mValueStack;
     std::string mToken;
-    std::string unicode_buffer_;
-    int unicode_count_ = 0;
-    bool number_has_dot_ = false;
-    bool number_has_exp_ = false;
-    bool number_has_digit_ = false;
+    std::string mUnicodeBuffer;
+    int mUnicodeCount = 0;
+    bool mNumberHasDot = false;
+    bool mNumberHasExp = false;
+    bool mNumberHasDigit = false;
 
     // -------------------------------------------------------------------------
     // Main Processing
@@ -627,9 +627,9 @@ private:
             mState = State::InNumber;
             mToken.clear();
             mToken += c;
-            number_has_dot_ = false;
-            number_has_exp_ = false;
-            number_has_digit_ = (c >= '0' && c <= '9');
+            mNumberHasDot = false;
+            mNumberHasExp = false;
+            mNumberHasDigit = (c >= '0' && c <= '9');
             return ParseStatus::NeedMoreData;
         }
 
@@ -701,8 +701,8 @@ private:
                 break;
             case 'u':
                 mState = State::InStringUnicode;
-                unicode_buffer_.clear();
-                unicode_count_ = 0;
+                mUnicodeBuffer.clear();
+                mUnicodeCount = 0;
                 return ParseStatus::NeedMoreData;
             default:
                 return set_error(ParseError::InvalidEscapeSequence);
@@ -719,17 +719,17 @@ private:
             return set_error(ParseError::InvalidUnicodeEscape);
         }
 
-        unicode_buffer_ += c;
-        ++unicode_count_;
+        mUnicodeBuffer += c;
+        ++mUnicodeCount;
 
-        if (unicode_count_ < 4)
+        if (mUnicodeCount < 4)
         {
             return ParseStatus::NeedMoreData;
         }
 
         // Parse the 4-digit hex code
         unsigned int codepoint = 0;
-        for (char h : unicode_buffer_)
+        for (char h : mUnicodeBuffer)
         {
             codepoint = (codepoint << 4) | hex_digit_value(h);
         }
@@ -789,26 +789,26 @@ private:
 
         if (is_num_char)
         {
-            number_has_digit_ = true;
+            mNumberHasDigit = true;
             mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
-        if (is_dot && !number_has_dot_ && !number_has_exp_)
+        if (is_dot && !mNumberHasDot && !mNumberHasExp)
         {
-            number_has_dot_ = true;
+            mNumberHasDot = true;
             mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
-        if (is_exp && !number_has_exp_ && number_has_digit_)
+        if (is_exp && !mNumberHasExp && mNumberHasDigit)
         {
-            number_has_exp_ = true;
+            mNumberHasExp = true;
             mToken += c;
             return ParseStatus::NeedMoreData;
         }
 
-        if (is_sign && number_has_exp_ && (mToken.back() == 'e' || mToken.back() == 'E'))
+        if (is_sign && mNumberHasExp && (mToken.back() == 'e' || mToken.back() == 'E'))
         {
             mToken += c;
             return ParseStatus::NeedMoreData;
@@ -841,7 +841,7 @@ private:
 
     ParseStatus complete_number()
     {
-        if (!number_has_digit_)
+        if (!mNumberHasDigit)
         {
             return set_error(ParseError::InvalidNumber);
         }
@@ -869,7 +869,7 @@ private:
 
         JsonValue value;
 
-        if (number_has_dot_ || number_has_exp_)
+        if (mNumberHasDot || mNumberHasExp)
         {
             // Parse as double
             try
@@ -969,7 +969,7 @@ private:
         }
 
         mStack.push_back({ContainerContext::Type::Array, 0, "", true});
-        value_stack_.push_back(JsonArray{});
+        mValueStack.push_back(JsonArray{});
         mStats.current_depth = mStack.size();
         if (mStats.current_depth > mStats.max_depth_seen)
         {
@@ -1032,8 +1032,8 @@ private:
     ParseStatus end_array()
     {
         // Pop the completed array
-        JsonValue arr = std::move(value_stack_.back());
-        value_stack_.pop_back();
+        JsonValue arr = std::move(mValueStack.back());
+        mValueStack.pop_back();
         mStack.pop_back();
         mStats.current_depth = mStack.size();
         ++mStats.values_parsed;
@@ -1049,14 +1049,14 @@ private:
         auto& parent_ctx = mStack.back();
         if (parent_ctx.type == ContainerContext::Type::Array)
         {
-            value_stack_.back().as_array().push_back(std::move(arr));
+            mValueStack.back().as_array().push_back(std::move(arr));
             ++parent_ctx.count;
             mState = State::InArrayComma;
         }
         else
         {
             // Parent is object - this array is a value
-            value_stack_.back().as_object()[parent_ctx.pending_key] = std::move(arr);
+            mValueStack.back().as_object()[parent_ctx.pending_key] = std::move(arr);
             ++parent_ctx.count;
             parent_ctx.pending_key.clear();
             mState = State::InObjectComma;
@@ -1077,7 +1077,7 @@ private:
         }
 
         mStack.push_back({ContainerContext::Type::Object, 0, "", true});
-        value_stack_.push_back(JsonObject{});
+        mValueStack.push_back(JsonObject{});
         mStats.current_depth = mStack.size();
         if (mStats.current_depth > mStats.max_depth_seen)
         {
@@ -1163,8 +1163,8 @@ private:
     ParseStatus end_object()
     {
         // Pop the completed object
-        JsonValue obj = std::move(value_stack_.back());
-        value_stack_.pop_back();
+        JsonValue obj = std::move(mValueStack.back());
+        mValueStack.pop_back();
         mStack.pop_back();
         mStats.current_depth = mStack.size();
         ++mStats.values_parsed;
@@ -1180,14 +1180,14 @@ private:
         auto& parent_ctx = mStack.back();
         if (parent_ctx.type == ContainerContext::Type::Array)
         {
-            value_stack_.back().as_array().push_back(std::move(obj));
+            mValueStack.back().as_array().push_back(std::move(obj));
             ++parent_ctx.count;
             mState = State::InArrayComma;
         }
         else
         {
             // Parent is object - this object is a value
-            value_stack_.back().as_object()[parent_ctx.pending_key] = std::move(obj);
+            mValueStack.back().as_object()[parent_ctx.pending_key] = std::move(obj);
             ++parent_ctx.count;
             parent_ctx.pending_key.clear();
             mState = State::InObjectComma;
@@ -1215,7 +1215,7 @@ private:
 
         if (ctx.type == ContainerContext::Type::Array)
         {
-            value_stack_.back().as_array().push_back(std::move(value));
+            mValueStack.back().as_array().push_back(std::move(value));
             ++ctx.count;
             mState = State::InArrayComma;
         }
@@ -1231,7 +1231,7 @@ private:
             else
             {
                 // This is a value
-                value_stack_.back().as_object()[ctx.pending_key] = std::move(value);
+                mValueStack.back().as_object()[ctx.pending_key] = std::move(value);
                 ++ctx.count;
                 ctx.pending_key.clear();
                 mState = State::InObjectComma;

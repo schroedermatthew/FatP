@@ -204,20 +204,20 @@ public:
     // Constructors
     NumaAlignedAllocator() noexcept
         : mPolicy()
-        , numa_available_(NumaInfo::is_available())
+        , mNumaAvailable(NumaInfo::is_available())
     {
     }
 
     explicit NumaAlignedAllocator(const Policy& policy) noexcept
         : mPolicy(policy)
-        , numa_available_(NumaInfo::is_available())
+        , mNumaAvailable(NumaInfo::is_available())
     {
     }
 
     template <typename U>
     NumaAlignedAllocator(const NumaAlignedAllocator<U, Alignment, Policy>& other) noexcept
         : mPolicy(other.policy())
-        , numa_available_(other.numa_available())
+        , mNumaAvailable(other.numa_available())
     {
     }
 
@@ -255,7 +255,7 @@ public:
         const size_type bytes = n * sizeof(T);
         void* ptr = nullptr;
 
-        if (numa_available_)
+        if (mNumaAvailable)
         {
             // NUMA path: page-aligned (>= 4KB), satisfies Alignment <= 4096
             // Policy handling matches NumaAllocator.h pattern
@@ -299,7 +299,7 @@ public:
      * @param ptr Pointer previously returned by allocate()
      * @param n Number of elements (must match allocate call)
      *
-     * @note Deallocation method is determined by numa_available_ which is
+     * @note Deallocation method is determined by mNumaAvailable which is
      *       constant for the allocator's lifetime. Since allocate() throws
      *       rather than falling back, this is always correct.
      */
@@ -312,7 +312,7 @@ public:
 
         const size_type bytes = n * sizeof(T);
 
-        if (numa_available_)
+        if (mNumaAvailable)
         {
             detail::numa_free_impl(ptr, bytes);
         }
@@ -337,12 +337,12 @@ public:
     }
     [[nodiscard]] bool numa_available() const noexcept
     {
-        return numa_available_;
+        return mNumaAvailable;
     }
 
 private:
     Policy mPolicy;
-    bool numa_available_;
+    bool mNumaAvailable;
 };
 
 // Equality operators

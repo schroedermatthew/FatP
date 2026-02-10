@@ -649,7 +649,7 @@ struct SpinlockSynchronizationPolicy
     SpinlockSynchronizationPolicy& operator=(const SpinlockSynchronizationPolicy&) = delete;
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic_flag lock_flag_ = ATOMIC_FLAG_INIT;
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic_flag mLockFlag = ATOMIC_FLAG_INIT;
     alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mContention{0};
 
 public:
@@ -666,10 +666,10 @@ public:
     {
     public:
         explicit LockGuard(const SpinlockSynchronizationPolicy& policy)
-            : lock_flag_(policy.lock_flag_)
+            : mLockFlag(policy.mLockFlag)
             , mContention(policy.mContention)
         {
-            while (lock_flag_.test_and_set(std::memory_order_acquire))
+            while (mLockFlag.test_and_set(std::memory_order_acquire))
             {
                 mContention.fetch_add(1, std::memory_order_relaxed);
                 std::this_thread::yield();
@@ -681,11 +681,11 @@ public:
 
         ~LockGuard()
         {
-            lock_flag_.clear(std::memory_order_release);
+            mLockFlag.clear(std::memory_order_release);
         }
 
     private:
-        std::atomic_flag& lock_flag_;
+        std::atomic_flag& mLockFlag;
         std::atomic<uint64_t>& mContention;
     };
 
@@ -704,12 +704,12 @@ public:
 
     [[nodiscard]] bool try_lock()
     {
-        return !lock_flag_.test_and_set(std::memory_order_acquire);
+        return !mLockFlag.test_and_set(std::memory_order_acquire);
     }
 
     void unlock()
     {
-        lock_flag_.clear(std::memory_order_release);
+        mLockFlag.clear(std::memory_order_release);
     }
 
     SpinlockSynchronizationPolicy& getLock()
@@ -729,7 +729,7 @@ public:
 
     std::atomic_flag& getRawLock()
     {
-        return lock_flag_;
+        return mLockFlag;
     }
 };
 #endif // FATP_USE_ATOMIC
@@ -1015,8 +1015,8 @@ struct SeqLockPolicy
             int backoff_count = 0;
             do
             {
-                start_seq_ = mSequence.load(std::memory_order_acquire);
-                if (start_seq_ & 1)
+                mStartSeq = mSequence.load(std::memory_order_acquire);
+                if (mStartSeq & 1)
                 {
                     if (++retries > max_retries)
                     {
@@ -1029,7 +1029,7 @@ struct SeqLockPolicy
                         backoff_count = 0;
                     }
                 }
-            } while (start_seq_ & 1);
+            } while (mStartSeq & 1);
             std::atomic_thread_fence(std::memory_order_acquire);
         }
 
@@ -1044,7 +1044,7 @@ struct SeqLockPolicy
                 return false;
             }
             std::atomic_thread_fence(std::memory_order_acquire);
-            return mSequence.load(std::memory_order_acquire) == start_seq_;
+            return mSequence.load(std::memory_order_acquire) == mStartSeq;
         }
 
         bool retry_limit_exceeded() const
@@ -1053,12 +1053,12 @@ struct SeqLockPolicy
         }
         uint64_t get_sequence() const
         {
-            return start_seq_;
+            return mStartSeq;
         }
 
     private:
         std::atomic<uint64_t>& mSequence;
-        uint64_t start_seq_;
+        uint64_t mStartSeq;
         bool mValid;
     };
 
@@ -1117,10 +1117,10 @@ struct TicketLockPolicy
     {
     public:
         explicit LockGuard(const TicketLockPolicy& policy)
-            : now_serving_(policy.now_serving_)
+            : mNowServing(policy.mNowServing)
         {
-            my_ticket_ = policy.next_ticket_.fetch_add(1, std::memory_order_relaxed);
-            while (now_serving_.load(std::memory_order_acquire) != my_ticket_)
+            mMyTicket = policy.mNextTicket.fetch_add(1, std::memory_order_relaxed);
+            while (mNowServing.load(std::memory_order_acquire) != mMyTicket)
             {
                 std::this_thread::yield();
             }
@@ -1131,12 +1131,12 @@ struct TicketLockPolicy
 
         ~LockGuard()
         {
-            now_serving_.fetch_add(1, std::memory_order_release);
+            mNowServing.fetch_add(1, std::memory_order_release);
         }
 
     private:
-        std::atomic<uint64_t>& now_serving_;
-        uint64_t my_ticket_;
+        std::atomic<uint64_t>& mNowServing;
+        uint64_t mMyTicket;
     };
 
     using SharedGuard = LockGuard;
@@ -1154,11 +1154,11 @@ struct TicketLockPolicy
 
     [[nodiscard]] bool try_lock()
     {
-        uint64_t current = now_serving_.load(std::memory_order_acquire);
-        uint64_t next = next_ticket_.load(std::memory_order_relaxed);
+        uint64_t current = mNowServing.load(std::memory_order_acquire);
+        uint64_t next = mNextTicket.load(std::memory_order_relaxed);
         if (current == next)
         {
-            return next_ticket_.compare_exchange_strong(next,
+            return mNextTicket.compare_exchange_strong(next,
                                                         next + 1,
                                                         std::memory_order_acquire,
                                                         std::memory_order_relaxed);
@@ -1179,7 +1179,7 @@ struct TicketLockPolicy
 
     uint64_t get_queue_length() const
     {
-        return next_ticket_.load(std::memory_order_relaxed) - now_serving_.load(std::memory_order_relaxed);
+        return mNextTicket.load(std::memory_order_relaxed) - mNowServing.load(std::memory_order_relaxed);
     }
 
     uint64_t get_contention() const
@@ -1188,8 +1188,8 @@ struct TicketLockPolicy
     }
 
 private:
-    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> next_ticket_{0};
-    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> now_serving_{0};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mNextTicket{0};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mNowServing{0};
 };
 #endif // FATP_USE_ATOMIC
 
@@ -1220,15 +1220,15 @@ struct MCSLockPolicy
         explicit LockGuard(std::atomic<QNode*>& tail)
             : mTail(tail)
         {
-            my_node_.next.store(nullptr, std::memory_order_relaxed);
-            my_node_.locked.store(true, std::memory_order_relaxed);
+            mMyNode.next.store(nullptr, std::memory_order_relaxed);
+            mMyNode.locked.store(true, std::memory_order_relaxed);
 
-            QNode* prev = mTail.exchange(&my_node_, std::memory_order_acq_rel);
+            QNode* prev = mTail.exchange(&mMyNode, std::memory_order_acq_rel);
 
             if (prev != nullptr)
             {
-                prev->next.store(&my_node_, std::memory_order_release);
-                while (my_node_.locked.load(std::memory_order_acquire))
+                prev->next.store(&mMyNode, std::memory_order_release);
+                while (mMyNode.locked.load(std::memory_order_acquire))
                 {
                     std::this_thread::yield();
                 }
@@ -1240,16 +1240,16 @@ struct MCSLockPolicy
 
         ~LockGuard()
         {
-            QNode* next_node = my_node_.next.load(std::memory_order_acquire);
+            QNode* next_node = mMyNode.next.load(std::memory_order_acquire);
 
             if (next_node == nullptr)
             {
-                QNode* expected = &my_node_;
+                QNode* expected = &mMyNode;
                 if (mTail.compare_exchange_strong(expected, nullptr, std::memory_order_release))
                 {
                     return;
                 }
-                while ((next_node = my_node_.next.load(std::memory_order_acquire)) == nullptr)
+                while ((next_node = mMyNode.next.load(std::memory_order_acquire)) == nullptr)
                 {
                     std::this_thread::yield();
                 }
@@ -1259,7 +1259,7 @@ struct MCSLockPolicy
 
     private:
         std::atomic<QNode*>& mTail;
-        QNode my_node_;
+        QNode mMyNode;
     };
 
     using SharedGuard = LockGuard;
@@ -1308,11 +1308,11 @@ struct RCUPolicy
     using LockFreeTag = void;
 
     RCUPolicy()
-        : data_(std::make_shared<T>())
+        : mData(std::make_shared<T>())
     {
     }
     explicit RCUPolicy(T initial)
-        : data_(std::make_shared<T>(std::move(initial)))
+        : mData(std::make_shared<T>(std::move(initial)))
     {
     }
 
@@ -1353,15 +1353,15 @@ struct RCUPolicy
     public:
 #if FATP_HAS_ATOMIC_SHARED_PTR
         LockGuard(std::atomic<std::shared_ptr<T>>& data, std::mutex& write_mutex)
-            : data_(data)
-            , write_lock_(write_mutex)
+            : mData(data)
+            , mWriteLock(write_mutex)
         {
         }
 #else
         LockGuard(std::shared_ptr<T>& data_ptr, std::shared_mutex& rw_mutex, std::mutex& write_mutex)
-            : data_ptr_(data_ptr)
-            , rw_mutex_(rw_mutex)
-            , write_lock_(write_mutex)
+            : mDataPtr(data_ptr)
+            , mRwMutex(rw_mutex)
+            , mWriteLock(write_mutex)
         {
         }
 #endif
@@ -1374,37 +1374,37 @@ struct RCUPolicy
         void update(Func&& f)
         {
 #if FATP_HAS_ATOMIC_SHARED_PTR
-            auto current = data_.load(std::memory_order_acquire);
+            auto current = mData.load(std::memory_order_acquire);
             std::shared_ptr<T> new_data;
             do
             {
                 new_data = std::make_shared<T>(*current);
                 f(*new_data);
             } while (
-                !data_.compare_exchange_weak(current, new_data, std::memory_order_release, std::memory_order_acquire));
+                !mData.compare_exchange_weak(current, new_data, std::memory_order_release, std::memory_order_acquire));
 #else
             std::shared_ptr<T> current;
             {
-                std::shared_lock<std::shared_mutex> read_lock(rw_mutex_);
-                current = data_ptr_;
+                std::shared_lock<std::shared_mutex> read_lock(mRwMutex);
+                current = mDataPtr;
             }
             auto new_data = std::make_shared<T>(*current);
             f(*new_data);
             {
-                std::unique_lock<std::shared_mutex> write_lock(rw_mutex_);
-                data_ptr_ = new_data;
+                std::unique_lock<std::shared_mutex> write_lock(mRwMutex);
+                mDataPtr = new_data;
             }
 #endif
         }
 
     private:
 #if FATP_HAS_ATOMIC_SHARED_PTR
-        std::atomic<std::shared_ptr<T>>& data_;
-        std::unique_lock<std::mutex> write_lock_;
+        std::atomic<std::shared_ptr<T>>& mData;
+        std::unique_lock<std::mutex> mWriteLock;
 #else
-        std::shared_ptr<T>& data_ptr_;
-        std::shared_mutex& rw_mutex_;
-        std::unique_lock<std::mutex> write_lock_;
+        std::shared_ptr<T>& mDataPtr;
+        std::shared_mutex& mRwMutex;
+        std::unique_lock<std::mutex> mWriteLock;
 #endif
     };
 
@@ -1426,16 +1426,16 @@ struct RCUPolicy
     LockHandle getLock()
     {
 #if FATP_HAS_ATOMIC_SHARED_PTR
-        return {data_, write_mutex_};
+        return {mData, mWriteMutex};
 #else
-        return {data_, rw_mutex_, write_mutex_};
+        return {mData, mRwMutex, mWriteMutex};
 #endif
     }
 
 #if FATP_HAS_ATOMIC_SHARED_PTR
     [[nodiscard]] SharedGuard read() const
     {
-        return SharedGuard(data_.load(std::memory_order_acquire));
+        return SharedGuard(mData.load(std::memory_order_acquire));
     }
 
     static constexpr bool is_lock_free()
@@ -1445,8 +1445,8 @@ struct RCUPolicy
 #else
     [[nodiscard]] SharedGuard read() const
     {
-        std::shared_lock<std::shared_mutex> lock(rw_mutex_);
-        return SharedGuard(data_);
+        std::shared_lock<std::shared_mutex> lock(mRwMutex);
+        return SharedGuard(mData);
     }
 
     static constexpr bool is_lock_free()
@@ -1458,9 +1458,9 @@ struct RCUPolicy
     [[nodiscard]] LockGuard write()
     {
 #if FATP_HAS_ATOMIC_SHARED_PTR
-        return LockGuard(data_, write_mutex_);
+        return LockGuard(mData, mWriteMutex);
 #else
-        return LockGuard(data_, rw_mutex_, write_mutex_);
+        return LockGuard(mData, mRwMutex, mWriteMutex);
 #endif
     }
 
@@ -1471,12 +1471,12 @@ struct RCUPolicy
 
 private:
 #if FATP_HAS_ATOMIC_SHARED_PTR
-    mutable std::atomic<std::shared_ptr<T>> data_;
-    std::mutex write_mutex_;
+    mutable std::atomic<std::shared_ptr<T>> mData;
+    std::mutex mWriteMutex;
 #else
-    mutable std::shared_ptr<T> data_;
-    mutable std::shared_mutex rw_mutex_;
-    std::mutex write_mutex_;
+    mutable std::shared_ptr<T> mData;
+    mutable std::shared_mutex mRwMutex;
+    std::mutex mWriteMutex;
 #endif
 };
 #endif // FATP_USE_ATOMIC && FATP_USE_MUTEX
@@ -1526,7 +1526,7 @@ struct HazardPointerPolicy
     public:
         explicit Guard(std::atomic<T*>& hp)
             : mHp(hp)
-            , protected_ptr_(nullptr)
+            , mProtectedPtr(nullptr)
         {
         }
 
@@ -1542,13 +1542,13 @@ struct HazardPointerPolicy
                 mHp.store(ptr, std::memory_order_release);
             } while (ptr != src.load(std::memory_order_acquire));
 
-            protected_ptr_ = ptr;
+            mProtectedPtr = ptr;
             return ptr;
         }
 
         T* get() const
         {
-            return protected_ptr_;
+            return mProtectedPtr;
         }
 
         ~Guard()
@@ -1558,7 +1558,7 @@ struct HazardPointerPolicy
 
     private:
         std::atomic<T*>& mHp;
-        T* protected_ptr_;
+        T* mProtectedPtr;
     };
 
     using LockGuard = Guard;
@@ -1717,12 +1717,12 @@ struct AdaptiveLockPolicy
     public:
         explicit LockGuard(const AdaptiveLockPolicy& policy)
             : mMutex(policy.mMutex)
-            , spin_lock_(policy.spin_lock_)
-            , contention_counter_(policy.contention_counter_)
-            , use_mutex_(policy.use_mutex_)
-            , using_mutex_(false)
+            , mSpinLock(policy.mSpinLock)
+            , mContentionCounter(policy.mContentionCounter)
+            , mUseMutex(policy.mUseMutex)
+            , mUsingMutex(false)
         {
-            // Always acquire the mutex first — it is the single authority for
+            // Always acquire the mutex first â€” it is the single authority for
             // mutual exclusion. The spinlock is an optimization: when contention
             // is low, threads spin briefly on the flag instead of entering the
             // kernel. But the mutex is *always* held while in the critical section,
@@ -1731,21 +1731,21 @@ struct AdaptiveLockPolicy
             // Fast path (low contention): spin on the flag, then lock mutex.
             // Slow path (high contention / spin exhausted): skip flag, lock mutex.
 
-            if (!use_mutex_.load(std::memory_order_acquire))
+            if (!mUseMutex.load(std::memory_order_acquire))
             {
                 // Try the fast spin path
                 uint32_t spins = 0;
                 bool got_spin = false;
 
-                while (!(got_spin = !spin_lock_.test_and_set(std::memory_order_acquire)))
+                while (!(got_spin = !mSpinLock.test_and_set(std::memory_order_acquire)))
                 {
                     if (++spins > SPIN_THRESHOLD)
                     {
-                        // Spin budget exhausted — fall through to mutex-only path
-                        uint32_t count = contention_counter_.fetch_add(1, std::memory_order_relaxed);
+                        // Spin budget exhausted â€” fall through to mutex-only path
+                        uint32_t count = mContentionCounter.fetch_add(1, std::memory_order_relaxed);
                         if (count > ADAPT_WINDOW / 10)
                         {
-                            use_mutex_.store(true, std::memory_order_release);
+                            mUseMutex.store(true, std::memory_order_release);
                         }
                         break;
                     }
@@ -1754,31 +1754,31 @@ struct AdaptiveLockPolicy
 
                 if (got_spin)
                 {
-                    // Won the spin — now acquire the mutex while holding the flag.
+                    // Won the spin â€” now acquire the mutex while holding the flag.
                     // This ensures no other thread can enter via either path.
                     mMutex.lock();
                     // Release the flag; we now hold the mutex exclusively.
-                    spin_lock_.clear(std::memory_order_release);
-                    using_mutex_ = true;
+                    mSpinLock.clear(std::memory_order_release);
+                    mUsingMutex = true;
 
                     // Adaptive back-off: periodically consider re-enabling spin path
-                    uint32_t count = contention_counter_.load(std::memory_order_relaxed);
+                    uint32_t count = mContentionCounter.load(std::memory_order_relaxed);
                     if (count > ADAPT_WINDOW)
                     {
                         if (count < ADAPT_WINDOW + ADAPT_WINDOW / 10)
                         {
-                            use_mutex_.store(false, std::memory_order_release);
+                            mUseMutex.store(false, std::memory_order_release);
                         }
-                        contention_counter_.store(0, std::memory_order_relaxed);
+                        mContentionCounter.store(0, std::memory_order_relaxed);
                     }
                     return;
                 }
-                // Spin budget exhausted — fall through to mutex-only
+                // Spin budget exhausted â€” fall through to mutex-only
             }
 
             // Mutex-only path (high contention or adaptive switch)
             mMutex.lock();
-            using_mutex_ = true;
+            mUsingMutex = true;
         }
 
         LockGuard(const LockGuard&) = delete;
@@ -1786,7 +1786,7 @@ struct AdaptiveLockPolicy
 
         ~LockGuard()
         {
-            if (using_mutex_)
+            if (mUsingMutex)
             {
                 mMutex.unlock();
             }
@@ -1794,10 +1794,10 @@ struct AdaptiveLockPolicy
 
     private:
         std::mutex& mMutex;
-        std::atomic_flag& spin_lock_;
-        std::atomic<uint32_t>& contention_counter_;
-        std::atomic<bool>& use_mutex_;
-        bool using_mutex_;
+        std::atomic_flag& mSpinLock;
+        std::atomic<uint32_t>& mContentionCounter;
+        std::atomic<bool>& mUseMutex;
+        bool mUsingMutex;
     };
 
     using SharedGuard = LockGuard;
@@ -1833,22 +1833,22 @@ struct AdaptiveLockPolicy
 
     bool is_using_mutex() const noexcept
     {
-        return use_mutex_.load(std::memory_order_relaxed);
+        return mUseMutex.load(std::memory_order_relaxed);
     }
     uint32_t get_contention() const noexcept
     {
-        return contention_counter_.load(std::memory_order_relaxed);
+        return mContentionCounter.load(std::memory_order_relaxed);
     }
     void reset_contention() noexcept
     {
-        contention_counter_.store(0, std::memory_order_relaxed);
+        mContentionCounter.store(0, std::memory_order_relaxed);
     }
 
 private:
     alignas(FATP_CACHE_LINE_SIZE) mutable std::mutex mMutex;
-    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic_flag spin_lock_ = ATOMIC_FLAG_INIT;
-    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint32_t> contention_counter_{0};
-    mutable std::atomic<bool> use_mutex_{false};
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic_flag mSpinLock = ATOMIC_FLAG_INIT;
+    alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint32_t> mContentionCounter{0};
+    mutable std::atomic<bool> mUseMutex{false};
 };
 #endif // FATP_USE_ATOMIC && FATP_USE_MUTEX
 
@@ -2074,7 +2074,7 @@ struct VersionedLockPolicy
         LockGuard(std::atomic<uint64_t>& version, std::mutex& write_lock)
             : mVersion(version)
             , mLock(write_lock)
-            , write_version_(mVersion.load(std::memory_order_acquire))
+            , mWriteVersion(mVersion.load(std::memory_order_acquire))
             , mCommitted(false)
         {
         }
@@ -2086,14 +2086,14 @@ struct VersionedLockPolicy
         {
             if (!mCommitted)
             {
-                mVersion.store(write_version_ + 1, std::memory_order_release);
+                mVersion.store(mWriteVersion + 1, std::memory_order_release);
                 mCommitted = true;
             }
         }
 
         uint64_t get_version() const
         {
-            return write_version_;
+            return mWriteVersion;
         }
 
         ~LockGuard()
@@ -2107,7 +2107,7 @@ struct VersionedLockPolicy
     private:
         std::atomic<uint64_t>& mVersion;
         std::unique_lock<std::mutex> mLock;
-        uint64_t write_version_;
+        uint64_t mWriteVersion;
         bool mCommitted;
     };
 
@@ -2116,7 +2116,7 @@ struct VersionedLockPolicy
     public:
         explicit SharedGuard(std::atomic<uint64_t>& version)
             : mVersion(version)
-            , read_version_(mVersion.load(std::memory_order_acquire))
+            , mReadVersion(mVersion.load(std::memory_order_acquire))
         {
         }
 
@@ -2127,17 +2127,17 @@ struct VersionedLockPolicy
         bool validate() const
         {
             std::atomic_thread_fence(std::memory_order_acquire);
-            return mVersion.load(std::memory_order_acquire) == read_version_;
+            return mVersion.load(std::memory_order_acquire) == mReadVersion;
         }
 
         uint64_t get_version() const
         {
-            return read_version_;
+            return mReadVersion;
         }
 
     private:
         std::atomic<uint64_t>& mVersion;
-        uint64_t read_version_;
+        uint64_t mReadVersion;
     };
 
     using WriteLock = LockGuard;
@@ -2151,7 +2151,7 @@ struct VersionedLockPolicy
 
     [[nodiscard]] LockGuard lock()
     {
-        return LockGuard(mVersion, write_lock_);
+        return LockGuard(mVersion, mWriteLock);
     }
 
     [[nodiscard]] SharedGuard lock_shared() const
@@ -2161,19 +2161,19 @@ struct VersionedLockPolicy
 
     [[nodiscard]] bool try_lock()
     {
-        return write_lock_.try_lock();
+        return mWriteLock.try_lock();
     }
 
     LockHandle getLock()
     {
-        return {mVersion, write_lock_};
+        return {mVersion, mWriteLock};
     }
 
     static LockHandle getStaticLock()
     {
         static std::atomic<uint64_t> mVersion{0};
-        static std::mutex write_lock_;
-        return {mVersion, write_lock_};
+        static std::mutex mWriteLock;
+        return {mVersion, mWriteLock};
     }
 
     uint64_t get_version() const
@@ -2187,7 +2187,7 @@ struct VersionedLockPolicy
 
 private:
     alignas(FATP_CACHE_LINE_SIZE) mutable std::atomic<uint64_t> mVersion{0};
-    mutable std::mutex write_lock_;
+    mutable std::mutex mWriteLock;
 };
 #endif // FATP_USE_ATOMIC
 

@@ -335,7 +335,7 @@ public:
     }
 
     explicit FatPStreamParser(const RuntimeLimitsPolicy& limits)
-        : runtime_limits_(limits)
+        : mRuntimeLimits(limits)
     {
         apply_limits();
     }
@@ -346,17 +346,17 @@ public:
 
     void set_progress_callback(ProgressCallback cb)
     {
-        progress_callback_ = std::move(cb);
+        mProgressCallback = std::move(cb);
     }
 
     void set_value_callback(ValueCallback cb)
     {
-        value_callback_ = std::move(cb);
+        mValueCallback = std::move(cb);
     }
 
     void set_progress_interval(std::size_t bytes)
     {
-        progress_interval_ = bytes;
+        mProgressInterval = bytes;
     }
 
     // -------------------------------------------------------------------------
@@ -381,12 +381,12 @@ public:
             }
 
             // Progress callback
-            if (progress_callback_ && progress_interval_ > 0)
+            if (mProgressCallback && mProgressInterval > 0)
             {
                 std::size_t consumed = mParser.stats().bytes_consumed;
-                if (consumed / progress_interval_ != bytes_before / progress_interval_)
+                if (consumed / mProgressInterval != bytes_before / mProgressInterval)
                 {
-                    progress_callback_(consumed, mParser.stats().current_depth, mParser.stats().values_parsed);
+                    mProgressCallback(consumed, mParser.stats().current_depth, mParser.stats().values_parsed);
                 }
                 bytes_before = consumed;
             }
@@ -489,10 +489,10 @@ public:
 
 private:
     CborStreamParser mParser;
-    RuntimeLimitsPolicy runtime_limits_;
-    ProgressCallback progress_callback_;
-    ValueCallback value_callback_;
-    std::size_t progress_interval_ = 0;
+    RuntimeLimitsPolicy mRuntimeLimits;
+    ProgressCallback mProgressCallback;
+    ValueCallback mValueCallback;
+    std::size_t mProgressInterval = 0;
 
     void apply_limits()
     {
@@ -500,11 +500,11 @@ private:
 
         if constexpr (std::is_same_v<LimitsPolicy, RuntimeLimitsPolicy>)
         {
-            limits.max_depth = runtime_limits_.max_depth;
-            limits.max_string_bytes = runtime_limits_.max_string_bytes;
-            limits.max_total_bytes = runtime_limits_.max_total_bytes;
-            limits.max_array_elements = runtime_limits_.max_array_elements;
-            limits.max_map_pairs = runtime_limits_.max_map_pairs;
+            limits.max_depth = mRuntimeLimits.max_depth;
+            limits.max_string_bytes = mRuntimeLimits.max_string_bytes;
+            limits.max_total_bytes = mRuntimeLimits.max_total_bytes;
+            limits.max_array_elements = mRuntimeLimits.max_array_elements;
+            limits.max_map_pairs = mRuntimeLimits.max_map_pairs;
         }
         else
         {

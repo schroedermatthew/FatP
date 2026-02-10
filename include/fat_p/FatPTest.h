@@ -3093,38 +3093,38 @@ class SubtestTracker
 {
 private:
     std::vector<SubtestResult> mSubtests;
-    bool current_subtest_passed_;
-    std::string current_subtest_name_;
-    bool inside_subtest_;
+    bool mCurrentSubtestPassed;
+    std::string mCurrentSubtestName;
+    bool mInsideSubtest;
 
 public:
     SubtestTracker()
-        : current_subtest_passed_(true)
-        , inside_subtest_(false)
+        : mCurrentSubtestPassed(true)
+        , mInsideSubtest(false)
     {
     }
 
     void begin_subtest(const std::string& name)
     {
-        inside_subtest_ = true;
-        current_subtest_name_ = name;
-        current_subtest_passed_ = true;
+        mInsideSubtest = true;
+        mCurrentSubtestName = name;
+        mCurrentSubtestPassed = true;
     }
 
     void fail_current_subtest(const std::string& message)
     {
-        current_subtest_passed_ = false;
-        mSubtests.push_back({current_subtest_name_, false, message});
+        mCurrentSubtestPassed = false;
+        mSubtests.push_back({mCurrentSubtestName, false, message});
     }
 
     void end_subtest()
     {
-        inside_subtest_ = false;
-        if (current_subtest_passed_)
+        mInsideSubtest = false;
+        if (mCurrentSubtestPassed)
         {
-            mSubtests.push_back({current_subtest_name_, true, ""});
+            mSubtests.push_back({mCurrentSubtestName, true, ""});
         }
-        current_subtest_name_.clear();
+        mCurrentSubtestName.clear();
     }
 
     [[nodiscard]] const std::vector<SubtestResult>& get_results() const
@@ -3135,9 +3135,9 @@ public:
     void clear()
     {
         mSubtests.clear();
-        current_subtest_passed_ = true;
-        current_subtest_name_.clear();
-        inside_subtest_ = false;
+        mCurrentSubtestPassed = true;
+        mCurrentSubtestName.clear();
+        mInsideSubtest = false;
     }
 
     [[nodiscard]] bool all_passed() const
@@ -3154,7 +3154,7 @@ public:
 
     [[nodiscard]] bool is_inside_subtest() const
     {
-        return inside_subtest_;
+        return mInsideSubtest;
     }
 };
 
@@ -3172,7 +3172,7 @@ class TestRunner
 {
 private:
     std::vector<TestResult> mResults;
-    std::string filter_pattern_;
+    std::string mFilterPattern;
 
 public:
     /**
@@ -3187,7 +3187,7 @@ public:
      */
     void set_filter(const std::string& pattern)
     {
-        filter_pattern_ = pattern;
+        mFilterPattern = pattern;
     }
 
     /**
@@ -3195,11 +3195,11 @@ public:
      */
     [[nodiscard]] bool matches_filter(const char* name) const noexcept
     {
-        if (filter_pattern_.empty())
+        if (mFilterPattern.empty())
         {
             return true;
         }
-        return string_utils::matches_pattern(name, filter_pattern_);
+        return string_utils::matches_pattern(name, mFilterPattern);
     }
 
 private:
@@ -3571,9 +3571,9 @@ public:
             out << "Failed: " << failed << "\n";
         }
 
-        if (!filter_pattern_.empty())
+        if (!mFilterPattern.empty())
         {
-            out << "Filter: \"" << filter_pattern_ << "\"\n";
+            out << "Filter: \"" << mFilterPattern << "\"\n";
         }
 
         out << "Total:  " << (passed + failed) << "\n";
@@ -3608,7 +3608,7 @@ public:
     void clear()
     {
         mResults.clear();
-        filter_pattern_.clear();
+        mFilterPattern.clear();
     }
 
     /**

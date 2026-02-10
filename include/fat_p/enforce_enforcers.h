@@ -107,7 +107,7 @@ struct MessageBuilder
     }
 };
 
-/// @brief A Raiser whose fail() is noexcept â€” used to derive the Enforcer
+/// @brief A Raiser whose fail() is noexcept Ã¢â‚¬â€ used to derive the Enforcer
 /// destructor's noexcept specification automatically. Any raiser that marks
 /// its fail() noexcept will produce a noexcept Enforcer destructor.
 template <typename R>
@@ -135,7 +135,7 @@ class Enforcer
     const bool mPassed;
     const std::source_location mLoc;
     const char* const mExpression;
-    const char* user_message_ = nullptr; // Points to static string or nullptr - NO allocation
+    const char* mUserMessage = nullptr; // Points to static string or nullptr - NO allocation
 
 public:
     /**
@@ -183,10 +183,10 @@ private:
         full_message += std::to_string(mLoc.line());
         full_message += "\n\tFunction: ";
         full_message += mLoc.function_name();
-        if (user_message_)
+        if (mUserMessage)
         {
             full_message += "\n\tMessage: ";
-            full_message += user_message_;
+            full_message += mUserMessage;
         }
 
         Raiser::fail(full_message);
@@ -200,7 +200,7 @@ public:
     {
         if (!mPassed) [[unlikely]]
         {
-            user_message_ = msg;
+            mUserMessage = msg;
         }
     }
 
@@ -222,7 +222,7 @@ public:
                 std::ostringstream ss;
                 (ss << ... << toString(std::forward<Msgs>(msgs)));
                 formatted_message = ss.str();
-                user_message_ = formatted_message.c_str();
+                mUserMessage = formatted_message.c_str();
             }
         }
     }

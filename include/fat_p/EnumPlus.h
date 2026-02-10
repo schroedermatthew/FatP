@@ -460,7 +460,7 @@ public:
 
     // Default constructor
     constexpr EnumPlusMap()
-        : data_{}
+        : mData{}
     {
     }
 
@@ -474,14 +474,14 @@ public:
                   (!std::is_convertible_v<Arg1, T> &&        // Single arg: not convertible to T
                    !std::is_invocable_r_v<T, Arg1, E>))     // and not a generator function
     constexpr EnumPlusMap(Arg1&& arg1, Args&&... args)
-        : data_{std::forward<Arg1>(arg1), std::forward<Args>(args)...}
+        : mData{std::forward<Arg1>(arg1), std::forward<Args>(args)...}
     {
     }
 
     // Constructor with fill value
     constexpr explicit EnumPlusMap(const T& fill_value)
     {
-        data_.fill(fill_value);
+        mData.fill(fill_value);
     }
 
     // Constructor with generator function
@@ -491,33 +491,33 @@ public:
     {
         for (size_type i = 0; i < enum_size; ++i)
         {
-            data_[i] = generator(static_cast<E>(i));
+            mData[i] = generator(static_cast<E>(i));
         }
     }
 
     // Element access
     constexpr reference operator[](E key) noexcept
     {
-        return data_[to_index(key)];
+        return mData[to_index(key)];
     }
 
     constexpr const_reference operator[](E key) const noexcept
     {
-        return data_[to_index(key)];
+        return mData[to_index(key)];
     }
 
     constexpr reference at(E key)
     {
         const auto idx = to_index(key);
         BoundsPolicy::template check_bounds<E>(idx, enum_size);
-        return data_[idx];
+        return mData[idx];
     }
 
     constexpr const_reference at(E key) const
     {
         const auto idx = to_index(key);
         BoundsPolicy::template check_bounds<E>(idx, enum_size);
-        return data_[idx];
+        return mData[idx];
     }
 
     // Capacity
@@ -533,34 +533,34 @@ public:
     // Iterators
     constexpr iterator begin() noexcept
     {
-        return data_.begin();
+        return mData.begin();
     }
     constexpr const_iterator begin() const noexcept
     {
-        return data_.begin();
+        return mData.begin();
     }
     constexpr const_iterator cbegin() const noexcept
     {
-        return data_.cbegin();
+        return mData.cbegin();
     }
 
     constexpr iterator end() noexcept
     {
-        return data_.end();
+        return mData.end();
     }
     constexpr const_iterator end() const noexcept
     {
-        return data_.end();
+        return mData.end();
     }
     constexpr const_iterator cend() const noexcept
     {
-        return data_.cend();
+        return mData.cend();
     }
 
     // Fill
     constexpr void fill(const T& value)
     {
-        data_.fill(value);
+        mData.fill(value);
     }
 
     // Apply function to all elements
@@ -569,7 +569,7 @@ public:
     {
         for (size_type i = 0; i < enum_size; ++i)
         {
-            func(data_[i]);
+            func(mData[i]);
         }
     }
 
@@ -578,22 +578,22 @@ public:
     {
         for (size_type i = 0; i < enum_size; ++i)
         {
-            func(data_[i]);
+            func(mData[i]);
         }
     }
 
     // Data access
     constexpr T* data() noexcept
     {
-        return data_.data();
+        return mData.data();
     }
     constexpr const T* data() const noexcept
     {
-        return data_.data();
+        return mData.data();
     }
 
 private:
-    std::array<T, enum_size> data_;
+    std::array<T, enum_size> mData;
 
     static constexpr size_type to_index(E key) noexcept
     {

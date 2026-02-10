@@ -122,8 +122,8 @@ public:
      */
     TensorControlBlock(T* ptr, size_t size, const Allocator& alloc)
         : mPtr(ptr)
-        , size_(size)
-        , ref_count_(1)
+        , mSize(size)
+        , mRefCount(1)
         , mAllocator(alloc)
     {
     }
@@ -134,7 +134,7 @@ public:
      */
     void add_ref() noexcept
     {
-        ref_count_.fetch_add(1, OrderPolicy::add_order);
+        mRefCount.fetch_add(1, OrderPolicy::add_order);
     }
 
     /**
@@ -145,7 +145,7 @@ public:
     {
         // Release semantics ensure all previous writes are visible
         // before the reference count drops
-        if (ref_count_.fetch_sub(1, OrderPolicy::sub_order) == 1)
+        if (mRefCount.fetch_sub(1, OrderPolicy::sub_order) == 1)
         {
             // Acquire semantics ensure we see all writes before deletion
             std::atomic_thread_fence(OrderPolicy::fence_order);
@@ -159,7 +159,7 @@ public:
      */
     long use_count() const noexcept
     {
-        return ref_count_.load(std::memory_order_relaxed);
+        return mRefCount.load(std::memory_order_relaxed);
     }
 
     /**
@@ -177,15 +177,15 @@ public:
     {
         if (mPtr)
         {
-            mAllocator.deallocate(mPtr, size_);
+            mAllocator.deallocate(mPtr, mSize);
             mPtr = nullptr;
         }
     }
 
 private:
     T* mPtr;
-    size_t size_;
-    std::atomic<long> ref_count_;
+    size_t mSize;
+    std::atomic<long> mRefCount;
     Allocator mAllocator;
 
     // Non-copyable, non-movable

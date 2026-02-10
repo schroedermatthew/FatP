@@ -381,11 +381,11 @@ private:
     static constexpr bool is_over_aligned = alignof(T) > alignof(std::max_align_t);
 
     Policy mPolicy;
-    bool numa_available_;
+    bool mNumaAvailable;
 
     void* allocate_on_node(size_t size, int node)
     {
-        if (!numa_available_)
+        if (!mNumaAvailable)
         {
             if constexpr (is_over_aligned)
             {
@@ -426,7 +426,7 @@ private:
 
     void* allocate_interleaved(size_t size)
     {
-        if (!numa_available_)
+        if (!mNumaAvailable)
         {
             if constexpr (is_over_aligned)
             {
@@ -454,7 +454,7 @@ private:
 
     void free_numa(void* ptr, size_t size)
     {
-        if (!numa_available_)
+        if (!mNumaAvailable)
         {
             if constexpr (is_over_aligned)
             {
@@ -503,13 +503,13 @@ private:
 public:
     NumaAllocator() noexcept
         : mPolicy()
-        , numa_available_(NumaInfo::is_available())
+        , mNumaAvailable(NumaInfo::is_available())
     {
     }
 
     explicit NumaAllocator(Policy policy) noexcept
         : mPolicy(policy)
-        , numa_available_(NumaInfo::is_available())
+        , mNumaAvailable(NumaInfo::is_available())
     {
         if constexpr (std::is_same_v<Policy, NumaPreferredPolicy>)
         {
@@ -525,7 +525,7 @@ public:
     template <typename U>
     NumaAllocator(const NumaAllocator<U, Policy>& other) noexcept
         : mPolicy(other.get_policy())
-        , numa_available_(other.is_numa_available())
+        , mNumaAvailable(other.is_numa_available())
     {
     }
 
@@ -590,7 +590,7 @@ public:
 
     bool is_numa_available() const noexcept
     {
-        return numa_available_;
+        return mNumaAvailable;
     }
 
     template <typename, typename>
