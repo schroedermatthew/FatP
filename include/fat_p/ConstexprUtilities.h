@@ -41,6 +41,7 @@ FATP_META:
 #include <concepts>
 #include <cstdint>
 #include <iosfwd>
+#include <ostream>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -498,9 +499,6 @@ template <std::unsigned_integral T>
 // String Conversion Utilities
 // =============================================================================
 
-// Buffer pool size for thread-local converters
-// Set to 16 to safely handle deep nested logging calls without buffer aliasing
-inline constexpr std::size_t STRING_POOL_SIZE = 16;
 
 /**
  * @brief Compile-time integer-to-string conversion.
@@ -580,35 +578,39 @@ struct constexpr_to_string_t
     {
         return {buffer, length};
     }
+
+    /// @brief Implicit conversion to string_view for streaming/logging.
+    [[nodiscard]] constexpr operator std::string_view() const noexcept
+    {
+        return view();
+    }
+
+    /// @brief Stream output support.
+    friend std::ostream& operator<<(std::ostream& os, const constexpr_to_string_t& conv)
+    {
+        return os << conv.view();
+    }
 };
 
 /**
- * @brief Convert integral value to string_view using thread-local buffer pool.
+ * @brief Convert integral value to an owning converter.
  *
- * Uses a rotating pool of 16 thread-local buffers to support multiple calls
- * in the same expression without interference, including nested logging calls.
+ * Returns the converter by value — the caller owns the storage. Use .view()
+ * or implicit conversion to std::string_view for read access. Safe to store,
+ * safe to use multiple times in a single expression, no thread-local overhead.
  *
  * @tparam T Integral type (any size, signed or unsigned).
  * @param value Value to convert.
- * @return std::string_view String representation (valid until 16 more calls).
- *
- * @warning The returned view is invalidated after 16 subsequent calls.
- * @note Thread-safe via thread-local storage.
+ * @return constexpr_to_string_t<T> Owning converter with implicit string_view conversion.
  *
  * @example
  *   std::cout << to_string_view(10) << " + " << to_string_view(20);  // Safe
+ *   auto saved = to_string_view(42);  // Safe — saved owns its buffer
  */
 template <std::integral T>
-[[nodiscard]] inline std::string_view to_string_view(T value) noexcept
+[[nodiscard]] constexpr constexpr_to_string_t<T> to_string_view(T value) noexcept
 {
-    thread_local constexpr_to_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
-    thread_local std::size_t pool_index = 0;
-
-    auto& converter = converter_pool[pool_index];
-    pool_index = (pool_index + 1) % STRING_POOL_SIZE;
-
-    converter = constexpr_to_string_t<T>{value};
-    return converter.view();
+    return constexpr_to_string_t<T>{value};
 }
 
 /**
@@ -759,31 +761,35 @@ struct float_to_string_t
     {
         return {buffer, length};
     }
+
+    /// @brief Implicit conversion to string_view for streaming/logging.
+    [[nodiscard]] operator std::string_view() const noexcept
+    {
+        return view();
+    }
+
+    /// @brief Stream output support.
+    friend std::ostream& operator<<(std::ostream& os, const float_to_string_t& conv)
+    {
+        return os << conv.view();
+    }
 };
 
 /**
- * @brief Convert floating-point value to string_view.
+ * @brief Convert floating-point value to an owning converter.
  *
  * @tparam T Floating-point type (float, double, long double).
  * @param value Value to convert.
  * @param precision Decimal places (0-15, default: 6).
- * @return std::string_view String representation.
+ * @return float_to_string_t<T> Owning converter with implicit string_view conversion.
  *
  * @note Returns "nan", "inf", "-inf" for special values.
  * @note Returns "overflow" or "-overflow" for values > 2^53.
- * @warning The returned view is invalidated after 16 subsequent calls.
  */
 template <std::floating_point T>
-[[nodiscard]] inline std::string_view to_string_view(T value, int precision = 6) noexcept
+[[nodiscard]] inline float_to_string_t<T> to_string_view(T value, int precision = 6) noexcept
 {
-    thread_local float_to_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
-    thread_local std::size_t pool_index = 0;
-
-    auto& converter = converter_pool[pool_index];
-    pool_index = (pool_index + 1) % STRING_POOL_SIZE;
-
-    converter = float_to_string_t<T>{value, precision};
-    return converter.view();
+    return float_to_string_t<T>{value, precision};
 }
 
 // =============================================================================
@@ -847,18 +853,28 @@ struct to_hex_string_t
     {
         return {buffer, length};
     }
+
+    /// @brief Implicit conversion to string_view for streaming/logging.
+    [[nodiscard]] constexpr operator std::string_view() const noexcept
+    {
+        return view();
+    }
+
+    /// @brief Stream output support.
+    friend std::ostream& operator<<(std::ostream& os, const to_hex_string_t& conv)
+    {
+        return os << conv.view();
+    }
 };
 
 /**
- * @brief Convert unsigned integer to hexadecimal string_view.
+ * @brief Convert unsigned integer to hexadecimal owning converter.
  *
  * @tparam T Unsigned integral type.
  * @param value Value to convert.
  * @param prefix If true, prepend "0x" or "0X" (default: true).
  * @param uppercase If true, use A-F instead of a-f (default: false).
- * @return std::string_view Hexadecimal representation.
- *
- * @warning The returned view is invalidated after 16 subsequent calls.
+ * @return to_hex_string_t<T> Owning converter with implicit string_view conversion.
  *
  * @example
  *   to_hex_string_view(255u);              // "0xff"
@@ -866,16 +882,9 @@ struct to_hex_string_t
  *   to_hex_string_view(255u, false);       // "ff"
  */
 template <std::unsigned_integral T>
-[[nodiscard]] inline std::string_view to_hex_string_view(T value, bool prefix = true, bool uppercase = false) noexcept
+[[nodiscard]] constexpr to_hex_string_t<T> to_hex_string_view(T value, bool prefix = true, bool uppercase = false) noexcept
 {
-    thread_local to_hex_string_t<T> converter_pool[STRING_POOL_SIZE] = {};
-    thread_local std::size_t pool_index = 0;
-
-    auto& converter = converter_pool[pool_index];
-    pool_index = (pool_index + 1) % STRING_POOL_SIZE;
-
-    converter = to_hex_string_t<T>{value, prefix, uppercase};
-    return converter.view();
+    return to_hex_string_t<T>{value, prefix, uppercase};
 }
 
 // =============================================================================

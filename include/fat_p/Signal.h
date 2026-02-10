@@ -582,9 +582,24 @@ public:
      */
     bool disconnect(ConnectionId id)
     {
-        // Check if we're currently emitting (from any thread)
-        // During emission, we only need to soft-delete (set active=false)
-        // which can be done with a read lock since it's just a flag flip
+        // Double-checked pattern for emission-aware disconnection.
+        //
+        // Why not just take the write lock unconditionally?
+        // During emission, the write lock is held. If a slot callback calls
+        // disconnect(), taking a write lock would deadlock on non-recursive
+        // shared_mutex. The fast path checks mRecursionDepth unlocked to avoid
+        // this: if emission is in progress, we take only a shared lock and
+        // soft-delete (flip active=false), which emit() already handles.
+        //
+        // Why re-check under the write lock?
+        // Between the unlocked read and the write lock acquisition, another
+        // thread could have started emitting. The re-check catches this race
+        // and falls back to soft-delete. Without it, we'd physically erase a
+        // slot that emit() is iterating over — undefined behavior.
+        //
+        // The unlocked read is safe because mRecursionDepth is atomic and we
+        // only care about zero-vs-nonzero. A stale "0" at worst causes us to
+        // take the write lock unnecessarily; the re-check corrects it.
         if (mRecursionDepth.load(std::memory_order_acquire) > 0)
         {
             // We might be inside emit() on this or another thread

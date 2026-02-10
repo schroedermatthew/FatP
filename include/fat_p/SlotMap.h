@@ -39,12 +39,12 @@ FATP_META:
  * Architecture:
  * @code
  *   Handle = { index, generation }
- *      │
- *      ▼
+ *      â”‚
+ *      â–¼
  *   mSlots[index] = { generation, data_index }
- *      │                   │
- *      │ generation match? │
- *      ▼                   ▼
+ *      â”‚                   â”‚
+ *      â”‚ generation match? â”‚
+ *      â–¼                   â–¼
  *   Valid access       mData[data_index] = actual value
  * @endcode
  *
@@ -97,37 +97,45 @@ namespace fat_p
 /**
  * @brief Opaque handle to a slot in a SlotMap.
  *
+ * @tparam GenerationType Unsigned integer type for the generation counter.
+ *         Default uint32_t provides ~4 billion generations per slot.
+ *         Use uint64_t for long-running systems with high slot churn.
+ *
  * @details Encodes both the slot index and generation counter. Two handles to
  * the same index but different generations refer to different objects.
  *
  * @note Handle validity can only be determined by querying the SlotMap.
  * The is_null() method only checks if the handle was default-constructed.
  */
-struct SlotMapHandle
+template <typename GenerationType = uint32_t>
+struct SlotMapHandleT
 {
+    static_assert(std::is_unsigned_v<GenerationType>,
+                  "GenerationType must be an unsigned integer type");
+
     uint32_t index{0};
-    uint32_t generation{0};
+    GenerationType generation{0};
 
-    constexpr SlotMapHandle() noexcept = default;
+    constexpr SlotMapHandleT() noexcept = default;
 
-    constexpr SlotMapHandle(uint32_t idx, uint32_t gen) noexcept
+    constexpr SlotMapHandleT(uint32_t idx, GenerationType gen) noexcept
         : index(idx)
         , generation(gen)
     {
     }
 
-    [[nodiscard]] constexpr bool operator==(const SlotMapHandle& other) const noexcept
+    [[nodiscard]] constexpr bool operator==(const SlotMapHandleT& other) const noexcept
     {
         return index == other.index && generation == other.generation;
     }
 
-    [[nodiscard]] constexpr bool operator!=(const SlotMapHandle& other) const noexcept
+    [[nodiscard]] constexpr bool operator!=(const SlotMapHandleT& other) const noexcept
     {
         return !(*this == other);
     }
 
     /// @brief Lexicographic comparison for use in std::set/std::map.
-    [[nodiscard]] constexpr bool operator<(const SlotMapHandle& other) const noexcept
+    [[nodiscard]] constexpr bool operator<(const SlotMapHandleT& other) const noexcept
     {
         if (index != other.index)
         {
@@ -136,17 +144,17 @@ struct SlotMapHandle
         return generation < other.generation;
     }
 
-    [[nodiscard]] constexpr bool operator<=(const SlotMapHandle& other) const noexcept
+    [[nodiscard]] constexpr bool operator<=(const SlotMapHandleT& other) const noexcept
     {
         return !(other < *this);
     }
 
-    [[nodiscard]] constexpr bool operator>(const SlotMapHandle& other) const noexcept
+    [[nodiscard]] constexpr bool operator>(const SlotMapHandleT& other) const noexcept
     {
         return other < *this;
     }
 
-    [[nodiscard]] constexpr bool operator>=(const SlotMapHandle& other) const noexcept
+    [[nodiscard]] constexpr bool operator>=(const SlotMapHandleT& other) const noexcept
     {
         return !(*this < other);
     }
@@ -167,6 +175,13 @@ struct SlotMapHandle
     }
 };
 
+/// @brief Default 32-bit generation handle (backward compatible).
+using SlotMapHandle = SlotMapHandleT<uint32_t>;
+
+/// @brief 64-bit generation handle for long-running systems with high slot churn.
+/// Wrap time at 1M insert/erase cycles per second per slot: ~584 million years.
+using SlotMapHandle64 = SlotMapHandleT<uint64_t>;
+
 // =============================================================================
 // SlotMap - Generational Index Container
 // =============================================================================
@@ -175,6 +190,9 @@ struct SlotMapHandle
  * @brief A generational index container providing stable handles to elements.
  *
  * @tparam T The type of element to store.
+ * @tparam GenerationType Unsigned integer type for generation counters.
+ *         uint32_t (default): wraps after ~4 billion insert/erase cycles per slot.
+ *         uint64_t: effectively never wraps (~584 million years at 1M ops/sec/slot).
  * @tparam Allocator The allocator for internal storage (default: std::allocator<T>).
  *
  * @note Complexity:
@@ -185,15 +203,8 @@ struct SlotMapHandle
  * - Iteration: O(n)
  *
  * @note Thread Safety: Not thread-safe. External synchronization required.
- *
- * @warning Generation counters are 32-bit and wrap after 2^32 insert/erase
- *          cycles per slot. After wrap, a stale handle may falsely validate
- *          against a new object at the same slot index. For most applications
- *          (games, ECS) this is irrelevant — a single slot would need 4 billion
- *          reuses. If your use case involves extremely high churn on individual
- *          slots, consider using SlotMap with a 64-bit generation counter.
  */
-template <typename T, typename Allocator = std::allocator<T>>
+template <typename T, typename GenerationType = uint32_t, typename Allocator = std::allocator<T>>
 class SlotMap
 {
 public:
@@ -203,9 +214,9 @@ public:
 
     using value_type = T;
     using size_type = uint32_t;
-    using generation_type = uint32_t;
+    using generation_type = GenerationType;
     using allocator_type = Allocator;
-    using Handle = SlotMapHandle;
+    using Handle = SlotMapHandleT<GenerationType>;
 
     using reference = T&;
     using const_reference = const T&;
@@ -922,8 +933,8 @@ private:
 /**
  * @brief Swap two SlotMaps.
  */
-template <typename T, typename Allocator>
-void swap(SlotMap<T, Allocator>& lhs, SlotMap<T, Allocator>& rhs) noexcept(noexcept(lhs.swap(rhs)))
+template <typename T, typename GenerationType, typename Allocator>
+void swap(SlotMap<T, GenerationType, Allocator>& lhs, SlotMap<T, GenerationType, Allocator>& rhs) noexcept(noexcept(lhs.swap(rhs)))
 {
     lhs.swap(rhs);
 }
@@ -931,15 +942,17 @@ void swap(SlotMap<T, Allocator>& lhs, SlotMap<T, Allocator>& rhs) noexcept(noexc
 } // namespace fat_p
 
 // =============================================================================
-// std::hash Specialization for SlotMapHandle
+// std::hash Specialization for SlotMapHandleT
 // =============================================================================
 
-template <>
-struct std::hash<fat_p::SlotMapHandle>
+template <typename GenerationType>
+struct std::hash<fat_p::SlotMapHandleT<GenerationType>>
 {
-    [[nodiscard]] std::size_t operator()(const fat_p::SlotMapHandle& h) const noexcept
+    [[nodiscard]] std::size_t operator()(const fat_p::SlotMapHandleT<GenerationType>& h) const noexcept
     {
-        // Combine index and generation into a single 64-bit value, then hash
-        return std::hash<std::uint64_t>{}((static_cast<std::uint64_t>(h.index) << 32) | h.generation);
+        // Hash combine: mix index and generation
+        std::size_t seed = std::hash<std::uint32_t>{}(h.index);
+        seed ^= std::hash<GenerationType>{}(h.generation) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        return seed;
     }
 };

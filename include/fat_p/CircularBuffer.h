@@ -40,19 +40,13 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 
+#include "CacheUtilities.h"
+
 namespace fat_p
 {
 
 namespace detail
 {
-
-// Cache line size for false sharing prevention
-// C++17 provides std::hardware_destructive_interference_size but:
-// - Support is spotty (MSVC has it, GCC/Clang often warn about ABI stability)
-// - GCC warns with -Winterference-size about value varying between compilers
-// 64 bytes is the pragmatic industry standard for x86-64 and ARM64.
-// We hardcode it to avoid warnings and ensure consistent ABI.
-inline constexpr size_t kCacheLineSize = 64;
 
 // Round up to next power of 2 (or return n if already power of 2)
 constexpr size_t nextPowerOfTwo(size_t n) noexcept
@@ -132,10 +126,17 @@ template <typename T, size_t Capacity>
 class CircularBuffer
 {
     static_assert(Capacity > 0, "Capacity must be greater than 0");
+    // Required by make_unique_for_overwrite<T[]> which calls new T[N]
+    // (default-initialization). For trivial types this is a no-op (leaves
+    // memory uninitialized — safe because SPSC write-before-read guarantees
+    // slots are assigned before being read). For non-trivial types the
+    // default constructor runs normally.
     static_assert(std::is_default_constructible_v<T>,
-                  "T must be default constructible (array-backed storage)");
+                  "T must be default constructible (required by array allocation)");
     static_assert(std::is_nothrow_move_constructible_v<T> || std::is_nothrow_copy_constructible_v<T>,
                   "T must be nothrow move or copy constructible for exception safety");
+    static_assert(std::is_move_assignable_v<T> || std::is_copy_assignable_v<T>,
+                  "T must be move or copy assignable (push/pop use assignment)");
     static_assert(std::atomic<size_t>::is_always_lock_free,
                   "std::atomic<size_t> must be lock-free for wait-free guarantees");
 
@@ -146,7 +147,7 @@ public:
     using const_reference = const T&;
 
 private:
-    static constexpr size_t kCacheLineSize = detail::kCacheLineSize;
+    static constexpr size_t kCacheLineSize = perf::cache_constants::destructive_interference_size_v;
 
     // Round up (Capacity + 1) to next power of 2 for efficient masking.
     // The +1 ensures kBufferSize > Capacity, so that no two elements in the
