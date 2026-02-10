@@ -69,7 +69,7 @@ FATP_TEST_CASE(cache_info)
                      "Destructive interference should be >= constructive");
 
     // Verify constexpr values match function returns
-    FATP_ASSERT_TRUE(cache_constants::l1_line_size_v == CacheInfo::l1_line_size(),
+    FATP_ASSERT_TRUE(config::cache_line_size == CacheInfo::l1_line_size(),
                      "Constexpr value should match function");
     FATP_ASSERT_TRUE(cache_constants::destructive_interference_size_v == CacheInfo::destructive_interference_size(),
                      "Constexpr value should match function");
