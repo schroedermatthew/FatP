@@ -1908,7 +1908,7 @@ public:
      *
      * @note Complexity: O(1)
      */
-    [[nodiscard]] bool is_aligned() const noexcept
+    [[nodiscard]] bool isAligned() const noexcept
     {
         return mData == nullptr || (reinterpret_cast<uintptr_t>(mData) % Alignment) == 0;
     }

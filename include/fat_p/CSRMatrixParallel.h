@@ -359,7 +359,7 @@ void matvec_threadpool_batch(const CSRMatrix<T, IndexType>& matrix,
  * @brief std::vector interface for parallel SpMV
  */
 template <typename T, typename IndexType>
-std::vector<T> matvec_parallel(const CSRMatrix<T, IndexType>& matrix,
+std::vector<T> matvecParallel(const CSRMatrix<T, IndexType>& matrix,
                                const std::vector<T>& x,
                                ThreadPool& pool,
                                const ParallelConfig& config = {})
@@ -389,9 +389,9 @@ inline ThreadPool& default_thread_pool()
  * @brief Parallel SpMV using default thread pool
  */
 template <typename T, typename IndexType>
-std::vector<T> matvec_parallel(const CSRMatrix<T, IndexType>& matrix, const std::vector<T>& x)
+std::vector<T> matvecParallel(const CSRMatrix<T, IndexType>& matrix, const std::vector<T>& x)
 {
-    return matvec_parallel(matrix, x, default_thread_pool());
+    return matvecParallel(matrix, x, default_thread_pool());
 }
 
 // ============================================================================

@@ -173,7 +173,7 @@ public:
 // Forward Declarations (alignment utilities needed by stream_store)
 // =============================================================================
 
-inline bool is_aligned(const void* ptr, size_t alignment) noexcept;
+inline bool isAligned(const void* ptr, size_t alignment) noexcept;
 
 // =============================================================================
 // Prefetch Hints
@@ -386,7 +386,7 @@ inline void stream_store(T* dest, const T& value) noexcept
     if constexpr (sizeof(T) == 4)
     {
         // 4-byte stream - use memcpy to avoid strict-aliasing UB
-        if (is_aligned(dest, 4))
+        if (isAligned(dest, 4))
         {
             int tmp;
             std::memcpy(&tmp, &value, sizeof(T));
@@ -402,7 +402,7 @@ inline void stream_store(T* dest, const T& value) noexcept
     {
 // 8-byte stream - use memcpy to avoid strict-aliasing UB
 #if defined(FATP_CACHE_X86_64)
-        if (is_aligned(dest, 8))
+        if (isAligned(dest, 8))
         {
             long long tmp;
             std::memcpy(&tmp, &value, sizeof(T));
@@ -420,7 +420,7 @@ inline void stream_store(T* dest, const T& value) noexcept
     else if constexpr (sizeof(T) <= 16)
     {
         // 16-byte stream
-        if (is_aligned(dest, 16))
+        if (isAligned(dest, 16))
         {
             __m128i tmp{};
             std::memcpy(&tmp, &value, sizeof(T));
@@ -435,7 +435,7 @@ inline void stream_store(T* dest, const T& value) noexcept
     {
 #ifdef __AVX__
         // 32-byte stream
-        if (is_aligned(dest, 32))
+        if (isAligned(dest, 32))
         {
             __m256i tmp{};
             std::memcpy(&tmp, &value, sizeof(T));
@@ -477,7 +477,7 @@ inline void stream_copy(void* dest, const void* src, size_t size) noexcept
 
 #if defined(FATP_CACHE_X86) && defined(__AVX__)
     // _mm256_stream_si256 requires 32-byte aligned destination
-    if (!is_aligned(dest, 32))
+    if (!isAligned(dest, 32))
     {
         std::memcpy(dest, src, size);
         return;
@@ -829,7 +829,7 @@ struct BlockIterator2D
  * @param alignment Alignment boundary (must be power of 2)
  * @return true if aligned
  */
-inline bool is_aligned(const void* ptr, size_t alignment) noexcept
+inline bool isAligned(const void* ptr, size_t alignment) noexcept
 {
     assert((alignment & (alignment - 1)) == 0 && "alignment must be power of 2");
     return (reinterpret_cast<uintptr_t>(ptr) & (alignment - 1)) == 0;

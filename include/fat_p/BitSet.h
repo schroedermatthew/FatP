@@ -32,12 +32,12 @@ FATP_META:
  *
  * Features:
  * - Fixed capacity bit set with O(1) single-bit operations
- * - Bulk operations (set_all, clear_all, flip_all)
+ * - Bulk operations (setAll, clearAll, flipAll)
  * - Population count using hardware popcnt instruction
  * - Find first/last/next set bit using hardware ctz/clz
  * - Bitwise operations (AND, OR, XOR, NOT)
- * - Range operations (set_range, clear_range, count_range)
- * - Set operations (is_subset_of, intersects)
+ * - Range operations (setRange, clearRange, count_range)
+ * - Set operations (isSubsetOf, intersects)
  * - STL-compatible iterator over set bits
  * - Unchecked accessors for HPC inner loops
  *
@@ -213,7 +213,7 @@ public:
         {
             throw std::out_of_range("BitSet::set: index out of range");
         }
-        set_unchecked(index);
+        setUnchecked(index);
     }
 
     /**
@@ -245,7 +245,7 @@ public:
         {
             throw std::out_of_range("BitSet::clear: index out of range");
         }
-        clear_unchecked(index);
+        clearUnchecked(index);
     }
 
     /**
@@ -259,7 +259,7 @@ public:
         {
             throw std::out_of_range("BitSet::flip: index out of range");
         }
-        flip_unchecked(index);
+        flipUnchecked(index);
     }
 
     /**
@@ -285,7 +285,7 @@ public:
      * @brief Set a bit to 1 without bounds checking
      * @param index Bit index (caller must ensure index < N)
      */
-    void set_unchecked(size_t index) noexcept
+    void setUnchecked(size_t index) noexcept
     {
         mWords[index / BITS_PER_WORD] |= (1ULL << (index % BITS_PER_WORD));
     }
@@ -294,7 +294,7 @@ public:
      * @brief Clear a bit to 0 without bounds checking
      * @param index Bit index (caller must ensure index < N)
      */
-    void clear_unchecked(size_t index) noexcept
+    void clearUnchecked(size_t index) noexcept
     {
         mWords[index / BITS_PER_WORD] &= ~(1ULL << (index % BITS_PER_WORD));
     }
@@ -303,7 +303,7 @@ public:
      * @brief Flip a bit without bounds checking
      * @param index Bit index (caller must ensure index < N)
      */
-    void flip_unchecked(size_t index) noexcept
+    void flipUnchecked(size_t index) noexcept
     {
         mWords[index / BITS_PER_WORD] ^= (1ULL << (index % BITS_PER_WORD));
     }
@@ -335,7 +335,7 @@ public:
     /**
      * @brief Set all bits to 1
      */
-    void set_all() noexcept
+    void setAll() noexcept
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
@@ -347,7 +347,7 @@ public:
     /**
      * @brief Clear all bits to 0
      */
-    void clear_all() noexcept
+    void clearAll() noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -358,7 +358,7 @@ public:
     /**
      * @brief Flip all bits
      */
-    void flip_all() noexcept
+    void flipAll() noexcept
     {
         for (size_t i = 0; i < NUM_WORDS - 1; ++i)
         {
@@ -368,11 +368,11 @@ public:
     }
 
     /**
-     * @brief Alias for clear_all() (std::bitset compatibility)
+     * @brief Alias for clearAll() (std::bitset compatibility)
      */
     void reset() noexcept
     {
-        clear_all();
+        clearAll();
     }
 
     /**
@@ -398,11 +398,11 @@ public:
      * @param end Last bit index (exclusive)
      * @throws std::out_of_range if start > end or end > N
      */
-    void set_range(size_t start, size_t end)
+    void setRange(size_t start, size_t end)
     {
         if (start > end || end > N)
         {
-            throw std::out_of_range("BitSet::set_range: invalid range");
+            throw std::out_of_range("BitSet::setRange: invalid range");
         }
         if (start == end)
         {
@@ -436,11 +436,11 @@ public:
      * @param end Last bit index (exclusive)
      * @throws std::out_of_range if start > end or end > N
      */
-    void clear_range(size_t start, size_t end)
+    void clearRange(size_t start, size_t end)
     {
         if (start > end || end > N)
         {
-            throw std::out_of_range("BitSet::clear_range: invalid range");
+            throw std::out_of_range("BitSet::clearRange: invalid range");
         }
         if (start == end)
         {
@@ -474,11 +474,11 @@ public:
      * @param end Last bit index (exclusive)
      * @throws std::out_of_range if start > end or end > N
      */
-    void flip_range(size_t start, size_t end)
+    void flipRange(size_t start, size_t end)
     {
         if (start > end || end > N)
         {
-            throw std::out_of_range("BitSet::flip_range: invalid range");
+            throw std::out_of_range("BitSet::flipRange: invalid range");
         }
         if (start == end)
         {
@@ -901,7 +901,7 @@ public:
      * @param other The potential superset
      * @return true if every bit set in this is also set in other
      */
-    [[nodiscard]] bool is_subset_of(const BitSet& other) const noexcept
+    [[nodiscard]] bool isSubsetOf(const BitSet& other) const noexcept
     {
         for (size_t i = 0; i < NUM_WORDS; ++i)
         {
@@ -946,7 +946,7 @@ public:
     /**
      * @brief Check if this set has no bits in common with another
      */
-    [[nodiscard]] bool is_disjoint(const BitSet& other) const noexcept
+    [[nodiscard]] bool isDisjoint(const BitSet& other) const noexcept
     {
         return !intersects(other);
     }
@@ -954,9 +954,9 @@ public:
     /**
      * @brief Check if this set is a proper subset of another
      */
-    [[nodiscard]] bool is_proper_subset_of(const BitSet& other) const noexcept
+    [[nodiscard]] bool isProperSubsetOf(const BitSet& other) const noexcept
     {
-        return is_subset_of(other) && (*this != other);
+        return isSubsetOf(other) && (*this != other);
     }
 
     // ========================================================================
@@ -1200,7 +1200,7 @@ public:
     /**
      * @brief Get number of 64-bit words used internally
      */
-    [[nodiscard]] static constexpr size_t word_count() noexcept
+    [[nodiscard]] static constexpr size_t wordCount() noexcept
     {
         return NUM_WORDS;
     }
@@ -1225,7 +1225,7 @@ struct hash<fat_p::BitSet<N>>
     {
         size_t h = 0;
         const uint64_t* words = bs.data();
-        for (size_t i = 0; i < fat_p::BitSet<N>::word_count(); ++i)
+        for (size_t i = 0; i < fat_p::BitSet<N>::wordCount(); ++i)
         {
             h ^= hash<uint64_t>{}(words[i]) + 0x9e3779b9 + (h << 6) + (h >> 2);
         }

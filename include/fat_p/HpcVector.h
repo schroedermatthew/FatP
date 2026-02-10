@@ -35,7 +35,7 @@ FATP_META:
  *
  * Version History:
  * - 1.2: Allocator refactored to leverage NumaAllocator.h (no duplication)
- * - 1.1: Renamed is_numa_allocated() to is_numa_available() for clarity
+ * - 1.1: Renamed is_numa_allocated() to isNumaAvailable() for clarity
  * - 1.0: Initial release
  *
  * @details This header provides HpcVector, a high-performance container that
@@ -68,7 +68,7 @@ FATP_META:
  *   |                                                             |
  *   |  Features:                                                  |
  *   |  - assume_aligned() for compiler optimization hints         |
- *   |  - is_aligned() runtime verification                        |
+ *   |  - isAligned() runtime verification                        |
  *   |  - get_numa_node() for debugging/verification               |
  *   |  - All std::vector operations                               |
  *   +-------------------------------------------------------------+
@@ -532,7 +532,7 @@ public:
      *
      * @return true if data pointer is aligned to Alignment bytes
      */
-    [[nodiscard]] bool is_aligned() const noexcept
+    [[nodiscard]] bool isAligned() const noexcept
     {
         if (!data_)
         {
@@ -550,7 +550,7 @@ public:
      *       this specific buffer is on a particular NUMA node. When true,
      *       all allocations from this vector use NUMA (no fallback mixing).
      */
-    [[nodiscard]] bool is_numa_available() const noexcept
+    [[nodiscard]] bool isNumaAvailable() const noexcept
     {
         return mAllocator.numa_available();
     }

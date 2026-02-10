@@ -58,7 +58,7 @@ FATP_META:
  * HpcCSRMatrix<double> A(1000, 1000, rows, cols, vals);
  *
  * // Check NUMA support
- * if (A.is_numa_available()) {
+ * if (A.isNumaAvailable()) {
  *     std::cout << "NUMA-aware allocation enabled\n";
  * }
  *
@@ -208,7 +208,7 @@ private:
     // =========================================================================
 
     template <typename U = T>
-    [[nodiscard]] static constexpr bool is_effectively_zero(U val) noexcept
+    [[nodiscard]] static constexpr bool isEffectivelyZero(U val) noexcept
     {
         if constexpr (std::is_floating_point_v<U>)
         {
@@ -235,7 +235,7 @@ private:
     }
 
     // Checked dimension validation using CheckedArithmetic
-    static void validate_dimensions(size_type rows, size_type cols)
+    static void validateDimensions(size_type rows, size_type cols)
     {
         constexpr auto idx_max = static_cast<size_type>(std::numeric_limits<IndexType>::max());
         if (rows > idx_max)
@@ -288,7 +288,7 @@ public:
         : mRows(rows)
         , mCols(cols)
     {
-        validate_dimensions(rows, cols);
+        validateDimensions(rows, cols);
         mRowPtrs.resize(rows + 1, 0);
     }
 
@@ -305,7 +305,7 @@ public:
         : mRows(rows)
         , mCols(cols)
     {
-        validate_dimensions(rows, cols);
+        validateDimensions(rows, cols);
 
         FATP_ALWAYS_ENFORCE(row_indices.size() == col_indices.size() && col_indices.size() == values.size(),
                             "HpcCSRMatrix: COO arrays must have same size");
@@ -352,7 +352,7 @@ public:
                 size_type idx = perm[i];
                 T val = values[idx];
 
-                if (!is_effectively_zero(val))
+                if (!isEffectivelyZero(val))
                 {
                     size_type r = static_cast<size_type>(row_indices[idx]);
                     mValues.push_back(val);
@@ -392,7 +392,7 @@ public:
                     ++j;
                 }
 
-                if (!is_effectively_zero(sum))
+                if (!isEffectivelyZero(sum))
                 {
                     size_type r = static_cast<size_type>(cur_row);
                     mValues.push_back(sum);
@@ -418,7 +418,7 @@ public:
     {
         FATP_ALWAYS_ENFORCE(dense != nullptr || (rows == 0 || cols == 0), "HpcCSRMatrix: null pointer to dense matrix");
 
-        validate_dimensions(rows, cols);
+        validateDimensions(rows, cols);
         validate_dense_size(rows, cols);
 
         HpcCSRMatrix result(rows, cols);
@@ -505,9 +505,9 @@ public:
      *       is on the calling thread's local node. Use with NumaLocalPolicy for
      *       guaranteed local placement when threads are properly bound.
      */
-    [[nodiscard]] bool is_numa_available() const noexcept
+    [[nodiscard]] bool isNumaAvailable() const noexcept
     {
-        return mValues.is_numa_available();
+        return mValues.isNumaAvailable();
     }
 
     /**
@@ -729,11 +729,11 @@ public:
      * @param pool ThreadPool to use for parallel execution
      * @param config Parallel execution configuration
      */
-    void matvec_parallel(const T* x, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
+    void matvecParallel(const T* x, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
     {
-        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
-        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
-        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvecParallel: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvecParallel: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvecParallel: x and y must not alias");
 
         const size_type n_rows = mRows;
         const size_type n_nnz = nnz();
@@ -816,11 +816,11 @@ public:
      * @brief Parallel SpMV: y = alpha * A * x + beta * y using ThreadPool
      */
     void
-    matvec_parallel(T alpha, const T* x, T beta, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
+    matvecParallel(T alpha, const T* x, T beta, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
     {
-        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel: x pointer is null");
-        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel: y pointer is null");
-        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel: x and y must not alias");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvecParallel: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvecParallel: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvecParallel: x and y must not alias");
 
         const size_type n_rows = mRows;
         const size_type n_nnz = nnz();
@@ -930,11 +930,11 @@ public:
      * @details Uses submit_batch + wait_idle instead of individual futures.
      * Lower overhead for smaller matrices where future creation dominates.
      */
-    void matvec_parallel_batch(const T* x, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
+    void matvecParallelBatch(const T* x, T* y, ThreadPool& pool, const HpcParallelConfig& config = {}) const
     {
-        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvec_parallel_batch: x pointer is null");
-        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvec_parallel_batch: y pointer is null");
-        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvec_parallel_batch: x and y must not alias");
+        FATP_ENFORCE(x != nullptr, "HpcCSRMatrix::matvecParallelBatch: x pointer is null");
+        FATP_ENFORCE(y != nullptr, "HpcCSRMatrix::matvecParallelBatch: y pointer is null");
+        FATP_ENFORCE(x != y, "HpcCSRMatrix::matvecParallelBatch: x and y must not alias");
 
         const size_type n_rows = mRows;
         const size_type n_nnz = nnz();
@@ -1194,25 +1194,25 @@ public:
     /**
      * @brief Parallel SpMV using default thread pool: y = A * x
      */
-    void matvec_parallel(const T* x, T* y, const HpcParallelConfig& config = {}) const
+    void matvecParallel(const T* x, T* y, const HpcParallelConfig& config = {}) const
     {
-        matvec_parallel(x, y, default_hpc_thread_pool(), config);
+        matvecParallel(x, y, default_hpc_thread_pool(), config);
     }
 
     /**
      * @brief Parallel SpMV using default thread pool: y = alpha * A * x + beta * y
      */
-    void matvec_parallel(T alpha, const T* x, T beta, T* y, const HpcParallelConfig& config = {}) const
+    void matvecParallel(T alpha, const T* x, T beta, T* y, const HpcParallelConfig& config = {}) const
     {
-        matvec_parallel(alpha, x, beta, y, default_hpc_thread_pool(), config);
+        matvecParallel(alpha, x, beta, y, default_hpc_thread_pool(), config);
     }
 
     /**
      * @brief Parallel SpMV batch using default thread pool
      */
-    void matvec_parallel_batch(const T* x, T* y, const HpcParallelConfig& config = {}) const
+    void matvecParallelBatch(const T* x, T* y, const HpcParallelConfig& config = {}) const
     {
-        matvec_parallel_batch(x, y, default_hpc_thread_pool(), config);
+        matvecParallelBatch(x, y, default_hpc_thread_pool(), config);
     }
 
     /**
@@ -1318,7 +1318,7 @@ public:
                     sum += other.mValues[b_ptr++];
                 }
 
-                if (!is_effectively_zero(sum))
+                if (!isEffectivelyZero(sum))
                 {
                     result.mValues.push_back(sum);
                     result.mColIndices.push_back(cur_col);
@@ -1368,7 +1368,7 @@ public:
                     diff -= other.mValues[b_ptr++];
                 }
 
-                if (!is_effectively_zero(diff))
+                if (!isEffectivelyZero(diff))
                 {
                     result.mValues.push_back(diff);
                     result.mColIndices.push_back(cur_col);
@@ -1386,7 +1386,7 @@ public:
      */
     [[nodiscard]] HpcCSRMatrix operator*(T alpha) const
     {
-        if (is_effectively_zero(alpha))
+        if (isEffectivelyZero(alpha))
         {
             return HpcCSRMatrix(mRows, mCols);
         }
@@ -1401,7 +1401,7 @@ public:
 
     HpcCSRMatrix& operator*=(T alpha)
     {
-        if (is_effectively_zero(alpha))
+        if (isEffectivelyZero(alpha))
         {
             mValues.clear();
             mColIndices.clear();
@@ -1485,7 +1485,7 @@ public:
             {
                 const size_type j = static_cast<size_type>(j_signed);
                 T val = accumulator[j];
-                if (!is_effectively_zero(val))
+                if (!isEffectivelyZero(val))
                 {
                     result.mValues.push_back(val);
                     result.mColIndices.push_back(j_signed);
@@ -1549,7 +1549,7 @@ public:
      * @details Compares A with A^T. Matrices are symmetric if they have identical
      *          sparsity patterns (mRowPtrs, mColIndices) AND identical values.
      */
-    [[nodiscard]] bool is_symmetric(T epsilon = default_epsilon()) const
+    [[nodiscard]] bool isSymmetric(T epsilon = default_epsilon()) const
     {
         if (mRows != mCols)
         {
@@ -1658,7 +1658,7 @@ public:
     friend std::ostream& operator<<(std::ostream& os, const HpcCSRMatrix& m)
     {
         os << "HpcCSRMatrix(" << m.mRows << "x" << m.mCols << ", nnz=" << m.nnz();
-        if (m.is_numa_available())
+        if (m.isNumaAvailable())
         {
             os << ", NUMA-enabled";
         }

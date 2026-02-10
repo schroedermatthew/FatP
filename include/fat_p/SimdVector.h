@@ -870,7 +870,7 @@ public:
 private:
     storage_type mData;
 
-    static bool is_aligned(const void* ptr) noexcept
+    static bool isAligned(const void* ptr) noexcept
     {
         return (reinterpret_cast<std::uintptr_t>(ptr) % alignment) == 0;
     }
@@ -969,7 +969,7 @@ public:
      */
     static SimdVector load_aligned(const T* ptr)
     {
-        FATP_ENFORCE(is_aligned(ptr), "SimdVector::load_aligned: misaligned pointer, required alignment=", alignment);
+        FATP_ENFORCE(isAligned(ptr), "SimdVector::load_aligned: misaligned pointer, required alignment=", alignment);
 
         SimdVector result;
 #if defined(FATP_SIMD_AVX512F)
@@ -1118,7 +1118,7 @@ public:
      */
     void store_aligned(T* ptr) const
     {
-        FATP_ENFORCE(is_aligned(ptr), "SimdVector::store_aligned: misaligned pointer, required alignment=", alignment);
+        FATP_ENFORCE(isAligned(ptr), "SimdVector::store_aligned: misaligned pointer, required alignment=", alignment);
 
 #if defined(FATP_SIMD_AVX512F)
         if constexpr (std::is_same_v<T, float>)

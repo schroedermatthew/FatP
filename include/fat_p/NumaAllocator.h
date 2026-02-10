@@ -516,7 +516,7 @@ public:
     template <typename U>
     NumaAllocator(const NumaAllocator<U, Policy>& other) noexcept
         : mPolicy(other.get_policy())
-        , mNumaAvailable(other.is_numa_available())
+        , mNumaAvailable(other.isNumaAvailable())
     {
     }
 
@@ -579,7 +579,7 @@ public:
         return mPolicy;
     }
 
-    bool is_numa_available() const noexcept
+    bool isNumaAvailable() const noexcept
     {
         return mNumaAvailable;
     }

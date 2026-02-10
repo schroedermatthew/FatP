@@ -121,7 +121,7 @@ private:
 
     // Type-aware zero comparison
     template <typename U = T>
-    [[nodiscard]] static constexpr bool is_effectively_zero(U val) noexcept
+    [[nodiscard]] static constexpr bool isEffectivelyZero(U val) noexcept
     {
         if constexpr (std::is_floating_point_v<U>)
         {
@@ -149,7 +149,7 @@ private:
     }
 
     // Validate that dimensions fit within IndexType range
-    static void validate_dimensions(size_type rows, size_type cols)
+    static void validateDimensions(size_type rows, size_type cols)
     {
         constexpr auto idx_max = static_cast<size_type>(std::numeric_limits<IndexType>::max());
         if (rows > idx_max)
@@ -185,7 +185,7 @@ public:
         : mRows(rows)
         , mCols(cols)
     {
-        validate_dimensions(rows, cols);
+        validateDimensions(rows, cols);
         mRowPtrs.resize(rows + 1, 0);
     }
 
@@ -210,7 +210,7 @@ public:
         : mRows(rows)
         , mCols(cols)
     {
-        validate_dimensions(rows, cols);
+        validateDimensions(rows, cols);
 
         if (row_indices.size() != col_indices.size() || row_indices.size() != values.size())
         {
@@ -303,7 +303,7 @@ public:
         for (const auto& [row, col, val] : processed)
         {
             // Always filter zeros regardless of policy (sparse invariant)
-            if (!is_effectively_zero(val))
+            if (!isEffectivelyZero(val))
             {
                 mValues.push_back(val);
                 mColIndices.push_back(col);
@@ -335,7 +335,7 @@ public:
             throw std::invalid_argument("CSRMatrix: null pointer to dense matrix");
         }
 
-        validate_dimensions(rows, cols);
+        validateDimensions(rows, cols);
 
         if (rows > 0 && cols > 0 && rows > std::numeric_limits<size_type>::max() / cols)
         {
@@ -521,7 +521,7 @@ public:
         }
 
         // Insert new value if non-zero
-        if (!is_effectively_zero(value))
+        if (!isEffectivelyZero(value))
         {
             // Find insertion position (maintain sorted order)
             start = mRowPtrs[row];
@@ -736,7 +736,7 @@ public:
      * @warning y must not alias x. In-place operation (y=A*y) is undefined behavior
      *          with OpenMP parallelization due to concurrent reads and writes.
      */
-    void matvec_parallel(const T* x, T* y) const
+    void matvecParallel(const T* x, T* y) const
     {
 #if defined(_OPENMP)
 #pragma omp parallel for schedule(static)
@@ -763,7 +763,7 @@ public:
      * @warning y must not alias x. In-place operation (y=A*y) is undefined behavior
      *          with OpenMP parallelization due to concurrent reads and writes.
      */
-    void matvec_parallel(T alpha, const T* x, T beta, T* y) const
+    void matvecParallel(T alpha, const T* x, T beta, T* y) const
     {
 #if defined(_OPENMP)
 #pragma omp parallel for schedule(static)
@@ -892,7 +892,7 @@ public:
                 }
 
                 // Only store non-zero result
-                if (!is_effectively_zero(sum))
+                if (!isEffectivelyZero(sum))
                 {
                     result.mValues.push_back(sum);
                     result.mColIndices.push_back(cur_col);
@@ -951,7 +951,7 @@ public:
                 }
 
                 // Only store non-zero result
-                if (!is_effectively_zero(diff))
+                if (!isEffectivelyZero(diff))
                 {
                     result.mValues.push_back(diff);
                     result.mColIndices.push_back(cur_col);
@@ -971,7 +971,7 @@ public:
     [[nodiscard]] CSRMatrix operator*(T alpha) const
     {
         // Maintain sparse invariant: multiplication by zero yields empty matrix
-        if (is_effectively_zero(alpha))
+        if (isEffectivelyZero(alpha))
         {
             return CSRMatrix(mRows, mCols);
         }
@@ -991,7 +991,7 @@ public:
     CSRMatrix& operator*=(T alpha)
     {
         // Maintain sparse invariant: multiplication by zero clears the matrix
-        if (is_effectively_zero(alpha))
+        if (isEffectivelyZero(alpha))
         {
             mValues.clear();
             mColIndices.clear();
@@ -1080,7 +1080,7 @@ public:
             for (IndexType j : touched_cols)
             {
                 T val = accumulator[idx(j)];
-                if (!is_effectively_zero(val))
+                if (!isEffectivelyZero(val))
                 {
                     result.mValues.push_back(val);
                     result.mColIndices.push_back(j);
@@ -1226,7 +1226,7 @@ public:
      *          For DuplicatePolicy::Keep matrices, this checks structural symmetry
      *          of the CSR arrays, not the aggregated values.
      */
-    [[nodiscard]] bool is_symmetric(T epsilon = default_epsilon<T>()) const
+    [[nodiscard]] bool isSymmetric(T epsilon = default_epsilon<T>()) const
     {
         if (mRows != mCols)
         {
@@ -1271,7 +1271,7 @@ public:
      * @brief Remove explicit zeros from the structure
      * @param epsilon Tolerance for zero detection
      */
-    void remove_zeros(T epsilon = default_epsilon<T>())
+    void removeZeros(T epsilon = default_epsilon<T>())
     {
         size_type write_pos = 0;
 
