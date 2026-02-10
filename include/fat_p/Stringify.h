@@ -353,7 +353,8 @@ template <typename T>
 // --- Tuple stringification ---
 
 template <typename Tuple, std::size_t... Is>
-[[nodiscard]] inline std::string stringifyTupleImpl(const Tuple& t, const StringifyOptions& opts, std::index_sequence<Is...>)
+[[nodiscard]] inline std::string stringifyTupleImpl(
+    const Tuple& t, const StringifyOptions& opts, std::index_sequence<Is...>)
 {
     std::string result;
     result.reserve(64);
@@ -367,7 +368,8 @@ template <typename Tuple, std::size_t... Is>
 // --- Container size estimation ---
 
 template <typename Container>
-[[nodiscard]] inline std::size_t estimateContainerSize(const Container& container, const StringifyOptions& opts) noexcept
+[[nodiscard]] inline std::size_t estimateContainerSize(
+    const Container& container, const StringifyOptions& opts) noexcept
 {
     std::size_t count = 0;
     if constexpr (concepts::sized<Container>)

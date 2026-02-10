@@ -73,8 +73,8 @@ FATP_META:
  * }
  * @endcode
  *
- * Compilation: Requires C++17
- * - g++ -std=c++17 -O3 your_code.cpp
+ * Compilation: Requires: C++20
+ * - g++ -std=c++20 -O3 your_code.cpp
  * - Tested on Intel Core i7-8850H @ 2.60GHz, 32GB RAM
  */
 

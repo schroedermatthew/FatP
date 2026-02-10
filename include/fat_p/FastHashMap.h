@@ -1256,7 +1256,8 @@ private:
             {
                 // Copy path: provides strong guarantee for copyable types.
                 static_assert(std::is_copy_constructible_v<Key> && std::is_copy_constructible_v<Value>,
-                              "FastHashMap rehash: Key and Value must be copy-constructible unless Hash and moves are noexcept.");
+                              "FastHashMap rehash: Key and Value must be copy-constructible "
+                              "unless Hash and moves are noexcept.");
 
                 for (size_t i = 0; i < old_cap; ++i)
                 {

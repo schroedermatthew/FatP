@@ -39,12 +39,12 @@ FATP_META:
  * Architecture:
  * @code
  *   Handle = { index, generation }
- *      â”‚
- *      â–¼
+ *      Ã¢â€â€š
+ *      Ã¢â€“Â¼
  *   mSlots[index] = { generation, data_index }
- *      â”‚                   â”‚
- *      â”‚ generation match? â”‚
- *      â–¼                   â–¼
+ *      Ã¢â€â€š                   Ã¢â€â€š
+ *      Ã¢â€â€š generation match? Ã¢â€â€š
+ *      Ã¢â€“Â¼                   Ã¢â€“Â¼
  *   Valid access       mData[data_index] = actual value
  * @endcode
  *
@@ -934,7 +934,8 @@ private:
  * @brief Swap two SlotMaps.
  */
 template <typename T, typename GenerationType, typename Allocator>
-void swap(SlotMap<T, GenerationType, Allocator>& lhs, SlotMap<T, GenerationType, Allocator>& rhs) noexcept(noexcept(lhs.swap(rhs)))
+void swap(SlotMap<T, GenerationType, Allocator>& lhs,
+          SlotMap<T, GenerationType, Allocator>& rhs) noexcept(noexcept(lhs.swap(rhs)))
 {
     lhs.swap(rhs);
 }

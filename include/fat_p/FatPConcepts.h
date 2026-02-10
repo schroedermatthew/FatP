@@ -710,8 +710,10 @@ concept numa_allocator_type = detail::is_numa_allocator_impl<T>::value;
  * @tparam T The type to check
  */
 template <typename T>
-concept library_container = small_vector_type<T> || circular_buffer_type<T> || flat_map_type<T> || flat_set_type<T> ||
-                            sorted_container_type<T> || sparse_set_type<T> || slot_map_type<T> || aligned_vector_type<T>;
+concept library_container = small_vector_type<T> || circular_buffer_type<T>
+                            || flat_map_type<T> || flat_set_type<T>
+                            || sorted_container_type<T> || sparse_set_type<T>
+                            || slot_map_type<T> || aligned_vector_type<T>;
 
 /**
  * @brief Checks if T uses small buffer optimization.

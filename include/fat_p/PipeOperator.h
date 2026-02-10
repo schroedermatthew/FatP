@@ -31,7 +31,7 @@ FATP_META:
  * @brief Functional pipe operator for value and Expected type composition
  *
  * Provides Unix-style pipe operator (|) for composing functions with values
- * and Expected types. Enables Rust-like functional pipelines in C++17.
+ * and Expected types. Enables Rust-like functional pipelines in C++20.
  *
  * Key Features:
  * - General value piping: `value | func1 | func2`
@@ -195,7 +195,8 @@ auto operator|(T&& value, Func&& func) noexcept(pipe_detail::is_nothrow_invocabl
  */
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
     requires (!std::is_void_v<T> && !concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, T&&>>>)
-pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, T&&>, E, Storage> operator|(ExpectedImpl<T, E, Storage>&& exp,
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, T&&>, E, Storage>
+operator|(ExpectedImpl<T, E, Storage>&& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, T&&> &&
                                      std::is_nothrow_move_constructible_v<E>)
 {
@@ -247,7 +248,8 @@ std::decay_t<pipe_detail::invoke_result_t<Func, T&&>> operator|(ExpectedImpl<T, 
 template <typename T, typename E, template <typename, typename> class Storage, typename Func>
     requires (!std::is_void_v<T> &&
                             !concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func, const T&>>>)
-pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, const T&>, E, Storage> operator|(const ExpectedImpl<T, E, Storage>& exp,
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func, const T&>, E, Storage>
+operator|(const ExpectedImpl<T, E, Storage>& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func, const T&> &&
                                      std::is_nothrow_copy_constructible_v<E>)
 {
@@ -298,8 +300,10 @@ std::decay_t<pipe_detail::invoke_result_t<Func, const T&>> operator|(const Expec
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
     requires (!concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
-pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage> operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
-                                                                           std::is_nothrow_move_constructible_v<E>)
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>
+operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func)
+    noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+             std::is_nothrow_move_constructible_v<E>)
 {
     using ResultType = pipe_detail::invoke_result_t<Func>;
     using ReturnType = pipe_detail::select_result_t<ResultType, E, Storage>;
@@ -324,8 +328,10 @@ pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage> ope
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
     requires (concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
-std::decay_t<pipe_detail::invoke_result_t<Func>> operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
-                                                                           std::is_nothrow_move_constructible_v<E>)
+std::decay_t<pipe_detail::invoke_result_t<Func>>
+operator|(ExpectedImpl<void, E, Storage>&& exp, Func&& func)
+    noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
+             std::is_nothrow_move_constructible_v<E>)
 {
     using ReturnType = std::decay_t<pipe_detail::invoke_result_t<Func>>;
 
@@ -341,7 +347,8 @@ std::decay_t<pipe_detail::invoke_result_t<Func>> operator|(ExpectedImpl<void, E,
  */
 template <typename E, template <typename, typename> class Storage, typename Func>
     requires (!concepts::expected_type<std::decay_t<pipe_detail::invoke_result_t<Func>>>)
-pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage> operator|(const ExpectedImpl<void, E, Storage>& exp,
+pipe_detail::select_result_t<pipe_detail::invoke_result_t<Func>, E, Storage>
+operator|(const ExpectedImpl<void, E, Storage>& exp,
                Func&& func) noexcept(pipe_detail::is_nothrow_invocable_v<Func> &&
                                      std::is_nothrow_copy_constructible_v<E>)
 {

@@ -33,7 +33,7 @@ FATP_META:
  * PHILOSOPHY: "The Race Car"
  * - Zero overhead when disabled (<5ns).
  * - Minimal compile time impact.
- * - Strict C++17 compliance.
+ * - Strict C++20 compliance.
  *
  * This header provides the core Logger class, interfaces (ISink, IFormatter),
  * logging macros, LoggerRegistry for named loggers, and SinkFactory for lazy

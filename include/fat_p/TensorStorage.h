@@ -49,7 +49,7 @@ FATP_META:
  * - Optimized for read-heavy workloads (tensor views)
  * - Reduced contention in multi-threaded scenarios
  *
- * Requires: C++17
+ * Requires: C++20
  *
  * @author cpp_utilities
  * @date 2025

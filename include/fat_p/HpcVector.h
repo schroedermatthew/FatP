@@ -98,7 +98,7 @@ FATP_META:
  * @see NumaAlignedAllocator.h for allocator details
  * @see CheckedArithmetic.h for integration with checked vector operations
  *
- * Requires: C++17
+ * Requires: C++20
  */
 
 #include <algorithm>

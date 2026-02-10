@@ -43,7 +43,7 @@ FATP_META:
  * - Early release for "keep mutation" scenarios
  * - State introspection (is_active, original access)
  * - Move semantics for efficient transfer in containers
- * - Deduction guides for seamless C++17 usage
+ * - Deduction guides for seamless usage
  * - Support for move-only types with automatic detection
  * - Strong exception guarantee in constructors
  *

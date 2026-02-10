@@ -76,7 +76,7 @@ FATP_META:
  * - Memory overhead: +8 bytes per instance (vtable pointer)
  *
  * @note Thread-safe: Each exception is independent, safe for concurrent throwing
- * @note C++17 minimum required for std::is_base_of_v and std::is_constructible_v
+ * @note C++20 minimum required for std::is_base_of_v and std::is_constructible_v
  */
 
 #include <ostream>

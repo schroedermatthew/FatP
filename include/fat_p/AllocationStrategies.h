@@ -71,7 +71,7 @@ namespace fat_p
  * lookups due to malloc's allocation patterns.
  *
  * Supports over-aligned types (alignof(T) > alignof(std::max_align_t))
- * automatically via C++17+ aligned new/delete.
+ * automatically via aligned new/delete.
  * Examples: SIMD types, cache-line aligned structs.
  *
  * @tparam T Element type to allocate.

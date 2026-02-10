@@ -56,7 +56,7 @@ FATP_META:
  * - Matrix multiply (NxN): ~O(N^3) with SIMD acceleration
  * - Checked policy: +2-5 ns overhead per operation
  *
- * Requires: C++17, CheckedArithmetic.h (for checked policies)
+ * Requires: C++20, CheckedArithmetic.h (for checked policies)
  */
 
 #include "CheckedArithmetic.h"

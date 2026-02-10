@@ -57,7 +57,7 @@ FATP_META:
  *
  * DO NOT use with node-based containers (std::list, std::map) directly.
  *
- * Requires: C++17
+ * Requires: C++20
  */
 
 #include <algorithm>

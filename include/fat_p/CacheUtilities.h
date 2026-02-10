@@ -66,7 +66,7 @@ FATP_META:
  * - Proper alignment prevents 10-20% performance loss
  * - Cache-aware blocking improves locality
  *
- * Requires: C++17
+ * Requires: C++20
  *
  * @author cpp_utilities
  * @date 2025
@@ -562,7 +562,7 @@ struct alignas(cache_constants::destructive_interference_size_v) CacheAligned
  * Unlike CacheAligned, this struct is padded to exactly cache_line_size bytes,
  * preventing any sharing even with adjacent different types.
  *
- * Uses template specialization for C++17 compatibility (avoids [[no_unique_address]]
+ * Uses template specialization for compatibility (avoids [[no_unique_address]]
  * which is C++20 only).
  */
 namespace detail

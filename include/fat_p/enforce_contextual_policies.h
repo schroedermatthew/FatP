@@ -61,7 +61,7 @@ struct ThrowingFunctionPolicy
 // --- Function Trait: noexcept Detection ---
 //
 // Detects whether a function pointer or member function pointer type carries
-// the noexcept specification.  C++17 made noexcept part of the type system,
+// the noexcept specification.  noexcept is part of the type system,
 // so each cv/ref-qualified member function pointer is a distinct type that
 // requires its own partial specialization.
 //
@@ -81,7 +81,7 @@ template <typename R, typename... Args>
 inline constexpr bool is_noexcept_function_ptr_v<R (*)(Args...) noexcept> = true;
 
 // -----------------------------------------------------------------
-// Member function pointers â€” all cv/ref-qualifier Ã— noexcept combinations
+// Member function pointers Ã¢â‚¬â€ all cv/ref-qualifier Ãƒâ€” noexcept combinations
 // -----------------------------------------------------------------
 template <typename R, typename C, typename... Args>
 inline constexpr bool is_noexcept_function_ptr_v<R (C::*)(Args...) noexcept> = true;

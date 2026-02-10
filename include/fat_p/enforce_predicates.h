@@ -269,7 +269,8 @@ struct ContainerHasElementPredicate
 struct InRangePredicate
 {
     template <typename T, typename U = T, typename V = T>
-        requires detail_predicates::arithmetic<T> && detail_predicates::arithmetic<U> && detail_predicates::arithmetic<V>
+        requires detail_predicates::arithmetic<T> && detail_predicates::arithmetic<U>
+            && detail_predicates::arithmetic<V>
     static constexpr bool check(T value, U min, V max) noexcept
     {
         return value >= min && value <= max;
@@ -279,7 +280,8 @@ struct InRangePredicate
         requires detail_predicates::arithmetic<T>
     static constexpr bool check(T value) noexcept
     {
-        static_assert(detail_predicates::arithmetic<decltype(MinType::value)> && detail_predicates::arithmetic<decltype(MaxType::value)>,
+        static_assert(detail_predicates::arithmetic<decltype(MinType::value)>
+                      && detail_predicates::arithmetic<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value >= MinType::value && value <= MaxType::value;
     }
@@ -288,7 +290,8 @@ struct InRangePredicate
 struct InExclusiveRangePredicate
 {
     template <typename T, typename U = T, typename V = T>
-        requires detail_predicates::arithmetic<T> && detail_predicates::arithmetic<U> && detail_predicates::arithmetic<V>
+        requires detail_predicates::arithmetic<T> && detail_predicates::arithmetic<U>
+            && detail_predicates::arithmetic<V>
     static constexpr bool check(T value, U min, V max) noexcept
     {
         return value > min && value < max;
@@ -298,7 +301,8 @@ struct InExclusiveRangePredicate
         requires detail_predicates::arithmetic<T>
     static constexpr bool check(T value) noexcept
     {
-        static_assert(detail_predicates::arithmetic<decltype(MinType::value)> && detail_predicates::arithmetic<decltype(MaxType::value)>,
+        static_assert(detail_predicates::arithmetic<decltype(MinType::value)>
+                      && detail_predicates::arithmetic<decltype(MaxType::value)>,
                       "MinType and MaxType must have arithmetic ::value members.");
         return value > MinType::value && value < MaxType::value;
     }

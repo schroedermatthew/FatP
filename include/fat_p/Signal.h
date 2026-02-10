@@ -68,7 +68,7 @@ FATP_META:
  * @date 2025-11
  *
  * Requirements:
- * - C++17 or later
+ * - C++20
  * - fat_p headers: SmallVector.h, ConcurrencyPolicies.h, StrongId.h, ScopeGuard.h
  *
  * @code
@@ -595,7 +595,7 @@ public:
         // Between the unlocked read and the write lock acquisition, another
         // thread could have started emitting. The re-check catches this race
         // and falls back to soft-delete. Without it, we'd physically erase a
-        // slot that emit() is iterating over — undefined behavior.
+        // slot that emit() is iterating over â€” undefined behavior.
         //
         // The unlocked read is safe because mRecursionDepth is atomic and we
         // only care about zero-vs-nonzero. A stale "0" at worst causes us to

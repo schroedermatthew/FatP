@@ -43,7 +43,7 @@ FATP_META:
  * - Fused find-or-insert optimization
  * - Built-in hash finalizer (robust against bad user hashes)
  * - Heterogeneous lookup support
- * - Single header, C++17, minimal dependencies
+ * - Single header, C++20, minimal dependencies
  * Usage:
  * fat_p::StableHashMap<std::string, MyObject> map;
  * auto [ptr, inserted] = map.insert("key", MyObject{});

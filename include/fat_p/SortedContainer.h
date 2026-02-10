@@ -54,7 +54,7 @@ FATP_META:
  * Optimized: Reserve aggressively; insertion sort for small batches (<16);
  * stable_sort for large batches.
  *
- * C++17 compliant; header-only; no external deps (guards optional
+ * C++20 compliant; header-only; no external deps (guards optional
  * <shared_mutex>/<atomic>).
  *
  * @note Invariant checks are debug-only (via enforce); release has zero overhead.

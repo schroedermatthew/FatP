@@ -42,7 +42,7 @@ FATP_META:
  * Key Features:
  * - Zero heap allocations for small sizes (size <= InlineCapacity)
  * - Seamless automatic transition between inline and heap storage
- * - Full C++17 allocator model support
+ * - Full standard allocator model support
  * - Strong exception safety for reallocations (when T is nothrow-movable or copyable)
  * - Compatible with standard algorithms
  *
@@ -135,7 +135,7 @@ FATP_META:
  * SmallVector<std::string, 4> strings = {"a", "b", "c"};
  * strings.emplace_back("d");
  *
- * // CTAD (C++17): deduces SmallVector<int, 8>
+ * // CTAD: deduces SmallVector<int, 8>
  * SmallVector v = {1, 2, 3, 4, 5};
  *
  * // Cross-capacity comparison
@@ -511,7 +511,7 @@ public:
 
     /**
      * @brief Copy constructor
-     * @note Allocator selected via select_on_container_copy_construction per C++17 standard
+     * @note Allocator selected via select_on_container_copy_construction per the standard
      */
     SmallVector(const SmallVector& other)
         : SmallVector(AllocTraits::select_on_container_copy_construction(other.mAllocator))
@@ -2107,7 +2107,7 @@ template <class T, size_t N1, size_t N2, class Alloc>
 }
 
 // ==================================================================================
-// CTAD Deduction Guides (C++17)
+// CTAD Deduction Guides
 // ==================================================================================
 
 // Allows: SmallVector v = {1, 2, 3};  -> SmallVector<int, 8>

@@ -51,7 +51,7 @@ FATP_META:
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib> // For std::abs (integer)
-#include <cstring> // For std::memcpy (C++17 type-punning)
+#include <cstring> // For std::memcpy (type-punning)
 #include <limits>
 #include <optional> // For std::optional in detail::handleSpecialValues
 #include <string>
@@ -80,14 +80,14 @@ namespace fat_p
 /**
  * @brief Returns the default comparison epsilon for a floating-point type.
  *
- * Default is approximately 100× machine epsilon, suitable for typical
+ * Default is approximately 100Ã— machine epsilon, suitable for typical
  * accumulated floating-point error from multiple operations.
  *
  * @tparam T Floating-point type (float, double, long double)
  * @return Type-appropriate default epsilon:
- *         - float:  ~1.19e-5 (100× FLT_EPSILON)
- *         - double: ~2.22e-14 (100× DBL_EPSILON)
- *         - long double: 100× LDBL_EPSILON
+ *         - float:  ~1.19e-5 (100Ã— FLT_EPSILON)
+ *         - double: ~2.22e-14 (100Ã— DBL_EPSILON)
+ *         - long double: 100Ã— LDBL_EPSILON
  *
  * @note Complexity: O(1), compile-time evaluation (constexpr)
  * @note Thread-safety: Thread-safe (stateless, no side effects)
@@ -220,7 +220,7 @@ struct StandardComparisonPolicy
  * floating-point values exist between two numbers.
  *
  * @note ULP tolerance is an integer count. Floating-point values are
- *       truncated (e.g., 4.9 → 4 ULPs). Default: 4 ULPs.
+ *       truncated (e.g., 4.9 â†’ 4 ULPs). Default: 4 ULPs.
  * @note Sign-strict: opposite signs always compare unequal (ULP distance
  *       across zero is not meaningful due to IEEE 754 representation).
  * @note Subnormal fallback: uses absolute tolerance (1e-6f for float,
@@ -305,7 +305,7 @@ struct UlpComparisonPolicy
         bits_a = std::bit_cast<BitsType>(a);
         bits_b = std::bit_cast<BitsType>(b);
 #else
-        // Strict C++17 compliant type-punning using std::memcpy
+        // Strict C++20 compliant type-punning using std::memcpy
         std::memcpy(&bits_a, &a, sizeof(T));
         std::memcpy(&bits_b, &b, sizeof(T));
 #endif
@@ -483,7 +483,7 @@ struct HybridComparisonPolicy
  * @tparam T Floating-point type (float, double, long double)
  * @param a First value to compare
  * @param b Second value to compare
- * @param relEps Relative tolerance (default: ~100× machine epsilon)
+ * @param relEps Relative tolerance (default: ~100Ã— machine epsilon)
  * @param absEps Absolute tolerance / noise floor (default: same as relEps)
  * @return true if the values are approximately equal within tolerance
  *

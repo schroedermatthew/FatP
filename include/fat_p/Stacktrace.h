@@ -66,7 +66,7 @@ FATP_META:
  * - Memory: sizeof(StackFrame) * captured_frames + overhead
  *
  * @note Thread-safe: Each Stacktrace instance is independent
- * @note C++17 minimum required
+ * @note C++20 minimum required
  */
 
 #include <algorithm>
@@ -613,7 +613,8 @@ public:
 
         std::vector<void*> addresses(skip + maxDepth + 1);
         USHORT captured =
-            CaptureStackBackTrace(static_cast<DWORD>(skip + 1), static_cast<DWORD>(maxDepth), addresses.data(), nullptr);
+            CaptureStackBackTrace(static_cast<DWORD>(skip + 1),
+                static_cast<DWORD>(maxDepth), addresses.data(), nullptr);
 
         for (USHORT i = 0; i < captured; ++i)
         {

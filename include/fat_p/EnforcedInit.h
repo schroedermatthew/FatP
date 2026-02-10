@@ -33,7 +33,7 @@ FATP_META:
  *
  *
  *
- * @details This utility leverages C++17's **std::optional<T>** for safe,
+ * @details This utility leverages C++20's **std::optional<T>** for safe,
  * standardized memory management and lifecycle control. The library's
  * **contextual contract system** is used to enforce the core contract:
  * preventing access before initialization and preventing multiple calls

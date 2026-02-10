@@ -62,7 +62,7 @@ FATP_META:
  * @see NumaAllocator.h for NUMA infrastructure and policies
  * @see HpcVector.h for the recommended HPC container
  *
- * Requires: C++17, NumaAllocator.h
+ * Requires: C++20, NumaAllocator.h
  */
 
 #include "NumaAllocator.h" // Provides NumaInfo, policies, platform detection

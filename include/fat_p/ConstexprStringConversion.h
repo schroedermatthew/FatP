@@ -165,7 +165,7 @@ struct constexpr_to_string_t
  *
  * @example
  *   std::cout << to_string_view(10) << " + " << to_string_view(20);  // Safe
- *   std::string saved(to_string_view(42));  // Safe — copies into owned string
+ *   std::string saved(to_string_view(42));  // Safe â€” copies into owned string
  */
 template <std::integral T>
 [[nodiscard]] inline std::string_view to_string_view(T value) noexcept
@@ -211,7 +211,7 @@ inline constexpr double MAX_SAFE_INT_DOUBLE = 9007199254740992.0; // 2^53
  *
  * @tparam T Floating-point type (float, double, long double).
  *
- * @note This is a runtime-only operation in C++17 (std::isnan not constexpr).
+ * @note This is a runtime-only operation (std::isnan is not constexpr in C++20).
  * @note Large values (> 2^53) may lose precision or produce "overflow".
  * @note Does not support scientific notation. Values beyond safe range
  *       will display "overflow" rather than attempting lossy conversion.

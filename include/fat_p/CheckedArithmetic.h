@@ -310,7 +310,8 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "checked_cast: NaN cannot be converted");
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "checked_cast: NaN cannot be converted");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -333,7 +334,8 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "checked_cast: Inf cannot be converted to integer");
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "checked_cast: Inf cannot be converted to integer");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {

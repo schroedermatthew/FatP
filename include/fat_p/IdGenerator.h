@@ -141,7 +141,7 @@ struct extract_value_type<T>
 };
 
 // Distribution type selector for RandomAllocationPolicy
-// std::uniform_int_distribution requires at least short (C++17 26.6.1.1)
+// std::uniform_int_distribution requires at least short (standard §26.6.1.1)
 // For uint8_t and int8_t, we use unsigned int and cast down
 template <typename T>
 struct distribution_type

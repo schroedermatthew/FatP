@@ -49,7 +49,7 @@ FATP_META:
  *   auto view = tracker.create_view();
  *   // view.check_valid() throws if tensor destroyed
  *
- * Requires: C++17
+ * Requires: C++20
  */
 
 #include <atomic>

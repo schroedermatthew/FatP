@@ -60,7 +60,7 @@ FATP_META:
  * __COUNTER__ fallback.
  *
  * Requirements:
- * - C++17 or later
+ * - C++20
  * - No external dependencies beyond standard library
  * - Header-only
  * - Single-threaded use only
@@ -435,7 +435,7 @@ template <typename Policy, typename Fn>
 #define FATP_SCOPE_EXIT FATP_SCOPE_GUARD
 
 // =============================================================================
-// Exception-Aware Scope Guards (C++17 std::uncaught_exceptions)
+// Exception-Aware Scope Guards (std::uncaught_exceptions)
 // =============================================================================
 
 /**

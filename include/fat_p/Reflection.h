@@ -28,17 +28,16 @@ FATP_META:
 
 /**
  * @file Reflection.h
- * @brief Advanced compile-time reflection system with unified C++17/C++20 macro syntax
+ * @brief Advanced compile-time reflection system with unified macro syntax
  *
  *
- * @version 3.0.1 - Unified REFLECT_REGISTER for both C++17 and C++20 (MSVC-compatible)
+ * @version 3.0.1 - Unified REFLECT_REGISTER (MSVC-compatible)
  *
  * C++20: NTTP-based field names, compile-time strings
- * C++17: Constructor-based field names, minimal boilerplate
- * Both: Same FATP_REFLECT_REGISTER(Type, field1, field2, ...) syntax
+ * Same FATP_REFLECT_REGISTER(Type, field1, field2, ...) syntax
  *
  * Features:
- * - Unified macro interface across C++17 and C++20
+ * - Unified macro interface
  * - Two-stage registration (declare in namespace, register at global scope)
  * - Linear O(N) field lookup (both versions)
  * - Zero runtime overhead for indexed field access
@@ -51,8 +50,8 @@ FATP_META:
  * - GCC/Clang behavior unchanged
  *
  * Changes in v3.0:
- * - Eliminated REFLECT_MANUAL (legacy) - now both C++17 and C++20 use REFLECT_REGISTER
- * - C++17 uses Field constructor with #field for names (no boilerplate)
+ * - Eliminated REFLECT_MANUAL (legacy) - unified on REFLECT_REGISTER
+ * - Uses Field constructor with #field for names (no boilerplate)
  * - Macro expansion fixed for proper FATP_REFLECT_COUNT evaluation
  * - Extended to support up to 32 fields
  */
@@ -515,7 +514,7 @@ std::string to_debug_string(const T& obj)
 }
 
 // ============================================================================
-// Registration Macros (Unified for C++17/C++20)
+// Registration Macros
 // ============================================================================
 
 /**

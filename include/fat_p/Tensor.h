@@ -76,7 +76,7 @@ FATP_META:
  * - MSVC: /arch:AVX2 or /arch:AVX10.1 (recommended)
  * - GCC/Clang: -march=native or -mavx2
  *
- * Requires: C++17
+ * Requires: C++20
  *
  * @author cpp_utilities
  * @date 2025

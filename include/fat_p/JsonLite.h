@@ -128,7 +128,7 @@ FATP_META:
  * @brief Main namespace for the fat_p library components
  *
  * @details This namespace contains all fat_p library utilities including JsonLite.
- * The library follows modern C++17 design patterns with emphasis on type safety,
+ * The library follows modern C++20 design patterns with emphasis on type safety,
  * compile-time configuration, and zero-cost abstractions.
  */
 namespace fat_p

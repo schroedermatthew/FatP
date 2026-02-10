@@ -100,9 +100,9 @@ FATP_META:
  * runner.run();  // Automatic round-robin
  * @endcode
  *
- * Compilation: Requires C++17
- *   g++ -std=c++17 -O3 -DNDEBUG -march=native benchmark.cpp -o benchmark
- *   cl /std:c++17 /O2 /DNDEBUG /EHsc benchmark.cpp
+ * Compilation: Requires: C++20
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark.cpp -o benchmark
+ *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark.cpp
  */
 
 // ============================================================================

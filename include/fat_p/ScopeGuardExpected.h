@@ -50,7 +50,7 @@ FATP_META:
  * are explicitly deleted.
  *
  * Requirements:
- * - C++17 or later
+ * - C++20
  * - Header-only
  * - Single-threaded use only (inherits ScopeGuard's threading model)
  */

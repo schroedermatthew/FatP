@@ -170,7 +170,7 @@ public:
     }
 
     // ========================================================================
-    // Wait/Notify (C++20 only - not available on C++17)
+    // Wait/Notify (C++20 std::atomic wait/notify)
     // ========================================================================
 
 #if FATP_HAS_CPP20_ATOMIC_SHARED_PTR

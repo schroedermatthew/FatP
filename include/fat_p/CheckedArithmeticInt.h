@@ -90,7 +90,7 @@ namespace fat_p
 // =============================================================================
 // Internal Helper: Non-constexpr Error Path
 // =============================================================================
-// Rationale: C++17 constexpr functions may not contain non-literal locals.
+// Rationale: Pre-C++20 constexpr functions may not contain non-literal locals.
 // FATP_ALWAYS_ENFORCE() constructs an RAII enforcer (non-literal type), so we route
 // the failure path through a non-constexpr helper while preserving the caller's
 // std::source_location for accurate error reporting.
@@ -433,7 +433,8 @@ checked_div(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "Overflow in division (min/-1):", a, "/", b);
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "Overflow in division (min/-1):", a, "/", b);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -480,7 +481,8 @@ checked_mod(T a, T b) noexcept(PolicyTraits<Policy>::template is_noexcept<T>)
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "Overflow in mod (min%-1):", a, "%", b);
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "Overflow in mod (min%-1):", a, "%", b);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -598,7 +600,8 @@ checked_left_shift(T a, S shift) noexcept(PolicyTraits<Policy>::template is_noex
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "Left shift overflow:", a, "<<", shift);
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "Left shift overflow:", a, "<<", shift);
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -796,7 +799,8 @@ checked_add(P* ptr, std::ptrdiff_t offset) noexcept(PolicyTraits<Policy>::templa
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {
@@ -872,7 +876,8 @@ checked_sub(P* ptr, std::ptrdiff_t offset) noexcept(PolicyTraits<Policy>::templa
         {
             if constexpr (std::is_same_v<Policy, ThrowOnErrorPolicy>)
             {
-                detail::checked_arithmetic_fail(std::source_location::current(), "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
+                detail::checked_arithmetic_fail(
+                    std::source_location::current(), "Pointer arithmetic overflow: offset == PTRDIFF_MIN");
             }
             else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
             {

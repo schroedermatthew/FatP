@@ -31,7 +31,7 @@ FATP_META:
  * @brief Debug-only utilities that compile to nothing in release builds
  *
  * @details
- * Zero-overhead debug-only storage for C++17/20
+ * Zero-overhead debug-only storage for C++20
  * Stores values in debug builds, compiles to nothing in release.
  * Use for debug labels, performance counters, creation tracking, and invariant checks.
  */

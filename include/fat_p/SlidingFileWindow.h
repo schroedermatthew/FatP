@@ -100,7 +100,7 @@ FATP_META:
  *
  * @note Elements must be fixed-size for binary serialization
  * @note Window automatically flushes dirty elements on shift/close
- * @note C++17 minimum (uses std::filesystem, std::optional, if constexpr)
+ * @note C++20 minimum (uses std::filesystem, std::optional, if constexpr)
  * @note Header-only, no external dependencies beyond standard library
  */
 

@@ -45,7 +45,7 @@ FATP_META:
  * - ScopeGuardRethrowPolicy: Re-throws exceptions (use with caution!)
  *
  * Requirements:
- * - C++17 or later
+ * - C++20
  * - No external dependencies beyond standard library
  * - Header-only
  * - Single-threaded use only

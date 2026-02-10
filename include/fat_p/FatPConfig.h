@@ -46,7 +46,7 @@ FATP_META:
 // [[no_unique_address]] compatibility
 // =============================================================================
 //
-// - On MSVC in C++17, prefer [[msvc::no_unique_address]] when available.
+// - On MSVC, prefer [[msvc::no_unique_address]] when available.
 // - On other toolchains, use [[no_unique_address]] when supported, otherwise empty.
 //
 // NOTE: This macro must be defined in exactly one place (Rule F).

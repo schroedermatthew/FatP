@@ -77,11 +77,11 @@ FATP_META:
  * std::cout << "Memory saved: " << stats.memory_saved << " bytes\n";
  * @endcode
  *
- * Compilation: Requires C++17, optimized for C++20
- * - g++ -std=c++17 -O3 your_code.cpp
+ * Compilation: Requires: C++20, C++20
+ * - g++ -std=c++20 -O3 your_code.cpp
  *
  * @section cpp20_optimization C++20 Performance Note
- * In C++17, every lookup (intern, find, contains) with a string_view argument
+ * Every lookup (intern, find, contains) with a string_view argument
  * requires constructing a temporary std::string, potentially causing heap
  * allocation for strings exceeding SSO capacity (~15-22 chars).
  *

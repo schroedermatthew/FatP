@@ -34,7 +34,7 @@ FATP_META:
  * Big-endian serialization for cross-platform tensor storage
  * Always serializes in big-endian (network byte order) for guaranteed portability.
  * Uses compile-time fixed type IDs and portable byte-swap intrinsics.
- * Requires: C++17, Tensor.h, Expected.h
+ * Requires: C++20, Tensor.h, Expected.h
  */
 
 #include "Expected.h"
@@ -324,9 +324,9 @@ T read_be(const std::vector<std::uint8_t>& data, std::size_t& pos)
 //   - version: uint8_t = 1
 //   - type_id: uint8_t = TensorTypeID enum value
 //   - ndim: uint16_t = number of dimensions
-//   - dims: ndim × uint64_t = dimension sizes
-//   - strides: ndim × int64_t = stride values (signed for negative strides)
-//   - data: size × sizeof(T) bytes = tensor data in big-endian
+//   - dims: ndim Ã— uint64_t = dimension sizes
+//   - strides: ndim Ã— int64_t = stride values (signed for negative strides)
+//   - data: size Ã— sizeof(T) bytes = tensor data in big-endian
 //
 // ============================================================================
 
