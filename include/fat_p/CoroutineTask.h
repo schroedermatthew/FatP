@@ -417,6 +417,10 @@ public:
 
         iterator& operator++()
         {
+            if (mHandle.done())
+            {
+                return *this;
+            }
             mHandle.resume();
             if (mHandle.promise().mException)
             {

@@ -391,12 +391,20 @@ inline size_t MemoryMappedFile::size() const noexcept
 template <typename T>
 inline std::span<T> MemoryMappedFile::get_span() noexcept
 {
+    if (!mData)
+    {
+        return {};
+    }
     return std::span<T>(static_cast<T*>(mData), mSize / sizeof(T));
 }
 
 template <typename T>
 inline std::span<const T> MemoryMappedFile::get_span() const noexcept
 {
+    if (!mData)
+    {
+        return {};
+    }
     return std::span<const T>(static_cast<const T*>(mData), mSize / sizeof(T));
 }
 
