@@ -59,7 +59,7 @@ FATP_TEST_CASE(is_symmetric_structural_check)
     Matrix A(2, 2, rows_a, cols_a, vals_a);
 
     // A is NOT symmetric (A(1,0) = 0, A(0,1) = 5)
-    FATP_ASSERT_TRUE(!A.is_symmetric(), "Non-symmetric matrix identified as symmetric");
+    FATP_ASSERT_TRUE(!A.isSymmetric(), "Non-symmetric matrix identified as symmetric");
 
     // Build symmetric matrix
     std::vector<int32_t> rows_b = {0, 1};
@@ -67,7 +67,7 @@ FATP_TEST_CASE(is_symmetric_structural_check)
     std::vector<double> vals_b = {5.0, 5.0};
     Matrix B(2, 2, rows_b, cols_b, vals_b);
 
-    FATP_ASSERT_TRUE(B.is_symmetric(), "Symmetric matrix not recognized");
+    FATP_ASSERT_TRUE(B.isSymmetric(), "Symmetric matrix not recognized");
 
     return true;
 }
@@ -82,7 +82,7 @@ FATP_TEST_CASE(is_symmetric_diagonal)
     std::vector<double> vals = {1.0, 2.0, 3.0};
     Matrix D(3, 3, rows, cols, vals);
 
-    FATP_ASSERT_TRUE(D.is_symmetric(), "Diagonal matrix should be symmetric");
+    FATP_ASSERT_TRUE(D.isSymmetric(), "Diagonal matrix should be symmetric");
 
     return true;
 }
@@ -92,7 +92,7 @@ FATP_TEST_CASE(is_symmetric_empty)
     using Matrix = fat_p::HpcCSRMatrix<double>;
 
     Matrix E(5, 5);
-    FATP_ASSERT_TRUE(E.is_symmetric(), "Empty matrix should be symmetric");
+    FATP_ASSERT_TRUE(E.isSymmetric(), "Empty matrix should be symmetric");
 
     return true;
 }
@@ -383,7 +383,7 @@ FATP_TEST_CASE(numa_api)
     Matrix A(10, 10);
 
     // Should compile and return a bool
-    [[maybe_unused]] bool numa_status = A.is_numa_available();
+    [[maybe_unused]] bool numa_status = A.isNumaAvailable();
 
     return true;
 }

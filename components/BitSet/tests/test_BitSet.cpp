@@ -112,19 +112,19 @@ FATP_TEST_CASE(unchecked_operations)
 {
     fat_p::BitSet<256> bits;
 
-    bits.set_unchecked(0);
-    bits.set_unchecked(100);
-    bits.set_unchecked(255);
+    bits.setUnchecked(0);
+    bits.setUnchecked(100);
+    bits.setUnchecked(255);
 
     FATP_ASSERT_TRUE(bits.test_unchecked(0), "Bit 0 should be set");
     FATP_ASSERT_TRUE(bits.test_unchecked(100), "Bit 100 should be set");
     FATP_ASSERT_TRUE(bits.test_unchecked(255), "Bit 255 should be set");
     FATP_ASSERT_TRUE(!bits.test_unchecked(50), "Bit 50 should not be set");
 
-    bits.flip_unchecked(100);
+    bits.flipUnchecked(100);
     FATP_ASSERT_TRUE(!bits.test_unchecked(100), "Bit 100 should be flipped");
 
-    bits.clear_unchecked(0);
+    bits.clearUnchecked(0);
     FATP_ASSERT_TRUE(!bits.test_unchecked(0), "Bit 0 should be cleared");
 
     return true;
@@ -146,7 +146,7 @@ FATP_TEST_CASE(size_one)
     FATP_ASSERT_TRUE(bits.all(), "all() should return true");
     FATP_ASSERT_EQ(bits.count(), 1u, "Count should be 1");
 
-    bits.flip_all();
+    bits.flipAll();
     FATP_ASSERT_TRUE(bits.none(), "Should be empty after flip");
 
     return true;
@@ -158,7 +158,7 @@ FATP_TEST_CASE(size_63)
 
     FATP_ASSERT_EQ(bits.size(), 63u, "Size should be 63");
 
-    bits.set_all();
+    bits.setAll();
     FATP_ASSERT_EQ(bits.count(), 63u, "Count should be 63");
     FATP_ASSERT_TRUE(bits.all(), "all() should return true");
 
@@ -175,7 +175,7 @@ FATP_TEST_CASE(size_64)
 
     FATP_ASSERT_EQ(bits.size(), 64u, "Size should be 64");
 
-    bits.set_all();
+    bits.setAll();
     FATP_ASSERT_EQ(bits.count(), 64u, "Count should be 64");
     FATP_ASSERT_TRUE(bits.all(), "all() should return true");
 
@@ -188,7 +188,7 @@ FATP_TEST_CASE(size_65)
 
     FATP_ASSERT_EQ(bits.size(), 65u, "Size should be 65");
 
-    bits.set_all();
+    bits.setAll();
     FATP_ASSERT_EQ(bits.count(), 65u, "Count should be 65");
     FATP_ASSERT_TRUE(bits.all(), "all() should return true");
 
@@ -210,7 +210,7 @@ FATP_TEST_CASE(size_large)
     bits.set(999);
     FATP_ASSERT_EQ(bits.count(), 3u, "Count should be 3");
 
-    bits.set_all();
+    bits.setAll();
     FATP_ASSERT_EQ(bits.count(), 1000u, "Count should be 1000");
 
     return true;
@@ -224,11 +224,11 @@ FATP_TEST_CASE(bulk_operations)
 {
     fat_p::BitSet<128> bits;
 
-    bits.set_all();
+    bits.setAll();
     FATP_ASSERT_TRUE(bits.all(), "All bits should be set");
     FATP_ASSERT_EQ(bits.count(), 128u, "Should have 128 bits set");
 
-    bits.clear_all();
+    bits.clearAll();
     FATP_ASSERT_TRUE(bits.none(), "No bits should be set");
     FATP_ASSERT_EQ(bits.count(), 0u, "Should have 0 bits set");
 
@@ -237,7 +237,7 @@ FATP_TEST_CASE(bulk_operations)
     bits.set(30);
     FATP_ASSERT_EQ(bits.count(), 3u, "Should have 3 bits set");
 
-    bits.flip_all();
+    bits.flipAll();
     FATP_ASSERT_EQ(bits.count(), 125u, "Should have 125 bits set");
     FATP_ASSERT_TRUE(!bits.test(10), "Bit 10 should be flipped");
     FATP_ASSERT_TRUE(!bits.test(20), "Bit 20 should be flipped");
@@ -250,7 +250,7 @@ FATP_TEST_CASE(reset_alias)
 {
     fat_p::BitSet<64> bits;
 
-    bits.set_all();
+    bits.setAll();
     bits.reset();
     FATP_ASSERT_TRUE(bits.none(), "reset() should clear all bits");
 
@@ -265,72 +265,72 @@ FATP_TEST_CASE(reset_alias)
 // Range Operations
 // ============================================================================
 
-FATP_TEST_CASE(set_range)
+FATP_TEST_CASE(setRange)
 {
     fat_p::BitSet<256> bits;
 
-    bits.set_range(10, 20);
+    bits.setRange(10, 20);
     FATP_ASSERT_EQ(bits.count(), 10u, "Should have 10 bits set");
     FATP_ASSERT_TRUE(bits.test(10), "Bit 10 should be set");
     FATP_ASSERT_TRUE(bits.test(19), "Bit 19 should be set");
     FATP_ASSERT_TRUE(!bits.test(9), "Bit 9 should not be set");
     FATP_ASSERT_TRUE(!bits.test(20), "Bit 20 should not be set");
 
-    bits.clear_all();
-    bits.set_range(60, 70);
+    bits.clearAll();
+    bits.setRange(60, 70);
     FATP_ASSERT_EQ(bits.count(), 10u, "Should have 10 bits spanning word boundary");
     FATP_ASSERT_TRUE(bits.test(63), "Bit 63 should be set");
     FATP_ASSERT_TRUE(bits.test(64), "Bit 64 should be set");
 
-    bits.clear_all();
-    bits.set_range(0, 256);
+    bits.clearAll();
+    bits.setRange(0, 256);
     FATP_ASSERT_EQ(bits.count(), 256u, "Full range should set all bits");
 
-    bits.clear_all();
-    bits.set_range(100, 100);
+    bits.clearAll();
+    bits.setRange(100, 100);
     FATP_ASSERT_EQ(bits.count(), 0u, "Empty range should set no bits");
 
     return true;
 }
 
-FATP_TEST_CASE(clear_range)
+FATP_TEST_CASE(clearRange)
 {
     fat_p::BitSet<256> bits;
 
-    bits.set_all();
-    bits.clear_range(10, 20);
+    bits.setAll();
+    bits.clearRange(10, 20);
     FATP_ASSERT_EQ(bits.count(), 246u, "Should have 246 bits set");
     FATP_ASSERT_TRUE(!bits.test(10), "Bit 10 should be cleared");
     FATP_ASSERT_TRUE(!bits.test(19), "Bit 19 should be cleared");
     FATP_ASSERT_TRUE(bits.test(9), "Bit 9 should still be set");
     FATP_ASSERT_TRUE(bits.test(20), "Bit 20 should still be set");
 
-    bits.set_all();
-    bits.clear_range(60, 70);
+    bits.setAll();
+    bits.clearRange(60, 70);
     FATP_ASSERT_EQ(bits.count(), 246u, "Should clear bits spanning word boundary");
 
     return true;
 }
 
-FATP_TEST_CASE(flip_range)
+FATP_TEST_CASE(flipRange)
 {
     fat_p::BitSet<256> bits;
 
-    bits.flip_range(10, 20);
+    bits.flipRange(10, 20);
     FATP_ASSERT_EQ(bits.count(), 10u, "Should have 10 bits set");
     FATP_ASSERT_TRUE(bits.test(10), "Bit 10 should be set");
     FATP_ASSERT_TRUE(bits.test(19), "Bit 19 should be set");
 
-    bits.flip_range(10, 20);
+    bits.flipRange(10, 20);
     FATP_ASSERT_TRUE(bits.none(), "Double flip should clear all");
 
-    bits.flip_range(60, 70);
+    bits.flipRange(60, 70);
     FATP_ASSERT_EQ(bits.count(), 10u, "Should span word boundary");
     FATP_ASSERT_TRUE(bits.test(63), "Bit 63 set");
     FATP_ASSERT_TRUE(bits.test(64), "Bit 64 set");
 
-    FATP_ASSERT_THROWS(bits.flip_range(20, 10), std::out_of_range, "Invalid range");
-    FATP_ASSERT_THROWS(bits.flip_range(0, 257), std::out_of_range, "Out of bounds");
+    FATP_ASSERT_THROWS(bits.flipRange(20, 10), std::out_of_range, "Invalid range");
+    FATP_ASSERT_THROWS(bits.flipRange(0, 257), std::out_of_range, "Out of bounds");
 
     return true;
 }
@@ -339,13 +339,13 @@ FATP_TEST_CASE(count_range)
 {
     fat_p::BitSet<256> bits;
 
-    bits.set_range(0, 100);
+    bits.setRange(0, 100);
     FATP_ASSERT_EQ(bits.count_range(0, 100), 100u, "Should count 100 bits");
     FATP_ASSERT_EQ(bits.count_range(0, 50), 50u, "Should count 50 bits");
     FATP_ASSERT_EQ(bits.count_range(50, 100), 50u, "Should count 50 bits");
     FATP_ASSERT_EQ(bits.count_range(100, 200), 0u, "Should count 0 bits outside range");
 
-    bits.clear_all();
+    bits.clearAll();
     bits.set(63);
     bits.set(64);
     FATP_ASSERT_EQ(bits.count_range(60, 70), 2u, "Should count bits at word boundary");
@@ -371,7 +371,7 @@ FATP_TEST_CASE(find_operations)
     FATP_ASSERT_EQ(bits.find_next(200), 256u, "No next after 200");
     FATP_ASSERT_EQ(bits.find_last(), 200u, "Last bit should be 200");
 
-    bits.clear_all();
+    bits.clearAll();
     FATP_ASSERT_EQ(bits.find_first(), 256u, "find_first on empty should return N");
     FATP_ASSERT_EQ(bits.find_last(), 256u, "find_last on empty should return N");
 
@@ -386,7 +386,7 @@ FATP_TEST_CASE(find_at_boundaries)
     FATP_ASSERT_EQ(bits.find_first(), 0u, "Should find bit 0");
     FATP_ASSERT_EQ(bits.find_last(), 0u, "Last should also be 0");
 
-    bits.clear_all();
+    bits.clearAll();
     bits.set(127);
     FATP_ASSERT_EQ(bits.find_first(), 127u, "Should find bit 127");
     FATP_ASSERT_EQ(bits.find_last(), 127u, "Last should also be 127");
@@ -406,7 +406,7 @@ FATP_TEST_CASE(find_next_last_index)
     FATP_ASSERT_EQ(bits.find_next(62), 63u, "Should find bit 63");
     FATP_ASSERT_EQ(bits.find_next(63), 64u, "Nothing after last index");
 
-    bits.clear_all();
+    bits.clearAll();
     FATP_ASSERT_EQ(bits.find_next(62), 64u, "Empty set returns N");
     FATP_ASSERT_EQ(bits.find_next(63), 64u, "find_next(N-1) returns N");
 
@@ -448,7 +448,7 @@ FATP_TEST_CASE(find_prev_operations)
 FATP_TEST_CASE(find_zero_operations)
 {
     fat_p::BitSet<256> bits;
-    bits.set_all();
+    bits.setAll();
 
     FATP_ASSERT_EQ(bits.find_first_zero(), 256u, "No zeros when all set");
     FATP_ASSERT_EQ(bits.find_last_zero(), 256u, "No zeros when all set");
@@ -463,7 +463,7 @@ FATP_TEST_CASE(find_zero_operations)
     FATP_ASSERT_EQ(bits.find_next_zero(200), 256u, "No zero after 200");
     FATP_ASSERT_EQ(bits.find_last_zero(), 200u, "Last zero at 200");
 
-    bits.clear_all();
+    bits.clearAll();
     FATP_ASSERT_EQ(bits.find_first_zero(), 0u, "First zero at 0");
     FATP_ASSERT_EQ(bits.find_last_zero(), 255u, "Last zero at 255");
 
@@ -473,7 +473,7 @@ FATP_TEST_CASE(find_zero_operations)
 FATP_TEST_CASE(find_zero_boundaries)
 {
     fat_p::BitSet<65> bits;
-    bits.set_all();
+    bits.setAll();
 
     bits.clear(0);
     FATP_ASSERT_EQ(bits.find_first_zero(), 0u, "Zero at position 0");
@@ -723,7 +723,7 @@ FATP_TEST_CASE(shift_assignment)
 // Set Operations
 // ============================================================================
 
-FATP_TEST_CASE(is_subset_of)
+FATP_TEST_CASE(isSubsetOf)
 {
     fat_p::BitSet<64> a, b;
 
@@ -734,12 +734,12 @@ FATP_TEST_CASE(is_subset_of)
     b.set(2);
     b.set(3);
 
-    FATP_ASSERT_TRUE(a.is_subset_of(b), "a should be subset of b");
-    FATP_ASSERT_TRUE(!b.is_subset_of(a), "b should not be subset of a");
+    FATP_ASSERT_TRUE(a.isSubsetOf(b), "a should be subset of b");
+    FATP_ASSERT_TRUE(!b.isSubsetOf(a), "b should not be subset of a");
 
     fat_p::BitSet<64> empty;
-    FATP_ASSERT_TRUE(empty.is_subset_of(a), "Empty set is subset of any set");
-    FATP_ASSERT_TRUE(a.is_subset_of(a), "Set is subset of itself");
+    FATP_ASSERT_TRUE(empty.isSubsetOf(a), "Empty set is subset of any set");
+    FATP_ASSERT_TRUE(a.isSubsetOf(a), "Set is subset of itself");
 
     return true;
 }
@@ -945,16 +945,16 @@ FATP_TEST_CASE(hamming_distance_and_disjoint)
     b.set(3);
 
     FATP_ASSERT_EQ(a.hamming_distance(b), 3u, "Hamming distance");
-    FATP_ASSERT_TRUE(!a.is_disjoint(b), "Shared bit means not disjoint");
+    FATP_ASSERT_TRUE(!a.isDisjoint(b), "Shared bit means not disjoint");
 
     fat_p::BitSet<64> c = a;
     c.set(20);
-    FATP_ASSERT_TRUE(a.is_proper_subset_of(c), "Proper subset");
-    FATP_ASSERT_TRUE(!c.is_proper_subset_of(a), "Not a proper subset");
+    FATP_ASSERT_TRUE(a.isProperSubsetOf(c), "Proper subset");
+    FATP_ASSERT_TRUE(!c.isProperSubsetOf(a), "Not a proper subset");
 
     fat_p::BitSet<64> d;
     d.set(50);
-    FATP_ASSERT_TRUE(a.is_disjoint(d), "Disjoint sets");
+    FATP_ASSERT_TRUE(a.isDisjoint(d), "Disjoint sets");
 
     return true;
 }
@@ -988,9 +988,9 @@ FATP_TEST_CASE(range_exceptions)
 {
     fat_p::BitSet<64> bits;
 
-    FATP_ASSERT_THROWS(bits.set_range(10, 5), std::out_of_range, "Invalid range should throw");
-    FATP_ASSERT_THROWS(bits.set_range(0, 65), std::out_of_range, "Out of bounds range should throw");
-    FATP_ASSERT_THROWS(bits.clear_range(100, 200), std::out_of_range, "Out of bounds should throw");
+    FATP_ASSERT_THROWS(bits.setRange(10, 5), std::out_of_range, "Invalid range should throw");
+    FATP_ASSERT_THROWS(bits.setRange(0, 65), std::out_of_range, "Out of bounds range should throw");
+    FATP_ASSERT_THROWS(bits.clearRange(100, 200), std::out_of_range, "Out of bounds should throw");
     FATP_ASSERT_THROWS(bits.count_range(50, 100), std::out_of_range, "Out of bounds should throw");
 
     return true;
@@ -1000,21 +1000,21 @@ FATP_TEST_CASE(range_word_boundaries)
 {
     fat_p::BitSet<128> bits;
 
-    bits.set_range(0, 64);
+    bits.setRange(0, 64);
     FATP_ASSERT_EQ(bits.count(), 64u, "Should have exactly 64 bits set");
     FATP_ASSERT_TRUE(bits.test(0), "Bit 0 should be set");
     FATP_ASSERT_TRUE(bits.test(63), "Bit 63 should be set");
     FATP_ASSERT_TRUE(!bits.test(64), "Bit 64 should not be set");
 
-    bits.clear_all();
-    bits.set_range(64, 128);
+    bits.clearAll();
+    bits.setRange(64, 128);
     FATP_ASSERT_EQ(bits.count(), 64u, "Should have exactly 64 bits set");
     FATP_ASSERT_TRUE(!bits.test(63), "Bit 63 should not be set");
     FATP_ASSERT_TRUE(bits.test(64), "Bit 64 should be set");
     FATP_ASSERT_TRUE(bits.test(127), "Bit 127 should be set");
 
-    bits.clear_all();
-    bits.set_range(0, 128);
+    bits.clearAll();
+    bits.setRange(0, 128);
     FATP_ASSERT_EQ(bits.count(), 128u, "Full range should set all bits");
     FATP_ASSERT_TRUE(bits.all(), "all() should return true");
 
@@ -1067,9 +1067,9 @@ FATP_TEST_CASE(data_access)
     FATP_ASSERT_EQ(data[0], 1ULL, "First word should have bit 0 set");
     FATP_ASSERT_EQ(data[1], 1ULL, "Second word should have bit 0 set (bit 64 overall)");
 
-    FATP_ASSERT_EQ(fat_p::BitSet<128>::word_count(), 2u, "128-bit set should have 2 words");
-    FATP_ASSERT_EQ(fat_p::BitSet<65>::word_count(), 2u, "65-bit set should have 2 words");
-    FATP_ASSERT_EQ(fat_p::BitSet<64>::word_count(), 1u, "64-bit set should have 1 word");
+    FATP_ASSERT_EQ(fat_p::BitSet<128>::wordCount(), 2u, "128-bit set should have 2 words");
+    FATP_ASSERT_EQ(fat_p::BitSet<65>::wordCount(), 2u, "65-bit set should have 2 words");
+    FATP_ASSERT_EQ(fat_p::BitSet<64>::wordCount(), 1u, "64-bit set should have 1 word");
 
     return true;
 }
@@ -1112,9 +1112,9 @@ bool test_BitSet()
     FATP_RUN_TEST_NS(runner, bitset, bulk_operations);
     FATP_RUN_TEST_NS(runner, bitset, reset_alias);
 
-    FATP_RUN_TEST_NS(runner, bitset, set_range);
-    FATP_RUN_TEST_NS(runner, bitset, clear_range);
-    FATP_RUN_TEST_NS(runner, bitset, flip_range);
+    FATP_RUN_TEST_NS(runner, bitset, setRange);
+    FATP_RUN_TEST_NS(runner, bitset, clearRange);
+    FATP_RUN_TEST_NS(runner, bitset, flipRange);
     FATP_RUN_TEST_NS(runner, bitset, count_range);
 
     FATP_RUN_TEST_NS(runner, bitset, find_operations);
@@ -1139,7 +1139,7 @@ bool test_BitSet()
     FATP_RUN_TEST_NS(runner, bitset, right_shift);
     FATP_RUN_TEST_NS(runner, bitset, shift_assignment);
 
-    FATP_RUN_TEST_NS(runner, bitset, is_subset_of);
+    FATP_RUN_TEST_NS(runner, bitset, isSubsetOf);
     FATP_RUN_TEST_NS(runner, bitset, intersects);
     FATP_RUN_TEST_NS(runner, bitset, hamming_distance_and_disjoint);
 

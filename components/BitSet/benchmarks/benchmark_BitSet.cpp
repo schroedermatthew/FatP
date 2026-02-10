@@ -231,7 +231,7 @@ void benchmark_single_bit_operations(size_t iterations)
             fat_p::BitSet<N> bits;
             for (size_t i = 0; i < iterations; ++i)
             {
-                bits.set_unchecked(indices[i]);
+                bits.setUnchecked(indices[i]);
             }
             benchmark_sink += bits.count();
         }
@@ -242,7 +242,7 @@ void benchmark_single_bit_operations(size_t iterations)
             t.start();
             for (size_t i = 0; i < iterations; ++i)
             {
-                bits.set_unchecked(indices[i]);
+                bits.setUnchecked(indices[i]);
             }
             samples.push_back(t.elapsed_ns() / iterations);
             benchmark_sink += bits.count();
@@ -359,7 +359,7 @@ void benchmark_population_count(size_t iterations)
     std::bitset<N> std_bits;
     for (size_t idx : sparse)
     {
-        fatp_bits.set_unchecked(idx);
+        fatp_bits.setUnchecked(idx);
         std_bits.set(idx);
     }
 
@@ -520,7 +520,7 @@ void benchmark_find_operations(size_t num_set_bits)
     std::bitset<N> std_bits;
     for (size_t idx : sparse)
     {
-        fatp_bits.set_unchecked(idx);
+        fatp_bits.setUnchecked(idx);
         std_bits.set(idx);
     }
 
@@ -836,7 +836,7 @@ void benchmark_sparse_iteration(size_t num_set_bits)
     std::bitset<N> std_bits;
     for (size_t idx : sparse)
     {
-        fatp_bits.set_unchecked(idx);
+        fatp_bits.setUnchecked(idx);
         std_bits.set(idx);
     }
 
@@ -961,12 +961,12 @@ void benchmark_bitwise_operations(size_t iterations)
     std::bitset<N> std_a, std_b;
     for (size_t idx : indices1)
     {
-        fatp_a.set_unchecked(idx);
+        fatp_a.setUnchecked(idx);
         std_a.set(idx);
     }
     for (size_t idx : indices2)
     {
-        fatp_b.set_unchecked(idx);
+        fatp_b.setUnchecked(idx);
         std_b.set(idx);
     }
 
@@ -1081,7 +1081,7 @@ template <size_t N>
 void benchmark_range_operations(size_t range_size, size_t iterations)
 {
     print_header("Section 6: Range Operations (N=" + std::to_string(N) + ", range=" + std::to_string(range_size) + ")");
-    std::cout << "Fat-P has native set_range. Others require loops.\n\n";
+    std::cout << "Fat-P has native setRange. Others require loops.\n\n";
 
     print_result_header();
 
@@ -1095,7 +1095,7 @@ void benchmark_range_operations(size_t range_size, size_t iterations)
             for (size_t i = 0; i < iterations; ++i)
             {
                 fat_p::BitSet<N> bits;
-                bits.set_range(0, range_size);
+                bits.setRange(0, range_size);
                 sum += bits.count();
             }
             samples.push_back(t.elapsed_ns() / iterations);
@@ -1179,7 +1179,7 @@ void benchmark_range_operations(size_t range_size, size_t iterations)
             for (size_t i = 0; i < iterations; ++i)
             {
                 bm::bvector<> bits;
-                bits.set_range(0, range_size - 1);
+                bits.setRange(0, range_size - 1);
                 sum += bits.count();
             }
             samples.push_back(t.elapsed_ns() / iterations);

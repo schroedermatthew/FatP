@@ -7,7 +7,7 @@
  * - Element access (operator(), set)
  * - Matrix operations (transpose, add, subtract, matmul)
  * - Matrix-vector multiplication (matvec, parallel)
- * - Utility functions (density, sparsity, is_symmetric, remove_zeros)
+ * - Utility functions (density, sparsity, isSymmetric, removeZeros)
  * - Factory functions (identity_matrix, diagonal_matrix)
  * - Edge cases (empty, single element, large indices)
  * - Error handling (bounds, dimension mismatch, overflow)
@@ -687,7 +687,7 @@ FATP_TEST_CASE(matvec_parallel_matches_serial)
     std::vector<double> y_parallel(3);
 
     mat.matvec(x.data(), y_serial.data());
-    mat.matvec_parallel(x.data(), y_parallel.data());
+    mat.matvecParallel(x.data(), y_parallel.data());
 
     FATP_ASSERT_CLOSE(y_parallel[0], y_serial[0], "Parallel matvec: matches serial [0]");
     FATP_ASSERT_CLOSE(y_parallel[1], y_serial[1], "Parallel matvec: matches serial [1]");
@@ -705,7 +705,7 @@ FATP_TEST_CASE(matvec_parallel_alpha_beta)
     std::vector<double> y_parallel = {10.0, 20.0};
 
     mat.matvec(2.0, x.data(), 3.0, y_serial.data());
-    mat.matvec_parallel(2.0, x.data(), 3.0, y_parallel.data());
+    mat.matvecParallel(2.0, x.data(), 3.0, y_parallel.data());
 
     FATP_ASSERT_CLOSE(y_parallel[0], y_serial[0], "Parallel alpha-beta: matches serial [0]");
     FATP_ASSERT_CLOSE(y_parallel[1], y_serial[1], "Parallel alpha-beta: matches serial [1]");
@@ -770,7 +770,7 @@ FATP_TEST_CASE(density_sparsity)
     return true;
 }
 
-FATP_TEST_CASE(is_symmetric)
+FATP_TEST_CASE(isSymmetric)
 {
     // Symmetric: [[1, 2], [2, 3]]
     std::vector<int> rows = {0, 0, 1, 1};
@@ -778,20 +778,20 @@ FATP_TEST_CASE(is_symmetric)
     std::vector<double> vals = {1.0, 2.0, 2.0, 3.0};
 
     CSRMatrix<double, int> symmetric(2, 2, rows, cols, vals);
-    FATP_ASSERT_TRUE(symmetric.is_symmetric(), "is_symmetric: symmetric matrix");
+    FATP_ASSERT_TRUE(symmetric.isSymmetric(), "isSymmetric: symmetric matrix");
 
     // Non-symmetric: [[1, 2], [3, 4]]
     std::vector<double> vals2 = {1.0, 2.0, 3.0, 4.0};
     CSRMatrix<double, int> nonsymmetric(2, 2, rows, cols, vals2);
-    FATP_ASSERT_FALSE(nonsymmetric.is_symmetric(), "is_symmetric: non-symmetric matrix");
+    FATP_ASSERT_FALSE(nonsymmetric.isSymmetric(), "isSymmetric: non-symmetric matrix");
 
     // Rectangular cannot be symmetric
     CSRMatrix<double, int> rect(2, 3);
-    FATP_ASSERT_FALSE(rect.is_symmetric(), "is_symmetric: rectangular");
+    FATP_ASSERT_FALSE(rect.isSymmetric(), "isSymmetric: rectangular");
     return true;
 }
 
-FATP_TEST_CASE(remove_zeros)
+FATP_TEST_CASE(removeZeros)
 {
     std::vector<int> rows = {0, 0, 1};
     std::vector<int> cols = {0, 1, 1};
@@ -799,14 +799,14 @@ FATP_TEST_CASE(remove_zeros)
 
     CSRMatrix<double, int> mat(2, 2, rows, cols, vals);
 
-    // Set a value that's above is_effectively_zero threshold but below remove_zeros epsilon
-    // is_effectively_zero uses epsilon*10 ≈ 2.2e-15 for double
+    // Set a value that's above isEffectivelyZero threshold but below removeZeros epsilon
+    // isEffectivelyZero uses epsilon*10 ≈ 2.2e-15 for double
     // So 1e-12 is stored but considered "removable" with epsilon=1e-10
     mat.set(0, 0, 1e-12);
-    FATP_ASSERT_EQ(mat.nnz(), 3u, "Before remove_zeros");
+    FATP_ASSERT_EQ(mat.nnz(), 3u, "Before removeZeros");
 
-    mat.remove_zeros(1e-10); // Epsilon larger than 1e-12
-    FATP_ASSERT_EQ(mat.nnz(), 2u, "After remove_zeros");
+    mat.removeZeros(1e-10); // Epsilon larger than 1e-12
+    FATP_ASSERT_EQ(mat.nnz(), 2u, "After removeZeros");
     return true;
 }
 
@@ -1132,8 +1132,8 @@ bool test_CSRMatrix()
     FATP_RUN_TEST_NS(runner, csrmatrix, equality_operators);
     FATP_RUN_TEST_NS(runner, csrmatrix, approximate_equality);
     FATP_RUN_TEST_NS(runner, csrmatrix, density_sparsity);
-    FATP_RUN_TEST_NS(runner, csrmatrix, is_symmetric);
-    FATP_RUN_TEST_NS(runner, csrmatrix, remove_zeros);
+    FATP_RUN_TEST_NS(runner, csrmatrix, isSymmetric);
+    FATP_RUN_TEST_NS(runner, csrmatrix, removeZeros);
     FATP_RUN_TEST_NS(runner, csrmatrix, row_nnz);
     FATP_RUN_TEST_NS(runner, csrmatrix, to_dense);
     FATP_RUN_TEST_NS(runner, csrmatrix, to_dense_keep_duplicates);

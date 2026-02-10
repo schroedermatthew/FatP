@@ -459,7 +459,7 @@ FATP_TEST_CASE(alignment_64)
 {
     fat_p::AlignedVector<float, 64> vec(100);
 
-    FATP_ASSERT_TRUE(vec.is_aligned(), "Data should be aligned");
+    FATP_ASSERT_TRUE(vec.isAligned(), "Data should be aligned");
     FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(vec.data()) % 64, 0u, "Data pointer should be 64-byte aligned");
 
     return true;

@@ -323,7 +323,7 @@ FATP_TEST_CASE(matvec_vector_interface)
     }
 
     fat_p::ThreadPool pool(4);
-    auto y_parallel = fat_p::matvec_parallel(matrix, x, pool);
+    auto y_parallel = fat_p::matvecParallel(matrix, x, pool);
     auto y_serial = matrix * x;
 
     double max_err = max_abs_diff(y_serial, y_parallel);

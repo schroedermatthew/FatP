@@ -58,7 +58,7 @@ namespace fat_p::testing::hpcvector
 // =============================================================================
 
 template <typename T>
-bool is_aligned(const T* ptr, std::size_t alignment) noexcept
+bool isAligned(const T* ptr, std::size_t alignment) noexcept
 {
     return ptr == nullptr || (reinterpret_cast<std::uintptr_t>(ptr) % alignment) == 0;
 }
@@ -76,7 +76,7 @@ FATP_TEST_CASE(allocator_basic)
     // Allocate
     int* ptr = alloc.allocate(16);
     FATP_ASSERT_TRUE(ptr != nullptr, "Allocation should succeed");
-    FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Pointer should be 64-byte aligned");
+    FATP_ASSERT_TRUE(isAligned(ptr, 64), "Pointer should be 64-byte aligned");
 
     // Use memory
     for (int i = 0; i < 16; ++i)
@@ -124,7 +124,7 @@ FATP_TEST_CASE(allocator_policies)
     {
         memory::NumaLocalAllocator<double, 64> alloc;
         double* ptr = alloc.allocate(8);
-        FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Local alloc should be aligned");
+        FATP_ASSERT_TRUE(isAligned(ptr, 64), "Local alloc should be aligned");
         alloc.deallocate(ptr, 8);
     }
 
@@ -132,7 +132,7 @@ FATP_TEST_CASE(allocator_policies)
     {
         memory::NumaPreferredAllocator<double, 64> alloc(memory::NumaPreferredPolicy{0});
         double* ptr = alloc.allocate(8);
-        FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Preferred alloc should be aligned");
+        FATP_ASSERT_TRUE(isAligned(ptr, 64), "Preferred alloc should be aligned");
         alloc.deallocate(ptr, 8);
     }
 
@@ -140,7 +140,7 @@ FATP_TEST_CASE(allocator_policies)
     {
         memory::NumaInterleavedAllocator<double, 64> alloc;
         double* ptr = alloc.allocate(8);
-        FATP_ASSERT_TRUE(is_aligned(ptr, 64), "Interleaved alloc should be aligned");
+        FATP_ASSERT_TRUE(isAligned(ptr, 64), "Interleaved alloc should be aligned");
         alloc.deallocate(ptr, 8);
     }
 
@@ -161,14 +161,14 @@ FATP_TEST_CASE(vector_construction)
         HpcVector<int> v;
         FATP_ASSERT_EQ(v.size(), 0u, "Default should be empty");
         FATP_ASSERT_EQ(v.capacity(), 0u, "Default should have no capacity");
-        FATP_ASSERT_TRUE(v.is_aligned(), "Empty vector should be aligned");
+        FATP_ASSERT_TRUE(v.isAligned(), "Empty vector should be aligned");
     }
 
     // Size construction
     {
         HpcVector<int> v(100);
         FATP_ASSERT_EQ(v.size(), 100u, "Should have 100 elements");
-        FATP_ASSERT_TRUE(v.is_aligned(), "Should be aligned");
+        FATP_ASSERT_TRUE(v.isAligned(), "Should be aligned");
     }
 
     // Size + value construction
@@ -213,7 +213,7 @@ FATP_TEST_CASE(vector_alignment)
     {
         HpcVector<float, 64> v(n);
 
-        FATP_ASSERT_TRUE(v.is_aligned(), "Vector should be aligned");
+        FATP_ASSERT_TRUE(v.isAligned(), "Vector should be aligned");
 
         std::uintptr_t addr = reinterpret_cast<std::uintptr_t>(v.data());
         FATP_ASSERT_TRUE(addr % 64 == 0, "Address should be 64-byte aligned");
@@ -321,7 +321,7 @@ FATP_TEST_CASE(vector_modifiers)
     FATP_ASSERT_EQ(v.size(), 100u, "Should have 100 elements");
 
     // Verify alignment maintained after growth
-    FATP_ASSERT_TRUE(v.is_aligned(), "Should remain aligned after push_back");
+    FATP_ASSERT_TRUE(v.isAligned(), "Should remain aligned after push_back");
 
     // pop_back
     v.pop_back();

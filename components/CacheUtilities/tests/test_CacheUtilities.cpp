@@ -606,25 +606,25 @@ FATP_TEST_CASE(alignment_utilities)
 {
     alignas(64) char buffer[128] = {};
 
-    // Test is_aligned
-    FATP_ASSERT_TRUE(is_aligned(buffer, 64), "Buffer should be 64-byte aligned");
-    FATP_ASSERT_TRUE(is_aligned(buffer, 32), "64-byte aligned is also 32-byte aligned");
-    FATP_ASSERT_TRUE(is_aligned(buffer, 16), "64-byte aligned is also 16-byte aligned");
-    FATP_ASSERT_TRUE(is_aligned(buffer, 1), "Any pointer is 1-byte aligned");
+    // Test isAligned
+    FATP_ASSERT_TRUE(isAligned(buffer, 64), "Buffer should be 64-byte aligned");
+    FATP_ASSERT_TRUE(isAligned(buffer, 32), "64-byte aligned is also 32-byte aligned");
+    FATP_ASSERT_TRUE(isAligned(buffer, 16), "64-byte aligned is also 16-byte aligned");
+    FATP_ASSERT_TRUE(isAligned(buffer, 1), "Any pointer is 1-byte aligned");
 
     // Test unaligned
     char* unaligned = buffer + 1;
-    FATP_ASSERT_TRUE(!is_aligned(unaligned, 64), "buffer+1 should not be 64-byte aligned");
-    FATP_ASSERT_TRUE(!is_aligned(unaligned, 2), "buffer+1 should not be 2-byte aligned");
+    FATP_ASSERT_TRUE(!isAligned(unaligned, 64), "buffer+1 should not be 64-byte aligned");
+    FATP_ASSERT_TRUE(!isAligned(unaligned, 2), "buffer+1 should not be 2-byte aligned");
 
     // Test align_up
     void* aligned_up = align_up(unaligned, 64);
-    FATP_ASSERT_TRUE(is_aligned(aligned_up, 64), "align_up should produce aligned pointer");
+    FATP_ASSERT_TRUE(isAligned(aligned_up, 64), "align_up should produce aligned pointer");
     FATP_ASSERT_TRUE(aligned_up >= unaligned, "align_up should not go backward");
 
     // Test align_down
     void* aligned_down = align_down(unaligned, 64);
-    FATP_ASSERT_TRUE(is_aligned(aligned_down, 64), "align_down should produce aligned pointer");
+    FATP_ASSERT_TRUE(isAligned(aligned_down, 64), "align_down should produce aligned pointer");
     FATP_ASSERT_TRUE(aligned_down <= unaligned, "align_down should not go forward");
 
     // Test alignment_offset
@@ -644,10 +644,10 @@ FATP_TEST_CASE(alignment_utilities_const)
 
     // Test const overloads
     const void* aligned_up = align_up(unaligned, 64);
-    FATP_ASSERT_TRUE(is_aligned(aligned_up, 64), "const align_up should work");
+    FATP_ASSERT_TRUE(isAligned(aligned_up, 64), "const align_up should work");
 
     const void* aligned_down = align_down(unaligned, 64);
-    FATP_ASSERT_TRUE(is_aligned(aligned_down, 64), "const align_down should work");
+    FATP_ASSERT_TRUE(isAligned(aligned_down, 64), "const align_down should work");
 
     return true;
 }

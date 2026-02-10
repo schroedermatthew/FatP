@@ -170,7 +170,7 @@ FATP_TEST_CASE(matvec_parallel_correctness_uniform)
     matrix.matvec(x.data(), y_serial.data());
 
     fat_p::ThreadPool pool(4);
-    matrix.matvec_parallel(x.data(), y_parallel.data(), pool);
+    matrix.matvecParallel(x.data(), y_parallel.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_parallel);
     FATP_ASSERT_LT(max_err, 1e-10, "ThreadPool result should match serial");
@@ -196,7 +196,7 @@ FATP_TEST_CASE(matvec_parallel_correctness_powerlaw)
     matrix.matvec(x.data(), y_serial.data());
 
     fat_p::ThreadPool pool(4);
-    matrix.matvec_parallel(x.data(), y_parallel.data(), pool);
+    matrix.matvecParallel(x.data(), y_parallel.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_parallel);
     FATP_ASSERT_LT(max_err, 1e-10, "ThreadPool should match serial for skewed matrix");
@@ -225,7 +225,7 @@ FATP_TEST_CASE(matvec_parallel_alpha_beta)
     matrix.matvec(alpha, x.data(), beta, y_serial.data());
 
     fat_p::ThreadPool pool(4);
-    matrix.matvec_parallel(alpha, x.data(), beta, y_parallel.data(), pool);
+    matrix.matvecParallel(alpha, x.data(), beta, y_parallel.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_parallel);
     FATP_ASSERT_LT(max_err, 1e-10, "Alpha-beta ThreadPool result should match serial");
@@ -251,7 +251,7 @@ FATP_TEST_CASE(matvec_parallel_batch_correctness)
     matrix.matvec(x.data(), y_serial.data());
 
     fat_p::ThreadPool pool(4);
-    matrix.matvec_parallel_batch(x.data(), y_batch.data(), pool);
+    matrix.matvecParallelBatch(x.data(), y_batch.data(), pool);
 
     double max_err = max_abs_diff(y_serial, y_batch);
     FATP_ASSERT_LT(max_err, 1e-10, "Batch result should match serial");
@@ -266,7 +266,7 @@ FATP_TEST_CASE(matvec_parallel_empty_matrix)
     std::vector<double> y(100, 999.0);
 
     fat_p::ThreadPool pool(4);
-    matrix.matvec_parallel(x.data(), y.data(), pool);
+    matrix.matvecParallel(x.data(), y.data(), pool);
 
     for (size_t i = 0; i < y.size(); ++i)
     {
@@ -332,11 +332,11 @@ FATP_TEST_CASE(matvec_prefetch_toggle)
 
     fat_p::HpcParallelConfig config_prefetch;
     config_prefetch.use_prefetch = true;
-    matrix.matvec_parallel(x.data(), y_parallel_pf.data(), pool, config_prefetch);
+    matrix.matvecParallel(x.data(), y_parallel_pf.data(), pool, config_prefetch);
 
     fat_p::HpcParallelConfig config_no_prefetch;
     config_no_prefetch.use_prefetch = false;
-    matrix.matvec_parallel(x.data(), y_parallel_no_pf.data(), pool, config_no_prefetch);
+    matrix.matvecParallel(x.data(), y_parallel_no_pf.data(), pool, config_no_prefetch);
 
     double parallel_err = max_abs_diff(y_parallel_pf, y_parallel_no_pf);
     FATP_ASSERT_LT(parallel_err, 1e-10, "Parallel prefetch toggle should not affect correctness");
@@ -353,7 +353,7 @@ FATP_TEST_CASE(numa_available_check)
     fat_p::HpcCSRMatrix<double> matrix(10, 10);
 
     // This should not crash, regardless of NUMA availability
-    bool numa = matrix.is_numa_available();
+    bool numa = matrix.isNumaAvailable();
     (void)numa; // Suppress unused warning
 
     return true;
@@ -379,8 +379,8 @@ FATP_TEST_CASE(default_pool_convenience_overloads)
     matrix.matvec(x.data(), y_serial.data());
 
     // Convenience overloads (use default pool, no explicit pool parameter)
-    matrix.matvec_parallel(x.data(), y_parallel.data());
-    matrix.matvec_parallel_batch(x.data(), y_batch.data());
+    matrix.matvecParallel(x.data(), y_parallel.data());
+    matrix.matvecParallelBatch(x.data(), y_batch.data());
 
     double err1 = max_abs_diff(y_serial, y_parallel);
     double err2 = max_abs_diff(y_serial, y_batch);
