@@ -179,7 +179,7 @@ public:
     double available_tokens() const
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        const_cast<TokenBucketRateLimiter*>(this)->refill_tokens();
+        refill_tokens();
         return mTokens;
     }
 
@@ -206,7 +206,7 @@ public:
     }
 
 private:
-    void refill_tokens()
+    void refill_tokens() const
     {
         auto now = Clock::now();
         auto elapsed = std::chrono::duration<double>(now - mLastRefill).count();
@@ -218,8 +218,8 @@ private:
 
     const double mRate;     // Tokens per second
     const double mCapacity; // Maximum tokens
-    double mTokens;         // Current token count
-    TimePoint mLastRefill;
+    mutable double mTokens;         // Current token count
+    mutable TimePoint mLastRefill;
 
     mutable std::mutex mMutex;
 };
@@ -285,7 +285,7 @@ public:
     size_t current_count() const
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        const_cast<SlidingWindowRateLimiter*>(this)->cleanup_old_timestamps(Clock::now());
+        cleanup_old_timestamps(Clock::now());
         return mTimestamps.size();
     }
 
@@ -311,7 +311,7 @@ public:
     }
 
 private:
-    void cleanup_old_timestamps(TimePoint now)
+    void cleanup_old_timestamps(TimePoint now) const
     {
         auto threshold = now - mWindowDuration;
         mTimestamps.erase(std::remove_if(mTimestamps.begin(),
@@ -324,7 +324,7 @@ private:
 
     const size_t mMaxRequests;
     const Clock::duration mWindowDuration;
-    std::vector<TimePoint> mTimestamps;
+    mutable std::vector<TimePoint> mTimestamps;
 
     mutable std::mutex mMutex;
 };
@@ -388,7 +388,7 @@ public:
     size_t queue_size() const
     {
         std::lock_guard<std::mutex> lock(mMutex);
-        const_cast<LeakyBucketRateLimiter*>(this)->leak();
+        leak();
         return mQueueSize;
     }
 
@@ -415,20 +415,25 @@ public:
     }
 
 private:
-    void leak()
+    void leak() const
     {
         auto now = Clock::now();
         auto elapsed = std::chrono::duration<double>(now - mLastLeak).count();
 
         size_t leaked = static_cast<size_t>(elapsed * mRate);
-        mQueueSize = (leaked >= mQueueSize) ? 0 : (mQueueSize - leaked);
-        mLastLeak = now;
+        if (leaked > 0)
+        {
+            mQueueSize = (leaked >= mQueueSize) ? 0 : (mQueueSize - leaked);
+            double consumed_time = static_cast<double>(leaked) / mRate;
+            mLastLeak += std::chrono::duration_cast<Clock::duration>(
+                std::chrono::duration<double>(consumed_time));
+        }
     }
 
     const double mRate;     // Leak rate (requests/second)
     const size_t mCapacity; // Maximum queue size
-    size_t mQueueSize;     // Current queue size
-    TimePoint mLastLeak;
+    mutable size_t mQueueSize;     // Current queue size
+    mutable TimePoint mLastLeak;
 
     mutable std::mutex mMutex;
 };

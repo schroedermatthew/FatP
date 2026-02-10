@@ -99,6 +99,7 @@ FATP_META:
 #include <algorithm>
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <type_traits>
 #include <utility>
 
@@ -437,6 +438,13 @@ private:
     std::atomic<size_t> mRecursionDepth{0}; // Emission reentrancy counter
     std::atomic<bool> mNeedsCleanup{false}; // Deferred cleanup flag
 
+    // Alive token for safe ScopedConnection disconnection.
+    // ScopedConnections capture a weak_ptr to this token. When the Signal is
+    // destroyed, the shared_ptr is released and weak_ptr::lock() returns nullptr,
+    // preventing the ScopedConnection's destructor from calling disconnect() on
+    // a dead Signal.
+    std::shared_ptr<bool> mAlive{std::make_shared<bool>(true)};
+
 public:
     // -------------------------------------------------------------------------
     // Constructors / Destructor
@@ -456,6 +464,7 @@ public:
         , mNextId(other.mNextId.load(std::memory_order_relaxed))
         , mRecursionDepth(0)
         , mNeedsCleanup(false)
+        , mAlive(std::move(other.mAlive))
     {
         other.mNextId.store(1, std::memory_order_relaxed);
     }
@@ -469,6 +478,10 @@ public:
             mNextId.store(other.mNextId.load(std::memory_order_relaxed), std::memory_order_relaxed);
             mRecursionDepth.store(0, std::memory_order_relaxed);
             mNeedsCleanup.store(false, std::memory_order_relaxed);
+            // Reset old alive token (invalidates old ScopedConnections),
+            // then take ownership of other's token
+            mAlive.reset();
+            mAlive = std::move(other.mAlive);
             other.mNextId.store(1, std::memory_order_relaxed);
         }
         return *this;
@@ -491,9 +504,15 @@ public:
     {
         ConnectionId id = connectManual(std::move(callback), priority);
 
-        // Capture weak reference to handle signal destruction
-        return ScopedConnection([this, id]() {
-            this->disconnect(id);
+        // Capture weak reference to alive token so that if the Signal is
+        // destroyed before the ScopedConnection, the disconnect lambda
+        // safely no-ops instead of dereferencing a dangling pointer.
+        std::weak_ptr<bool> weakAlive = mAlive;
+        return ScopedConnection([this, id, weakAlive]() {
+            if (weakAlive.lock())
+            {
+                this->disconnect(id);
+            }
         });
     }
 

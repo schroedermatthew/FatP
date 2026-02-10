@@ -35,6 +35,7 @@ FATP_META:
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -78,6 +79,7 @@ class AsyncTask
 {
 private:
     std::future<Expected<T, E>> mFuture;
+    std::optional<Expected<T, E>> mCachedResult;
 
     AsyncTask(std::future<Expected<T, E>> fut)
         : mFuture(std::move(fut))
@@ -95,12 +97,17 @@ public:
 
     Expected<T, E> wait()
     {
-        return mFuture.get();
+        if (mCachedResult)
+        {
+            return *mCachedResult;
+        }
+        mCachedResult = mFuture.get();
+        return *mCachedResult;
     }
 
     bool valid() const
     {
-        return mFuture.valid();
+        return mCachedResult.has_value() || mFuture.valid();
     }
 
     template <typename Func>
@@ -138,9 +145,14 @@ public:
     // Poll method for non-blocking check
     Expected<T, E> poll()
     {
+        if (mCachedResult)
+        {
+            return *mCachedResult;
+        }
         if (mFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
         {
-            return mFuture.get();
+            mCachedResult = mFuture.get();
+            return *mCachedResult;
         }
         return unexpected(E("Not ready"));
     }

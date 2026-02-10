@@ -439,9 +439,9 @@ inline void MemoryMappedFile::flush(bool async)
 inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mode)
 {
     // Open file
-    DWORD access = (mode == Mode::ReadOnly) ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE);
+    DWORD access = (mode == Mode::ReadWrite) ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ;
     DWORD share = FILE_SHARE_READ;
-    DWORD creation = (mode == Mode::ReadOnly) ? OPEN_EXISTING : OPEN_ALWAYS;
+    DWORD creation = (mode == Mode::ReadWrite) ? OPEN_ALWAYS : OPEN_EXISTING;
 
     mFileHandle = CreateFileA(filename.c_str(), access, share, nullptr, creation, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (mFileHandle == INVALID_HANDLE_VALUE)
@@ -478,7 +478,9 @@ inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mod
     }
 
     // Map view
-    DWORD map_access = (mode == Mode::ReadOnly) ? FILE_MAP_READ : FILE_MAP_WRITE;
+    DWORD map_access = (mode == Mode::ReadOnly)  ? FILE_MAP_READ
+                     : (mode == Mode::Private)   ? FILE_MAP_COPY
+                     :                             FILE_MAP_WRITE;
     mData = MapViewOfFile(mMapHandle, map_access, 0, 0, mSize);
     if (!mData)
     {
@@ -495,7 +497,7 @@ inline bool MemoryMappedFile::open_windows(const std::string& filename, Mode mod
 inline bool MemoryMappedFile::open_posix(const std::string& filename, Mode mode)
 {
     // Open file
-    int flags = (mode == Mode::ReadOnly) ? O_RDONLY : O_RDWR;
+    int flags = (mode == Mode::ReadWrite) ? O_RDWR : O_RDONLY;
     mFileDescriptor = ::open(filename.c_str(), flags);
     if (mFileDescriptor < 0)
     {
