@@ -358,35 +358,52 @@ public:
      */
     [[nodiscard]] size_t size() const noexcept
     {
-        // Try multiple snapshot attempts with alternating load orders.
-        // write-then-read bias: underestimates on torn read (read raced ahead)
-        // read-then-write bias: overestimates on torn read (write raced ahead)
-        // Alternating eliminates directional bias; convergence is guaranteed
-        // because the total number of index increments is finite.
-        for (int attempt = 0; attempt < 8; ++attempt)
+        // Double-read stabilization (seqlock-like) for consistent snapshots.
+        //
+        // In an SPSC queue, write_idx_ and read_idx_ are each monotonically
+        // increasing with exactly one writer.  If we bracket one index with
+        // two reads and it has not changed, the other index -- read between
+        // the two bracketing loads -- forms a temporally consistent snapshot.
+        //
+        // Alternating which index we stabilize ensures convergence: one of
+        // the two indices must be momentarily quiescent within a few attempts.
+        for (int attempt = 0; attempt < 4; ++attempt)
         {
-            size_t w, r;
             if ((attempt & 1) == 0)
             {
-                w = write_idx_.load(std::memory_order_acquire);
-                r = read_idx_.load(std::memory_order_acquire);
+                // Stabilize write_idx
+                size_t w1 = write_idx_.load(std::memory_order_acquire);
+                size_t r  = read_idx_.load(std::memory_order_acquire);
+                size_t w2 = write_idx_.load(std::memory_order_acquire);
+                if (w1 == w2)
+                {
+                    size_t d = index_distance(w1, r);
+                    return d <= Capacity ? d : 0;
+                }
             }
             else
             {
-                r = read_idx_.load(std::memory_order_acquire);
-                w = write_idx_.load(std::memory_order_acquire);
-            }
-
-            const size_t d = index_distance(w, r);
-            if (d <= Capacity)
-            {
-                return d;
+                // Stabilize read_idx
+                size_t r1 = read_idx_.load(std::memory_order_acquire);
+                size_t w  = write_idx_.load(std::memory_order_acquire);
+                size_t r2 = read_idx_.load(std::memory_order_acquire);
+                if (r1 == r2)
+                {
+                    size_t d = index_distance(w, r1);
+                    return d <= Capacity ? d : Capacity;
+                }
             }
         }
 
-        // Exhausted retries under extreme contention -- practically unreachable.
-        // Capacity / 2 minimizes worst-case error (bounded to Capacity / 2).
-        return Capacity / 2;
+        // Exhausted retries: both indices racing simultaneously.
+        // Practically unreachable -- requires producer and consumer
+        // to each advance their index during every ~20 ns load window
+        // for 4 consecutive iterations.
+        // Take a final best-effort snapshot and clamp.
+        size_t w = write_idx_.load(std::memory_order_acquire);
+        size_t r = read_idx_.load(std::memory_order_acquire);
+        size_t d = index_distance(w, r);
+        return d <= Capacity ? d : Capacity / 2;
     }
 
     /**

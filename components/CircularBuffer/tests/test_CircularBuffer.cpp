@@ -720,40 +720,41 @@ FATP_TEST_CASE(size_semantic_correctness)
 
     // Observer thread: repeatedly samples size() and ref_count, checking
     // that they are reasonably close.
+    //
+    // Methodology: bracket size() with two ref_count reads (before and
+    // after) and use whichever is closer to the reported size. This
+    // eliminates false positives caused by thread preemption between
+    // size() and a single ref_count read, which on constrained CI
+    // runners can produce timing-skew errors exceeding CAP/2 even
+    // when size() itself is correct.
+    //
+    // The free-space bug produces errors proportional to Capacity
+    // regardless of observation timing, so bracketing does not mask it.
     start.store(true, std::memory_order_release);
 
     size_t samples = 0;
     while (!done.load(std::memory_order_acquire))
     {
+        int ref_before = ref_count.load(std::memory_order_acquire);
         size_t reported_size = buffer.size();
-        int ref = ref_count.load(std::memory_order_acquire);
+        int ref_after = ref_count.load(std::memory_order_acquire);
 
-        // ref_count can be slightly stale (push increments ref after buffer.push,
-        // pop decrements ref after buffer.pop), so the true element count can
-        // differ by up to ~2 from ref. We use a generous tolerance of 4.
-        // The free-space bug would produce errors of (Capacity - true_size),
-        // which for a mostly-empty buffer is ~1020, far exceeding tolerance.
-        size_t ref_clamped = static_cast<size_t>(std::max(ref, 0));
-        size_t error = (reported_size > ref_clamped)
-                           ? (reported_size - ref_clamped)
-                           : (ref_clamped - reported_size);
+        // Use whichever ref_count snapshot is temporally closer to
+        // the size() call, minimizing observation skew.
+        size_t rb = static_cast<size_t>(std::max(ref_before, 0));
+        size_t ra = static_cast<size_t>(std::max(ref_after, 0));
 
-        // Tolerance: allow up to 4 elements of slop from non-atomic snapshot
-        constexpr size_t TOLERANCE = 4;
-        if (error > TOLERANCE)
+        size_t err_b = (reported_size > rb) ? (reported_size - rb) : (rb - reported_size);
+        size_t err_a = (reported_size > ra) ? (reported_size - ra) : (ra - reported_size);
+        size_t error = (err_b < err_a) ? err_b : err_a;
+
+        // The free-space bug produces errors near Capacity (~1020 for
+        // a 1024-element buffer). With bracketed observation the timing
+        // skew component is typically single-digit; CAP/2 remains a
+        // wide margin that catches the bug without false positives.
+        if (error > CAP / 2)
         {
-            // Could be a transient snapshot inconsistency -- only flag if the
-            // error is catastrophic (> Capacity/2), which would indicate the
-            // free-space bug rather than normal timing skew. Under sanitizers
-            // (UBSan, TSan, ASan) the instrumentation overhead widens the gap
-            // between reading size() and ref_count, so the threshold must
-            // accommodate several hundred elements of drift on a 1024-cap buffer.
-            // The free-space bug produces errors near Capacity (~1020), so
-            // Capacity/2 still catches it with wide margin.
-            if (error > CAP / 2)
-            {
-                semantic_violations.fetch_add(1, std::memory_order_relaxed);
-            }
+            semantic_violations.fetch_add(1, std::memory_order_relaxed);
         }
 
         // Track max error for diagnostics
