@@ -30,8 +30,6 @@ FATP_META:
  * @file ThreadPool.h
  * @brief Production-ready thread pool with work stealing, priority queues, and hybrid idle strategy
  *
- *
- *
  * @details High-performance thread pool implementation featuring:
  * - Work stealing for load balancing (mutex-protected deques)
  * - Priority-based task scheduling (global priority queue + local queues)
@@ -58,6 +56,7 @@ FATP_META:
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <concepts>
 #include <condition_variable>
 #include <deque>
 #include <functional>
@@ -67,7 +66,6 @@ FATP_META:
 #include <numeric>
 #include <queue>
 #include <random>
-#include <stdexcept>
 #include <thread>
 #include <tuple>
 #include <type_traits>
@@ -201,7 +199,7 @@ public:
     // Movable (mutex requires explicit handling)
     WorkStealingQueue(WorkStealingQueue&& other) noexcept
     {
-        std::lock_guard<std::mutex> lock(other.mMutex);
+        std::scoped_lock lock(other.mMutex);
         mTasks = std::move(other.mTasks);
     }
 
@@ -220,7 +218,7 @@ public:
      */
     void push(ThreadPoolTask task)
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::scoped_lock lock(mMutex);
         mTasks.push_back(std::move(task));
     }
 
@@ -230,7 +228,7 @@ public:
      */
     bool pop(ThreadPoolTask& task)
     {
-        std::lock_guard<std::mutex> lock(mMutex);
+        std::scoped_lock lock(mMutex);
         if (mTasks.empty())
         {
             return false;
@@ -256,26 +254,6 @@ public:
         task = std::move(mTasks.front());
         mTasks.pop_front();
         return true;
-    }
-
-    /**
-     * @brief Check if queue is empty
-     * @note Requires lock, use sparingly in hot paths
-     */
-    bool empty() const
-    {
-        std::lock_guard<std::mutex> lock(mMutex);
-        return mTasks.empty();
-    }
-
-    /**
-     * @brief Get queue size
-     * @note Requires lock, use sparingly
-     */
-    size_t size() const
-    {
-        std::lock_guard<std::mutex> lock(mMutex);
-        return mTasks.size();
     }
 
 private:
@@ -325,8 +303,7 @@ public:
      * @param spin_us Microseconds to spin before sleeping (default: 2000)
      */
     explicit ThreadPool(size_t num_threads = 0, size_t spin_us = 2000)
-        : mStop(false)
-        , mSpinDuration(std::chrono::microseconds(spin_us))
+        : mSpinDuration(std::chrono::microseconds(spin_us))
     {
         if (num_threads == 0)
         {
@@ -373,6 +350,7 @@ public:
      * @note Uses lambda capture instead of std::bind to preserve reference semantics
      */
     template <typename F, typename... Args>
+        requires std::invocable<F, Args...>
     [[nodiscard]] auto submit(F&& f, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>>
     {
         return submit_priority(Priority::Normal, std::forward<F>(f), std::forward<Args>(args)...);
@@ -388,6 +366,7 @@ public:
      * @return std::future with the result
      */
     template <typename F, typename... Args>
+        requires std::invocable<F, Args...>
     [[nodiscard]] auto submit_priority(Priority priority, F&& f, Args&&... args)
         -> std::future<std::invoke_result_t<F, Args...>>
     {
@@ -427,24 +406,29 @@ public:
             return;
         }
 
+        size_t count = 0;
         {
-            std::lock_guard<std::mutex> lock(mGlobalMutex);
+            std::scoped_lock lock(mGlobalMutex);
             for (const auto& func : tasks)
             {
                 if (func)
                 {
                     mGlobalQueue.emplace(func, Priority::Normal);
-                    mPendingTasks.fetch_add(1, std::memory_order_release);
+                    ++count;
                 }
             }
         }
-        mGlobalCv.notify_all();
+        if (count > 0)
+        {
+            mPendingTasks.fetch_add(count, std::memory_order_release);
+            mGlobalCv.notify_all();
+        }
     }
 
     /**
      * @brief Get number of worker threads
      */
-    size_t thread_count() const noexcept
+    [[nodiscard]] size_t thread_count() const noexcept
     {
         return mNumThreads;
     }
@@ -452,7 +436,7 @@ public:
     /**
      * @brief Get number of pending tasks (O(1) via atomic counter)
      */
-    size_t pending_tasks() const noexcept
+    [[nodiscard]] size_t pending_tasks() const noexcept
     {
         return mPendingTasks.load(std::memory_order_acquire);
     }
@@ -460,7 +444,7 @@ public:
     /**
      * @brief Get number of currently executing tasks
      */
-    size_t active_tasks() const noexcept
+    [[nodiscard]] size_t active_tasks() const noexcept
     {
         return mActiveTasks.load(std::memory_order_acquire);
     }
@@ -475,7 +459,7 @@ public:
      * }
      * @endcode
      */
-    bool is_shutdown() const noexcept
+    [[nodiscard]] bool is_shutdown() const noexcept
     {
         return mStop.load(std::memory_order_acquire);
     }
@@ -483,7 +467,7 @@ public:
     /**
      * @brief Get total number of unhandled task exceptions (diagnostics)
      */
-    size_t exception_count() const noexcept
+    [[nodiscard]] size_t exception_count() const noexcept
     {
         return mExceptionCount.load(std::memory_order_acquire);
     }
@@ -531,7 +515,7 @@ public:
 
             // Notify any threads waiting on idle
             {
-                std::lock_guard<std::mutex> lock(mIdle_mutex);
+                std::scoped_lock lock(mIdle_mutex);
                 mIdle_cv.notify_all();
             }
         }
@@ -548,8 +532,10 @@ private:
         if (priority >= Priority::High)
         {
             // High/Critical goes to global queue for immediate visibility
-            std::lock_guard<std::mutex> lock(mGlobalMutex);
-            mGlobalQueue.push(std::move(task));
+            {
+                std::scoped_lock lock(mGlobalMutex);
+                mGlobalQueue.push(std::move(task));
+            }
             if (notify)
             {
                 mGlobalCv.notify_one();
@@ -562,7 +548,6 @@ private:
             mWorkerQueues[idx].queue.push(std::move(task));
             if (notify)
             {
-                std::lock_guard<std::mutex> lock(mGlobalMutex);
                 mGlobalCv.notify_one();
             }
         }
@@ -638,7 +623,7 @@ private:
                 if (mPendingTasks.load(std::memory_order_acquire) == 0 &&
                     mActiveTasks.load(std::memory_order_acquire) == 0)
                 {
-                    std::lock_guard<std::mutex> lock(mIdle_mutex);
+                    std::scoped_lock lock(mIdle_mutex);
                     mIdle_cv.notify_all();
                 }
             }
@@ -654,7 +639,7 @@ private:
                 if (mSpinDuration.count() > 0)
                 {
                     auto spin_start = std::chrono::steady_clock::now();
-                    bool found_work = false;
+                    bool should_recheck = false;
 
                     while (std::chrono::steady_clock::now() - spin_start < mSpinDuration)
                     {
@@ -662,13 +647,13 @@ private:
                         if (mPendingTasks.load(std::memory_order_acquire) > 0 ||
                             mStop.load(std::memory_order_acquire))
                         {
-                            found_work = true;
+                            should_recheck = true;
                             break;
                         }
                         std::this_thread::yield();
                     }
 
-                    if (found_work)
+                    if (should_recheck)
                     {
                         continue;
                     }
@@ -692,7 +677,7 @@ private:
      */
     bool try_pop_global(ThreadPoolTask& task)
     {
-        std::lock_guard<std::mutex> lock(mGlobalMutex);
+        std::scoped_lock lock(mGlobalMutex);
         if (mGlobalQueue.empty())
         {
             return false;
@@ -743,7 +728,7 @@ private:
     // ========================================================================
 
     // Shutdown flag
-    std::atomic<bool> mStop;
+    std::atomic<bool> mStop{false};
 
     // Thread count (immutable after construction)
     size_t mNumThreads{0};
