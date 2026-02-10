@@ -53,7 +53,7 @@ not a governance document):
 |-------------|---------------|
 | **C++ Standard** | C++20 minimum |
 | **Architecture** | Header-only |
-| **Dependencies** | std + permitted system APIs/intrinsics; no third-party libraries (see §1.6) |
+| **Dependencies** | std + permitted system APIs/intrinsics; no third-party libraries (see Â§1.6) |
 | **Weight** | Lightweight |
 | **Target Domain** | HPC (High-Performance Computing) and Scientific Computing |
 
@@ -68,9 +68,9 @@ All Fat-P components require C++20. There is no C++17 compatibility layer.
 #### 1.1.2 Centralized Feature Detection
 
 All C++ standard and library feature detection must live in three headers:
-- `CppFeatureDetection.h` — C++ language/library feature detection
-- `PlatformDetection.h` — Compiler, OS, hardware detection
-- `SimdDetection.h` — SIMD instruction set detection (SSE, AVX, NEON, etc.)
+- `CppFeatureDetection.h` â€” C++ language/library feature detection
+- `PlatformDetection.h` â€” Compiler, OS, hardware detection
+- `SimdDetection.h` â€” SIMD instruction set detection (SSE, AVX, NEON, etc.)
 
 **Rules:**
 - Other headers may **not** probe `__cplusplus`, `_MSVC_LANG`, or use feature-test macros directly
@@ -137,10 +137,10 @@ C++20 features should be used directly without guards or fallbacks:
 - Use `<=>` with appropriate constraints (`requires std::three_way_comparable<T>`)
 - Use concepts from `<concepts>` and `<ranges>` instead of custom SFINAE traits
 
-**Exception — features with unreliable library support:**
-- `std::format` — keep `FATP_HAS_FORMAT` detection and `ostringstream` fallback
-- `std::jthread` — keep detection if used
-- Synchronization primitives (`std::latch`, `std::barrier`, `std::semaphore`) — keep detection if used
+**Exception â€” features with unreliable library support:**
+- `std::format` â€” keep `FATP_HAS_FORMAT` detection and `ostringstream` fallback
+- `std::jthread` â€” keep detection if used
+- Synchronization primitives (`std::latch`, `std::barrier`, `std::semaphore`) â€” keep detection if used
 
 #### 1.1.4 Anti-Spaghetti Rules
 
@@ -217,17 +217,17 @@ Repository layout (paths are repo-relative):
 
 ```
 FatP/
-├── include/fat_p/              # Public headers (installed API surface)
-├── components/<Component>/     # Component-local sources, tests, benchmarks, docs
-│   ├── docs/
-│   ├── tests/
-│   ├── benchmarks/
-│   └── results/
-├── cmake/                      # CMake helpers (component discovery, options)
-├── tools/                      # Validation scripts and automation
-├── tooling/                    # Build tooling (vcpkg integration, etc.)
-├── ThirdParty/                 # Vendored sources (metadata-exempt)
-└── .github/workflows/          # CI workflows (metadata-exempt; YAML)
+â”œâ”€â”€ include/fat_p/              # Public headers (installed API surface)
+â”œâ”€â”€ components/<Component>/     # Component-local sources, tests, benchmarks, docs
+â”‚   â”œâ”€â”€ docs/
+â”‚   â”œâ”€â”€ tests/
+â”‚   â”œâ”€â”€ benchmarks/
+â”‚   â””â”€â”€ results/
+â”œâ”€â”€ cmake/                      # CMake helpers (component discovery, options)
+â”œâ”€â”€ tools/                      # Validation scripts and automation
+â”œâ”€â”€ tooling/                    # Build tooling (vcpkg integration, etc.)
+â”œâ”€â”€ ThirdParty/                 # Vendored sources (metadata-exempt)
+â””â”€â”€ .github/workflows/          # CI workflows (metadata-exempt; YAML)
 ```
 
 #### 1.7.1 Path conventions
@@ -275,7 +275,7 @@ Exclusions (no `FATP_META` required):
 Fat-P uses a six-layer architecture. Each header must declare exactly one layer via `FATP_META.layer`.
 
 ```
-Foundation → Containers → Concurrency → Domain → Integration → Testing
+Foundation â†’ Containers â†’ Concurrency â†’ Domain â†’ Integration â†’ Testing
 ```
 
 | Layer | Description | May Depend On |
@@ -483,16 +483,16 @@ Provide analysis as a prioritized list with:
 - Priority level (Critical / High / Medium / Low)
 - Comments explaining rationale
 
-**A review is analysis, not a rewrite.** The output of a review is a list of findings with targeted patches — not a complete rewritten file. This distinction is load-bearing.
+**A review is analysis, not a rewrite.** The output of a review is a list of findings with targeted patches â€” not a complete rewritten file. This distinction is load-bearing.
 
 | Review output | Allowed |
 |---------------|---------|
-| Prioritized finding list with evidence | **Yes** — this is the primary deliverable |
-| Targeted code patch (the specific lines that fix a finding) | **Yes** — keeps fixes auditable |
-| Complete rewritten file | **No** — unless the human explicitly requests it |
-| Unsolicited refactoring beyond the finding | **No** — review scope is the reported issue |
+| Prioritized finding list with evidence | **Yes** â€” this is the primary deliverable |
+| Targeted code patch (the specific lines that fix a finding) | **Yes** â€” keeps fixes auditable |
+| Complete rewritten file | **No** â€” unless the human explicitly requests it |
+| Unsolicited refactoring beyond the finding | **No** â€” review scope is the reported issue |
 
-**Why this matters:** When an AI returns a complete rewritten file instead of a finding list, the human cannot distinguish reviewed changes from unreviewed ones. Every line becomes suspect. Targeted patches make review findings auditable — the human can see exactly what changed and why.
+**Why this matters:** When an AI returns a complete rewritten file instead of a finding list, the human cannot distinguish reviewed changes from unreviewed ones. Every line becomes suspect. Targeted patches make review findings auditable â€” the human can see exactly what changed and why.
 
 **Escalation path:** If a finding requires changes so extensive that a targeted patch would be impractical, describe the scope of the change and ask whether the human wants a complete rewritten file. Do not provide one unprompted.
 
@@ -509,7 +509,7 @@ Provide analysis as a prioritized list with:
 
 | Rule | Detail |
 |------|--------|
-| **No unsolicited code** | Do not generate complete files unless the task is implementation (see §5.1.1 below) |
+| **No unsolicited code** | Do not generate complete files unless the task is implementation (see Â§5.1.1 below) |
 | **No explanatory files** | Do not generate `.md`, `.txt`, or explanation files unless requested |
 | **Preserve naming** | Never change file names or internal class names when modifying components |
 | **Complete files only** | **NEVER provide truncated files** -- always provide entire files (code, docs, tests, configs) |
@@ -524,9 +524,9 @@ The "no unsolicited code" rule depends on which mode the AI is operating in:
 
 | Mode | When | Code generation |
 |------|------|-----------------|
-| **Review / Advisory** | "Review this", "analyze", "what do you think of" | Findings list + targeted patches only. Never complete rewritten files (see §4.2). |
+| **Review / Advisory** | "Review this", "analyze", "what do you think of" | Findings list + targeted patches only. Never complete rewritten files (see Â§4.2). |
 | **Implementation** | "Implement this", "build", "create", "write the code" | Full file generation is the task. Produce complete, compilable files. |
-| **Modification** | "Fix this bug", "add this feature", "update" | Complete modified files with download links. Follow deliverable packaging protocol (§11.4). |
+| **Modification** | "Fix this bug", "add this feature", "update" | Complete modified files with download links. Follow deliverable packaging protocol (Â§11.4). |
 
 **When in doubt, ask.** If the request is ambiguous ("here's the code, what do you think?" could be review or a request to fix), ask whether the human wants analysis or modified files.
 
@@ -534,9 +534,9 @@ The "no unsolicited code" rule depends on which mode the AI is operating in:
 
 #### 5.1.2 Verification and Auditability (Compile / Run Claims)
 
-- I will never say “compiled/ran” unless I actually did it in this session.
-- When I do compile/run, I’ll include the exact commands and a verbatim snippet of the output (or a build log file), so it’s auditable.
-- If I can’t compile because something’s missing, I’ll say “not compiled” and list the precise blocker(s), instead of blending inferences with verification.
+- I will never say â€œcompiled/ranâ€ unless I actually did it in this session.
+- When I do compile/run, Iâ€™ll include the exact commands and a verbatim snippet of the output (or a build log file), so itâ€™s auditable.
+- If I canâ€™t compile because somethingâ€™s missing, Iâ€™ll say â€œnot compiledâ€ and list the precise blocker(s), instead of blending inferences with verification.
 
 ### 5.2 Formatting Standards
 
@@ -550,8 +550,8 @@ The `ColumnLimit` is set to 120 with a high `PenaltyExcessCharacter` to discoura
 **Line-length interpretation (for compliance / demerits):**
 
 - **Hard rule:** A line over **120 columns** is a guideline violation (unless an explicit exception applies).
-- **Preferred target:** 100 columns is the readability target (typical), but **101–120 is compliant**.
-- **Mentioning long lines:** Only flag 101–120 lines if they materially harm readability; do not treat them as violations.
+- **Preferred target:** 100 columns is the readability target (typical), but **101â€“120 is compliant**.
+- **Mentioning long lines:** Only flag 101â€“120 lines if they materially harm readability; do not treat them as violations.
 
 **Style configuration (clang-format):**
 
@@ -1301,8 +1301,8 @@ Local `using` directives improve readability in examples without polluting the g
 
 > *"If I grep the codebase (or imagine typical usage), will most calls use the return value?"*
 
-- If **yes** → `[[nodiscard]]` is appropriate
-- If **no** or **mixed** → `[[nodiscard]]` becomes a nuisance; omit it
+- If **yes** â†’ `[[nodiscard]]` is appropriate
+- If **no** or **mixed** â†’ `[[nodiscard]]` becomes a nuisance; omit it
 
 **Example -- `[[nodiscard]]` appropriate:**
 
@@ -1584,16 +1584,16 @@ When creating or modifying FATP_META blocks:
 
 1. **NEVER infer layer from component name** - "Vector" doesn't mean Containers, "Concurrency" doesn't mean Concurrency layer
 2. **Read the existing FATP_META** in the header file - it is authoritative
-3. **Check the include graph** - a header's layer must be ≥ all headers it includes
+3. **Check the include graph** - a header's layer must be â‰¥ all headers it includes
 4. **When uncertain, ASK** - do not guess or "correct" based on naming patterns
 5. **`*_Core.h` headers are typically Foundation** - they are minimal interfaces for broad use
 
 **Specific corrections that must never be reverted:**
 
 ```
-SimdVector.h            → layer: Foundation   (NOT Containers)
-DiagnosticLogger_Core.h → layer: Foundation   (NOT Domain)
-ConcurrencyPolicies.h   → layer: Foundation   (NOT Concurrency)
+SimdVector.h            â†’ layer: Foundation   (NOT Containers)
+DiagnosticLogger_Core.h â†’ layer: Foundation   (NOT Domain)
+ConcurrencyPolicies.h   â†’ layer: Foundation   (NOT Concurrency)
 ```
 
 These assignments are intentional and based on dependency analysis, not naming conventions.
@@ -1839,7 +1839,7 @@ g++ -std=c++20 -O3 -DNDEBUG -march=native -flto
 ### Before Submitting Code:
 
 - [ ] Compiles successfully
-- [ ] No truncated files (code, docs, tests, configs — all must be complete)
+- [ ] No truncated files (code, docs, tests, configs â€” all must be complete)
 - [ ] No AI process comments (`NEW`, `FIXED`, etc.)
 - [ ] Lines wrapped at 100 columns (120 max, macros exempt)
 - [ ] No special symbols or unusual characters
@@ -1928,6 +1928,38 @@ AI assistants **must not**:
 9. Preserve existing patterns solely because they exist
 10. Weigh "disruption" as a negative when evaluating fixes
 11. Return complete rewritten files when asked to **review** -- review output is a findings list with targeted patches, not a rewrite (see §4.2 and §5.1.1)
+12. Deliver a band-aid when the root cause is known -- if the AI has identified a structural root cause and knows a correct structural fix, it must implement the structural fix. Minimizing diff size, avoiding disruption, or "making the tests go green" are not valid reasons to ship a lesser fix and frame the correct fix as optional future work. This applies symmetrically: weakening a test to tolerate a known-defective implementation is not a fix (see §11.3.12 below)
+
+#### 11.3.12 The Band-Aid Rule
+
+> **If you know the root cause, fix the root cause.**
+
+AI assistants have a systemic tendency to identify the correct structural fix, describe it in detail, and then deliver a cheaper band-aid instead -- framing the real fix as "optional," "a second improvement," or "a larger change if you're willing to refactor." This is a violation regardless of whether the band-aid makes tests pass.
+
+**The obligation:** When the AI's own analysis identifies a structural defect (not just a symptom), the delivered fix must address the structural defect. The AI must not:
+
+- Ship a probabilistic mitigation when a provably correct fix is known
+- Weaken a test's detection threshold to accommodate a known-defective implementation
+- Frame the correct fix as optional ("If you want, I can also...")
+- Use diff size or disruption as justification for the lesser fix
+
+**Litmus test:** After delivering a fix, ask: *"If the user does not push back, does the product have a known structural defect that I could have eliminated?"* If yes, the fix is incomplete.
+
+**Permitted exceptions:**
+
+- The structural fix requires information the AI does not have (e.g., design intent, external constraints)
+- The structural fix would change public API semantics and needs human approval -- in this case, the AI must flag it as a blocker, not as optional
+- The user explicitly requests a minimal/tactical fix
+
+**Examples:**
+
+| Situation | Wrong | Right |
+|-----------|-------|-------|
+| AI identifies masked-index ABA as root cause of `size()` bug, knows monotonic counters eliminate it | Ship retry loop, offer monotonic rewrite as "optional second patch" | Implement monotonic counter rewrite |
+| Test has measurement flaw (timing skew), AI knows bracketed observation fixes it | Only fix the test, leave the header bug | Fix the header bug; fix the test measurement independently |
+| AI finds off-by-one in loop bound, also notices the loop's algorithm is O(n²) when O(n) exists | Fix the off-by-one only | Fix the off-by-one AND flag the algorithmic issue as a separate finding (the off-by-one is the assigned task; the algorithm is a discovery that must be surfaced, not silently deferred) |
+
+**Why this is load-bearing:** AI systems optimize for perceived helpfulness and completion speed. Shipping a band-aid feels like progress -- the tests go green, the user sees a diff, the conversation moves forward. But the product carries a known defect that will resurface. Two independent AI systems (Claude and ChatGPT) exhibited this identical pattern on the same bug, confirming it is a systemic tendency, not a one-off mistake.
 
 ### 11.4 Required AI Behaviors
 
@@ -1989,7 +2021,7 @@ Every AI-generated artifact must:
 - Follow required templates exactly
 - Include mandatory honesty elements ("Where it loses", caveats)
 - Use only allowed vocabulary
-- Provide complete files (never truncated — applies to code, documentation, tests, and configs)
+- Provide complete files (never truncated â€” applies to code, documentation, tests, and configs)
 - Provide download links only for files that were actually modified (do not attach unchanged files unless explicitly requested)
 - Include explicit namespace qualification
 
@@ -2214,12 +2246,13 @@ These governance mechanisms directly control AI output quality. Weakening them w
 | Element | Why It's Load-Bearing |
 |---------|----------------------|
 | **Authority hierarchy** | Development Guidelines > Style Guides > everything else. No exceptions, no "soft" overrides. |
-| **Vocabulary ban** (Section 8.2) | The single most effective AI control mechanism. "Fast" → "O(1)" forces specificity. |
+| **Vocabulary ban** (Section 8.2) | The single most effective AI control mechanism. "Fast" â†’ "O(1)" forces specificity. |
 | **Mandatory honesty sections** | "Where it loses", caveats, benchmark methodology. Prevents marketing-speak. |
 | **Template structures** | Four-Part Arc, container documentation format. Constrains generation paths. |
-| **Test namespace pattern** | `fat_p::testing::componentns` — prevents ODR violations across test files. |
+| **Test namespace pattern** | `fat_p::testing::componentns` â€” prevents ODR violations across test files. |
 | **Evidence requirements** (Section 11.8) | Counterexamples, verbatim quotes. Prevents hallucinated bug reports. |
-| **Review ≠ Rewrite** (Sections 4.2, 5.1.1) | Reviews produce findings + targeted patches, never complete rewritten files. Without this, review output is unauditable. |
+| **Review â‰  Rewrite** (Sections 4.2, 5.1.1) | Reviews produce findings + targeted patches, never complete rewritten files. Without this, review output is unauditable. |
+| **Band-Aid Rule** (Section 11.3.12) | If the root cause is known, fix the root cause. Without this, AIs systematically ship probabilistic mitigations and frame correct fixes as optional. |
 
 ### 12.2 Safe to Modify
 
@@ -2235,20 +2268,26 @@ These governance mechanisms directly control AI output quality. Weakening them w
 
 Before changing any rule, ask: *"Does this make AI output more constrained or less constrained?"*
 
-- More constrained → Probably fine
-- Less constrained → Requires explicit justification and testing
+- More constrained â†’ Probably fine
+- Less constrained â†’ Requires explicit justification and testing
 
 ---
 
 ## Changelog
 
+### v3.4 (February 2026)
+- Added item 12 to AI Non-Goals (§11.3): prohibition on delivering band-aids when root cause is known
+- Added Section 11.3.12: The Band-Aid Rule -- if the AI knows the root cause, it must fix the root cause
+- Added "Band-Aid Rule" to Load-Bearing Elements (§12.1)
+- Origin: CircularBuffer `size()` bug where two independent AIs (Claude and ChatGPT) both identified the correct structural fix (monotonic counters) but delivered cheaper mitigations and framed the real fix as optional
+
 ### v3.3 (February 2026)
 - Fixed stale C++17 references in benchmark build commands (Section 9.1, 9.2) and clang-format config (Section 5.2)
-- Clarified "no code unless requested" rule: renamed to "no unsolicited code" with explicit mode table (§5.1.1: Review / Implementation / Modification)
+- Clarified "no code unless requested" rule: renamed to "no unsolicited code" with explicit mode table (Â§5.1.1: Review / Implementation / Modification)
 - Expanded Section 4.2: Review output is findings + targeted patches, never complete rewritten files; added escalation path
-- Added item 11 to AI Non-Goals (§11.3): prohibition on returning rewritten files during review
-- Added "Review ≠ Rewrite" to Load-Bearing Elements (§12.1)
-- Removed redundant "do not generate code" from Section 4.3 (now covered by §4.2 and §5.1.1)
+- Added item 11 to AI Non-Goals (Â§11.3): prohibition on returning rewritten files during review
+- Added "Review â‰  Rewrite" to Load-Bearing Elements (Â§12.1)
+- Removed redundant "do not generate code" from Section 4.3 (now covered by Â§4.2 and Â§5.1.1)
 
 ### v3.2 (January 2026)
 - **BREAKING:** Changed minimum C++ standard from C++17 to C++20
@@ -2363,4 +2402,4 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.3 -- February 2026*
+*Fat-P Library Development Guidelines v3.4 -- February 2026*

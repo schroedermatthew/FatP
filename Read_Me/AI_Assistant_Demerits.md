@@ -18,7 +18,8 @@
 | Lied about capabilities |  |  |  | 1 |
 | Delivered corrupted code | 10 |  |  |  |
 | Making information up because did not bother to look at uploaded files | 5 |  |  |  |
+| Took the cheaper path and delivered it as if it were the fix | 5 | 5 |  |  |
 
 ---
 
-*Last updated: 2026-02-08*
+*Last updated: 2026-02-09*
