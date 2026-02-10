@@ -431,14 +431,14 @@ FATP_TEST_CASE(buffer_size_power_of_two)
 
     // Buffer size should be next power of 2 after Capacity + 1
     // Capacity 7: needs 8 slots minimum, next power of 2 is 8
-    FATP_ASSERT_TRUE(Buffer7::buffer_size() == 8, "Buffer size for capacity 7 should be 8");
+    FATP_ASSERT_TRUE(Buffer7::bufferSize() == 8, "Buffer size for capacity 7 should be 8");
 
     // Capacity 100: needs 101 slots minimum, next power of 2 is 128
-    FATP_ASSERT_TRUE(Buffer100::buffer_size() == 128, "Buffer size for capacity 100 should be 128");
+    FATP_ASSERT_TRUE(Buffer100::bufferSize() == 128, "Buffer size for capacity 100 should be 128");
 
     // Verify at compile time that buffer sizes are powers of 2
-    static_assert((Buffer7::buffer_size() & (Buffer7::buffer_size() - 1)) == 0, "Must be power of 2");
-    static_assert((Buffer100::buffer_size() & (Buffer100::buffer_size() - 1)) == 0, "Must be power of 2");
+    static_assert((Buffer7::bufferSize() & (Buffer7::bufferSize() - 1)) == 0, "Must be power of 2");
+    static_assert((Buffer100::bufferSize() & (Buffer100::bufferSize() - 1)) == 0, "Must be power of 2");
 
     return true;
 }
@@ -497,7 +497,7 @@ FATP_TEST_CASE(clear_and_destruct)
         }
 
         int before = destruct_count;
-        buffer.clear_and_destruct();
+        buffer.clearAndDestruct();
         FATP_ASSERT_TRUE(destruct_count > before, "clear_and_destruct should destruct elements");
         FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after clear_and_destruct");
     }
@@ -514,7 +514,7 @@ FATP_TEST_CASE(clear_and_destruct_allows_reuse)
         FATP_ASSERT_TRUE(buffer.push(std::to_string(i)), "Push should succeed");
     }
 
-    buffer.clear_and_destruct();
+    buffer.clearAndDestruct();
 
     FATP_ASSERT_TRUE(buffer.empty(), "Buffer should be empty after clear_and_destruct");
     FATP_ASSERT_TRUE(buffer.size() == 0, "Size should be 0 after clear_and_destruct");

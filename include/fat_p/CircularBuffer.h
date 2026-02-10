@@ -54,10 +54,10 @@ namespace detail
 // - GCC warns with -Winterference-size about value varying between compilers
 // 64 bytes is the pragmatic industry standard for x86-64 and ARM64.
 // We hardcode it to avoid warnings and ensure consistent ABI.
-inline constexpr size_t cache_line_size = 64;
+inline constexpr size_t kCacheLineSize = 64;
 
 // Round up to next power of 2 (or return n if already power of 2)
-constexpr size_t next_power_of_two(size_t n) noexcept
+constexpr size_t nextPowerOfTwo(size_t n) noexcept
 {
     if (n == 0)
     {
@@ -76,7 +76,7 @@ constexpr size_t next_power_of_two(size_t n) noexcept
     return n + 1;
 }
 
-constexpr bool is_power_of_two(size_t n) noexcept
+constexpr bool isPowerOfTwo(size_t n) noexcept
 {
     return n > 0 && (n & (n - 1)) == 0;
 }
@@ -116,10 +116,10 @@ constexpr bool is_power_of_two(size_t n) noexcept
  * - Provides ~1.7x throughput improvement on multi-core systems
  *
  * Memory ordering:
- * - Producer uses relaxed load on write_idx, acquire load on read_idx (when cache miss),
- *   release store on write_idx
- * - Consumer uses relaxed load on read_idx, acquire load on write_idx (when cache miss),
- *   release store on read_idx
+ * - Producer uses relaxed load on mWriteIdx, acquire load on mReadIdx (when cache miss),
+ *   release store on mWriteIdx
+ * - Consumer uses relaxed load on mReadIdx, acquire load on mWriteIdx (when cache miss),
+ *   release store on mReadIdx
  * - This ensures proper visibility of pushed elements to the consumer
  *
  * Performance characteristics:
@@ -148,33 +148,33 @@ public:
     using const_reference = const T&;
 
 private:
-    static constexpr size_t CACHE_LINE_SIZE = detail::cache_line_size;
+    static constexpr size_t kCacheLineSize = detail::kCacheLineSize;
 
     // Round up (Capacity + 1) to next power of 2 for efficient masking.
-    // The +1 ensures BUFFER_SIZE > Capacity, so that no two elements in the
+    // The +1 ensures kBufferSize > Capacity, so that no two elements in the
     // buffer (at most Capacity apart in monotonic index space) map to the same
     // array slot after masking.
-    static constexpr size_t BUFFER_SIZE = detail::next_power_of_two(Capacity + 1);
-    static constexpr size_t INDEX_MASK = BUFFER_SIZE - 1;
+    static constexpr size_t kBufferSize = detail::nextPowerOfTwo(Capacity + 1);
+    static constexpr size_t kIndexMask = kBufferSize - 1;
 
     // Verify our power-of-2 logic at compile time
-    static_assert(detail::is_power_of_two(BUFFER_SIZE), "Internal error: BUFFER_SIZE must be power of 2");
-    static_assert(BUFFER_SIZE > Capacity, "Internal error: BUFFER_SIZE must be greater than Capacity");
+    static_assert(detail::isPowerOfTwo(kBufferSize), "Internal error: kBufferSize must be power of 2");
+    static_assert(kBufferSize > Capacity, "Internal error: kBufferSize must be greater than Capacity");
 
     // Core indices - monotonically increasing, never masked on storage.
     // Masking is applied only when indexing into the backing array.
     // Each index lives on its own cache line to prevent false sharing.
-    alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_idx_{0};
-    alignas(CACHE_LINE_SIZE) std::atomic<size_t> write_idx_{0};
+    alignas(kCacheLineSize) std::atomic<size_t> mReadIdx{0};
+    alignas(kCacheLineSize) std::atomic<size_t> mWriteIdx{0};
 
     // Cached indices for index caching optimization.
-    // Producer caches consumer's read_idx to avoid cross-core atomic loads.
-    // Consumer caches producer's write_idx to avoid cross-core atomic loads.
+    // Producer caches consumer's mReadIdx to avoid cross-core atomic loads.
+    // Consumer caches producer's mWriteIdx to avoid cross-core atomic loads.
     // These are NOT atomic - only accessed by their respective threads.
-    alignas(CACHE_LINE_SIZE) mutable size_t cached_read_idx_{0};  // Producer's cache of read_idx
-    alignas(CACHE_LINE_SIZE) mutable size_t cached_write_idx_{0}; // Consumer's cache of write_idx
+    alignas(kCacheLineSize) mutable size_t mCachedReadIdx{0};  // Producer's cache of mReadIdx
+    alignas(kCacheLineSize) mutable size_t mCachedWriteIdx{0}; // Consumer's cache of mWriteIdx
 
-    alignas(CACHE_LINE_SIZE) std::unique_ptr<T[]> mBuffer;
+    alignas(kCacheLineSize) std::unique_ptr<T[]> mBuffer;
 
 public:
     /**
@@ -188,7 +188,7 @@ public:
      *       written before being read.
      */
     CircularBuffer()
-        : mBuffer(std::make_unique_for_overwrite<T[]>(BUFFER_SIZE))
+        : mBuffer(std::make_unique_for_overwrite<T[]>(kBufferSize))
     {
     }
 
@@ -213,21 +213,21 @@ public:
      */
     [[nodiscard]] bool push(const T& value) noexcept(std::is_nothrow_copy_assignable_v<T>)
     {
-        size_t write = write_idx_.load(std::memory_order_relaxed);
+        size_t write = mWriteIdx.load(std::memory_order_relaxed);
 
         // First check against cached read index (no cross-core traffic)
-        if (write - cached_read_idx_ >= Capacity)
+        if (write - mCachedReadIdx >= Capacity)
         {
             // Cache says full - refresh cache and recheck
-            cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
-            if (write - cached_read_idx_ >= Capacity)
+            mCachedReadIdx = mReadIdx.load(std::memory_order_acquire);
+            if (write - mCachedReadIdx >= Capacity)
             {
                 return false; // Actually full
             }
         }
 
-        mBuffer[write & INDEX_MASK] = value;
-        write_idx_.store(write + 1, std::memory_order_release);
+        mBuffer[write & kIndexMask] = value;
+        mWriteIdx.store(write + 1, std::memory_order_release);
         return true;
     }
 
@@ -242,21 +242,21 @@ public:
      */
     [[nodiscard]] bool push(T&& value) noexcept(std::is_nothrow_move_assignable_v<T>)
     {
-        size_t write = write_idx_.load(std::memory_order_relaxed);
+        size_t write = mWriteIdx.load(std::memory_order_relaxed);
 
         // First check against cached read index (no cross-core traffic)
-        if (write - cached_read_idx_ >= Capacity)
+        if (write - mCachedReadIdx >= Capacity)
         {
             // Cache says full - refresh cache and recheck
-            cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
-            if (write - cached_read_idx_ >= Capacity)
+            mCachedReadIdx = mReadIdx.load(std::memory_order_acquire);
+            if (write - mCachedReadIdx >= Capacity)
             {
                 return false; // Actually full
             }
         }
 
-        mBuffer[write & INDEX_MASK] = std::move(value);
-        write_idx_.store(write + 1, std::memory_order_release);
+        mBuffer[write & kIndexMask] = std::move(value);
+        mWriteIdx.store(write + 1, std::memory_order_release);
         return true;
     }
 
@@ -273,21 +273,21 @@ public:
     [[nodiscard]] bool emplace(Args&&... args)
         noexcept(std::is_nothrow_constructible_v<T, Args...> && std::is_nothrow_move_assignable_v<T>)
     {
-        size_t write = write_idx_.load(std::memory_order_relaxed);
+        size_t write = mWriteIdx.load(std::memory_order_relaxed);
 
         // First check against cached read index (no cross-core traffic)
-        if (write - cached_read_idx_ >= Capacity)
+        if (write - mCachedReadIdx >= Capacity)
         {
             // Cache says full - refresh cache and recheck
-            cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
-            if (write - cached_read_idx_ >= Capacity)
+            mCachedReadIdx = mReadIdx.load(std::memory_order_acquire);
+            if (write - mCachedReadIdx >= Capacity)
             {
                 return false; // Actually full
             }
         }
 
-        mBuffer[write & INDEX_MASK] = T(std::forward<Args>(args)...);
-        write_idx_.store(write + 1, std::memory_order_release);
+        mBuffer[write & kIndexMask] = T(std::forward<Args>(args)...);
+        mWriteIdx.store(write + 1, std::memory_order_release);
         return true;
     }
 
@@ -302,21 +302,21 @@ public:
      */
     [[nodiscard]] bool pop(T& value) noexcept(std::is_nothrow_move_assignable_v<T>)
     {
-        size_t read = read_idx_.load(std::memory_order_relaxed);
+        size_t read = mReadIdx.load(std::memory_order_relaxed);
 
         // First check against cached write index (no cross-core traffic)
-        if (read == cached_write_idx_)
+        if (read == mCachedWriteIdx)
         {
             // Cache says empty - refresh cache and recheck
-            cached_write_idx_ = write_idx_.load(std::memory_order_acquire);
-            if (read == cached_write_idx_)
+            mCachedWriteIdx = mWriteIdx.load(std::memory_order_acquire);
+            if (read == mCachedWriteIdx)
             {
                 return false; // Actually empty
             }
         }
 
-        value = std::move(mBuffer[read & INDEX_MASK]);
-        read_idx_.store(read + 1, std::memory_order_release);
+        value = std::move(mBuffer[read & kIndexMask]);
+        mReadIdx.store(read + 1, std::memory_order_release);
         return true;
     }
 
@@ -327,22 +327,22 @@ public:
      *
      * @note Only the consumer thread should call this
      * @note The returned pointer remains valid until the next successful pop() call
-     *       (or clear()/clear_and_destruct()).
+     *       (or clear()/clearAndDestruct()).
      * @note Under the SPSC contract, producer push()/emplace() does not invalidate
      *       this pointer while the front element remains in the buffer.
      */
     [[nodiscard]] const T* front() const noexcept
     {
-        size_t read = read_idx_.load(std::memory_order_relaxed);
+        size_t read = mReadIdx.load(std::memory_order_relaxed);
 
         // For front(), we need to be conservative - always check actual index
         // since front() might be called repeatedly without pop()
-        if (read == write_idx_.load(std::memory_order_acquire))
+        if (read == mWriteIdx.load(std::memory_order_acquire))
         {
             return nullptr;
         }
 
-        return &mBuffer[read & INDEX_MASK];
+        return &mBuffer[read & kIndexMask];
     }
 
     /**
@@ -371,22 +371,22 @@ public:
         // the brackets) forms a temporally consistent pair.
         //
         // Correctness argument (monotonic indices eliminate ABA):
-        //   - w1 == w2 proves write_idx didn't advance during the window
+        //   - w1 == w2 proves mWriteIdx didn't advance during the window
         //     (a 64-bit counter cannot cycle through 2^64 values in ~20ns).
-        //   - read_idx was loaded while write_idx was stable, so (w1, r) is
+        //   - mReadIdx was loaded while mWriteIdx was stable, so (w1, r) is
         //     a snapshot of a real queue state.
         //   - Since pop() never advances read past write, w1 >= r always.
         //   - Therefore w1 - r is the true element count. No range check needed.
         //
-        // Same argument applies symmetrically when stabilizing read_idx.
+        // Same argument applies symmetrically when stabilizing mReadIdx.
         for (int attempt = 0; attempt < 4; ++attempt)
         {
             if ((attempt & 1) == 0)
             {
-                // Stabilize write_idx
-                size_t w1 = write_idx_.load(std::memory_order_acquire);
-                size_t r  = read_idx_.load(std::memory_order_acquire);
-                size_t w2 = write_idx_.load(std::memory_order_acquire);
+                // Stabilize mWriteIdx
+                size_t w1 = mWriteIdx.load(std::memory_order_acquire);
+                size_t r  = mReadIdx.load(std::memory_order_acquire);
+                size_t w2 = mWriteIdx.load(std::memory_order_acquire);
                 if (w1 == w2)
                 {
                     return w1 - r;
@@ -394,10 +394,10 @@ public:
             }
             else
             {
-                // Stabilize read_idx
-                size_t r1 = read_idx_.load(std::memory_order_acquire);
-                size_t w  = write_idx_.load(std::memory_order_acquire);
-                size_t r2 = read_idx_.load(std::memory_order_acquire);
+                // Stabilize mReadIdx
+                size_t r1 = mReadIdx.load(std::memory_order_acquire);
+                size_t w  = mWriteIdx.load(std::memory_order_acquire);
+                size_t r2 = mReadIdx.load(std::memory_order_acquire);
                 if (r1 == r2)
                 {
                     return w - r1;
@@ -409,8 +409,8 @@ public:
         // Load read first, then write, so that w >= r is guaranteed by
         // monotonicity (write is at least as fresh as read). Clamp to
         // Capacity as a defensive bound against preemption-induced skew.
-        size_t r = read_idx_.load(std::memory_order_acquire);
-        size_t w = write_idx_.load(std::memory_order_acquire);
+        size_t r = mReadIdx.load(std::memory_order_acquire);
+        size_t w = mWriteIdx.load(std::memory_order_acquire);
         size_t d = w - r;
         return d <= Capacity ? d : Capacity;
     }
@@ -424,7 +424,7 @@ public:
      */
     [[nodiscard]] bool empty() const noexcept
     {
-        return read_idx_.load(std::memory_order_acquire) == write_idx_.load(std::memory_order_acquire);
+        return mReadIdx.load(std::memory_order_acquire) == mWriteIdx.load(std::memory_order_acquire);
     }
 
     /**
@@ -436,8 +436,8 @@ public:
      */
     [[nodiscard]] bool full() const noexcept
     {
-        size_t write = write_idx_.load(std::memory_order_acquire);
-        size_t read = read_idx_.load(std::memory_order_acquire);
+        size_t write = mWriteIdx.load(std::memory_order_acquire);
+        size_t read = mReadIdx.load(std::memory_order_acquire);
         return (write - read) >= Capacity;
     }
 
@@ -459,12 +459,12 @@ public:
      * @return Actual allocated buffer size (always >= Capacity + 1, power of 2)
      *
      * @note Useful for understanding memory usage. The difference between
-     *       buffer_size() and capacity() is overhead for the empty/full distinction
+     *       bufferSize() and capacity() is overhead for the empty/full distinction
      *       and power-of-2 alignment.
      */
-    [[nodiscard]] static constexpr size_t buffer_size() noexcept
+    [[nodiscard]] static constexpr size_t bufferSize() noexcept
     {
-        return BUFFER_SIZE;
+        return kBufferSize;
     }
 
     /**
@@ -472,7 +472,7 @@ public:
      *
      * For trivially destructible types, this simply resets the indices.
      * For non-trivial types (e.g., shared_ptr, containers), this automatically
-     * calls clear_and_destruct() to properly release resources.
+     * calls clearAndDestruct() to properly release resources.
      *
      * @warning NOT THREAD-SAFE. Call only when no other threads are accessing
      *          the buffer (e.g., during shutdown or reinitialization).
@@ -482,14 +482,14 @@ public:
         if constexpr (!std::is_trivially_destructible_v<T>)
         {
             // Auto-destruct non-trivial types to prevent resource leaks
-            clear_and_destruct();
+            clearAndDestruct();
         }
         else
         {
-            read_idx_.store(0, std::memory_order_relaxed);
-            write_idx_.store(0, std::memory_order_relaxed);
-            cached_read_idx_ = 0;
-            cached_write_idx_ = 0;
+            mReadIdx.store(0, std::memory_order_relaxed);
+            mWriteIdx.store(0, std::memory_order_relaxed);
+            mCachedReadIdx = 0;
+            mCachedWriteIdx = 0;
         }
     }
 
@@ -502,8 +502,8 @@ public:
      * @warning NOT THREAD-SAFE. Call only when no other threads are accessing
      *          the buffer.
      */
-    void clear_and_destruct() noexcept(std::is_nothrow_move_assignable_v<T>
-                                       && std::is_nothrow_destructible_v<T>)
+    void clearAndDestruct() noexcept(std::is_nothrow_move_assignable_v<T>
+                                     && std::is_nothrow_destructible_v<T>)
     {
         T tmp;
         while (pop(tmp))
@@ -513,10 +513,10 @@ public:
 
         // Reset indices and caches to the canonical empty state.
         // This is single-threaded by contract.
-        read_idx_.store(0, std::memory_order_relaxed);
-        write_idx_.store(0, std::memory_order_relaxed);
-        cached_read_idx_ = 0;
-        cached_write_idx_ = 0;
+        mReadIdx.store(0, std::memory_order_relaxed);
+        mWriteIdx.store(0, std::memory_order_relaxed);
+        mCachedReadIdx = 0;
+        mCachedWriteIdx = 0;
     }
 };
 
