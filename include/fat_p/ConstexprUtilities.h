@@ -585,6 +585,52 @@ struct constexpr_to_string_t
         return view();
     }
 
+
+    // String-view compatible accessors (enables drop-in replacement for string_view)
+    [[nodiscard]] constexpr size_t size() const noexcept { return length; }
+    [[nodiscard]] constexpr bool empty() const noexcept { return length == 0; }
+    [[nodiscard]] constexpr const char* data() const noexcept { return buffer; }
+    [[nodiscard]] constexpr char operator[](size_t i) const noexcept { return buffer[i]; }
+
+    [[nodiscard]] constexpr std::string_view substr(size_t pos = 0, size_t count = std::string_view::npos) const noexcept
+    {
+        return view().substr(pos, count);
+    }
+
+    [[nodiscard]] constexpr size_t find(char ch, size_t pos = 0) const noexcept
+    {
+        return view().find(ch, pos);
+    }
+
+    [[nodiscard]] constexpr size_t find(std::string_view sv, size_t pos = 0) const noexcept
+    {
+        return view().find(sv, pos);
+    }
+
+    [[nodiscard]] constexpr auto begin() const noexcept { return buffer; }
+    [[nodiscard]] constexpr auto end() const noexcept { return buffer + length; }
+
+    // Comparison operators for direct comparison with string literals and string_view
+    [[nodiscard]] friend constexpr bool operator==(const constexpr_to_string_t& lhs, std::string_view rhs) noexcept
+    {{
+        return lhs.view() == rhs;
+    }}
+
+    [[nodiscard]] friend constexpr bool operator!=(const constexpr_to_string_t& lhs, std::string_view rhs) noexcept
+    {{
+        return lhs.view() != rhs;
+    }}
+
+    [[nodiscard]] friend constexpr bool operator==(std::string_view lhs, const constexpr_to_string_t& rhs) noexcept
+    {{
+        return lhs == rhs.view();
+    }}
+
+    [[nodiscard]] friend constexpr bool operator!=(std::string_view lhs, const constexpr_to_string_t& rhs) noexcept
+    {{
+        return lhs != rhs.view();
+    }}
+
     /// @brief Stream output support.
     friend std::ostream& operator<<(std::ostream& os, const constexpr_to_string_t& conv)
     {
@@ -768,6 +814,52 @@ struct float_to_string_t
         return view();
     }
 
+
+    // String-view compatible accessors (enables drop-in replacement for string_view)
+    [[nodiscard]] constexpr size_t size() const noexcept { return length; }
+    [[nodiscard]] constexpr bool empty() const noexcept { return length == 0; }
+    [[nodiscard]] constexpr const char* data() const noexcept { return buffer; }
+    [[nodiscard]] constexpr char operator[](size_t i) const noexcept { return buffer[i]; }
+
+    [[nodiscard]] constexpr std::string_view substr(size_t pos = 0, size_t count = std::string_view::npos) const noexcept
+    {
+        return view().substr(pos, count);
+    }
+
+    [[nodiscard]] constexpr size_t find(char ch, size_t pos = 0) const noexcept
+    {
+        return view().find(ch, pos);
+    }
+
+    [[nodiscard]] constexpr size_t find(std::string_view sv, size_t pos = 0) const noexcept
+    {
+        return view().find(sv, pos);
+    }
+
+    [[nodiscard]] constexpr auto begin() const noexcept { return buffer; }
+    [[nodiscard]] constexpr auto end() const noexcept { return buffer + length; }
+
+    // Comparison operators for direct comparison with string literals and string_view
+    [[nodiscard]] friend constexpr bool operator==(const float_to_string_t& lhs, std::string_view rhs) noexcept
+    {{
+        return lhs.view() == rhs;
+    }}
+
+    [[nodiscard]] friend constexpr bool operator!=(const float_to_string_t& lhs, std::string_view rhs) noexcept
+    {{
+        return lhs.view() != rhs;
+    }}
+
+    [[nodiscard]] friend constexpr bool operator==(std::string_view lhs, const float_to_string_t& rhs) noexcept
+    {{
+        return lhs == rhs.view();
+    }}
+
+    [[nodiscard]] friend constexpr bool operator!=(std::string_view lhs, const float_to_string_t& rhs) noexcept
+    {{
+        return lhs != rhs.view();
+    }}
+
     /// @brief Stream output support.
     friend std::ostream& operator<<(std::ostream& os, const float_to_string_t& conv)
     {
@@ -859,6 +951,52 @@ struct to_hex_string_t
     {
         return view();
     }
+
+
+    // String-view compatible accessors (enables drop-in replacement for string_view)
+    [[nodiscard]] constexpr size_t size() const noexcept { return length; }
+    [[nodiscard]] constexpr bool empty() const noexcept { return length == 0; }
+    [[nodiscard]] constexpr const char* data() const noexcept { return buffer; }
+    [[nodiscard]] constexpr char operator[](size_t i) const noexcept { return buffer[i]; }
+
+    [[nodiscard]] constexpr std::string_view substr(size_t pos = 0, size_t count = std::string_view::npos) const noexcept
+    {
+        return view().substr(pos, count);
+    }
+
+    [[nodiscard]] constexpr size_t find(char ch, size_t pos = 0) const noexcept
+    {
+        return view().find(ch, pos);
+    }
+
+    [[nodiscard]] constexpr size_t find(std::string_view sv, size_t pos = 0) const noexcept
+    {
+        return view().find(sv, pos);
+    }
+
+    [[nodiscard]] constexpr auto begin() const noexcept { return buffer; }
+    [[nodiscard]] constexpr auto end() const noexcept { return buffer + length; }
+
+    // Comparison operators for direct comparison with string literals and string_view
+    [[nodiscard]] friend constexpr bool operator==(const to_hex_string_t& lhs, std::string_view rhs) noexcept
+    {{
+        return lhs.view() == rhs;
+    }}
+
+    [[nodiscard]] friend constexpr bool operator!=(const to_hex_string_t& lhs, std::string_view rhs) noexcept
+    {{
+        return lhs.view() != rhs;
+    }}
+
+    [[nodiscard]] friend constexpr bool operator==(std::string_view lhs, const to_hex_string_t& rhs) noexcept
+    {{
+        return lhs == rhs.view();
+    }}
+
+    [[nodiscard]] friend constexpr bool operator!=(std::string_view lhs, const to_hex_string_t& rhs) noexcept
+    {{
+        return lhs != rhs.view();
+    }}
 
     /// @brief Stream output support.
     friend std::ostream& operator<<(std::ostream& os, const to_hex_string_t& conv)
