@@ -168,6 +168,18 @@ FATP_META:
 #define FATP_HAS_NUMA 0
 #endif
 
+// Cache line size (bytes).
+// Consumers may override by defining FATP_CACHE_LINE_SIZE before including Fat-P.
+//   - Apple Silicon (M1/M2/M3): 128-byte coherency granule
+//   - x86/x64, most ARM: 64 bytes
+#ifndef FATP_CACHE_LINE_SIZE
+#if FATP_PLATFORM_MACOS && FATP_ARCH_ARM64
+#define FATP_CACHE_LINE_SIZE 128
+#else
+#define FATP_CACHE_LINE_SIZE 64
+#endif
+#endif
+
 // =============================================================================
 // Build Configuration
 // =============================================================================

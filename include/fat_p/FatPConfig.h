@@ -38,10 +38,9 @@ FATP_META:
 // =============================================================================
 // Cache line size
 // =============================================================================
+// Defined in PlatformDetection.h (hardware feature detection).
 // Consumers may override by defining FATP_CACHE_LINE_SIZE before including Fat-P.
-#ifndef FATP_CACHE_LINE_SIZE
-#define FATP_CACHE_LINE_SIZE 64
-#endif
+#include "PlatformDetection.h"
 
 // =============================================================================
 // [[no_unique_address]] compatibility

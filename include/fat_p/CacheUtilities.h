@@ -117,32 +117,23 @@ namespace cache_constants
 {
 
 /**
- * @brief L1 cache line size in bytes
- */
-inline constexpr size_t l1_line_size_v =
-#if defined(FATP_CACHE_X86)
-    64 // Standard for all x86/x64
-#elif defined(__APPLE__) && defined(__aarch64__)
-    128 // Apple Silicon (M1/M2/M3) uses 128-byte lines
-#elif defined(FATP_CACHE_ARM)
-    64 // Most ARM processors (Cortex-A series)
-#else
-    64 // Conservative default
-#endif
-    ;
-
-/**
- * @brief Hardware destructive interference size (minimum spacing to avoid false sharing)
+ * @brief Hardware destructive interference size (minimum spacing to avoid false sharing).
  *
- * On Apple Silicon, the coherency granule is 128 bytes, meaning two variables
- * within 128 bytes of each other can cause false sharing.
+ * Derived from FATP_CACHE_LINE_SIZE (defined in FatPConfig.h with platform
+ * detection). On Apple Silicon the coherency granule is 128 bytes, meaning
+ * two variables within 128 bytes of each other can cause false sharing.
+ *
+ * This is the constant to use for alignas() padding between independently
+ * accessed data (e.g., producer vs consumer indices).
  */
-inline constexpr size_t destructive_interference_size_v = l1_line_size_v;
+inline constexpr size_t destructive_interference_size_v = config::cache_line_size;
 
 /**
- * @brief Hardware constructive interference size (maximum size for co-located data)
+ * @brief Hardware constructive interference size (maximum size for co-located data).
+ *
+ * Data within this size will share a cache line, benefiting from spatial locality.
  */
-inline constexpr size_t constructive_interference_size_v = l1_line_size_v;
+inline constexpr size_t constructive_interference_size_v = config::cache_line_size;
 
 } // namespace cache_constants
 
@@ -154,17 +145,17 @@ class CacheInfo
 public:
     static constexpr size_t l1_line_size() noexcept
     {
-        return cache_constants::l1_line_size_v;
+        return config::cache_line_size;
     }
 
     static constexpr size_t l2_line_size() noexcept
     {
-        return cache_constants::l1_line_size_v; // Usually same as L1
+        return config::cache_line_size; // Usually same as L1
     }
 
     static constexpr size_t l3_line_size() noexcept
     {
-        return cache_constants::l1_line_size_v; // Usually same as L1
+        return config::cache_line_size; // Usually same as L1
     }
 
     static constexpr size_t destructive_interference_size() noexcept
@@ -266,7 +257,7 @@ inline void prefetch_range(const void* addr, size_t size) noexcept
         return;
     }
 
-    constexpr size_t line_size = cache_constants::l1_line_size_v;
+    constexpr size_t line_size = config::cache_line_size;
     const char* ptr = static_cast<const char*>(addr);
     const char* end = ptr + size;
 
@@ -340,7 +331,7 @@ inline void flush_cache_range(const void* addr, size_t size) noexcept
         return;
     }
 
-    constexpr size_t line_size = cache_constants::l1_line_size_v;
+    constexpr size_t line_size = config::cache_line_size;
     const char* ptr = static_cast<const char*>(addr);
     const char* end = ptr + size;
 
