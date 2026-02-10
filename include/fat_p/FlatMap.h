@@ -431,25 +431,22 @@ private:
     Storage mData;
     Compare mComp;
 
-    // Helper to detect if Compare has is_transparent
-    template <typename C, typename = void>
-    struct HasIsTransparent : std::false_type
+    // Conditionally provides is_transparent tag via base class
+    // Uses concepts::transparent (from Concepts.h) instead of SFINAE trait
+    template <typename C, bool = concepts::transparent<C>>
+    struct TransparentBase
     {
     };
 
     template <typename C>
-    struct HasIsTransparent<C, std::void_t<typename C::is_transparent>> : std::true_type
+    struct TransparentBase<C, true>
     {
+        using is_transparent = typename C::is_transparent;
     };
 
-    struct KeyCompare
+    struct KeyCompare : TransparentBase<Compare>
     {
         Compare mComp;
-
-        // Enable is_transparent if the underlying comparator has it
-        // This allows heterogeneous lookup (e.g., find("literal") without creating std::string)
-        template <typename C = Compare, typename = std::enable_if_t<HasIsTransparent<C>::value>>
-        using is_transparent = typename C::is_transparent;
 
         // Standard overloads for InternalPair comparisons
         bool operator()(const InternalPair& a, const InternalPair& b) const
@@ -485,7 +482,7 @@ private:
 
     KeyCompare keyValueComp() const
     {
-        return KeyCompare{mComp};
+        return KeyCompare{{}, mComp};
     }
 
     bool keysEquivalent(const Key& a, const Key& b) const
