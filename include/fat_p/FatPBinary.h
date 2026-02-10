@@ -44,15 +44,8 @@ FATP_META:
  * C++20, header-only
  */
 
-// These headers can be mocked for standalone testing
-#ifndef FATP_EXPECTED_H
 #include "Expected.h"
-#endif
-
-#ifndef FATP_HPC_VECTOR_H
 #include "HpcVector.h"
-#endif
-
 #include "BinaryLite.h"
 
 #include <cstdint>

@@ -25,6 +25,11 @@ FATP_META:
     mode: manual
 */
 
+/**
+ * @file FatPBenchmarkHeader.h
+ * @brief Standardized benchmark header output utilities.
+ */
+
 // ===========================================================================
 // FatPBenchmarkHeader.h - Standardized benchmark header output
 // ===========================================================================

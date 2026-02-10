@@ -25,6 +25,7 @@ FATP_META:
     by: fatp-meta-tool
     mode: autogen
 */
+
 /**
  * @file CborStreamLite.h
  * @brief Streaming CBOR parser with incremental DOM construction
@@ -115,7 +116,7 @@ struct CborTagged
     CborTagged(const CborTagged& other);
     CborTagged& operator=(const CborTagged& other);
 
-    // Move support Ã¢â‚¬â€ defined after CborValue is complete
+    // Move support ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â defined after CborValue is complete
     CborTagged(CborTagged&&) noexcept;
     CborTagged& operator=(CborTagged&&) noexcept;
 

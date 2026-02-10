@@ -139,6 +139,11 @@ FATP_META:
     mode: autogen
 */
 
+/**
+ * @file IncludeAllFatPHeaders.h
+ * @brief Compile-only hygiene gate that includes all public Fat-P headers.
+ */
+
 // test_include_all_headers.cpp
 //
 // Compile-only hygiene gate for Fat-P.
