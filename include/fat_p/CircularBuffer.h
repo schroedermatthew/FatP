@@ -40,8 +40,8 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 
-#include "CacheUtilities.h"
 #include "ConstexprBitOps.h"
+#include "FatPConfig.h"
 
 namespace fat_p
 {
@@ -118,7 +118,7 @@ public:
     using const_reference = const T&;
 
 private:
-    static constexpr size_t kCacheLineSize = perf::cache_constants::destructive_interference_size_v;
+    static constexpr size_t kCacheLineSize = config::cache_line_size;
 
     // Round up (Capacity + 1) to next power of 2 for efficient masking.
     // The +1 ensures kBufferSize > Capacity, so that no two elements in the
