@@ -150,9 +150,9 @@ FATP_TEST_CASE(reset_stats_accuracy)
 {
     StringPool<> pool;
 
-    pool.intern("test1"); // +6 bytes (5 + null)
-    pool.intern("test2"); // +6 bytes
-    pool.intern("test1"); // hit, saved 6
+    (void)pool.intern("test1"); // +6 bytes (5 + null)
+    (void)pool.intern("test2"); // +6 bytes
+    (void)pool.intern("test1"); // hit, saved 6
 
     auto stats_before = pool.stats();
     FATP_ASSERT_EQ(stats_before.content_bytes, size_t(12), "Pre-reset content_bytes");
@@ -250,9 +250,9 @@ FATP_TEST_CASE(clear_behavior)
 {
     StringPool<> pool;
 
-    pool.intern("test1");
-    pool.intern("test2");
-    pool.intern("test1");
+    (void)pool.intern("test1");
+    (void)pool.intern("test2");
+    (void)pool.intern("test1");
 
     auto stats_before = pool.stats();
     FATP_ASSERT_TRUE(stats_before.unique_strings == 2, "Should have 2 unique strings");
@@ -275,9 +275,9 @@ FATP_TEST_CASE(reset_stats)
 {
     StringPool<> pool;
 
-    pool.intern("test1");
-    pool.intern("test2");
-    pool.intern("test1");
+    (void)pool.intern("test1");
+    (void)pool.intern("test2");
+    (void)pool.intern("test1");
 
     auto stats_before = pool.stats();
     FATP_ASSERT_TRUE(stats_before.total_interns == 3, "Should have 3 total interns");
@@ -298,7 +298,7 @@ FATP_TEST_CASE(contains_and_find)
 {
     StringPool<> pool;
 
-    pool.intern("exists");
+    (void)pool.intern("exists");
 
     FATP_ASSERT_TRUE(pool.contains("exists"), "Should contain interned string");
     FATP_ASSERT_TRUE(!pool.contains("not_exists"), "Should not contain non-interned string");
@@ -337,14 +337,14 @@ FATP_TEST_CASE(size_and_empty)
     FATP_ASSERT_TRUE(pool.empty(), "New pool should be empty");
     FATP_ASSERT_EQ(pool.size(), size_t(0), "New pool size should be 0");
 
-    pool.intern("first");
+    (void)pool.intern("first");
     FATP_ASSERT_TRUE(!pool.empty(), "Pool should not be empty after intern");
     FATP_ASSERT_EQ(pool.size(), size_t(1), "Pool size should be 1");
 
-    pool.intern("second");
+    (void)pool.intern("second");
     FATP_ASSERT_EQ(pool.size(), size_t(2), "Pool size should be 2");
 
-    pool.intern("first");
+    (void)pool.intern("first");
     FATP_ASSERT_EQ(pool.size(), size_t(2), "Pool size should still be 2 after duplicate");
 
     return true;
@@ -354,12 +354,12 @@ FATP_TEST_CASE(hit_rate_calculation)
 {
     StringPool<> pool;
 
-    pool.intern("a");
-    pool.intern("b");
-    pool.intern("c");
-    pool.intern("a");
-    pool.intern("b");
-    pool.intern("a");
+    (void)pool.intern("a");
+    (void)pool.intern("b");
+    (void)pool.intern("c");
+    (void)pool.intern("a");
+    (void)pool.intern("b");
+    (void)pool.intern("a");
 
     auto stats = pool.stats();
 
@@ -380,7 +380,7 @@ FATP_TEST_CASE(statistics_accuracy)
 
     const std::string test_str = "test123";
 
-    pool.intern(test_str);
+    (void)pool.intern(test_str);
     auto stats1 = pool.stats();
 
     FATP_ASSERT_EQ(stats1.content_bytes, size_t(8), "Should track 8 bytes (7 + null)");
@@ -388,7 +388,7 @@ FATP_TEST_CASE(statistics_accuracy)
     FATP_ASSERT_EQ(stats1.total_interns, size_t(1), "Should have 1 total intern");
     FATP_ASSERT_EQ(stats1.memory_saved, size_t(0), "No savings on first intern");
 
-    pool.intern(test_str);
+    (void)pool.intern(test_str);
     auto stats2 = pool.stats();
 
     FATP_ASSERT_EQ(stats2.content_bytes, size_t(8), "Content bytes shouldn't change");
@@ -579,7 +579,7 @@ FATP_TEST_CASE(concurrent_read_write)
     // Pre-populate with some strings
     for (int i = 0; i < 100; ++i)
     {
-        pool.intern("preload_" + std::to_string(i));
+        (void)pool.intern("preload_" + std::to_string(i));
     }
 
     std::atomic<int> read_success{0};
@@ -634,7 +634,7 @@ FATP_TEST_CASE(concurrent_clear)
     auto interner = [&pool, &done, &intern_count]() {
         while (!done.load(std::memory_order_acquire))
         {
-            pool.intern("test_string");
+            (void)pool.intern("test_string");
             intern_count.fetch_add(1, std::memory_order_relaxed);
         }
     };
@@ -692,7 +692,7 @@ FATP_TEST_CASE(concurrent_reads)
     // Pre-populate
     for (int i = 0; i < 100; ++i)
     {
-        pool.intern("key_" + std::to_string(i));
+        (void)pool.intern("key_" + std::to_string(i));
     }
 
     std::atomic<size_t> successes{0};
@@ -789,7 +789,7 @@ FATP_TEST_CASE(reserve_capacity)
     // Bulk insert without rehashing
     for (int i = 0; i < 500; ++i)
     {
-        pool.intern("string_" + std::to_string(i));
+        (void)pool.intern("string_" + std::to_string(i));
     }
 
     FATP_ASSERT_EQ(pool.size(), size_t(500), "Should have 500 unique strings");
@@ -812,7 +812,7 @@ FATP_TEST_CASE(concurrent_stats_consistency)
         int i = 0;
         while (!done.load(std::memory_order_acquire))
         {
-            pool.intern("concurrent_" + std::to_string(i++ % 100));
+            (void)pool.intern("concurrent_" + std::to_string(i++ % 100));
         }
     };
 

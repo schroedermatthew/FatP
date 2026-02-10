@@ -30,8 +30,6 @@ FATP_META:
  * @file StringPool.h
  * @brief High-performance string interning pool with policy-based thread safety
  *
- *
- *
  * @details String pooling (interning) for memory-efficient string storage.
  * Deduplicates identical strings, returning references to single canonical copy.
  *
@@ -77,23 +75,12 @@ FATP_META:
  * std::cout << "Memory saved: " << stats.memory_saved << " bytes\n";
  * @endcode
  *
- * Compilation: Requires C++17, optimized for C++20
- * - g++ -std=c++17 -O3 your_code.cpp
- *
- * @section cpp20_optimization C++20 Performance Note
- * In C++17, every lookup (intern, find, contains) with a string_view argument
- * requires constructing a temporary std::string, potentially causing heap
- * allocation for strings exceeding SSO capacity (~15-22 chars).
- *
- * In C++20+, heterogeneous lookup (P0919R3) enables zero-allocation lookups
- * directly with string_view. For HPC workloads with many lookups, C++20 is
- * strongly recommended.
+ * Compilation: Requires C++20
+ * - g++ -std=c++20 -O3 your_code.cpp
  */
 
 #include <atomic>
-#include <cstring>
 #include <functional>
-#include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -260,7 +247,7 @@ public:
      * Thread-safe: Depends on SyncPolicy
      * Complexity: O(1) average
      */
-    const char* intern(std::string_view str)
+    [[nodiscard]] const char* intern(std::string_view str)
     {
         {
             [[maybe_unused]] auto read_lock = sync_policy_.lock_shared();
@@ -300,7 +287,7 @@ public:
      * @param str Null-terminated C string (nullptr returns interned empty string)
      * @return Pointer to interned string
      */
-    const char* intern(const char* str)
+    [[nodiscard]] const char* intern(const char* str)
     {
         if (!str)
         {
@@ -314,7 +301,7 @@ public:
      * @param str String to intern
      * @return Pointer to interned string
      */
-    const char* intern(const std::string& str)
+    [[nodiscard]] const char* intern(const std::string& str)
     {
         return intern(std::string_view(str));
     }
@@ -324,7 +311,7 @@ public:
      * @param str String to check
      * @return true if string exists in pool
      */
-    bool contains(std::string_view str) const noexcept
+    [[nodiscard]] bool contains(std::string_view str) const noexcept
     {
         [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         return mStrings.find(str) != mStrings.end();
@@ -335,7 +322,7 @@ public:
      * @param str String to find
      * @return Pointer to interned string, or nullptr if not found
      */
-    const char* find(std::string_view str) const noexcept
+    [[nodiscard]] const char* find(std::string_view str) const noexcept
     {
         [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         auto it = mStrings.find(str);
@@ -345,7 +332,7 @@ public:
     /**
      * @brief Get number of unique strings
      */
-    size_t size() const noexcept
+    [[nodiscard]] size_t size() const noexcept
     {
         [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         return mStrings.size();
@@ -354,7 +341,7 @@ public:
     /**
      * @brief Check if pool is empty
      */
-    bool empty() const noexcept
+    [[nodiscard]] bool empty() const noexcept
     {
         [[maybe_unused]] auto lock = sync_policy_.lock_shared();
         return mStrings.empty();
@@ -404,7 +391,7 @@ public:
      * terminator), not actual heap allocations. Due to Small String Optimization
      * (SSO), strings under ~15-22 characters may not allocate heap memory at all.
      */
-    StringPoolStats stats() const noexcept
+    [[nodiscard]] StringPoolStats stats() const noexcept
     {
         [[maybe_unused]] auto lock = sync_policy_.lock_shared();
 
@@ -474,12 +461,12 @@ public:
     {
     }
 
-    const char* get() const noexcept
+    [[nodiscard]] const char* get() const noexcept
     {
         return mPtr;
     }
 
-    const char* c_str() const noexcept
+    [[nodiscard]] const char* c_str() const noexcept
     {
         return mPtr ? mPtr : "";
     }
@@ -497,11 +484,6 @@ public:
     bool operator==(const StringHandle& other) const noexcept
     {
         return mPtr == other.mPtr;
-    }
-
-    bool operator!=(const StringHandle& other) const noexcept
-    {
-        return mPtr != other.mPtr;
     }
 
     /**
