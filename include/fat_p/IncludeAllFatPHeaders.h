@@ -39,6 +39,9 @@ FATP_META:
       - include/fat_p/ComparisonTolerances.h
       - include/fat_p/Concepts.h
       - include/fat_p/ConcurrencyPolicies.h
+      - include/fat_p/ConstexprBitOps.h
+      - include/fat_p/ConstexprHash.h
+      - include/fat_p/ConstexprStringConversion.h
       - include/fat_p/ConstexprUtilities.h
       - include/fat_p/ContractException.h
       - include/fat_p/CoroutineTask.h
@@ -168,6 +171,9 @@ FATP_META:
 #include "ComparisonTolerances.h"
 #include "Concepts.h"
 #include "ConcurrencyPolicies.h"
+#include "ConstexprBitOps.h"
+#include "ConstexprHash.h"
+#include "ConstexprStringConversion.h"
 #include "ConstexprUtilities.h"
 #include "ContractException.h"
 #include "CoroutineTask.h"

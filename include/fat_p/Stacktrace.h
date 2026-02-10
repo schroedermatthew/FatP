@@ -86,7 +86,7 @@ FATP_META:
 // =============================================================================
 
 // C++23 std::stacktrace detection
-// __has_include(<stacktrace>) alone is insufficient — some implementations ship the header
+// __has_include(<stacktrace>) alone is insufficient â€” some implementations ship the header
 // without the actual std::stacktrace class (e.g., Clang-17 with libstdc++). The feature-test
 // macro __cpp_lib_stacktrace (P0881R7, >= 202011L) is the authoritative signal.
 #if FATP_CPP23_OR_LATER && defined(__has_include)
@@ -139,6 +139,7 @@ FATP_META:
 #include <cxxabi.h>
 #include <dlfcn.h>
 #include <libunwind.h>
+#undef UNW_LOCAL_ONLY
 #endif
 
 #if FATP_HAS_EXECINFO && !FATP_HAS_LIBUNWIND && !FATP_HAS_STD_STACKTRACE

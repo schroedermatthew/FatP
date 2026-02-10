@@ -142,20 +142,11 @@ inline void* aligned_alloc_portable(size_t alignment, size_t size) noexcept
     size_t aligned_size = align_size(size, alignment);
 
 #if defined(__linux__)
-#if FATP_CPP17_OR_LATER
     return std::aligned_alloc(alignment, aligned_size);
-#else
-    void* ptr = nullptr;
-    if (posix_memalign(&ptr, alignment, aligned_size) != 0)
-    {
-        return nullptr;
-    }
-    return ptr;
-#endif
 #elif defined(_WIN32)
     return _aligned_malloc(aligned_size, alignment);
 #else
-    // Generic C++17 fallback - use std::aligned_alloc
+    // Generic fallback - use std::aligned_alloc
     // Note: std::aligned_alloc requires alignment to be a power of 2
     // and size to be a multiple of alignment (handled by align_size above)
     return std::aligned_alloc(alignment, aligned_size);
@@ -168,7 +159,7 @@ inline void aligned_free_portable(void* ptr) noexcept
 #if defined(_WIN32)
     _aligned_free(ptr);
 #else
-    // On Linux and generic platforms, aligned_alloc/posix_memalign freed with std::free
+    // On Linux and generic platforms, std::aligned_alloc freed with std::free
     std::free(ptr);
 #endif
 }

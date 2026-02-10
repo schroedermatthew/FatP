@@ -16,7 +16,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 61
+    defines_total: 38
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -65,7 +65,6 @@ FATP_META:
 #endif
 
 #define FATP_CPP20_OR_LATER 1
-#define FATP_CPP17_OR_LATER 1
 
 // =============================================================================
 // C++20 Library Features (Implementation-Dependent)
@@ -208,42 +207,3 @@ inline constexpr const char* cplusplus_string() noexcept
 
 } // namespace fat_p
 
-// =============================================================================
-// DEPRECATED - Backward Compatibility Only
-// =============================================================================
-// DELETE WHEN: All call sites have been updated to remove #if guards for these
-// features. With C++20 minimum, these are always available and the macros
-// are redundant. Just use the features directly.
-//
-// Migration: Remove `#if FATP_HAS_X` guards and use the feature unconditionally.
-// =============================================================================
-
-// C++20 language features - always available, just use them
-#define FATP_HAS_CONCEPTS 1
-#define FATP_HAS_DESIGNATED_INIT 1
-#define FATP_HAS_CONSTEVAL 1
-#define FATP_HAS_CONSTINIT 1
-#define FATP_HAS_SPACESHIP 1
-
-// C++20 library features - always available, just #include and use
-#define FATP_HAS_STD_SPAN 1
-#define FATP_HAS_RANGES 1
-#define FATP_HAS_BIT_CAST 1
-#define FATP_HAS_TO_ARRAY 1
-#define FATP_HAS_STARTS_ENDS_WITH 1
-#define FATP_HAS_ERASE_IF 1
-#define FATP_HAS_LIB_THREE_WAY_COMPARISON 1
-#define FATP_HAS_SOURCE_LOCATION 1
-#define FATP_HAS_GENERIC_UNORDERED_LOOKUP 1
-
-// C++17 library features - always available in C++20
-#define FATP_HAS_OPTIONAL 1
-#define FATP_HAS_VARIANT 1
-#define FATP_HAS_STRING_VIEW 1
-#define FATP_HAS_FILESYSTEM 1
-
-// Version aliases - use FATP_CPP23_OR_LATER / FATP_CPP26_OR_LATER instead
-#define FATP_HAS_CPP17 1
-#define FATP_HAS_CPP20 1
-#define FATP_HAS_CPP23 FATP_CPP23_OR_LATER
-#define FATP_HAS_CPP26 FATP_CPP26_OR_LATER
