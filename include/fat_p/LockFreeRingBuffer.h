@@ -212,25 +212,13 @@ public:
         , mWritePos(0)
         , mReadPos(0)
     {
-        // C++17 requires explicit lifetime start for trivially copyable types
-        // allocated via raw memory functions (posix_memalign, _aligned_malloc).
-        // Without this, writing to mBuffer[i] is technically UB in C++17.
-        // C++20 implicit-lifetime rules make this less critical, but we target C++17.
-        for (size_t i = 0; i < mCapacity; ++i)
-        {
-            ::new (static_cast<void*>(&mBuffer[i])) T();
-        }
+        // C++20 implicit-lifetime rules: trivially copyable types (enforced by
+        // static_assert above) are implicitly created in raw allocated storage.
+        // No placement-new needed.
     }
 
     ~LockFreeRingBuffer()
     {
-        // Explicit destruction for C++17 lifetime correctness.
-        // For trivially destructible types this is a no-op, but makes
-        // the lifetime contract explicit and pairs with placement-new above.
-        for (size_t i = 0; i < mCapacity; ++i)
-        {
-            mBuffer[i].~T();
-        }
         lockfree_ringbuffer_detail::freeAligned(mBuffer);
     }
 

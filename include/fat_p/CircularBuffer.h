@@ -40,8 +40,6 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 
-#include "CppFeatureDetection.h"
-
 namespace fat_p
 {
 

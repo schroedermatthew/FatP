@@ -154,10 +154,17 @@ public:
             mCachedResult = mFuture.get();
             return *mCachedResult;
         }
-        return unexpected(E("Not ready"));
+        return unexpected(notReadyError());
     }
 
     // Cancel not directly supported in std::future, but could add promise-based version later
+
+private:
+    static const E& notReadyError()
+    {
+        static const E kInstance("Not ready");
+        return kInstance;
+    }
 };
 
 template <typename Func, typename... Args>
