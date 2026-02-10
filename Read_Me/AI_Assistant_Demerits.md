@@ -8,7 +8,7 @@
 |-----------|---------|--------|--------|------|
 | Did not read Guidelines carefully | | 9 | | |
 | Did not follow code naming conventions | 1 | 1 |  |  |
-| Delivered code without compiling | 1 | 1 |  |  |
+| Delivered code without compiling | 1 | 2 |  |  |
 | Lied about compiling and testing | 1 | | | |
 | Provided links to documents that were not changed | 3 | 3 |  |  |
 | Asked user to perform edits instead of providing corrected files | 1 |  |  |  |
@@ -22,4 +22,4 @@
 
 ---
 
-*Last updated: 2026-02-09*
+*Last updated: 2026-02-10*
