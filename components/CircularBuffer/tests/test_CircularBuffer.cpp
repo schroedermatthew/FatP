@@ -722,11 +722,11 @@ FATP_TEST_CASE(size_semantic_correctness)
     // that they are reasonably close.
     //
     // Methodology: bracket size() with two ref_count reads (before and
-    // after) and use whichever is closer to the reported size. This
-    // eliminates false positives caused by thread preemption between
-    // size() and a single ref_count read, which on constrained CI
-    // runners can produce timing-skew errors exceeding CAP/2 even
-    // when size() itself is correct.
+    // after) and take whichever is closer to the reported value. This
+    // eliminates false positives from preemption between size() and a
+    // single ref_count read — on constrained CI runners, hundreds of
+    // items can flow through the queue during a scheduling gap, producing
+    // measurement skew that exceeds CAP/2 even when size() is correct.
     //
     // The free-space bug produces errors proportional to Capacity
     // regardless of observation timing, so bracketing does not mask it.
@@ -739,8 +739,8 @@ FATP_TEST_CASE(size_semantic_correctness)
         size_t reported_size = buffer.size();
         int ref_after = ref_count.load(std::memory_order_acquire);
 
-        // Use whichever ref_count snapshot is temporally closer to
-        // the size() call, minimizing observation skew.
+        // Use whichever ref_count snapshot is temporally closer to the
+        // size() call, minimizing observation skew.
         size_t rb = static_cast<size_t>(std::max(ref_before, 0));
         size_t ra = static_cast<size_t>(std::max(ref_after, 0));
 
@@ -748,10 +748,8 @@ FATP_TEST_CASE(size_semantic_correctness)
         size_t err_a = (reported_size > ra) ? (reported_size - ra) : (ra - reported_size);
         size_t error = (err_b < err_a) ? err_b : err_a;
 
-        // The free-space bug produces errors near Capacity (~1020 for
-        // a 1024-element buffer). With bracketed observation the timing
-        // skew component is typically single-digit; CAP/2 remains a
-        // wide margin that catches the bug without false positives.
+        // The free-space bug produces errors near Capacity (~1020 for a
+        // 1024-element buffer). CAP/2 catches it with wide margin.
         if (error > CAP / 2)
         {
             semantic_violations.fetch_add(1, std::memory_order_relaxed);

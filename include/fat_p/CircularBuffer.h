@@ -97,6 +97,12 @@ constexpr bool is_power_of_two(size_t n) noexcept
  * The internal buffer size is rounded up to the next power of 2 (if not already)
  * to enable efficient bitwise AND masking instead of expensive modulo operations.
  *
+ * Index design: indices are monotonically increasing counters that are never
+ * masked on storage. Masking is applied only when indexing into the backing
+ * array. This eliminates the class of torn-snapshot bugs where a masked index
+ * pair can produce an in-range-but-wrong distance, because the unsigned
+ * difference of two monotonic counters is always the true element count.
+ *
  * Thread safety model:
  * - Exactly one producer thread may call push() / emplace()
  * - Exactly one consumer thread may call pop() / front()
@@ -119,7 +125,7 @@ constexpr bool is_power_of_two(size_t n) noexcept
  * Performance characteristics:
  * - Wait-free push/pop: O(1) guaranteed completion
  * - ~300-360M ops/sec SPSC throughput
- * - Bitwise AND masking for index wraparound (faster than modulo)
+ * - Bitwise AND masking for array access (faster than modulo)
  *
  * @note For trivially copyable types requiring MPMC support, see LockFreeRingBuffer.
  * @note For dynamic capacity needs, see LockFreeQueue.
@@ -144,8 +150,10 @@ public:
 private:
     static constexpr size_t CACHE_LINE_SIZE = detail::cache_line_size;
 
-    // Round up (Capacity + 1) to next power of 2 for efficient masking
-    // The +1 is needed to distinguish full from empty (one slot always unused)
+    // Round up (Capacity + 1) to next power of 2 for efficient masking.
+    // The +1 ensures BUFFER_SIZE > Capacity, so that no two elements in the
+    // buffer (at most Capacity apart in monotonic index space) map to the same
+    // array slot after masking.
     static constexpr size_t BUFFER_SIZE = detail::next_power_of_two(Capacity + 1);
     static constexpr size_t INDEX_MASK = BUFFER_SIZE - 1;
 
@@ -153,30 +161,20 @@ private:
     static_assert(detail::is_power_of_two(BUFFER_SIZE), "Internal error: BUFFER_SIZE must be power of 2");
     static_assert(BUFFER_SIZE > Capacity, "Internal error: BUFFER_SIZE must be greater than Capacity");
 
-    // Core indices - each on its own cache line to prevent false sharing
+    // Core indices - monotonically increasing, never masked on storage.
+    // Masking is applied only when indexing into the backing array.
+    // Each index lives on its own cache line to prevent false sharing.
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> read_idx_{0};
     alignas(CACHE_LINE_SIZE) std::atomic<size_t> write_idx_{0};
 
-    // Cached indices for index caching optimization
-    // Producer caches consumer's read_idx to avoid cross-core atomic loads
-    // Consumer caches producer's write_idx to avoid cross-core atomic loads
-    // These are NOT atomic - only accessed by their respective threads
+    // Cached indices for index caching optimization.
+    // Producer caches consumer's read_idx to avoid cross-core atomic loads.
+    // Consumer caches producer's write_idx to avoid cross-core atomic loads.
+    // These are NOT atomic - only accessed by their respective threads.
     alignas(CACHE_LINE_SIZE) mutable size_t cached_read_idx_{0};  // Producer's cache of read_idx
     alignas(CACHE_LINE_SIZE) mutable size_t cached_write_idx_{0}; // Consumer's cache of write_idx
 
     alignas(CACHE_LINE_SIZE) std::unique_ptr<T[]> mBuffer;
-
-    // Efficient index increment using bitwise AND (no division)
-    static constexpr size_t next_index(size_t idx) noexcept
-    {
-        return (idx + 1) & INDEX_MASK;
-    }
-
-    // Calculate distance between indices (handles wraparound)
-    static constexpr size_t index_distance(size_t write, size_t read) noexcept
-    {
-        return (write - read) & INDEX_MASK;
-    }
 
 public:
     /**
@@ -218,18 +216,18 @@ public:
         size_t write = write_idx_.load(std::memory_order_relaxed);
 
         // First check against cached read index (no cross-core traffic)
-        if (index_distance(write, cached_read_idx_) >= Capacity)
+        if (write - cached_read_idx_ >= Capacity)
         {
             // Cache says full - refresh cache and recheck
             cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
-            if (index_distance(write, cached_read_idx_) >= Capacity)
+            if (write - cached_read_idx_ >= Capacity)
             {
                 return false; // Actually full
             }
         }
 
-        mBuffer[write] = value;
-        write_idx_.store(next_index(write), std::memory_order_release);
+        mBuffer[write & INDEX_MASK] = value;
+        write_idx_.store(write + 1, std::memory_order_release);
         return true;
     }
 
@@ -247,18 +245,18 @@ public:
         size_t write = write_idx_.load(std::memory_order_relaxed);
 
         // First check against cached read index (no cross-core traffic)
-        if (index_distance(write, cached_read_idx_) >= Capacity)
+        if (write - cached_read_idx_ >= Capacity)
         {
             // Cache says full - refresh cache and recheck
             cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
-            if (index_distance(write, cached_read_idx_) >= Capacity)
+            if (write - cached_read_idx_ >= Capacity)
             {
                 return false; // Actually full
             }
         }
 
-        mBuffer[write] = std::move(value);
-        write_idx_.store(next_index(write), std::memory_order_release);
+        mBuffer[write & INDEX_MASK] = std::move(value);
+        write_idx_.store(write + 1, std::memory_order_release);
         return true;
     }
 
@@ -272,23 +270,24 @@ public:
      * @note Only one thread may call emplace() (the producer thread)
      */
     template <typename... Args>
-    [[nodiscard]] bool emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+    [[nodiscard]] bool emplace(Args&&... args)
+        noexcept(std::is_nothrow_constructible_v<T, Args...> && std::is_nothrow_move_assignable_v<T>)
     {
         size_t write = write_idx_.load(std::memory_order_relaxed);
 
         // First check against cached read index (no cross-core traffic)
-        if (index_distance(write, cached_read_idx_) >= Capacity)
+        if (write - cached_read_idx_ >= Capacity)
         {
             // Cache says full - refresh cache and recheck
             cached_read_idx_ = read_idx_.load(std::memory_order_acquire);
-            if (index_distance(write, cached_read_idx_) >= Capacity)
+            if (write - cached_read_idx_ >= Capacity)
             {
                 return false; // Actually full
             }
         }
 
-        mBuffer[write] = T(std::forward<Args>(args)...);
-        write_idx_.store(next_index(write), std::memory_order_release);
+        mBuffer[write & INDEX_MASK] = T(std::forward<Args>(args)...);
+        write_idx_.store(write + 1, std::memory_order_release);
         return true;
     }
 
@@ -316,8 +315,8 @@ public:
             }
         }
 
-        value = std::move(mBuffer[read]);
-        read_idx_.store(next_index(read), std::memory_order_release);
+        value = std::move(mBuffer[read & INDEX_MASK]);
+        read_idx_.store(read + 1, std::memory_order_release);
         return true;
     }
 
@@ -343,7 +342,7 @@ public:
             return nullptr;
         }
 
-        return &mBuffer[read];
+        return &mBuffer[read & INDEX_MASK];
     }
 
     /**
@@ -355,18 +354,31 @@ public:
      *       producer and consumer are active concurrently
      * @note The returned value is always in the range [0, Capacity]
      * @note Safe to call from any thread
+     *
+     * @note Complexity: O(1), two atomic loads
+     * @note Thread-safety: safe to call from any thread
      */
     [[nodiscard]] size_t size() const noexcept
     {
-        // Double-read stabilization (seqlock-like) for consistent snapshots.
+        // With monotonic indices, (write - read) is always the true element
+        // count — but only when both values come from the same instant.
+        // Loading two separate atomics is not atomic: if the observer is
+        // preempted between loads, the stale/fresh pair can produce a
+        // wrapped unsigned difference (SIZE_MAX-scale), not a real count.
         //
-        // In an SPSC queue, write_idx_ and read_idx_ are each monotonically
-        // increasing with exactly one writer.  If we bracket one index with
-        // two reads and it has not changed, the other index -- read between
-        // the two bracketing loads -- forms a temporally consistent snapshot.
+        // Double-read stabilization solves this: bracket one index with two
+        // reads, and if it hasn't changed, the other index (read between
+        // the brackets) forms a temporally consistent pair.
         //
-        // Alternating which index we stabilize ensures convergence: one of
-        // the two indices must be momentarily quiescent within a few attempts.
+        // Correctness argument (monotonic indices eliminate ABA):
+        //   - w1 == w2 proves write_idx didn't advance during the window
+        //     (a 64-bit counter cannot cycle through 2^64 values in ~20ns).
+        //   - read_idx was loaded while write_idx was stable, so (w1, r) is
+        //     a snapshot of a real queue state.
+        //   - Since pop() never advances read past write, w1 >= r always.
+        //   - Therefore w1 - r is the true element count. No range check needed.
+        //
+        // Same argument applies symmetrically when stabilizing read_idx.
         for (int attempt = 0; attempt < 4; ++attempt)
         {
             if ((attempt & 1) == 0)
@@ -377,8 +389,7 @@ public:
                 size_t w2 = write_idx_.load(std::memory_order_acquire);
                 if (w1 == w2)
                 {
-                    size_t d = index_distance(w1, r);
-                    return d <= Capacity ? d : 0;
+                    return w1 - r;
                 }
             }
             else
@@ -389,21 +400,19 @@ public:
                 size_t r2 = read_idx_.load(std::memory_order_acquire);
                 if (r1 == r2)
                 {
-                    size_t d = index_distance(w, r1);
-                    return d <= Capacity ? d : Capacity;
+                    return w - r1;
                 }
             }
         }
 
-        // Exhausted retries: both indices racing simultaneously.
-        // Practically unreachable -- requires producer and consumer
-        // to each advance their index during every ~20 ns load window
-        // for 4 consecutive iterations.
-        // Take a final best-effort snapshot and clamp.
-        size_t w = write_idx_.load(std::memory_order_acquire);
+        // Exhausted retries: both indices advancing during every load window.
+        // Load read first, then write, so that w >= r is guaranteed by
+        // monotonicity (write is at least as fresh as read). Clamp to
+        // Capacity as a defensive bound against preemption-induced skew.
         size_t r = read_idx_.load(std::memory_order_acquire);
-        size_t d = index_distance(w, r);
-        return d <= Capacity ? d : Capacity / 2;
+        size_t w = write_idx_.load(std::memory_order_acquire);
+        size_t d = w - r;
+        return d <= Capacity ? d : Capacity;
     }
 
     /**
@@ -429,7 +438,7 @@ public:
     {
         size_t write = write_idx_.load(std::memory_order_acquire);
         size_t read = read_idx_.load(std::memory_order_acquire);
-        return index_distance(write, read) >= Capacity;
+        return (write - read) >= Capacity;
     }
 
     /**
@@ -493,7 +502,8 @@ public:
      * @warning NOT THREAD-SAFE. Call only when no other threads are accessing
      *          the buffer.
      */
-    void clear_and_destruct() noexcept(std::is_nothrow_destructible_v<T>)
+    void clear_and_destruct() noexcept(std::is_nothrow_move_assignable_v<T>
+                                       && std::is_nothrow_destructible_v<T>)
     {
         T tmp;
         while (pop(tmp))
