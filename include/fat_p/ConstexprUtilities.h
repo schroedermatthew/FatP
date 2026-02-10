@@ -41,7 +41,6 @@ FATP_META:
 #include <concepts>
 #include <cstdint>
 #include <iosfwd>
-#include <ostream>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -499,11 +498,15 @@ template <std::unsigned_integral T>
 // String Conversion Utilities
 // =============================================================================
 
-
 // Buffer pool size for thread-local converters.
-// 64 slots provides ample headroom for complex expressions including nested
-// logging calls and constexpr_concat chains. Each slot is reused after 64
-// subsequent calls to the same to_string_view overload.
+// Each to_string_view overload maintains its own rotating pool of this many
+// slots. A returned string_view is invalidated after STRING_POOL_SIZE more
+// calls to the *same* overload on the same thread. 64 slots provides ample
+// headroom for complex expressions, nested logging, and constexpr_concat
+// chains. The previous value of 16 was too low for real-world usage patterns
+// involving multiple conversions in a single statement or call tree.
+//
+// If you need a value to survive beyond one expression, copy to std::string.
 inline constexpr std::size_t STRING_POOL_SIZE = 64;
 
 /**
@@ -584,85 +587,23 @@ struct constexpr_to_string_t
     {
         return {buffer, length};
     }
-
-    /// @brief Implicit conversion to string_view for streaming/logging.
-    [[nodiscard]] constexpr operator std::string_view() const noexcept
-    {
-        return view();
-    }
-
-
-    // String-view compatible accessors (enables drop-in replacement for string_view)
-    [[nodiscard]] constexpr size_t size() const noexcept { return length; }
-    [[nodiscard]] constexpr bool empty() const noexcept { return length == 0; }
-    [[nodiscard]] constexpr const char* data() const noexcept { return buffer; }
-    [[nodiscard]] constexpr char operator[](size_t i) const noexcept { return buffer[i]; }
-
-    [[nodiscard]] constexpr std::string_view substr(size_t pos = 0, size_t count = std::string_view::npos) const noexcept
-    {
-        return view().substr(pos, count);
-    }
-
-    [[nodiscard]] constexpr size_t find(char ch, size_t pos = 0) const noexcept
-    {
-        return view().find(ch, pos);
-    }
-
-    [[nodiscard]] constexpr size_t find(std::string_view sv, size_t pos = 0) const noexcept
-    {
-        return view().find(sv, pos);
-    }
-
-    [[nodiscard]] constexpr auto begin() const noexcept { return buffer; }
-    [[nodiscard]] constexpr auto end() const noexcept { return buffer + length; }
-
-    // Comparison operators for direct comparison with string literals and string_view
-    [[nodiscard]] friend constexpr bool operator==(const constexpr_to_string_t& lhs, std::string_view rhs) noexcept
-    {{
-        return lhs.view() == rhs;
-    }}
-
-    [[nodiscard]] friend constexpr bool operator!=(const constexpr_to_string_t& lhs, std::string_view rhs) noexcept
-    {{
-        return lhs.view() != rhs;
-    }}
-
-    [[nodiscard]] friend constexpr bool operator==(std::string_view lhs, const constexpr_to_string_t& rhs) noexcept
-    {{
-        return lhs == rhs.view();
-    }}
-
-    [[nodiscard]] friend constexpr bool operator!=(std::string_view lhs, const constexpr_to_string_t& rhs) noexcept
-    {{
-        return lhs != rhs.view();
-    }}
-
-    /// @brief Stream output support.
-    friend std::ostream& operator<<(std::ostream& os, const constexpr_to_string_t& conv)
-    {
-        return os << conv.view();
-    }
 };
 
 /**
  * @brief Convert integral value to string_view using thread-local buffer pool.
  *
- * Uses a rotating pool of STRING_POOL_SIZE thread-local buffers to support
- * multiple calls in the same expression without interference, including
- * nested logging calls and constexpr_concat chains.
+ * Uses a rotating pool of 16 thread-local buffers to support multiple calls
+ * in the same expression without interference, including nested logging calls.
  *
  * @tparam T Integral type (any size, signed or unsigned).
  * @param value Value to convert.
- * @return std::string_view String representation. Valid until STRING_POOL_SIZE
- *         more calls to this overload on the same thread.
+ * @return std::string_view String representation (valid until 16 more calls).
  *
- * @warning The returned view is invalidated after STRING_POOL_SIZE subsequent
- *          calls. For persistent storage, copy to std::string immediately.
+ * @warning The returned view is invalidated after 16 subsequent calls.
  * @note Thread-safe via thread-local storage.
  *
  * @example
  *   std::cout << to_string_view(10) << " + " << to_string_view(20);  // Safe
- *   std::string saved(to_string_view(42));  // Safe — copies into owned string
  */
 template <std::integral T>
 [[nodiscard]] inline std::string_view to_string_view(T value) noexcept
@@ -825,78 +766,19 @@ struct float_to_string_t
     {
         return {buffer, length};
     }
-
-    /// @brief Implicit conversion to string_view for streaming/logging.
-    [[nodiscard]] operator std::string_view() const noexcept
-    {
-        return view();
-    }
-
-
-    // String-view compatible accessors (enables drop-in replacement for string_view)
-    [[nodiscard]] constexpr size_t size() const noexcept { return length; }
-    [[nodiscard]] constexpr bool empty() const noexcept { return length == 0; }
-    [[nodiscard]] constexpr const char* data() const noexcept { return buffer; }
-    [[nodiscard]] constexpr char operator[](size_t i) const noexcept { return buffer[i]; }
-
-    [[nodiscard]] constexpr std::string_view substr(size_t pos = 0, size_t count = std::string_view::npos) const noexcept
-    {
-        return view().substr(pos, count);
-    }
-
-    [[nodiscard]] constexpr size_t find(char ch, size_t pos = 0) const noexcept
-    {
-        return view().find(ch, pos);
-    }
-
-    [[nodiscard]] constexpr size_t find(std::string_view sv, size_t pos = 0) const noexcept
-    {
-        return view().find(sv, pos);
-    }
-
-    [[nodiscard]] constexpr auto begin() const noexcept { return buffer; }
-    [[nodiscard]] constexpr auto end() const noexcept { return buffer + length; }
-
-    // Comparison operators for direct comparison with string literals and string_view
-    [[nodiscard]] friend constexpr bool operator==(const float_to_string_t& lhs, std::string_view rhs) noexcept
-    {{
-        return lhs.view() == rhs;
-    }}
-
-    [[nodiscard]] friend constexpr bool operator!=(const float_to_string_t& lhs, std::string_view rhs) noexcept
-    {{
-        return lhs.view() != rhs;
-    }}
-
-    [[nodiscard]] friend constexpr bool operator==(std::string_view lhs, const float_to_string_t& rhs) noexcept
-    {{
-        return lhs == rhs.view();
-    }}
-
-    [[nodiscard]] friend constexpr bool operator!=(std::string_view lhs, const float_to_string_t& rhs) noexcept
-    {{
-        return lhs != rhs.view();
-    }}
-
-    /// @brief Stream output support.
-    friend std::ostream& operator<<(std::ostream& os, const float_to_string_t& conv)
-    {
-        return os << conv.view();
-    }
 };
 
 /**
- * @brief Convert floating-point value to string_view using thread-local buffer pool.
+ * @brief Convert floating-point value to string_view.
  *
  * @tparam T Floating-point type (float, double, long double).
  * @param value Value to convert.
  * @param precision Decimal places (0-15, default: 6).
- * @return std::string_view String representation. Valid until STRING_POOL_SIZE
- *         more calls to this overload on the same thread.
+ * @return std::string_view String representation.
  *
  * @note Returns "nan", "inf", "-inf" for special values.
  * @note Returns "overflow" or "-overflow" for values > 2^53.
- * @warning The returned view is invalidated after STRING_POOL_SIZE subsequent calls.
+ * @warning The returned view is invalidated after 16 subsequent calls.
  */
 template <std::floating_point T>
 [[nodiscard]] inline std::string_view to_string_view(T value, int precision = 6) noexcept
@@ -972,77 +854,18 @@ struct to_hex_string_t
     {
         return {buffer, length};
     }
-
-    /// @brief Implicit conversion to string_view for streaming/logging.
-    [[nodiscard]] constexpr operator std::string_view() const noexcept
-    {
-        return view();
-    }
-
-
-    // String-view compatible accessors (enables drop-in replacement for string_view)
-    [[nodiscard]] constexpr size_t size() const noexcept { return length; }
-    [[nodiscard]] constexpr bool empty() const noexcept { return length == 0; }
-    [[nodiscard]] constexpr const char* data() const noexcept { return buffer; }
-    [[nodiscard]] constexpr char operator[](size_t i) const noexcept { return buffer[i]; }
-
-    [[nodiscard]] constexpr std::string_view substr(size_t pos = 0, size_t count = std::string_view::npos) const noexcept
-    {
-        return view().substr(pos, count);
-    }
-
-    [[nodiscard]] constexpr size_t find(char ch, size_t pos = 0) const noexcept
-    {
-        return view().find(ch, pos);
-    }
-
-    [[nodiscard]] constexpr size_t find(std::string_view sv, size_t pos = 0) const noexcept
-    {
-        return view().find(sv, pos);
-    }
-
-    [[nodiscard]] constexpr auto begin() const noexcept { return buffer; }
-    [[nodiscard]] constexpr auto end() const noexcept { return buffer + length; }
-
-    // Comparison operators for direct comparison with string literals and string_view
-    [[nodiscard]] friend constexpr bool operator==(const to_hex_string_t& lhs, std::string_view rhs) noexcept
-    {{
-        return lhs.view() == rhs;
-    }}
-
-    [[nodiscard]] friend constexpr bool operator!=(const to_hex_string_t& lhs, std::string_view rhs) noexcept
-    {{
-        return lhs.view() != rhs;
-    }}
-
-    [[nodiscard]] friend constexpr bool operator==(std::string_view lhs, const to_hex_string_t& rhs) noexcept
-    {{
-        return lhs == rhs.view();
-    }}
-
-    [[nodiscard]] friend constexpr bool operator!=(std::string_view lhs, const to_hex_string_t& rhs) noexcept
-    {{
-        return lhs != rhs.view();
-    }}
-
-    /// @brief Stream output support.
-    friend std::ostream& operator<<(std::ostream& os, const to_hex_string_t& conv)
-    {
-        return os << conv.view();
-    }
 };
 
 /**
- * @brief Convert unsigned integer to hexadecimal string_view using thread-local buffer pool.
+ * @brief Convert unsigned integer to hexadecimal string_view.
  *
  * @tparam T Unsigned integral type.
  * @param value Value to convert.
  * @param prefix If true, prepend "0x" or "0X" (default: true).
  * @param uppercase If true, use A-F instead of a-f (default: false).
- * @return std::string_view Hexadecimal representation. Valid until STRING_POOL_SIZE
- *         more calls to this overload on the same thread.
+ * @return std::string_view Hexadecimal representation.
  *
- * @warning The returned view is invalidated after STRING_POOL_SIZE subsequent calls.
+ * @warning The returned view is invalidated after 16 subsequent calls.
  *
  * @example
  *   to_hex_string_view(255u);              // "0xff"
