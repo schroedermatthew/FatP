@@ -41,39 +41,10 @@ FATP_META:
 #include <utility>
 
 #include "CacheUtilities.h"
+#include "ConstexprBitOps.h"
 
 namespace fat_p
 {
-
-namespace detail
-{
-
-// Round up to next power of 2 (or return n if already power of 2)
-constexpr size_t nextPowerOfTwo(size_t n) noexcept
-{
-    if (n == 0)
-    {
-        return 1;
-    }
-    --n;
-    n |= n >> 1;
-    n |= n >> 2;
-    n |= n >> 4;
-    n |= n >> 8;
-    n |= n >> 16;
-    if constexpr (sizeof(size_t) >= 8)
-    {
-        n |= n >> 32;
-    }
-    return n + 1;
-}
-
-constexpr bool isPowerOfTwo(size_t n) noexcept
-{
-    return n > 0 && (n & (n - 1)) == 0;
-}
-
-} // namespace detail
 
 // ============================================================================
 // CircularBuffer Implementation
@@ -153,11 +124,11 @@ private:
     // The +1 ensures kBufferSize > Capacity, so that no two elements in the
     // buffer (at most Capacity apart in monotonic index space) map to the same
     // array slot after masking.
-    static constexpr size_t kBufferSize = detail::nextPowerOfTwo(Capacity + 1);
+    static constexpr size_t kBufferSize = next_power_of_two(static_cast<size_t>(Capacity + 1));
     static constexpr size_t kIndexMask = kBufferSize - 1;
 
     // Verify our power-of-2 logic at compile time
-    static_assert(detail::isPowerOfTwo(kBufferSize), "Internal error: kBufferSize must be power of 2");
+    static_assert(is_power_of_two(kBufferSize), "Internal error: kBufferSize must be power of 2");
     static_assert(kBufferSize > Capacity, "Internal error: kBufferSize must be greater than Capacity");
 
     // Core indices - monotonically increasing, never masked on storage.

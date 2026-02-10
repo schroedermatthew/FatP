@@ -55,9 +55,7 @@ FATP_META:
 #include <stdexcept>
 #include <string>
 
-#ifdef _MSC_VER
-#include <intrin.h>
-#endif
+#include "ConstexprBitOps.h"
 
 namespace fat_p
 {
@@ -65,122 +63,24 @@ namespace fat_p
 namespace detail
 {
 
-// Brian Kernighan's algorithm - O(k) where k = number of set bits
-inline constexpr size_t popcnt64_fallback(uint64_t x) noexcept
+// Thin wrappers around fat_p::popcount/ctz/clz (from ConstexprBitOps.h)
+// preserving the size_t return type and detail:: namespace that BitSet's
+// call sites expect. The canonical implementations live in ConstexprBitOps.h
+// with full MSVC intrinsic support (Systemic Hygiene Policy Rule E).
+
+inline constexpr size_t popcnt64(uint64_t x) noexcept
 {
-    size_t count = 0;
-    while (x)
-    {
-        x &= x - 1;
-        ++count;
-    }
-    return count;
+    return static_cast<size_t>(popcount(x));
 }
 
-inline constexpr size_t ctz64_fallback(uint64_t x) noexcept
+inline constexpr size_t ctz64(uint64_t x) noexcept
 {
-    if (x == 0)
-    {
-        return 64;
-    }
-    size_t count = 0;
-    while ((x & 1) == 0)
-    {
-        ++count;
-        x >>= 1;
-    }
-    return count;
+    return static_cast<size_t>(ctz(x));
 }
 
-inline constexpr size_t clz64_fallback(uint64_t x) noexcept
+inline constexpr size_t clz64(uint64_t x) noexcept
 {
-    if (x == 0)
-    {
-        return 64;
-    }
-    size_t count = 0;
-    while ((x & (1ULL << 63)) == 0)
-    {
-        ++count;
-        x <<= 1;
-    }
-    return count;
-}
-
-inline size_t popcnt64(uint64_t x) noexcept
-{
-#if defined(_MSC_VER)
-#if defined(_M_X64) || defined(_M_AMD64)
-    return static_cast<size_t>(__popcnt64(x));
-#else
-    const unsigned int lo = static_cast<unsigned int>(x);
-    const unsigned int hi = static_cast<unsigned int>(x >> 32);
-    return static_cast<size_t>(__popcnt(lo) + __popcnt(hi));
-#endif
-#elif defined(__GNUC__) || defined(__clang__)
-    return static_cast<size_t>(__builtin_popcountll(x));
-#else
-    return popcnt64_fallback(x);
-#endif
-}
-
-inline size_t ctz64(uint64_t x) noexcept
-{
-    if (x == 0)
-    {
-        return 64;
-    }
-
-#if defined(_MSC_VER)
-    unsigned long index = 0;
-#if defined(_M_X64) || defined(_M_AMD64)
-    _BitScanForward64(&index, x);
-    return static_cast<size_t>(index);
-#else
-    const unsigned int lo = static_cast<unsigned int>(x);
-    if (_BitScanForward(&index, lo) != 0)
-    {
-        return static_cast<size_t>(index);
-    }
-    const unsigned int hi = static_cast<unsigned int>(x >> 32);
-    _BitScanForward(&index, hi);
-    return static_cast<size_t>(index) + 32u;
-#endif
-#elif defined(__GNUC__) || defined(__clang__)
-    return static_cast<size_t>(__builtin_ctzll(x));
-#else
-    return ctz64_fallback(x);
-#endif
-}
-
-inline size_t clz64(uint64_t x) noexcept
-{
-    if (x == 0)
-    {
-        return 64;
-    }
-
-#if defined(_MSC_VER)
-    unsigned long index = 0;
-#if defined(_M_X64) || defined(_M_AMD64)
-    _BitScanReverse64(&index, x);
-    return 63u - static_cast<size_t>(index);
-#else
-    const unsigned int hi = static_cast<unsigned int>(x >> 32);
-    if (hi != 0)
-    {
-        _BitScanReverse(&index, hi);
-        return 31u - static_cast<size_t>(index);
-    }
-    const unsigned int lo = static_cast<unsigned int>(x);
-    _BitScanReverse(&index, lo);
-    return 63u - static_cast<size_t>(index);
-#endif
-#elif defined(__GNUC__) || defined(__clang__)
-    return static_cast<size_t>(__builtin_clzll(x));
-#else
-    return clz64_fallback(x);
-#endif
+    return static_cast<size_t>(clz(x));
 }
 
 // Create a mask with bits [0, bit_index] set (inclusive)
