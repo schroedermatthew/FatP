@@ -24,33 +24,33 @@ jobs:
           echo "Deleting all existing workflow runs..."
           deleted=0
           failed=0
-
-          # Get our own run ID so we don't delete ourselves
           my_run_id="${{ github.run_id }}"
 
-          # Paginate through all runs (gh returns 100 per page max)
           while true; do
             run_ids=$(gh run list --limit 100 --json databaseId --jq '.[].databaseId')
 
             if [ -z "$run_ids" ]; then
-              echo "No more runs to delete."
               break
             fi
 
+            deleted_this_page=0
             for id in $run_ids; do
-              # Don't delete the current run
               if [ "$id" = "$my_run_id" ]; then
                 continue
               fi
-
               if gh run delete "$id" 2>/dev/null; then
                 deleted=$((deleted + 1))
+                deleted_this_page=$((deleted_this_page + 1))
               else
                 failed=$((failed + 1))
               fi
             done
 
-            # Pace to avoid rate limiting
+            # Nothing deleted this pass = only our own run remains
+            if [ "$deleted_this_page" -eq 0 ]; then
+              break
+            fi
+
             sleep 1
           done
 
@@ -84,7 +84,6 @@ jobs:
               failed=$((failed + 1))
             fi
 
-            # Pace requests to avoid rate limiting
             sleep 2
           done
 
