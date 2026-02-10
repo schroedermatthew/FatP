@@ -93,6 +93,7 @@ FATP_META:
  */
 
 #include <cassert>     // For assert
+#include <concepts>    // For std::constructible_from, std::same_as, etc.
 #include <exception>   // Base for bad_expected_access
 #include <functional>  // For std::hash
 #include <stdexcept>   // For std::logic_error
@@ -312,9 +313,9 @@ struct unexpected
      * @param err The error to wrap.
      */
     template <typename Err = E>
-        requires (!std::is_same_v<std::decay_t<Err>, unexpected> &&
-                  !std::is_same_v<std::decay_t<Err>, std::in_place_t> &&
-                  std::is_constructible_v<E, Err>)
+        requires (!std::same_as<std::remove_cvref_t<Err>, unexpected> &&
+                  !std::same_as<std::remove_cvref_t<Err>, std::in_place_t> &&
+                  std::constructible_from<E, Err>)
     constexpr explicit unexpected(Err&& err) noexcept(std::is_nothrow_constructible_v<E, Err>)
         : mError(std::forward<Err>(err))
     {
@@ -324,7 +325,7 @@ struct unexpected
      * @brief In-place construction of error.
      */
     template <typename... Args>
-        requires std::is_constructible_v<E, Args...>
+        requires std::constructible_from<E, Args...>
     constexpr explicit unexpected(std::in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible_v<E, Args...>)
         : mError(std::forward<Args>(args)...)
     {
@@ -383,11 +384,6 @@ constexpr bool operator==(const unexpected<E1>& lhs, const unexpected<E2>& rhs)
     return lhs.value() == rhs.value();
 }
 
-template <typename E1, typename E2>
-constexpr bool operator!=(const unexpected<E1>& lhs, const unexpected<E2>& rhs)
-{
-    return lhs.value() != rhs.value();
-}
 
 // --- Storage Policies ---
 
@@ -419,6 +415,37 @@ private:
         E mError;           ///< Storage for error
     };
 
+    // GCC 14 emits false-positive -Wmaybe-uninitialized for union members when it
+    // can't prove which member is active at compile time. This is safe because
+    // destroy_active checks has_value_ before accessing any union member.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+    void destroy_active() noexcept
+    {
+        if (mInitialized)
+        {
+            if (has_value_)
+            {
+                if constexpr (!std::is_trivially_destructible_v<T>)
+                {
+                    mValue.~T();
+                }
+            }
+            else
+            {
+                if constexpr (!std::is_trivially_destructible_v<E>)
+                {
+                    mError.~E();
+                }
+            }
+        }
+    }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
+
 public:
     /**
      * @brief Default constructor: Creates uninitialized storage.
@@ -437,39 +464,11 @@ public:
 
     /**
      * @brief Destructor: Destroys the active member if initialized.
-     * Checks mInitialized flag before destroying.
      */
-    // GCC 14 emits false-positive -Wmaybe-uninitialized for union members in destructors
-    // after swap, when it can't prove which member is active at compile time. This is safe
-    // because the destructor checks has_value_ before accessing any union member.
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
     ~UnionStorage() noexcept
     {
-        if (mInitialized)
-        {
-            if (has_value_)
-            {
-                if constexpr (!std::is_trivially_destructible_v<T>)
-                {
-                    mValue.~T();
-                }
-            }
-            else
-            {
-                if constexpr (!std::is_trivially_destructible_v<E>)
-                {
-                    mError.~E();
-                }
-            }
-        }
-        // If not initialized, nothing to destroy
+        destroy_active();
     }
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 
     /**
      * @brief Stores a value, destroying any existing member.
@@ -479,24 +478,7 @@ public:
     template <typename... Args>
     void store_value(Args&&... args)
     {
-        if (mInitialized)
-        {
-            // Destroy existing member
-            if (has_value_)
-            {
-                if constexpr (!std::is_trivially_destructible_v<T>)
-                {
-                    mValue.~T();
-                }
-            }
-            else
-            {
-                if constexpr (!std::is_trivially_destructible_v<E>)
-                {
-                    mError.~E();
-                }
-            }
-        }
+        destroy_active();
         // Construct new value (placement new required to start object lifetime)
         new (&mValue) T(std::forward<Args>(args)...);
         has_value_ = true;
@@ -511,24 +493,7 @@ public:
     template <typename... Args>
     void store_error(Args&&... args)
     {
-        if (mInitialized)
-        {
-            // Destroy existing member
-            if (has_value_)
-            {
-                if constexpr (!std::is_trivially_destructible_v<T>)
-                {
-                    mValue.~T();
-                }
-            }
-            else
-            {
-                if constexpr (!std::is_trivially_destructible_v<E>)
-                {
-                    mError.~E();
-                }
-            }
-        }
+        destroy_active();
         // Construct new error (placement new required to start object lifetime)
         new (&mError) E(std::forward<Args>(args)...);
         has_value_ = false;
@@ -919,7 +884,7 @@ struct VariantStorage
     /**
      * @brief Default constructor: Initializes in value state with default T (if T is default-constructible).
      */
-    VariantStorage() requires std::is_default_constructible_v<T>
+    VariantStorage() requires std::default_initializable<T>
         : data_(T{})
     {
     }
@@ -1063,17 +1028,39 @@ struct is_expected_with_value<ExpectedImpl<Val, Err, SP>, Val> : std::true_type
 {
 };
 
-// Type trait to detect if a type is an ExpectedImpl
-template <typename T>
-struct is_expected : std::false_type
-{
-};
+// Concept wrappers for monadic static_asserts
+template <typename U, typename Err>
+concept expected_compatible = is_expected_compatible<U, Err>::value;
 
-// Type trait to detect if a type is an expected-like type (ExpectedImpl or std::expected)
-template <typename T>
-struct is_expected_like : std::false_type
-{
-};
+template <typename U, typename Val>
+concept expected_with_value = is_expected_with_value<U, Val>::value;
+
+// --- Helper concepts for constructor constraints ---
+
+namespace detail {
+
+/// T is not constructible or convertible from any cv/ref combination of Other.
+/// Guards converting constructors against hijacking by implicit conversions.
+template <typename T, typename Other>
+concept NotConstructibleFromExpected =
+    !std::is_constructible_v<T, Other&> &&
+    !std::is_constructible_v<T, const Other&> &&
+    !std::is_constructible_v<T, Other&&> &&
+    !std::is_constructible_v<T, const Other&&> &&
+    !std::is_convertible_v<Other&, T> &&
+    !std::is_convertible_v<const Other&, T> &&
+    !std::is_convertible_v<Other&&, T> &&
+    !std::is_convertible_v<const Other&&, T>;
+
+/// T is not a tag type used for constructor disambiguation.
+template <typename T, typename Self>
+concept NotTagType =
+    !std::same_as<std::remove_cvref_t<T>, std::in_place_t> &&
+    !std::same_as<std::remove_cvref_t<T>, Self>;
+
+} // namespace detail
+
+
 
 /**
  * @class ExpectedImpl
@@ -1159,7 +1146,7 @@ public:
      * @brief Default constructor: Delegates to policy (value state), available only if T is default-constructible.
      */
     constexpr ExpectedImpl() noexcept(std::is_nothrow_default_constructible_v<T>)
-        requires std::is_default_constructible_v<T>
+        requires std::default_initializable<T>
     {
         mStorage.store_value();
     }
@@ -1174,9 +1161,8 @@ public:
      * @param v Const reference to T.
      */
     template <typename U = T>
-        requires (std::is_constructible_v<T, const U&> &&
-                  !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
-                  !std::is_same_v<std::decay_t<U>, ExpectedImpl>)
+        requires (std::constructible_from<T, const U&> &&
+                  detail::NotTagType<U, ExpectedImpl>)
     constexpr ExpectedImpl(const U& v) noexcept(std::is_nothrow_constructible_v<T, const U&>)
     {
         mStorage.store_value(v);
@@ -1187,9 +1173,8 @@ public:
      * @param v Rvalue reference to T.
      */
     template <typename U = T>
-        requires (std::is_constructible_v<T, U&&> &&
-                  !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
-                  !std::is_same_v<std::decay_t<U>, ExpectedImpl>)
+        requires (std::constructible_from<T, U&&> &&
+                  detail::NotTagType<U, ExpectedImpl>)
     constexpr ExpectedImpl(U&& v) noexcept(std::is_nothrow_constructible_v<T, U&&>)
     {
         mStorage.store_value(std::forward<U>(v));
@@ -1200,7 +1185,7 @@ public:
      * @tparam Args Arguments for T's constructor.
      */
     template <typename... Args>
-        requires std::is_constructible_v<T, Args...>
+        requires std::constructible_from<T, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t,
                                     Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
     {
@@ -1212,7 +1197,7 @@ public:
      */
     template <typename U,
               typename... Args>
-        requires std::is_constructible_v<T, std::initializer_list<U>&, Args...>
+        requires std::constructible_from<T, std::initializer_list<U>&, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)
     {
@@ -1226,7 +1211,7 @@ public:
      * This is the primary way to construct errors, eliminating ambiguity.
      */
     template <typename... Args>
-        requires std::is_constructible_v<E, Args...>
+        requires std::constructible_from<E, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t,
                                     Args&&... args) noexcept(std::is_nothrow_constructible_v<E, Args...>)
     {
@@ -1238,7 +1223,7 @@ public:
      */
     template <typename U,
               typename... Args>
-        requires std::is_constructible_v<E, std::initializer_list<U>&, Args...>
+        requires std::constructible_from<E, std::initializer_list<U>&, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible_v<E, std::initializer_list<U>&, Args...>)
     {
@@ -1253,7 +1238,7 @@ public:
      * Unambiguous way to construct error state.
      */
     template <typename G>
-        requires std::is_constructible_v<E, const G&>
+        requires std::constructible_from<E, const G&>
     constexpr ExpectedImpl(const unexpected<G>& ue) noexcept(std::is_nothrow_constructible_v<E, const G&>)
     {
         mStorage.store_error(ue.value());
@@ -1265,7 +1250,7 @@ public:
      * @param ue The unexpected wrapper.
      */
     template <typename G>
-        requires std::is_constructible_v<E, G&&>
+        requires std::constructible_from<E, G&&>
     constexpr ExpectedImpl(unexpected<G>&& ue) noexcept(std::is_nothrow_constructible_v<E, G&&>)
     {
         mStorage.store_error(std::move(ue).value());
@@ -1314,15 +1299,8 @@ public:
         typename U,
         typename G,
         template <typename, typename> class SP>
-        requires (std::is_constructible_v<T, const U&> && std::is_constructible_v<E, const G&> &&
-                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&> &&
-                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&> &&
-                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&&> &&
-                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&&> &&
-                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&, T> &&
-                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&, T> &&
-                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&&, T> &&
-                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&&, T>)
+        requires (std::constructible_from<T, const U&> && std::constructible_from<E, const G&> &&
+                  detail::NotConstructibleFromExpected<T, ExpectedImpl<U, G, SP>>)
     explicit ExpectedImpl(const ExpectedImpl<U, G, SP>& other) noexcept(std::is_nothrow_constructible_v<T, const U&> &&
                                                                         std::is_nothrow_constructible_v<E, const G&>)
     {
@@ -1342,15 +1320,8 @@ public:
     template <typename U,
               typename G,
               template <typename, typename> class SP>
-        requires (std::is_constructible_v<T, U&&> && std::is_constructible_v<E, G&&> &&
-                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&> &&
-                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&> &&
-                  !std::is_constructible_v<T, ExpectedImpl<U, G, SP>&&> &&
-                  !std::is_constructible_v<T, const ExpectedImpl<U, G, SP>&&> &&
-                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&, T> &&
-                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&, T> &&
-                  !std::is_convertible_v<ExpectedImpl<U, G, SP>&&, T> &&
-                  !std::is_convertible_v<const ExpectedImpl<U, G, SP>&&, T>)
+        requires (std::constructible_from<T, U&&> && std::constructible_from<E, G&&> &&
+                  detail::NotConstructibleFromExpected<T, ExpectedImpl<U, G, SP>>)
     explicit ExpectedImpl(ExpectedImpl<U, G, SP>&& other) noexcept(std::is_nothrow_constructible_v<T, U&&> &&
                                                                    std::is_nothrow_constructible_v<E, G&&>)
     {
@@ -1460,8 +1431,8 @@ public:
      * @return Reference to this.
      */
     template <typename U = T>
-        requires (!std::is_same_v<std::decay_t<U>, ExpectedImpl> &&
-                  std::is_constructible_v<T, U> && std::is_assignable_v<T&, U>)
+        requires (!std::same_as<std::remove_cvref_t<U>, ExpectedImpl> &&
+                  std::constructible_from<T, U> && std::is_assignable_v<T&, U>)
     ExpectedImpl& operator=(U&& v) noexcept(std::is_nothrow_constructible_v<T, U> &&
                                             std::is_nothrow_assignable_v<T&, U>)
     {
@@ -1777,7 +1748,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) &
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F, T&>>;
         if (has_value())
         {
             return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
@@ -1789,7 +1760,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) const&
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
         if (has_value())
         {
             return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
@@ -1815,7 +1786,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) const&&
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&&>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F, const T&&>>;
         if (has_value())
         {
             return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
@@ -1854,8 +1825,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) &
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, T&>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_value());
@@ -1866,8 +1837,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_value());
@@ -1878,8 +1849,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) &&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, T&&>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, T&&>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f), std::move(mStorage.get_value()));
@@ -1890,8 +1861,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const&&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&&>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const T&&>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f), std::move(mStorage.get_value()));
@@ -1931,7 +1902,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) &
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, E&>>;
         if (!has_value())
         {
             return ExpectedImpl<T, G, StoragePolicy>(unexpect, std::invoke(std::forward<F>(f), mStorage.get_error()));
@@ -1942,7 +1913,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) const&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, const E&>>;
         if (!has_value())
         {
             return ExpectedImpl<T, G, StoragePolicy>(unexpect, std::invoke(std::forward<F>(f), mStorage.get_error()));
@@ -1953,7 +1924,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) &&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, E&&>>;
         if (!has_value())
         {
             return ExpectedImpl<T, G, StoragePolicy>(unexpect,
@@ -1965,7 +1936,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) const&&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, const E&&>>;
         if (!has_value())
         {
             return ExpectedImpl<T, G, StoragePolicy>(unexpect,
@@ -2004,8 +1975,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) &
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&>>>;
-        static_assert(is_expected_with_value<Result, T>::value, "or_else must return ExpectedImpl<T, G> with same T");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, E&>>;
+        static_assert(expected_with_value<Result, T>, "or_else must return ExpectedImpl<T, G> with same T");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_error());
@@ -2016,8 +1987,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) const&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
-        static_assert(is_expected_with_value<Result, T>::value, "or_else must return ExpectedImpl<T, G> with same T");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const E&>>;
+        static_assert(expected_with_value<Result, T>, "or_else must return ExpectedImpl<T, G> with same T");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_error());
@@ -2028,8 +1999,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) &&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&&>>>;
-        static_assert(is_expected_with_value<Result, T>::value, "or_else must return ExpectedImpl<T, G> with same T");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, E&&>>;
+        static_assert(expected_with_value<Result, T>, "or_else must return ExpectedImpl<T, G> with same T");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
@@ -2040,8 +2011,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) const&&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&&>>>;
-        static_assert(is_expected_with_value<Result, T>::value, "or_else must return ExpectedImpl<T, G> with same T");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const E&&>>;
+        static_assert(expected_with_value<Result, T>, "or_else must return ExpectedImpl<T, G> with same T");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
@@ -2170,16 +2141,6 @@ template <typename T1,
     return lhs.error() == rhs.error();
 }
 
-template <typename T1,
-          typename E1,
-          typename T2,
-          typename E2,
-          template <typename, typename> class SP1,
-          template <typename, typename> class SP2>
-[[nodiscard]] constexpr bool operator!=(const ExpectedImpl<T1, E1, SP1>& lhs, const ExpectedImpl<T2, E2, SP2>& rhs)
-{
-    return !(lhs == rhs);
-}
 
 // Comparison with T
 template <typename T1, typename E1, typename T2, template <typename, typename> class SP>
@@ -2194,17 +2155,7 @@ template <typename T1, typename E1, typename T2, template <typename, typename> c
     return rhs.has_value() && lhs == *rhs;
 }
 
-template <typename T1, typename E1, typename T2, template <typename, typename> class SP>
-[[nodiscard]] constexpr bool operator!=(const ExpectedImpl<T1, E1, SP>& lhs, const T2& rhs)
-{
-    return !lhs.has_value() || *lhs != rhs;
-}
 
-template <typename T1, typename E1, typename T2, template <typename, typename> class SP>
-[[nodiscard]] constexpr bool operator!=(const T1& lhs, const ExpectedImpl<T2, E1, SP>& rhs)
-{
-    return !rhs.has_value() || lhs != *rhs;
-}
 
 // Comparison with unexpected
 template <typename T, typename E1, typename E2, template <typename, typename> class SP>
@@ -2219,17 +2170,7 @@ template <typename T, typename E1, typename E2, template <typename, typename> cl
     return !rhs.has_value() && lhs.value() == rhs.error();
 }
 
-template <typename T, typename E1, typename E2, template <typename, typename> class SP>
-[[nodiscard]] constexpr bool operator!=(const ExpectedImpl<T, E1, SP>& lhs, const unexpected<E2>& rhs)
-{
-    return lhs.has_value() || lhs.error() != rhs.value();
-}
 
-template <typename T, typename E1, typename E2, template <typename, typename> class SP>
-[[nodiscard]] constexpr bool operator!=(const unexpected<E1>& lhs, const ExpectedImpl<T, E2, SP>& rhs)
-{
-    return rhs.has_value() || lhs.value() != rhs.error();
-}
 
 // --- Void Specialization Storage Policies ---
 
@@ -2250,6 +2191,17 @@ private:
         E mError;           ///< Error storage (active when !has_value_)
     };
 
+    void destroy_active() noexcept
+    {
+        if (mInitialized && !has_value_)
+        {
+            if constexpr (!std::is_trivially_destructible_v<E>)
+            {
+                mError.~E();
+            }
+        }
+    }
+
 public:
     UnionStorage() noexcept
         : has_value_(true)
@@ -2260,24 +2212,12 @@ public:
 
     ~UnionStorage() noexcept
     {
-        if (mInitialized && !has_value_)
-        {
-            if constexpr (!std::is_trivially_destructible_v<E>)
-            {
-                mError.~E();
-            }
-        }
+        destroy_active();
     }
 
     void store_value()
     {
-        if (mInitialized && !has_value_)
-        {
-            if constexpr (!std::is_trivially_destructible_v<E>)
-            {
-                mError.~E();
-            }
-        }
+        destroy_active();
         has_value_ = true;
         mInitialized = true;
     }
@@ -2285,17 +2225,7 @@ public:
     template <typename... Args>
     void store_error(Args&&... args)
     {
-        if (mInitialized && has_value_)
-        {
-            // No destructor for void
-        }
-        else if (mInitialized)
-        {
-            if constexpr (!std::is_trivially_destructible_v<E>)
-            {
-                mError.~E();
-            }
-        }
+        destroy_active();
         if constexpr (sizeof...(Args) == 0 && std::is_trivially_default_constructible_v<E>)
         {
             // No placement new for trivial
@@ -2774,7 +2704,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) &
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F>>;
         if (has_value())
         {
             if constexpr (std::is_void_v<U>)
@@ -2793,7 +2723,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) const&
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F>>;
         if (has_value())
         {
             if constexpr (std::is_void_v<U>)
@@ -2812,7 +2742,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) &&
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F>>;
         if (has_value())
         {
             if constexpr (std::is_void_v<U>)
@@ -2831,7 +2761,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) const&&
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F>>;
         if (has_value())
         {
             if constexpr (std::is_void_v<U>)
@@ -2871,8 +2801,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) &
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f));
@@ -2883,8 +2813,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f));
@@ -2895,8 +2825,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) &&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f));
@@ -2907,8 +2837,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const&&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F>>>;
-        static_assert(is_expected_compatible<Result, E>::value, "and_then must return ExpectedImpl<U, E> with same E");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F>>;
+        static_assert(expected_compatible<Result, E>, "and_then must return ExpectedImpl<U, E> with same E");
         if (has_value())
         {
             return std::invoke(std::forward<F>(f));
@@ -2942,7 +2872,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) &
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, E&>>;
         if (!has_value())
         {
             return ExpectedImpl<void, G, StoragePolicy>(unexpect,
@@ -2954,7 +2884,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) const&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, const E&>>;
         if (!has_value())
         {
             return ExpectedImpl<void, G, StoragePolicy>(unexpect,
@@ -2966,7 +2896,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) &&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, E&&>>;
         if (!has_value())
         {
             return ExpectedImpl<void, G, StoragePolicy>(
@@ -2979,7 +2909,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map_error(F&& f) const&&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, const E&&>>;
         if (!has_value())
         {
             return ExpectedImpl<void, G, StoragePolicy>(
@@ -3013,8 +2943,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) &
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&>>>;
-        static_assert(is_expected_with_value<Result, void>::value, "or_else must return ExpectedImpl<void, G>");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, E&>>;
+        static_assert(expected_with_value<Result, void>, "or_else must return ExpectedImpl<void, G>");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_error());
@@ -3025,8 +2955,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) const&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
-        static_assert(is_expected_with_value<Result, void>::value, "or_else must return ExpectedImpl<void, G>");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const E&>>;
+        static_assert(expected_with_value<Result, void>, "or_else must return ExpectedImpl<void, G>");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_error());
@@ -3037,8 +2967,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) &&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, E&&>>>;
-        static_assert(is_expected_with_value<Result, void>::value, "or_else must return ExpectedImpl<void, G>");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, E&&>>;
+        static_assert(expected_with_value<Result, void>, "or_else must return ExpectedImpl<void, G>");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
@@ -3049,8 +2979,8 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) const&&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&&>>>;
-        static_assert(is_expected_with_value<Result, void>::value, "or_else must return ExpectedImpl<void, G>");
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const E&&>>;
+        static_assert(expected_with_value<Result, void>, "or_else must return ExpectedImpl<void, G>");
         if (!has_value())
         {
             return std::invoke(std::forward<F>(f), std::move(mStorage.get_error()));
@@ -3159,11 +3089,6 @@ template <typename E1, typename E2, template <typename, typename> class SP1, tem
     return lhs.error() == rhs.error();
 }
 
-template <typename E1, typename E2, template <typename, typename> class SP1, template <typename, typename> class SP2>
-[[nodiscard]] constexpr bool operator!=(const ExpectedImpl<void, E1, SP1>& lhs, const ExpectedImpl<void, E2, SP2>& rhs)
-{
-    return !(lhs == rhs);
-}
 
 template <typename E1, typename E2, template <typename, typename> class SP>
 [[nodiscard]] constexpr bool operator==(const ExpectedImpl<void, E1, SP>& lhs, const unexpected<E2>& rhs)
@@ -3177,17 +3102,7 @@ template <typename E1, typename E2, template <typename, typename> class SP>
     return !rhs.has_value() && lhs.value() == rhs.error();
 }
 
-template <typename E1, typename E2, template <typename, typename> class SP>
-[[nodiscard]] constexpr bool operator!=(const ExpectedImpl<void, E1, SP>& lhs, const unexpected<E2>& rhs)
-{
-    return lhs.has_value() || lhs.error() != rhs.value();
-}
 
-template <typename E1, typename E2, template <typename, typename> class SP>
-[[nodiscard]] constexpr bool operator!=(const unexpected<E1>& lhs, const ExpectedImpl<void, E2, SP>& rhs)
-{
-    return rhs.has_value() || lhs.value() != rhs.error();
-}
 
 // --- User-Facing Aliases ---
 
@@ -3272,37 +3187,37 @@ public:
     }
 
     template <typename U = T>
-        requires (std::is_constructible_v<T, U&&> && !std::is_same_v<std::decay_t<U>, ExpectedImpl> &&
-                  !std::is_same_v<std::decay_t<U>, std::in_place_t> &&
-                  !std::is_same_v<std::decay_t<U>, unexpect_tag_t>)
+        requires (std::constructible_from<T, U&&> && !std::same_as<std::remove_cvref_t<U>, ExpectedImpl> &&
+                  !std::same_as<std::remove_cvref_t<U>, std::in_place_t> &&
+                  !std::same_as<std::remove_cvref_t<U>, unexpect_tag_t>)
     constexpr ExpectedImpl(U&& v)
         : mStorage(std::in_place, std::forward<U>(v))
     {
     }
 
     template <typename... Args>
-        requires std::is_constructible_v<T, Args...>
+        requires std::constructible_from<T, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t, Args&&... args)
         : mStorage(std::in_place, std::forward<Args>(args)...)
     {
     }
 
     template <typename... Args>
-        requires std::is_constructible_v<E, Args...>
+        requires std::constructible_from<E, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t, Args&&... args)
         : mStorage(unexpect, std::forward<Args>(args)...)
     {
     }
 
     template <typename G>
-        requires std::is_constructible_v<E, const G&>
+        requires std::constructible_from<E, const G&>
     constexpr ExpectedImpl(const unexpected<G>& ue)
         : mStorage(unexpect, ue.value())
     {
     }
 
     template <typename G>
-        requires std::is_constructible_v<E, G&&>
+        requires std::constructible_from<E, G&&>
     constexpr ExpectedImpl(unexpected<G>&& ue)
         : mStorage(unexpect, std::move(ue).value())
     {
@@ -3453,7 +3368,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) const&
     {
-        using U = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
+        using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
         if (has_value())
         {
             if constexpr (std::is_void_v<U>)
@@ -3473,7 +3388,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto and_then(F&& f) const&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const T&>>>;
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
         if (has_value())
         {
             return std::invoke(std::forward<F>(f), mStorage.get_value());
@@ -3484,7 +3399,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto or_else(F&& f) const&
     {
-        using Result = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
+        using Result = std::remove_cvref_t<std::invoke_result_t<F, const E&>>;
         if (has_value())
         {
             return Result(std::in_place, mStorage.get_value());
@@ -3495,7 +3410,7 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto transform_error(F&& f) const&
     {
-        using G = std::remove_cv_t<std::remove_reference_t<std::invoke_result_t<F, const E&>>>;
+        using G = std::remove_cvref_t<std::invoke_result_t<F, const E&>>;
         if (has_value())
         {
             return ExpectedImpl<T, G, TrivialStorage>(std::in_place, mStorage.get_value());
@@ -3519,41 +3434,6 @@ public:
         return mStorage.get_value();
     }
 
-    // --- Comparison Operators ---
-
-    template <typename T2, typename E2, template <typename, typename> class SP2>
-    friend constexpr bool operator==(const ExpectedImpl& lhs, const ExpectedImpl<T2, E2, SP2>& rhs)
-    {
-        if (lhs.has_value() != rhs.has_value())
-        {
-            return false;
-        }
-        return lhs.has_value() ? (*lhs == *rhs) : (lhs.error() == rhs.error());
-    }
-
-    template <typename T2, typename E2, template <typename, typename> class SP2>
-    friend constexpr bool operator!=(const ExpectedImpl& lhs, const ExpectedImpl<T2, E2, SP2>& rhs)
-    {
-        return !(lhs == rhs);
-    }
-
-    template <typename U>
-    friend constexpr bool operator==(const ExpectedImpl& lhs, const U& rhs)
-    {
-        return lhs.has_value() && (*lhs == rhs);
-    }
-
-    template <typename U>
-    friend constexpr bool operator==(const U& lhs, const ExpectedImpl& rhs)
-    {
-        return rhs == lhs;
-    }
-
-    template <typename G>
-    friend constexpr bool operator==(const ExpectedImpl& lhs, const unexpected<G>& rhs)
-    {
-        return !lhs.has_value() && (lhs.error() == rhs.value());
-    }
 };
 
 // --- User-Facing Aliases ---
@@ -3684,38 +3564,6 @@ void swap(unexpected<E>& lhs, unexpected<E>& rhs) noexcept(noexcept(lhs.swap(rhs
 // =============================================================================
 // Ordering Operators
 // =============================================================================
-
-template <typename T1, typename E1, typename T2, typename E2>
-constexpr bool operator<(const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
-{
-    if (lhs.has_value() && rhs.has_value())
-    {
-        return *lhs < *rhs;
-    }
-    if (!lhs.has_value() && !rhs.has_value())
-    {
-        return lhs.error() < rhs.error();
-    }
-    return !lhs.has_value(); // Error < Value
-}
-
-template <typename T1, typename E1, typename T2, typename E2>
-constexpr bool operator<=(const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
-{
-    return !(rhs < lhs);
-}
-
-template <typename T1, typename E1, typename T2, typename E2>
-constexpr bool operator>(const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
-{
-    return rhs < lhs;
-}
-
-template <typename T1, typename E1, typename T2, typename E2>
-constexpr bool operator>=(const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
-{
-    return !(lhs < rhs);
-}
 
 
 // =============================================================================
@@ -3987,17 +3835,6 @@ constexpr Expected<void, E> from_std_expected(std::expected<void, E>&& exp)
 
 #endif // FATP_HAS_EXPECTED
 
-// Specialize type traits for ExpectedImpl
-template <typename T, typename E, template <typename, typename> class SP>
-struct is_expected<ExpectedImpl<T, E, SP>> : std::true_type
-{
-};
-
-template <typename T, typename E, template <typename, typename> class SP>
-struct is_expected_like<ExpectedImpl<T, E, SP>> : std::true_type
-{
-};
-
 // Specialize traits for std::expected compatibility (C++23)
 #if FATP_HAS_EXPECTED
 template <typename V, typename Err>
@@ -4010,10 +3847,6 @@ struct is_expected_with_value<std::expected<Val, Err>, Val> : std::true_type
 {
 };
 
-template <typename T, typename E>
-struct is_expected_like<std::expected<T, E>> : std::true_type
-{
-};
 #endif
 
 // --- FATP_EXPECTED_TRY Macro ---
