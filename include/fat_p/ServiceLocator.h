@@ -10,7 +10,10 @@ FATP_META:
   layer: Domain
   summary: "Policy-based service locator with scoped overrides."
   api_stability: in_work
-  api_stability_notes: "Core API is stable. 'in_work' reflects: (1) TypeKeyPolicy DSO stability not yet addressed, (2) potential future cache policy extensions for named services."
+  api_stability_notes: >-
+    Core API is stable. 'in_work' reflects:
+    (1) TypeKeyPolicy DSO stability not yet addressed,
+    (2) potential future cache policy extensions for named services.
   related:
     docs:
       - Documentation/ServiceLocator/Overview - ServiceLocator.md

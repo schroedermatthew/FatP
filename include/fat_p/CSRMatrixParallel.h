@@ -152,7 +152,8 @@ void matvec_threadpool(const CSRMatrix<T, IndexType>& matrix,
         size_type start_row = partition.first;
         size_type end_row = partition.second;
 
-        futures.push_back(pool.submit([values, col_indices, row_ptrs, x, y, start_row, end_row]() {
+        futures.push_back(pool.submit([values, col_indices, row_ptrs, x, y, start_row, end_row]()
+        {
             for (size_type i = start_row; i < end_row; ++i)
             {
                 T sum = T{0};
@@ -246,7 +247,8 @@ void matvec_threadpool(const CSRMatrix<T, IndexType>& matrix,
         size_type end_row = partition.second;
 
         futures.push_back(
-            pool.submit([values, col_indices, row_ptrs, x, y, start_row, end_row, alpha, beta, beta_zero]() {
+            pool.submit([values, col_indices, row_ptrs, x, y, start_row, end_row, alpha, beta, beta_zero]()
+            {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     T sum = T{0};
@@ -330,7 +332,8 @@ void matvec_threadpool_batch(const CSRMatrix<T, IndexType>& matrix,
         size_type start_row = partition.first;
         size_type end_row = partition.second;
 
-        tasks.emplace_back([values_ptr, col_indices_ptr, row_ptrs_ptr, x, y, start_row, end_row]() {
+        tasks.emplace_back([values_ptr, col_indices_ptr, row_ptrs_ptr, x, y, start_row, end_row]()
+        {
             for (size_type i = start_row; i < end_row; ++i)
             {
                 T sum = T{0};
@@ -445,7 +448,8 @@ CSRMatrix<T, IndexType> transpose_parallel(const CSRMatrix<T, IndexType>& matrix
             size_type start_row = partitions[t].first;
             size_type end_row = partitions[t].second;
 
-            futures.push_back(pool.submit([row_ptrs, col_indices, &thread_counts, t, start_row, end_row]() {
+            futures.push_back(pool.submit([row_ptrs, col_indices, &thread_counts, t, start_row, end_row]()
+            {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     for (ptr_type j = row_ptrs[i]; j < row_ptrs[i + 1]; ++j)
@@ -507,7 +511,8 @@ CSRMatrix<T, IndexType> transpose_parallel(const CSRMatrix<T, IndexType>& matrix
                                            &result_values,
                                            &write_pos,
                                            start_row,
-                                           end_row]() {
+                                           end_row]()
+            {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     for (ptr_type j = row_ptrs[i]; j < row_ptrs[i + 1]; ++j)

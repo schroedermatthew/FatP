@@ -244,7 +244,8 @@ public:
         }
 
         // Sort by (row, col)
-        std::sort(triplets.begin(), triplets.end(), [](const Triplet& a, const Triplet& b) {
+        std::sort(triplets.begin(), triplets.end(), [](const Triplet& a, const Triplet& b)
+        {
             if (std::get<0>(a) != std::get<0>(b))
             {
                 return std::get<0>(a) < std::get<0>(b);

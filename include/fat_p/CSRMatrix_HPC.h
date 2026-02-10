@@ -322,7 +322,8 @@ public:
         std::vector<size_type> perm(nnz_input);
         std::iota(perm.begin(), perm.end(), size_type{0});
 
-        std::sort(perm.begin(), perm.end(), [&](size_type a, size_type b) {
+        std::sort(perm.begin(), perm.end(), [&](size_type a, size_type b)
+        {
             auto ra = row_indices[a];
             auto rb = row_indices[b];
             if (ra != rb)
@@ -774,7 +775,8 @@ public:
             size_type start_row = partition.first;
             size_type end_row = partition.second;
 
-            futures.push_back(pool.submit([vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]() {
+            futures.push_back(pool.submit([vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]()
+            {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     T sum = T{0};
@@ -879,7 +881,8 @@ public:
             size_type end_row = partition.second;
 
             futures.push_back(
-                pool.submit([vals, cols, ptrs, x, y, start_row, end_row, alpha, beta, beta_zero, do_prefetch]() {
+                pool.submit([vals, cols, ptrs, x, y, start_row, end_row, alpha, beta, beta_zero, do_prefetch]()
+                {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         T sum = T{0};
@@ -975,7 +978,8 @@ public:
             size_type start_row = partition.first;
             size_type end_row = partition.second;
 
-            tasks.emplace_back([vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]() {
+            tasks.emplace_back([vals, cols, ptrs, x, y, start_row, end_row, do_prefetch]()
+            {
                 for (size_type i = start_row; i < end_row; ++i)
                 {
                     T sum = T{0};
@@ -1051,7 +1055,8 @@ public:
                 size_type start_row = partitions[t].first;
                 size_type end_row = partitions[t].second;
 
-                futures.push_back(pool.submit([this, &thread_counts, t, start_row, end_row]() {
+                futures.push_back(pool.submit([this, &thread_counts, t, start_row, end_row]()
+                {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         for (ptr_type j = mRowPtrs[i]; j < mRowPtrs[i + 1]; ++j)
@@ -1109,7 +1114,8 @@ public:
                 size_type start_row = partitions[t].first;
                 size_type end_row = partitions[t].second;
 
-                futures.push_back(pool.submit([this, &result, &write_pos, start_row, end_row]() {
+                futures.push_back(pool.submit([this, &result, &write_pos, start_row, end_row]()
+                {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         for (ptr_type j = mRowPtrs[i]; j < mRowPtrs[i + 1]; ++j)
@@ -1143,7 +1149,8 @@ public:
                 size_type start_row = partition.first;
                 size_type end_row = partition.second;
 
-                futures.push_back(pool.submit([&result, start_row, end_row]() {
+                futures.push_back(pool.submit([&result, start_row, end_row]()
+                {
                     for (size_type i = start_row; i < end_row; ++i)
                     {
                         ptr_type row_start = result.mRowPtrs[i];
@@ -1159,7 +1166,8 @@ public:
                         std::vector<ptr_type> perm(row_len);
                         std::iota(perm.begin(), perm.end(), ptr_type{0});
 
-                        std::sort(perm.begin(), perm.end(), [&result, row_start](ptr_type a, ptr_type b) {
+                        std::sort(perm.begin(), perm.end(), [&result, row_start](ptr_type a, ptr_type b)
+                        {
                             return result.mColIndices[row_start + a] < result.mColIndices[row_start + b];
                         });
 
