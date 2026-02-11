@@ -43,6 +43,7 @@ FATP_META:
 #include <iostream>
 #include <memory>
 #include <random>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -158,6 +159,78 @@ struct alignas(64) CacheAligned
         mData[0] = c;
     }
 };
+
+/**
+ * @brief Type whose constructor conditionally throws, for exception safety testing.
+ *
+ * When sThrowOnNext is true, the constructor throws before completing.
+ * Tracks construction/destruction counts so tests can verify no leak.
+ */
+struct ThrowingType
+{
+    static inline std::atomic<int> sConstructCount{0};
+    static inline std::atomic<int> sDestructCount{0};
+    static inline bool sThrowOnNext{false};
+
+    int64_t mValue;
+
+    explicit ThrowingType(int v = 0)
+        : mValue(v)
+    {
+        if (sThrowOnNext)
+        {
+            throw std::runtime_error("ThrowingType: constructor throw");
+        }
+        sConstructCount.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    ~ThrowingType()
+    {
+        sDestructCount.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    ThrowingType(const ThrowingType&) = delete;
+    ThrowingType& operator=(const ThrowingType&) = delete;
+
+    static void reset() noexcept
+    {
+        sConstructCount.store(0, std::memory_order_relaxed);
+        sDestructCount.store(0, std::memory_order_relaxed);
+        sThrowOnNext = false;
+    }
+};
+
+/**
+ * @brief Trivially copyable type whose constructor conditionally throws.
+ *
+ * PoolAllocator requires trivially copyable types, so this type has no
+ * user-defined destructor/copy/move. Construction tracking uses a static
+ * counter; no per-instance destruction tracking is possible.
+ */
+struct PoolThrowingType
+{
+    static inline std::atomic<int> sConstructCount{0};
+    static inline bool sThrowOnNext{false};
+
+    int64_t mValue;
+
+    explicit PoolThrowingType(int v = 0)
+        : mValue(v)
+    {
+        if (sThrowOnNext)
+        {
+            throw std::runtime_error("PoolThrowingType: constructor throw");
+        }
+        sConstructCount.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    static void reset() noexcept
+    {
+        sConstructCount.store(0, std::memory_order_relaxed);
+        sThrowOnNext = false;
+    }
+};
+static_assert(std::is_trivially_copyable_v<PoolThrowingType>);
 
 // ============================================================================
 // Test Suite 1: NewDeleteAllocator
@@ -579,7 +652,188 @@ FATP_TEST_CASE(edge_destructor_cleanup)
 }
 
 // ============================================================================
-// Test Suite 5: Stress/Fuzz Tests
+// Test Suite 5: Exception Safety (Regression for placement-new leak fix)
+// ============================================================================
+// BlockAllocator::allocate() and PoolAllocator::Allocator::allocate() previously
+// leaked the raw memory slot when T's constructor threw: allocateRaw() succeeded
+// but placement-new threw, and the slot was never returned to the free list.
+// PoolAllocator additionally corrupted mAllocated (incremented before construction).
+// The fix wraps placement-new in try/catch and moves ++mAllocated after construction.
+
+FATP_TEST_CASE(block_exception_safety_slot_recovery)
+{
+    ThrowingType::reset();
+    BlockAllocator<ThrowingType> alloc;
+
+    // Allocate one object successfully
+    ThrowingType* p1 = alloc.allocate(1);
+    FATP_ASSERT_NOT_NULLPTR(p1, "First allocation must succeed");
+    FATP_ASSERT_EQ(ThrowingType::sConstructCount.load(), 1, "One successful construction");
+
+    // Now make the constructor throw
+    ThrowingType::sThrowOnNext = true;
+    bool threw = false;
+    try
+    {
+        alloc.allocate(2);
+    }
+    catch (const std::runtime_error&)
+    {
+        threw = true;
+    }
+    FATP_ASSERT_TRUE(threw, "Constructor throw must propagate");
+    FATP_ASSERT_EQ(ThrowingType::sConstructCount.load(), 1, "Failed construction must not increment count");
+
+    // The raw slot from the failed allocation must have been returned to the
+    // free list. Verify by allocating again — this must succeed and reuse the slot.
+    ThrowingType::sThrowOnNext = false;
+    ThrowingType* p2 = alloc.allocate(3);
+    FATP_ASSERT_NOT_NULLPTR(p2, "Post-throw allocation must succeed (slot recovered)");
+    FATP_ASSERT_EQ(ThrowingType::sConstructCount.load(), 2, "Second successful construction");
+
+    alloc.deallocate(p2);
+    alloc.deallocate(p1);
+
+    FATP_ASSERT_EQ(ThrowingType::sDestructCount.load(), 2, "Both objects destroyed cleanly");
+
+    return true;
+}
+
+FATP_TEST_CASE(block_exception_safety_repeated_throws)
+{
+    ThrowingType::reset();
+    BlockAllocator<ThrowingType> alloc;
+
+    // Allocate a few objects, then throw repeatedly, then allocate again.
+    // Every failed slot must be recoverable.
+    constexpr int kGoodAllocs = 5;
+    constexpr int kFailedAllocs = 10;
+
+    std::vector<ThrowingType*> good;
+    for (int i = 0; i < kGoodAllocs; ++i)
+    {
+        good.push_back(alloc.allocate(i));
+    }
+
+    // Throw 10 times — each should return its slot
+    ThrowingType::sThrowOnNext = true;
+    for (int i = 0; i < kFailedAllocs; ++i)
+    {
+        try
+        {
+            alloc.allocate(100 + i);
+        }
+        catch (const std::runtime_error&)
+        {
+        }
+    }
+    FATP_ASSERT_EQ(ThrowingType::sConstructCount.load(), kGoodAllocs,
+        "Only successful constructions counted");
+
+    // Now allocate again — all 10 recovered slots plus fresh ones must work
+    ThrowingType::sThrowOnNext = false;
+    for (int i = 0; i < kFailedAllocs + 5; ++i)
+    {
+        good.push_back(alloc.allocate(200 + i));
+    }
+    FATP_ASSERT_EQ(ThrowingType::sConstructCount.load(), kGoodAllocs + kFailedAllocs + 5,
+        "All post-recovery allocations must succeed");
+
+    for (auto* p : good)
+    {
+        alloc.deallocate(p);
+    }
+    return true;
+}
+
+FATP_TEST_CASE(pool_exception_safety_slot_recovery)
+{
+    PoolThrowingType::reset();
+    PoolAllocator<16>::Allocator<PoolThrowingType> alloc;
+
+    // Allocate one object successfully
+    PoolThrowingType* p1 = alloc.allocate(1);
+    FATP_ASSERT_NOT_NULLPTR(p1, "First allocation must succeed");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(1), "allocated() must be 1");
+
+    // Make the constructor throw
+    PoolThrowingType::sThrowOnNext = true;
+    bool threw = false;
+    try
+    {
+        alloc.allocate(2);
+    }
+    catch (const std::runtime_error&)
+    {
+        threw = true;
+    }
+    FATP_ASSERT_TRUE(threw, "Constructor throw must propagate");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(1),
+        "allocated() must remain 1 after failed construction (not incremented before construction)");
+
+    // The slot must have been returned — pool should still have capacity - 1 free slots
+    PoolThrowingType::sThrowOnNext = false;
+    PoolThrowingType* p2 = alloc.allocate(3);
+    FATP_ASSERT_NOT_NULLPTR(p2, "Post-throw allocation must succeed (slot recovered)");
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(2), "allocated() must be 2 after recovery");
+
+    alloc.deallocate(p2);
+    alloc.deallocate(p1);
+
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(0), "allocated() must be 0 after full cleanup");
+    return true;
+}
+
+FATP_TEST_CASE(pool_exception_safety_capacity_preserved)
+{
+    PoolThrowingType::reset();
+    constexpr size_t kPoolSize = 4;
+    PoolAllocator<kPoolSize>::Allocator<PoolThrowingType> alloc;
+
+    // Throw on every allocation — pool capacity must not be consumed
+    PoolThrowingType::sThrowOnNext = true;
+    for (size_t i = 0; i < kPoolSize * 3; ++i)
+    {
+        try
+        {
+            alloc.allocate(static_cast<int>(i));
+        }
+        catch (const std::runtime_error&)
+        {
+        }
+    }
+    FATP_ASSERT_EQ(alloc.allocated(), size_t(0), "No slots consumed by failed constructions");
+
+    // Now allocate all slots successfully — must still have full capacity
+    PoolThrowingType::sThrowOnNext = false;
+    std::vector<PoolThrowingType*> ptrs;
+    for (size_t i = 0; i < kPoolSize; ++i)
+    {
+        ptrs.push_back(alloc.allocate(static_cast<int>(i)));
+    }
+    FATP_ASSERT_EQ(alloc.allocated(), kPoolSize, "Full pool capacity available after failed throws");
+
+    // Pool is now exhausted
+    bool exhausted = false;
+    try
+    {
+        alloc.allocate(999);
+    }
+    catch (const std::bad_alloc&)
+    {
+        exhausted = true;
+    }
+    FATP_ASSERT_TRUE(exhausted, "Pool must be exhausted at capacity");
+
+    for (auto* p : ptrs)
+    {
+        alloc.deallocate(p);
+    }
+    return true;
+}
+
+// ============================================================================
+// Test Suite 6: Stress/Fuzz Tests
 // ============================================================================
 
 FATP_TEST_CASE(stress_block_random_operations)
@@ -768,7 +1022,14 @@ bool test_AllocationStrategies()
     FATP_RUN_TEST_NS(runner, allocationns, edge_single_element_type);
     FATP_RUN_TEST_NS(runner, allocationns, edge_destructor_cleanup);
 
-    // Test Suite 5: Stress Tests
+    // Test Suite 5: Exception Safety (placement-new leak regression)
+    out << "\n" << colors::blue() << "--- Exception Safety ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, allocationns, block_exception_safety_slot_recovery);
+    FATP_RUN_TEST_NS(runner, allocationns, block_exception_safety_repeated_throws);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_exception_safety_slot_recovery);
+    FATP_RUN_TEST_NS(runner, allocationns, pool_exception_safety_capacity_preserved);
+
+    // Test Suite 6: Stress Tests
     out << "\n" << colors::blue() << "--- Stress Tests ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, allocationns, stress_block_random_operations);
     FATP_RUN_TEST_NS(runner, allocationns, stress_pool_fill_empty_cycles);

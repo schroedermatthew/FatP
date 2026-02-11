@@ -241,7 +241,15 @@ public:
     T* allocate(Args&&... args)
     {
         T* ptr = allocateRaw();
-        new (ptr) T(std::forward<Args>(args)...);
+        try
+        {
+            new (ptr) T(std::forward<Args>(args)...);
+        }
+        catch (...)
+        {
+            deallocateRaw(ptr);
+            throw;
+        }
         return ptr;
     }
 
@@ -256,12 +264,17 @@ public:
     void deallocate(T* ptr)
     {
         ptr->~T();
+        deallocateRaw(ptr);
+    }
+
+private:
+    void deallocateRaw(T* ptr)
+    {
         FreeNode* fn = reinterpret_cast<FreeNode*>(ptr);
         fn->next = mFreeList;
         mFreeList = fn;
     }
 
-private:
     T* allocateRaw()
     {
         // Fast path: reuse from free list
@@ -476,9 +489,19 @@ struct PoolAllocator
             }
             FreeNode* fn = mFreeList;
             mFreeList = fn->next;
-            ++mAllocated;
             T* ptr = reinterpret_cast<T*>(fn);
-            new (ptr) T(std::forward<Args>(args)...);
+            try
+            {
+                new (ptr) T(std::forward<Args>(args)...);
+            }
+            catch (...)
+            {
+                FreeNode* restored = reinterpret_cast<FreeNode*>(ptr);
+                restored->next = mFreeList;
+                mFreeList = restored;
+                throw;
+            }
+            ++mAllocated;
             return ptr;
         }
 
