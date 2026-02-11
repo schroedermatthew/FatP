@@ -19,9 +19,9 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 17
+    defines_total: 13
     defines_unprefixed: 2
-    undefs_total: 0
+    undefs_total: 4
     includes_windows_h: true
   generated:
     by: fatp-meta-tool
@@ -79,6 +79,7 @@ FATP_META:
  */
 
 #include "CppFeatureDetection.h"
+#include "FatPConfig.h" // FATP_CACHE_LINE_SIZE (Rule F: single source of truth via PlatformDetection.h)
 
 // =============================================================================
 // Feature Detection Macros
@@ -100,21 +101,8 @@ FATP_META:
 #define FATP_USE_CONDITION_VARIABLE 1
 #endif
 
-// Cache line size for alignment
-#if !defined(FATP_CACHE_LINE_SIZE)
-#define FATP_CACHE_LINE_SIZE 64
-#endif
-
-// C++20 atomic<shared_ptr> detection - use internal flag from CppFeatureDetection.h
-// Library support is compiler-dependent even with C++20
-#if FATP_HAS_ATOMIC_SHARED_PTR
-// Already detected by CppFeatureDetection.h
-#elif (defined(__GNUC__) && __GNUC__ >= 11) || (defined(__clang__) && __clang_major__ >= 13) || \
-      (defined(_MSC_VER) && _MSC_VER >= 1930)
-#define FATP_HAS_ATOMIC_SHARED_PTR 1
-#else
-#define FATP_HAS_ATOMIC_SHARED_PTR 0
-#endif
+// FATP_HAS_ATOMIC_SHARED_PTR is defined by CppFeatureDetection.h via the
+// standard __cpp_lib_atomic_shared_ptr feature-test macro (§1.1.2).
 
 // Standard Library Includes
 #if FATP_USE_MUTEX
@@ -1722,7 +1710,7 @@ struct AdaptiveLockPolicy
             , mUseMutex(policy.mUseMutex)
             , mUsingMutex(false)
         {
-            // Always acquire the mutex first â€” it is the single authority for
+            // Always acquire the mutex first Ã¢â‚¬â€ it is the single authority for
             // mutual exclusion. The spinlock is an optimization: when contention
             // is low, threads spin briefly on the flag instead of entering the
             // kernel. But the mutex is *always* held while in the critical section,
@@ -1741,7 +1729,7 @@ struct AdaptiveLockPolicy
                 {
                     if (++spins > SPIN_THRESHOLD)
                     {
-                        // Spin budget exhausted â€” fall through to mutex-only path
+                        // Spin budget exhausted Ã¢â‚¬â€ fall through to mutex-only path
                         uint32_t count = mContentionCounter.fetch_add(1, std::memory_order_relaxed);
                         if (count > ADAPT_WINDOW / 10)
                         {
@@ -1754,7 +1742,7 @@ struct AdaptiveLockPolicy
 
                 if (got_spin)
                 {
-                    // Won the spin â€” now acquire the mutex while holding the flag.
+                    // Won the spin Ã¢â‚¬â€ now acquire the mutex while holding the flag.
                     // This ensures no other thread can enter via either path.
                     mMutex.lock();
                     // Release the flag; we now hold the mutex exclusively.
@@ -1773,7 +1761,7 @@ struct AdaptiveLockPolicy
                     }
                     return;
                 }
-                // Spin budget exhausted â€” fall through to mutex-only
+                // Spin budget exhausted Ã¢â‚¬â€ fall through to mutex-only
             }
 
             // Mutex-only path (high contention or adaptive switch)

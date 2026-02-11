@@ -168,6 +168,87 @@ FATP_TEST_CASE(policy_traits)
 }
 
 // =============================================================================
+// Regression: FATP_CACHE_LINE_SIZE sourced from PlatformDetection.h
+// =============================================================================
+// ConcurrencyPolicies.h previously defined its own FATP_CACHE_LINE_SIZE fallback
+// of 64, bypassing PlatformDetection.h's Apple Silicon detection (128 bytes).
+// The fix includes FatPConfig.h (which includes PlatformDetection.h) and removes
+// the local fallback. These tests verify the macro flows through the correct chain.
+
+FATP_TEST_CASE(cache_line_size_source)
+{
+    std::cout << colors::cyan() << "\nRegression: FATP_CACHE_LINE_SIZE source..." << colors::reset() << std::endl;
+
+    constexpr size_t cl = FATP_CACHE_LINE_SIZE;
+
+    // Must be power of two, at least 32
+    FATP_ASSERT_GE(cl, size_t(32), "FATP_CACHE_LINE_SIZE must be >= 32");
+    FATP_ASSERT_EQ(cl & (cl - 1), size_t(0), "FATP_CACHE_LINE_SIZE must be power of two");
+
+    // PlatformDetection.h macros must be visible (proves FatPConfig.h was included)
+#if defined(FATP_PLATFORM_LINUX) || defined(FATP_PLATFORM_MACOS) || defined(FATP_PLATFORM_WINDOWS)
+    FATP_ASSERT_TRUE(true, "PlatformDetection.h macros available via FatPConfig.h");
+#else
+    FATP_ASSERT_TRUE(false, "PlatformDetection.h macros not available — FatPConfig.h not included");
+#endif
+
+    // Platform-specific value checks
+#if defined(FATP_PLATFORM_MACOS) && FATP_PLATFORM_MACOS && defined(FATP_ARCH_ARM64) && FATP_ARCH_ARM64
+    FATP_ASSERT_EQ(cl, size_t(128), "Apple Silicon requires 128-byte cache line from PlatformDetection.h");
+#elif defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+    FATP_ASSERT_EQ(cl, size_t(64), "x86/x86-64 uses 64-byte cache line");
+#endif
+
+    // All alignas(FATP_CACHE_LINE_SIZE) types must have sufficient alignment
+    FATP_ASSERT_GE(alignof(SpinlockSynchronizationPolicy), cl,
+        "SpinlockSynchronizationPolicy alignment must match FATP_CACHE_LINE_SIZE");
+    FATP_ASSERT_GE(alignof(TicketLockPolicy), cl,
+        "TicketLockPolicy alignment must match FATP_CACHE_LINE_SIZE");
+    FATP_ASSERT_EQ(alignof(MCSLockPolicy::QNode), cl,
+        "MCSLockPolicy::QNode alignment must equal FATP_CACHE_LINE_SIZE");
+    FATP_ASSERT_GE(alignof(SeqLockPolicy), cl,
+        "SeqLockPolicy alignment must match FATP_CACHE_LINE_SIZE");
+
+    std::cout << colors::green() << "  FATP_CACHE_LINE_SIZE = " << cl
+              << " (sourced from PlatformDetection.h)" << colors::reset() << std::endl;
+    return true;
+}
+
+// =============================================================================
+// Regression: FATP_HAS_ATOMIC_SHARED_PTR from CppFeatureDetection.h only
+// =============================================================================
+// ConcurrencyPolicies.h previously re-detected FATP_HAS_ATOMIC_SHARED_PTR using
+// raw compiler version checks, potentially overriding CppFeatureDetection.h's
+// authoritative detection via __cpp_lib_atomic_shared_ptr. The re-detection block
+// has been removed. These tests verify consistency with the standard feature-test
+// macro.
+
+FATP_TEST_CASE(atomic_shared_ptr_detection_source)
+{
+    std::cout << colors::cyan() << "\nRegression: FATP_HAS_ATOMIC_SHARED_PTR source..." << colors::reset() << std::endl;
+
+    constexpr int has_asp = FATP_HAS_ATOMIC_SHARED_PTR;
+    FATP_ASSERT_TRUE(has_asp == 0 || has_asp == 1,
+        "FATP_HAS_ATOMIC_SHARED_PTR must be 0 or 1");
+
+    // Cross-check against the standard feature-test macro
+#if defined(__cpp_lib_atomic_shared_ptr) && __cpp_lib_atomic_shared_ptr >= 201711L
+    FATP_ASSERT_EQ(has_asp, 1,
+        "__cpp_lib_atomic_shared_ptr present but FATP_HAS_ATOMIC_SHARED_PTR is 0");
+    std::cout << colors::green() << "  FATP_HAS_ATOMIC_SHARED_PTR = 1 "
+              << "(confirmed via __cpp_lib_atomic_shared_ptr)" << colors::reset() << std::endl;
+#else
+    FATP_ASSERT_EQ(has_asp, 0,
+        "No __cpp_lib_atomic_shared_ptr but FATP_HAS_ATOMIC_SHARED_PTR is 1 — "
+        "residual re-detection in ConcurrencyPolicies.h?");
+    std::cout << colors::green() << "  FATP_HAS_ATOMIC_SHARED_PTR = 0 "
+              << "(no __cpp_lib_atomic_shared_ptr, correctly not overridden)" << colors::reset() << std::endl;
+#endif
+
+    return true;
+}
+
+// =============================================================================
 // SingleThreadedPolicy Tests
 // =============================================================================
 
@@ -1314,6 +1395,8 @@ bool test_ConcurrencyPolicies()
     TestRunner runner;
 
     FATP_RUN_TEST_NS(runner, concurrencypolicies, policy_traits);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, cache_line_size_source);
+    FATP_RUN_TEST_NS(runner, concurrencypolicies, atomic_shared_ptr_detection_source);
     FATP_RUN_TEST_NS(runner, concurrencypolicies, SingleThreadedPolicy);
 
 #if FATP_USE_MUTEX

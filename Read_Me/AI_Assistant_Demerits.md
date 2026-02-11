@@ -19,7 +19,8 @@
 | Delivered corrupted code | 10 |  |  |  |
 | Making information up because did not bother to look at uploaded files | 5 |  |  |  |
 | Took the cheaper path and delivered it as if it were the fix | 5 | 5 |  |  |
+| Wrote new file from scratch instead of requesting/using existing one | | 1 |  |  |
 
 ---
 
-*Last updated: 2026-02-10*
+*Last updated: 2026-02-11*
