@@ -882,15 +882,9 @@ FATP_TEST_CASE(transient_resolve_returns_correct_error_code)
     return true;
 }
 
-FATP_TEST_CASE(register_factory_invalid_lifetime_increments_stats)
+FATP_TEST_CASE(register_factory_invalid_lifetime_rejected)
 {
-    using LocatorWithStats =
-        ServiceLocator<SingleThreadedPolicy, ServicePreventOverwritePolicy, AtomicServiceLocatorStatisticsPolicy>;
-
-    LocatorWithStats locator;
-
-    auto snap1 = locator.stats().snapshot();
-    FATP_ASSERT_EQ(snap1.mRegistrationFailures, 0u, "initially no registration failures");
+    DefaultServiceLocator locator;
 
     // Cast an invalid lifetime value
     auto badLifetime = static_cast<ServiceLifetime>(99);
@@ -903,18 +897,12 @@ FATP_TEST_CASE(register_factory_invalid_lifetime_increments_stats)
     FATP_ASSERT_FALSE(reg.has_value(), "registration with invalid lifetime should fail");
     FATP_ASSERT_EQ(reg.error().mCode, ServiceError::InvalidLifetime, "should return InvalidLifetime error");
 
-    auto snap2 = locator.stats().snapshot();
-    FATP_ASSERT_EQ(snap2.mRegistrationFailures, 1u, "should increment registration failures for invalid lifetime");
-
     return true;
 }
 
-FATP_TEST_CASE(clear_increments_unregistration_stats)
+FATP_TEST_CASE(clear_empties_locator)
 {
-    using LocatorWithStats =
-        ServiceLocator<SingleThreadedPolicy, ServicePreventOverwritePolicy, AtomicServiceLocatorStatisticsPolicy>;
-
-    LocatorWithStats locator;
+    DefaultServiceLocator locator;
 
     CounterService svc1, svc2, svc3;
     svc1.mValue = 1;
@@ -925,16 +913,12 @@ FATP_TEST_CASE(clear_increments_unregistration_stats)
     FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(svc2, "b").has_value(), "register b should succeed");
     FATP_ASSERT_TRUE(locator.registerInstance<CounterService>(svc3, "c").has_value(), "register c should succeed");
 
-    auto snap1 = locator.stats().snapshot();
-    FATP_ASSERT_EQ(snap1.mRegistrations, 3u, "should have 3 registrations");
-    FATP_ASSERT_EQ(snap1.mUnregistrations, 0u, "initially no unregistrations");
+    FATP_ASSERT_EQ(locator.size(), 3u, "should have 3 registrations");
 
     locator.clear();
 
     FATP_ASSERT_EQ(locator.size(), 0u, "locator should be empty after clear");
-
-    auto snap2 = locator.stats().snapshot();
-    FATP_ASSERT_EQ(snap2.mUnregistrations, 3u, "clear should increment unregistrations by count of cleared entries");
+    FATP_ASSERT_TRUE(locator.tryResolve<CounterService>("a") == nullptr, "cleared service should not resolve");
 
     return true;
 }
@@ -997,72 +981,51 @@ FATP_TEST_CASE(registration_raii_register_factory_expected)
 // Bug Fix Regression Tests
 // ============================================================================
 
-/// Service for testing cache invalidation with destructor tracking
-struct CacheTestService
+/// P0: RAII unregister prevents stale resolution
+FATP_TEST_CASE(raii_unregister_prevents_stale_resolve)
 {
-    int mValue = 0;
-    static inline std::atomic<int> sDestructorCount{0};
+    DefaultServiceLocator locator;
 
-    CacheTestService() = default;
-    explicit CacheTestService(int v) : mValue(v) {}
-    ~CacheTestService() { ++sDestructorCount; }
-};
-
-/// P0: Cache invalidation on RAII unregister (UAF prevention)
-FATP_TEST_CASE(cache_invalidation_on_raii_unregister)
-{
-    using fat_p::HotLoopServiceLocator;
-
-    CacheTestService::sDestructorCount = 0;
-    HotLoopServiceLocator locator;
+    CounterService svc;
+    svc.mValue = 999;
 
     {
-        auto regResult = HotLoopServiceLocator::Registration::registerSharedExpected<CacheTestService>(
-            locator, std::make_shared<CacheTestService>(999));
+        auto regResult = DefaultServiceLocator::Registration::registerSharedExpected<CounterService>(
+            locator, std::make_shared<CounterService>(svc));
         FATP_ASSERT_TRUE(regResult.has_value(), "Registration should succeed");
 
-        // First resolve - populates cache
-        CacheTestService* first = locator.tryResolve<CacheTestService>();
-        FATP_ASSERT_NOT_NULLPTR(first, "First resolve should find service");
-        FATP_ASSERT_EQ(first->mValue, 999, "Service value should match");
+        CounterService* first = locator.tryResolve<CounterService>();
+        FATP_ASSERT_NOT_NULLPTR(first, "Resolve should find service");
     }
-
-    // shared_ptr released, destructor called
-    FATP_ASSERT_EQ(CacheTestService::sDestructorCount.load(), 1,
-                   "Destructor should be called after RAII unregister");
 
     FATP_ASSERT_EQ(locator.size(), static_cast<size_t>(0),
                    "Locator should be empty after RAII unregister");
 
-    // Cache must be invalidated - should return nullptr, not stale pointer
-    CacheTestService* second = locator.tryResolve<CacheTestService>();
-    FATP_ASSERT_NULLPTR(second, "After RAII unregister, cache must be invalidated");
+    CounterService* second = locator.tryResolve<CounterService>();
+    FATP_ASSERT_NULLPTR(second, "After RAII unregister, resolve must return nullptr");
 
     return true;
 }
 
-/// P0: const T resolve with cache-enabled locators
-FATP_TEST_CASE(const_resolve_with_cache)
+/// P0: const T resolve works correctly
+FATP_TEST_CASE(const_resolve)
 {
-    using fat_p::HotLoopServiceLocator;
-
-    HotLoopServiceLocator locator;
+    DefaultServiceLocator locator;
     CounterService svc;
     svc.mValue = 42;
 
     auto reg = locator.registerInstance<CounterService>(svc);
     FATP_ASSERT_TRUE(reg.has_value(), "Registration should succeed");
 
-    // This would not compile before the fix (static_cast<void*>(const T*) is ill-formed)
     const CounterService* resolved = locator.tryResolve<const CounterService>();
     FATP_ASSERT_NOT_NULLPTR(resolved, "const resolve should find service");
     FATP_ASSERT_EQ(resolved->mValue, 42, "Resolved value should match");
 
-    // Cache hit for const T
-    const CounterService* cached = locator.tryResolve<const CounterService>();
-    FATP_ASSERT_EQ(resolved, cached, "Cache should return same pointer");
+    // Repeat resolve should return same pointer
+    const CounterService* again = locator.tryResolve<const CounterService>();
+    FATP_ASSERT_EQ(resolved, again, "Repeated resolve should return same pointer");
 
-    // Named const resolve (no cache for named lookups)
+    // Named const resolve
     CounterService namedSvc;
     namedSvc.mValue = 7;
 
@@ -1311,18 +1274,18 @@ bool test_ServiceLocator()
     out << "\n" << colors::bold() << "=== New API: makeChild ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, make_child_creates_functional_child);
 
-    out << "\n" << colors::bold() << "=== Error Codes & Statistics ===" << colors::reset() << std::endl;
+    out << "\n" << colors::bold() << "=== Error Codes ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, transient_resolve_returns_correct_error_code);
-    FATP_RUN_TEST_NS(runner, service_locator, register_factory_invalid_lifetime_increments_stats);
-    FATP_RUN_TEST_NS(runner, service_locator, clear_increments_unregistration_stats);
+    FATP_RUN_TEST_NS(runner, service_locator, register_factory_invalid_lifetime_rejected);
+    FATP_RUN_TEST_NS(runner, service_locator, clear_empties_locator);
 
     out << "\n" << colors::bold() << "=== RAII Registration Helpers ===" << colors::reset() << std::endl;
     FATP_RUN_TEST_NS(runner, service_locator, registration_raii_register_shared_expected);
     FATP_RUN_TEST_NS(runner, service_locator, registration_raii_register_factory_expected);
 
     out << "\n" << colors::bold() << "=== Bug Fix Regressions ===" << colors::reset() << std::endl;
-    FATP_RUN_TEST_NS(runner, service_locator, cache_invalidation_on_raii_unregister);
-    FATP_RUN_TEST_NS(runner, service_locator, const_resolve_with_cache);
+    FATP_RUN_TEST_NS(runner, service_locator, raii_unregister_prevents_stale_resolve);
+    FATP_RUN_TEST_NS(runner, service_locator, const_resolve);
     FATP_RUN_TEST_NS(runner, service_locator, registration_operator_bool);
     FATP_RUN_TEST_NS(runner, service_locator, service_error_info_stream_output);
 
