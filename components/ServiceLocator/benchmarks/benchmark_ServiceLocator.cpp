@@ -27,7 +27,6 @@
 //   4. Scoped resolution with parent chain (fat_p)
 //   5. Registration performance
 //   6. Size sensitivity (scaling with registered services)
-//   7. MRU resolve cache locality (fat_p optional)
 //   8. Named key hot-loop locality (fat_p)
 //   9. Const resolve (T vs const T)
 //  10. Mutation cost (unregister / clear)
@@ -118,27 +117,10 @@ FATP_META:
 // ============================================================================
 
 // ============================================================================
-// fat_p locator variants (statistics overhead)
+// fat_p locator variants
 // ============================================================================
-//
-// These aliases allow the benchmark to quantify the per-resolve cost of
-// AtomicServiceLocatorStatisticsPolicy without changing the library defaults.
-//
-using FatPDefaultNoStats = fat_p::ServiceLocator<fat_p::SingleThreadedPolicy,
-                                                 fat_p::ServicePreventOverwritePolicy,
-                                                 fat_p::NoServiceLocatorStatisticsPolicy>;
-
-using FatPDefaultAtomicStats = fat_p::ServiceLocator<fat_p::SingleThreadedPolicy,
-                                                     fat_p::ServicePreventOverwritePolicy,
-                                                     fat_p::AtomicServiceLocatorStatisticsPolicy>;
-
-using FatPThreadSafeNoStats = fat_p::ServiceLocator<fat_p::SharedMutexPolicy,
-                                                    fat_p::ServicePreventOverwritePolicy,
-                                                    fat_p::NoServiceLocatorStatisticsPolicy>;
-
-using FatPThreadSafeAtomicStats = fat_p::ServiceLocator<fat_p::SharedMutexPolicy,
-                                                        fat_p::ServicePreventOverwritePolicy,
-                                                        fat_p::AtomicServiceLocatorStatisticsPolicy>;
+using FatPDefault = fat_p::DefaultServiceLocator;
+using FatPThreadSafe = fat_p::ThreadSafeServiceLocator;
 
 // EnTT service locator (if available)
 // Install: vcpkg install entt
@@ -205,8 +187,6 @@ static inline double ns_per_op(double elapsed_ns, size_t ops)
 // ============================================================================
 
 static volatile std::int64_t benchmark_sink = 0;
-
-
 // ============================================================================
 // Hash Helpers (SplitMix64, avalanching)
 // ============================================================================
@@ -443,7 +423,7 @@ struct ILocatorAdapter
 
 class FatPDefaultAdapter final : public ILocatorAdapter
 {
-    std::unique_ptr<FatPDefaultNoStats> mLocator;
+    std::unique_ptr<FatPDefault> mLocator;
     NullLogger mLogger;
     InMemoryDatabase mDb;
     NoOpCache mCache;
@@ -453,78 +433,12 @@ class FatPDefaultAdapter final : public ILocatorAdapter
 public:
     const char* name() const override
     {
-        return "fat_p::DefaultServiceLocator (no stats)";
+        return "fat_p::DefaultServiceLocator";
     }
 
     void setup(size_t /*numServices*/) override
     {
-        mLocator = std::make_unique<FatPDefaultNoStats>();
-        (void)mLocator->registerInstance<ILogger>(mLogger);
-        (void)mLocator->registerInstance<IDatabase>(mDb);
-        (void)mLocator->registerInstance<ICache>(mCache);
-        (void)mLocator->registerInstance<IMetrics>(mMetrics);
-        (void)mLocator->registerInstance<IConfig>(mConfig);
-    }
-
-    void teardown() override
-    {
-        mLocator.reset();
-    }
-
-    size_t run_operation(Operation op, size_t iterations) override
-    {
-        size_t ops = 0;
-        switch (op)
-        {
-            case Operation::ResolveSingle:
-                for (size_t i = 0; i < iterations; ++i)
-                {
-                    ILogger* l = mLocator->tryResolve<ILogger>();
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(l);
-                    ++ops;
-                }
-                break;
-
-            case Operation::ResolveMulti:
-                for (size_t i = 0; i < iterations; ++i)
-                {
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<ILogger>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<IDatabase>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<ICache>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<IMetrics>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<IConfig>());
-                    ops += 5;
-                }
-                break;
-        }
-        return ops;
-    }
-};
-
-
-
-// ============================================================================
-// fat_p::DefaultServiceLocator (atomic stats) Adapter
-// ============================================================================
-
-class FatPDefaultAtomicStatsAdapter final : public ILocatorAdapter
-{
-    std::unique_ptr<FatPDefaultAtomicStats> mLocator;
-    NullLogger mLogger;
-    InMemoryDatabase mDb;
-    NoOpCache mCache;
-    NullMetrics mMetrics;
-    StaticConfig mConfig;
-
-public:
-    const char* name() const override
-    {
-        return "fat_p::DefaultServiceLocator (atomic stats)";
-    }
-
-    void setup(size_t /*numServices*/) override
-    {
-        mLocator = std::make_unique<FatPDefaultAtomicStats>();
+        mLocator = std::make_unique<FatPDefault>();
         (void)mLocator->registerInstance<ILogger>(mLogger);
         (void)mLocator->registerInstance<IDatabase>(mDb);
         (void)mLocator->registerInstance<ICache>(mCache);
@@ -573,7 +487,7 @@ public:
 
 class FatPThreadSafeAdapter final : public ILocatorAdapter
 {
-    std::unique_ptr<FatPThreadSafeNoStats> mLocator;
+    std::unique_ptr<FatPThreadSafe> mLocator;
     NullLogger mLogger;
     InMemoryDatabase mDb;
     NoOpCache mCache;
@@ -583,78 +497,12 @@ class FatPThreadSafeAdapter final : public ILocatorAdapter
 public:
     const char* name() const override
     {
-        return "fat_p::ThreadSafeServiceLocator (no stats)";
+        return "fat_p::ThreadSafeServiceLocator";
     }
 
     void setup(size_t /*numServices*/) override
     {
-        mLocator = std::make_unique<FatPThreadSafeNoStats>();
-        (void)mLocator->registerInstance<ILogger>(mLogger);
-        (void)mLocator->registerInstance<IDatabase>(mDb);
-        (void)mLocator->registerInstance<ICache>(mCache);
-        (void)mLocator->registerInstance<IMetrics>(mMetrics);
-        (void)mLocator->registerInstance<IConfig>(mConfig);
-    }
-
-    void teardown() override
-    {
-        mLocator.reset();
-    }
-
-    size_t run_operation(Operation op, size_t iterations) override
-    {
-        size_t ops = 0;
-        switch (op)
-        {
-            case Operation::ResolveSingle:
-                for (size_t i = 0; i < iterations; ++i)
-                {
-                    ILogger* l = mLocator->tryResolve<ILogger>();
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(l);
-                    ++ops;
-                }
-                break;
-
-            case Operation::ResolveMulti:
-                for (size_t i = 0; i < iterations; ++i)
-                {
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<ILogger>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<IDatabase>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<ICache>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<IMetrics>());
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(mLocator->tryResolve<IConfig>());
-                    ops += 5;
-                }
-                break;
-        }
-        return ops;
-    }
-};
-
-
-
-// ============================================================================
-// fat_p::ThreadSafeServiceLocator (atomic stats) Adapter
-// ============================================================================
-
-class FatPThreadSafeAtomicStatsAdapter final : public ILocatorAdapter
-{
-    std::unique_ptr<FatPThreadSafeAtomicStats> mLocator;
-    NullLogger mLogger;
-    InMemoryDatabase mDb;
-    NoOpCache mCache;
-    NullMetrics mMetrics;
-    StaticConfig mConfig;
-
-public:
-    const char* name() const override
-    {
-        return "fat_p::ThreadSafeServiceLocator (atomic stats)";
-    }
-
-    void setup(size_t /*numServices*/) override
-    {
-        mLocator = std::make_unique<FatPThreadSafeAtomicStats>();
+        mLocator = std::make_unique<FatPThreadSafe>();
         (void)mLocator->registerInstance<ILogger>(mLogger);
         (void)mLocator->registerInstance<IDatabase>(mDb);
         (void)mLocator->registerInstance<ICache>(mCache);
@@ -1269,8 +1117,6 @@ static void benchmark_registration()
 // ============================================================================
 // Section 6: Size Sensitivity
 // ============================================================================
-
-
 namespace size_sensitivity_detail
 {
 constexpr std::size_t kMaxTypes = 100;
@@ -1357,38 +1203,6 @@ constexpr auto make_unregister_table(std::index_sequence<Is...>) noexcept
 
 inline const auto kUnregisterTable = make_unregister_table(std::make_index_sequence<kMaxTypes>{});
 
-using RegisterFnHot = void (*)(fat_p::HotLoopServiceLocator&);
-
-template<std::size_t I>
-void reg_hot(fat_p::HotLoopServiceLocator& locator)
-{
-    (void)locator.registerInstance<DummyService<I>>(DummyStorage<I>::sInstance);
-}
-
-template<std::size_t... Is>
-constexpr auto make_register_table_hot(std::index_sequence<Is...>) noexcept
-{
-    return std::array<RegisterFnHot, sizeof...(Is)>{ { &reg_hot<Is>... } };
-}
-
-inline const auto kRegisterTableHot = make_register_table_hot(std::make_index_sequence<kMaxTypes>{});
-
-using UnregisterFnHot = bool (*)(fat_p::HotLoopServiceLocator&);
-
-template<std::size_t I>
-bool unreg_hot(fat_p::HotLoopServiceLocator& locator)
-{
-    return locator.unregister<DummyService<I>>();
-}
-
-template<std::size_t... Is>
-constexpr auto make_unregister_table_hot(std::index_sequence<Is...>) noexcept
-{
-    return std::array<UnregisterFnHot, sizeof...(Is)>{ { &unreg_hot<Is>... } };
-}
-
-inline const auto kUnregisterTableHot = make_unregister_table_hot(std::make_index_sequence<kMaxTypes>{});
-
 inline const auto kTokenTable = make_token_table(std::make_index_sequence<kMaxTypes>{});
 inline const auto kInstanceTable = make_instance_table(std::make_index_sequence<kMaxTypes>{});
 
@@ -1416,8 +1230,6 @@ struct CompositeKeyEq final
     }
 };
 } // namespace size_sensitivity_detail
-
-
 static void benchmark_size_sensitivity()
 {
     print_header("SIZE SENSITIVITY");
@@ -1624,332 +1436,9 @@ static void benchmark_size_sensitivity()
 
     std::cout << "\n";
 }
-
-
 // ============================================================================
-// Section 7: Overhead Isolation Micro-Benchmarks
+// Section 7: String Key Hot Loop Locality
 // ============================================================================
-
-// =============================================================================
-// MRU RESOLVE CACHE LOCALITY (fat_p optional)
-// =============================================================================
-static void benchmark_mru_resolve_cache_locality()
-{
-    print_header("MRU RESOLVE CACHE LOCALITY (fat_p optional)");
-    print_contract(
-        "Hot-loop repeated resolves after startup registration. Measures steady-state resolve cost for\n"
-        "type-only (unnamed) services while varying the total number of registered services.\n"
-        "Patterns:\n"
-        "  1) Repeat A: tryResolve<A>() repeatedly.\n"
-        "  2) Alternate A/B: tryResolve<A>(), tryResolve<B>(), ...\n"
-        "Comparator: DefaultServiceLocator (no cache) vs HotLoopServiceLocator (MRU2).\n"
-    );
-    print_cpu_context("Starting");
-
-    // Total registered services per run (includes the hot services A and B).
-    // This extends the previous 2-service test to more realistic startup registries.
-    const std::vector<size_t> sizes = {2, 5, 10, 25, 50, 100};
-
-    // Per-size iteration count (kept smaller than other sections because we run multiple sizes).
-    constexpr size_t ITERATIONS_PER_RUN = 200000;
-
-    struct DummyA { int x = 1; };
-    struct DummyB { int y = 2; };
-    struct DummyC { int z = 3; };
-
-    DummyA a{};
-    DummyB b{};
-    DummyC c{};
-
-    std::cout << std::fixed << std::setprecision(2);
-
-    // ------------------------------------------------------------------------
-    // Repeat A (AAAA...)
-    // ------------------------------------------------------------------------
-    std::cout << "REPEAT A (AAAA...)\n";
-    std::cout
-        << "Services | Default median (ns/op) | MRU2 median (ns/op) | Speedup (Default/MRU2)\n";
-    std::cout
-        << "---------|------------------------|--------------------|----------------------\n";
-
-    for (size_t totalServices : sizes)
-    {
-        const size_t noiseCount = (totalServices > 2) ? (totalServices - 2) : 0;
-
-        std::vector<double> samples_default;
-        std::vector<double> samples_mru2;
-
-        for (size_t phase = 0; phase < 2; ++phase)
-        {
-            const size_t runs = (phase == 0) ? WARMUP_RUNS() : MEASURED_RUNS();
-
-            for (size_t run = 0; run < runs; ++run)
-            {
-                // Default (no cache)
-                {
-                    fat_p::DefaultServiceLocator locator;
-                    (void)locator.registerInstance<DummyA>(a);
-                    (void)locator.registerInstance<DummyB>(b);
-
-                    for (size_t i = 0; i < noiseCount; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTable[i](locator);
-                    }
-
-                    (void)locator.tryResolve<DummyA>(); // warm path
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyA>());
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN);
-
-                    if (phase == 1)
-                    {
-                        samples_default.push_back(nsOp);
-                    }
-                }
-
-                // MRU2
-                {
-                    fat_p::HotLoopServiceLocator locator;
-                    (void)locator.registerInstance<DummyA>(a);
-                    (void)locator.registerInstance<DummyB>(b);
-
-                    for (size_t i = 0; i < noiseCount; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTableHot[i](locator);
-                    }
-
-                    (void)locator.tryResolve<DummyA>(); // warm cache/path
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyA>());
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN);
-
-                    if (phase == 1)
-                    {
-                        samples_mru2.push_back(nsOp);
-                    }
-                }
-            }
-        }
-
-        const double medDefault = Statistics::compute(samples_default).median;
-        const double medMru2 = Statistics::compute(samples_mru2).median;
-        const double speedup = (medMru2 > 0.0) ? (medDefault / medMru2) : 0.0;
-
-        std::cout << std::setw(8) << totalServices << " | "
-                  << std::setw(22) << medDefault << " | "
-                  << std::setw(18) << medMru2 << " | "
-                  << std::setw(20) << speedup << "\n";
-    }
-
-    std::cout << "\n";
-
-    // ------------------------------------------------------------------------
-    // Alternate A/B (ABAB...)
-    // ------------------------------------------------------------------------
-    std::cout << "ALTERNATE A/B (ABAB...)\n";
-    std::cout
-        << "Services | Default median (ns/op) | MRU2 median (ns/op) | Speedup (Default/MRU2)\n";
-    std::cout
-        << "---------|------------------------|--------------------|----------------------\n";
-
-    for (size_t totalServices : sizes)
-    {
-        const size_t noiseCount = (totalServices > 2) ? (totalServices - 2) : 0;
-
-        std::vector<double> samples_default;
-        std::vector<double> samples_mru2;
-
-        for (size_t phase = 0; phase < 2; ++phase)
-        {
-            const size_t runs = (phase == 0) ? WARMUP_RUNS() : MEASURED_RUNS();
-
-            for (size_t run = 0; run < runs; ++run)
-            {
-                // Default (no cache)
-                {
-                    fat_p::DefaultServiceLocator locator;
-                    (void)locator.registerInstance<DummyA>(a);
-                    (void)locator.registerInstance<DummyB>(b);
-
-                    for (size_t i = 0; i < noiseCount; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTable[i](locator);
-                    }
-
-                    (void)locator.tryResolve<DummyA>();
-                    (void)locator.tryResolve<DummyB>();
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyA>());
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyB>());
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 2);
-
-                    if (phase == 1)
-                    {
-                        samples_default.push_back(nsOp);
-                    }
-                }
-
-                // MRU2
-                {
-                    fat_p::HotLoopServiceLocator locator;
-                    (void)locator.registerInstance<DummyA>(a);
-                    (void)locator.registerInstance<DummyB>(b);
-
-                    for (size_t i = 0; i < noiseCount; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTableHot[i](locator);
-                    }
-
-                    (void)locator.tryResolve<DummyA>();
-                    (void)locator.tryResolve<DummyB>();
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyA>());
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyB>());
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 2);
-
-                    if (phase == 1)
-                    {
-                        samples_mru2.push_back(nsOp);
-                    }
-                }
-            }
-        }
-
-        const double medDefault = Statistics::compute(samples_default).median;
-        const double medMru2 = Statistics::compute(samples_mru2).median;
-        const double speedup = (medMru2 > 0.0) ? (medDefault / medMru2) : 0.0;
-
-        std::cout << std::setw(8) << totalServices << " | "
-                  << std::setw(22) << medDefault << " | "
-                  << std::setw(18) << medMru2 << " | "
-                  << std::setw(20) << speedup << "\n";
-    }
-
-    std::cout << "\n";
-
-    // ------------------------------------------------------------------------
-    // Cycle A/B/C (ABCABC...) - MRU2 worst-case locality
-    // ------------------------------------------------------------------------
-    std::cout << "CYCLE A/B/C (ABCABC...)\n";
-    std::cout
-        << "Services | Default median (ns/op) | MRU2 median (ns/op) | Speedup (Default/MRU2)\n";
-    std::cout
-        << "---------|------------------------|--------------------|----------------------\n";
-
-    const std::vector<size_t> sizesABC = {3, 5, 10, 25, 50, 100};
-
-    for (size_t totalServices : sizesABC)
-    {
-        const size_t noiseCount = (totalServices > 3) ? (totalServices - 3) : 0;
-
-        std::vector<double> samples_default;
-        std::vector<double> samples_mru2;
-
-        for (size_t phase = 0; phase < 2; ++phase)
-        {
-            const size_t runs = (phase == 0) ? WARMUP_RUNS() : MEASURED_RUNS();
-
-            for (size_t run = 0; run < runs; ++run)
-            {
-                // Default (no cache)
-                {
-                    fat_p::DefaultServiceLocator locator;
-                    (void)locator.registerInstance<DummyA>(a);
-                    (void)locator.registerInstance<DummyB>(b);
-                    (void)locator.registerInstance<DummyC>(c);
-
-                    for (size_t i = 0; i < noiseCount; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTable[i](locator);
-                    }
-
-                    (void)locator.tryResolve<DummyA>();
-                    (void)locator.tryResolve<DummyB>();
-                    (void)locator.tryResolve<DummyC>();
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyA>());
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyB>());
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyC>());
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 3);
-
-                    if (phase == 1)
-                    {
-                        samples_default.push_back(nsOp);
-                    }
-                }
-
-                // MRU2
-                {
-                    fat_p::HotLoopServiceLocator locator;
-                    (void)locator.registerInstance<DummyA>(a);
-                    (void)locator.registerInstance<DummyB>(b);
-                    (void)locator.registerInstance<DummyC>(c);
-
-                    for (size_t i = 0; i < noiseCount; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTableHot[i](locator);
-                    }
-
-                    (void)locator.tryResolve<DummyA>();
-                    (void)locator.tryResolve<DummyB>();
-                    (void)locator.tryResolve<DummyC>();
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyA>());
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyB>());
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<DummyC>());
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 3);
-
-                    if (phase == 1)
-                    {
-                        samples_mru2.push_back(nsOp);
-                    }
-                }
-            }
-        }
-
-        const double medDefault = Statistics::compute(samples_default).median;
-        const double medMru2 = Statistics::compute(samples_mru2).median;
-        const double speedup = (medMru2 > 0.0) ? (medDefault / medMru2) : 0.0;
-
-        std::cout << std::setw(8) << totalServices << " | "
-                  << std::setw(22) << medDefault << " | "
-                  << std::setw(18) << medMru2 << " | "
-                  << std::setw(20) << speedup << "\n";
-    }
-
-    std::cout << "\n";
-}
-
 
 // =============================================================================
 // STRING KEY HOT LOOP (named services) - fat_p comparison
@@ -1962,8 +1451,6 @@ static void benchmark_string_key_hot_loop_locality()
         "Measures steady-state cost while varying:\n"
         "  A) Name length (bytes) at fixed named-variant count.\n"
         "  B) Named-variant count at fixed name length.\n"
-        "Comparator: DefaultServiceLocator vs HotLoopServiceLocator (MRU2).\n"
-        "Note: The MRU cache is type-only; named lookups should not benefit (this is intentional to measure).\n"
     );
     print_cpu_context("Starting");
 
@@ -1998,9 +1485,8 @@ static void benchmark_string_key_hot_loop_locality()
 
     NullLogger logger;
 
-    auto bench_repeat = [&](const std::vector<std::string>& names) -> std::pair<double, double> {
-        std::vector<double> samples_default;
-        std::vector<double> samples_mru2;
+    auto bench_repeat = [&](const std::vector<std::string>& names) -> double {
+        std::vector<double> samples;
 
         for (size_t phase = 0; phase < 2; ++phase)
         {
@@ -2008,64 +1494,33 @@ static void benchmark_string_key_hot_loop_locality()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                // Default locator
+                fat_p::DefaultServiceLocator locator;
+                for (const auto& n : names)
                 {
-                    fat_p::DefaultServiceLocator locator;
-                    for (const auto& n : names)
-                    {
-                        (void)locator.registerInstance<ILogger>(logger, n);
-                    }
-
-                    const std::string_view hot = names[0];
-                    (void)locator.tryResolve<ILogger>(hot); // warm
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(hot));
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN);
-
-                    if (phase == 1)
-                    {
-                        samples_default.push_back(nsOp);
-                    }
+                    (void)locator.registerInstance<ILogger>(logger, n);
                 }
 
-                // HotLoop (MRU2) locator
+                const std::string_view hot = names[0];
+                (void)locator.tryResolve<ILogger>(hot); // warm
+
+                Timer t;
+                t.start();
+                for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
                 {
-                    fat_p::HotLoopServiceLocator locator;
-                    for (const auto& n : names)
-                    {
-                        (void)locator.registerInstance<ILogger>(logger, n);
-                    }
-
-                    const std::string_view hot = names[0];
-                    (void)locator.tryResolve<ILogger>(hot); // warm
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(hot));
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN);
-
-                    if (phase == 1)
-                    {
-                        samples_mru2.push_back(nsOp);
-                    }
+                    benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(hot));
+                }
+                if (phase == 1)
+                {
+                    samples.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
                 }
             }
         }
 
-        return {Statistics::compute(samples_default).median, Statistics::compute(samples_mru2).median};
+        return Statistics::compute(samples).median;
     };
 
-    auto bench_alternate = [&](const std::vector<std::string>& names) -> std::pair<double, double> {
-        std::vector<double> samples_default;
-        std::vector<double> samples_mru2;
+    auto bench_alternate = [&](const std::vector<std::string>& names) -> double {
+        std::vector<double> samples;
 
         const std::string_view a = names[0];
         const std::string_view b = (names.size() > 1) ? std::string_view(names[1]) : std::string_view(names[0]);
@@ -2076,61 +1531,30 @@ static void benchmark_string_key_hot_loop_locality()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                // Default locator
+                fat_p::DefaultServiceLocator locator;
+                for (const auto& n : names)
                 {
-                    fat_p::DefaultServiceLocator locator;
-                    for (const auto& n : names)
-                    {
-                        (void)locator.registerInstance<ILogger>(logger, n);
-                    }
-
-                    (void)locator.tryResolve<ILogger>(a);
-                    (void)locator.tryResolve<ILogger>(b);
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(a));
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(b));
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 2);
-
-                    if (phase == 1)
-                    {
-                        samples_default.push_back(nsOp);
-                    }
+                    (void)locator.registerInstance<ILogger>(logger, n);
                 }
 
-                // HotLoop (MRU2) locator
+                (void)locator.tryResolve<ILogger>(a);
+                (void)locator.tryResolve<ILogger>(b);
+
+                Timer t;
+                t.start();
+                for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
                 {
-                    fat_p::HotLoopServiceLocator locator;
-                    for (const auto& n : names)
-                    {
-                        (void)locator.registerInstance<ILogger>(logger, n);
-                    }
-
-                    (void)locator.tryResolve<ILogger>(a);
-                    (void)locator.tryResolve<ILogger>(b);
-
-                    Timer t;
-                    t.start();
-                    for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                    {
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(a));
-                        benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(b));
-                    }
-                    const double nsOp = ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 2);
-
-                    if (phase == 1)
-                    {
-                        samples_mru2.push_back(nsOp);
-                    }
+                    benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(a));
+                    benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>(b));
+                }
+                if (phase == 1)
+                {
+                    samples.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN * 2));
                 }
             }
         }
 
-        return {Statistics::compute(samples_default).median, Statistics::compute(samples_mru2).median};
+        return Statistics::compute(samples).median;
     };
 
     // ------------------------------------------------------------------------
@@ -2142,21 +1566,19 @@ static void benchmark_string_key_hot_loop_locality()
     std::cout << std::fixed << std::setprecision(2);
 
     std::cout << "NAME LENGTH SWEEP (variants=100)\n";
-    std::cout << "Len | Default AAAA | MRU2 AAAA | Default ABAB | MRU2 ABAB\n";
-    std::cout << "----|--------------|----------|--------------|----------\n";
+    std::cout << "Len | Repeat AAAA (ns/op) | Alternate ABAB (ns/op)\n";
+    std::cout << "----|--------------------|-----------------------\n";
 
     for (size_t len : lengths)
     {
         const auto names = make_names(kVariantCount, len, g_config.seed ^ (0xA5A5A5A5ULL + len));
 
-        const auto [dAaaa, mAaaa] = bench_repeat(names);
-        const auto [dAbab, mAbab] = bench_alternate(names);
+        const double repeat = bench_repeat(names);
+        const double alternate = bench_alternate(names);
 
         std::cout << std::setw(3) << len << " | "
-                  << std::setw(12) << dAaaa << " | "
-                  << std::setw(8) << mAaaa << " | "
-                  << std::setw(12) << dAbab << " | "
-                  << std::setw(8) << mAbab << "\n";
+                  << std::setw(18) << repeat << " | "
+                  << std::setw(21) << alternate << "\n";
     }
 
     std::cout << "\n";
@@ -2168,26 +1590,27 @@ static void benchmark_string_key_hot_loop_locality()
     constexpr size_t kFixedLen = 16;
 
     std::cout << "VARIANT COUNT SWEEP (len=16)\n";
-    std::cout << "N   | Default AAAA | MRU2 AAAA | Default ABAB | MRU2 ABAB\n";
-    std::cout << "----|--------------|----------|--------------|----------\n";
+    std::cout << "N   | Repeat AAAA (ns/op) | Alternate ABAB (ns/op)\n";
+    std::cout << "----|--------------------|-----------------------\n";
 
     for (size_t n : counts)
     {
         const auto names = make_names(n, kFixedLen, g_config.seed ^ (0x5A5A5A5AULL + n));
 
-        const auto [dAaaa, mAaaa] = bench_repeat(names);
-        const auto [dAbab, mAbab] = bench_alternate(names);
+        const double repeat = bench_repeat(names);
+        const double alternate = bench_alternate(names);
 
         std::cout << std::setw(3) << n << " | "
-                  << std::setw(12) << dAaaa << " | "
-                  << std::setw(8) << mAaaa << " | "
-                  << std::setw(12) << dAbab << " | "
-                  << std::setw(8) << mAbab << "\n";
+                  << std::setw(18) << repeat << " | "
+                  << std::setw(21) << alternate << "\n";
     }
 
     std::cout << "\n";
 }
 
+// =============================================================================
+// =============================================================================
+// Section 8: Const Resolve (T vs const T)
 // =============================================================================
 // CONST RESOLVE (T vs const T)
 // =============================================================================
@@ -2197,7 +1620,6 @@ static void benchmark_const_resolve()
     print_contract(
         "Measures steady-state cost of tryResolve<T>() vs tryResolve<const T>() for unnamed services.\n"
         "TypeKeyPolicy removes cv-qualifiers, so both resolve paths share the same type id.\n"
-        "Comparator: DefaultServiceLocator (no cache) vs HotLoopServiceLocator (MRU2).\n"
     );
     print_cpu_context("Starting");
 
@@ -2206,10 +1628,8 @@ static void benchmark_const_resolve()
     struct Dummy { int x = 123; };
     Dummy dummy{};
 
-    std::vector<double> def_nonconst;
-    std::vector<double> def_const;
-    std::vector<double> hot_nonconst;
-    std::vector<double> hot_const;
+    std::vector<double> samples_nonconst;
+    std::vector<double> samples_const;
 
     for (size_t phase = 0; phase < 2; ++phase)
     {
@@ -2217,7 +1637,7 @@ static void benchmark_const_resolve()
 
         for (size_t run = 0; run < runs; ++run)
         {
-            // Default: non-const
+            // non-const
             {
                 fat_p::DefaultServiceLocator locator;
                 (void)locator.registerInstance<Dummy>(dummy);
@@ -2231,11 +1651,11 @@ static void benchmark_const_resolve()
                 }
                 if (phase == 1)
                 {
-                    def_nonconst.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
+                    samples_nonconst.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
                 }
             }
 
-            // Default: const
+            // const
             {
                 fat_p::DefaultServiceLocator locator;
                 (void)locator.registerInstance<Dummy>(dummy);
@@ -2249,70 +1669,29 @@ static void benchmark_const_resolve()
                 }
                 if (phase == 1)
                 {
-                    def_const.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
-                }
-            }
-
-            // HotLoop: non-const
-            {
-                fat_p::HotLoopServiceLocator locator;
-                (void)locator.registerInstance<Dummy>(dummy);
-                (void)locator.tryResolve<Dummy>();
-
-                Timer t;
-                t.start();
-                for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                {
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<Dummy>());
-                }
-                if (phase == 1)
-                {
-                    hot_nonconst.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
-                }
-            }
-
-            // HotLoop: const
-            {
-                fat_p::HotLoopServiceLocator locator;
-                (void)locator.registerInstance<Dummy>(dummy);
-                (void)locator.tryResolve<const Dummy>();
-
-                Timer t;
-                t.start();
-                for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
-                {
-                    benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<const Dummy>());
-                }
-                if (phase == 1)
-                {
-                    hot_const.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
+                    samples_const.push_back(ns_per_op(t.elapsed_ns(), ITERATIONS_PER_RUN));
                 }
             }
         }
     }
 
-    const double d_nc = Statistics::compute(def_nonconst).median;
-    const double d_c = Statistics::compute(def_const).median;
-    const double h_nc = Statistics::compute(hot_nonconst).median;
-    const double h_c = Statistics::compute(hot_const).median;
+    const double nc = Statistics::compute(samples_nonconst).median;
+    const double c = Statistics::compute(samples_const).median;
 
     std::cout << std::fixed << std::setprecision(2);
-    std::cout << "Locator | tryResolve<T> median (ns/op) | tryResolve<const T> median (ns/op) | Ratio\n";
-    std::cout << "--------|----------------------------|----------------------------------|------\n";
+    std::cout << "tryResolve<T> median (ns/op) | tryResolve<const T> median (ns/op) | Ratio\n";
+    std::cout << "----------------------------|----------------------------------|------\n";
 
     auto ratio = [](double a, double b) { return (b > 0.0) ? (a / b) : 0.0; };
 
-    std::cout << std::setw(7) << "Default" << " | "
-              << std::setw(26) << d_nc << " | "
-              << std::setw(32) << d_c << " | "
-              << std::setw(4) << ratio(d_nc, d_c) << "x\n";
-
-    std::cout << std::setw(7) << "HotLoop" << " | "
-              << std::setw(26) << h_nc << " | "
-              << std::setw(32) << h_c << " | "
-              << std::setw(4) << ratio(h_nc, h_c) << "x\n\n";
+    std::cout << std::setw(26) << nc << " | "
+              << std::setw(32) << c << " | "
+              << std::setw(4) << ratio(nc, c) << "x\n\n";
 }
 
+// =============================================================================
+// =============================================================================
+// Section 9: Mutation Cost (unregister / clear)
 // =============================================================================
 // MUTATION COST (unregister / clear)
 // =============================================================================
@@ -2323,7 +1702,6 @@ static void benchmark_mutation_cost()
         "Measures registry mutation cost after services have been registered.\n"
         "  A) unregister N distinct service types (ns/op).\n"
         "  B) clear N service types (ns/op per entry).\n"
-        "Comparator: DefaultServiceLocator vs HotLoopServiceLocator.\n"
     );
     print_cpu_context("Starting");
 
@@ -2335,13 +1713,12 @@ static void benchmark_mutation_cost()
     // A) unregister
     // ------------------------------------------------------------------------
     std::cout << "UNREGISTER (ns/op)\n";
-    std::cout << "N   | Default median | HotLoop median\n";
-    std::cout << "----|----------------|--------------\n";
+    std::cout << "N   | median (ns/op)\n";
+    std::cout << "----|---------------\n";
 
     for (size_t n : sizes)
     {
-        std::vector<double> def_samples;
-        std::vector<double> hot_samples;
+        std::vector<double> samples;
 
         for (size_t phase = 0; phase < 2; ++phase)
         {
@@ -2349,57 +1726,30 @@ static void benchmark_mutation_cost()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                // Default
+                fat_p::DefaultServiceLocator locator;
+                for (size_t i = 0; i < n; ++i)
                 {
-                    fat_p::DefaultServiceLocator locator;
-                    for (size_t i = 0; i < n; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTable[i](locator);
-                    }
-
-                    Timer t;
-                    t.start();
-                    size_t ok = 0;
-                    for (size_t i = 0; i < n; ++i)
-                    {
-                        ok += size_sensitivity_detail::kUnregisterTable[i](locator) ? 1U : 0U;
-                    }
-                    benchmark_sink += static_cast<std::intptr_t>(ok);
-
-                    if (phase == 1)
-                    {
-                        def_samples.push_back(ns_per_op(t.elapsed_ns(), n));
-                    }
+                    size_sensitivity_detail::kRegisterTable[i](locator);
                 }
 
-                // HotLoop
+                Timer t;
+                t.start();
+                size_t ok = 0;
+                for (size_t i = 0; i < n; ++i)
                 {
-                    fat_p::HotLoopServiceLocator locator;
-                    for (size_t i = 0; i < n; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTableHot[i](locator);
-                    }
+                    ok += size_sensitivity_detail::kUnregisterTable[i](locator) ? 1U : 0U;
+                }
+                benchmark_sink += static_cast<std::intptr_t>(ok);
 
-                    Timer t;
-                    t.start();
-                    size_t ok = 0;
-                    for (size_t i = 0; i < n; ++i)
-                    {
-                        ok += size_sensitivity_detail::kUnregisterTableHot[i](locator) ? 1U : 0U;
-                    }
-                    benchmark_sink += static_cast<std::intptr_t>(ok);
-
-                    if (phase == 1)
-                    {
-                        hot_samples.push_back(ns_per_op(t.elapsed_ns(), n));
-                    }
+                if (phase == 1)
+                {
+                    samples.push_back(ns_per_op(t.elapsed_ns(), n));
                 }
             }
         }
 
         std::cout << std::setw(3) << n << " | "
-                  << std::setw(14) << Statistics::compute(def_samples).median << " | "
-                  << std::setw(12) << Statistics::compute(hot_samples).median << "\n";
+                  << std::setw(13) << Statistics::compute(samples).median << "\n";
     }
 
     std::cout << "\n";
@@ -2408,13 +1758,12 @@ static void benchmark_mutation_cost()
     // B) clear
     // ------------------------------------------------------------------------
     std::cout << "CLEAR (ns/op per entry)\n";
-    std::cout << "N   | Default median | HotLoop median\n";
-    std::cout << "----|----------------|--------------\n";
+    std::cout << "N   | median (ns/op)\n";
+    std::cout << "----|---------------\n";
 
     for (size_t n : sizes)
     {
-        std::vector<double> def_samples;
-        std::vector<double> hot_samples;
+        std::vector<double> samples;
 
         for (size_t phase = 0; phase < 2; ++phase)
         {
@@ -2422,51 +1771,33 @@ static void benchmark_mutation_cost()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                // Default
+                fat_p::DefaultServiceLocator locator;
+                for (size_t i = 0; i < n; ++i)
                 {
-                    fat_p::DefaultServiceLocator locator;
-                    for (size_t i = 0; i < n; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTable[i](locator);
-                    }
-
-                    Timer t;
-                    t.start();
-                    locator.clear();
-
-                    if (phase == 1)
-                    {
-                        def_samples.push_back(ns_per_op(t.elapsed_ns(), n));
-                    }
+                    size_sensitivity_detail::kRegisterTable[i](locator);
                 }
 
-                // HotLoop
+                Timer t;
+                t.start();
+                locator.clear();
+
+                if (phase == 1)
                 {
-                    fat_p::HotLoopServiceLocator locator;
-                    for (size_t i = 0; i < n; ++i)
-                    {
-                        size_sensitivity_detail::kRegisterTableHot[i](locator);
-                    }
-
-                    Timer t;
-                    t.start();
-                    locator.clear();
-
-                    if (phase == 1)
-                    {
-                        hot_samples.push_back(ns_per_op(t.elapsed_ns(), n));
-                    }
+                    samples.push_back(ns_per_op(t.elapsed_ns(), n));
                 }
             }
         }
 
         std::cout << std::setw(3) << n << " | "
-                  << std::setw(14) << Statistics::compute(def_samples).median << " | "
-                  << std::setw(12) << Statistics::compute(hot_samples).median << "\n";
+                  << std::setw(13) << Statistics::compute(samples).median << "\n";
     }
 
     std::cout << "\n";
 }
+
+// ============================================================================
+// Section 10: Overhead Isolation Micro-Benchmarks
+// ============================================================================
 
 static void benchmark_overhead_isolation()
 {
@@ -3294,7 +2625,7 @@ static void benchmark_overhead_isolation()
 }
 
 // ============================================================================
-// Section 8: Alternative Key Strategies
+// Section 11: Alternative Key Strategies
 // ============================================================================
 
 static void benchmark_key_strategies()
@@ -3508,7 +2839,7 @@ static void benchmark_key_strategies()
 }
 
 // ============================================================================
-// Section 9: Concurrent Resolution
+// Section 12: Concurrent Resolution
 // ============================================================================
 
 static void benchmark_concurrent()
@@ -3638,14 +2969,10 @@ static void benchmark_concurrent()
     NullLogger logger;
     InMemoryDatabase db;
 
-    // FAT-P thread-safe locators (no stats vs atomic stats)
-    FatPThreadSafeNoStats fatp_no_stats;
-    (void)fatp_no_stats.registerInstance<ILogger>(logger);
-    (void)fatp_no_stats.registerInstance<IDatabase>(db);
-
-    FatPThreadSafeAtomicStats fatp_atomic_stats;
-    (void)fatp_atomic_stats.registerInstance<ILogger>(logger);
-    (void)fatp_atomic_stats.registerInstance<IDatabase>(db);
+    // FAT-P thread-safe locator
+    FatPThreadSafe fatp;
+    (void)fatp.registerInstance<ILogger>(logger);
+    (void)fatp.registerInstance<IDatabase>(db);
 
     // Apples-to-apples baseline: unordered_map<void*> keyed by the same token addresses.
     std::unordered_map<const void*, void*> map_typekey;
@@ -3675,36 +3002,29 @@ static void benchmark_concurrent()
     // ---------------------------
     // Round-robin execution
     // ---------------------------
-    std::vector<double> s_fatp_no_stats;
-    std::vector<double> s_fatp_atomic_stats;
+    std::vector<double> s_fatp;
     std::vector<double> s_map_typekey;
     std::vector<double> s_stable_typekey;
     std::vector<double> s_map_typeindex;
 
     enum CaseId : int
     {
-        FATP_NO_STATS = 0,
-        FATP_ATOMIC_STATS = 1,
-        MAP_TYPEKEY = 2,
-        MAP_STABLE_TYPEKEY = 3,
-        MAP_TYPEINDEX = 4,
+        FATP = 0,
+        MAP_TYPEKEY = 1,
+        MAP_STABLE_TYPEKEY = 2,
+        MAP_TYPEINDEX = 3,
     };
 
-    std::array<int, 5> order{{FATP_NO_STATS, FATP_ATOMIC_STATS, MAP_TYPEKEY, MAP_STABLE_TYPEKEY, MAP_TYPEINDEX}};
+    std::array<int, 4> order{{FATP, MAP_TYPEKEY, MAP_STABLE_TYPEKEY, MAP_TYPEINDEX}};
     std::mt19937_64 rng(g_config.seed ^ 0xC0FFEEULL);
 
     auto run_one = [&](int case_id, bool record) {
         double sample = 0.0;
         switch (case_id)
         {
-            case FATP_NO_STATS:
-                sample = run_case([&]() { return fatp_no_stats.tryResolve<ILogger>(); });
-                if (record) s_fatp_no_stats.push_back(sample);
-                break;
-
-            case FATP_ATOMIC_STATS:
-                sample = run_case([&]() { return fatp_atomic_stats.tryResolve<ILogger>(); });
-                if (record) s_fatp_atomic_stats.push_back(sample);
+            case FATP:
+                sample = run_case([&]() { return fatp.tryResolve<ILogger>(); });
+                if (record) s_fatp.push_back(sample);
                 break;
 
             case MAP_TYPEKEY:
@@ -3757,8 +3077,7 @@ static void benchmark_concurrent()
     }
 
     // Report
-    Statistics::compute(s_fatp_no_stats).print("fat_p::ThreadSafeServiceLocator (no stats)");
-    Statistics::compute(s_fatp_atomic_stats).print("fat_p::ThreadSafeServiceLocator (atomic stats)");
+    Statistics::compute(s_fatp).print("fat_p::ThreadSafeServiceLocator");
     Statistics::compute(s_map_typekey).print("unordered_map<void*> + shared_mutex (type key)");
     Statistics::compute(s_stable_typekey).print("StableHashMap<void*> + shared_mutex (type key, SM64)");
     Statistics::compute(s_map_typeindex).print("unordered_map<type_index> + shared_mutex (precomputed key)");
@@ -3794,7 +3113,7 @@ int main(int argc, char* argv[])
     hdr.competitors.push_back({"fat_p::ThreadSafeServiceLocator", true, "primary"});
     hdr.competitors.push_back({"std::unordered_map<type_index>", true, "baseline"});
     hdr.competitors.push_back({"Direct pointer", true, "baseline"});
-#if HAS_ENTT
+#if FATP_HAS_ENTT
     hdr.competitors.push_back({"entt::locator", true, ""});
 #else
     hdr.competitors.push_back({"entt::locator", false, "vcpkg install entt"});
@@ -3806,14 +3125,10 @@ int main(int argc, char* argv[])
     hdr.has_stabilization = !g_config.noStabilize;
     
     fat_p::bench::print_standard_header(hdr);
-
-
     // Build adapter list
     std::vector<std::unique_ptr<ILocatorAdapter>> adapters;
     adapters.push_back(std::make_unique<FatPDefaultAdapter>());
-    adapters.push_back(std::make_unique<FatPDefaultAtomicStatsAdapter>());
     adapters.push_back(std::make_unique<FatPThreadSafeAdapter>());
-    adapters.push_back(std::make_unique<FatPThreadSafeAtomicStatsAdapter>());
 #if FATP_HAS_ENTT
     adapters.push_back(std::make_unique<EnttLocatorAdapter>());
 #endif
@@ -3830,7 +3145,6 @@ int main(int argc, char* argv[])
     benchmark_scoped_resolution();
     benchmark_registration();
     benchmark_size_sensitivity();
-    benchmark_mru_resolve_cache_locality();
     benchmark_string_key_hot_loop_locality();
     benchmark_const_resolve();
     benchmark_mutation_cost();
