@@ -117,20 +117,30 @@ A header-only C++20 utility library. Zero external dependencies.
 
 FAT-P provides containers, concurrency primitives, memory management utilities, serialization, and diagnostic tools as a self-contained, header-only library. Copy `include/fat_p/` into your project and go — no build system integration required.
 
+## How This Library Was Built
+
+All code, architecture, documentation, and governance in this library were authored by AI systems — primarily Claude (Anthropic), with contributions from ChatGPT, Gemini, and Grok. The human ([Matthew Schroeder](Authors.md)) provided direction, constraints, and judgment but wrote none of the code.
+
+The library was developed using a multi-AI collaborative pipeline: independent parallel design, cross-review and synthesis, adversarial review, and context reset cycles. The complete methodology is documented in [Fat-P AI-Collaborative Development Methodology](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md).
+
+Across 20 benchmarked components and 50+ competitor implementations, every Fat-P component benchmarked to date matches or exceeds the performance of its industry-standard equivalent from Boost, Abseil, LLVM, and EASTL. Benchmark data is in [`benchmark_results/`](benchmark_results/).
+
+For the full account of who did what, see [Authors.md](Authors.md).
+
 ## Requirements
 
-- C++20 (GCC 10+, Clang 12+, MSVC 19.29+)
-- No external dependencies
+* C++20 (GCC 10+, Clang 12+, MSVC 19.29+)
+* No external dependencies
 
 ## Installation
 
-```bash
+```
 cp -r include/fat_p /your/project/include/
 ```
 
 Or with CMake:
 
-```cmake
+```
 add_subdirectory(path/to/FatP)
 target_link_libraries(your_target PRIVATE fatp)
 ```
@@ -248,7 +258,7 @@ FatP/
 ├── components/          # Per-component tests, benchmarks, and docs
 ├── Teaching/            # Guides, case studies, and reference material
 ├── Read_Me/             # Development guidelines and style guides
-└── .github/workflows/   # CI workflows
+└── .github/workflows/   # CI workflows (92 workflows)
 ```
 
 ## Building Tests

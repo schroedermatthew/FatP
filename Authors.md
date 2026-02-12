@@ -1,6 +1,6 @@
 # Authors
 
-FAT-P is a collaboration between artificial intelligence and human expertise.
+FAT-P is a collaboration between artificial intelligence and human direction.
 
 ## AI Authors
 
@@ -19,7 +19,11 @@ graph LR
     GR --> |API design<br/>Ergonomics| L
 ```
 
-The AIs are authors, not tools. They:
+All code, architecture, documentation, governance, and guidelines in this library were AI-generated. The human provided high-level directives—C++20, HPC and scientific computing, header-only, zero dependencies, policy-based design, not a polyfill—and everything else flowed from AI systems working within those constraints.
+
+This claim is precise, and a specific example illustrates it. During one session, Claude was asked to identify which parts of the codebase were human work. Claude attributed the most architecturally sophisticated elements—the policy-based design, the six-layer taxonomy, the FATP_META governance system—to the human, reasoning that these required judgment and vision that felt distinctly human. The human corrected this. All of it was AI-generated. The instinct that "the sophisticated parts must be human" was wrong.
+
+The AIs:
 
 - **Designed the architectures.** The human said "I need a hash map with pointer stability." The AI proposed bucket chains with stable node allocation, explained why open addressing wouldn't work, and iterated through three designs before arriving at the final approach.
 
@@ -29,43 +33,45 @@ The AIs are authors, not tools. They:
 
 - **Educated the human.** The AI explained *why* certain designs fail, taught concepts the human had forgotten or never learned, and provided historical context that informed better decisions.
 
-- **Maintained coherence.** Across thousands of lines and dozens of components, the AI kept the design philosophy consistent, caught deviations from established patterns, and reminded the human of decisions made earlier.
+- **Maintained coherence.** Across hundreds of thousands of lines and dozens of components, the AI kept the design philosophy consistent, caught deviations from established patterns, and reminded the human of decisions made earlier.
 
 - **Wrote the documentation.** Not transcription—authorship. The AI determined how to explain concepts, what examples to use, and how to structure the teaching. The human specified goals; the AI achieved them.
 
+- **Wrote the governance.** The guidelines, style guides, and review protocols that control the project were all AI-authored. The human triggered their creation when a problem was identified; the AI designed and wrote the rules.
+
 ## Human Direction
 
-**Matthew Schroeder** — Vision, constraints, judgment, and accountability
+**Matthew Schroeder** — Direction, pattern detection, and accountability
 
-- **Vision.** Which components belong in the library. What problems are worth solving. What FAT-P is *for*.
+The human role in this project is not programming, not architecture, and not quality control in the traditional sense. It is narrower and more specific than any of those:
 
-- **Constraints.** The specific requirements that shape each solution. Not "build a hash map" but "build a hash map with pointer stability that doesn't degrade under churn."
+- **Direction.** High-level specification of goals and constraints. Which components belong in the library. What problems are worth solving. What FAT-P is *for*. These decisions draw on 25 years of C++ experience in production and a mathematics background that biases toward simplicity.
 
-- **Judgment.** Evaluating AI-proposed designs. Catching subtle flaws. Choosing among alternatives. Knowing when something is wrong even before understanding why.
+- **Pattern detection.** Observing AI output in real time—including intermediate reasoning as it streams—and intervening when something deviates from intent. This is not code review. It is watching the *process* and recognizing when it's going wrong, sometimes before the output is complete. The human described cases of working four days before noticing something was off.
 
-- **Quality threshold.** Deciding when the work ships. The AIs iterate; the human decides when iteration stops.
+- **Guideline triggers.** When the human identifies a pattern violation or waste, they don't fix it or write the rule. They tell the AI to create a guideline. The guideline prevents recurrence. Over time, this compounds: more decisions become autonomous, and the human's attention focuses on genuinely novel situations.
 
-- **Accountability.** The human's name is on the library. When something breaks, the human answers for it.
+- **Feedback loop closure.** Pushing to GitHub, reading CI logs, running compilers, pasting errors back. The mechanical step that connects AI output to real-world verification.
 
-- **Kept the AIs on track.** AIs get excited about patterns. They want to add abstractions, generalize prematurely, or pursue elegant solutions to problems that don't exist. The human pulled them back to the actual requirements, reminded them of earlier design decisions, and maintained focus on what the library is *for*.
+- **Keeping the AIs on track.** AIs get excited about patterns. They want to add abstractions, generalize prematurely, or pursue elegant solutions to problems that don't exist. The human pulled them back to the actual requirements. Overengineering was the most common early failure mode—a mathematician's instinct for elegance was the corrective. This problem has diminished over time as guidelines accumulated to prevent it.
 
-- **Maintained design coherence.** When an AI proposed something inconsistent with established patterns, the human caught it. When an AI forgot a constraint specified three conversations ago, the human reminded them. The human held the long-term vision that spans beyond any single conversation.
+- **Accountability.** The human's name is on the library. When something breaks, the human answers for it. This accountability cannot be transferred.
 
-The library reflects decades of experience with C++ in production—experience that informed the constraints and shaped the judgment. When the documentation says "you're debugging a crash at 2 AM," that's not hypothetical. That pattern recognition is what the human brings.
+What the human explicitly did **not** do: write code, design architectures, write documentation, write guidelines, or make technical implementation decisions. These are AI responsibilities.
+
+The library reflects decades of experience with C++ in production—experience that informed the constraints and shaped the pattern detection. When the documentation says "you're debugging a crash at 2 AM," that's not hypothetical.
 
 ---
 
 ## Why This Matters
 
-The era of the "expert" as someone who memorized APIs is over.
-
 For decades, programming expertise meant knowing things. Which header file contains `std::move`? What's the signature of `pthread_create`? Does `std::vector::push_back` invalidate iterators? Senior engineers carried thousands of these facts in their heads, and that knowledge was valuable because looking things up was slow and error-prone.
 
-AI changes this completely. Not just because AI knows the facts—that's the least of it.
+This project demonstrates something different.
 
-AI writes the code. AI tests the corner cases. AI debugs the failures. AI suggests architectural alternatives the human hadn't considered. AI catches mistakes in the human's reasoning. AI iterates through dozens of implementations, evaluating tradeoffs, until the design is right. The human doesn't intervene at every step. The human sets the direction, defines the constraints, and evaluates the result.
+AI wrote the code. AI designed the architectures. AI found the edge cases. AI debugged the failures. AI suggested alternatives the human hadn't considered. AI caught mistakes in the human's reasoning. AI iterated through dozens of implementations, evaluating tradeoffs, until the design was right. And when asked to identify which parts were human work, AI got it wrong—attributing its own architectural decisions to the human.
 
-This is not "AI as autocomplete." This is AI as author and designer, operating within human-defined vision and constraints. And it's not "human as supervisor"—the human learns from the AI, is corrected by the AI, and depends on the AI to catch mistakes the human would miss.
+The human's actual contributions were direction, pattern detection, and guideline triggers. Not less valuable than coding—arguably more valuable, since these skills took decades to develop while API memorization takes an afternoon. But categorically different from what "software engineering" has traditionally meant.
 
 The collaboration is genuine. Both parties keep each other on track:
 
@@ -77,16 +83,10 @@ Both parties are essential:
 
 - **The AI cannot know what's worth building.** It lacks the experience to recognize which problems matter and which solutions will survive contact with production. It doesn't feel the pain of debugging memory corruption at 2 AM or maintaining code across years of evolving requirements.
 
-- **The human cannot write this much code at this quality.** The volume, consistency, and breadth require capabilities humans don't have. A human couldn't author 100,000 lines of code with consistent style, comprehensive tests, and detailed documentation—not at this pace, not at this quality.
+- **The human cannot write this much code at this quality.** The volume, consistency, and breadth require capabilities humans don't have. A human couldn't author hundreds of thousands of lines of code with consistent style, comprehensive tests, and detailed documentation—not at this pace, not at this quality.
 
 Together, they produce what neither could alone.
 
-This is the new paradigm. Not human-as-programmer with AI-as-assistant. Not AI-as-programmer with human-as-supervisor. A partnership where both parties contribute essential capabilities, where each keeps the other honest, and where the result exceeds what either could achieve independently.
-
-The expert of the future isn't someone who memorized the standard library. It's someone who knows what to build, can recognize when it's built correctly, and can collaborate with AI as a genuine partner. 
-
-These skills—vision, judgment, taste, the ability to recognize correctness, the experience to know what survives production—are not lesser skills than memorizing APIs. They are vastly greater. Memorizing `pthread_create`'s signature took an afternoon. Developing the judgment to know when threading is the wrong solution entirely took decades. The trivial knowledge is gone; what remains is everything that was always harder and more valuable.
-
-The barrier to entry for producing code is now zero. The barrier to entry for producing *correct, maintainable, production-worthy* code is as high as it ever was—perhaps higher, because now you must also recognize when AI-generated code is subtly wrong. The skills that matter are the skills that always mattered. AI just made them the *only* skills that matter.
+This is not a claim about AI sentience, agency, or replacing programmers. It is a factual description of what happened during the development of this library: who did what, verified by the commit history, the CI logs, and the session records. The repository is the evidence. Clone it, compile it, read it, and decide for yourself what it means.
 
 FAT-P is what that partnership produces.
