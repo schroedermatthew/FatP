@@ -14,7 +14,7 @@ This guide standardizes GitHub Actions CI workflows for Fat-P library components
 - Uniform quality gates across all components
 - Predictable CI behavior for contributors
 - Compliance with Fat-P Systemic Hygiene Policy
-- **Enforcement of C++20/C++23 builds** (C++17 support dropped)
+- **Enforcement of C++20 and C++23 builds only**
 
 ---
 
@@ -83,17 +83,16 @@ Rationale:
 
 ## 4. C++ Standard Policy
 
-**C++20 is the minimum. C++23 is tested for forward compatibility. C++17 is not supported.**
+**C++20 is the minimum. C++23 is tested for forward compatibility.**
 
 | Standard | Status | Compiler Matrix |
 |----------|--------|-----------------|
-| C++17 | **Dropped** | Not tested |
 | C++20 | Primary | GCC-13, Clang-16, MSVC |
 | C++23 | Forward compat | GCC-14, Clang-17, MSVC (`/std:c++latest`) |
 
 ### Rationale
 
-Fat-P uses C++20 features extensively (concepts, ranges, `std::span`, `constexpr` improvements). C++17 support was dropped to reduce maintenance burden and enable cleaner APIs.
+Fat-P requires C++20 features throughout (concepts, ranges, `std::span`, `constexpr` improvements). C++17 is not compatible with the library and is not tested in CI.
 
 ---
 
@@ -444,17 +443,17 @@ All CI output must be ASCII-only. No Unicode characters.
 
 | Instead of | Use |
 |------------|-----|
-| ✓ | `[PASS]` or `[x]` |
-| ✗ | `[FAIL]` or `[ ]` |
-| ❌ | `[X]` or `[FAIL]` |
-| ⚠ | `[WARNING]` or `[!]` |
+| âœ“ | `[PASS]` or `[x]` |
+| âœ— | `[FAIL]` or `[ ]` |
+| âŒ | `[X]` or `[FAIL]` |
+| âš  | `[WARNING]` or `[!]` |
 
 ### 14.2 Success Messages
 
 Use simple text without emoji:
 ```yaml
 echo "Header is self-contained"    # Good
-echo "✓ Header is self-contained"  # Bad (Unicode)
+echo "âœ“ Header is self-contained"  # Bad (Unicode)
 ```
 
 ---
@@ -738,10 +737,10 @@ Before committing a new workflow:
 | Missing `advapi32.lib` | `LNK2019: __imp_RegOpenKeyExA` | Add `/link advapi32.lib` |
 | Missing `/wd4324` | `C4324: structure was padded` | Add `/wd4324` |
 | Forward slashes on Windows | `file not found` | Use backslashes: `.\include\fat_p` |
-| Unicode in output | Display issues in logs | Use ASCII: `[PASS]` not `✓` |
+| Unicode in output | Display issues in logs | Use ASCII: `[PASS]` not `âœ“` |
 | Missing TSan in ci-success | Gate passes despite TSan failure | Add `sanitizer-tsan` to `needs` |
 | Old `FAT_P/FAT_P/` paths | `file not found` | Update to new structure |
-| C++17 testing | Wasted CI time | Remove, only test C++20/C++23 |
+| Adding C++17 jobs | C++17 is not supported | Test C++20 and C++23 only |
 
 ---
 

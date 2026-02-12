@@ -691,14 +691,10 @@ public:
     [[nodiscard]] Expected<std::reference_wrapper<T>, ServiceErrorInfo>
     resolveExpected(std::string_view name = {}) const
     {
-        T* result = tryResolve<T>(name);
-        if (result != nullptr)
-        {
-            return std::ref(*result);
-        }
-
-        // Re-lookup to produce a specific error message
         const void* typeId = TypeKeyPolicy::template typeId<T>();
+
+        bool needsFactoryCreation = false;
+
         {
             [[maybe_unused]] auto lock = readLock();
 
@@ -715,20 +711,54 @@ public:
 
             if (entry != nullptr)
             {
-                if (entry->mKind == ServiceEntryKind::Shared && !entry->mShared)
+                if (entry->mKind == ServiceEntryKind::Instance)
                 {
-                    return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
-                                                       "Shared registration holds an empty shared_ptr",
-                                                       std::string(name)}};
+                    return std::ref(*static_cast<T*>(entry->mInstance));
                 }
-                if (entry->mKind == ServiceEntryKind::Factory &&
-                    entry->mLifetime == ServiceLifetime::Transient)
+                if (entry->mKind == ServiceEntryKind::Shared)
                 {
-                    return unexpected{ServiceErrorInfo{ServiceError::TransientRequiresCreate,
-                                                       "Transient services require createExpected<T>()",
-                                                       std::string(name)}};
+                    if (!entry->mShared)
+                    {
+                        return unexpected{ServiceErrorInfo{ServiceError::NullSharedInstance,
+                                                           "Shared registration holds an empty shared_ptr",
+                                                           std::string(name)}};
+                    }
+                    return std::ref(*static_cast<T*>(entry->mShared.get()));
+                }
+                if (entry->mKind == ServiceEntryKind::Factory)
+                {
+                    if (entry->mLifetime == ServiceLifetime::Transient)
+                    {
+                        return unexpected{ServiceErrorInfo{ServiceError::TransientRequiresCreate,
+                                                           "Transient services require createExpected<T>()",
+                                                           std::string(name)}};
+                    }
+
+                    if (entry->mShared)
+                    {
+                        return std::ref(*static_cast<T*>(entry->mShared.get()));
+                    }
+
+                    needsFactoryCreation = true;
                 }
             }
+        }
+        // Lock released here
+
+        if (needsFactoryCreation)
+        {
+            auto cached = resolveOrCreateSingleton<T>(typeId, name);
+            if (!cached.has_value())
+            {
+                return unexpected{cached.error()};
+            }
+            return std::ref(*static_cast<T*>(cached.value().get()));
+        }
+
+        // Not found locally - try parent
+        if (mParent != nullptr)
+        {
+            return mParent->template resolveExpected<T>(name);
         }
 
         return unexpected{

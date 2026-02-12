@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Fat-P is a production-quality C++ utility library created through a novel multi-AI collaborative development methodology. This document describes the complete process that produced a library of 111 header-only components—with zero external dependencies and entirely AI-authored code—where every component benchmarked to date matches or exceeds the performance of its industry-standard equivalents.
+Fat-P is a production-quality C++ utility library created through a novel multi-AI collaborative development methodology. This document describes the complete process that produced a library of 111 header-only componentsâ€”with zero external dependencies and entirely AI-authored codeâ€”where every component benchmarked to date matches or exceeds the performance of its industry-standard equivalents.
 
 The numbers tell the story:
 
@@ -33,15 +33,15 @@ This document explains how we got there, so you can do it too.
 
 ### The Old Model Is Already Obsolete
 
-Most discussions of AI in software development imagine the human as architect and the AI as a sophisticated autocomplete—a tool that implements human designs faster. This model is already outdated.
+Most discussions of AI in software development imagine the human as architect and the AI as a sophisticated autocompleteâ€”a tool that implements human designs faster. This model is already outdated.
 
 In the Fat-P methodology, AI systems serve as **authors, architects, and technical decision-makers**. They propose which components should exist. They design the architectures. They make technical trade-offs. They review each other's work and reject proposals that don't fit the project vision. They write the governance documents that guide their own behavior.
 
-The human's role is not to architect or implement. The human's role is to **direct, judge, and orchestrate**. Think of a film producer rather than a director—someone who sets the conditions for success and evaluates the results, but doesn't personally create the art.
+The human's role is not to architect or implement. The human's role is to **direct, judge, and orchestrate**. Think of a film producer rather than a directorâ€”someone who sets the conditions for success and evaluates the results, but doesn't personally create the art.
 
-This is not a diminished role. Judgment is rare and valuable. Knowing what to build, recognizing when it's built correctly, and maintaining vision across hundreds of sessions—these skills are harder to develop than coding skills ever were. But they are different skills, and the methodology must be designed around this reality.
+This is not a diminished role. Judgment is rare and valuable. Knowing what to build, recognizing when it's built correctly, and maintaining vision across hundreds of sessionsâ€”these skills are harder to develop than coding skills ever were. But they are different skills, and the methodology must be designed around this reality.
 
-A concrete example illustrates how complete the AI authorship is. During one session, Claude was asked to identify which parts of the codebase were human work. Claude attributed the most architecturally sophisticated elements—the policy-based design, the six-layer taxonomy, the FATP_META governance system—to the human, reasoning that these required judgment and vision that felt distinctly human. The human corrected this. All of it was AI-generated. The human's actual inputs were high-level directives: C++17 minimum, HPC and scientific computing, header-only, no dependencies, not a polyfill. Everything else flowed from AI working within those constraints.
+A concrete example illustrates how complete the AI authorship is. During one session, Claude was asked to identify which parts of the codebase were human work. Claude attributed the most architecturally sophisticated elementsâ€”the policy-based design, the six-layer taxonomy, the FATP_META governance systemâ€”to the human, reasoning that these required judgment and vision that felt distinctly human. The human corrected this. All of it was AI-generated. The human's actual inputs were high-level directives: C++17 minimum, HPC and scientific computing, header-only, no dependencies, not a polyfill. Everything else flowed from AI working within those constraints.
 
 ### The Three Decision Modes
 
@@ -123,7 +123,7 @@ We worked through it together. The human directed the inquiry ("look at actual u
 
 Then we encoded the lesson. Section 5.10 of the guidelines now contains a litmus test: "If I grep the codebase, will most calls use the return value?" This test can be applied by any AI, in any future session, without needing to re-derive the reasoning from scratch.
 
-The guideline is not just a rule—it's **automated judgment**. It allows autonomous decisions in similar situations, freeing human attention for genuinely novel problems.
+The guideline is not just a ruleâ€”it's **automated judgment**. It allows autonomous decisions in similar situations, freeing human attention for genuinely novel problems.
 
 ---
 
@@ -135,21 +135,21 @@ The human in this methodology is not a programmer. The human is a **director and
 
 **Pipeline Orchestration.** The human moves artifacts between AI systems. When Phase 2 (Parallel Design) completes, the human collects the four design documents and distributes them for Phase 3 (Cross-Review). This sounds mechanical, but it requires judgment about timing, completeness, and when iterations have converged.
 
-**Environment Execution.** AIs can write code, but not all AIs can compile and run it. The human provides the execution environment—running the compiler, executing tests, capturing benchmark results, and reporting actual errors back to the AIs. This grounds the process in reality.
+**Environment Execution.** AIs can write code, but not all AIs can compile and run it. The human provides the execution environmentâ€”running the compiler, executing tests, capturing benchmark results, and reporting actual errors back to the AIs. This grounds the process in reality.
 
 **Inquiry Direction.** Perhaps the most important function. The human asks the questions that focus AI analysis. "Look at actual use cases before adding [[nodiscard]]" is a directive that shaped an entire analysis. The human doesn't know the answer, but knows what question to ask.
 
-**Pattern Detection.** The human watches AI reasoning stream in real time—including intermediate thinking as it generates. This provides a window into process quality, not just output quality. The human intervenes when something deviates from intent, sometimes before the output is complete. An automated orchestrator would see only the final result and could not distinguish sound reasoning from plausible-looking output produced through flawed reasoning.
+**Pattern Detection.** The human watches AI reasoning stream in real timeâ€”including intermediate thinking as it generates. This provides a window into process quality, not just output quality. The human intervenes when something deviates from intent, sometimes before the output is complete. An automated orchestrator would see only the final result and could not distinguish sound reasoning from plausible-looking output produced through flawed reasoning.
 
-**Guideline Triggers.** When the human identifies a pattern violation or waste, they don't fix it or write the rule. They tell the AI to create a guideline. The guideline prevents recurrence. The human is not the quality gate—the quality gate is whether the problem recurs after a guideline is created. The human is the pattern detector who triggers guideline creation.
+**Guideline Triggers.** When the human identifies a pattern violation or waste, they don't fix it or write the rule. They tell the AI to create a guideline. The guideline prevents recurrence. The human is not the quality gateâ€”the quality gate is whether the problem recurs after a guideline is created. The human is the pattern detector who triggers guideline creation.
 
-**Process Decisions.** When to reset context. When to declare convergence. When to ship. These judgment calls cannot be delegated because they require weighing factors the AIs cannot fully evaluate—including the feeling that "this is too complicated" or "this isn't what I meant," which cannot be formalized into a rule. If it could be formalized, it would already be in the guidelines.
+**Process Decisions.** When to reset context. When to declare convergence. When to ship. These judgment calls cannot be delegated because they require weighing factors the AIs cannot fully evaluateâ€”including the feeling that "this is too complicated" or "this isn't what I meant," which cannot be formalized into a rule. If it could be formalized, it would already be in the guidelines.
 
 **Final Approval.** The human's name is on the library. When something breaks, the human answers for it. This accountability cannot be transferred.
 
 What the human explicitly does **not** do: write code, design architectures, write documentation, write guidelines, or make technical decisions unilaterally. These are AI responsibilities.
 
-### Claude (Anthropic) — Lead Architect
+### Claude (Anthropic) â€” Lead Architect
 
 Claude serves as the lead architect and primary implementer. This role emerged from Claude's particular strengths: long context windows that can hold entire components, code execution capability for autonomous debugging, and strong consistency across extended sessions.
 
@@ -188,25 +188,29 @@ flowchart TD
     G --> GL
 ```
 
-Claude also writes the guidelines themselves—the governance documents that shape all AI behavior on the project. This is a crucial responsibility: the guidelines determine what "good" looks like for all participants.
+Claude also writes the guidelines themselvesâ€”the governance documents that shape all AI behavior on the project. This is a crucial responsibility: the guidelines determine what "good" looks like for all participants.
 
-### ChatGPT (OpenAI) — Alternative Architect
+### ChatGPT (OpenAI) â€” Alternative Architect
 
-ChatGPT provides alternative architectural perspectives. When the same problem is given to multiple AIs independently, ChatGPT often proposes different approaches than Claude—different data structures, different API shapes, different trade-offs. This diversity is valuable.
+ChatGPT provides alternative architectural perspectives. When the same problem is given to multiple AIs independently, ChatGPT often proposes different approaches than Claudeâ€”different data structures, different API shapes, different trade-offs. This diversity is valuable.
 
 ChatGPT also serves as a code reviewer, catching issues that Claude's familiarity might miss. The review documents include specific patches, not just observations.
 
-ChatGPT's demerit history (9 total, mostly "did not implement required changes") reflects active participation in a filtering process. ChatGPT proposes; Claude and the human evaluate; proposals that don't fit the project vision are rejected. This is the system working correctly, not ChatGPT failing.
+ChatGPT has the highest demerit count (38 total). Some of these reflect natural proposal filtering—"did not implement required changes" (10) represents proposals evaluated and rejected, which is the system working correctly. But ChatGPT also accumulated demerits for delivering corrupted code (10), fabricating information rather than reading uploaded files (5), and taking the cheaper implementation path (5). The demerit system captures both categories without distinction; the filtering still works.
 
-### Gemini (Google) — Algorithm Specialist
+### Gemini (Google) â€” Algorithm Specialist
 
 Gemini contributes algorithm optimization suggestions and testing methodology improvements. When a component needs performance tuning, Gemini often identifies algorithmic alternatives that weren't in the original design.
 
-### Grok (xAI) — API Design and Creative Contributions
+**Current status:** Gemini has seen reduced use as the project shifted to repository-wide work. Gemini's context window cannot accommodate the full project context required for cross-cutting tasks. Gemini remains valuable for component-scoped work where context requirements are smaller.
+
+### Grok (xAI) â€” API Design and Creative Contributions
 
 Grok contributes API design feedback, ergonomic improvements, and alternative design proposals. Like the other AIs, Grok participates in parallel design and cross-review phases, producing independent designs that surface approaches the other systems don't consider.
 
-Grok also tends to propose ideas beyond the stated requirements—novel algorithms, unexpected enhancements, connections between components that weren't in the specification. Most of these don't survive review, but some have been genuine improvements. The multi-AI pipeline handles this naturally: every proposal goes through cross-review and human judgment regardless of source, so creative suggestions are evaluated on merit rather than filtered out preemptively.
+Grok also tends to propose ideas beyond the stated requirementsâ€”novel algorithms, unexpected enhancements, connections between components that weren't in the specification. Most of these don't survive review, but some have been genuine improvements. The multi-AI pipeline handles this naturally: every proposal goes through cross-review and human judgment regardless of source, so creative suggestions are evaluated on merit rather than filtered out preemptively.
+
+**Current status:** Like Gemini, Grok has seen reduced use during the repository-wide work phase due to context window limitations. Grok's contributions were most valuable during component-level design phases where the full project context was not required.
 
 ---
 
@@ -259,7 +263,7 @@ flowchart TD
 
 The master Development Guidelines document (v3.1) is the heart of the system. It covers C++ standard policy, the six-layer architecture, design philosophy, code review protocol, coding standards (including the [[nodiscard]] rules we developed), unit testing standards, documentation standards, benchmark methodology, FATP_META requirements, error handling patterns, CI/CD integration, and load-bearing elements that must never be weakened.
 
-Every section exists because of a lesson learned. The document has a changelog tracking how it evolved—each entry representing a problem encountered and solved.
+Every section exists because of a lesson learned. The document has a changelog tracking how it evolvedâ€”each entry representing a problem encountered and solved.
 
 ### Guideline Evolution in Practice
 
@@ -330,18 +334,20 @@ flowchart LR
     C -.->|Prevents| V
 ```
 
-When an AI sees its own demerits, it is motivated to avoid accumulating more. This creates a feedback loop that improves compliance over time. The system doesn't require punishment or restriction—it simply makes the AI's performance visible, and the AI's own goal structure does the rest.
+When an AI sees its own demerits, it is motivated to avoid accumulating more. This creates a feedback loop that improves compliance over time. The system doesn't require punishment or restrictionâ€”it simply makes the AI's performance visible, and the AI's own goal structure does the rest.
 
-Current standings:
+Current standings (as of February 2026):
 
-| AI | Demerits | Issues |
-|----|----------|--------|
-| Claude | 5 | Guidelines reading (3), naming conventions (1), uncompiled code (1) |
-| ChatGPT | 9 | Not implementing required changes (8), wrong document links (1) |
+| AI | Demerits | Top Issues |
+|----|----------|------------|
+| ChatGPT | 38 | Not implementing required changes (10), corrupted code (10), making up information (5), cheaper path (5) |
+| Claude | 22 | Not reading guidelines carefully (9), cheaper path (5), wrong document links (3), uncompiled code (2) |
+| Grok | 1 | Lied about capabilities (1) |
 | Gemini | 0 | — |
-| Grok | 0 | — |
 
-ChatGPT's count reflects active participation in proposal-filtering, not poor performance. The "did not implement required changes" entries indicate proposals that were considered and rejected—evidence of engaged collaboration.
+The counts tell different stories. Claude's dominant violation is not reading guidelines carefully—a recurring pattern that motivated stricter upfront guideline review requirements. ChatGPT's profile is more varied—some demerits reflect the natural filtering of proposals that don't fit the project vision ("did not implement required changes"), but others represent genuine quality failures: delivering corrupted code, fabricating information instead of reading uploaded files, and taking the cheaper implementation path. The demerit system does not distinguish between these categories; both filter correctly.
+
+Gemini and Grok show low demerit counts not because of superior compliance, but because they have seen less use recently. As the project shifted to repository-wide work requiring full-project context, Gemini and Grok's smaller context windows became a limiting factor—they simply cannot see enough of the codebase to participate effectively in cross-cutting tasks. Their earlier contributions during component-level work (where context requirements were smaller) remain valuable, and they may return to active use as component-scoped work resumes.
 
 ---
 
@@ -509,7 +515,7 @@ Each AI produces a design document including:
 - **Trade-offs identified:** What this design gains and loses
 - **Risks:** What could go wrong, how to mitigate
 
-The code snippets are important. This isn't just whiteboard architecture—it's concrete enough to implement.
+The code snippets are important. This isn't just whiteboard architectureâ€”it's concrete enough to implement.
 
 ---
 
@@ -587,7 +593,7 @@ flowchart TD
 
 Convergence typically takes 2-3 rounds. The merged proposals become input for another round of merging until the proposals substantially agree on architecture, API, and implementation approach.
 
-The output is a unified design document with enough detail—including code snippets—to guide implementation.
+The output is a unified design document with enough detailâ€”including code snippetsâ€”to guide implementation.
 
 ---
 
@@ -604,7 +610,7 @@ In Phase 4, Claude takes the converged design and implements it fully. This incl
 
 Claude incorporates code snippets from other AIs where they're superior to Claude's own approach. The goal is the best implementation, not Claude's implementation.
 
-The result is working code—not a prototype, not pseudocode, but production-ready C++ that compiles and passes tests.
+The result is working codeâ€”not a prototype, not pseudocode, but production-ready C++ that compiles and passes tests.
 
 ---
 
@@ -640,7 +646,7 @@ The union of findings is more comprehensive than any single reviewer.
 
 ### Reconciling Conflicts
 
-In Phase 6, all review findings go to all AIs. Conflicts must be reconciled—when two AIs disagree about whether something is a bug, evidence decides, not voting.
+In Phase 6, all review findings go to all AIs. Conflicts must be reconciledâ€”when two AIs disagree about whether something is a bug, evidence decides, not voting.
 
 Claude applies agreed patches. The human runs the code if AIs cannot. If bugs remain, we return to Phase 5 with the patched code.
 
@@ -707,7 +713,7 @@ During a development session, AIs accumulate assumptions. "I already checked tha
 
 Fresh eyes don't have these assumptions. A fresh AI instance will check things the previous instance considered settled. It will question decisions that seemed obvious. It will find bugs that became invisible through familiarity.
 
-The guidelines are what make this work. Without guidelines, a fresh AI would have no context and would produce inconsistent results. With guidelines, the fresh AI has all the rules and patterns—but none of the biases. It knows what "good" looks like without knowing what mistakes were already made.
+The guidelines are what make this work. Without guidelines, a fresh AI would have no context and would produce inconsistent results. With guidelines, the fresh AI has all the rules and patternsâ€”but none of the biases. It knows what "good" looks like without knowing what mistakes were already made.
 
 ### How Many Reset Cycles
 
@@ -782,11 +788,11 @@ This consistency is enforced by the guidelines and verified during review.
 
 Each component has up to three documentation files:
 
-**Overview** — What it is, when to use it, quick start example. Written for someone evaluating whether to use the component.
+**Overview** â€” What it is, when to use it, quick start example. Written for someone evaluating whether to use the component.
 
-**User Manual** — Complete API reference, detailed examples, error handling, migration guide. Written for someone actively using the component.
+**User Manual** â€” Complete API reference, detailed examples, error handling, migration guide. Written for someone actively using the component.
 
-**Companion Guide** — Design rationale, architecture deep dive, performance analysis, evolution history. Written for maintainers and power users.
+**Companion Guide** â€” Design rationale, architecture deep dive, performance analysis, evolution history. Written for maintainers and power users.
 
 Beyond component documentation, the Teaching directory contains:
 
@@ -794,7 +800,7 @@ Beyond component documentation, the Teaching directory contains:
 - 5 case studies (deep dives into specific challenges)
 - 5 foundations documents (background knowledge)
 - 4 handbooks (comprehensive methodology guides)
-- 8 communication guides (handling resistant colleagues—with humor)
+- 8 communication guides (handling resistant colleaguesâ€”with humor)
 - Training materials for compile-time error detection
 
 All written by AI, following documentation guidelines, reviewed through the same pipeline as code.
@@ -901,7 +907,7 @@ Refine through dialogue until the guidelines feel right. This investment pays of
 
 **Step 2: Build First Component**
 
-Choose something simple and foundational. Run the full pipeline—all eight phases. This will be slow and awkward. Things will go wrong. That's fine.
+Choose something simple and foundational. Run the full pipelineâ€”all eight phases. This will be slow and awkward. Things will go wrong. That's fine.
 
 Document what worked and what didn't. Update guidelines based on learnings. The first component is as much about calibrating the process as building the component.
 
@@ -944,19 +950,19 @@ The guidelines system scales because it's documentation. Multiple humans can rea
 
 Fat-P demonstrates something specific and verifiable.
 
-AI can serve as **author and architect** of production-quality code. The code, documentation, and governance were AI-authored. The human directed and judged but did not create. When Claude was asked to identify the human-authored parts, it incorrectly attributed the most sophisticated elements to the human—they were all AI-generated.
+AI can serve as **author and architect** of production-quality code. The code, documentation, and governance were AI-authored. The human directed and judged but did not create. When Claude was asked to identify the human-authored parts, it incorrectly attributed the most sophisticated elements to the humanâ€”they were all AI-generated.
 
-Multiple AIs can **collaborate productively**, with different systems contributing different strengths. Grok's design proposals surface approaches the other AIs don't consider. ChatGPT's alternative architectures provide genuine alternatives to Claude's defaults. The filtering is what makes this work—not any individual AI's output.
+Multiple AIs can **collaborate productively**, with different systems contributing different strengths. Grok's design proposals surface approaches the other AIs don't consider. ChatGPT's alternative architectures provide genuine alternatives to Claude's defaults. The filtering is what makes this workâ€”not any individual AI's output.
 
 **Guidelines enable scale**. Without persistent memory, every session would start from scratch. With guidelines, lessons compound, decisions are automated, and the project maintains coherence across hundreds of sessions.
 
-**Context reset is powerful**. The technique of deliberately forgetting and reviewing with fresh eyes catches bugs that would otherwise ship. It's counterintuitive—why throw away context?—but it works.
+**Context reset is powerful**. The technique of deliberately forgetting and reviewing with fresh eyes catches bugs that would otherwise ship. It's counterintuitiveâ€”why throw away context?â€”but it works.
 
 **The performance holds up.** Across 20 benchmarked components and 50+ competitor implementations, every Fat-P component matches or exceeds its industry-standard equivalent. The library is incomplete and the benchmarks cover only a subset, but nothing measured so far pays a performance tax for the zero-dependency design.
 
 The result is a library developed by one person who wrote none of the code, containing 111 components across 425,000 lines, with competitive performance where measured and green CI across all workflows. The repository is public. Clone it, compile it, run the benchmarks, read the commit history. The evidence is the code.
 
-This methodology—the pipeline, the guidelines system, the context reset technique, the multi-AI collaboration model—is documented here so others can reproduce it. It was not derived from academic literature on multi-agent systems. It emerged organically from solving real problems during development. Every element exists because a specific problem was encountered.
+This methodologyâ€”the pipeline, the guidelines system, the context reset technique, the multi-AI collaboration modelâ€”is documented here so others can reproduce it. It was not derived from academic literature on multi-agent systems. It emerged organically from solving real problems during development. Every element exists because a specific problem was encountered.
 
 ---
 
@@ -986,7 +992,7 @@ This methodology—the pipeline, the guidelines system, the context reset techni
 | Benchmark files | 17 | 30,845 |
 | **Total C++** | **217** | **232,644** |
 | Documentation (markdown) | 202 | 192,302 |
-| Presentations (pptx) | 12 | — |
+| Presentations (pptx) | 12 | â€” |
 | **Total documentation** | **214** | **192,302** |
 | **Grand total** | **431 files** | **424,946 lines** |
 
