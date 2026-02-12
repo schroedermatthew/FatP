@@ -41,14 +41,14 @@ FATP_META:
  * - Pluggable thread-safety policies (single-threaded, mutex, spinlock, shared_mutex)
  * - Type-safe group states with custom enums
  * - Observer pattern with priority ordering and RAII lifetime management
- * - JSON and GraphViz DOT serialization
+ * - JSON serialization and GraphViz DOT export
  * - RAII helpers for scoped state changes
- * - Optimized with SortedContainer for relationship storage (cache-friendly)
+ * - Optimized with FlatSet for relationship storage (cache-friendly sorted vectors)
  * Performance characteristics:
  * - Add feature: O(log n)
  * - Enable/disable: O(d x log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
  * - Validate: O(n x d x log n)
- * - Memory: ~550 bytes per feature with 5 relationships (using SortedContainer)
+ * - Memory: ~550 bytes per feature with 5 relationships (using FlatSet)
  */
 
 #include <algorithm>
@@ -58,7 +58,7 @@ FATP_META:
 #include <functional>
 #include <map>
 #include <memory>
-#include <regex>
+
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -72,7 +72,7 @@ FATP_META:
 #include "Expected.h"
 #include "Factory.h"
 #include "JsonLite.h"
-#include "SortedContainer.h"
+#include "FlatSet.h"
 #include "Stringify.h"
 #include "ValueGuard.h"
 
@@ -313,10 +313,10 @@ struct FeatureNode
     FeatureCheck check;
     std::string check_key; // For serialization: the factory key to restore check on load
 
-    // Relationship storage using SortedContainer for cache efficiency
+    // Relationship storage using FlatSet for cache-friendly sorted iteration
     // Use std::map for relationship types (only 4 possible keys)
-    // Use SortedContainer for target sets (frequently iterated, rarely modified)
-    std::map<FeatureRelationship, SortedContainer<std::string>> relationships;
+    // Use FlatSet for target sets (frequently iterated, rarely modified)
+    std::map<FeatureRelationship, FlatSet<std::string>> relationships;
 
     JsonValue to_json() const
     {
@@ -402,11 +402,7 @@ struct FeatureNode
                     {
                         return unexpected("Element in " + ts + " must be string");
                     }
-                    auto insert_res = node.relationships[type].insert(std::get<std::string>(elem));
-                    if (!insert_res)
-                    {
-                        return unexpected("Failed to insert relationship: " + insert_res.error());
-                    }
+                    node.relationships[type].insert(std::get<std::string>(elem));
                 }
             }
         }
@@ -565,21 +561,13 @@ private:
         }
 
         FeatureNode* from_node = *from_res;
-        auto insert_res = from_node->relationships[type].insert(to);
-        if (!insert_res)
-        {
-            return unexpected("Failed to insert relationship: " + insert_res.error());
-        }
+        from_node->relationships[type].insert(to);
 
         // Bidirectional for conflicts and mutually exclusive
         if (type == FeatureRelationship::Conflicts || type == FeatureRelationship::MutuallyExclusive)
         {
             FeatureNode* to_node = *to_res;
-            auto rev_insert_res = to_node->relationships[type].insert(from);
-            if (!rev_insert_res)
-            {
-                return unexpected("Failed to insert reverse relationship: " + rev_insert_res.error());
-            }
+            to_node->relationships[type].insert(from);
         }
         return {};
     }
@@ -1185,7 +1173,7 @@ public:
             , mFeatureName(feature_name)
             , mValid(false)
         {
-            auto guard = mManager->mSync.lock();
+            [[maybe_unused]] auto guard = mManager->mSync.lock();
             auto node_res = mManager->get_node(feature_name);
             if (node_res)
             {
@@ -1208,7 +1196,7 @@ public:
             if (mValid)
             {
                 {
-                    auto guard = mManager->mSync.lock();
+                    [[maybe_unused]] auto guard = mManager->mSync.lock();
                     auto node = mManager->get_node(mFeatureName);
                     if (node)
                     {
@@ -2066,69 +2054,6 @@ public:
         }
         ss << "}\n";
         return ss.str();
-    }
-
-    // Parse from DOT format (basic support)
-    [[nodiscard]] static Expected<FeatureManager, std::string> from_dot(const std::string& dot_str)
-    {
-        FeatureManager manager;
-        std::regex node_regex(R"(\"([^\"]+)\"\s*\[|([a-zA-Z_][a-zA-Z0-9_]*)\s*\[)");
-        std::sregex_iterator nodes_begin(dot_str.begin(), dot_str.end(), node_regex);
-        std::sregex_iterator nodes_end;
-        for (auto it = nodes_begin; it != nodes_end; ++it)
-        {
-            std::string node_name = (*it)[1].matched ? (*it)[1].str() : (*it)[2].str();
-
-            // Ignore DOT global attribute statements like: node [shape=box];
-            if (!(*it)[1].matched)
-            {
-                if (node_name == "node" || node_name == "edge" || node_name == "graph")
-                {
-                    continue;
-                }
-            }
-
-            auto res = manager.add_feature(node_name);
-            if (!res && !manager.mFeatures.count(node_name))
-            {
-                return unexpected(res.error());
-            }
-        }
-        std::regex edge_regex(R"(\"([^\"]+)\"\s*(?:->|--)\s*\"([^\"]+)\"\s*\[[^\]]*label\s*=\s*\"([^\"]+)\")");
-        std::sregex_iterator edges_begin(dot_str.begin(), dot_str.end(), edge_regex);
-        std::sregex_iterator edges_end;
-        for (auto it = edges_begin; it != edges_end; ++it)
-        {
-            std::string from = (*it)[1].str();
-            std::string to = (*it)[2].str();
-            std::string label = (*it)[3].str();
-            FeatureRelationship type;
-            try
-            {
-                type = EnumStringPolicy<FeatureRelationship>::from_string(label);
-            }
-            catch (const std::invalid_argument&)
-            {
-                continue;
-            }
-            auto from_add = manager.add_feature(from);
-            if (!from_add && !manager.mFeatures.count(from))
-            {
-                return unexpected(from_add.error());
-            }
-            auto to_add = manager.add_feature(to);
-            if (!to_add && !manager.mFeatures.count(to))
-            {
-                return unexpected(to_add.error());
-            }
-
-            auto res = manager.add_relationship(from, type, to);
-            if (!res)
-            {
-                return unexpected(res.error());
-            }
-        }
-        return manager;
     }
 
     // Clear all features, groups, and observers

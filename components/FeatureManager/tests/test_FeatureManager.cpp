@@ -1101,30 +1101,6 @@ FATP_TEST_CASE(batch_disable_implies)
 }
 
 
-FATP_TEST_CASE(dot_roundtrip_parses_requires_and_ignores_global_attributes)
-{
-    FeatureManager<> manager;
-    FATP_ASSERT_TRUE(manager.add_feature("A").has_value(), "Should add A");
-    FATP_ASSERT_TRUE(manager.add_feature("B").has_value(), "Should add B");
-    FATP_ASSERT_TRUE(manager.add_relationship("A", FeatureRelationship::Requires, "B").has_value(),
-                     "Should add Requires relationship");
-
-    const std::string dot = manager.to_dot();
-    auto parsed_res = FeatureManager<>::from_dot(dot);
-    FATP_ASSERT_TRUE(parsed_res.has_value(), "from_dot should parse to_dot output");
-
-    auto& parsed = *parsed_res;
-    FATP_ASSERT_TRUE(parsed.enable("A").has_value(), "Enabling A should succeed");
-    FATP_ASSERT_TRUE(parsed.is_enabled("B"), "B should be enabled via Requires relationship");
-
-    const auto all = parsed.get_all_features();
-    FATP_ASSERT_FALSE(std::find(all.begin(), all.end(), "node") != all.end(),
-                      "from_dot should not create spurious 'node' feature");
-
-    return true;
-}
-
-
 } // namespace fat_p::testing::logic
 
 // ============================================================================
@@ -1620,7 +1596,6 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, thread_safety);
     FATP_RUN_TEST_NS(runner, logic, observers);
     FATP_RUN_TEST_NS(runner, logic, dot_export);
-    FATP_RUN_TEST_NS(runner, logic, dot_roundtrip_parses_requires_and_ignores_global_attributes);
     FATP_RUN_TEST_NS(runner, logic, batch_disable);
     FATP_RUN_TEST_NS(runner, logic, batch_enable_rollback);
     FATP_RUN_TEST_NS(runner, logic, enable_transactional);

@@ -627,11 +627,6 @@ int main()
         DoNotOptimize(dot);
     });
 
-    runner.add("from_dot: 100 features, 50 relationships", [&]() {
-        auto fmRes = FeatureManager<>::from_dot(dotBlob);
-        DoNotOptimize(fmRes);
-    });
-
     runner.add("to_dot: 10k features, no relationships", [&]() {
         auto dot = fmLookup.to_dot();
         DoNotOptimize(dot);
