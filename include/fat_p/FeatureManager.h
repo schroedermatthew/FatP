@@ -97,7 +97,7 @@ enum class FeatureRelationship
 /// @brief Number of FeatureRelationship enumerators; used for array-based storage.
 inline constexpr size_t kRelationshipCount = 4;
 
-// Convert FeatureRelationship enum to array index (0–3)
+/// @brief Converts FeatureRelationship enum to array index (0–3).
 constexpr size_t relIdx(FeatureRelationship r) noexcept
 {
     return static_cast<size_t>(r);
