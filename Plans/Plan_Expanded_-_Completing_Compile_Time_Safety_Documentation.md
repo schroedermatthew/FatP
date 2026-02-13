@@ -3732,7 +3732,7 @@ Use `Expected` with monadic operations or `EXPECTED_TRY`.
 ## Advanced (Sessions 8-11)
 
 ### Exercise A1: Concept-Constrained Container
-Write a `SortedContainer<T>` where T must satisfy:
+Write an `OrderedSet<T>` where T must satisfy:
 - `std::totally_ordered`
 - `std::copyable`
 - Has a `key()` method returning `std::totally_ordered`

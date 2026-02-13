@@ -60,12 +60,11 @@ A comprehensive audit of Fat-P headers identified **75 instances** of "C++17" me
 | 19 | ScopeGuardPolicies.h | L61 | `* Requires: C++17` |
 | 20 | Signal.h | L76 | `* Requires: C++17` |
 | 21 | SlidingFileWindow.h | L59 | `* Requires: C++17` |
-| 22 | SortedContainer.h | L93 | `* Requires: C++17` |
-| 23 | StableHashMap.h | L94 | `* Requires: C++17` |
-| 24 | Stacktrace.h | L73 | `* Requires: C++17` |
-| 25 | StringPool.h | L67 | `* Requires: C++17` |
-| 26 | Tensor.h | L83 | `* Requires: C++17` |
-| 27 | TensorMath.h | L56 | `* Requires: C++17` |
+| 22 | StableHashMap.h | L94 | `* Requires: C++17` |
+| 23 | Stacktrace.h | L73 | `* Requires: C++17` |
+| 24 | StringPool.h | L67 | `* Requires: C++17` |
+| 25 | Tensor.h | L83 | `* Requires: C++17` |
+| 26 | TensorMath.h | L56 | `* Requires: C++17` |
 | 28 | TensorSerializer.h | L63 | `* Requires: C++17` |
 | 29 | TensorStorage.h | L67 | `* Requires: C++17` |
 | 30 | ValueGuard.h | L58 | `* Requires: C++17` |
@@ -298,7 +297,6 @@ FILES=(
     "ScopeGuardPolicies.h"
     "Signal.h"
     "SlidingFileWindow.h"
-    "SortedContainer.h"
     "StableHashMap.h"
     "Stacktrace.h"
     "StringPool.h"
@@ -494,7 +492,6 @@ ScopeGuardExpected.h:61
 ScopeGuardPolicies.h:61
 Signal.h:76
 SlidingFileWindow.h:59
-SortedContainer.h:93
 StableHashMap.h:94
 Stacktrace.h:73
 StringPool.h:67

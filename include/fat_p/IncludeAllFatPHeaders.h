@@ -102,7 +102,6 @@ FATP_META:
       - include/fat_p/SlidingFileWindow.h
       - include/fat_p/SlotMap.h
       - include/fat_p/SmallVector.h
-      - include/fat_p/SortedContainer.h
       - include/fat_p/SparseSet.h
       - include/fat_p/StableHashMap.h
       - include/fat_p/Stacktrace.h
@@ -250,7 +249,6 @@ FATP_META:
 #include "SlidingFileWindow.h"
 #include "SlotMap.h"
 #include "SmallVector.h"
-#include "SortedContainer.h"
 #include "SparseSet.h"
 #include "StableHashMap.h"
 #include "Stacktrace.h"

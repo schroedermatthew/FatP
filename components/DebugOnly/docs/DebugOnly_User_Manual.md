@@ -1688,7 +1688,7 @@ public:
 ### Expensive Invariant Validation
 
 ```cpp
-class SortedContainer
+class SortedVector
 {
     std::vector<int> data_;
     fat_p::DebugOnly<bool> verified_;

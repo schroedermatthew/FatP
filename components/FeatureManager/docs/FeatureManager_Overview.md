@@ -68,7 +68,7 @@ class FeatureManager {
     struct Feature {
         std::string name;
         bool enabled = false;
-        SortedContainer<Relationship> relationships;
+        FlatSet<Relationship> relationships;
     };
     
     std::map<std::string, Feature> features_;
@@ -285,7 +285,7 @@ FeatureManager provides dependency-aware feature flags permanently—essential f
 | Operation | Complexity | Notes |
 |-----------|------------|-------|
 | Add feature | O(log n) | Map insertion |
-| Add relationship | O(log r) | SortedContainer insertion |
+| Add relationship | O(log r) | FlatSet insertion |
 | Enable (simple) | O(log n) | Map lookup + update |
 | Enable (with deps) | O(d × log n) | d = dependency depth |
 | Validate | O(n × d × log n) | Full graph traversal |
@@ -312,7 +312,7 @@ Expected.h              (Error handling)
 ConcurrencyPolicies.h   (Thread safety)
 JsonLite.h              (Serialization)
 EnumPlus.h              (FeatureRelationship, FeatureGroupState)
-SortedContainer.h       (Relationship storage)
+FlatSet.h               (Relationship storage)
 Factory.h               (Feature creation)
 ValueGuard.h            (Scoped state changes)
 Stringify.h             (Error messages)
@@ -328,7 +328,7 @@ FeatureManager delivers on the fat_p promise through three pillars:
 C++ won't standardize feature management—too application-specific. FeatureManager provides dependency-aware flags permanently.
 
 ### 2. Specialization
-Topological dependency resolution, cycle detection with path reporting, and automatic implication propagation handle complex feature graphs. SortedContainer storage provides cache-friendly relationship access.
+Topological dependency resolution, cycle detection with path reporting, and automatic implication propagation handle complex feature graphs. FlatSet storage provides cache-friendly relationship access.
 
 ### 3. Control
 Four relationship types (Requires, Implies, Conflicts, MutuallyExclusive) model real-world feature dependencies. Thread-safety policies let you choose overhead. Observer pattern enables reactive configuration.

@@ -100,7 +100,6 @@ bool test_SimdVector();
 bool test_SlidingFileWindow();
 bool test_SlotMap();
 bool test_SmallVector();
-bool test_SortedContainer();
 bool test_SparseSet();
 bool test_StableHashMap();
 bool test_Stacktrace();

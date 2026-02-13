@@ -262,9 +262,6 @@ STANDARD_COMPONENTS = [
     ("simd-vector.yml", "SimdVector", "SimdVector.h",
      "components/SimdVector/tests/test_SimdVector.cpp", None),
 
-    ("sorted-container.yml", "SortedContainer", "SortedContainer.h",
-     "components/SortedContainer/tests/test_SortedContainer.cpp", None),
-
     ("string-pool.yml", "StringPool", "StringPool.h",
      "components/StringPool/tests/test_StringPool.cpp", None),
 

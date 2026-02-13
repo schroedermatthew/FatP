@@ -43,7 +43,6 @@ FATP_META:
  * - `circular_buffer_type<T>` - Is a CircularBuffer
  * - `flat_map_type<T>` - Is a FlatMap
  * - `flat_set_type<T>` - Is a FlatSet
- * - `sorted_container_type<T>` - Is a SortedContainer
  * - `sparse_set_type<T>` - Is a SparseSet
  * - `slot_map_type<T>` - Is a SlotMap
  * - `aligned_vector_type<T>` - Is an AlignedVector
@@ -107,15 +106,6 @@ class FlatMap;
 
 template <typename Key, typename Compare, typename Allocator>
 class FlatSet;
-
-template <typename T,
-          typename UniquenessPolicy,
-          typename ComparePolicy,
-          typename Allocator,
-          typename ConcurrencyPolicy,
-          template <typename, typename>
-          class BackendPolicy>
-class SortedContainer;
 
 template <typename T>
 class SparseSet;
@@ -245,17 +235,6 @@ struct is_flat_set_impl : std::false_type
 
 template <typename K, typename C, typename A>
 struct is_flat_set_impl<FlatSet<K, C, A>> : std::true_type
-{
-};
-
-// SortedContainer detection
-template <typename T>
-struct is_sorted_container_impl : std::false_type
-{
-};
-
-template <typename T, typename U, typename C, typename A, typename P, template <typename, typename> class B>
-struct is_sorted_container_impl<SortedContainer<T, U, C, A, P, B>> : std::true_type
 {
 };
 
@@ -513,13 +492,6 @@ template <typename T>
 concept flat_set_type = detail::is_flat_set_impl<T>::value;
 
 /**
- * @brief Checks if T is a SortedContainer.
- * @tparam T The type to check
- */
-template <typename T>
-concept sorted_container_type = detail::is_sorted_container_impl<T>::value;
-
-/**
  * @brief Checks if T is a SparseSet.
  * @tparam T The type to check
  */
@@ -712,7 +684,7 @@ concept numa_allocator_type = detail::is_numa_allocator_impl<T>::value;
 template <typename T>
 concept library_container = small_vector_type<T> || circular_buffer_type<T>
                             || flat_map_type<T> || flat_set_type<T>
-                            || sorted_container_type<T> || sparse_set_type<T>
+                            || sparse_set_type<T>
                             || slot_map_type<T> || aligned_vector_type<T>;
 
 /**

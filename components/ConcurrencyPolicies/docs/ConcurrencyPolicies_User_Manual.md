@@ -1350,5 +1350,4 @@ using RWContainer = Container<fat_p::SharedMutexPolicy>;
 
 - CppStandardDetection.h - C++ version detection
 - SmallVector.h - Policy-based small buffer optimization
-- SortedContainer.h - Policy-based sorted container
 - ObjectPool.h - Policy-based object pooling

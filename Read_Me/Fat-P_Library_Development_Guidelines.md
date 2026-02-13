@@ -377,7 +377,6 @@ Users should understand *what stays true*, not *how you implement it*.
 | `FastHashMap` | `SwissTable` |
 | `StableHashMap` | `RobinHoodHashMap` |
 | `FlatMap` | `SortedVectorMap` |
-| `SortedContainer` | `MultiPolicySortedVector` |
 
 **Rule 2 -- Adjectives are semantic, not marketing**
 
@@ -435,11 +434,6 @@ StableHashMap<K, V>    // Robin Hood, tombstone-free, predictable behavior
 ```cpp
 FlatMap<K, V>          // Contiguous storage, sorted by key
 FlatSet<T>             // Contiguous storage, sorted values
-```
-
-**Policy-Based Containers:**
-```cpp
-SortedContainer<T, Policies...>  // Sorted with configurable uniqueness/concurrency
 ```
 
 ### 3.3 Standardized Vocabulary
@@ -1509,7 +1503,6 @@ Maintain one global table:
 | Predictable mutation semantics | `StableHashMap` |
 | Small ordered map | `FlatMap` |
 | Ordered set | `FlatSet` |
-| Sorted + fuzzy + concurrent | `SortedContainer` |
 
 No overlap, no ambiguity.
 
@@ -1520,7 +1513,6 @@ No overlap, no ambiguity.
 | Container Type | Error Handling |
 |----------------|----------------|
 | Lightweight (`FastHashMap`, `FlatMap`) | UB on contract violation; assertions in debug |
-| Policy containers (`SortedContainer`) | Policy determines error handling |
 | Safe wrappers | Return `Expected<T>` or throw |
 
 **Debug-only validation is allowed (and encouraged) for lightweight containers.**
@@ -1547,7 +1539,6 @@ See Section 2 for the complete six-layer architecture. The legacy layer names be
 | Infrastructure | Containers | `FastHashMap`, `StableHashMap`, `SmallVector` | `std` only |
 | CoreUtility | Foundation | `Stringify`, `TypeTraits`, `DiagnosticLogger_Core`, `FloatingPointComparison` | `std` + Containers |
 | Enforcement | Foundation | `enforce.h`, `Expected.h`, `ContractException` | `std` + Containers + Foundation |
-| Policy | Domain | `SortedContainer` | All below |
 | Application | Domain | `EqualityComparisons`, `Tensor`, `DiagnosticLogger` (full) | All below |
 | Serialization | Domain | `FatPJson`, `FatPCbor`, `BinaryLite` | All below |
 

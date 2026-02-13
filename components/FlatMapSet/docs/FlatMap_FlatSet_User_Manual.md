@@ -62,7 +62,6 @@ status: "reviewed"
    - [vs std::map and std::set](#vs-stdmap-and-stdset)
    - [vs C++23 std::flat_map](#vs-c23-stdflat_map)
    - [vs Boost.Container flat_map](#vs-boostcontainer-flat_map)
-   - [vs SortedContainer](#vs-sortedcontainer)
 10. [Migration Guide](#migration-guide)
     - [From std::map](#from-stdmap)
     - [From std::set](#from-stdset)
@@ -1268,18 +1267,6 @@ Memory savings: ~80%
 
 **Verdict:** Use `fat_p::FlatMap` for minimal dependencies. Use Boost if you need advanced features or already depend on Boost.
 
-### vs SortedContainer
-
-| Aspect | FlatMap/FlatSet | SortedContainer |
-|--------|-----------------|-----------------|
-| API style | std::map/set compatible | Custom API with Expected |
-| Key-value pairs | Yes (FlatMap) | No (values only) |
-| Thread safety | None | Configurable policies |
-| Uniqueness | Always unique | Configurable (allow duplicates, fuzzy) |
-| Dependencies | Minimal | Many (enforce, Expected, ConcurrencyPolicies) |
-| Error handling | Exceptions | Expected<T, E> |
-
-**Verdict:** Use FlatMap/FlatSet for standard-compatible API and simplicity. Use SortedContainer for thread safety, duplicate handling, or fuzzy comparisons.
 
 ---
 
@@ -1760,13 +1747,12 @@ int main()
 
 **Related Components:**
 
-- `SortedContainer.h` - Policy-based sorted container with thread safety and fuzzy comparison
 - `enforce.h` - Debug-mode contract validation
 - `FatPTypeTraits.h` - `is_flat_map_v<T>`, `is_flat_set_v<T>` type traits
 
 **Thread Safety:**
 
-FlatMap and FlatSet are **not thread-safe**. External synchronization is required for concurrent access. For built-in thread safety, consider `SortedContainer` with a concurrency policy.
+FlatMap and FlatSet are **not thread-safe**. External synchronization is required for concurrent access.
 
 ---
 

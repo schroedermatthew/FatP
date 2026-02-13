@@ -200,7 +200,7 @@ public:
 ### 4. Invariant Verification
 
 ```cpp
-class SortedContainer {
+class SortedVector {
     std::vector<int> data_;
     DebugOnly<bool> verified_{false};
     

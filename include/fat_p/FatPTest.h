@@ -83,7 +83,6 @@ FATP_META:
       - components/SlidingFileWindow/tests/test_SlidingFileWindow.cpp
       - components/SlotMap/tests/test_SlotMap.cpp
       - components/SmallVector/tests/test_SmallVector.cpp
-      - components/SortedContainer/tests/test_SortedContainer.cpp
       - components/SparseSet/tests/test_SparseSet.cpp
       - components/FatPHashMap/tests/test_StableHashMap.cpp
       - components/Stacktrace/tests/test_Stacktrace.cpp

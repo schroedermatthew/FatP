@@ -152,7 +152,6 @@ int main()
     RUN_AND_RECORD(test_SlidingFileWindow);
     RUN_AND_RECORD(test_SlotMap);
     RUN_AND_RECORD(test_SmallVector);
-    RUN_AND_RECORD(test_SortedContainer);
     RUN_AND_RECORD(test_SparseSet);
     RUN_AND_RECORD(test_StableHashMap);
     RUN_AND_RECORD(test_Stacktrace);

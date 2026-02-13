@@ -27,7 +27,7 @@ FeatureManager is a modern C++17 header-only library for managing feature flags 
 **License:** Header-only, zero external dependencies  
 **C++ Standard:** C++17 or later  
 **Last Updated:** December 2025  
-**Dependencies:** Expected.h, ConcurrencyPolicies.h, JsonLite.h, ValueGuard.h, Stringify.h, EnumPlus.h, SortedContainer.h, Factory.h
+**Dependencies:** Expected.h, ConcurrencyPolicies.h, JsonLite.h, ValueGuard.h, Stringify.h, EnumPlus.h, FlatSet.h, Factory.h
 
 ### What's New in Version 3.1
 
@@ -218,7 +218,7 @@ auto restored = FeatureManager<>::from_json(json);
 
 ### 7. **Performance Optimizations**
 - O(log n) feature lookup using std::map with string keys
-- Cache-friendly iteration with SortedContainer for relationships
+- Cache-friendly iteration with FlatSet for relationships
 - Lock-free fast paths where possible (configurable concurrency policies)
 - Optimized rollback (only modified features, not full snapshots)
 
@@ -342,7 +342,7 @@ batch_enable(features):
     rethrow
 ```
 
-**Optimization:** Instead of full snapshots, tracks only modified features using SortedContainer for O(log m) rollback where m = changes.
+**Optimization:** Instead of full snapshots, tracks only modified features using FlatSet for O(log m) rollback where m = changes.
 
 #### 5. Serialization with Factory
 ```

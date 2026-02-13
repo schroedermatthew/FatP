@@ -91,7 +91,6 @@ A header-only C++20 utility library. Zero external dependencies.
 ![SlidingFileWindow CI](https://github.com/schroedermatthew/FatP/actions/workflows/sliding-file-window.yml/badge.svg)
 ![SlotMap CI](https://github.com/schroedermatthew/FatP/actions/workflows/slot-map.yml/badge.svg)
 ![SmallVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/small-vector.yml/badge.svg)
-![SortedContainer CI](https://github.com/schroedermatthew/FatP/actions/workflows/sorted-container.yml/badge.svg)
 ![SparseSet CI](https://github.com/schroedermatthew/FatP/actions/workflows/sparse-set.yml/badge.svg)
 ![Stacktrace CI](https://github.com/schroedermatthew/FatP/actions/workflows/stacktrace.yml/badge.svg)
 ![StateMachine CI](https://github.com/schroedermatthew/FatP/actions/workflows/state-machine.yml/badge.svg)
@@ -159,7 +158,6 @@ target_link_libraries(your_target PRIVATE fatp)
 | IntrusiveList | Intrusive doubly-linked list, zero allocation overhead |
 | SlotMap | Generational index container with stable handles |
 | SparseSet | Sparse set with dense iteration |
-| SortedContainer | Policy-based sorted vector |
 | BitSet | Fixed-size bit set with compiler intrinsics |
 
 ### Memory and Allocation
