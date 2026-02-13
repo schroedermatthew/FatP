@@ -19,7 +19,7 @@ status: "reviewed"
 
 ---
 
-**Scope:** This document explains what `fat_p::ServiceLocator` is, the problems it targets, and the core mental model (registration, resolution, scopes, and factories).
+**Scope:** This document explains what `fat_p::service_locator::ServiceLocator` is, the problems it targets, and the core mental model (registration, resolution, scopes, and factories).
 
 **Not covered:**
 - Full API reference and edge cases (see **User Manual - ServiceLocator**)
@@ -35,7 +35,7 @@ status: "reviewed"
 
 ## Overview Card
 
-**Component:** `fat_p::ServiceLocator` (aliases: `DefaultServiceLocator`, `ThreadSafeServiceLocator`, `HotLoopServiceLocator`, `ThreadSafeHotLoopServiceLocator`)  
+**Component:** `fat_p::service_locator::ServiceLocator` (aliases: `DefaultServiceLocator`, `ThreadSafeServiceLocator`, `HotLoopServiceLocator`, `ThreadSafeHotLoopServiceLocator`)  
 **Problem solved:** Centralized runtime wiring plus type-keyed lookup with scoped overrides  
 **When to use:** Composition roots, integration tests, systems that need temporary overrides (feature flags, simulated backends)  
 **When NOT to use:** When you require compile-time dependency graphs, when services are frequently unregistered while pointers are still in use, when type keys must be stable across DSOs/plugins without customization  
@@ -105,7 +105,7 @@ struct TestLogger : ILogger {};
 
 void example()
 {
-    fat_p::DefaultServiceLocator root;
+    fat_p::service_locator::DefaultServiceLocator root;
     NullLogger prodLogger;
     (void)root.registerInstance<ILogger>(prodLogger);
 
@@ -132,10 +132,10 @@ void example()
 
 Common aliases:
 
-- `fat_p::DefaultServiceLocator` (no internal synchronization)
-- `fat_p::ThreadSafeServiceLocator` (shared-mutex protected registry)
-- `fat_p::HotLoopServiceLocator` (optional thread-local MRU cache for unnamed resolves)
-- `fat_p::ThreadSafeHotLoopServiceLocator` (shared-mutex protected registry + the MRU cache)
+- `fat_p::service_locator::DefaultServiceLocator` (no internal synchronization)
+- `fat_p::service_locator::ThreadSafeServiceLocator` (shared-mutex protected registry)
+- `fat_p::service_locator::HotLoopServiceLocator` (optional thread-local MRU cache for unnamed resolves)
+- `fat_p::service_locator::ThreadSafeHotLoopServiceLocator` (shared-mutex protected registry + the MRU cache)
 
 Notes:
 

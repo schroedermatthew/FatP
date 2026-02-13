@@ -67,7 +67,7 @@ bool test_ServiceLocator_HeaderSelfContained()
 
     using namespace service_locator_header_self_contained;
 
-    fat_p::DefaultServiceLocator locator;
+    fat_p::service_locator::DefaultServiceLocator locator;
 
     Foo foo;
     foo.mValue = 123;

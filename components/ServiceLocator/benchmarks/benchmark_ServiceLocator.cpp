@@ -14,8 +14,8 @@
 //   5. Medians are the primary reported statistic.
 //
 // Competitors:
-//   - fat_p::DefaultServiceLocator     - Policy-based, single-threaded, full-featured
-//   - fat_p::ThreadSafeServiceLocator  - Policy-based, thread-safe with SharedMutexPolicy
+//   - fat_p::service_locator::DefaultServiceLocator     - Policy-based, single-threaded, full-featured
+//   - fat_p::service_locator::ThreadSafeServiceLocator  - Policy-based, thread-safe with SharedMutexPolicy
 //   - EnTT locator (if available)      - Static global per-type, minimal overhead
 //   - std::unordered_map baseline      - Raw hash map with type_index key
 //   - Direct pointer baseline          - Best possible case (no lookup)
@@ -62,7 +62,7 @@ FATP_META:
   file_role: benchmark
   path: components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp
   layer: Testing
-  namespace: fat_p
+  namespace: fat_p::service_locator
   summary: "Round-robin competitor benchmarks for ServiceLocator."
   api_stability: in_work
   related:
@@ -119,8 +119,8 @@ FATP_META:
 // ============================================================================
 // fat_p locator variants
 // ============================================================================
-using FatPDefault = fat_p::DefaultServiceLocator;
-using FatPThreadSafe = fat_p::ThreadSafeServiceLocator;
+using FatPDefault = fat_p::service_locator::DefaultServiceLocator;
+using FatPThreadSafe = fat_p::service_locator::ThreadSafeServiceLocator;
 
 // EnTT service locator (if available)
 // Install: vcpkg install entt
@@ -418,7 +418,7 @@ struct ILocatorAdapter
 };
 
 // ============================================================================
-// fat_p::DefaultServiceLocator Adapter
+// fat_p::service_locator::DefaultServiceLocator Adapter
 // ============================================================================
 
 class FatPDefaultAdapter final : public ILocatorAdapter
@@ -433,7 +433,7 @@ class FatPDefaultAdapter final : public ILocatorAdapter
 public:
     const char* name() const override
     {
-        return "fat_p::DefaultServiceLocator";
+        return "fat_p::service_locator::DefaultServiceLocator";
     }
 
     void setup(size_t /*numServices*/) override
@@ -482,7 +482,7 @@ public:
 };
 
 // ============================================================================
-// fat_p::ThreadSafeServiceLocator Adapter
+// fat_p::service_locator::ThreadSafeServiceLocator Adapter
 // ============================================================================
 
 class FatPThreadSafeAdapter final : public ILocatorAdapter
@@ -497,7 +497,7 @@ class FatPThreadSafeAdapter final : public ILocatorAdapter
 public:
     const char* name() const override
     {
-        return "fat_p::ThreadSafeServiceLocator";
+        return "fat_p::service_locator::ThreadSafeServiceLocator";
     }
 
     void setup(size_t /*numServices*/) override
@@ -916,7 +916,7 @@ static void benchmark_named_services()
 
         for (size_t run = 0; run < runs; ++run)
         {
-            fat_p::DefaultServiceLocator locator;
+            fat_p::service_locator::DefaultServiceLocator locator;
             (void)locator.registerInstance<ILogger>(defaultLogger);
             (void)locator.registerInstance<ILogger>(fileLogger, "file");
             (void)locator.registerInstance<ILogger>(consoleLogger, "console");
@@ -998,7 +998,7 @@ static void benchmark_scoped_resolution()
 
         for (size_t run = 0; run < runs; ++run)
         {
-            fat_p::DefaultServiceLocator parent;
+            fat_p::service_locator::DefaultServiceLocator parent;
             (void)parent.registerInstance<ILogger>(parentLogger);
             (void)parent.registerInstance<IDatabase>(db);
 
@@ -1073,7 +1073,7 @@ static void benchmark_registration()
                 t.start();
                 for (size_t i = 0; i < ITERATIONS_PER_RUN; ++i)
                 {
-                    fat_p::DefaultServiceLocator locator;
+                    fat_p::service_locator::DefaultServiceLocator locator;
                     (void)locator.registerInstance<ILogger>(logger);
                     (void)locator.registerInstance<IDatabase>(db);
                     (void)locator.registerInstance<ICache>(cache);
@@ -1109,7 +1109,7 @@ static void benchmark_registration()
         }
     }
 
-    Statistics::compute(samples_fatp).print("fat_p::DefaultServiceLocator");
+    Statistics::compute(samples_fatp).print("fat_p::service_locator::DefaultServiceLocator");
     Statistics::compute(samples_map).print("std::unordered_map<type_index>");
     std::cout << "\n";
 }
@@ -1136,7 +1136,7 @@ struct DummyStorage
 template<std::size_t I>
 const void* token() noexcept
 {
-    return &fat_p::detail::kServiceTypeToken<DummyService<I>>;
+    return &fat_p::service_locator::detail::kServiceTypeToken<DummyService<I>>;
 }
 
 template<std::size_t I>
@@ -1145,17 +1145,17 @@ const void* instance_ptr() noexcept
     return &DummyStorage<I>::sInstance;
 }
 
-using ResolveFn = const void* (*)(fat_p::DefaultServiceLocator&);
-using RegisterFn = void (*)(fat_p::DefaultServiceLocator&);
+using ResolveFn = const void* (*)(fat_p::service_locator::DefaultServiceLocator&);
+using RegisterFn = void (*)(fat_p::service_locator::DefaultServiceLocator&);
 
 template<std::size_t I>
-const void* resolve(fat_p::DefaultServiceLocator& locator)
+const void* resolve(fat_p::service_locator::DefaultServiceLocator& locator)
 {
     return locator.tryResolve<DummyService<I>>();
 }
 
 template<std::size_t I>
-void reg(fat_p::DefaultServiceLocator& locator)
+void reg(fat_p::service_locator::DefaultServiceLocator& locator)
 {
     (void)locator.registerInstance<DummyService<I>>(DummyStorage<I>::sInstance);
 }
@@ -1187,10 +1187,10 @@ constexpr auto make_instance_table(std::index_sequence<Is...>) noexcept
 inline const auto kResolveTable = make_resolve_table(std::make_index_sequence<kMaxTypes>{});
 inline const auto kRegisterTable = make_register_table(std::make_index_sequence<kMaxTypes>{});
 
-using UnregisterFn = bool (*)(fat_p::DefaultServiceLocator&);
+using UnregisterFn = bool (*)(fat_p::service_locator::DefaultServiceLocator&);
 
 template<std::size_t I>
-bool unreg(fat_p::DefaultServiceLocator& locator)
+bool unreg(fat_p::service_locator::DefaultServiceLocator& locator)
 {
     return locator.unregister<DummyService<I>>();
 }
@@ -1264,7 +1264,7 @@ static void benchmark_size_sensitivity()
         {
             // fat_p (type-only, many distinct types)
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 for (size_t i = 0; i < numServices; ++i)
                 {
                     size_sensitivity_detail::kRegisterTable[i](locator);
@@ -1331,7 +1331,7 @@ static void benchmark_size_sensitivity()
         << "---------|----------------------|----------------------------------|"
         << "----------------------------------|---------------------------\n";
 
-    const void* loggerTypeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+    const void* loggerTypeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
 
     for (size_t numServices : sizes)
     {
@@ -1357,7 +1357,7 @@ static void benchmark_size_sensitivity()
         {
             // fat_p (type+name key internally)
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 for (size_t i = 0; i < numServices; ++i)
                 {
                     (void)locator.registerInstance<ILogger>(*loggers[i], serviceNames[i]);
@@ -1494,7 +1494,7 @@ static void benchmark_string_key_hot_loop_locality()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 for (const auto& n : names)
                 {
                     (void)locator.registerInstance<ILogger>(logger, n);
@@ -1531,7 +1531,7 @@ static void benchmark_string_key_hot_loop_locality()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 for (const auto& n : names)
                 {
                     (void)locator.registerInstance<ILogger>(logger, n);
@@ -1639,7 +1639,7 @@ static void benchmark_const_resolve()
         {
             // non-const
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 (void)locator.registerInstance<Dummy>(dummy);
                 (void)locator.tryResolve<Dummy>();
 
@@ -1657,7 +1657,7 @@ static void benchmark_const_resolve()
 
             // const
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 (void)locator.registerInstance<Dummy>(dummy);
                 (void)locator.tryResolve<const Dummy>();
 
@@ -1726,7 +1726,7 @@ static void benchmark_mutation_cost()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 for (size_t i = 0; i < n; ++i)
                 {
                     size_sensitivity_detail::kRegisterTable[i](locator);
@@ -1771,7 +1771,7 @@ static void benchmark_mutation_cost()
 
             for (size_t run = 0; run < runs; ++run)
             {
-                fat_p::DefaultServiceLocator locator;
+                fat_p::service_locator::DefaultServiceLocator locator;
                 for (size_t i = 0; i < n; ++i)
                 {
                     size_sensitivity_detail::kRegisterTable[i](locator);
@@ -1809,7 +1809,7 @@ static void benchmark_overhead_isolation()
 
     NullLogger logger;
 
-    // Overhead sources identified in fat_p::ServiceLocator:
+    // Overhead sources identified in fat_p::service_locator::ServiceLocator:
     // 1. ServiceKey construction (makeKey<T>) - creates std::string even for empty name
     // 2. ServiceKey hashing - hash<void*> + hash<string> + mix
     // 3. ServiceKey comparison - pointer compare + string compare
@@ -1852,7 +1852,7 @@ static void benchmark_overhead_isolation()
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
-            const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+            const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
             benchmark_sink += reinterpret_cast<std::intptr_t>(typeId);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
@@ -1896,7 +1896,7 @@ static void benchmark_overhead_isolation()
             const void* typeId;
             std::string name;
         };
-        const void* typeAddr = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* typeAddr = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
 
         Timer t;
         t.start();
@@ -1920,7 +1920,7 @@ static void benchmark_overhead_isolation()
             std::string name;
         };
         TestKey key;
-        key.typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        key.typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         key.name = "";
 
         Timer t;
@@ -1958,7 +1958,7 @@ static void benchmark_overhead_isolation()
     // Overhead: unordered_map find with void* key (optimal)
     {
         std::unordered_map<const void*, void*> map;
-        const void* key = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* key = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         map[key] = &logger;
 
         Timer t;
@@ -2000,7 +2000,7 @@ static void benchmark_overhead_isolation()
 
         std::unordered_map<TestKey, void*, TestKeyHash, TestKeyEq> map;
         TestKey key;
-        key.typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        key.typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         key.name = "";
         map[key] = &logger;
 
@@ -2010,7 +2010,7 @@ static void benchmark_overhead_isolation()
         {
             // Simulate makeKey - this is the overhead!
             TestKey lookupKey;
-            lookupKey.typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+            lookupKey.typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
             lookupKey.name = std::string();
 
             auto it = map.find(lookupKey);
@@ -2040,7 +2040,7 @@ static void benchmark_overhead_isolation()
 
     // Full fat_p path for comparison
     {
-        fat_p::DefaultServiceLocator locator;
+        fat_p::service_locator::DefaultServiceLocator locator;
         (void)locator.registerInstance<ILogger>(logger);
 
         Timer t;
@@ -2050,7 +2050,7 @@ static void benchmark_overhead_isolation()
             benchmark_sink += reinterpret_cast<std::intptr_t>(locator.tryResolve<ILogger>());
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
-        std::cout << "  " << std::setw(45) << std::left << "12. fat_p::DefaultServiceLocator.tryResolve" << ": "
+        std::cout << "  " << std::setw(45) << std::left << "12. fat_p::service_locator::DefaultServiceLocator.tryResolve" << ": "
                   << std::fixed << std::setprecision(2) << ns << " ns/op\n";
     }
 
@@ -2073,7 +2073,7 @@ static void benchmark_overhead_isolation()
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             // Simulate makeKey<T>() - this is what happens on every resolve
-            const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+            const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
             std::string name = std::string();  // Empty name case
             benchmark_sink += reinterpret_cast<std::intptr_t>(typeId) + static_cast<std::int64_t>(name.size());
         }
@@ -2224,7 +2224,7 @@ static void benchmark_overhead_isolation()
 
     // 21. Expected<reference_wrapper<T>> construction
     {
-        using ResultType = fat_p::Expected<std::reference_wrapper<ILogger>, fat_p::ServiceErrorInfo>;
+        using ResultType = fat_p::Expected<std::reference_wrapper<ILogger>, fat_p::service_locator::ServiceErrorInfo>;
         Timer t;
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
@@ -2276,7 +2276,7 @@ static void benchmark_overhead_isolation()
         };
 
         std::unordered_map<TestKey, Entry, TestKeyHash, TestKeyEq> registry;
-        TestKey stored{&fat_p::detail::kServiceTypeToken<ILogger>, ""};
+        TestKey stored{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, ""};
         registry[stored] = Entry{0, &logger, nullptr, nullptr};
 
         fat_p::SingleThreadedPolicy policy;
@@ -2286,7 +2286,7 @@ static void benchmark_overhead_isolation()
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             // Simulate resolveEntryForRead
-            TestKey key{&fat_p::detail::kServiceTypeToken<ILogger>, std::string()};
+            TestKey key{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, std::string()};
             auto lock = policy.lock_shared();
             auto it = registry.find(key);
             std::optional<Snapshot> result;
@@ -2334,7 +2334,7 @@ static void benchmark_overhead_isolation()
         };
 
         std::unordered_map<TestKey, Entry, TestKeyHash, TestKeyEq> registry;
-        TestKey stored{&fat_p::detail::kServiceTypeToken<ILogger>, ""};
+        TestKey stored{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, ""};
         registry[stored] = Entry{0, &logger};
 
         fat_p::SingleThreadedPolicy policy;
@@ -2345,7 +2345,7 @@ static void benchmark_overhead_isolation()
         {
             // makeKey<T>()
             TestKey key;
-            key.typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+            key.typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
             key.name = std::string();
 
             // resolveEntryForRead (simplified - no snapshot copy)
@@ -2367,7 +2367,7 @@ static void benchmark_overhead_isolation()
 
     // 24. Actual fat_p tryResolve (for comparison)
     {
-        fat_p::DefaultServiceLocator locator;
+        fat_p::service_locator::DefaultServiceLocator locator;
         (void)locator.registerInstance<ILogger>(logger);
 
         Timer t;
@@ -2404,7 +2404,7 @@ static void benchmark_overhead_isolation()
         };
 
         fat_p::StableHashMap<const void*, Entry, AvalanchingPtrHash> stableMap;
-        const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         stableMap.insert(typeId, Entry{0, &logger, nullptr, nullptr});
 
         Timer t;
@@ -2446,14 +2446,14 @@ static void benchmark_overhead_isolation()
         };
 
         fat_p::StableHashMap<TestKey, Entry, TestKeyHash> stableMap;
-        TestKey stored{&fat_p::detail::kServiceTypeToken<ILogger>, ""};
+        TestKey stored{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, ""};
         stableMap.insert(stored, Entry{0, &logger});
 
         Timer t;
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
-            TestKey key{&fat_p::detail::kServiceTypeToken<ILogger>, std::string()};
+            TestKey key{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, std::string()};
             Entry* entry = stableMap.find(key);
             benchmark_sink += reinterpret_cast<std::intptr_t>(entry->instance);
         }
@@ -2472,7 +2472,7 @@ static void benchmark_overhead_isolation()
         };
 
         fat_p::StableHashMap<const void*, Entry, AvalanchingPtrHash> stableMap;
-        const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         stableMap.insert(typeId, Entry{0, &logger, nullptr});
 
         fat_p::SingleThreadedPolicy policy;
@@ -2482,7 +2482,7 @@ static void benchmark_overhead_isolation()
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             // Simulate optimized tryResolve with StableHashMap
-            const void* key = &fat_p::detail::kServiceTypeToken<ILogger>;
+            const void* key = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
             auto lock = policy.lock_shared();
             Entry* entry = stableMap.find(key);
 
@@ -2503,7 +2503,7 @@ static void benchmark_overhead_isolation()
 
     // 28. Current fat_p tryResolve (for direct comparison)
     {
-        fat_p::DefaultServiceLocator locator;
+        fat_p::service_locator::DefaultServiceLocator locator;
         (void)locator.registerInstance<ILogger>(logger);
 
         Timer t;
@@ -2533,7 +2533,7 @@ static void benchmark_overhead_isolation()
     // 29. Raw StableHashMap lookup (no lock, no abstraction)
     {
         fat_p::StableHashMap<const void*, void*, AvalanchingPtrHash> rawMap;
-        const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         rawMap.insert(typeId, &logger);
 
         Timer t;
@@ -2551,7 +2551,7 @@ static void benchmark_overhead_isolation()
     // 30. With SingleThreadedPolicy lock (should be same as #29)
     {
         fat_p::StableHashMap<const void*, void*, AvalanchingPtrHash> rawMap;
-        const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         rawMap.insert(typeId, &logger);
         fat_p::SingleThreadedPolicy policy;
 
@@ -2570,7 +2570,7 @@ static void benchmark_overhead_isolation()
 
     // 31. ServiceLocator tryResolve (full path - now optimized with StableHashMap)
     {
-        fat_p::DefaultServiceLocator locator;
+        fat_p::service_locator::DefaultServiceLocator locator;
         (void)locator.registerInstance<ILogger>(logger);
 
         Timer t;
@@ -2587,7 +2587,7 @@ static void benchmark_overhead_isolation()
     // 32. Minimal possible resolve (inline everything)
     {
         fat_p::StableHashMap<const void*, void*, AvalanchingPtrHash> rawMap;
-        const void* typeId = &fat_p::detail::kServiceTypeToken<ILogger>;
+        const void* typeId = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
         rawMap.insert(typeId, &logger);
 
         Timer t;
@@ -2595,7 +2595,7 @@ static void benchmark_overhead_isolation()
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             // Absolute minimum: just the hash lookup
-            void** entry = rawMap.find(&fat_p::detail::kServiceTypeToken<ILogger>);
+            void** entry = rawMap.find(&fat_p::service_locator::detail::kServiceTypeToken<ILogger>);
             benchmark_sink += reinterpret_cast<std::intptr_t>(entry ? *entry : nullptr);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
@@ -2666,8 +2666,8 @@ static void benchmark_key_strategies()
         };
 
         std::unordered_map<Key, void*, KeyHash, KeyEq> map;
-        Key k1{&fat_p::detail::kServiceTypeToken<ILogger>, ""};
-        Key k2{&fat_p::detail::kServiceTypeToken<IDatabase>, ""};
+        Key k1{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, ""};
+        Key k2{&fat_p::service_locator::detail::kServiceTypeToken<IDatabase>, ""};
         map[k1] = &logger;
         map[k2] = &db;
 
@@ -2675,7 +2675,7 @@ static void benchmark_key_strategies()
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
-            Key lookup{&fat_p::detail::kServiceTypeToken<ILogger>, std::string()};
+            Key lookup{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, std::string()};
             benchmark_sink += reinterpret_cast<std::intptr_t>(map.find(lookup)->second);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
@@ -2709,8 +2709,8 @@ static void benchmark_key_strategies()
 
         std::unordered_map<Key, void*, KeyHash, KeyEq> map;
         static constexpr std::string_view empty = "";
-        Key k1{&fat_p::detail::kServiceTypeToken<ILogger>, empty};
-        Key k2{&fat_p::detail::kServiceTypeToken<IDatabase>, empty};
+        Key k1{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, empty};
+        Key k2{&fat_p::service_locator::detail::kServiceTypeToken<IDatabase>, empty};
         map[k1] = &logger;
         map[k2] = &db;
 
@@ -2718,7 +2718,7 @@ static void benchmark_key_strategies()
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
-            Key lookup{&fat_p::detail::kServiceTypeToken<ILogger>, empty};
+            Key lookup{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, empty};
             benchmark_sink += reinterpret_cast<std::intptr_t>(map.find(lookup)->second);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
@@ -2729,15 +2729,15 @@ static void benchmark_key_strategies()
     // Strategy 3: void* only (no named services - fast path)
     {
         std::unordered_map<const void*, void*> map;
-        map[&fat_p::detail::kServiceTypeToken<ILogger>] = &logger;
-        map[&fat_p::detail::kServiceTypeToken<IDatabase>] = &db;
+        map[&fat_p::service_locator::detail::kServiceTypeToken<ILogger>] = &logger;
+        map[&fat_p::service_locator::detail::kServiceTypeToken<IDatabase>] = &db;
 
         Timer t;
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
             benchmark_sink +=
-                reinterpret_cast<std::intptr_t>(map.find(&fat_p::detail::kServiceTypeToken<ILogger>)->second);
+                reinterpret_cast<std::intptr_t>(map.find(&fat_p::service_locator::detail::kServiceTypeToken<ILogger>)->second);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
         std::cout << "  " << std::setw(50) << std::left << "Strategy 3: void* only (no names)" << ": " << std::fixed
@@ -2777,14 +2777,14 @@ static void benchmark_key_strategies()
         };
 
         std::unordered_map<Key, void*, KeyHash, KeyEq> map;
-        map.emplace(Key{&fat_p::detail::kServiceTypeToken<ILogger>, ""}, &logger);
-        map.emplace(Key{&fat_p::detail::kServiceTypeToken<IDatabase>, ""}, &db);
+        map.emplace(Key{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, ""}, &logger);
+        map.emplace(Key{&fat_p::service_locator::detail::kServiceTypeToken<IDatabase>, ""}, &db);
 
         Timer t;
         t.start();
         for (size_t i = 0; i < ITERATIONS; ++i)
         {
-            Key lookup{&fat_p::detail::kServiceTypeToken<ILogger>, ""};
+            Key lookup{&fat_p::service_locator::detail::kServiceTypeToken<ILogger>, ""};
             benchmark_sink += reinterpret_cast<std::intptr_t>(map.find(lookup)->second);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
@@ -2797,8 +2797,8 @@ static void benchmark_key_strategies()
         std::unordered_map<const void*, void*> unnamedMap;
         // Named map would use std::pair but we only test unnamed fast path here
 
-        unnamedMap[&fat_p::detail::kServiceTypeToken<ILogger>] = &logger;
-        unnamedMap[&fat_p::detail::kServiceTypeToken<IDatabase>] = &db;
+        unnamedMap[&fat_p::service_locator::detail::kServiceTypeToken<ILogger>] = &logger;
+        unnamedMap[&fat_p::service_locator::detail::kServiceTypeToken<IDatabase>] = &db;
 
         Timer t;
         t.start();
@@ -2806,7 +2806,7 @@ static void benchmark_key_strategies()
         {
             // Fast path for unnamed services
             benchmark_sink +=
-                reinterpret_cast<std::intptr_t>(unnamedMap.find(&fat_p::detail::kServiceTypeToken<ILogger>)->second);
+                reinterpret_cast<std::intptr_t>(unnamedMap.find(&fat_p::service_locator::detail::kServiceTypeToken<ILogger>)->second);
         }
         double ns = ns_per_op(t.elapsed_ns(), ITERATIONS);
         std::cout << "  " << std::setw(50) << std::left << "Strategy 5: Two-level map (unnamed fast path)" << ": "
@@ -2978,8 +2978,8 @@ static void benchmark_concurrent()
     std::unordered_map<const void*, void*> map_typekey;
     std::shared_mutex mtx_typekey;
     map_typekey.reserve(2);
-    const void* const keyILogger = &fat_p::detail::kServiceTypeToken<ILogger>;
-    const void* const keyIDatabase = &fat_p::detail::kServiceTypeToken<IDatabase>;
+    const void* const keyILogger = &fat_p::service_locator::detail::kServiceTypeToken<ILogger>;
+    const void* const keyIDatabase = &fat_p::service_locator::detail::kServiceTypeToken<IDatabase>;
     map_typekey.emplace(keyILogger, &logger);
     map_typekey.emplace(keyIDatabase, &db);
 
@@ -3077,7 +3077,7 @@ static void benchmark_concurrent()
     }
 
     // Report
-    Statistics::compute(s_fatp).print("fat_p::ThreadSafeServiceLocator");
+    Statistics::compute(s_fatp).print("fat_p::service_locator::ThreadSafeServiceLocator");
     Statistics::compute(s_map_typekey).print("unordered_map<void*> + shared_mutex (type key)");
     Statistics::compute(s_stable_typekey).print("StableHashMap<void*> + shared_mutex (type key, SM64)");
     Statistics::compute(s_map_typeindex).print("unordered_map<type_index> + shared_mutex (precomputed key)");
@@ -3109,8 +3109,8 @@ int main(int argc, char* argv[])
     hdr.seed = g_config.seed;
     
     // Competitors
-    hdr.competitors.push_back({"fat_p::DefaultServiceLocator", true, "primary"});
-    hdr.competitors.push_back({"fat_p::ThreadSafeServiceLocator", true, "primary"});
+    hdr.competitors.push_back({"fat_p::service_locator::DefaultServiceLocator", true, "primary"});
+    hdr.competitors.push_back({"fat_p::service_locator::ThreadSafeServiceLocator", true, "primary"});
     hdr.competitors.push_back({"std::unordered_map<type_index>", true, "baseline"});
     hdr.competitors.push_back({"Direct pointer", true, "baseline"});
 #if FATP_HAS_ENTT

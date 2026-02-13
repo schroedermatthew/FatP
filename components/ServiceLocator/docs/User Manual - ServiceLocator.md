@@ -17,7 +17,7 @@ status: "reviewed"
 
 ---
 
-**Scope:** This manual describes the public API of `fat_p::ServiceLocator`: registration, resolution, scopes, factories, RAII registration helpers, and statistics.
+**Scope:** This manual describes the public API of `fat_p::service_locator::ServiceLocator`: registration, resolution, scopes, factories, RAII registration helpers, and statistics.
 
 **Not covered:**
 - Designing a `TypeKeyPolicy` for DSO/plugin boundaries
@@ -33,7 +33,7 @@ status: "reviewed"
 
 ## User Manual Card
 
-**Component:** `fat_p::ServiceLocator`  
+**Component:** `fat_p::service_locator::ServiceLocator`  
 **Primary use case:** Wire services at startup and resolve them by type (and optional name), with scoped overrides for tests  
 **Integration pattern:** Construct a locator in the composition root, register instances/factories, pass `ServiceLocator&` where needed, and create scopes for temporary overrides  
 **Key API:** `registerInstance`, `registerShared`, `registerFactory`, `tryResolve`, `resolveExpected`, `resolve`, `createExpected`, `makeScope`, `Registration`  
@@ -56,16 +56,16 @@ The component is a class template with a few convenience aliases.
 
 | Alias | Concurrency | Resolve cache | Typical use |
 |------:|-------------|---------------|-------------|
-| `fat_p::DefaultServiceLocator` | none (single-threaded policy) | none | startup wiring + single-threaded programs/tests |
-| `fat_p::ThreadSafeServiceLocator` | shared mutex | none | multiple threads calling `tryResolve/resolveExpected` |
-| `fat_p::HotLoopServiceLocator` | none | MRU(2) for unnamed resolves | very hot unnamed resolves after registration stabilizes |
-| `fat_p::ThreadSafeHotLoopServiceLocator` | shared mutex | MRU(2) for unnamed resolves | hot resolves + concurrent reads |
+| `fat_p::service_locator::DefaultServiceLocator` | none (single-threaded policy) | none | startup wiring + single-threaded programs/tests |
+| `fat_p::service_locator::ThreadSafeServiceLocator` | shared mutex | none | multiple threads calling `tryResolve/resolveExpected` |
+| `fat_p::service_locator::HotLoopServiceLocator` | none | MRU(2) for unnamed resolves | very hot unnamed resolves after registration stabilizes |
+| `fat_p::service_locator::ThreadSafeHotLoopServiceLocator` | shared mutex | MRU(2) for unnamed resolves | hot resolves + concurrent reads |
 
 Notes:
 
 - The MRU cache is **type-only** and applies only when `name` is empty.
 - `ServiceLocator::global()` is **per instantiation**. If you need a process-wide global locator that supports
-  concurrent resolves, prefer `fat_p::ThreadSafeServiceLocator::global()`.
+  concurrent resolves, prefer `fat_p::service_locator::ThreadSafeServiceLocator::global()`.
 
 ---
 
@@ -116,7 +116,7 @@ The cache is invalidated on any registry mutation (register/unregister/clear).
 struct ILogger { virtual ~ILogger() = default; };
 struct NullLogger : ILogger {};
 
-fat_p::DefaultServiceLocator locator;
+fat_p::service_locator::DefaultServiceLocator locator;
 
 NullLogger logger;
 auto r = locator.registerInstance<ILogger>(logger);
@@ -212,7 +212,7 @@ struct Widget { int id; };
     []() -> std::unique_ptr<Widget> {
         return std::make_unique<Widget>(Widget{42});
     },
-    fat_p::ServiceLifetime::Singleton
+    fat_p::service_locator::ServiceLifetime::Singleton
 );
 
 // Resolving as a reference will materialize the singleton (once) and cache it.
@@ -228,7 +228,7 @@ Singleton creation is coordinated so that the factory runs once per registration
     []() -> std::shared_ptr<Widget> {
         return std::make_shared<Widget>(Widget{7});
     },
-    fat_p::ServiceLifetime::Transient
+    fat_p::service_locator::ServiceLifetime::Transient
 );
 
 // Transients must be created via createExpected().
@@ -250,7 +250,7 @@ If you attempt to `resolve<T>()` a transient factory registration, the call fail
 `makeScope()` returns an RAII object that owns a child locator.
 
 ```cpp
-fat_p::DefaultServiceLocator root;
+fat_p::service_locator::DefaultServiceLocator root;
 
 // root defaults
 NullLogger prod;
@@ -277,11 +277,11 @@ ILogger& inRoot  = root.resolve<ILogger>();
 `ServiceLocator::Registration` is a small handle that unregisters a specific entry when it is destroyed.
 
 ```cpp
-fat_p::DefaultServiceLocator locator;
+fat_p::service_locator::DefaultServiceLocator locator;
 NullLogger logger;
 
 {
-    auto reg = fat_p::DefaultServiceLocator::Registration::registerInstanceExpected<ILogger>(locator, logger);
+    auto reg = fat_p::service_locator::DefaultServiceLocator::Registration::registerInstanceExpected<ILogger>(locator, logger);
     if (reg.has_value()) {
         // service is registered for this scope
     }

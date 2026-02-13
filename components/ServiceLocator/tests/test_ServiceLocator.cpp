@@ -1,6 +1,6 @@
 /**
  * @file test_ServiceLocator.cpp
- * @brief Comprehensive test suite for fat_p::ServiceLocator
+ * @brief Comprehensive test suite for fat_p::service_locator::ServiceLocator
  */
 /*
 FATP_META:
@@ -9,7 +9,7 @@ FATP_META:
   file_role: test
   path: components/ServiceLocator/tests/test_ServiceLocator.cpp
   layer: Testing
-  namespace: fat_p
+  namespace: fat_p::service_locator
   summary: "Unit tests for ServiceLocator."
   api_stability: in_work
   related:
@@ -46,13 +46,13 @@ FATP_META:
 namespace fat_p::testing::service_locator
 {
 
-using fat_p::DefaultServiceLocator;
-using fat_p::ServiceAllowOverwritePolicy;
-using fat_p::ServiceError;
-using fat_p::ServiceLifetime;
-using fat_p::ServiceLocator;
+using fat_p::service_locator::DefaultServiceLocator;
+using fat_p::service_locator::ServiceAllowOverwritePolicy;
+using fat_p::service_locator::ServiceError;
+using fat_p::service_locator::ServiceLifetime;
+using fat_p::service_locator::ServiceLocator;
 using fat_p::SingleThreadedPolicy;
-using fat_p::ThreadSafeServiceLocator;
+using fat_p::service_locator::ThreadSafeServiceLocator;
 
 struct CounterService
 {
@@ -1065,8 +1065,8 @@ FATP_TEST_CASE(registration_operator_bool)
 /// P2: ServiceErrorInfo operator<<
 FATP_TEST_CASE(service_error_info_stream_output)
 {
-    fat_p::ServiceErrorInfo err{
-        fat_p::ServiceError::ServiceNotFound,
+    fat_p::service_locator::ServiceErrorInfo err{
+        fat_p::service_locator::ServiceError::ServiceNotFound,
         "test message",
         "my_service"
     };

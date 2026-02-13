@@ -6,7 +6,7 @@ FATP_META:
   component: ServiceLocator
   file_role: public_header
   path: include/fat_p/ServiceLocator.h
-  namespace: fat_p
+  namespace: fat_p::service_locator
   layer: Domain
   summary: "Policy-based service locator with scoped overrides."
   api_stability: stable
@@ -129,7 +129,7 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 
-namespace fat_p
+namespace fat_p::service_locator
 {
 
 enum class ServiceLifetime
@@ -202,9 +202,9 @@ struct ServiceErrorInfo
     {
         if (mName.empty())
         {
-            return fat_p::toString(mCode) + ": " + mMessage;
+            return toString(mCode) + ": " + mMessage;
         }
-        return fat_p::toString(mCode) + ": " + mMessage + " (name: " + mName + ")";
+        return toString(mCode) + ": " + mMessage + " (name: " + mName + ")";
     }
 };
 
@@ -1562,4 +1562,4 @@ private:
 using DefaultServiceLocator = ServiceLocator<SingleThreadedPolicy>;
 using ThreadSafeServiceLocator = ServiceLocator<SharedMutexPolicy>;
 
-} // namespace fat_p
+} // namespace fat_p::service_locator
