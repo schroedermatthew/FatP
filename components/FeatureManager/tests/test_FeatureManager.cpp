@@ -1100,6 +1100,123 @@ FATP_TEST_CASE(batch_disable_implies)
     return true;
 }
 
+FATP_TEST_CASE(scoped_feature_change)
+{
+    // Test 1: Basic scoped enable and auto-restore
+    {
+        FeatureManager<> fm;
+        (void)fm.add_feature("Alpha");
+        FATP_ASSERT_FALSE(fm.is_enabled("Alpha"), "Alpha starts disabled");
+
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "Alpha", true);
+            FATP_ASSERT_TRUE(guard.valid(), "Scoped enable should succeed for simple feature");
+            FATP_ASSERT_TRUE(fm.is_enabled("Alpha"), "Alpha should be enabled inside scope");
+        }
+        FATP_ASSERT_FALSE(fm.is_enabled("Alpha"), "Alpha should be restored to disabled after scope");
+    }
+
+    // Test 2: Scoped disable and auto-restore
+    {
+        FeatureManager<> fm;
+        (void)fm.add_feature("Beta");
+        (void)fm.enable("Beta");
+        FATP_ASSERT_TRUE(fm.is_enabled("Beta"), "Beta starts enabled");
+
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "Beta", false);
+            FATP_ASSERT_TRUE(guard.valid(), "Scoped disable should succeed for simple feature");
+            FATP_ASSERT_FALSE(fm.is_enabled("Beta"), "Beta should be disabled inside scope");
+        }
+        FATP_ASSERT_TRUE(fm.is_enabled("Beta"), "Beta should be restored to enabled after scope");
+    }
+
+    // Test 3: Scoped enable with dependencies — transitive enable is rolled back
+    {
+        FeatureManager<> fm;
+        (void)fm.add_feature("Base");
+        (void)fm.add_feature("Dependent");
+        (void)fm.add_relationship("Dependent", FeatureRelationship::Requires, "Base");
+
+        FATP_ASSERT_FALSE(fm.is_enabled("Base"), "Base starts disabled");
+        FATP_ASSERT_FALSE(fm.is_enabled("Dependent"), "Dependent starts disabled");
+
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "Dependent", true);
+            FATP_ASSERT_TRUE(guard.valid(), "Scoped enable should succeed (Base auto-enabled)");
+            FATP_ASSERT_TRUE(fm.is_enabled("Base"), "Base should be transitively enabled");
+            FATP_ASSERT_TRUE(fm.is_enabled("Dependent"), "Dependent should be enabled");
+        }
+        FATP_ASSERT_FALSE(fm.is_enabled("Base"), "Base should be restored to disabled");
+        FATP_ASSERT_FALSE(fm.is_enabled("Dependent"), "Dependent should be restored to disabled");
+    }
+
+    // Test 4: Scoped enable fails on conflict — valid() returns false, state unchanged
+    {
+        FeatureManager<> fm;
+        (void)fm.add_feature("X");
+        (void)fm.add_feature("Y");
+        (void)fm.add_relationship("X", FeatureRelationship::Conflicts, "Y");
+        (void)fm.enable("Y");
+
+        FATP_ASSERT_TRUE(fm.is_enabled("Y"), "Y starts enabled");
+        FATP_ASSERT_FALSE(fm.is_enabled("X"), "X starts disabled");
+
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "X", true);
+            FATP_ASSERT_FALSE(guard.valid(), "Scoped enable should fail due to conflict with Y");
+            FATP_ASSERT_FALSE(fm.is_enabled("X"), "X should remain disabled after failed scoped enable");
+            FATP_ASSERT_TRUE(fm.is_enabled("Y"), "Y should remain enabled after failed scoped enable");
+        }
+        // After scope: nothing changed, nothing to restore
+        FATP_ASSERT_FALSE(fm.is_enabled("X"), "X still disabled after scope exit");
+        FATP_ASSERT_TRUE(fm.is_enabled("Y"), "Y still enabled after scope exit");
+    }
+
+    // Test 5: operator bool() works
+    {
+        FeatureManager<> fm;
+        (void)fm.add_feature("Z");
+        FeatureManager<>::ScopedFeatureChange guard(fm, "Z", true);
+        if (!guard)
+        {
+            FATP_ASSERT_TRUE(false, "operator bool() should return true for valid scoped change");
+        }
+    }
+
+    // Test 6: Scoped enable on nonexistent feature — valid() returns false
+    {
+        FeatureManager<> fm;
+        FeatureManager<>::ScopedFeatureChange guard(fm, "DoesNotExist", true);
+        FATP_ASSERT_FALSE(guard.valid(), "Scoped enable of nonexistent feature should be invalid");
+    }
+
+    // Test 7: Nested scoped changes restore correctly
+    {
+        FeatureManager<> fm;
+        (void)fm.add_feature("N1");
+        (void)fm.add_feature("N2");
+        FATP_ASSERT_FALSE(fm.is_enabled("N1"), "N1 starts disabled");
+        FATP_ASSERT_FALSE(fm.is_enabled("N2"), "N2 starts disabled");
+
+        {
+            FeatureManager<>::ScopedFeatureChange g1(fm, "N1", true);
+            FATP_ASSERT_TRUE(fm.is_enabled("N1"), "N1 enabled by outer scope");
+            {
+                FeatureManager<>::ScopedFeatureChange g2(fm, "N2", true);
+                FATP_ASSERT_TRUE(fm.is_enabled("N1"), "N1 still enabled in inner scope");
+                FATP_ASSERT_TRUE(fm.is_enabled("N2"), "N2 enabled by inner scope");
+            }
+            FATP_ASSERT_TRUE(fm.is_enabled("N1"), "N1 still enabled after inner scope exits");
+            FATP_ASSERT_FALSE(fm.is_enabled("N2"), "N2 restored to disabled after inner scope exits");
+        }
+        FATP_ASSERT_FALSE(fm.is_enabled("N1"), "N1 restored to disabled after outer scope exits");
+        FATP_ASSERT_FALSE(fm.is_enabled("N2"), "N2 still disabled after outer scope exits");
+    }
+
+    return true;
+}
+
 
 } // namespace fat_p::testing::logic
 
@@ -1604,6 +1721,7 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, batch_observer);
     FATP_RUN_TEST_NS(runner, logic, implicit_notifications);
     FATP_RUN_TEST_NS(runner, logic, batch_disable_implies);
+    FATP_RUN_TEST_NS(runner, logic, scoped_feature_change);
 
     if (runner.print_summary() > 0)
     {

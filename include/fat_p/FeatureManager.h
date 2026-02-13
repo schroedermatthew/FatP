@@ -1163,62 +1163,79 @@ public:
         return *this;
     }
 
-    // RAII helper for temporary feature changes
+    // RAII helper for temporary feature changes.
+    //
+    // Construction routes through the validated enable/disable path (conflict checking,
+    // dependency resolution, implies propagation). If validation fails, the object is
+    // constructed but marked invalid — check via valid() or operator bool().
+    //
+    // Destruction restores ALL features (including transitively-changed ones) to the
+    // state captured before the scoped change.
     class ScopedFeatureChange
     {
     private:
         FeatureManager* mManager;
-        std::string mFeatureName;
-        bool mOriginalState;
+        std::vector<std::pair<std::string, bool>> mSnapshot; // pre-change states
         bool mValid;
 
     public:
         ScopedFeatureChange(FeatureManager& manager, const std::string& feature_name, bool new_state)
             : mManager(&manager)
-            , mFeatureName(feature_name)
             , mValid(false)
         {
-            [[maybe_unused]] auto guard = mManager->mSync.lock();
-            auto node_res = mManager->get_node(feature_name);
-            if (node_res)
+            // Snapshot all feature states under lock before any mutation.
             {
-                FeatureNode* node = *node_res;
-                mOriginalState = node->enabled;
-                mValid = true;
-                if (new_state && !node->enabled)
+                [[maybe_unused]] auto guard = mManager->mSync.lock();
+                mSnapshot.reserve(mManager->mFeatures.size());
+                for (const auto& [name, node] : mManager->mFeatures)
                 {
-                    node->enabled = true;
-                }
-                else if (!new_state && node->enabled)
-                {
-                    node->enabled = false;
+                    mSnapshot.emplace_back(name, node.enabled);
                 }
             }
+
+            // Use the validated enable/disable path: conflict checking, dependency
+            // resolution, and implies propagation all apply. batch_enable/batch_disable
+            // handles its own locking internally.
+            Expected<void, std::string> result;
+            if (new_state)
+            {
+                result = mManager->enable(feature_name);
+            }
+            else
+            {
+                result = mManager->disable(feature_name);
+            }
+
+            mValid = result.has_value();
         }
 
         ~ScopedFeatureChange()
         {
             if (mValid)
             {
+                [[maybe_unused]] auto guard = mManager->mSync.lock();
+                for (const auto& [name, original_state] : mSnapshot)
                 {
-                    [[maybe_unused]] auto guard = mManager->mSync.lock();
-                    auto node = mManager->get_node(mFeatureName);
-                    if (node)
+                    auto node_res = mManager->get_node(name);
+                    if (node_res)
                     {
-                        (*node)->enabled = mOriginalState;
+                        (*node_res)->enabled = original_state;
                     }
                 }
-                // Best-effort validation during cleanup (cannot throw from destructor)
-                try
-                {
-                    auto validate_res = mManager->validate();
-                    (void)validate_res;
-                }
-                catch (...)
-                {
-                    // Swallow all exceptions - destructors must not throw.
-                }
             }
+        }
+
+        /// Returns true if the scoped change was applied successfully.
+        /// A false return means enable/disable failed validation (conflict, missing
+        /// dependency, etc.) and the feature state is unchanged.
+        bool valid() const
+        {
+            return mValid;
+        }
+
+        explicit operator bool() const
+        {
+            return mValid;
         }
 
         ScopedFeatureChange(const ScopedFeatureChange&) = delete;
