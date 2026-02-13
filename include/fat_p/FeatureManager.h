@@ -1178,27 +1178,36 @@ public:
     // dependency resolution, implies propagation). If validation fails, the object is
     // constructed but marked invalid — check via valid() or operator bool().
     //
-    // Destruction restores ALL features (including transitively-changed ones) to the
-    // state captured before the scoped change.
+    // Destruction restores only the features that this guard actually changed, and
+    // only if they are still in the state the guard set them to. This prevents
+    // concurrent legitimate state changes from being silently reverted by an
+    // unrelated guard's destructor.
+    //
+    // Observer notifications fire on rollback (outside the lock) with the inverse
+    // direction of the original operation.
     class ScopedFeatureChange
     {
     private:
         FeatureManager* mManager;
-        std::vector<std::pair<std::string, bool>> mSnapshot; // pre-change states
+        std::string mRequestedFeature;          // the feature the caller asked to toggle
+        std::vector<std::string> mChangedFeatures; // features this guard actually toggled
+        bool mNewState;                         // direction: true = enabled, false = disabled
         bool mValid;
 
     public:
         ScopedFeatureChange(FeatureManager& manager, const std::string& feature_name, bool new_state)
             : mManager(&manager)
+            , mRequestedFeature(feature_name)
+            , mNewState(new_state)
             , mValid(false)
         {
-            // Snapshot all feature states under lock before any mutation.
+            // Snapshot feature states before the operation to detect what changed.
+            FastHashMap<std::string, bool> pre_states;
             {
                 [[maybe_unused]] auto guard = mManager->mSync.lock();
-                mSnapshot.reserve(mManager->mFeatures.size());
                 for (const auto& [name, node] : mManager->mFeatures)
                 {
-                    mSnapshot.emplace_back(name, node.enabled);
+                    pre_states[name] = node.enabled;
                 }
             }
 
@@ -1216,20 +1225,77 @@ public:
             }
 
             mValid = result.has_value();
+
+            if (mValid)
+            {
+                // Determine which features actually changed state by diffing
+                // pre-operation snapshot against current state.
+                [[maybe_unused]] auto guard = mManager->mSync.lock();
+                for (const auto& [name, node] : mManager->mFeatures)
+                {
+                    auto* pre = pre_states.find(name);
+                    if (pre && *pre != node.enabled)
+                    {
+                        mChangedFeatures.push_back(name);
+                    }
+                }
+            }
         }
 
         ~ScopedFeatureChange()
         {
-            if (mValid)
+            if (!mValid || mChangedFeatures.empty())
+            {
+                return;
+            }
+
+            std::vector<std::string> restored_features;
+            std::vector<ObserverEntry> observers_snapshot;
+            std::vector<BatchObserverEntry> batch_observers_snapshot;
+
             {
                 [[maybe_unused]] auto guard = mManager->mSync.lock();
-                for (const auto& [name, original_state] : mSnapshot)
+                for (const auto& name : mChangedFeatures)
                 {
                     auto node_res = mManager->get_node(name);
-                    if (node_res)
+                    if (!node_res)
                     {
-                        (*node_res)->enabled = original_state;
+                        continue;
                     }
+                    FeatureNode* node = *node_res;
+
+                    // Restore only if still in the state we set it to.
+                    // If another thread changed it, respect their change.
+                    if (node->enabled == mNewState)
+                    {
+                        node->enabled = !mNewState;
+                        restored_features.push_back(name);
+                    }
+                }
+
+                if (!restored_features.empty())
+                {
+                    observers_snapshot = mManager->mObservers;
+                    batch_observers_snapshot = mManager->mBatchObservers;
+                }
+            } // Lock released before observer notification
+
+            if (!restored_features.empty())
+            {
+                sort_observers_by_priority(observers_snapshot);
+                for (const auto& feature : restored_features)
+                {
+                    notify_observers_sorted(observers_snapshot, feature, !mNewState, true);
+                }
+
+                if (!batch_observers_snapshot.empty())
+                {
+                    sort_batch_observers_by_priority(batch_observers_snapshot);
+                    notify_batch_observers_sorted(batch_observers_snapshot,
+                                                  mRequestedFeature,
+                                                  restored_features,
+                                                  !mNewState,
+                                                  true);
                 }
             }
         }
