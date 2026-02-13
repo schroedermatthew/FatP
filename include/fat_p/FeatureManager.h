@@ -432,6 +432,11 @@ struct FeatureGroupInfoBase
     virtual FlatSet<std::string> get_features() const = 0;
     virtual JsonValue to_json() const = 0;
     virtual std::string state_to_string() const = 0;
+
+    // Type-erased state computation: invokes the concrete StateComputer and
+    // caches the result. Returns the computed state as an int ordinal so the
+    // caller never needs to downcast.
+    virtual int compute_and_cache(size_t enabled_count, bool has_conflict, bool all_checks_pass) = 0;
 };
 
 // Concrete group info with type-safe state computer
@@ -478,9 +483,11 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
         }
     }
 
-    void update_cached_state(StateEnum state) const
+    int compute_and_cache(size_t enabled_count, bool has_conflict, bool all_checks_pass) override
     {
+        StateEnum state = state_computer(features, enabled_count, has_conflict, all_checks_pass);
         cached_state.store(state, std::memory_order_relaxed);
+        return static_cast<int>(state);
     }
 };
 
@@ -1081,12 +1088,8 @@ private:
         {
             return unexpected("Group not found: " + group_name);
         }
-        auto* group_ptr = dynamic_cast<FeatureGroupInfo<StateEnum>*>(group_uptr->get());
-        if (!group_ptr)
-        {
-            return unexpected("Type mismatch: group '" + group_name + "' is not of the requested state type");
-        }
-        const auto& group_features = group_ptr->features;
+        FeatureGroupInfoBase* group = group_uptr->get();
+        const auto group_features = group->get_features();
         size_t enabled_count = 0;
         bool has_conflict = false;
         bool all_checks_pass = true;
@@ -1135,9 +1138,10 @@ private:
                 }
             }
         }
-        StateEnum state = group_ptr->state_computer(group_features, enabled_count, has_conflict, all_checks_pass);
-        group_ptr->update_cached_state(state);
-        return state;
+        // Virtual dispatch: the concrete FeatureGroupInfo<StateEnum> invokes its
+        // typed state_computer and caches the result. No dynamic_cast needed.
+        int ordinal = group->compute_and_cache(enabled_count, has_conflict, all_checks_pass);
+        return static_cast<StateEnum>(ordinal);
     }
 
 public:
