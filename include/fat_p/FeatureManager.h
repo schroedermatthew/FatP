@@ -70,9 +70,9 @@ FATP_META:
 #include "EnumPlus.h"
 #include "Expected.h"
 #include "Factory.h"
-#include "JsonLite.h"
 #include "FastHashMap.h"
 #include "FlatSet.h"
+#include "JsonLite.h"
 #include "Stringify.h"
 #include "ValueGuard.h"
 
@@ -385,7 +385,7 @@ struct FeatureNode
         {
             if (!it->second.is_string())
             {
-                return unexpected("mCheckKey must be string");
+                return unexpected("check_key must be string");
             }
             node.mCheckKey = std::get<std::string>(it->second);
 
@@ -395,7 +395,7 @@ struct FeatureNode
                 auto checkResult = getFeatureCheckFactory().make(node.mCheckKey);
                 if (!checkResult)
                 {
-                    return unexpected("mCheckKey '" + node.mCheckKey + "' not found in FeatureCheckFactory");
+                    return unexpected("check_key '" + node.mCheckKey + "' not found in FeatureCheckFactory");
                 }
                 node.mCheck = *checkResult;
             }
@@ -1462,7 +1462,7 @@ public:
 
     // Add a feature using a registered callback key from the factory
     // This allows the feature to be fully serialized and deserialized
-    [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, const std::string& mCheckKey)
+    [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, const std::string& checkKey)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         if (mFeatures.count(name))
@@ -1471,16 +1471,16 @@ public:
         }
 
         // Look up the check from factory
-        auto checkResult = getFeatureCheckFactory().make(mCheckKey);
+        auto checkResult = getFeatureCheckFactory().make(checkKey);
         if (!checkResult)
         {
-            return unexpected("Check key '" + mCheckKey + "' not found in factory");
+            return unexpected("Check key '" + checkKey + "' not found in factory");
         }
 
         FeatureNode node;
         node.mEnabled = false;
         node.mCheck = *checkResult;
-        node.mCheckKey = mCheckKey;
+        node.mCheckKey = checkKey;
         mFeatures[name] = std::move(node);
         return {};
     }

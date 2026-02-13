@@ -8,8 +8,7 @@ FATP_META:
   component: FeatureManager
   file_role: test
   path: components/FeatureManager/tests/test_FeatureManager.cpp
-  layer: Testing
-  namespace: fat_p::feature
+  namespace: [fat_p::testing::logic, fat_p::testing::factory]
   summary: "Unit tests for FeatureManager."
   api_stability: in_work
   related:
@@ -554,7 +553,7 @@ FATP_TEST_CASE(dot_export)
     return true;
 }
 
-FATP_TEST_CASE(batchDisable)
+FATP_TEST_CASE(batch_disable)
 {
     // Basic batch disable
     {
@@ -756,7 +755,7 @@ FATP_TEST_CASE(enable_transactional)
     return true;
 }
 
-FATP_TEST_CASE(removeObserver)
+FATP_TEST_CASE(remove_observer)
 {
     // Test basic add and remove
     {
@@ -1717,10 +1716,10 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, thread_safety);
     FATP_RUN_TEST_NS(runner, logic, observers);
     FATP_RUN_TEST_NS(runner, logic, dot_export);
-    FATP_RUN_TEST_NS(runner, logic, batchDisable);
+    FATP_RUN_TEST_NS(runner, logic, batch_disable);
     FATP_RUN_TEST_NS(runner, logic, batch_enable_rollback);
     FATP_RUN_TEST_NS(runner, logic, enable_transactional);
-    FATP_RUN_TEST_NS(runner, logic, removeObserver);
+    FATP_RUN_TEST_NS(runner, logic, remove_observer);
     FATP_RUN_TEST_NS(runner, logic, scoped_observer);
     FATP_RUN_TEST_NS(runner, logic, batch_observer);
     FATP_RUN_TEST_NS(runner, logic, implicit_notifications);
