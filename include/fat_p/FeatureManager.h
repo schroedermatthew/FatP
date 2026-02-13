@@ -191,19 +191,19 @@ class FeatureManager;
 using FeatureCheck = std::function<Expected<void, std::string>()>;
 
 // Observer callback type: Called on feature state changes
-using FeatureObserver = std::function<void(const std::string& feature_name, bool new_state, bool success)>;
+using FeatureObserver = std::function<void(const std::string& featureName, bool newState, bool success)>;
 
 // Unique identifier for registered observers (enables removal)
 using ObserverId = std::uint64_t;
 
 // Batch observer callback type: Called with all features that changed in a single operation
 // Parameters:
-//   - requested_feature: The feature that was explicitly enabled/disabled
-//   - all_changed: All features that changed state (includes implicit dependencies)
+//   - requestedFeature: The feature that was explicitly enabled/disabled
+//   - allChanged: All features that changed state (includes implicit dependencies)
 //   - enabled: true if features were enabled, false if disabled
 //   - success: true if the operation succeeded
-using BatchObserver = std::function<void(const std::string& requested_feature,
-                                         const std::vector<std::string>& all_changed,
+using BatchObserver = std::function<void(const std::string& requestedFeature,
+                                         const std::vector<std::string>& allChanged,
                                          bool enabled,
                                          bool success)>;
 
@@ -211,27 +211,27 @@ using BatchObserver = std::function<void(const std::string& requested_feature,
 template <typename StateEnum = FeatureGroupState>
 struct FeatureGroupStatePolicy
 {
-    using state_type = StateEnum;
-    static state_type
-    compute(const FlatSet<std::string>& group_features, size_t enabled_count, bool has_conflict, bool all_checks_pass)
+    using StateType = StateEnum;
+    static StateType
+    compute(const FlatSet<std::string>& groupFeatures, size_t enabledCount, bool hasConflict, bool allChecksPass)
     {
-        if (group_features.empty())
+        if (groupFeatures.empty())
         {
-            return static_cast<state_type>(FeatureGroupState::Invalid);
+            return static_cast<StateType>(FeatureGroupState::Invalid);
         }
-        if (has_conflict || !all_checks_pass)
+        if (hasConflict || !allChecksPass)
         {
-            return static_cast<state_type>(FeatureGroupState::Invalid);
+            return static_cast<StateType>(FeatureGroupState::Invalid);
         }
-        if (enabled_count == 0)
+        if (enabledCount == 0)
         {
-            return static_cast<state_type>(FeatureGroupState::Inactive);
+            return static_cast<StateType>(FeatureGroupState::Inactive);
         }
-        if (enabled_count < group_features.size())
+        if (enabledCount < groupFeatures.size())
         {
-            return static_cast<state_type>(FeatureGroupState::Partial);
+            return static_cast<StateType>(FeatureGroupState::Partial);
         }
-        return static_cast<state_type>(FeatureGroupState::Active);
+        return static_cast<StateType>(FeatureGroupState::Active);
     }
 };
 
@@ -325,26 +325,26 @@ private:
 // Internal representation of a feature with its state and relationships
 struct FeatureNode
 {
-    bool enabled = false;
-    FeatureCheck check;
-    std::string check_key; // For serialization: the factory key to restore check on load
+    bool mEnabled = false;
+    FeatureCheck mCheck;
+    std::string mCheckKey; // For serialization: the factory key to restore check on load
 
     // Relationship storage: fixed-size array indexed by FeatureRelationship (0–3).
     // Each slot holds a FlatSet of target feature names. Empty slots indicate no
     // relationships of that type. Eliminates map overhead for a fixed 4-key domain.
-    std::array<FlatSet<std::string>, kRelationshipCount> relationships;
+    std::array<FlatSet<std::string>, kRelationshipCount> mRelationships;
 
     JsonValue toJson() const
     {
         JsonObject obj;
-        obj["enabled"] = JsonValue{enabled};
-        if (!check_key.empty())
+        obj["enabled"] = JsonValue{mEnabled};
+        if (!mCheckKey.empty())
         {
-            obj["check_key"] = JsonValue{check_key};
+            obj["check_key"] = JsonValue{mCheckKey};
         }
         for (size_t ri = 0; ri < kRelationshipCount; ++ri)
         {
-            const auto& targets = relationships[ri];
+            const auto& targets = mRelationships[ri];
             if (targets.empty())
             {
                 continue;
@@ -355,8 +355,8 @@ struct FeatureNode
                 arr.push_back(JsonValue{target});
             }
             auto type = static_cast<FeatureRelationship>(ri);
-            std::string type_name(EnumStringPolicy<FeatureRelationship>::to_string(type));
-            obj[type_name] = JsonValue{std::move(arr)};
+            std::string typeName(EnumStringPolicy<FeatureRelationship>::to_string(type));
+            obj[typeName] = JsonValue{std::move(arr)};
         }
         return JsonValue{std::move(obj)};
     }
@@ -377,7 +377,7 @@ struct FeatureNode
             {
                 return unexpected("enabled must be boolean");
             }
-            node.enabled = std::get<bool>(it->second);
+            node.mEnabled = std::get<bool>(it->second);
         }
 
         it = obj.find("check_key");
@@ -385,30 +385,30 @@ struct FeatureNode
         {
             if (!it->second.is_string())
             {
-                return unexpected("check_key must be string");
+                return unexpected("mCheckKey must be string");
             }
-            node.check_key = std::get<std::string>(it->second);
+            node.mCheckKey = std::get<std::string>(it->second);
 
             // Look up callback from factory (STRICT: keys must exist)
-            if (!node.check_key.empty())
+            if (!node.mCheckKey.empty())
             {
-                auto check_result = getFeatureCheckFactory().make(node.check_key);
-                if (!check_result)
+                auto checkResult = getFeatureCheckFactory().make(node.mCheckKey);
+                if (!checkResult)
                 {
-                    return unexpected("check_key '" + node.check_key + "' not found in FeatureCheckFactory");
+                    return unexpected("mCheckKey '" + node.mCheckKey + "' not found in FeatureCheckFactory");
                 }
-                node.check = *check_result;
+                node.mCheck = *checkResult;
             }
             else
             {
-                node.check_key.clear();
+                node.mCheckKey.clear();
             }
         }
 
         std::array<std::string_view, 4> types = {"Requires", "Conflicts", "Implies", "MutuallyExclusive"};
-        for (const auto& type_str : types)
+        for (const auto& typeStr : types)
         {
-            std::string ts(type_str);
+            std::string ts(typeStr);
             it = obj.find(ts);
             if (it != obj.end())
             {
@@ -417,14 +417,14 @@ struct FeatureNode
                     return unexpected(ts + " must be array");
                 }
                 const auto& arr = std::get<JsonArray>(it->second);
-                FeatureRelationship type = EnumStringPolicy<FeatureRelationship>::from_string(type_str);
+                FeatureRelationship type = EnumStringPolicy<FeatureRelationship>::from_string(typeStr);
                 for (const auto& elem : arr)
                 {
                     if (!elem.is_string())
                     {
                         return unexpected("Element in " + ts + " must be string");
                     }
-                    node.relationships[relIdx(type)].insert(std::get<std::string>(elem));
+                    node.mRelationships[relIdx(type)].insert(std::get<std::string>(elem));
                 }
             }
         }
@@ -436,41 +436,41 @@ struct FeatureNode
 struct FeatureGroupInfoBase
 {
     virtual ~FeatureGroupInfoBase() = default;
-    virtual FlatSet<std::string> get_features() const = 0;
+    virtual FlatSet<std::string> getFeatures() const = 0;
     virtual JsonValue toJson() const = 0;
     virtual std::string stateToString() const = 0;
 
     // Type-erased state computation: invokes the concrete StateComputer and
     // caches the result. Returns the computed state as an int ordinal so the
     // caller never needs to downcast.
-    virtual int computeAndCache(size_t enabled_count, bool has_conflict, bool all_checks_pass) = 0;
+    virtual int computeAndCache(size_t enabledCount, bool hasConflict, bool allChecksPass) = 0;
 };
 
 // Concrete group info with type-safe state computer
 template <typename StateEnum = FeatureGroupState>
 struct FeatureGroupInfo : public FeatureGroupInfoBase
 {
-    FlatSet<std::string> features;
-    StateComputer<StateEnum> state_computer;
-    mutable std::atomic<StateEnum> cached_state;
+    FlatSet<std::string> mFeatures;
+    StateComputer<StateEnum> mStateComputer;
+    mutable std::atomic<StateEnum> mCachedState;
 
     FeatureGroupInfo(const std::vector<std::string>& f,
                      StateComputer<StateEnum> comp = FeatureGroupStatePolicy<StateEnum>::compute)
-        : features(f.begin(), f.end())
-        , state_computer(comp)
-        , cached_state(static_cast<StateEnum>(FeatureGroupState::Inactive))
+        : mFeatures(f.begin(), f.end())
+        , mStateComputer(comp)
+        , mCachedState(static_cast<StateEnum>(FeatureGroupState::Inactive))
     {
     }
 
-    FlatSet<std::string> get_features() const override
+    FlatSet<std::string> getFeatures() const override
     {
-        return features;
+        return mFeatures;
     }
 
     JsonValue toJson() const override
     {
         JsonArray arr;
-        for (const auto& f : features)
+        for (const auto& f : mFeatures)
         {
             arr.push_back(JsonValue{f});
         }
@@ -482,18 +482,18 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
         if constexpr (named_enum<StateEnum>)
         {
             return std::string(EnumStringPolicy<StateEnum>::to_string(
-                cached_state.load(std::memory_order_relaxed)));
+                mCachedState.load(std::memory_order_relaxed)));
         }
         else
         {
-            return toString(cached_state.load(std::memory_order_relaxed));
+            return toString(mCachedState.load(std::memory_order_relaxed));
         }
     }
 
-    int computeAndCache(size_t enabled_count, bool has_conflict, bool all_checks_pass) override
+    int computeAndCache(size_t enabledCount, bool hasConflict, bool allChecksPass) override
     {
-        StateEnum state = state_computer(features, enabled_count, has_conflict, all_checks_pass);
-        cached_state.store(state, std::memory_order_relaxed);
+        StateEnum state = mStateComputer(mFeatures, enabledCount, hasConflict, allChecksPass);
+        mCachedState.store(state, std::memory_order_relaxed);
         return static_cast<int>(state);
     }
 };
@@ -509,16 +509,16 @@ private:
     // Internal observer storage with unique ID for removal support
     struct ObserverEntry
     {
-        ObserverId id;
-        int priority;
-        FeatureObserver callback;
+        ObserverId mId;
+        int mPriority;
+        FeatureObserver mCallback;
     };
 
     struct BatchObserverEntry
     {
-        ObserverId id;
-        int priority;
-        BatchObserver callback;
+        ObserverId mId;
+        int mPriority;
+        BatchObserver mCallback;
     };
 
     FastHashMap<std::string, FeatureNode> mFeatures;
@@ -572,13 +572,13 @@ private:
     [[nodiscard]] Expected<void, std::string>
     addRelationshipUnlocked(const std::string& from, FeatureRelationship type, const std::string& to)
     {
-        auto from_res = getNode(from);
-        if (!from_res)
+        auto fromRes = getNode(from);
+        if (!fromRes)
         {
             return unexpected("Feature not found: " + from + " in relationship setup");
         }
-        auto to_res = getNode(to);
-        if (!to_res)
+        auto toRes = getNode(to);
+        if (!toRes)
         {
             return unexpected("Feature not found: " + to + " in relationship setup");
         }
@@ -589,25 +589,25 @@ private:
             return unexpected("Cannot add self-referencing relationship: " + from);
         }
 
-        FeatureNode* from_node = *from_res;
-        from_node->relationships[relIdx(type)].insert(to);
+        FeatureNode* fromNode = *fromRes;
+        fromNode->mRelationships[relIdx(type)].insert(to);
 
         // Bidirectional for conflicts and mutually exclusive
         if (type == FeatureRelationship::Conflicts || type == FeatureRelationship::MutuallyExclusive)
         {
-            FeatureNode* to_node = *to_res;
-            to_node->relationships[relIdx(type)].insert(from);
+            FeatureNode* toNode = *toRes;
+            toNode->mRelationships[relIdx(type)].insert(from);
         }
         return {};
     }
 
     // Build a human-readable cycle path from the enabling chain
-    // The enabling_chain preserves insertion order (the actual traversal path)
-    // Example: enabling_chain = {"A", "B", "C"}, target = "A"
+    // The enablingChain preserves insertion order (the actual traversal path)
+    // Example: enablingChain = {"A", "B", "C"}, target = "A"
     // Returns: "A -> B -> C -> A"
-    std::string buildCyclePath(const std::vector<std::string>& enabling_chain, const std::string& target) const
+    std::string buildCyclePath(const std::vector<std::string>& enablingChain, const std::string& target) const
     {
-        if (enabling_chain.empty())
+        if (enablingChain.empty())
         {
             return target + " (self-referencing)";
         }
@@ -616,7 +616,7 @@ private:
         std::string path;
         bool started = false;
 
-        for (const auto& feature : enabling_chain)
+        for (const auto& feature : enablingChain)
         {
             if (!started)
             {
@@ -671,25 +671,25 @@ private:
             state[name] = VisitState::Visiting;
             stack.push_back(name);
 
-            auto* node_ptr = mFeatures.find(name);
-            if (!node_ptr)
+            auto* nodePtr = mFeatures.find(name);
+            if (!nodePtr)
             {
                 stack.pop_back();
                 state[name] = VisitState::Visited;
                 return unexpected("Feature not found: " + name);
             }
-            const FeatureNode& node = *node_ptr;
+            const FeatureNode& node = *nodePtr;
 
-            auto visit_relationship = [&](FeatureRelationship rel) -> Expected<void, std::string> {
-                const auto& targets = node.relationships[relIdx(rel)];
+            auto visitRelationship = [&](FeatureRelationship rel) -> Expected<void, std::string> {
+                const auto& targets = node.mRelationships[relIdx(rel)];
                 if (targets.empty())
                 {
                     return {};
                 }
                 for (const auto& dep : targets)
                 {
-                    auto dep_state = state.find(dep);
-                    if (dep_state != state.end() && dep_state->second == VisitState::Visiting)
+                    auto depState = state.find(dep);
+                    if (depState != state.end() && depState->second == VisitState::Visiting)
                     {
                         return unexpected("Circular dependency detected: " + buildCyclePath(stack, dep));
                     }
@@ -702,20 +702,20 @@ private:
                 return {};
             };
 
-            auto req_res = visit_relationship(FeatureRelationship::Requires);
-            if (!req_res)
+            auto reqRes = visitRelationship(FeatureRelationship::Requires);
+            if (!reqRes)
             {
                 stack.pop_back();
                 state[name] = VisitState::Visited;
-                return req_res;
+                return reqRes;
             }
 
-            auto impl_res = visit_relationship(FeatureRelationship::Implies);
-            if (!impl_res)
+            auto implRes = visitRelationship(FeatureRelationship::Implies);
+            if (!implRes)
             {
                 stack.pop_back();
                 state[name] = VisitState::Visited;
-                return impl_res;
+                return implRes;
             }
 
             stack.pop_back();
@@ -750,7 +750,7 @@ private:
         {
             for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
-                const auto& targets = node.relationships[ri];
+                const auto& targets = node.mRelationships[ri];
                 auto rel = static_cast<FeatureRelationship>(ri);
                 for (const auto& target : targets)
                 {
@@ -767,10 +767,10 @@ private:
         // --------------------------------------------------------------------
         // 2) Graph validation: detect cycles in the dependency graph.
         // --------------------------------------------------------------------
-        auto cycle_res = detectCyclesUnlocked();
-        if (!cycle_res)
+        auto cycleRes = detectCyclesUnlocked();
+        if (!cycleRes)
         {
-            return cycle_res;
+            return cycleRes;
         }
 
         // --------------------------------------------------------------------
@@ -778,23 +778,23 @@ private:
         // --------------------------------------------------------------------
         for (const auto& [name, node] : mFeatures)
         {
-            if (!node.enabled)
+            if (!node.mEnabled)
             {
                 continue;
             }
 
             // Requires: enabled feature must have all required features enabled
-            const auto& requires_targets = node.relationships[relIdx(FeatureRelationship::Requires)];
-            if (!requires_targets.empty())
+            const auto& requiresTargets = node.mRelationships[relIdx(FeatureRelationship::Requires)];
+            if (!requiresTargets.empty())
             {
-                for (const auto& required : requires_targets)
+                for (const auto& required : requiresTargets)
                 {
-                    auto* req_ptr = mFeatures.find(required);
-                    if (!req_ptr)
+                    auto* reqPtr = mFeatures.find(required);
+                    if (!reqPtr)
                     {
                         return unexpected("Required feature not found: " + required);
                     }
-                    if (!req_ptr->enabled)
+                    if (!reqPtr->mEnabled)
                     {
                         return unexpected("'" + name + "' requires '" + required + "' but it's disabled");
                     }
@@ -802,17 +802,17 @@ private:
             }
 
             // Implies: enabled feature must have all implied features enabled
-            const auto& implies_targets = node.relationships[relIdx(FeatureRelationship::Implies)];
-            if (!implies_targets.empty())
+            const auto& impliesTargets = node.mRelationships[relIdx(FeatureRelationship::Implies)];
+            if (!impliesTargets.empty())
             {
-                for (const auto& implied : implies_targets)
+                for (const auto& implied : impliesTargets)
                 {
-                    auto* impl_ptr = mFeatures.find(implied);
-                    if (!impl_ptr)
+                    auto* implPtr = mFeatures.find(implied);
+                    if (!implPtr)
                     {
                         return unexpected("Implied feature not found: " + implied);
                     }
-                    if (!impl_ptr->enabled)
+                    if (!implPtr->mEnabled)
                     {
                         return unexpected("'" + name + "' implies '" + implied + "' but it's disabled");
                     }
@@ -822,16 +822,16 @@ private:
             // Conflicts and MutuallyExclusive
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
-                const auto& conflict_targets = node.relationships[relIdx(rel)];
-                if (conflict_targets.empty())
+                const auto& conflictTargets = node.mRelationships[relIdx(rel)];
+                if (conflictTargets.empty())
                 {
                     continue;
                 }
 
-                for (const auto& other : conflict_targets)
+                for (const auto& other : conflictTargets)
                 {
-                    auto* other_ptr = mFeatures.find(other);
-                    if (!other_ptr)
+                    auto* otherPtr = mFeatures.find(other);
+                    if (!otherPtr)
                     {
                         if (rel == FeatureRelationship::Conflicts)
                         {
@@ -839,7 +839,7 @@ private:
                         }
                         return unexpected("Mutually exclusive feature not found: " + other);
                     }
-                    if (other_ptr->enabled)
+                    if (otherPtr->mEnabled)
                     {
                         if (rel == FeatureRelationship::Conflicts)
                         {
@@ -851,12 +851,12 @@ private:
             }
 
             // Run validation check for enabled features
-            if (node.check)
+            if (node.mCheck)
             {
-                auto check_result = node.check();
-                if (!check_result)
+                auto checkResult = node.mCheck();
+                if (!checkResult)
                 {
-                    return unexpected("Check failed for " + name + ": " + check_result.error());
+                    return unexpected("Check failed for " + name + ": " + checkResult.error());
                 }
             }
         }
@@ -865,9 +865,9 @@ private:
     }
 
     Expected<void, std::string> enableFeature(const std::string& name,
-                                               std::vector<std::string>& enabling_chain,
-                                               std::unordered_set<std::string>& chain_set,
-                                               std::vector<std::string>* changed_features,
+                                               std::vector<std::string>& enablingChain,
+                                               std::unordered_set<std::string>& chainSet,
+                                               std::vector<std::string>* changedFeatures,
                                                int depth = 0)
     {
         if (static_cast<size_t>(depth) > kMaxValidationDepth)
@@ -876,33 +876,33 @@ private:
         }
 
         // O(1) membership test via hash set; vector is kept for path reconstruction only
-        auto in_chain = [&chain_set](const std::string& n) {
-            return chain_set.count(n) != 0;
+        auto inChain = [&chainSet](const std::string& n) {
+            return chainSet.count(n) != 0;
         };
 
         // Check for circular dependencies first
-        if (in_chain(name))
+        if (inChain(name))
         {
-            return unexpected("Circular dependency detected: " + buildCyclePath(enabling_chain, name));
+            return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, name));
         }
 
-        auto node_res = getNode(name);
-        if (!node_res)
+        auto nodeRes = getNode(name);
+        if (!nodeRes)
         {
-            return unexpected(node_res.error());
+            return unexpected(nodeRes.error());
         }
-        FeatureNode* node = *node_res;
+        FeatureNode* node = *nodeRes;
 
-        if (node->enabled)
+        if (node->mEnabled)
         {
             return {}; // Already enabled - nothing to do
         }
 
         // Track that we're in the process of enabling this feature
-        enabling_chain.push_back(name);
-        chain_set.insert(name);
+        enablingChain.push_back(name);
+        chainSet.insert(name);
 
-        // RAII guard to ensure enabling_chain and chain_set stay consistent on scope exit.
+        // RAII guard to ensure enablingChain and chainSet stay consistent on scope exit.
         struct ChainGuard
         {
             std::vector<std::string>& chain;
@@ -925,38 +925,38 @@ private:
             {
                 dismissed = true;
             }
-        } chain_guard(enabling_chain, chain_set);
+        } chainGuard(enablingChain, chainSet);
 
         // Enable this feature first (may be rolled back on error)
-        bool was_enabled = node->enabled;
-        node->enabled = true;
+        bool wasEnabled = node->mEnabled;
+        node->mEnabled = true;
 
         // Process Required relationships (recursively enable dependencies)
         {
-            const auto& targets = node->relationships[relIdx(FeatureRelationship::Requires)];
+            const auto& targets = node->mRelationships[relIdx(FeatureRelationship::Requires)];
             for (const auto& required : targets)
             {
                 // Check for circular dependency before recursing
-                if (in_chain(required))
+                if (inChain(required))
                 {
-                    node->enabled = was_enabled;
-                    return unexpected("Circular dependency detected: " + buildCyclePath(enabling_chain, required));
+                    node->mEnabled = wasEnabled;
+                    return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, required));
                 }
 
-                auto req_node_res = getNode(required);
-                if (!req_node_res)
+                auto reqNodeRes = getNode(required);
+                if (!reqNodeRes)
                 {
-                    node->enabled = false;
+                    node->mEnabled = false;
                     return unexpected("Required feature not found: " + required);
                 }
-                FeatureNode* req_node = *req_node_res;
-                if (!req_node->enabled)
+                FeatureNode* reqNode = *reqNodeRes;
+                if (!reqNode->mEnabled)
                 {
-                    auto enable_res = enableFeature(required, enabling_chain, chain_set, changed_features, depth + 1);
-                    if (!enable_res)
+                    auto enableRes = enableFeature(required, enablingChain, chainSet, changedFeatures, depth + 1);
+                    if (!enableRes)
                     {
-                        node->enabled = false;
-                        return enable_res;
+                        node->mEnabled = false;
+                        return enableRes;
                     }
                 }
             }
@@ -964,31 +964,31 @@ private:
 
         // Process Implies relationships
         {
-            const auto& targets = node->relationships[relIdx(FeatureRelationship::Implies)];
+            const auto& targets = node->mRelationships[relIdx(FeatureRelationship::Implies)];
             for (const auto& implied : targets)
             {
                 // Check for circular dependency before checking if already enabled
-                if (in_chain(implied))
+                if (inChain(implied))
                 {
-                    node->enabled = false;
-                    return unexpected("Circular dependency detected: " + buildCyclePath(enabling_chain, implied));
+                    node->mEnabled = false;
+                    return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, implied));
                 }
 
-                auto impl_node_res = getNode(implied);
-                if (!impl_node_res)
+                auto implNodeRes = getNode(implied);
+                if (!implNodeRes)
                 {
-                    node->enabled = false;
+                    node->mEnabled = false;
                     return unexpected("Implied feature not found: " + implied);
                 }
 
-                FeatureNode* impl_node = *impl_node_res;
-                if (!impl_node->enabled)
+                FeatureNode* implNode = *implNodeRes;
+                if (!implNode->mEnabled)
                 {
-                    auto enable_res = enableFeature(implied, enabling_chain, chain_set, changed_features, depth + 1);
-                    if (!enable_res)
+                    auto enableRes = enableFeature(implied, enablingChain, chainSet, changedFeatures, depth + 1);
+                    if (!enableRes)
                     {
-                        node->enabled = false;
-                        return enable_res;
+                        node->mEnabled = false;
+                        return enableRes;
                     }
                 }
             }
@@ -998,13 +998,13 @@ private:
         for (auto type : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
         {
             {
-                const auto& targets = node->relationships[relIdx(type)];
+                const auto& targets = node->mRelationships[relIdx(type)];
                 for (const auto& conflicting : targets)
                 {
-                    auto conf_node_res = getNode(conflicting);
-                    if (!conf_node_res)
+                    auto confNodeRes = getNode(conflicting);
+                    if (!confNodeRes)
                     {
-                        node->enabled = false;
+                        node->mEnabled = false;
                         if (type == FeatureRelationship::Conflicts)
                         {
                             return unexpected("Conflicting feature not found: " + conflicting);
@@ -1012,10 +1012,10 @@ private:
                         return unexpected("Mutually exclusive feature not found: " + conflicting);
                     }
 
-                    FeatureNode* conf_node = *conf_node_res;
-                    if (conf_node->enabled)
+                    FeatureNode* confNode = *confNodeRes;
+                    if (confNode->mEnabled)
                     {
-                        node->enabled = false;
+                        node->mEnabled = false;
                         if (type == FeatureRelationship::Conflicts)
                         {
                             return unexpected(name + " conflicts with " + conflicting);
@@ -1027,23 +1027,23 @@ private:
         }
 
         // Run validation check
-        if (node->check)
+        if (node->mCheck)
         {
-            auto check_result = node->check();
-            if (!check_result)
+            auto checkResult = node->mCheck();
+            if (!checkResult)
             {
-                node->enabled = false;
-                return unexpected("Check failed for " + name + ": " + check_result.error());
+                node->mEnabled = false;
+                return unexpected("Check failed for " + name + ": " + checkResult.error());
             }
         }
 
-        // Success - chain_guard destructor will pop_back()
+        // Success - chainGuard destructor will pop_back()
         // (we don't dismiss it because we want the pop to happen)
 
         // Track this feature as changed (for observer notification)
-        if (changed_features && !was_enabled)
+        if (changedFeatures && !wasEnabled)
         {
-            changed_features->push_back(name);
+            changedFeatures->push_back(name);
         }
 
         return {};
@@ -1053,101 +1053,101 @@ private:
     {
         // Stable sort preserves insertion order for observers with equal priority.
         std::stable_sort(entries.begin(), entries.end(), [](const ObserverEntry& a, const ObserverEntry& b) {
-            return a.priority > b.priority;
+            return a.mPriority > b.mPriority;
         });
     }
 
     static void sortBatchObserversByPriority(std::vector<BatchObserverEntry>& entries)
     {
         std::stable_sort(entries.begin(), entries.end(), [](const BatchObserverEntry& a, const BatchObserverEntry& b) {
-            return a.priority > b.priority;
+            return a.mPriority > b.mPriority;
         });
     }
 
     static void notifyObserversSorted(const std::vector<ObserverEntry>& sorted,
-                                        const std::string& feature_name,
-                                        bool new_state,
+                                        const std::string& featureName,
+                                        bool newState,
                                         bool success)
     {
         for (const auto& entry : sorted)
         {
-            entry.callback(feature_name, new_state, success);
+            entry.mCallback(featureName, newState, success);
         }
     }
 
     static void notifyBatchObserversSorted(const std::vector<BatchObserverEntry>& sorted,
-                                              const std::string& requested_feature,
-                                              const std::vector<std::string>& all_changed,
+                                              const std::string& requestedFeature,
+                                              const std::vector<std::string>& allChanged,
                                               bool enabled,
                                               bool success)
     {
         for (const auto& entry : sorted)
         {
-            entry.callback(requested_feature, all_changed, enabled, success);
+            entry.mCallback(requestedFeature, allChanged, enabled, success);
         }
     }
 
     template <typename StateEnum>
-    Expected<StateEnum, std::string> computeGroupStateImpl(const std::string& group_name) const
+    Expected<StateEnum, std::string> computeGroupStateImpl(const std::string& groupName) const
     {
-        auto* group_uptr = mGroups.find(group_name);
-        if (!group_uptr)
+        auto* groupUptr = mGroups.find(groupName);
+        if (!groupUptr)
         {
-            return unexpected("Group not found: " + group_name);
+            return unexpected("Group not found: " + groupName);
         }
-        FeatureGroupInfoBase* group = group_uptr->get();
-        const auto group_features = group->get_features();
-        size_t enabled_count = 0;
-        bool has_conflict = false;
-        bool all_checks_pass = true;
-        for (const auto& feature_name : group_features)
+        FeatureGroupInfoBase* group = groupUptr->get();
+        const auto groupFeatures = group->getFeatures();
+        size_t enabledCount = 0;
+        bool hasConflict = false;
+        bool allChecksPass = true;
+        for (const auto& featureName : groupFeatures)
         {
-            auto node_res = getNode(feature_name);
-            if (!node_res)
+            auto nodeRes = getNode(featureName);
+            if (!nodeRes)
             {
                 continue;
             }
-            const FeatureNode* node = *node_res;
-            if (node->enabled)
+            const FeatureNode* node = *nodeRes;
+            if (node->mEnabled)
             {
-                ++enabled_count;
+                ++enabledCount;
                 // Check for conflicts within group
-                for (const auto& other : group_features)
+                for (const auto& other : groupFeatures)
                 {
-                    if (other == feature_name)
+                    if (other == featureName)
                     {
                         continue;
                     }
-                    if (node->relationships[relIdx(FeatureRelationship::Conflicts)].count(other) > 0)
+                    if (node->mRelationships[relIdx(FeatureRelationship::Conflicts)].count(other) > 0)
                     {
-                        auto other_node_res = getNode(other);
-                        if (other_node_res && (*other_node_res)->enabled)
+                        auto otherNodeRes = getNode(other);
+                        if (otherNodeRes && (*otherNodeRes)->mEnabled)
                         {
-                            has_conflict = true;
+                            hasConflict = true;
                         }
                     }
-                    if (node->relationships[relIdx(FeatureRelationship::MutuallyExclusive)].count(other) > 0)
+                    if (node->mRelationships[relIdx(FeatureRelationship::MutuallyExclusive)].count(other) > 0)
                     {
-                        auto other_node_res = getNode(other);
-                        if (other_node_res && (*other_node_res)->enabled)
+                        auto otherNodeRes = getNode(other);
+                        if (otherNodeRes && (*otherNodeRes)->mEnabled)
                         {
-                            has_conflict = true;
+                            hasConflict = true;
                         }
                     }
                 }
-                if (node->check)
+                if (node->mCheck)
                 {
-                    auto check_result = node->check();
-                    if (!check_result)
+                    auto checkResult = node->mCheck();
+                    if (!checkResult)
                     {
-                        all_checks_pass = false;
+                        allChecksPass = false;
                     }
                 }
             }
         }
         // Virtual dispatch: the concrete FeatureGroupInfo<StateEnum> invokes its
-        // typed state_computer and caches the result. No dynamic_cast needed.
-        int ordinal = group->computeAndCache(enabled_count, has_conflict, all_checks_pass);
+        // typed mStateComputer and caches the result. No dynamic_cast needed.
+        int ordinal = group->computeAndCache(enabledCount, hasConflict, allChecksPass);
         return static_cast<StateEnum>(ordinal);
     }
 
@@ -1202,19 +1202,19 @@ public:
         bool mValid;
 
     public:
-        ScopedFeatureChange(FeatureManager& manager, const std::string& feature_name, bool new_state)
+        ScopedFeatureChange(FeatureManager& manager, const std::string& featureName, bool newState)
             : mManager(&manager)
-            , mRequestedFeature(feature_name)
-            , mNewState(new_state)
+            , mRequestedFeature(featureName)
+            , mNewState(newState)
             , mValid(false)
         {
             // Snapshot feature states before the operation to detect what changed.
-            FastHashMap<std::string, bool> pre_states;
+            FastHashMap<std::string, bool> preStates;
             {
                 [[maybe_unused]] auto guard = mManager->mSync.lock();
                 for (const auto& [name, node] : mManager->mFeatures)
                 {
-                    pre_states[name] = node.enabled;
+                    preStates[name] = node.mEnabled;
                 }
             }
 
@@ -1222,13 +1222,13 @@ public:
             // resolution, and implies propagation all apply. batchEnable/batchDisable
             // handles its own locking internally.
             Expected<void, std::string> result;
-            if (new_state)
+            if (newState)
             {
-                result = mManager->enable(feature_name);
+                result = mManager->enable(featureName);
             }
             else
             {
-                result = mManager->disable(feature_name);
+                result = mManager->disable(featureName);
             }
 
             mValid = result.has_value();
@@ -1240,8 +1240,8 @@ public:
                 [[maybe_unused]] auto guard = mManager->mSync.lock();
                 for (const auto& [name, node] : mManager->mFeatures)
                 {
-                    auto* pre = pre_states.find(name);
-                    if (pre && *pre != node.enabled)
+                    auto* pre = preStates.find(name);
+                    if (pre && *pre != node.mEnabled)
                     {
                         mChangedFeatures.push_back(name);
                     }
@@ -1256,51 +1256,51 @@ public:
                 return;
             }
 
-            std::vector<std::string> restored_features;
-            std::vector<ObserverEntry> observers_snapshot;
-            std::vector<BatchObserverEntry> batch_observers_snapshot;
+            std::vector<std::string> restoredFeatures;
+            std::vector<ObserverEntry> observersSnapshot;
+            std::vector<BatchObserverEntry> batchObserversSnapshot;
 
             {
                 [[maybe_unused]] auto guard = mManager->mSync.lock();
                 for (const auto& name : mChangedFeatures)
                 {
-                    auto node_res = mManager->getNode(name);
-                    if (!node_res)
+                    auto nodeRes = mManager->getNode(name);
+                    if (!nodeRes)
                     {
                         continue;
                     }
-                    FeatureNode* node = *node_res;
+                    FeatureNode* node = *nodeRes;
 
                     // Restore only if still in the state we set it to.
                     // If another thread changed it, respect their change.
-                    if (node->enabled == mNewState)
+                    if (node->mEnabled == mNewState)
                     {
-                        node->enabled = !mNewState;
-                        restored_features.push_back(name);
+                        node->mEnabled = !mNewState;
+                        restoredFeatures.push_back(name);
                     }
                 }
 
-                if (!restored_features.empty())
+                if (!restoredFeatures.empty())
                 {
-                    observers_snapshot = mManager->mObservers;
-                    batch_observers_snapshot = mManager->mBatchObservers;
+                    observersSnapshot = mManager->mObservers;
+                    batchObserversSnapshot = mManager->mBatchObservers;
                 }
             } // Lock released before observer notification
 
-            if (!restored_features.empty())
+            if (!restoredFeatures.empty())
             {
-                sortObserversByPriority(observers_snapshot);
-                for (const auto& feature : restored_features)
+                sortObserversByPriority(observersSnapshot);
+                for (const auto& feature : restoredFeatures)
                 {
-                    notifyObserversSorted(observers_snapshot, feature, !mNewState, true);
+                    notifyObserversSorted(observersSnapshot, feature, !mNewState, true);
                 }
 
-                if (!batch_observers_snapshot.empty())
+                if (!batchObserversSnapshot.empty())
                 {
-                    sortBatchObserversByPriority(batch_observers_snapshot);
-                    notifyBatchObserversSorted(batch_observers_snapshot,
+                    sortBatchObserversByPriority(batchObserversSnapshot);
+                    notifyBatchObserversSorted(batchObserversSnapshot,
                                                   mRequestedFeature,
-                                                  restored_features,
+                                                  restoredFeatures,
                                                   !mNewState,
                                                   true);
                 }
@@ -1453,16 +1453,16 @@ public:
             return unexpected("Feature already exists: " + name);
         }
         FeatureNode node;
-        node.enabled = false;
-        node.check = check;
-        node.check_key = ""; // No key when added directly with callback
+        node.mEnabled = false;
+        node.mCheck = check;
+        node.mCheckKey = ""; // No key when added directly with callback
         mFeatures[name] = std::move(node);
         return {};
     }
 
     // Add a feature using a registered callback key from the factory
     // This allows the feature to be fully serialized and deserialized
-    [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, const std::string& check_key)
+    [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, const std::string& mCheckKey)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         if (mFeatures.count(name))
@@ -1471,16 +1471,16 @@ public:
         }
 
         // Look up the check from factory
-        auto check_result = getFeatureCheckFactory().make(check_key);
-        if (!check_result)
+        auto checkResult = getFeatureCheckFactory().make(mCheckKey);
+        if (!checkResult)
         {
-            return unexpected("Check key '" + check_key + "' not found in factory");
+            return unexpected("Check key '" + mCheckKey + "' not found in factory");
         }
 
         FeatureNode node;
-        node.enabled = false;
-        node.check = *check_result;
-        node.check_key = check_key;
+        node.mEnabled = false;
+        node.mCheck = *checkResult;
+        node.mCheckKey = mCheckKey;
         mFeatures[name] = std::move(node);
         return {};
     }
@@ -1496,55 +1496,55 @@ public:
     // Add a feature group with optional custom state computer
     template <typename StateEnum = FeatureGroupState>
     [[nodiscard]] Expected<void, std::string>
-    addGroup(const std::string& group_name,
-              const std::vector<std::string>& feature_names,
+    addGroup(const std::string& groupName,
+              const std::vector<std::string>& featureNames,
               StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute)
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        if (mGroups.count(group_name))
+        if (mGroups.count(groupName))
         {
-            return unexpected("Group already exists: " + group_name);
+            return unexpected("Group already exists: " + groupName);
         }
-        for (const auto& feature_name : feature_names)
+        for (const auto& featureName : featureNames)
         {
-            if (!mFeatures.count(feature_name))
+            if (!mFeatures.count(featureName))
             {
-                return unexpected("Feature not found: " + feature_name);
+                return unexpected("Feature not found: " + featureName);
             }
         }
-        mGroups[group_name] = std::make_unique<FeatureGroupInfo<StateEnum>>(feature_names, computer);
+        mGroups[groupName] = std::make_unique<FeatureGroupInfo<StateEnum>>(featureNames, computer);
         return {};
     }
 
     // Add a mutually exclusive group
     template <typename StateEnum = FeatureGroupState>
     [[nodiscard]] Expected<void, std::string>
-    addMutuallyExclusiveGroup(const std::string& group_name,
-                                 const std::vector<std::string>& feature_names,
+    addMutuallyExclusiveGroup(const std::string& groupName,
+                                 const std::vector<std::string>& featureNames,
                                  StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute)
     {
         [[maybe_unused]] auto guard = mSync.lock();
 
-        if (mGroups.count(group_name))
+        if (mGroups.count(groupName))
         {
-            return unexpected("Group already exists: " + group_name);
+            return unexpected("Group already exists: " + groupName);
         }
-        for (const auto& feature_name : feature_names)
+        for (const auto& featureName : featureNames)
         {
-            if (!mFeatures.count(feature_name))
+            if (!mFeatures.count(featureName))
             {
-                return unexpected("Feature not found: " + feature_name);
+                return unexpected("Feature not found: " + featureName);
             }
         }
 
         // Add bidirectional mutual-exclusion relationships between every pair.
-        for (size_t i = 0; i < feature_names.size(); ++i)
+        for (size_t i = 0; i < featureNames.size(); ++i)
         {
-            for (size_t j = i + 1; j < feature_names.size(); ++j)
+            for (size_t j = i + 1; j < featureNames.size(); ++j)
             {
-                auto res = addRelationshipUnlocked(feature_names[i],
+                auto res = addRelationshipUnlocked(featureNames[i],
                                                      FeatureRelationship::MutuallyExclusive,
-                                                     feature_names[j]);
+                                                     featureNames[j]);
                 if (!res)
                 {
                     return res;
@@ -1552,28 +1552,28 @@ public:
             }
         }
 
-        mGroups[group_name] = std::make_unique<FeatureGroupInfo<StateEnum>>(feature_names, computer);
+        mGroups[groupName] = std::make_unique<FeatureGroupInfo<StateEnum>>(featureNames, computer);
         return {};
     }
 
     // Get group state with type safety
     template <typename StateEnum = FeatureGroupState>
-    [[nodiscard]] Expected<StateEnum, std::string> getGroupState(const std::string& group_name) const
+    [[nodiscard]] Expected<StateEnum, std::string> getGroupState(const std::string& groupName) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        return computeGroupStateImpl<StateEnum>(group_name);
+        return computeGroupStateImpl<StateEnum>(groupName);
     }
 
     // Get features in a group
-    [[nodiscard]] Expected<FlatSet<std::string>, std::string> getGroupFeatures(const std::string& group_name) const
+    [[nodiscard]] Expected<FlatSet<std::string>, std::string> getGroupFeatures(const std::string& groupName) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        auto* group_uptr = mGroups.find(group_name);
-        if (!group_uptr)
+        auto* groupUptr = mGroups.find(groupName);
+        if (!groupUptr)
         {
-            return unexpected("Group not found: " + group_name);
+            return unexpected("Group not found: " + groupName);
         }
-        return (*group_uptr)->get_features();
+        return (*groupUptr)->getFeatures();
     }
 
     // Enable a feature with full transactional semantics
@@ -1597,9 +1597,9 @@ public:
     // NOTIFICATIONS ARE DEFERRED until after lock release to prevent deadlocks.
     [[nodiscard]] Expected<void, std::string> batchEnable(const std::vector<std::string>& names)
     {
-        std::vector<std::string> all_changed;
-        std::vector<ObserverEntry> observers_snapshot;
-        std::vector<BatchObserverEntry> batch_observers_snapshot;
+        std::vector<std::string> allChanged;
+        std::vector<ObserverEntry> observersSnapshot;
+        std::vector<BatchObserverEntry> batchObserversSnapshot;
 
         { // Scope for LockGuard - Lock held only during state modification
             [[maybe_unused]] auto guard = mSync.lock();
@@ -1607,32 +1607,32 @@ public:
             // Validate all features exist first
             for (const auto& name : names)
             {
-                auto node_res = getNode(name);
-                if (!node_res)
+                auto nodeRes = getNode(name);
+                if (!nodeRes)
                 {
-                    return unexpected(node_res.error());
+                    return unexpected(nodeRes.error());
                 }
             }
 
             // Snapshot ALL feature states before any modifications
-            FastHashMap<std::string, bool> original_states;
+            FastHashMap<std::string, bool> originalStates;
             for (const auto& [name, node] : mFeatures)
             {
-                original_states[name] = node.enabled;
+                originalStates[name] = node.mEnabled;
             }
 
             // Attempt to enable each feature
             for (const auto& name : names)
             {
                 std::vector<std::string> chain;
-                std::unordered_set<std::string> chain_set;
-                auto res = enableFeature(name, chain, chain_set, &all_changed);
+                std::unordered_set<std::string> chainSet;
+                auto res = enableFeature(name, chain, chainSet, &allChanged);
                 if (!res)
                 {
                     // Rollback ALL features to original states
-                    for (auto&& [feature_name, node] : mFeatures)
+                    for (auto&& [featureName, node] : mFeatures)
                     {
-                        node.enabled = original_states[feature_name];
+                        node.mEnabled = originalStates[featureName];
                     }
                     return res;
                 }
@@ -1641,29 +1641,29 @@ public:
             // Snapshot observers while holding the lock, then invoke callbacks after unlock.
             // This prevents data races and makes it safe for observers to add/remove observers
             // or call FeatureManager methods (reentrant use).
-            if (!all_changed.empty())
+            if (!allChanged.empty())
             {
-                observers_snapshot = mObservers;
-                batch_observers_snapshot = mBatchObservers;
+                observersSnapshot = mObservers;
+                batchObserversSnapshot = mBatchObservers;
             }
         } // Lock released here
 
-        if (!all_changed.empty())
+        if (!allChanged.empty())
         {
             // Notify observers safely outside the lock
-            sortObserversByPriority(observers_snapshot);
-            for (const auto& feature : all_changed)
+            sortObserversByPriority(observersSnapshot);
+            for (const auto& feature : allChanged)
             {
-                notifyObserversSorted(observers_snapshot, feature, true, true);
+                notifyObserversSorted(observersSnapshot, feature, true, true);
             }
 
             // Notify batch observers
-            if (!batch_observers_snapshot.empty())
+            if (!batchObserversSnapshot.empty())
             {
-                sortBatchObserversByPriority(batch_observers_snapshot);
-                notifyBatchObserversSorted(batch_observers_snapshot,
+                sortBatchObserversByPriority(batchObserversSnapshot);
+                notifyBatchObserversSorted(batchObserversSnapshot,
                                               names.empty() ? "" : names[0],
-                                              all_changed,
+                                              allChanged,
                                               true,
                                               true);
             }
@@ -1681,20 +1681,20 @@ public:
     // NOTE: Duplicate names in the input are automatically deduplicated (first occurrence wins).
     [[nodiscard]] Expected<void, std::string> batchDisable(const std::vector<std::string>& names)
     {
-        std::vector<std::string> actually_changed;
-        std::vector<ObserverEntry> observers_snapshot;
-        std::vector<BatchObserverEntry> batch_observers_snapshot;
+        std::vector<std::string> actuallyChanged;
+        std::vector<ObserverEntry> observersSnapshot;
+        std::vector<BatchObserverEntry> batchObserversSnapshot;
 
         // Deduplicate requested names while preserving first-seen order.
         // This prevents incorrect rollback when the same feature appears multiple times.
-        std::vector<std::string> unique_names;
-        unique_names.reserve(names.size());
-        std::unordered_set<std::string> disabled_set;
+        std::vector<std::string> uniqueNames;
+        uniqueNames.reserve(names.size());
+        std::unordered_set<std::string> disabledSet;
         for (const auto& n : names)
         {
-            if (disabled_set.insert(n).second)
+            if (disabledSet.insert(n).second)
             {
-                unique_names.push_back(n);
+                uniqueNames.push_back(n);
             }
         }
 
@@ -1702,103 +1702,103 @@ public:
             [[maybe_unused]] auto guard = mSync.lock();
 
             // Validate all features exist first
-            for (const auto& name : unique_names)
+            for (const auto& name : uniqueNames)
             {
-                auto node_res = getNode(name);
-                if (!node_res)
+                auto nodeRes = getNode(name);
+                if (!nodeRes)
                 {
-                    return unexpected(node_res.error());
+                    return unexpected(nodeRes.error());
                 }
             }
 
             // Record original states for rollback and track which actually changed
-            std::vector<bool> original_states;
-            original_states.reserve(unique_names.size());
+            std::vector<bool> originalStates;
+            originalStates.reserve(uniqueNames.size());
 
-            for (const auto& name : unique_names)
+            for (const auto& name : uniqueNames)
             {
-                auto node_res = getNode(name);
-                original_states.push_back((*node_res)->enabled);
-                if ((*node_res)->enabled)
+                auto nodeRes = getNode(name);
+                originalStates.push_back((*nodeRes)->mEnabled);
+                if ((*nodeRes)->mEnabled)
                 {
-                    actually_changed.push_back(name);
+                    actuallyChanged.push_back(name);
                 }
-                (*node_res)->enabled = false;
+                (*nodeRes)->mEnabled = false;
             }
 
             // Rollback helper lambda
             auto rollback = [&]() {
-                for (size_t i = 0; i < unique_names.size(); ++i)
+                for (size_t i = 0; i < uniqueNames.size(); ++i)
                 {
-                    auto n = getNode(unique_names[i]);
+                    auto n = getNode(uniqueNames[i]);
                     if (n)
                     {
-                        (*n)->enabled = original_states[i];
+                        (*n)->mEnabled = originalStates[i];
                     }
                 }
             };
 
             // Validate the resulting state
-            for (const auto& [feature_name, node] : mFeatures)
+            for (const auto& [featureName, node] : mFeatures)
             {
-                if (!node.enabled)
+                if (!node.mEnabled)
                 {
                     continue;
                 }
 
                 // Check if this enabled feature requires any of the disabled features
-                for (const auto& required : node.relationships[relIdx(FeatureRelationship::Requires)])
+                for (const auto& required : node.mRelationships[relIdx(FeatureRelationship::Requires)])
                 {
-                    auto req_node = getNode(required);
-                    if (!req_node)
+                    auto reqNode = getNode(required);
+                    if (!reqNode)
                     {
                         rollback();
                         return unexpected("Required feature not found: " + required);
                     }
-                    if (!(*req_node)->enabled)
+                    if (!(*reqNode)->mEnabled)
                     {
                         rollback();
                         return unexpected("Cannot disable '" + required + "': required by enabled feature '" +
-                                          feature_name + "'");
+                                          featureName + "'");
                     }
                 }
 
                 // Check if this enabled feature implies any of the disabled features
                 // If A implies B and A is enabled, then B cannot be disabled
-                for (const auto& implied : node.relationships[relIdx(FeatureRelationship::Implies)])
+                for (const auto& implied : node.mRelationships[relIdx(FeatureRelationship::Implies)])
                 {
-                    if (disabled_set.count(implied))
+                    if (disabledSet.count(implied))
                     {
                         rollback();
                         return unexpected("Cannot disable '" + implied + "': implied by enabled feature '" +
-                                          feature_name + "'. Disable '" + feature_name + "' first.");
+                                          featureName + "'. Disable '" + featureName + "' first.");
                     }
                 }
             }
 
-            if (!actually_changed.empty())
+            if (!actuallyChanged.empty())
             {
-                observers_snapshot = mObservers;
-                batch_observers_snapshot = mBatchObservers;
+                observersSnapshot = mObservers;
+                batchObserversSnapshot = mBatchObservers;
             }
         } // Lock released here
 
-        if (!actually_changed.empty())
+        if (!actuallyChanged.empty())
         {
             // Notify observers safely outside the lock
-            sortObserversByPriority(observers_snapshot);
-            for (const auto& feature : actually_changed)
+            sortObserversByPriority(observersSnapshot);
+            for (const auto& feature : actuallyChanged)
             {
-                notifyObserversSorted(observers_snapshot, feature, false, true);
+                notifyObserversSorted(observersSnapshot, feature, false, true);
             }
 
             // Notify batch observers
-            if (!batch_observers_snapshot.empty())
+            if (!batchObserversSnapshot.empty())
             {
-                sortBatchObserversByPriority(batch_observers_snapshot);
-                notifyBatchObserversSorted(batch_observers_snapshot,
+                sortBatchObserversByPriority(batchObserversSnapshot);
+                notifyBatchObserversSorted(batchObserversSnapshot,
                                               names.empty() ? "" : names[0],
-                                              actually_changed,
+                                              actuallyChanged,
                                               false,
                                               true);
             }
@@ -1811,12 +1811,12 @@ public:
     [[nodiscard]] bool isEnabled(const std::string& name) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        auto node_res = getNode(name);
-        if (!node_res)
+        auto nodeRes = getNode(name);
+        if (!nodeRes)
         {
             return false;
         }
-        return (*node_res)->enabled;
+        return (*nodeRes)->mEnabled;
     }
 
     // Validate entire feature set
@@ -1829,8 +1829,8 @@ public:
     // Add observer with priority
     //
     // Observers are called when features are enabled or disabled. They receive:
-    //   - feature_name: The name of the feature that changed
-    //   - new_state: true if enabled, false if disabled
+    //   - featureName: The name of the feature that changed
+    //   - newState: true if enabled, false if disabled
     //   - success: true if the operation succeeded
     //
     // Priority ordering: Higher priority observers are called first (e.g., 100 before 10)
@@ -1866,10 +1866,10 @@ public:
     //   - The complete set of state changes for a single user action
     //
     // Example:
-    //   manager.addBatchObserver([](auto requested, auto all_changed, auto enabled, auto ok) {
+    //   manager.addBatchObserver([](auto requested, auto allChanged, auto enabled, auto ok) {
     //       std::cout << "Requested: " << requested << "\n";
     //       std::cout << "All changed: ";
-    //       for (const auto& f : all_changed) std::cout << f << " ";
+    //       for (const auto& f : allChanged) std::cout << f << " ";
     //       std::cout << "\n";
     //   });
     //
@@ -1894,7 +1894,7 @@ public:
 
         // Check regular observers
         auto it = std::find_if(mObservers.begin(), mObservers.end(), [id](const ObserverEntry& entry) {
-            return entry.id == id;
+            return entry.mId == id;
         });
         if (it != mObservers.end())
         {
@@ -1905,7 +1905,7 @@ public:
         // Check batch observers
         auto bit =
             std::find_if(mBatchObservers.begin(), mBatchObservers.end(), [id](const BatchObserverEntry& entry) {
-                return entry.id == id;
+                return entry.mId == id;
             });
         if (bit != mBatchObservers.end())
         {
@@ -1925,13 +1925,13 @@ public:
     }
 
     // Get all enabled features
-    std::vector<std::string> getEnabled() const
+    [[nodiscard]] std::vector<std::string> getEnabled() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         std::vector<std::string> enabled;
         for (const auto& [name, node] : mFeatures)
         {
-            if (node.enabled)
+            if (node.mEnabled)
             {
                 enabled.push_back(name);
             }
@@ -1943,24 +1943,24 @@ public:
     [[nodiscard]] std::vector<std::string> getAllFeatures() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        std::vector<std::string> all_features;
+        std::vector<std::string> allFeatures;
         for (const auto& [name, _] : mFeatures)
         {
-            all_features.push_back(name);
+            allFeatures.push_back(name);
         }
-        return all_features;
+        return allFeatures;
     }
 
     // Get all group names
     [[nodiscard]] std::vector<std::string> getAllGroups() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        std::vector<std::string> all_groups;
+        std::vector<std::string> allGroups;
         for (const auto& [name, _] : mGroups)
         {
-            all_groups.push_back(name);
+            allGroups.push_back(name);
         }
-        return all_groups;
+        return allGroups;
     }
 
     // Serialize to JSON
@@ -1968,18 +1968,18 @@ public:
     {
         [[maybe_unused]] auto guard = mSync.lock();
         JsonObject root;
-        JsonObject features_json;
+        JsonObject featuresJson;
         for (const auto& [name, node] : mFeatures)
         {
-            features_json[name] = node.toJson();
+            featuresJson[name] = node.toJson();
         }
-        root["features"] = JsonValue{std::move(features_json)};
-        JsonObject groups_json;
+        root["features"] = JsonValue{std::move(featuresJson)};
+        JsonObject groupsJson;
         for (const auto& [name, group] : mGroups)
         {
-            groups_json[name] = group->toJson();
+            groupsJson[name] = group->toJson();
         }
-        root["groups"] = JsonValue{std::move(groups_json)};
+        root["groups"] = JsonValue{std::move(groupsJson)};
         return to_json_string(root);
     }
 
@@ -1991,12 +1991,12 @@ public:
     // 3. Full validation: cycles are detected and enabled-state invariants are checked
     //
     // If any validation fails, an error is returned and no partial state is created.
-    [[nodiscard]] static Expected<FeatureManager, std::string> fromJson(const std::string& json_str)
+    [[nodiscard]] static Expected<FeatureManager, std::string> fromJson(const std::string& jsonStr)
     {
         JsonValue root;
         try
         {
-            root = parse_json(json_str);
+            root = parse_json(jsonStr);
         }
         catch (const std::exception& e)
         {
@@ -2008,22 +2008,22 @@ public:
         }
         const auto& obj = std::get<JsonObject>(root);
         FeatureManager manager;
-        auto features_it = obj.find("features");
-        if (features_it != obj.end())
+        auto featuresIt = obj.find("features");
+        if (featuresIt != obj.end())
         {
-            if (!features_it->second.is_object())
+            if (!featuresIt->second.is_object())
             {
                 return unexpected("'features' must be an object");
             }
-            const auto& features_obj = std::get<JsonObject>(features_it->second);
-            for (const auto& [name, value] : features_obj)
+            const auto& featuresObj = std::get<JsonObject>(featuresIt->second);
+            for (const auto& [name, value] : featuresObj)
             {
-                auto node_res = FeatureNode::fromJson(value);
-                if (!node_res)
+                auto nodeRes = FeatureNode::fromJson(value);
+                if (!nodeRes)
                 {
-                    return unexpected("Error parsing feature '" + name + "': " + node_res.error());
+                    return unexpected("Error parsing feature '" + name + "': " + nodeRes.error());
                 }
-                manager.mFeatures[name] = std::move(*node_res);
+                manager.mFeatures[name] = std::move(*nodeRes);
             }
         }
 
@@ -2032,7 +2032,7 @@ public:
         {
             for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
-                const auto& targets = node.relationships[ri];
+                const auto& targets = node.mRelationships[ri];
                 auto rel = static_cast<FeatureRelationship>(ri);
                 for (const auto& target : targets)
                 {
@@ -2048,64 +2048,64 @@ public:
 
         // Symmetrization: Ensure Conflicts and MutuallyExclusive relationships are bidirectional.
         // This handles hand-edited JSON where only one direction was specified.
-        for (auto&& [from_name, from_node] : manager.mFeatures)
+        for (auto&& [fromName, fromNode] : manager.mFeatures)
         {
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
-                const auto& targets = from_node.relationships[relIdx(rel)];
+                const auto& targets = fromNode.mRelationships[relIdx(rel)];
                 if (targets.empty())
                 {
                     continue;
                 }
-                for (const auto& to_name : targets)
+                for (const auto& toName : targets)
                 {
                     // Add reverse relationship if not already present.
-                    // to_name is validated to exist by the relationship check above.
-                    auto* to_node_ptr = manager.mFeatures.find(to_name);
-                    (void)to_node_ptr->relationships[relIdx(rel)].insert(from_name);
+                    // toName is validated to exist by the relationship check above.
+                    auto* toNodePtr = manager.mFeatures.find(toName);
+                    (void)toNodePtr->mRelationships[relIdx(rel)].insert(fromName);
                 }
             }
         }
 
-        auto groups_it = obj.find("groups");
-        if (groups_it != obj.end())
+        auto groupsIt = obj.find("groups");
+        if (groupsIt != obj.end())
         {
-            if (!groups_it->second.is_object())
+            if (!groupsIt->second.is_object())
             {
                 return unexpected("'groups' must be an object");
             }
-            const auto& groups_obj = std::get<JsonObject>(groups_it->second);
-            for (const auto& [name, value] : groups_obj)
+            const auto& groupsObj = std::get<JsonObject>(groupsIt->second);
+            for (const auto& [name, value] : groupsObj)
             {
                 if (!value.is_array())
                 {
                     return unexpected("Group '" + name + "' must be an array");
                 }
                 const auto& arr = std::get<JsonArray>(value);
-                std::vector<std::string> feature_names;
+                std::vector<std::string> featureNames;
                 for (const auto& elem : arr)
                 {
                     if (!elem.is_string())
                     {
                         return unexpected("Group feature must be string");
                     }
-                    auto feature_name = std::get<std::string>(elem);
-                    if (!manager.mFeatures.count(feature_name))
+                    auto featureName = std::get<std::string>(elem);
+                    if (!manager.mFeatures.count(featureName))
                     {
-                        return unexpected("Group '" + name + "' references missing feature '" + feature_name + "'");
+                        return unexpected("Group '" + name + "' references missing feature '" + featureName + "'");
                     }
-                    feature_names.push_back(std::move(feature_name));
+                    featureNames.push_back(std::move(featureName));
                 }
-                manager.mGroups[name] = std::make_unique<FeatureGroupInfo<FeatureGroupState>>(feature_names);
+                manager.mGroups[name] = std::make_unique<FeatureGroupInfo<FeatureGroupState>>(featureNames);
             }
         }
 
         // Full validation: detect cycles and verify enabled-state invariants.
         // This catches invalid graphs that could cause problems during enable/disable.
-        auto validate_res = manager.validateUnlocked();
-        if (!validate_res)
+        auto validateRes = manager.validateUnlocked();
+        if (!validateRes)
         {
-            return unexpected("Loaded graph fails validation: " + validate_res.error());
+            return unexpected("Loaded graph fails validation: " + validateRes.error());
         }
 
         return manager;
@@ -2121,14 +2121,14 @@ public:
         ss << "    node [shape=box];\n";
         for (const auto& [name, node] : mFeatures)
         {
-            std::string color = node.enabled ? "green" : "gray";
+            std::string color = node.mEnabled ? "green" : "gray";
             ss << "    \"" << name << "\" [style=filled, fillcolor=" << color << "];\n";
         }
         for (const auto& [name, node] : mFeatures)
         {
             for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
-                const auto& targets = node.relationships[ri];
+                const auto& targets = node.mRelationships[ri];
                 if (targets.empty())
                 {
                     continue;
@@ -2154,9 +2154,9 @@ public:
                 }
                 for (const auto& target : targets)
                 {
-                    std::string_view type_str = EnumStringPolicy<FeatureRelationship>::to_string(type);
+                    std::string_view typeStr = EnumStringPolicy<FeatureRelationship>::to_string(type);
                     ss << "    \"" << name << "\" -> \"" << target << "\" [style=" << style << ", arrowhead=" << arrow
-                       << ", label=\"" << type_str << "\"];\n";
+                       << ", label=\"" << typeStr << "\"];\n";
                 }
             }
         }

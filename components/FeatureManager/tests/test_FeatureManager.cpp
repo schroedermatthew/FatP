@@ -131,19 +131,19 @@ using namespace fat_p::feature;
 
 // Custom state computer for network group
 NetworkState network_state_computer([[maybe_unused]] const FlatSet<std::string>& group_flags,
-                                    size_t enabled_count,
-                                    bool has_conflict,
-                                    bool all_checks_pass)
+                                    size_t enabledCount,
+                                    bool hasConflict,
+                                    bool allChecksPass)
 {
-    if (has_conflict || !all_checks_pass)
+    if (hasConflict || !allChecksPass)
     {
         return NetworkState::Error;
     }
-    if (enabled_count == 0)
+    if (enabledCount == 0)
     {
         return NetworkState::Disconnected;
     }
-    if (enabled_count == 1)
+    if (enabledCount == 1)
     {
         return NetworkState::Connecting;
     }
@@ -169,8 +169,8 @@ FATP_TEST_CASE(basic_operations)
 
         FATP_ASSERT_FALSE(graph.isEnabled("FeatureA"), "Flag should be disabled initially");
 
-        auto enable_res = graph.enable("FeatureA");
-        FATP_ASSERT_TRUE(enable_res.has_value(), "Should enable flag");
+        auto enableRes = graph.enable("FeatureA");
+        FATP_ASSERT_TRUE(enableRes.has_value(), "Should enable flag");
         FATP_ASSERT_TRUE(graph.isEnabled("FeatureA"), "Flag should be enabled");
 
         auto disable_res = graph.disable("FeatureA");
@@ -415,8 +415,8 @@ FATP_TEST_CASE(groups)
         FATP_ASSERT_TRUE(res.has_value(), "Should add mutually exclusive group");
 
         (void)graph.enable("Red");
-        auto enable_res = graph.enable("Green");
-        FATP_ASSERT_FALSE(enable_res.has_value(), "Should fail: mutually exclusive");
+        auto enableRes = graph.enable("Green");
+        FATP_ASSERT_FALSE(enableRes.has_value(), "Should fail: mutually exclusive");
     }
     return true;
 }
@@ -514,10 +514,10 @@ FATP_TEST_CASE(observers)
     bool last_state = false;
     bool last_success = false;
 
-    FeatureObserver cb = [&](const std::string& name, bool new_state, bool success) {
+    FeatureObserver cb = [&](const std::string& name, bool newState, bool success) {
         (void)name;
         call_count++;
-        last_state = new_state;
+        last_state = newState;
         last_success = success;
     };
 
@@ -913,14 +913,14 @@ FATP_TEST_CASE(batch_observer)
         (void)manager.addRelationship("Module2", FeatureRelationship::Requires, "Core");
 
         std::string requested;
-        std::vector<std::string> all_changed;
-        bool was_enabled = false;
+        std::vector<std::string> allChanged;
+        bool wasEnabled = false;
         bool was_success = false;
 
         (void)manager.addBatchObserver([&](auto req, auto changed, auto en, auto ok) {
             requested = req;
-            all_changed = changed;
-            was_enabled = en;
+            allChanged = changed;
+            wasEnabled = en;
             was_success = ok;
         });
 
@@ -928,13 +928,13 @@ FATP_TEST_CASE(batch_observer)
         (void)manager.enable("Module1");
 
         FATP_ASSERT_EQ(requested, "Module1", "Requested feature should be Module1");
-        FATP_ASSERT_TRUE(was_enabled, "Should be enable operation");
+        FATP_ASSERT_TRUE(wasEnabled, "Should be enable operation");
         FATP_ASSERT_TRUE(was_success, "Should succeed");
-        FATP_ASSERT_TRUE(all_changed.size() >= 2, "Should have at least 2 changed features");
+        FATP_ASSERT_TRUE(allChanged.size() >= 2, "Should have at least 2 changed features");
 
         // Check that both Core and Module1 are in the changed list
-        bool has_core = std::find(all_changed.begin(), all_changed.end(), "Core") != all_changed.end();
-        bool has_module1 = std::find(all_changed.begin(), all_changed.end(), "Module1") != all_changed.end();
+        bool has_core = std::find(allChanged.begin(), allChanged.end(), "Core") != allChanged.end();
+        bool has_module1 = std::find(allChanged.begin(), allChanged.end(), "Module1") != allChanged.end();
         FATP_ASSERT_TRUE(has_core, "Core should be in changed list");
         FATP_ASSERT_TRUE(has_module1, "Module1 should be in changed list");
     }
@@ -1289,10 +1289,10 @@ FATP_TEST_CASE(basic_factory_registration)
     });
     FATP_ASSERT_FALSE(registered_again, "Should not allow duplicate registration");
 
-    auto check_result = factory.make("test.simple");
-    FATP_ASSERT_TRUE(check_result.has_value(), "Should find registered check");
+    auto checkResult = factory.make("test.simple");
+    FATP_ASSERT_TRUE(checkResult.has_value(), "Should find registered check");
 
-    auto check = *check_result;
+    auto check = *checkResult;
     auto result = check();
     FATP_ASSERT_TRUE(result.has_value(), "Check should pass");
 

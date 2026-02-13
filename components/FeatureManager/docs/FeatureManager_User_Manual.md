@@ -309,7 +309,7 @@ Pseudocode:
     
     check_conflicts(feature)
     run_validation(feature)
-    feature.enabled = true
+    feature.mEnabled = true
     path.pop()
 ```
 
@@ -356,9 +356,9 @@ Serialization:
 
 Deserialization:
   For each JSON feature:
-    node.enabled = JSON.enabled
+    node.mEnabled = JSON.mEnabled
     if JSON has check_key:
-      node.check = factory.make(check_key)  // Reconstruct callback
+      node.mCheck = factory.make(check_key)  // Reconstruct callback
     parse relationships
 ```
 
@@ -854,15 +854,15 @@ ObserverId addObserver(
 **Type Aliases:**
 ```cpp
 using ObserverId = std::uint64_t;
-using FeatureObserver = std::function<void(const std::string& feature_name,
-                                            bool new_state,
+using FeatureObserver = std::function<void(const std::string& featureName,
+                                            bool newState,
                                             bool success)>;
 ```
 
 **Parameters:**
-- `callback`: Function called with (feature_name, new_state, success)
-  - `feature_name`: Name of feature that changed
-  - `new_state`: true if enabled, false if disabled
+- `callback`: Function called with (featureName, newState, success)
+  - `featureName`: Name of feature that changed
+  - `newState`: true if enabled, false if disabled
   - `success`: true if operation succeeded, false if rolled back
 - `priority`: Higher values = called first (default 0)
 
@@ -937,8 +937,8 @@ ObserverId addBatchObserver(
 **Type Alias:**
 ```cpp
 using BatchObserver = std::function<void(
-    const std::string& requested_feature,
-    const std::vector<std::string>& all_changed,
+    const std::string& requestedFeature,
+    const std::vector<std::string>& allChanged,
     bool enabled,
     bool success
 )>;
@@ -946,8 +946,8 @@ using BatchObserver = std::function<void(
 
 **Parameters:**
 - `callback`: Function receiving:
-  - `requested_feature`: The feature explicitly requested by the user
-  - `all_changed`: All features that changed state (includes implicit dependencies)
+  - `requestedFeature`: The feature explicitly requested by the user
+  - `allChanged`: All features that changed state (includes implicit dependencies)
   - `enabled`: true if this was an enable operation, false for disable
   - `success`: true if operation succeeded
 - `priority`: Higher values = called first (default 0)
@@ -963,21 +963,21 @@ using BatchObserver = std::function<void(
 **Example:**
 ```cpp
 manager.addBatchObserver([](const std::string& requested,
-                               const std::vector<std::string>& all_changed,
+                               const std::vector<std::string>& allChanged,
                                bool enabled,
                                bool success) {
     if (!success) return;
     
     std::cout << "User requested: " << requested << "\n";
     std::cout << "Features that changed: ";
-    for (const auto& f : all_changed) {
+    for (const auto& f : allChanged) {
         std::cout << f << " ";
     }
     std::cout << "\n";
     
     // Load assets for all newly enabled features
     if (enabled) {
-        for (const auto& feature : all_changed) {
+        for (const auto& feature : allChanged) {
             load_feature_assets(feature);
         }
     }
@@ -1164,9 +1164,9 @@ public:
 ```cpp
 {
     FeatureManager<>::ScopedBatchObserver batch_obs(manager,
-        [](auto requested, auto all_changed, auto enabled, auto success) {
+        [](auto requested, auto allChanged, auto enabled, auto success) {
             if (success && enabled) {
-                reload_ui_for_features(all_changed);
+                reload_ui_for_features(allChanged);
             }
         });
     
@@ -1186,15 +1186,15 @@ Add a feature group with custom state computation.
 template<typename StateType>
 Expected<void, std::string> addGroup(
     const std::string& name,
-    const std::vector<std::string>& feature_names,
-    std::function<StateType(const std::set<std::string>&)> state_computer
+    const std::vector<std::string>& featureNames,
+    std::function<StateType(const std::set<std::string>&)> mStateComputer
 );
 ```
 
 **Parameters:**
 - `name`: Unique group identifier
-- `feature_names`: Features belonging to this group
-- `state_computer`: Function that computes group state from set of enabled features
+- `featureNames`: Features belonging to this group
+- `mStateComputer`: Function that computes group state from set of enabled features
 
 **Returns:**
 - `Expected<void>` on success
@@ -1229,7 +1229,7 @@ Get the current computed state of a group.
 ```cpp
 template<typename StateType>
 Expected<StateType, std::string> getGroupState(
-    const std::string& group_name
+    const std::string& groupName
 );
 ```
 
@@ -1313,7 +1313,7 @@ Import state from JSON (restores callbacks from factory).
 **Signature:**
 ```cpp
 static Expected<FeatureManager, std::string> fromJson(
-    const std::string& json_str
+    const std::string& jsonStr
 );
 ```
 
@@ -1645,7 +1645,7 @@ manager.addFeature("HighQuality", "hardware.memory");
 
 ```cpp
 factory.registerType("key", [monitor]() -> FeatureCheck {
-    return [monitor]() { return monitor->check(); };
+    return [monitor]() { return monitor->mCheck(); };
 });
 ```
 
@@ -2664,13 +2664,13 @@ Fix: Graphics should not require Context; Context requires Graphics instead.
 ```cpp
 // ❌ Dangling 'this'
 factory.registerType("key", [this]() -> FeatureCheck {
-    return [this]() { return this->check(); };  // 'this' may be invalid
+    return [this]() { return this->mCheck(); };  // 'this' may be invalid
 });
 
 // ✅ Use shared_ptr
 auto self = std::make_shared<MyClass>();
 factory.registerType("key", [self]() -> FeatureCheck {
-    return [self]() { return self->check(); };  // 'self' kept alive
+    return [self]() { return self->mCheck(); };  // 'self' kept alive
 });
 ```
 

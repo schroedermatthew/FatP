@@ -97,14 +97,14 @@ Expected<void, FeatureError> enable(const std::string& name) {
     }
     
     // 2. Check for conflicts
-    for (const auto& rel : it->second.relationships) {
-        if (rel.type == Conflicts && features_[rel.target].enabled) {
+    for (const auto& rel : it->second.mRelationships) {
+        if (rel.type == Conflicts && features_[rel.target].mEnabled) {
             return {unexpect, FeatureError::Conflict};
         }
     }
     
     // 3. Enable required dependencies first (recursive)
-    for (const auto& rel : it->second.relationships) {
+    for (const auto& rel : it->second.mRelationships) {
         if (rel.type == Requires) {
             auto result = enable(rel.target);  // Recursive
             if (!result) return result;
@@ -112,10 +112,10 @@ Expected<void, FeatureError> enable(const std::string& name) {
     }
     
     // 4. Enable this feature
-    it->second.enabled = true;
+    it->second.mEnabled = true;
     
     // 5. Enable implied features
-    for (const auto& rel : it->second.relationships) {
+    for (const auto& rel : it->second.mRelationships) {
         if (rel.type == Implies) {
             enable(rel.target);  // Best-effort
         }
