@@ -1623,7 +1623,7 @@ public:
                 if (!res)
                 {
                     // Rollback ALL features to original states
-                    for (auto& [feature_name, node] : mFeatures)
+                    for (auto&& [feature_name, node] : mFeatures)
                     {
                         node.enabled = original_states[feature_name];
                     }
@@ -2041,7 +2041,7 @@ public:
 
         // Symmetrization: Ensure Conflicts and MutuallyExclusive relationships are bidirectional.
         // This handles hand-edited JSON where only one direction was specified.
-        for (auto& [from_name, from_node] : manager.mFeatures)
+        for (auto&& [from_name, from_node] : manager.mFeatures)
         {
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
