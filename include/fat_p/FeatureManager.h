@@ -64,6 +64,7 @@ FATP_META:
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -835,6 +836,7 @@ private:
 
     Expected<void, std::string> enable_feature(const std::string& name,
                                                std::vector<std::string>& enabling_chain,
+                                               std::unordered_set<std::string>& chain_set,
                                                std::vector<std::string>* changed_features,
                                                int depth = 0)
     {
@@ -843,9 +845,9 @@ private:
             return unexpected("Maximum dependency depth exceeded at feature: " + name);
         }
 
-        // Helper to check if name is in the chain (preserves order for cycle path reporting)
-        auto in_chain = [&enabling_chain](const std::string& n) {
-            return std::find(enabling_chain.begin(), enabling_chain.end(), n) != enabling_chain.end();
+        // O(1) membership test via hash set; vector is kept for path reconstruction only
+        auto in_chain = [&chain_set](const std::string& n) {
+            return chain_set.count(n) != 0;
         };
 
         // Check for circular dependencies first
@@ -868,21 +870,24 @@ private:
 
         // Track that we're in the process of enabling this feature
         enabling_chain.push_back(name);
+        chain_set.insert(name);
 
-        // RAII guard to ensure enabling_chain.pop_back() is always called on scope exit.
-        // This maintains chain consistency even on early returns from error paths.
+        // RAII guard to ensure enabling_chain and chain_set stay consistent on scope exit.
         struct ChainGuard
         {
             std::vector<std::string>& chain;
+            std::unordered_set<std::string>& set;
             bool dismissed = false;
-            explicit ChainGuard(std::vector<std::string>& c)
+            ChainGuard(std::vector<std::string>& c, std::unordered_set<std::string>& s)
                 : chain(c)
+                , set(s)
             {
             }
             ~ChainGuard()
             {
                 if (!dismissed)
                 {
+                    set.erase(chain.back());
                     chain.pop_back();
                 }
             }
@@ -890,7 +895,7 @@ private:
             {
                 dismissed = true;
             }
-        } chain_guard(enabling_chain);
+        } chain_guard(enabling_chain, chain_set);
 
         // Enable this feature first (may be rolled back on error)
         bool was_enabled = node->enabled;
@@ -918,7 +923,7 @@ private:
                 FeatureNode* req_node = *req_node_res;
                 if (!req_node->enabled)
                 {
-                    auto enable_res = enable_feature(required, enabling_chain, changed_features, depth + 1);
+                    auto enable_res = enable_feature(required, enabling_chain, chain_set, changed_features, depth + 1);
                     if (!enable_res)
                     {
                         node->enabled = false;
@@ -951,7 +956,7 @@ private:
                 FeatureNode* impl_node = *impl_node_res;
                 if (!impl_node->enabled)
                 {
-                    auto enable_res = enable_feature(implied, enabling_chain, changed_features, depth + 1);
+                    auto enable_res = enable_feature(implied, enabling_chain, chain_set, changed_features, depth + 1);
                     if (!enable_res)
                     {
                         node->enabled = false;
@@ -1521,7 +1526,8 @@ public:
             for (const auto& name : names)
             {
                 std::vector<std::string> chain;
-                auto res = enable_feature(name, chain, &all_changed);
+                std::unordered_set<std::string> chain_set;
+                auto res = enable_feature(name, chain, chain_set, &all_changed);
                 if (!res)
                 {
                     // Rollback ALL features to original states
