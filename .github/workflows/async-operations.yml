@@ -213,7 +213,7 @@ jobs:
       - name: Test include order independence
         run: |
           cat > test1.cpp << 'EOF'
-          #include "AsyncOperations.h"
+          #include "Expected.h"
           #include <vector>
           #include <algorithm>
           int main() {{ return 0; }}
@@ -222,7 +222,7 @@ jobs:
           cat > test2.cpp << 'EOF'
           #include <algorithm>
           #include <vector>
-          #include "AsyncOperations.h"
+          #include "Expected.h"
           int main() {{ return 0; }}
           EOF
 
