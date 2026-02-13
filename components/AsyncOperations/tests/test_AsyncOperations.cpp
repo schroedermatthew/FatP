@@ -15,7 +15,6 @@ FATP_META:
   related:
     docs_search: "AsyncOperations"
     headers:
-      - include/fat_p/AsyncOperations.h
       - include/fat_p/Expected.h
       - include/fat_p/FatPTest.h
   hygiene:
@@ -35,7 +34,6 @@ FATP_META:
 #include <string>
 #include <thread>
 
-#include "AsyncOperations.h"
 #include "Expected.h"
 #include "FatPTest.h"
 

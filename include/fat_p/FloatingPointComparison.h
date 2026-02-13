@@ -8,7 +8,7 @@ FATP_META:
   path: include/fat_p/FloatingPointComparison.h
   namespace: fat_p
   layer: Foundation
-  summary: "Public header for FloatingPointComparison."
+  summary: "Public header for FloatingPointComparison. Includes default tolerances (formerly ComparisonTolerances)."
   api_stability: in_work
   related:
     docs_search: "FloatingPointComparison"
@@ -34,7 +34,8 @@ FATP_META:
  *
  * Provides policy-based floating-point comparison with support for absolute,
  * relative, ULP, and hybrid tolerance strategies. Handles special cases
- * (NaN, infinity, signed zero) correctly.
+ * (NaN, infinity, signed zero) correctly. Includes default comparison
+ * tolerances (formerly ComparisonTolerances.h).
  *
  * CHANGE LOG:
  * - Added <cstdlib> for std::abs integer support.
@@ -66,12 +67,22 @@ FATP_META:
 #define FATP_FPC_HAS_BIT_CAST 0
 #endif
 
-#include "ComparisonTolerances.h"
 #include "DiagnosticLogger_Core.h"
 #include "Stringify.h"
 
 namespace fat_p
 {
+
+// ====================================================================
+// Default Comparison Tolerances
+// ====================================================================
+
+/** @brief Default epsilon for double-precision floating-point comparisons. */
+inline constexpr double kDefaultDoubleEpsilon =
+    std::numeric_limits<double>::epsilon() * 100.0; // Typical industry standard
+
+/** @brief Default epsilon for single-precision floating-point comparisons. */
+inline constexpr float kDefaultFloatEpsilon = std::numeric_limits<float>::epsilon() * 100.0f;
 
 // ====================================================================
 // Helper Functions

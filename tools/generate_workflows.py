@@ -275,7 +275,7 @@ STANDARD_COMPONENTS = [
      "components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp", None),
 
     # --- Single-test components (previously missing, Gap 2) ---
-    ("async-operations.yml", "AsyncOperations", "AsyncOperations.h",
+    ("async-operations.yml", "AsyncOperations", "Expected.h",
      "components/AsyncOperations/tests/test_AsyncOperations.cpp", None),
 
     ("atomic-shared-ptr.yml", "AtomicSharedPtr", "AtomicSharedPtr.h",

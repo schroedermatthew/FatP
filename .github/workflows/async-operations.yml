@@ -1,10 +1,10 @@
 # =============================================================================
 # .github/workflows/async-operations.yml
 # =============================================================================
-# CI workflow for AsyncOperations component
+# CI workflow for AsyncOperations (now part of Expected.h)
 #
 # Directory structure:
-#   Headers:    include/fat_p/AsyncOperations.h
+#   Headers:    include/fat_p/Expected.h (AsyncTask section)
 #   Tests:      components/AsyncOperations/tests/test_AsyncOperations.cpp
 # =============================================================================
 
@@ -14,17 +14,17 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'include/fat_p/AsyncOperations.h'
+      - 'include/fat_p/Expected.h'
       - 'components/AsyncOperations/tests/test_AsyncOperations.cpp'
       - '.github/workflows/async-operations.yml'
   pull_request:
     paths:
-      - 'include/fat_p/AsyncOperations.h'
+      - 'include/fat_p/Expected.h'
       - 'components/AsyncOperations/tests/test_AsyncOperations.cpp'
       - '.github/workflows/async-operations.yml'
 
 env:
-  HEADER: AsyncOperations.h
+  HEADER: Expected.h
   TEST_SRC: components/AsyncOperations/tests/test_AsyncOperations.cpp
 
 jobs:
