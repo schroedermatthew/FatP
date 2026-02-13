@@ -56,10 +56,8 @@ FATP_META:
 #include <atomic>
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
 
-#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -73,6 +71,7 @@ FATP_META:
 #include "Expected.h"
 #include "Factory.h"
 #include "JsonLite.h"
+#include "FastHashMap.h"
 #include "FlatSet.h"
 #include "Stringify.h"
 #include "ValueGuard.h"
@@ -92,6 +91,15 @@ enum class FeatureRelationship
     Implies,          // Enabling this implies enabling another
     MutuallyExclusive // For groups: all features in set conflict with each other
 };
+
+// Number of relationship types — used for array-based storage in FeatureNode
+static constexpr size_t kRelationshipCount = 4;
+
+// Convert FeatureRelationship enum to array index (0–3)
+constexpr size_t rel_idx(FeatureRelationship r) noexcept
+{
+    return static_cast<size_t>(r);
+}
 
 // Default built-in group state enum
 enum class FeatureGroupState
@@ -198,7 +206,7 @@ struct FeatureGroupStatePolicy
 {
     using state_type = StateEnum;
     static state_type
-    compute(const std::set<std::string>& group_features, size_t enabled_count, bool has_conflict, bool all_checks_pass)
+    compute(const FlatSet<std::string>& group_features, size_t enabled_count, bool has_conflict, bool all_checks_pass)
     {
         if (group_features.empty())
         {
@@ -222,7 +230,7 @@ struct FeatureGroupStatePolicy
 
 // Function type for custom state computation
 template <typename StateEnum>
-using StateComputer = std::function<StateEnum(const std::set<std::string>&, size_t, bool, bool)>;
+using StateComputer = std::function<StateEnum(const FlatSet<std::string>&, size_t, bool, bool)>;
 
 // ============================================================================
 // FeatureCheck Callback Factory
@@ -314,10 +322,10 @@ struct FeatureNode
     FeatureCheck check;
     std::string check_key; // For serialization: the factory key to restore check on load
 
-    // Relationship storage using FlatSet for cache-friendly sorted iteration
-    // Use std::map for relationship types (only 4 possible keys)
-    // Use FlatSet for target sets (frequently iterated, rarely modified)
-    std::map<FeatureRelationship, FlatSet<std::string>> relationships;
+    // Relationship storage: fixed-size array indexed by FeatureRelationship (0–3).
+    // Each slot holds a FlatSet of target feature names. Empty slots indicate no
+    // relationships of that type. Eliminates map overhead for a fixed 4-key domain.
+    std::array<FlatSet<std::string>, kRelationshipCount> relationships;
 
     JsonValue to_json() const
     {
@@ -327,13 +335,19 @@ struct FeatureNode
         {
             obj["check_key"] = JsonValue{check_key};
         }
-        for (const auto& [type, targets] : relationships)
+        for (size_t ri = 0; ri < kRelationshipCount; ++ri)
         {
+            const auto& targets = relationships[ri];
+            if (targets.empty())
+            {
+                continue;
+            }
             JsonArray arr;
             for (const auto& target : targets)
             {
                 arr.push_back(JsonValue{target});
             }
+            auto type = static_cast<FeatureRelationship>(ri);
             std::string type_name(EnumStringPolicy<FeatureRelationship>::to_string(type));
             obj[type_name] = JsonValue{std::move(arr)};
         }
@@ -403,7 +417,7 @@ struct FeatureNode
                     {
                         return unexpected("Element in " + ts + " must be string");
                     }
-                    node.relationships[type].insert(std::get<std::string>(elem));
+                    node.relationships[rel_idx(type)].insert(std::get<std::string>(elem));
                 }
             }
         }
@@ -415,7 +429,7 @@ struct FeatureNode
 struct FeatureGroupInfoBase
 {
     virtual ~FeatureGroupInfoBase() = default;
-    virtual std::set<std::string> get_features() const = 0;
+    virtual FlatSet<std::string> get_features() const = 0;
     virtual JsonValue to_json() const = 0;
     virtual std::string state_to_string() const = 0;
 };
@@ -424,7 +438,7 @@ struct FeatureGroupInfoBase
 template <typename StateEnum = FeatureGroupState>
 struct FeatureGroupInfo : public FeatureGroupInfoBase
 {
-    std::set<std::string> features;
+    FlatSet<std::string> features;
     StateComputer<StateEnum> state_computer;
     mutable std::atomic<StateEnum> cached_state;
 
@@ -436,7 +450,7 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
     {
     }
 
-    std::set<std::string> get_features() const override
+    FlatSet<std::string> get_features() const override
     {
         return features;
     }
@@ -493,8 +507,8 @@ private:
         BatchObserver callback;
     };
 
-    std::map<std::string, FeatureNode> mFeatures;
-    std::map<std::string, std::unique_ptr<FeatureGroupInfoBase>> mGroups;
+    FastHashMap<std::string, FeatureNode> mFeatures;
+    FastHashMap<std::string, std::unique_ptr<FeatureGroupInfoBase>> mGroups;
     std::vector<ObserverEntry> mObservers;
     std::vector<BatchObserverEntry> mBatchObservers;
     ObserverId mNextObserverId = 1;
@@ -522,22 +536,22 @@ private:
 
     Expected<FeatureNode*, std::string> get_node(const std::string& name)
     {
-        auto it = mFeatures.find(name);
-        if (it == mFeatures.end())
+        auto* ptr = mFeatures.find(name);
+        if (!ptr)
         {
             return unexpected("Feature not found: " + name);
         }
-        return &(it->second);
+        return ptr;
     }
 
     Expected<const FeatureNode*, std::string> get_node(const std::string& name) const
     {
-        auto it = mFeatures.find(name);
-        if (it == mFeatures.end())
+        auto* ptr = mFeatures.find(name);
+        if (!ptr)
         {
             return unexpected("Feature not found: " + name);
         }
-        return &(it->second);
+        return ptr;
     }
 
     // Add a relationship between two features (lock must already be held)
@@ -562,13 +576,13 @@ private:
         }
 
         FeatureNode* from_node = *from_res;
-        from_node->relationships[type].insert(to);
+        from_node->relationships[rel_idx(type)].insert(to);
 
         // Bidirectional for conflicts and mutually exclusive
         if (type == FeatureRelationship::Conflicts || type == FeatureRelationship::MutuallyExclusive)
         {
             FeatureNode* to_node = *to_res;
-            to_node->relationships[type].insert(from);
+            to_node->relationships[rel_idx(type)].insert(from);
         }
         return {};
     }
@@ -643,22 +657,22 @@ private:
             state[name] = VisitState::Visiting;
             stack.push_back(name);
 
-            auto node_it = mFeatures.find(name);
-            if (node_it == mFeatures.end())
+            auto* node_ptr = mFeatures.find(name);
+            if (!node_ptr)
             {
                 stack.pop_back();
                 state[name] = VisitState::Visited;
                 return unexpected("Feature not found: " + name);
             }
-            const FeatureNode& node = node_it->second;
+            const FeatureNode& node = *node_ptr;
 
             auto visit_relationship = [&](FeatureRelationship rel) -> Expected<void, std::string> {
-                auto rel_it = node.relationships.find(rel);
-                if (rel_it == node.relationships.end())
+                const auto& targets = node.relationships[rel_idx(rel)];
+                if (targets.empty())
                 {
                     return {};
                 }
-                for (const auto& dep : rel_it->second)
+                for (const auto& dep : targets)
                 {
                     auto dep_state = state.find(dep);
                     if (dep_state != state.end() && dep_state->second == VisitState::Visiting)
@@ -718,10 +732,12 @@ private:
         // --------------------------------------------------------------------
         // 1) Structural validation: every relationship target must exist.
         // --------------------------------------------------------------------
-        for (const auto& [name, node] : mFeatures)
+        for (const auto [name, node] : mFeatures)
         {
-            for (const auto& [rel, targets] : node.relationships)
+            for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
+                const auto& targets = node.relationships[ri];
+                auto rel = static_cast<FeatureRelationship>(ri);
                 for (const auto& target : targets)
                 {
                     if (!mFeatures.count(target))
@@ -754,17 +770,17 @@ private:
             }
 
             // Requires: enabled feature must have all required features enabled
-            auto req_it = node.relationships.find(FeatureRelationship::Requires);
-            if (req_it != node.relationships.end())
+            const auto& requires_targets = node.relationships[rel_idx(FeatureRelationship::Requires)];
+            if (!requires_targets.empty())
             {
-                for (const auto& required : req_it->second)
+                for (const auto& required : requires_targets)
                 {
-                    auto it = mFeatures.find(required);
-                    if (it == mFeatures.end())
+                    auto* req_ptr = mFeatures.find(required);
+                    if (!req_ptr)
                     {
                         return unexpected("Required feature not found: " + required);
                     }
-                    if (!it->second.enabled)
+                    if (!req_ptr->enabled)
                     {
                         return unexpected("'" + name + "' requires '" + required + "' but it's disabled");
                     }
@@ -772,17 +788,17 @@ private:
             }
 
             // Implies: enabled feature must have all implied features enabled
-            auto impl_it = node.relationships.find(FeatureRelationship::Implies);
-            if (impl_it != node.relationships.end())
+            const auto& implies_targets = node.relationships[rel_idx(FeatureRelationship::Implies)];
+            if (!implies_targets.empty())
             {
-                for (const auto& implied : impl_it->second)
+                for (const auto& implied : implies_targets)
                 {
-                    auto it = mFeatures.find(implied);
-                    if (it == mFeatures.end())
+                    auto* impl_ptr = mFeatures.find(implied);
+                    if (!impl_ptr)
                     {
                         return unexpected("Implied feature not found: " + implied);
                     }
-                    if (!it->second.enabled)
+                    if (!impl_ptr->enabled)
                     {
                         return unexpected("'" + name + "' implies '" + implied + "' but it's disabled");
                     }
@@ -792,16 +808,16 @@ private:
             // Conflicts and MutuallyExclusive
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
-                auto rel_it = node.relationships.find(rel);
-                if (rel_it == node.relationships.end())
+                const auto& conflict_targets = node.relationships[rel_idx(rel)];
+                if (conflict_targets.empty())
                 {
                     continue;
                 }
 
-                for (const auto& other : rel_it->second)
+                for (const auto& other : conflict_targets)
                 {
-                    auto it = mFeatures.find(other);
-                    if (it == mFeatures.end())
+                    auto* other_ptr = mFeatures.find(other);
+                    if (!other_ptr)
                     {
                         if (rel == FeatureRelationship::Conflicts)
                         {
@@ -809,7 +825,7 @@ private:
                         }
                         return unexpected("Mutually exclusive feature not found: " + other);
                     }
-                    if (it->second.enabled)
+                    if (other_ptr->enabled)
                     {
                         if (rel == FeatureRelationship::Conflicts)
                         {
@@ -902,9 +918,8 @@ private:
         node->enabled = true;
 
         // Process Required relationships (recursively enable dependencies)
-        if (node->relationships.count(FeatureRelationship::Requires))
         {
-            const auto& targets = node->relationships[FeatureRelationship::Requires];
+            const auto& targets = node->relationships[rel_idx(FeatureRelationship::Requires)];
             for (const auto& required : targets)
             {
                 // Check for circular dependency before recursing
@@ -934,9 +949,8 @@ private:
         }
 
         // Process Implies relationships
-        if (node->relationships.count(FeatureRelationship::Implies))
         {
-            const auto& targets = node->relationships[FeatureRelationship::Implies];
+            const auto& targets = node->relationships[rel_idx(FeatureRelationship::Implies)];
             for (const auto& implied : targets)
             {
                 // Check for circular dependency before checking if already enabled
@@ -969,9 +983,8 @@ private:
         // Check for conflicts
         for (auto type : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
         {
-            if (node->relationships.count(type))
             {
-                const auto& targets = node->relationships[type];
+                const auto& targets = node->relationships[rel_idx(type)];
                 for (const auto& conflicting : targets)
                 {
                     auto conf_node_res = get_node(conflicting);
@@ -1063,12 +1076,12 @@ private:
     template <typename StateEnum>
     Expected<StateEnum, std::string> compute_group_state_impl(const std::string& group_name) const
     {
-        auto git = mGroups.find(group_name);
-        if (git == mGroups.end())
+        auto* group_uptr = mGroups.find(group_name);
+        if (!group_uptr)
         {
             return unexpected("Group not found: " + group_name);
         }
-        auto* group_ptr = dynamic_cast<FeatureGroupInfo<StateEnum>*>(git->second.get());
+        auto* group_ptr = dynamic_cast<FeatureGroupInfo<StateEnum>*>(group_uptr->get());
         if (!group_ptr)
         {
             return unexpected("Type mismatch: group '" + group_name + "' is not of the requested state type");
@@ -1095,28 +1108,20 @@ private:
                     {
                         continue;
                     }
-                    if (node->relationships.count(FeatureRelationship::Conflicts))
+                    if (node->relationships[rel_idx(FeatureRelationship::Conflicts)].count(other) > 0)
                     {
-                        const auto& targets = node->relationships.at(FeatureRelationship::Conflicts);
-                        if (targets.count(other) > 0)
+                        auto other_node_res = get_node(other);
+                        if (other_node_res && (*other_node_res)->enabled)
                         {
-                            auto other_node_res = get_node(other);
-                            if (other_node_res && (*other_node_res)->enabled)
-                            {
-                                has_conflict = true;
-                            }
+                            has_conflict = true;
                         }
                     }
-                    if (node->relationships.count(FeatureRelationship::MutuallyExclusive))
+                    if (node->relationships[rel_idx(FeatureRelationship::MutuallyExclusive)].count(other) > 0)
                     {
-                        const auto& targets = node->relationships.at(FeatureRelationship::MutuallyExclusive);
-                        if (targets.count(other) > 0)
+                        auto other_node_res = get_node(other);
+                        if (other_node_res && (*other_node_res)->enabled)
                         {
-                            auto other_node_res = get_node(other);
-                            if (other_node_res && (*other_node_res)->enabled)
-                            {
-                                has_conflict = true;
-                            }
+                            has_conflict = true;
                         }
                     }
                 }
@@ -1483,15 +1488,15 @@ public:
     }
 
     // Get features in a group
-    [[nodiscard]] Expected<std::set<std::string>, std::string> get_group_features(const std::string& group_name) const
+    [[nodiscard]] Expected<FlatSet<std::string>, std::string> get_group_features(const std::string& group_name) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        auto git = mGroups.find(group_name);
-        if (git == mGroups.end())
+        auto* group_uptr = mGroups.find(group_name);
+        if (!group_uptr)
         {
             return unexpected("Group not found: " + group_name);
         }
-        return git->second->get_features();
+        return (*group_uptr)->get_features();
     }
 
     // Enable a feature with full transactional semantics
@@ -1533,7 +1538,7 @@ public:
             }
 
             // Snapshot ALL feature states before any modifications
-            std::map<std::string, bool> original_states;
+            FastHashMap<std::string, bool> original_states;
             for (const auto& [name, node] : mFeatures)
             {
                 original_states[name] = node.enabled;
@@ -1548,7 +1553,7 @@ public:
                 if (!res)
                 {
                     // Rollback ALL features to original states
-                    for (auto& [feature_name, node] : mFeatures)
+                    for (auto [feature_name, node] : mFeatures)
                     {
                         node.enabled = original_states[feature_name];
                     }
@@ -1607,7 +1612,7 @@ public:
         // This prevents incorrect rollback when the same feature appears multiple times.
         std::vector<std::string> unique_names;
         unique_names.reserve(names.size());
-        std::set<std::string> disabled_set;
+        std::unordered_set<std::string> disabled_set;
         for (const auto& n : names)
         {
             if (disabled_set.insert(n).second)
@@ -1665,37 +1670,31 @@ public:
                 }
 
                 // Check if this enabled feature requires any of the disabled features
-                if (node.relationships.count(FeatureRelationship::Requires))
+                for (const auto& required : node.relationships[rel_idx(FeatureRelationship::Requires)])
                 {
-                    for (const auto& required : node.relationships.at(FeatureRelationship::Requires))
+                    auto req_node = get_node(required);
+                    if (!req_node)
                     {
-                        auto req_node = get_node(required);
-                        if (!req_node)
-                        {
-                            rollback();
-                            return unexpected("Required feature not found: " + required);
-                        }
-                        if (!(*req_node)->enabled)
-                        {
-                            rollback();
-                            return unexpected("Cannot disable '" + required + "': required by enabled feature '" +
-                                              feature_name + "'");
-                        }
+                        rollback();
+                        return unexpected("Required feature not found: " + required);
+                    }
+                    if (!(*req_node)->enabled)
+                    {
+                        rollback();
+                        return unexpected("Cannot disable '" + required + "': required by enabled feature '" +
+                                          feature_name + "'");
                     }
                 }
 
                 // Check if this enabled feature implies any of the disabled features
                 // If A implies B and A is enabled, then B cannot be disabled
-                if (node.relationships.count(FeatureRelationship::Implies))
+                for (const auto& implied : node.relationships[rel_idx(FeatureRelationship::Implies)])
                 {
-                    for (const auto& implied : node.relationships.at(FeatureRelationship::Implies))
+                    if (disabled_set.count(implied))
                     {
-                        if (disabled_set.count(implied))
-                        {
-                            rollback();
-                            return unexpected("Cannot disable '" + implied + "': implied by enabled feature '" +
-                                              feature_name + "'. Disable '" + feature_name + "' first.");
-                        }
+                        rollback();
+                        return unexpected("Cannot disable '" + implied + "': implied by enabled feature '" +
+                                          feature_name + "'. Disable '" + feature_name + "' first.");
                     }
                 }
             }
@@ -1952,10 +1951,12 @@ public:
         }
 
         // Structural validation: all relationship targets must exist.
-        for (const auto& [name, node] : manager.mFeatures)
+        for (const auto [name, node] : manager.mFeatures)
         {
-            for (const auto& [rel, targets] : node.relationships)
+            for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
+                const auto& targets = node.relationships[ri];
+                auto rel = static_cast<FeatureRelationship>(ri);
                 for (const auto& target : targets)
                 {
                     if (!manager.mFeatures.count(target))
@@ -1970,20 +1971,21 @@ public:
 
         // Symmetrization: Ensure Conflicts and MutuallyExclusive relationships are bidirectional.
         // This handles hand-edited JSON where only one direction was specified.
-        for (auto& [from_name, from_node] : manager.mFeatures)
+        for (auto [from_name, from_node] : manager.mFeatures)
         {
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
-                auto it = from_node.relationships.find(rel);
-                if (it == from_node.relationships.end())
+                const auto& targets = from_node.relationships[rel_idx(rel)];
+                if (targets.empty())
                 {
                     continue;
                 }
-                for (const auto& to_name : it->second)
+                for (const auto& to_name : targets)
                 {
-                    // Add reverse relationship if not already present
-                    auto& to_node = manager.mFeatures[to_name];
-                    (void)to_node.relationships[rel].insert(from_name);
+                    // Add reverse relationship if not already present.
+                    // to_name is validated to exist by the relationship check above.
+                    auto* to_node_ptr = manager.mFeatures.find(to_name);
+                    (void)to_node_ptr->relationships[rel_idx(rel)].insert(from_name);
                 }
             }
         }
@@ -2045,10 +2047,16 @@ public:
             std::string color = node.enabled ? "green" : "gray";
             ss << "    \"" << name << "\" [style=filled, fillcolor=" << color << "];\n";
         }
-        for (const auto& [name, node] : mFeatures)
+        for (const auto [name, node] : mFeatures)
         {
-            for (const auto& [type, targets] : node.relationships)
+            for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
+                const auto& targets = node.relationships[ri];
+                if (targets.empty())
+                {
+                    continue;
+                }
+                auto type = static_cast<FeatureRelationship>(ri);
                 std::string style;
                 std::string arrow;
                 switch (type)

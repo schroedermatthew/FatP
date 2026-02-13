@@ -224,7 +224,7 @@ enum class BenchmarkState
     Error
 };
 
-inline BenchmarkState complexStateComputer(const std::set<std::string>& groupFeatures,
+inline BenchmarkState complexStateComputer(const fat_p::FlatSet<std::string>& groupFeatures,
                                            std::size_t enabledCount,
                                            bool hasConflict,
                                            bool allChecksPass)
