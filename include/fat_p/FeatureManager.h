@@ -93,7 +93,7 @@ enum class FeatureRelationship
 };
 
 // Number of relationship types — used for array-based storage in FeatureNode
-static constexpr size_t kRelationshipCount = 4;
+inline constexpr size_t kRelationshipCount = 4;
 
 // Convert FeatureRelationship enum to array index (0–3)
 constexpr size_t rel_idx(FeatureRelationship r) noexcept
@@ -739,7 +739,7 @@ private:
         // --------------------------------------------------------------------
         // 1) Structural validation: every relationship target must exist.
         // --------------------------------------------------------------------
-        for (const auto [name, node] : mFeatures)
+        for (const auto& [name, node] : mFeatures)
         {
             for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
@@ -1557,7 +1557,7 @@ public:
                 if (!res)
                 {
                     // Rollback ALL features to original states
-                    for (auto [feature_name, node] : mFeatures)
+                    for (auto& [feature_name, node] : mFeatures)
                     {
                         node.enabled = original_states[feature_name];
                     }
@@ -1955,7 +1955,7 @@ public:
         }
 
         // Structural validation: all relationship targets must exist.
-        for (const auto [name, node] : manager.mFeatures)
+        for (const auto& [name, node] : manager.mFeatures)
         {
             for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
@@ -1975,7 +1975,7 @@ public:
 
         // Symmetrization: Ensure Conflicts and MutuallyExclusive relationships are bidirectional.
         // This handles hand-edited JSON where only one direction was specified.
-        for (auto [from_name, from_node] : manager.mFeatures)
+        for (auto& [from_name, from_node] : manager.mFeatures)
         {
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
@@ -2051,7 +2051,7 @@ public:
             std::string color = node.enabled ? "green" : "gray";
             ss << "    \"" << name << "\" [style=filled, fillcolor=" << color << "];\n";
         }
-        for (const auto [name, node] : mFeatures)
+        for (const auto& [name, node] : mFeatures)
         {
             for (size_t ri = 0; ri < kRelationshipCount; ++ri)
             {
