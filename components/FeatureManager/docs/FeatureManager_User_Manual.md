@@ -33,12 +33,12 @@ FeatureManager is a modern C++17 header-only library for managing feature flags 
 
 Version 3.1 adds enhanced observer management and relationship validation:
 
-✨ **ID-Based Observer Removal** - `add_observer()` now returns `ObserverId` for reliable removal  
+✨ **ID-Based Observer Removal** - `addObserver()` now returns `ObserverId` for reliable removal  
 ✨ **RAII Observer Helpers** - `ScopedObserver` and `ScopedBatchObserver` for automatic cleanup  
 ✨ **Batch Observers** - Receive all changed features in a single callback  
 ✨ **Implicit Dependency Notifications** - Observers notified for all features that change, not just the requested one  
-✨ **Implies Validation in batch_disable** - Cannot disable features implied by enabled features  
-✨ **clear_observers()** - Remove all observers at once
+✨ **Implies Validation in batchDisable** - Cannot disable features implied by enabled features  
+✨ **clearObservers()** - Remove all observers at once
 
 ### What's New in Version 3.0
 
@@ -175,7 +175,7 @@ Instead of stack overflow or infinite loops, you get:
 
 ### 3. **Transactional Batch Operations**
 ```cpp
-manager.batch_enable({"A", "B", "C"});
+manager.batchEnable({"A", "B", "C"});
 // Either ALL succeed (including implicit dependencies)
 // Or ALL are rolled back (no partial state)
 ```
@@ -186,7 +186,7 @@ manager.batch_enable({"A", "B", "C"});
 Define custom enums for domain-specific states:
 ```cpp
 enum class RenderingState { Software, Basic, Enhanced, Ultra };
-manager.add_group<RenderingState>("Rendering", features, custom_computer);
+manager.addGroup<RenderingState>("Rendering", features, custom_computer);
 ```
 
 **How:** Template-based state computation with user-provided functors. Groups track which features are enabled and compute composite states in O(n) where n = group size.
@@ -205,13 +205,13 @@ manager.add_group<RenderingState>("Rendering", features, custom_computer);
 factory.registerType("gpu.check", []() { return check_gpu(); });
 
 // Use in feature
-manager.add_feature("GPUFeature", "gpu.check");
+manager.addFeature("GPUFeature", "gpu.check");
 
 // Serialize - callback key is saved
-std::string json = manager.to_json();
+std::string json = manager.toJson();
 
 // Deserialize - callback automatically restored!
-auto restored = FeatureManager<>::from_json(json);
+auto restored = FeatureManager<>::fromJson(json);
 ```
 
 **How:** FeatureCheckFactory singleton maps string keys to callback creator functions. Serialization stores keys, deserialization reconstructs callbacks via factory lookup. See [Callback Factory System](#callback-factory-system) for details.
@@ -331,7 +331,7 @@ Uses **insertion-order path tracking**. When a node is re-encountered during tra
 
 #### 4. Transactional Batch Operations
 ```
-batch_enable(features):
+batchEnable(features):
   snapshot = record current state
   try:
     for each feature:
@@ -370,7 +370,7 @@ Deserialization:
 User Code
     |
     v
-[add_feature] ──→ Factory.make(key) ──→ FeatureCheck callback
+[addFeature] ──→ Factory.make(key) ──→ FeatureCheck callback
     |                                        |
     v                                        v
 FeatureManager.features                 Stored in node
@@ -410,11 +410,11 @@ int main() {
     FeatureManager<> manager;
     
     // Add features
-    manager.add_feature("BasicGraphics");
-    manager.add_feature("AdvancedGraphics");
+    manager.addFeature("BasicGraphics");
+    manager.addFeature("AdvancedGraphics");
     
     // Add relationship
-    manager.add_relationship("AdvancedGraphics", 
+    manager.addRelationship("AdvancedGraphics", 
                             FeatureRelationship::Requires, 
                             "BasicGraphics");
     
@@ -437,7 +437,7 @@ For features requiring validation (e.g., hardware checks), use the factory syste
 
 ```cpp
 // 1. Register callback in factory (do this once at startup)
-auto& factory = get_feature_check_factory();
+auto& factory = getFeatureCheckFactory();
 factory.registerType("gpu.check", []() -> FeatureCheck {
     return []() -> Expected<void, std::string> {
         if (!has_gpu()) {
@@ -448,7 +448,7 @@ factory.registerType("gpu.check", []() -> FeatureCheck {
 });
 
 // 2. Add feature with callback key
-manager.add_feature("GPUFeature", "gpu.check");
+manager.addFeature("GPUFeature", "gpu.check");
 
 // 3. Enable (runs validation)
 auto result = manager.enable("GPUFeature");
@@ -463,7 +463,7 @@ Save and restore complete feature graphs including callbacks:
 
 ```cpp
 // Save
-std::string json = manager.to_json();
+std::string json = manager.toJson();
 std::ofstream out("features.json");
 out << json;
 
@@ -471,7 +471,7 @@ out << json;
 std::ifstream in("features.json");
 std::string loaded((std::istreambuf_iterator<char>(in)),
                    std::istreambuf_iterator<char>());
-auto restored = FeatureManager<>::from_json(loaded);
+auto restored = FeatureManager<>::fromJson(loaded);
 if (restored) {
     FeatureManager<> manager = std::move(*restored);
     // Ready to use - callbacks are automatically reconnected
@@ -486,13 +486,13 @@ if (restored) {
 
 ### Feature Management
 
-#### `add_feature()` - Direct Callback
+#### `addFeature()` - Direct Callback
 
 Add a feature with a direct validation callback (not serializable).
 
 **Signature:**
 ```cpp
-Expected<void, std::string> add_feature(
+Expected<void, std::string> addFeature(
     const std::string& name, 
     FeatureCheck check = nullptr
 );
@@ -509,10 +509,10 @@ Expected<void, std::string> add_feature(
 **Example:**
 ```cpp
 // Simple feature
-manager.add_feature("BasicFeature");
+manager.addFeature("BasicFeature");
 
 // With direct callback (NOT serializable)
-manager.add_feature("GPUFeature", []() -> Expected<void, std::string> {
+manager.addFeature("GPUFeature", []() -> Expected<void, std::string> {
     if (!check_gpu_available()) {
         return unexpected("GPU not available");
     }
@@ -524,13 +524,13 @@ manager.add_feature("GPUFeature", []() -> Expected<void, std::string> {
 
 ---
 
-#### `add_feature()` - Factory Key (Recommended)
+#### `addFeature()` - Factory Key (Recommended)
 
 Add a feature using a registered callback key (fully serializable).
 
 **Signature:**
 ```cpp
-Expected<void, std::string> add_feature(
+Expected<void, std::string> addFeature(
     const std::string& name, 
     const std::string& check_key
 );
@@ -548,13 +548,13 @@ Expected<void, std::string> add_feature(
 **Example:**
 ```cpp
 // First, register the callback
-auto& factory = get_feature_check_factory();
+auto& factory = getFeatureCheckFactory();
 factory.registerType("hardware.gpu", []() -> FeatureCheck {
     return []() { return check_gpu(); };
 });
 
 // Then add feature with key
-auto result = manager.add_feature("GPUFeature", "hardware.gpu");
+auto result = manager.addFeature("GPUFeature", "hardware.gpu");
 if (!result) {
     std::cerr << result.error() << "\n";
 }
@@ -568,13 +568,13 @@ if (!result) {
 
 ---
 
-#### `add_relationship()`
+#### `addRelationship()`
 
 Add a relationship between two features.
 
 **Signature:**
 ```cpp
-Expected<void, std::string> add_relationship(
+Expected<void, std::string> addRelationship(
     const std::string& from, 
     FeatureRelationship type, 
     const std::string& to
@@ -597,10 +597,10 @@ Expected<void, std::string> add_relationship(
 **Example:**
 ```cpp
 // A requires B (directional)
-manager.add_relationship("FeatureA", FeatureRelationship::Requires, "FeatureB");
+manager.addRelationship("FeatureA", FeatureRelationship::Requires, "FeatureB");
 
 // A conflicts with B (bidirectional)
-manager.add_relationship("FeatureA", FeatureRelationship::Conflicts, "FeatureB");
+manager.addRelationship("FeatureA", FeatureRelationship::Conflicts, "FeatureB");
 // Automatically adds: FeatureB conflicts with FeatureA
 ```
 
@@ -679,13 +679,13 @@ if (!validation) {
 
 ---
 
-#### `is_enabled()`
+#### `isEnabled()`
 
 Check if a feature is enabled.
 
 **Signature:**
 ```cpp
-bool is_enabled(const std::string& name) const;
+bool isEnabled(const std::string& name) const;
 ```
 
 **Returns:** `true` if feature exists and is enabled, `false` otherwise
@@ -694,7 +694,7 @@ bool is_enabled(const std::string& name) const;
 
 **Example:**
 ```cpp
-if (manager.is_enabled("GPUAcceleration")) {
+if (manager.isEnabled("GPUAcceleration")) {
     use_gpu_path();
 } else {
     use_cpu_path();
@@ -739,13 +739,13 @@ if (!result) {
 
 ---
 
-#### `batch_enable()`
+#### `batchEnable()`
 
 Enable multiple features with transactional semantics.
 
 **Signature:**
 ```cpp
-Expected<void, std::string> batch_enable(
+Expected<void, std::string> batchEnable(
     const std::vector<std::string>& names
 );
 ```
@@ -770,7 +770,7 @@ Expected<void, std::string> batch_enable(
 **Example:**
 ```cpp
 std::vector<std::string> features = {"GPU", "HighQuality", "Shadows"};
-auto result = manager.batch_enable(features);
+auto result = manager.batchEnable(features);
 if (!result) {
     std::cerr << "Batch failed: " << result.error() << "\n";
     // NO features are enabled, even if some succeeded initially
@@ -779,13 +779,13 @@ if (!result) {
 
 ---
 
-#### `batch_disable()`
+#### `batchDisable()`
 
 Disable multiple features atomically with relationship validation.
 
 **Signature:**
 ```cpp
-Expected<void, std::string> batch_disable(
+Expected<void, std::string> batchDisable(
     const std::vector<std::string>& names
 );
 ```
@@ -809,17 +809,17 @@ Expected<void, std::string> batch_disable(
 If feature A implies feature B (meaning "when A is enabled, B must also be enabled"), then B cannot be disabled while A remains enabled. You must disable A first.
 
 ```cpp
-manager.add_relationship("Premium", FeatureRelationship::Implies, "AllFeatures");
+manager.addRelationship("Premium", FeatureRelationship::Implies, "AllFeatures");
 manager.enable("Premium");  // Both Premium and AllFeatures are now ON
 
 // This FAILS - Premium implies AllFeatures
-auto r1 = manager.batch_disable({"AllFeatures"});
+auto r1 = manager.batchDisable({"AllFeatures"});
 // Error: "Cannot disable 'AllFeatures': implied by enabled feature 'Premium'. 
 //         Disable 'Premium' first."
 
 // This succeeds - disable the implier first
 manager.disable("Premium");
-auto r2 = manager.batch_disable({"AllFeatures"});  // OK
+auto r2 = manager.batchDisable({"AllFeatures"});  // OK
 ```
 
 **Returns:**
@@ -830,7 +830,7 @@ auto r2 = manager.batch_disable({"AllFeatures"});  // OK
 ```cpp
 // Scenario: Clean shutdown sequence
 std::vector<std::string> to_disable = {"Networking", "Database", "Logging"};
-auto result = manager.batch_disable(to_disable);
+auto result = manager.batchDisable(to_disable);
 if (!result) {
     // Some feature depends on one we tried to disable
     std::cerr << "Cannot disable: " << result.error() << "\n";
@@ -839,13 +839,13 @@ if (!result) {
 
 ---
 
-#### `add_observer()`
+#### `addObserver()`
 
 Add an observer to be notified of feature state changes. Returns an ID for later removal.
 
 **Signature:**
 ```cpp
-ObserverId add_observer(
+ObserverId addObserver(
     FeatureObserver callback,
     int priority = 0
 );
@@ -866,19 +866,19 @@ using FeatureObserver = std::function<void(const std::string& feature_name,
   - `success`: true if operation succeeded, false if rolled back
 - `priority`: Higher values = called first (default 0)
 
-**Returns:** `ObserverId` that can be used with `remove_observer()`
+**Returns:** `ObserverId` that can be used with `removeObserver()`
 
 **Implicit Dependency Notifications:**
 
 Observers are notified for **all** features that change state, not just the explicitly requested one. When enabling a feature that has dependencies via Requires or Implies relationships, observers receive separate notifications for each implicitly enabled feature.
 
 ```cpp
-manager.add_feature("Core");
-manager.add_feature("Module");
-manager.add_relationship("Module", FeatureRelationship::Requires, "Core");
+manager.addFeature("Core");
+manager.addFeature("Module");
+manager.addRelationship("Module", FeatureRelationship::Requires, "Core");
 
 std::vector<std::string> notifications;
-manager.add_observer([&](const std::string& name, bool enabled, bool) {
+manager.addObserver([&](const std::string& name, bool enabled, bool) {
     if (enabled) notifications.push_back(name);
 });
 
@@ -897,7 +897,7 @@ manager.enable("Module");  // Implicitly enables Core first
 **Example:**
 ```cpp
 // Store the ID for later removal
-ObserverId logObserver = manager.add_observer(
+ObserverId logObserver = manager.addObserver(
     [](const std::string& name, bool state, bool success) {
         if (success) {
             std::cout << "Feature " << name << (state ? " enabled" : " disabled") << "\n";
@@ -907,7 +907,7 @@ ObserverId logObserver = manager.add_observer(
 );
 
 // Higher priority observer called first
-ObserverId auditObserver = manager.add_observer(
+ObserverId auditObserver = manager.addObserver(
     [](const std::string& name, bool state, bool success) {
         log_to_file(name, state);
     }, 
@@ -915,20 +915,20 @@ ObserverId auditObserver = manager.add_observer(
 );
 
 // Later, remove specific observers
-manager.remove_observer(logObserver);
+manager.removeObserver(logObserver);
 ```
 
 **Thread Safety:** Observer callbacks must be thread-safe if using concurrent policies.
 
 ---
 
-#### `add_batch_observer()`
+#### `addBatchObserver()`
 
 Add a batch observer that receives all changed features in a single callback.
 
 **Signature:**
 ```cpp
-ObserverId add_batch_observer(
+ObserverId addBatchObserver(
     BatchObserver callback,
     int priority = 0
 );
@@ -962,7 +962,7 @@ using BatchObserver = std::function<void(
 
 **Example:**
 ```cpp
-manager.add_batch_observer([](const std::string& requested,
+manager.addBatchObserver([](const std::string& requested,
                                const std::vector<std::string>& all_changed,
                                bool enabled,
                                bool success) {
@@ -991,17 +991,17 @@ manager.enable("AdvancedMode");
 
 ---
 
-#### `remove_observer()`
+#### `removeObserver()`
 
 Remove an observer by its ID.
 
 **Signature:**
 ```cpp
-bool remove_observer(ObserverId id);
+bool removeObserver(ObserverId id);
 ```
 
 **Parameters:**
-- `id`: The `ObserverId` returned by `add_observer()` or `add_batch_observer()`
+- `id`: The `ObserverId` returned by `addObserver()` or `addBatchObserver()`
 
 **Returns:** `true` if an observer with that ID was found and removed, `false` otherwise
 
@@ -1010,27 +1010,27 @@ bool remove_observer(ObserverId id);
 **Example:**
 ```cpp
 // Add and later remove
-ObserverId id = manager.add_observer([](auto...) { /* ... */ });
+ObserverId id = manager.addObserver([](auto...) { /* ... */ });
 
 // ... later ...
-bool removed = manager.remove_observer(id);
+bool removed = manager.removeObserver(id);
 if (removed) {
     std::cout << "Observer successfully removed\n";
 }
 
 // Removing again returns false
-bool removed_again = manager.remove_observer(id);  // false
+bool removed_again = manager.removeObserver(id);  // false
 ```
 
 ---
 
-#### `clear_observers()`
+#### `clearObservers()`
 
 Remove all observers (both regular and batch).
 
 **Signature:**
 ```cpp
-void clear_observers();
+void clearObservers();
 ```
 
 **Use Cases:**
@@ -1041,12 +1041,12 @@ void clear_observers();
 **Example:**
 ```cpp
 // Add several observers during initialization
-manager.add_observer(logging_observer);
-manager.add_observer(metrics_observer);
-manager.add_batch_observer(ui_update_observer);
+manager.addObserver(logging_observer);
+manager.addObserver(metrics_observer);
+manager.addBatchObserver(ui_update_observer);
 
 // Later, during shutdown or reset
-manager.clear_observers();  // All observers removed
+manager.clearObservers();  // All observers removed
 ```
 
 ---
@@ -1060,7 +1060,7 @@ RAII helper for automatic observer registration/unregistration.
 class FeatureManager::ScopedObserver {
 public:
     ScopedObserver(FeatureManager& manager, FeatureObserver callback, int priority = 0);
-    ~ScopedObserver();  // Automatically calls remove_observer()
+    ~ScopedObserver();  // Automatically calls removeObserver()
     
     // Move-only (not copyable)
     ScopedObserver(ScopedObserver&& other) noexcept;
@@ -1177,14 +1177,14 @@ public:
 
 ---
 
-#### `add_group()`
+#### `addGroup()`
 
 Add a feature group with custom state computation.
 
 **Signature:**
 ```cpp
 template<typename StateType>
-Expected<void, std::string> add_group(
+Expected<void, std::string> addGroup(
     const std::string& name,
     const std::vector<std::string>& feature_names,
     std::function<StateType(const std::set<std::string>&)> state_computer
@@ -1204,7 +1204,7 @@ Expected<void, std::string> add_group(
 ```cpp
 enum class GraphicsQuality { Low, Medium, High, Ultra };
 
-manager.add_group<GraphicsQuality>(
+manager.addGroup<GraphicsQuality>(
     "Graphics",
     {"BasicGraphics", "Textures", "Shadows", "RayTracing"},
     [](const std::set<std::string>& enabled) -> GraphicsQuality {
@@ -1216,19 +1216,19 @@ manager.add_group<GraphicsQuality>(
 );
 
 // Query group state
-auto state = manager.get_group_state<GraphicsQuality>("Graphics");
+auto state = manager.getGroupState<GraphicsQuality>("Graphics");
 ```
 
 ---
 
-#### `get_group_state()`
+#### `getGroupState()`
 
 Get the current computed state of a group.
 
 **Signature:**
 ```cpp
 template<typename StateType>
-Expected<StateType, std::string> get_group_state(
+Expected<StateType, std::string> getGroupState(
     const std::string& group_name
 );
 ```
@@ -1239,20 +1239,20 @@ Expected<StateType, std::string> get_group_state(
 
 ---
 
-#### `to_dot()`
+#### `toDot()`
 
 Export graph to GraphViz DOT format for visualization.
 
 **Signature:**
 ```cpp
-std::string to_dot() const;
+std::string toDot() const;
 ```
 
 **Returns:** String containing DOT graph description
 
 **Example:**
 ```cpp
-std::string dot = manager.to_dot();
+std::string dot = manager.toDot();
 std::ofstream out("features.dot");
 out << dot;
 // Convert to image: dot -Tpng features.dot -o features.png
@@ -1266,13 +1266,13 @@ out << dot;
 
 ### Serialization
 
-#### `to_json()`
+#### `toJson()`
 
 Export state to JSON (includes callback keys).
 
 **Signature:**
 ```cpp
-std::string to_json() const;
+std::string toJson() const;
 ```
 
 **Returns:** JSON string representing entire feature graph
@@ -1298,7 +1298,7 @@ std::string to_json() const;
 
 **Example:**
 ```cpp
-std::string json = manager.to_json();
+std::string json = manager.toJson();
 save_to_file("config.json", json);
 ```
 
@@ -1306,13 +1306,13 @@ save_to_file("config.json", json);
 
 ---
 
-#### `from_json()`
+#### `fromJson()`
 
 Import state from JSON (restores callbacks from factory).
 
 **Signature:**
 ```cpp
-static Expected<FeatureManager, std::string> from_json(
+static Expected<FeatureManager, std::string> fromJson(
     const std::string& json_str
 );
 ```
@@ -1324,7 +1324,7 @@ static Expected<FeatureManager, std::string> from_json(
 **Example:**
 ```cpp
 std::string json = load_from_file("config.json");
-auto result = FeatureManager<>::from_json(json);
+auto result = FeatureManager<>::fromJson(json);
 if (result) {
     FeatureManager<> manager = std::move(*result);
     // Callbacks automatically restored via factory lookups
@@ -1333,7 +1333,7 @@ if (result) {
 }
 ```
 
-**Prerequisites:** Callback factory must be initialized with all keys referenced in JSON **before** calling `from_json`.
+**Prerequisites:** Callback factory must be initialized with all keys referenced in JSON **before** calling `fromJson`.
 
 ---
 
@@ -1347,13 +1347,13 @@ The callback factory system is the mechanism that enables full serialization of 
 
 ```cpp
 // This works at runtime:
-manager.add_feature("GPU", []() { return check_gpu(); });
+manager.addFeature("GPU", []() { return check_gpu(); });
 
-// But to_json() cannot save this lambda:
-std::string json = manager.to_json();  // Lambda is lost!
+// But toJson() cannot save this lambda:
+std::string json = manager.toJson();  // Lambda is lost!
 
-// After from_json(), the callback is gone:
-auto restored = FeatureManager<>::from_json(json);
+// After fromJson(), the callback is gone:
+auto restored = FeatureManager<>::fromJson(json);
 // "GPU" feature exists but has no validation callback
 ```
 
@@ -1375,7 +1375,7 @@ Load:       "gpu.check" ──→ Factory ──→ Callback Reconstructed!
 Access the singleton factory instance:
 
 ```cpp
-auto& factory = fat_p::get_feature_check_factory();
+auto& factory = fat_p::getFeatureCheckFactory();
 ```
 
 **Type:** `FeatureCheckFactory` (alias for `SimpleFactory<std::string, FeatureCheck>`)
@@ -1402,7 +1402,7 @@ bool registerType(
 
 **Example:**
 ```cpp
-auto& factory = get_feature_check_factory();
+auto& factory = getFeatureCheckFactory();
 
 bool success = factory.registerType("gpu.check", []() -> FeatureCheck {
     return []() -> Expected<void, std::string> {
@@ -1488,7 +1488,7 @@ Each module independently registers its callbacks during initialization:
 // graphics_module.cpp
 namespace graphics {
     void init() {
-        auto& factory = get_feature_check_factory();
+        auto& factory = getFeatureCheckFactory();
         
         factory.registerType("graphics.opengl", []() -> FeatureCheck {
             return []() { return check_opengl(); };
@@ -1507,7 +1507,7 @@ namespace graphics {
 // audio_module.cpp
 namespace audio {
     void init() {
-        auto& factory = get_feature_check_factory();
+        auto& factory = getFeatureCheckFactory();
         
         factory.registerType("audio.wasapi", []() -> FeatureCheck {
             return []() { return check_wasapi(); };
@@ -1527,7 +1527,7 @@ int main() {
     network::init();
     
     // Now load feature configuration
-    auto manager = FeatureManager<>::from_json(load_config());
+    auto manager = FeatureManager<>::fromJson(load_config());
     // All callbacks automatically restored via factory
 }
 ```
@@ -1575,8 +1575,8 @@ private:
     GraphicsPlugin vulkan("vulkan");
     
     FeatureManager<> manager;
-    manager.add_feature("OpenGL", "plugin.graphics.opengl");
-    manager.add_feature("Vulkan", "plugin.graphics.vulkan");
+    manager.addFeature("OpenGL", "plugin.graphics.opengl");
+    manager.addFeature("Vulkan", "plugin.graphics.vulkan");
     
     // Use features...
     
@@ -1596,7 +1596,7 @@ Capture class instances to call member functions:
 class HardwareMonitor {
 public:
     void register_checks() {
-        auto& factory = get_feature_check_factory();
+        auto& factory = getFeatureCheckFactory();
         
         // Capture 'this' to call member functions
         factory.registerType("hardware.gpu", [this]() -> FeatureCheck {
@@ -1637,8 +1637,8 @@ auto monitor = std::make_shared<HardwareMonitor>();
 monitor->register_checks();
 
 FeatureManager<> manager;
-manager.add_feature("GPUAcceleration", "hardware.gpu");
-manager.add_feature("HighQuality", "hardware.memory");
+manager.addFeature("GPUAcceleration", "hardware.gpu");
+manager.addFeature("HighQuality", "hardware.memory");
 ```
 
 **Warning:** Ensure the captured object (`this`) outlives the factory registration. Use `shared_ptr` for safety:
@@ -1662,7 +1662,7 @@ struct Configuration {
 
 Configuration config = load_configuration();
 
-auto& factory = get_feature_check_factory();
+auto& factory = getFeatureCheckFactory();
 
 factory.registerType("system.requirements", [config]() -> FeatureCheck {
     return [config]() -> Expected<void, std::string> {
@@ -1714,7 +1714,7 @@ namespace CheckKeys {
 }
 
 factory.registerType(CheckKeys::GRAPHICS_OPENGL, /* ... */);
-manager.add_feature("OpenGL", CheckKeys::GRAPHICS_OPENGL);
+manager.addFeature("OpenGL", CheckKeys::GRAPHICS_OPENGL);
 ```
 
 ### Complete Serialization Workflow
@@ -1724,7 +1724,7 @@ manager.add_feature("OpenGL", CheckKeys::GRAPHICS_OPENGL);
 // STEP 1: Register callbacks at startup
 // ═══════════════════════════════════════
 void initialize_system() {
-    auto& factory = get_feature_check_factory();
+    auto& factory = getFeatureCheckFactory();
     
     factory.registerType("gpu.check", []() -> FeatureCheck {
         return []() { return has_gpu() ? Expected<void, std::string>{} 
@@ -1743,16 +1743,16 @@ void initialize_system() {
 void setup_features() {
     FeatureManager<> manager;
     
-    manager.add_feature("GPUAcceleration", "gpu.check");
-    manager.add_feature("HighQuality", "memory.check");
-    manager.add_relationship("HighQuality", 
+    manager.addFeature("GPUAcceleration", "gpu.check");
+    manager.addFeature("HighQuality", "memory.check");
+    manager.addRelationship("HighQuality", 
                             FeatureRelationship::Requires, 
                             "GPUAcceleration");
     
     manager.enable("HighQuality");
     
     // Save configuration
-    std::string json = manager.to_json();
+    std::string json = manager.toJson();
     save_to_file("features.json", json);
 }
 
@@ -1765,7 +1765,7 @@ void load_features() {
     
     // Load JSON
     std::string json = load_from_file("features.json");
-    auto result = FeatureManager<>::from_json(json);
+    auto result = FeatureManager<>::fromJson(json);
     
     if (result) {
         FeatureManager<> manager = std::move(*result);
@@ -1800,11 +1800,11 @@ std::mutex factory_mutex;
 }
 ```
 
-**Note:** Once registered, factory lookups during `from_json()` are typically safe as long as no concurrent `registerType`/`unregisterType` calls occur.
+**Note:** Once registered, factory lookups during `fromJson()` are typically safe as long as no concurrent `registerType`/`unregisterType` calls occur.
 
 ### Best Practices
 
-1. **Register Early:** Initialize factory before any `from_json()` calls
+1. **Register Early:** Initialize factory before any `fromJson()` calls
 2. **Use Namespaces:** Organize keys hierarchically (`module.subsystem.check`)
 3. **Document Keys:** Create constants/enums for key strings
 4. **Check Success:** Verify `registerType()` returns true
@@ -1819,12 +1819,12 @@ std::mutex factory_mutex;
 
 ```cpp
 // ❌ BAD
-auto manager = FeatureManager<>::from_json(json);  // Keys not found!
+auto manager = FeatureManager<>::fromJson(json);  // Keys not found!
 initialize_factory();  // Too late
 
 // ✅ GOOD
 initialize_factory();  // Register first
-auto manager = FeatureManager<>::from_json(json);
+auto manager = FeatureManager<>::fromJson(json);
 ```
 
 #### Pitfall 2: Lifetime Issues
@@ -1866,15 +1866,15 @@ if (!factory.registerType("key", callback)) {
 
 Custom `StateEnum` types and `StateComputer` functors are **not serialized**. This is a fundamental C++ limitation—lambdas and `std::function` objects cannot be portably persisted.
 
-After `from_json()`, custom groups revert to the default `FeatureGroupState`. Calling `get_group_state<CustomEnum>("group")` on a deserialized manager returns "Type mismatch".
+After `fromJson()`, custom groups revert to the default `FeatureGroupState`. Calling `getGroupState<CustomEnum>("group")` on a deserialized manager returns "Type mismatch".
 
 **Workaround:** Re-register custom groups after deserialization:
 
 ```cpp
-auto restored = FeatureManager<>::from_json(json);
+auto restored = FeatureManager<>::fromJson(json);
 if (restored) {
     // Group exists with default state type - replace with custom
-    restored->add_group<NetworkState>("Network", {"WiFi", "Bluetooth"}, 
+    restored->addGroup<NetworkState>("Network", {"WiFi", "Bluetooth"}, 
                                        network_state_computer);
 }
 ```
@@ -1888,7 +1888,7 @@ using NetworkComputerFactory = SimpleFactory<std::string, StateComputer<NetworkS
 // Register at startup
 network_factory.registerType("network.standard", []() {
     return [](const std::set<std::string>& features, 
-              const std::function<bool(const std::string&)>& is_enabled) {
+              const std::function<bool(const std::string&)>& isEnabled) {
         // Custom state computation logic
         return NetworkState::Connected;
     };
@@ -1897,7 +1897,7 @@ network_factory.registerType("network.standard", []() {
 // After deserializing, reconstruct with factory
 auto computer = network_factory.make("network.standard");
 if (computer) {
-    restored->add_group<NetworkState>("Network", {"WiFi", "Bluetooth"}, *computer);
+    restored->addGroup<NetworkState>("Network", {"WiFi", "Bluetooth"}, *computer);
 }
 ```
 
@@ -1919,9 +1919,9 @@ bool detect_gpu() { return true; }
 int get_free_memory() { return 4096; }  // MB
 
 void init_graphics_checks() {
-    auto& factory = fat_p::get_feature_check_factory();
+    auto& factory = fat_p::getFeatureCheckFactory();
 
-    factory.registerType("gpu.available", []() -> fat_p::FeatureCheck {
+    factory.registerType("gpu.available", []() -> fat_p::feature::FeatureCheck {
         return []() -> fat_p::Expected<void, std::string> {
             if (!detect_gpu()) {
                 return fat_p::unexpected("No GPU detected");
@@ -1930,7 +1930,7 @@ void init_graphics_checks() {
         };
     });
 
-    factory.registerType("memory.sufficient", []() -> fat_p::FeatureCheck {
+    factory.registerType("memory.sufficient", []() -> fat_p::feature::FeatureCheck {
         return []() -> fat_p::Expected<void, std::string> {
             if (get_free_memory() < 2048) {
                 return fat_p::unexpected("Need at least 2GB RAM");
@@ -1945,17 +1945,17 @@ int main() {
     init_graphics_checks();
     
     // Create feature graph
-    fat_p::FeatureManager<> manager;
+    fat_p::feature::FeatureManager<> manager;
     
-    manager.add_feature("BasicGraphics");
-    manager.add_feature("GPU", "gpu.available");
-    manager.add_feature("HighQuality", "memory.sufficient");
+    manager.addFeature("BasicGraphics");
+    manager.addFeature("GPU", "gpu.available");
+    manager.addFeature("HighQuality", "memory.sufficient");
     
-    manager.add_relationship("GPU", 
-                            fat_p::FeatureRelationship::Requires, 
+    manager.addRelationship("GPU", 
+                            fat_p::feature::FeatureRelationship::Requires, 
                             "BasicGraphics");
-    manager.add_relationship("HighQuality", 
-                            fat_p::FeatureRelationship::Requires, 
+    manager.addRelationship("HighQuality", 
+                            fat_p::feature::FeatureRelationship::Requires, 
                             "GPU");
     
     // Try to enable high quality (validates GPU and memory)
@@ -1969,7 +1969,7 @@ int main() {
     }
     
     // Save configuration
-    std::string json = manager.to_json();
+    std::string json = manager.toJson();
     std::ofstream out("game_settings.json");
     out << json;
     out.close();
@@ -1988,12 +1988,12 @@ int main() {
     std::string loaded((std::istreambuf_iterator<char>(in)),
                        std::istreambuf_iterator<char>());
     
-    auto restored = fat_p::FeatureManager<>::from_json(loaded);
+    auto restored = fat_p::feature::FeatureManager<>::fromJson(loaded);
     if (restored) {
         std::cout << "Settings restored - callbacks work!\n";
         
         // Validation still works after load
-        if (restored->is_enabled("HighQuality")) {
+        if (restored->isEnabled("HighQuality")) {
             std::cout << "High quality mode active\n";
         }
     }
@@ -2014,9 +2014,9 @@ public:
         : name_(name) {
         
         // RAII registration - automatically unregisters on destruction
-        registration_ = std::make_unique<fat_p::FeatureCheckRegistration>(
+        registration_ = std::make_unique<fat_p::feature::FeatureCheckRegistration>(
             "plugin.graphics." + name_,
-            [this]() -> fat_p::FeatureCheck {
+            [this]() -> fat_p::feature::FeatureCheck {
                 return [this]() { return check_compatibility(); };
             }
         );
@@ -2040,11 +2040,11 @@ private:
     bool has_vulkan_support() { return true; }
     
     std::string name_;
-    std::unique_ptr<fat_p::FeatureCheckRegistration> registration_;
+    std::unique_ptr<fat_p::feature::FeatureCheckRegistration> registration_;
 };
 
 int main() {
-    fat_p::FeatureManager<> manager;
+    fat_p::feature::FeatureManager<> manager;
     
     {
         // Create plugins (automatically register callbacks)
@@ -2053,9 +2053,9 @@ int main() {
         GraphicsPlugin directx("directx");
         
         // Add features using registered keys
-        manager.add_feature("OpenGL", "plugin.graphics.opengl");
-        manager.add_feature("Vulkan", "plugin.graphics.vulkan");
-        manager.add_feature("DirectX", "plugin.graphics.directx");
+        manager.addFeature("OpenGL", "plugin.graphics.opengl");
+        manager.addFeature("Vulkan", "plugin.graphics.vulkan");
+        manager.addFeature("DirectX", "plugin.graphics.directx");
         
         manager.enable("Vulkan");
         
@@ -2064,7 +2064,7 @@ int main() {
     } // Plugins destroyed → callbacks automatically unregistered
     
     // Attempting to add features with unregistered keys will fail
-    auto result = manager.add_feature("NewPlugin", "plugin.graphics.opengl");
+    auto result = manager.addFeature("NewPlugin", "plugin.graphics.opengl");
     if (!result) {
         std::cout << "Expected: " << result.error() << "\n";
     }
@@ -2086,16 +2086,16 @@ namespace network {
     bool check_ipv6() { return false; }
     
     void init() {
-        auto& factory = fat_p::get_feature_check_factory();
+        auto& factory = fat_p::getFeatureCheckFactory();
         
-        factory.registerType("network.ipv4", []() -> fat_p::FeatureCheck {
+        factory.registerType("network.ipv4", []() -> fat_p::feature::FeatureCheck {
             return []() {
                 return check_ipv4() ? fat_p::Expected<void, std::string>{} 
                                     : fat_p::unexpected("IPv4 not available");
             };
         });
         
-        factory.registerType("network.ipv6", []() -> fat_p::FeatureCheck {
+        factory.registerType("network.ipv6", []() -> fat_p::feature::FeatureCheck {
             return []() {
                 return check_ipv6() ? fat_p::Expected<void, std::string>{} 
                                     : fat_p::unexpected("IPv6 not available");
@@ -2112,16 +2112,16 @@ namespace graphics {
     bool check_vulkan() { return true; }
     
     void init() {
-        auto& factory = fat_p::get_feature_check_factory();
+        auto& factory = fat_p::getFeatureCheckFactory();
         
-        factory.registerType("graphics.opengl", []() -> fat_p::FeatureCheck {
+        factory.registerType("graphics.opengl", []() -> fat_p::feature::FeatureCheck {
             return []() {
                 return check_opengl() ? fat_p::Expected<void, std::string>{} 
                                       : fat_p::unexpected("OpenGL not supported");
             };
         });
         
-        factory.registerType("graphics.vulkan", []() -> fat_p::FeatureCheck {
+        factory.registerType("graphics.vulkan", []() -> fat_p::feature::FeatureCheck {
             return []() {
                 return check_vulkan() ? fat_p::Expected<void, std::string>{} 
                                       : fat_p::unexpected("Vulkan not supported");
@@ -2137,9 +2137,9 @@ namespace audio {
     bool check_wasapi() { return true; }
     
     void init() {
-        auto& factory = fat_p::get_feature_check_factory();
+        auto& factory = fat_p::getFeatureCheckFactory();
         
-        factory.registerType("audio.wasapi", []() -> fat_p::FeatureCheck {
+        factory.registerType("audio.wasapi", []() -> fat_p::feature::FeatureCheck {
             return []() {
                 return check_wasapi() ? fat_p::Expected<void, std::string>{} 
                                       : fat_p::unexpected("WASAPI not available");
@@ -2160,17 +2160,17 @@ int main() {
     // Modules don't know about each other!
     
     // Create features from all modules
-    fat_p::FeatureManager<> manager;
+    fat_p::feature::FeatureManager<> manager;
     
-    manager.add_feature("IPv4", "network.ipv4");
-    manager.add_feature("IPv6", "network.ipv6");
-    manager.add_feature("OpenGL", "graphics.opengl");
-    manager.add_feature("Vulkan", "graphics.vulkan");
-    manager.add_feature("WASAPI", "audio.wasapi");
+    manager.addFeature("IPv4", "network.ipv4");
+    manager.addFeature("IPv6", "network.ipv6");
+    manager.addFeature("OpenGL", "graphics.opengl");
+    manager.addFeature("Vulkan", "graphics.vulkan");
+    manager.addFeature("WASAPI", "audio.wasapi");
     
     // Add cross-module dependencies
-    manager.add_relationship("Vulkan", 
-                            fat_p::FeatureRelationship::Requires, 
+    manager.addRelationship("Vulkan", 
+                            fat_p::feature::FeatureRelationship::Requires, 
                             "IPv4");
     
     // Enable features
@@ -2180,7 +2180,7 @@ int main() {
     }
     
     // Serialize entire graph
-    std::string json = manager.to_json();
+    std::string json = manager.toJson();
     save_to_file("app_config.json", json);
     
     return 0;
@@ -2197,16 +2197,16 @@ enum class GraphicsQuality { Low, Medium, High, Ultra };
 enum class NetworkMode { Offline, Local, Online };
 
 int main() {
-    fat_p::FeatureManager<> manager;
+    fat_p::feature::FeatureManager<> manager;
     
     // Add graphics features
-    manager.add_feature("BasicGraphics");
-    manager.add_feature("Textures");
-    manager.add_feature("Shadows");
-    manager.add_feature("RayTracing");
+    manager.addFeature("BasicGraphics");
+    manager.addFeature("Textures");
+    manager.addFeature("Shadows");
+    manager.addFeature("RayTracing");
     
     // Define graphics quality group
-    manager.add_group<GraphicsQuality>(
+    manager.addGroup<GraphicsQuality>(
         "Graphics",
         {"BasicGraphics", "Textures", "Shadows", "RayTracing"},
         [](const std::set<std::string>& enabled) -> GraphicsQuality {
@@ -2218,11 +2218,11 @@ int main() {
     );
     
     // Add network features
-    manager.add_feature("LocalMultiplayer");
-    manager.add_feature("OnlineMultiplayer");
+    manager.addFeature("LocalMultiplayer");
+    manager.addFeature("OnlineMultiplayer");
     
     // Define network mode group
-    manager.add_group<NetworkMode>(
+    manager.addGroup<NetworkMode>(
         "Network",
         {"LocalMultiplayer", "OnlineMultiplayer"},
         [](const std::set<std::string>& enabled) -> NetworkMode {
@@ -2235,7 +2235,7 @@ int main() {
     // Change settings and query group states
     manager.enable("Shadows");
     
-    auto gfx_state = manager.get_group_state<GraphicsQuality>("Graphics");
+    auto gfx_state = manager.getGroupState<GraphicsQuality>("Graphics");
     if (gfx_state) {
         std::cout << "Graphics quality: ";
         switch (*gfx_state) {
@@ -2248,7 +2248,7 @@ int main() {
     
     manager.enable("OnlineMultiplayer");
     
-    auto net_state = manager.get_group_state<NetworkMode>("Network");
+    auto net_state = manager.getGroupState<NetworkMode>("Network");
     if (net_state) {
         std::cout << "Network mode: ";
         switch (*net_state) {
@@ -2313,7 +2313,7 @@ std::mutex factory_mutex;
 
 void register_callback(const std::string& key, auto creator) {
     std::lock_guard lock(factory_mutex);
-    get_feature_check_factory().registerType(key, creator);
+    getFeatureCheckFactory().registerType(key, creator);
 }
 ```
 
@@ -2325,7 +2325,7 @@ Observers are called **while holding the FeatureManager's internal lock**. This 
 
 ```cpp
 // ❌ This will DEADLOCK - observer tries to acquire lock that's already held
-manager.add_observer([&manager](const std::string& name, bool state, bool success) {
+manager.addObserver([&manager](const std::string& name, bool state, bool success) {
     manager.enable("OtherFeature");  // DEADLOCK!
 });
 
@@ -2333,7 +2333,7 @@ manager.add_observer([&manager](const std::string& name, bool state, bool succes
 std::atomic<bool> needs_update{false};
 std::string pending_feature;
 
-manager.add_observer([&](const std::string& name, bool state, bool success) {
+manager.addObserver([&](const std::string& name, bool state, bool success) {
     if (name == "TriggerFeature" && state) {
         needs_update = true;
         pending_feature = "OtherFeature";
@@ -2360,7 +2360,7 @@ If using `MutexSynchronizationPolicy` or `SharedMutexSynchronizationPolicy`, mul
 ```cpp
 std::mutex log_mutex;
 
-manager.add_observer([&log_mutex](const std::string& name, bool state, bool success) {
+manager.addObserver([&log_mutex](const std::string& name, bool state, bool success) {
     std::lock_guard lock(log_mutex);
     log_file << name << " -> " << state << "\n";
 });
@@ -2372,19 +2372,19 @@ manager.add_observer([&log_mutex](const std::string& name, bool state, bool succ
 
 | Operation | Complexity | Notes |
 |-----------|------------|-------|
-| `add_feature` | O(log n) | Map insertion with or without callback |
+| `addFeature` | O(log n) | Map insertion with or without callback |
 | `enable` | O(d × log n) | d = dependency depth (max 100) |
 | `disable` | O(log n) | No dependency checking |
-| `batch_disable` | O(n + k) | n = features (for validation), k = batch size |
-| `is_enabled` | O(log n) | Simple map lookup |
+| `batchDisable` | O(n + k) | n = features (for validation), k = batch size |
+| `isEnabled` | O(log n) | Simple map lookup |
 | `validate` | O(n × d × log n) | Full graph validation |
-| `batch_enable` | O(k × d × log n) | k = batch size, includes rollback tracking |
-| `to_json` | O(n + r) | n = features, r = relationships |
-| `from_json` | O(n log n + r) | Plus O(n) factory lookups |
-| `add_relationship` | O(log n) | Map insertion |
-| `add_observer` | O(1) | Appends to vector |
-| `remove_observer` | O(p) | p = number of observers (linear search) |
-| `clear_observers` | O(p) | Clear both vectors |
+| `batchEnable` | O(k × d × log n) | k = batch size, includes rollback tracking |
+| `toJson` | O(n + r) | n = features, r = relationships |
+| `fromJson` | O(n log n + r) | Plus O(n) factory lookups |
+| `addRelationship` | O(log n) | Map insertion |
+| `addObserver` | O(1) | Appends to vector |
+| `removeObserver` | O(p) | p = number of observers (linear search) |
+| `clearObservers` | O(p) | Clear both vectors |
 | Factory `make` | O(log n) | Map lookup |
 
 ### Memory Usage
@@ -2397,10 +2397,10 @@ manager.add_observer([&log_mutex](const std::string& name, bool state, bool succ
 
 ### Optimization Notes
 
-1. **Hot Path:** `is_enabled()` is optimized for frequent checks
+1. **Hot Path:** `isEnabled()` is optimized for frequent checks
 2. **Caching:** Relationship sets use `std::set` (sorted) for cache-friendly iteration
 3. **Rollback:** Only tracks changed features, not full snapshots
-4. **Depth Limit:** MAX_VALIDATION_DEPTH = 100 prevents stack overflow
+4. **Depth Limit:** kMaxValidationDepth = 100 prevents stack overflow
 5. **Lock-Free Paths:** NoSynchronizationPolicy eliminates all locking overhead
 
 ### Benchmarks
@@ -2411,7 +2411,7 @@ Typical performance on modern hardware (Intel i7, 3.5GHz):
 - Validate 100-feature graph: **~50 μs**
 - Serialize 1000 features to JSON: **~200 μs**
 - Deserialize 1000 features from JSON: **~300 μs** (includes factory lookups)
-- `is_enabled()` check: **~20 ns**
+- `isEnabled()` check: **~20 ns**
 
 ---
 
@@ -2442,10 +2442,10 @@ For any feature that needs serialization, use factory-based registration:
 ```cpp
 // ✅ Serializable
 factory.registerType("gpu.check", /* ... */);
-manager.add_feature("GPUFeature", "gpu.check");
+manager.addFeature("GPUFeature", "gpu.check");
 
 // ❌ Not serializable
-manager.add_feature("GPUFeature", []() { /* ... */ });
+manager.addFeature("GPUFeature", []() { /* ... */ });
 ```
 
 ### 3. Organize Callback Keys Hierarchically
@@ -2480,7 +2480,7 @@ factory.registerType("plugin.X", /* ... */);
 When loading configurations, some callbacks might not be registered:
 
 ```cpp
-auto result = FeatureManager<>::from_json(json);
+auto result = FeatureManager<>::fromJson(json);
 if (!result) {
     std::cerr << "Load warning: " << result.error() << "\n";
     // Some features might lack validation callbacks
@@ -2508,7 +2508,7 @@ When enabling multiple related features:
 
 ```cpp
 // ✅ Atomic
-manager.batch_enable({"A", "B", "C"});
+manager.batchEnable({"A", "B", "C"});
 
 // ❌ Partial failure possible
 manager.enable("A");
@@ -2546,10 +2546,10 @@ Use comments or external documentation:
 // - GPU (hardware check)
 // - BasicGraphics (base features)
 // - DX12Support (API version)
-manager.add_feature("GraphicsHigh");
-manager.add_relationship("GraphicsHigh", Requires, "GPU");
-manager.add_relationship("GraphicsHigh", Requires, "BasicGraphics");
-manager.add_relationship("GraphicsHigh", Requires, "DX12Support");
+manager.addFeature("GraphicsHigh");
+manager.addRelationship("GraphicsHigh", Requires, "GPU");
+manager.addRelationship("GraphicsHigh", Requires, "BasicGraphics");
+manager.addRelationship("GraphicsHigh", Requires, "DX12Support");
 ```
 
 ### 10. Test Serialization Roundtrips
@@ -2561,11 +2561,11 @@ void test_roundtrip() {
     FeatureManager<> original;
     // Setup features...
     
-    std::string json = original.to_json();
-    auto restored = FeatureManager<>::from_json(json);
+    std::string json = original.toJson();
+    auto restored = FeatureManager<>::fromJson(json);
     
     assert(restored.has_value());
-    assert(original.is_enabled("A") == restored->is_enabled("A"));
+    assert(original.isEnabled("A") == restored->isEnabled("A"));
     
     // Test validation still works
     auto result = restored->enable("ValidatedFeature");
@@ -2579,7 +2579,7 @@ void test_roundtrip() {
 
 ### Problem: Callbacks Not Restored After Deserialization
 
-**Symptoms:** Features load correctly but validation doesn't run, or `add_feature` with key fails.
+**Symptoms:** Features load correctly but validation doesn't run, or `addFeature` with key fails.
 
 **Cause:** Callbacks not registered before loading JSON.
 
@@ -2587,7 +2587,7 @@ void test_roundtrip() {
 ```cpp
 // Ensure factory initialization happens first
 init_factory();           // Register all callbacks
-auto manager = FeatureManager<>::from_json(json);  // Then load
+auto manager = FeatureManager<>::fromJson(json);  // Then load
 ```
 
 **Diagnostic:** Check error message - will say "Check key 'X' not found in factory".
@@ -2623,13 +2623,13 @@ if (!factory.hasType("my.key")) {
 **Solution:**
 ```cpp
 // ❌ Direct callback - lost on save
-manager.add_feature("Feature", []() { /* ... */ });
+manager.addFeature("Feature", []() { /* ... */ });
 
 // ✅ Factory key - preserved
 factory.registerType("feature.check", []() -> FeatureCheck {
     return []() { /* ... */ };
 });
-manager.add_feature("Feature", "feature.check");
+manager.addFeature("Feature", "feature.check");
 ```
 
 ---
@@ -2685,13 +2685,13 @@ factory.registerType("key", [self]() -> FeatureCheck {
 **Solution:**
 ```cpp
 // ❌ Deadlock - lock already held during observer callback
-manager.add_observer([&manager](auto...) {
+manager.addObserver([&manager](auto...) {
     manager.enable("Other");  // DEADLOCK!
 });
 
 // ✅ Set flag, process after operation completes
 std::atomic<bool> needs_enable{false};
-manager.add_observer([&needs_enable](auto...) {
+manager.addObserver([&needs_enable](auto...) {
     needs_enable = true;
 });
 
@@ -2703,7 +2703,7 @@ if (needs_enable) {
 }
 
 // ✅ Better: Use Implies relationship for automatic cascading
-manager.add_relationship("Trigger", FeatureRelationship::Implies, "Other");
+manager.addRelationship("Trigger", FeatureRelationship::Implies, "Other");
 manager.enable("Trigger");  // Both enabled atomically, no manual cascading
 ```
 
@@ -2731,13 +2731,13 @@ auto result = manager.enable("Feature");  // Runs validation
 
 ### Problem: JSON Deserialization Fails
 
-**Symptoms:** `from_json()` returns error.
+**Symptoms:** `fromJson()` returns error.
 
 **Cause:** Invalid JSON syntax, missing callback keys, or incompatible format.
 
 **Solution:**
 ```cpp
-auto result = FeatureManager<>::from_json(json);
+auto result = FeatureManager<>::fromJson(json);
 if (!result) {
     std::cerr << "Parse error: " << result.error() << "\n";
     // Error indicates: syntax error, missing keys, or format issues

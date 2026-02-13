@@ -6,9 +6,9 @@ FATP_META:
   component: FeatureManager
   file_role: public_header
   path: include/fat_p/FeatureManager.h
-  namespace: fat_p
+  namespace: fat_p::feature
   layer: Domain
-  summary: "Public header for FeatureManager."
+  summary: "Runtime feature flag management with dependency resolution and conflict detection."
   api_stability: in_work
   related:
     docs_search: "FeatureManager"
@@ -46,7 +46,7 @@ FATP_META:
  * - Optimized with FlatSet for relationship storage (cache-friendly sorted vectors)
  * Performance characteristics:
  * - Add feature: O(log n)
- * - Enable/disable: O(d x log n) where d = dependency depth (limited to MAX_VALIDATION_DEPTH)
+ * - Enable/disable: O(d x log n) where d = dependency depth (limited to kMaxValidationDepth)
  * - Validate: O(n x d x log n)
  * - Memory: ~550 bytes per feature with 5 relationships (using FlatSet)
  */
@@ -78,6 +78,8 @@ FATP_META:
 
 namespace fat_p
 {
+namespace feature
+{
 
 // ============================================================================
 // Enum Definitions
@@ -96,7 +98,7 @@ enum class FeatureRelationship
 inline constexpr size_t kRelationshipCount = 4;
 
 // Convert FeatureRelationship enum to array index (0–3)
-constexpr size_t rel_idx(FeatureRelationship r) noexcept
+constexpr size_t relIdx(FeatureRelationship r) noexcept
 {
     return static_cast<size_t>(r);
 }
@@ -110,57 +112,62 @@ enum class FeatureGroupState
     Invalid   // Conflicts or failed checks
 };
 
+} // namespace feature
+
 // ============================================================================
-// EnumPlus Specializations
+// EnumPlus Specializations (must be in fat_p::, same namespace as primary templates)
 // ============================================================================
 
 template <>
-struct EnableOverloadedOperators<FeatureRelationship>
+struct EnableOverloadedOperators<feature::FeatureRelationship>
 {
     static constexpr bool value = true;
 };
 
 template <>
-struct EnumStringPolicy<FeatureRelationship>
+struct EnumStringPolicy<feature::FeatureRelationship>
 {
     static constexpr std::array<std::string_view, 4> names = {"Requires", "Conflicts", "Implies", "MutuallyExclusive"};
 
-    static std::string_view to_string(FeatureRelationship e)
+    static std::string_view to_string(feature::FeatureRelationship e)
     {
         return names[static_cast<size_t>(e)];
     }
 
-    static FeatureRelationship from_string(std::string_view str)
+    static feature::FeatureRelationship from_string(std::string_view str)
     {
         auto it = std::find(names.begin(), names.end(), str);
         if (it == names.end())
         {
             throw std::invalid_argument("Invalid FeatureRelationship string");
         }
-        return static_cast<FeatureRelationship>(std::distance(names.begin(), it));
+        return static_cast<feature::FeatureRelationship>(std::distance(names.begin(), it));
     }
 };
 
 template <>
-struct EnumStringPolicy<FeatureGroupState>
+struct EnumStringPolicy<feature::FeatureGroupState>
 {
     static constexpr std::array<std::string_view, 4> names = {"Inactive", "Partial", "Active", "Invalid"};
 
-    static std::string_view to_string(FeatureGroupState e)
+    static std::string_view to_string(feature::FeatureGroupState e)
     {
         return names[static_cast<size_t>(e)];
     }
 
-    static FeatureGroupState from_string(std::string_view str)
+    static feature::FeatureGroupState from_string(std::string_view str)
     {
         auto it = std::find(names.begin(), names.end(), str);
         if (it == names.end())
         {
             throw std::invalid_argument("Invalid FeatureGroupState string");
         }
-        return static_cast<FeatureGroupState>(std::distance(names.begin(), it));
+        return static_cast<feature::FeatureGroupState>(std::distance(names.begin(), it));
     }
 };
+
+namespace feature
+{
 
 // ============================================================================
 // Type Aliases and Forward Declarations
@@ -173,7 +180,7 @@ class FeatureManager;
 //
 // CONTRACT:
 // - FeatureCheck callbacks are invoked while the FeatureManager holds its internal lock.
-// - Callbacks MUST NOT call any FeatureManager methods (is_enabled, enable, disable, etc.)
+// - Callbacks MUST NOT call any FeatureManager methods (isEnabled, enable, disable, etc.)
 //   as this will cause deadlock with MutexSynchronizationPolicy and similar policies.
 // - Callbacks SHOULD be fast and non-blocking. Long-running operations (network, disk I/O,
 //   license checks) will block all feature operations for the duration.
@@ -241,7 +248,7 @@ using StateComputer = std::function<StateEnum(const FlatSet<std::string>&, size_
 using FeatureCheckFactory = SimpleFactory<std::string, FeatureCheck>;
 
 // Singleton accessor for the global FeatureCheck factory
-inline FeatureCheckFactory& get_feature_check_factory()
+inline FeatureCheckFactory& getFeatureCheckFactory()
 {
     static FeatureCheckFactory factory;
     return factory;
@@ -262,7 +269,7 @@ public:
     FeatureCheckRegistration(const std::string& key, std::function<FeatureCheck()> creator)
         : mKey(key)
     {
-        mRegistered = get_feature_check_factory().registerType(mKey, std::move(creator));
+        mRegistered = getFeatureCheckFactory().registerType(mKey, std::move(creator));
         if (!mRegistered)
         {
             // Do not claim ownership of an existing registration.
@@ -275,7 +282,7 @@ public:
     {
         if (mRegistered && !mKey.empty())
         {
-            [[maybe_unused]] bool unregistered = get_feature_check_factory().unregisterType(mKey);
+            [[maybe_unused]] bool unregistered = getFeatureCheckFactory().unregisterType(mKey);
         }
     }
 
@@ -297,7 +304,7 @@ public:
         {
             if (mRegistered && !mKey.empty())
             {
-                (void)get_feature_check_factory().unregisterType(mKey);
+                (void)getFeatureCheckFactory().unregisterType(mKey);
             }
             mKey = std::move(other.mKey);
             mRegistered = std::exchange(other.mRegistered, false);
@@ -327,7 +334,7 @@ struct FeatureNode
     // relationships of that type. Eliminates map overhead for a fixed 4-key domain.
     std::array<FlatSet<std::string>, kRelationshipCount> relationships;
 
-    JsonValue to_json() const
+    JsonValue toJson() const
     {
         JsonObject obj;
         obj["enabled"] = JsonValue{enabled};
@@ -354,7 +361,7 @@ struct FeatureNode
         return JsonValue{std::move(obj)};
     }
 
-    static Expected<FeatureNode, std::string> from_json(const JsonValue& value)
+    static Expected<FeatureNode, std::string> fromJson(const JsonValue& value)
     {
         if (!value.is_object())
         {
@@ -385,7 +392,7 @@ struct FeatureNode
             // Look up callback from factory (STRICT: keys must exist)
             if (!node.check_key.empty())
             {
-                auto check_result = get_feature_check_factory().make(node.check_key);
+                auto check_result = getFeatureCheckFactory().make(node.check_key);
                 if (!check_result)
                 {
                     return unexpected("check_key '" + node.check_key + "' not found in FeatureCheckFactory");
@@ -417,7 +424,7 @@ struct FeatureNode
                     {
                         return unexpected("Element in " + ts + " must be string");
                     }
-                    node.relationships[rel_idx(type)].insert(std::get<std::string>(elem));
+                    node.relationships[relIdx(type)].insert(std::get<std::string>(elem));
                 }
             }
         }
@@ -430,13 +437,13 @@ struct FeatureGroupInfoBase
 {
     virtual ~FeatureGroupInfoBase() = default;
     virtual FlatSet<std::string> get_features() const = 0;
-    virtual JsonValue to_json() const = 0;
-    virtual std::string state_to_string() const = 0;
+    virtual JsonValue toJson() const = 0;
+    virtual std::string stateToString() const = 0;
 
     // Type-erased state computation: invokes the concrete StateComputer and
     // caches the result. Returns the computed state as an int ordinal so the
     // caller never needs to downcast.
-    virtual int compute_and_cache(size_t enabled_count, bool has_conflict, bool all_checks_pass) = 0;
+    virtual int computeAndCache(size_t enabled_count, bool has_conflict, bool all_checks_pass) = 0;
 };
 
 // Concrete group info with type-safe state computer
@@ -460,7 +467,7 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
         return features;
     }
 
-    JsonValue to_json() const override
+    JsonValue toJson() const override
     {
         JsonArray arr;
         for (const auto& f : features)
@@ -470,7 +477,7 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
         return JsonValue{std::move(arr)};
     }
 
-    std::string state_to_string() const override
+    std::string stateToString() const override
     {
         if constexpr (named_enum<StateEnum>)
         {
@@ -483,7 +490,7 @@ struct FeatureGroupInfo : public FeatureGroupInfoBase
         }
     }
 
-    int compute_and_cache(size_t enabled_count, bool has_conflict, bool all_checks_pass) override
+    int computeAndCache(size_t enabled_count, bool has_conflict, bool all_checks_pass) override
     {
         StateEnum state = state_computer(features, enabled_count, has_conflict, all_checks_pass);
         cached_state.store(state, std::memory_order_relaxed);
@@ -523,7 +530,7 @@ private:
 
     // Maximum dependency depth before aborting to prevent stack overflow
     //
-    // Rationale for MAX_VALIDATION_DEPTH = 100:
+    // Rationale for kMaxValidationDepth = 100:
     // 1. Prevents infinite recursion from undetected cycles (defense-in-depth)
     // 2. Protects against stack overflow (typical stack ~8MB, each frame ~100 bytes)
     // 3. 100 levels of dependency is unrealistic in practice (most systems have d < 10)
@@ -539,9 +546,9 @@ private:
     //   - Enable verbose logging or use depth parameter in error messages
     //   - Profile with realistic feature graphs
     //   - Adjust this constant if needed (powers of 2 are not required)
-    static constexpr size_t MAX_VALIDATION_DEPTH = 100;
+    static constexpr size_t kMaxValidationDepth = 100;
 
-    Expected<FeatureNode*, std::string> get_node(const std::string& name)
+    Expected<FeatureNode*, std::string> getNode(const std::string& name)
     {
         auto* ptr = mFeatures.find(name);
         if (!ptr)
@@ -551,7 +558,7 @@ private:
         return ptr;
     }
 
-    Expected<const FeatureNode*, std::string> get_node(const std::string& name) const
+    Expected<const FeatureNode*, std::string> getNode(const std::string& name) const
     {
         auto* ptr = mFeatures.find(name);
         if (!ptr)
@@ -563,14 +570,14 @@ private:
 
     // Add a relationship between two features (lock must already be held)
     [[nodiscard]] Expected<void, std::string>
-    add_relationship_unlocked(const std::string& from, FeatureRelationship type, const std::string& to)
+    addRelationshipUnlocked(const std::string& from, FeatureRelationship type, const std::string& to)
     {
-        auto from_res = get_node(from);
+        auto from_res = getNode(from);
         if (!from_res)
         {
             return unexpected("Feature not found: " + from + " in relationship setup");
         }
-        auto to_res = get_node(to);
+        auto to_res = getNode(to);
         if (!to_res)
         {
             return unexpected("Feature not found: " + to + " in relationship setup");
@@ -583,13 +590,13 @@ private:
         }
 
         FeatureNode* from_node = *from_res;
-        from_node->relationships[rel_idx(type)].insert(to);
+        from_node->relationships[relIdx(type)].insert(to);
 
         // Bidirectional for conflicts and mutually exclusive
         if (type == FeatureRelationship::Conflicts || type == FeatureRelationship::MutuallyExclusive)
         {
             FeatureNode* to_node = *to_res;
-            to_node->relationships[rel_idx(type)].insert(from);
+            to_node->relationships[relIdx(type)].insert(from);
         }
         return {};
     }
@@ -598,7 +605,7 @@ private:
     // The enabling_chain preserves insertion order (the actual traversal path)
     // Example: enabling_chain = {"A", "B", "C"}, target = "A"
     // Returns: "A -> B -> C -> A"
-    std::string build_cycle_path(const std::vector<std::string>& enabling_chain, const std::string& target) const
+    std::string buildCyclePath(const std::vector<std::string>& enabling_chain, const std::string& target) const
     {
         if (enabling_chain.empty())
         {
@@ -627,7 +634,7 @@ private:
 
     // Detect cycles in the dependency graph (Requires + Implies).
     // Lock must already be held.
-    [[nodiscard]] Expected<void, std::string> detect_cycles_unlocked() const
+    [[nodiscard]] Expected<void, std::string> detectCyclesUnlocked() const
     {
         enum class VisitState
         {
@@ -643,7 +650,7 @@ private:
         stack.reserve(mFeatures.size());
 
         auto dfs = [&](auto&& self, const std::string& name, int depth) -> Expected<void, std::string> {
-            if (static_cast<size_t>(depth) > MAX_VALIDATION_DEPTH)
+            if (static_cast<size_t>(depth) > kMaxValidationDepth)
             {
                 return unexpected("Maximum dependency depth exceeded at feature: " + name);
             }
@@ -653,7 +660,7 @@ private:
             {
                 if (it->second == VisitState::Visiting)
                 {
-                    return unexpected("Circular dependency detected: " + build_cycle_path(stack, name));
+                    return unexpected("Circular dependency detected: " + buildCyclePath(stack, name));
                 }
                 if (it->second == VisitState::Visited)
                 {
@@ -674,7 +681,7 @@ private:
             const FeatureNode& node = *node_ptr;
 
             auto visit_relationship = [&](FeatureRelationship rel) -> Expected<void, std::string> {
-                const auto& targets = node.relationships[rel_idx(rel)];
+                const auto& targets = node.relationships[relIdx(rel)];
                 if (targets.empty())
                 {
                     return {};
@@ -684,7 +691,7 @@ private:
                     auto dep_state = state.find(dep);
                     if (dep_state != state.end() && dep_state->second == VisitState::Visiting)
                     {
-                        return unexpected("Circular dependency detected: " + build_cycle_path(stack, dep));
+                        return unexpected("Circular dependency detected: " + buildCyclePath(stack, dep));
                     }
                     auto res = self(self, dep, depth + 1);
                     if (!res)
@@ -734,7 +741,7 @@ private:
 
     // Validate the entire feature set for consistency.
     // Lock must already be held.
-    [[nodiscard]] Expected<void, std::string> validate_unlocked() const
+    [[nodiscard]] Expected<void, std::string> validateUnlocked() const
     {
         // --------------------------------------------------------------------
         // 1) Structural validation: every relationship target must exist.
@@ -760,7 +767,7 @@ private:
         // --------------------------------------------------------------------
         // 2) Graph validation: detect cycles in the dependency graph.
         // --------------------------------------------------------------------
-        auto cycle_res = detect_cycles_unlocked();
+        auto cycle_res = detectCyclesUnlocked();
         if (!cycle_res)
         {
             return cycle_res;
@@ -777,7 +784,7 @@ private:
             }
 
             // Requires: enabled feature must have all required features enabled
-            const auto& requires_targets = node.relationships[rel_idx(FeatureRelationship::Requires)];
+            const auto& requires_targets = node.relationships[relIdx(FeatureRelationship::Requires)];
             if (!requires_targets.empty())
             {
                 for (const auto& required : requires_targets)
@@ -795,7 +802,7 @@ private:
             }
 
             // Implies: enabled feature must have all implied features enabled
-            const auto& implies_targets = node.relationships[rel_idx(FeatureRelationship::Implies)];
+            const auto& implies_targets = node.relationships[relIdx(FeatureRelationship::Implies)];
             if (!implies_targets.empty())
             {
                 for (const auto& implied : implies_targets)
@@ -815,7 +822,7 @@ private:
             // Conflicts and MutuallyExclusive
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
-                const auto& conflict_targets = node.relationships[rel_idx(rel)];
+                const auto& conflict_targets = node.relationships[relIdx(rel)];
                 if (conflict_targets.empty())
                 {
                     continue;
@@ -857,13 +864,13 @@ private:
         return {};
     }
 
-    Expected<void, std::string> enable_feature(const std::string& name,
+    Expected<void, std::string> enableFeature(const std::string& name,
                                                std::vector<std::string>& enabling_chain,
                                                std::unordered_set<std::string>& chain_set,
                                                std::vector<std::string>* changed_features,
                                                int depth = 0)
     {
-        if (static_cast<size_t>(depth) > MAX_VALIDATION_DEPTH)
+        if (static_cast<size_t>(depth) > kMaxValidationDepth)
         {
             return unexpected("Maximum dependency depth exceeded at feature: " + name);
         }
@@ -876,10 +883,10 @@ private:
         // Check for circular dependencies first
         if (in_chain(name))
         {
-            return unexpected("Circular dependency detected: " + build_cycle_path(enabling_chain, name));
+            return unexpected("Circular dependency detected: " + buildCyclePath(enabling_chain, name));
         }
 
-        auto node_res = get_node(name);
+        auto node_res = getNode(name);
         if (!node_res)
         {
             return unexpected(node_res.error());
@@ -926,17 +933,17 @@ private:
 
         // Process Required relationships (recursively enable dependencies)
         {
-            const auto& targets = node->relationships[rel_idx(FeatureRelationship::Requires)];
+            const auto& targets = node->relationships[relIdx(FeatureRelationship::Requires)];
             for (const auto& required : targets)
             {
                 // Check for circular dependency before recursing
                 if (in_chain(required))
                 {
                     node->enabled = was_enabled;
-                    return unexpected("Circular dependency detected: " + build_cycle_path(enabling_chain, required));
+                    return unexpected("Circular dependency detected: " + buildCyclePath(enabling_chain, required));
                 }
 
-                auto req_node_res = get_node(required);
+                auto req_node_res = getNode(required);
                 if (!req_node_res)
                 {
                     node->enabled = false;
@@ -945,7 +952,7 @@ private:
                 FeatureNode* req_node = *req_node_res;
                 if (!req_node->enabled)
                 {
-                    auto enable_res = enable_feature(required, enabling_chain, chain_set, changed_features, depth + 1);
+                    auto enable_res = enableFeature(required, enabling_chain, chain_set, changed_features, depth + 1);
                     if (!enable_res)
                     {
                         node->enabled = false;
@@ -957,17 +964,17 @@ private:
 
         // Process Implies relationships
         {
-            const auto& targets = node->relationships[rel_idx(FeatureRelationship::Implies)];
+            const auto& targets = node->relationships[relIdx(FeatureRelationship::Implies)];
             for (const auto& implied : targets)
             {
                 // Check for circular dependency before checking if already enabled
                 if (in_chain(implied))
                 {
                     node->enabled = false;
-                    return unexpected("Circular dependency detected: " + build_cycle_path(enabling_chain, implied));
+                    return unexpected("Circular dependency detected: " + buildCyclePath(enabling_chain, implied));
                 }
 
-                auto impl_node_res = get_node(implied);
+                auto impl_node_res = getNode(implied);
                 if (!impl_node_res)
                 {
                     node->enabled = false;
@@ -977,7 +984,7 @@ private:
                 FeatureNode* impl_node = *impl_node_res;
                 if (!impl_node->enabled)
                 {
-                    auto enable_res = enable_feature(implied, enabling_chain, chain_set, changed_features, depth + 1);
+                    auto enable_res = enableFeature(implied, enabling_chain, chain_set, changed_features, depth + 1);
                     if (!enable_res)
                     {
                         node->enabled = false;
@@ -991,10 +998,10 @@ private:
         for (auto type : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
         {
             {
-                const auto& targets = node->relationships[rel_idx(type)];
+                const auto& targets = node->relationships[relIdx(type)];
                 for (const auto& conflicting : targets)
                 {
-                    auto conf_node_res = get_node(conflicting);
+                    auto conf_node_res = getNode(conflicting);
                     if (!conf_node_res)
                     {
                         node->enabled = false;
@@ -1042,7 +1049,7 @@ private:
         return {};
     }
 
-    static void sort_observers_by_priority(std::vector<ObserverEntry>& entries)
+    static void sortObserversByPriority(std::vector<ObserverEntry>& entries)
     {
         // Stable sort preserves insertion order for observers with equal priority.
         std::stable_sort(entries.begin(), entries.end(), [](const ObserverEntry& a, const ObserverEntry& b) {
@@ -1050,14 +1057,14 @@ private:
         });
     }
 
-    static void sort_batch_observers_by_priority(std::vector<BatchObserverEntry>& entries)
+    static void sortBatchObserversByPriority(std::vector<BatchObserverEntry>& entries)
     {
         std::stable_sort(entries.begin(), entries.end(), [](const BatchObserverEntry& a, const BatchObserverEntry& b) {
             return a.priority > b.priority;
         });
     }
 
-    static void notify_observers_sorted(const std::vector<ObserverEntry>& sorted,
+    static void notifyObserversSorted(const std::vector<ObserverEntry>& sorted,
                                         const std::string& feature_name,
                                         bool new_state,
                                         bool success)
@@ -1068,7 +1075,7 @@ private:
         }
     }
 
-    static void notify_batch_observers_sorted(const std::vector<BatchObserverEntry>& sorted,
+    static void notifyBatchObserversSorted(const std::vector<BatchObserverEntry>& sorted,
                                               const std::string& requested_feature,
                                               const std::vector<std::string>& all_changed,
                                               bool enabled,
@@ -1081,7 +1088,7 @@ private:
     }
 
     template <typename StateEnum>
-    Expected<StateEnum, std::string> compute_group_state_impl(const std::string& group_name) const
+    Expected<StateEnum, std::string> computeGroupStateImpl(const std::string& group_name) const
     {
         auto* group_uptr = mGroups.find(group_name);
         if (!group_uptr)
@@ -1095,7 +1102,7 @@ private:
         bool all_checks_pass = true;
         for (const auto& feature_name : group_features)
         {
-            auto node_res = get_node(feature_name);
+            auto node_res = getNode(feature_name);
             if (!node_res)
             {
                 continue;
@@ -1111,17 +1118,17 @@ private:
                     {
                         continue;
                     }
-                    if (node->relationships[rel_idx(FeatureRelationship::Conflicts)].count(other) > 0)
+                    if (node->relationships[relIdx(FeatureRelationship::Conflicts)].count(other) > 0)
                     {
-                        auto other_node_res = get_node(other);
+                        auto other_node_res = getNode(other);
                         if (other_node_res && (*other_node_res)->enabled)
                         {
                             has_conflict = true;
                         }
                     }
-                    if (node->relationships[rel_idx(FeatureRelationship::MutuallyExclusive)].count(other) > 0)
+                    if (node->relationships[relIdx(FeatureRelationship::MutuallyExclusive)].count(other) > 0)
                     {
-                        auto other_node_res = get_node(other);
+                        auto other_node_res = getNode(other);
                         if (other_node_res && (*other_node_res)->enabled)
                         {
                             has_conflict = true;
@@ -1140,7 +1147,7 @@ private:
         }
         // Virtual dispatch: the concrete FeatureGroupInfo<StateEnum> invokes its
         // typed state_computer and caches the result. No dynamic_cast needed.
-        int ordinal = group->compute_and_cache(enabled_count, has_conflict, all_checks_pass);
+        int ordinal = group->computeAndCache(enabled_count, has_conflict, all_checks_pass);
         return static_cast<StateEnum>(ordinal);
     }
 
@@ -1212,7 +1219,7 @@ public:
             }
 
             // Use the validated enable/disable path: conflict checking, dependency
-            // resolution, and implies propagation all apply. batch_enable/batch_disable
+            // resolution, and implies propagation all apply. batchEnable/batchDisable
             // handles its own locking internally.
             Expected<void, std::string> result;
             if (new_state)
@@ -1257,7 +1264,7 @@ public:
                 [[maybe_unused]] auto guard = mManager->mSync.lock();
                 for (const auto& name : mChangedFeatures)
                 {
-                    auto node_res = mManager->get_node(name);
+                    auto node_res = mManager->getNode(name);
                     if (!node_res)
                     {
                         continue;
@@ -1282,16 +1289,16 @@ public:
 
             if (!restored_features.empty())
             {
-                sort_observers_by_priority(observers_snapshot);
+                sortObserversByPriority(observers_snapshot);
                 for (const auto& feature : restored_features)
                 {
-                    notify_observers_sorted(observers_snapshot, feature, !mNewState, true);
+                    notifyObserversSorted(observers_snapshot, feature, !mNewState, true);
                 }
 
                 if (!batch_observers_snapshot.empty())
                 {
-                    sort_batch_observers_by_priority(batch_observers_snapshot);
-                    notify_batch_observers_sorted(batch_observers_snapshot,
+                    sortBatchObserversByPriority(batch_observers_snapshot);
+                    notifyBatchObserversSorted(batch_observers_snapshot,
                                                   mRequestedFeature,
                                                   restored_features,
                                                   !mNewState,
@@ -1330,7 +1337,7 @@ public:
     public:
         ScopedObserver(FeatureManager& manager, FeatureObserver callback, int priority = 0)
             : mManager(&manager)
-            , mId(manager.add_observer(std::move(callback), priority))
+            , mId(manager.addObserver(std::move(callback), priority))
         {
         }
 
@@ -1338,7 +1345,7 @@ public:
         {
             if (mManager && mId != 0)
             {
-                mManager->remove_observer(mId);
+                mManager->removeObserver(mId);
             }
         }
 
@@ -1359,7 +1366,7 @@ public:
             {
                 if (mManager && mId != 0)
                 {
-                    mManager->remove_observer(mId);
+                    mManager->removeObserver(mId);
                 }
                 mManager = std::exchange(other.mManager, nullptr);
                 mId = std::exchange(other.mId, 0);
@@ -1391,7 +1398,7 @@ public:
     public:
         ScopedBatchObserver(FeatureManager& manager, BatchObserver callback, int priority = 0)
             : mManager(&manager)
-            , mId(manager.add_batch_observer(std::move(callback), priority))
+            , mId(manager.addBatchObserver(std::move(callback), priority))
         {
         }
 
@@ -1399,7 +1406,7 @@ public:
         {
             if (mManager && mId != 0)
             {
-                mManager->remove_observer(mId);
+                mManager->removeObserver(mId);
             }
         }
 
@@ -1418,7 +1425,7 @@ public:
             {
                 if (mManager && mId != 0)
                 {
-                    mManager->remove_observer(mId);
+                    mManager->removeObserver(mId);
                 }
                 mManager = std::exchange(other.mManager, nullptr);
                 mId = std::exchange(other.mId, 0);
@@ -1438,7 +1445,7 @@ public:
     };
 
     // Add a feature with an optional validation check
-    [[nodiscard]] Expected<void, std::string> add_feature(const std::string& name, FeatureCheck check = nullptr)
+    [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, FeatureCheck check = nullptr)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         if (mFeatures.count(name))
@@ -1455,7 +1462,7 @@ public:
 
     // Add a feature using a registered callback key from the factory
     // This allows the feature to be fully serialized and deserialized
-    [[nodiscard]] Expected<void, std::string> add_feature(const std::string& name, const std::string& check_key)
+    [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, const std::string& check_key)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         if (mFeatures.count(name))
@@ -1464,7 +1471,7 @@ public:
         }
 
         // Look up the check from factory
-        auto check_result = get_feature_check_factory().make(check_key);
+        auto check_result = getFeatureCheckFactory().make(check_key);
         if (!check_result)
         {
             return unexpected("Check key '" + check_key + "' not found in factory");
@@ -1480,16 +1487,16 @@ public:
 
     // Add a relationship between two features
     [[nodiscard]] Expected<void, std::string>
-    add_relationship(const std::string& from, FeatureRelationship type, const std::string& to)
+    addRelationship(const std::string& from, FeatureRelationship type, const std::string& to)
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        return add_relationship_unlocked(from, type, to);
+        return addRelationshipUnlocked(from, type, to);
     }
 
     // Add a feature group with optional custom state computer
     template <typename StateEnum = FeatureGroupState>
     [[nodiscard]] Expected<void, std::string>
-    add_group(const std::string& group_name,
+    addGroup(const std::string& group_name,
               const std::vector<std::string>& feature_names,
               StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute)
     {
@@ -1512,7 +1519,7 @@ public:
     // Add a mutually exclusive group
     template <typename StateEnum = FeatureGroupState>
     [[nodiscard]] Expected<void, std::string>
-    add_mutually_exclusive_group(const std::string& group_name,
+    addMutuallyExclusiveGroup(const std::string& group_name,
                                  const std::vector<std::string>& feature_names,
                                  StateComputer<StateEnum> computer = FeatureGroupStatePolicy<StateEnum>::compute)
     {
@@ -1535,7 +1542,7 @@ public:
         {
             for (size_t j = i + 1; j < feature_names.size(); ++j)
             {
-                auto res = add_relationship_unlocked(feature_names[i],
+                auto res = addRelationshipUnlocked(feature_names[i],
                                                      FeatureRelationship::MutuallyExclusive,
                                                      feature_names[j]);
                 if (!res)
@@ -1551,14 +1558,14 @@ public:
 
     // Get group state with type safety
     template <typename StateEnum = FeatureGroupState>
-    [[nodiscard]] Expected<StateEnum, std::string> get_group_state(const std::string& group_name) const
+    [[nodiscard]] Expected<StateEnum, std::string> getGroupState(const std::string& group_name) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        return compute_group_state_impl<StateEnum>(group_name);
+        return computeGroupStateImpl<StateEnum>(group_name);
     }
 
     // Get features in a group
-    [[nodiscard]] Expected<FlatSet<std::string>, std::string> get_group_features(const std::string& group_name) const
+    [[nodiscard]] Expected<FlatSet<std::string>, std::string> getGroupFeatures(const std::string& group_name) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         auto* group_uptr = mGroups.find(group_name);
@@ -1573,22 +1580,22 @@ public:
     // If enabling fails (e.g., due to conflicts), no dependencies are left enabled
     [[nodiscard]] Expected<void, std::string> enable(const std::string& name)
     {
-        return batch_enable({name});
+        return batchEnable({name});
     }
 
     // Disable a feature (Transactional)
     //
-    // Delegates to batch_disable to ensure safety constraints (Requires/Implies)
+    // Delegates to batchDisable to ensure safety constraints (Requires/Implies)
     // are checked and all side effects are handled atomically.
     [[nodiscard]] Expected<void, std::string> disable(const std::string& name)
     {
-        return batch_disable({name});
+        return batchDisable({name});
     }
 
     // Batch enable multiple features with transactional semantics
     // All features (including dependencies) succeed or all changes are rolled back.
     // NOTIFICATIONS ARE DEFERRED until after lock release to prevent deadlocks.
-    [[nodiscard]] Expected<void, std::string> batch_enable(const std::vector<std::string>& names)
+    [[nodiscard]] Expected<void, std::string> batchEnable(const std::vector<std::string>& names)
     {
         std::vector<std::string> all_changed;
         std::vector<ObserverEntry> observers_snapshot;
@@ -1600,7 +1607,7 @@ public:
             // Validate all features exist first
             for (const auto& name : names)
             {
-                auto node_res = get_node(name);
+                auto node_res = getNode(name);
                 if (!node_res)
                 {
                     return unexpected(node_res.error());
@@ -1619,7 +1626,7 @@ public:
             {
                 std::vector<std::string> chain;
                 std::unordered_set<std::string> chain_set;
-                auto res = enable_feature(name, chain, chain_set, &all_changed);
+                auto res = enableFeature(name, chain, chain_set, &all_changed);
                 if (!res)
                 {
                     // Rollback ALL features to original states
@@ -1644,17 +1651,17 @@ public:
         if (!all_changed.empty())
         {
             // Notify observers safely outside the lock
-            sort_observers_by_priority(observers_snapshot);
+            sortObserversByPriority(observers_snapshot);
             for (const auto& feature : all_changed)
             {
-                notify_observers_sorted(observers_snapshot, feature, true, true);
+                notifyObserversSorted(observers_snapshot, feature, true, true);
             }
 
             // Notify batch observers
             if (!batch_observers_snapshot.empty())
             {
-                sort_batch_observers_by_priority(batch_observers_snapshot);
-                notify_batch_observers_sorted(batch_observers_snapshot,
+                sortBatchObserversByPriority(batch_observers_snapshot);
+                notifyBatchObserversSorted(batch_observers_snapshot,
                                               names.empty() ? "" : names[0],
                                               all_changed,
                                               true,
@@ -1672,7 +1679,7 @@ public:
     // an enabled feature.
     // NOTIFICATIONS ARE DEFERRED until after lock release to prevent deadlocks.
     // NOTE: Duplicate names in the input are automatically deduplicated (first occurrence wins).
-    [[nodiscard]] Expected<void, std::string> batch_disable(const std::vector<std::string>& names)
+    [[nodiscard]] Expected<void, std::string> batchDisable(const std::vector<std::string>& names)
     {
         std::vector<std::string> actually_changed;
         std::vector<ObserverEntry> observers_snapshot;
@@ -1697,7 +1704,7 @@ public:
             // Validate all features exist first
             for (const auto& name : unique_names)
             {
-                auto node_res = get_node(name);
+                auto node_res = getNode(name);
                 if (!node_res)
                 {
                     return unexpected(node_res.error());
@@ -1710,7 +1717,7 @@ public:
 
             for (const auto& name : unique_names)
             {
-                auto node_res = get_node(name);
+                auto node_res = getNode(name);
                 original_states.push_back((*node_res)->enabled);
                 if ((*node_res)->enabled)
                 {
@@ -1723,7 +1730,7 @@ public:
             auto rollback = [&]() {
                 for (size_t i = 0; i < unique_names.size(); ++i)
                 {
-                    auto n = get_node(unique_names[i]);
+                    auto n = getNode(unique_names[i]);
                     if (n)
                     {
                         (*n)->enabled = original_states[i];
@@ -1740,9 +1747,9 @@ public:
                 }
 
                 // Check if this enabled feature requires any of the disabled features
-                for (const auto& required : node.relationships[rel_idx(FeatureRelationship::Requires)])
+                for (const auto& required : node.relationships[relIdx(FeatureRelationship::Requires)])
                 {
-                    auto req_node = get_node(required);
+                    auto req_node = getNode(required);
                     if (!req_node)
                     {
                         rollback();
@@ -1758,7 +1765,7 @@ public:
 
                 // Check if this enabled feature implies any of the disabled features
                 // If A implies B and A is enabled, then B cannot be disabled
-                for (const auto& implied : node.relationships[rel_idx(FeatureRelationship::Implies)])
+                for (const auto& implied : node.relationships[relIdx(FeatureRelationship::Implies)])
                 {
                     if (disabled_set.count(implied))
                     {
@@ -1779,17 +1786,17 @@ public:
         if (!actually_changed.empty())
         {
             // Notify observers safely outside the lock
-            sort_observers_by_priority(observers_snapshot);
+            sortObserversByPriority(observers_snapshot);
             for (const auto& feature : actually_changed)
             {
-                notify_observers_sorted(observers_snapshot, feature, false, true);
+                notifyObserversSorted(observers_snapshot, feature, false, true);
             }
 
             // Notify batch observers
             if (!batch_observers_snapshot.empty())
             {
-                sort_batch_observers_by_priority(batch_observers_snapshot);
-                notify_batch_observers_sorted(batch_observers_snapshot,
+                sortBatchObserversByPriority(batch_observers_snapshot);
+                notifyBatchObserversSorted(batch_observers_snapshot,
                                               names.empty() ? "" : names[0],
                                               actually_changed,
                                               false,
@@ -1801,10 +1808,10 @@ public:
     }
 
     // Check if feature is enabled
-    bool is_enabled(const std::string& name) const
+    [[nodiscard]] bool isEnabled(const std::string& name) const
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        auto node_res = get_node(name);
+        auto node_res = getNode(name);
         if (!node_res)
         {
             return false;
@@ -1816,7 +1823,7 @@ public:
     [[nodiscard]] Expected<void, std::string> validate()
     {
         [[maybe_unused]] auto guard = mSync.lock();
-        return validate_unlocked();
+        return validateUnlocked();
     }
 
     // Add observer with priority
@@ -1841,7 +1848,7 @@ public:
     // Observers should remain lightweight and avoid long blocking work to keep feature
     // operations fast.
     //
-    ObserverId add_observer(FeatureObserver callback, int priority = 0)
+    ObserverId addObserver(FeatureObserver callback, int priority = 0)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         ObserverId id = mNextObserverId++;
@@ -1859,7 +1866,7 @@ public:
     //   - The complete set of state changes for a single user action
     //
     // Example:
-    //   manager.add_batch_observer([](auto requested, auto all_changed, auto enabled, auto ok) {
+    //   manager.addBatchObserver([](auto requested, auto all_changed, auto enabled, auto ok) {
     //       std::cout << "Requested: " << requested << "\n";
     //       std::cout << "All changed: ";
     //       for (const auto& f : all_changed) std::cout << f << " ";
@@ -1867,7 +1874,7 @@ public:
     //   });
     //
     // Returns: ObserverId that can be used to remove the observer later
-    ObserverId add_batch_observer(BatchObserver callback, int priority = 0)
+    ObserverId addBatchObserver(BatchObserver callback, int priority = 0)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         ObserverId id = mNextObserverId++;
@@ -1881,7 +1888,7 @@ public:
     // false if no observer with that ID exists.
     //
     // Works for both regular and batch observers.
-    bool remove_observer(ObserverId id)
+    bool removeObserver(ObserverId id)
     {
         [[maybe_unused]] auto guard = mSync.lock();
 
@@ -1910,7 +1917,7 @@ public:
     }
 
     // Remove all observers
-    void clear_observers()
+    void clearObservers()
     {
         [[maybe_unused]] auto guard = mSync.lock();
         mObservers.clear();
@@ -1918,7 +1925,7 @@ public:
     }
 
     // Get all enabled features
-    std::vector<std::string> get_enabled() const
+    std::vector<std::string> getEnabled() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         std::vector<std::string> enabled;
@@ -1933,7 +1940,7 @@ public:
     }
 
     // Get all feature names
-    std::vector<std::string> get_all_features() const
+    [[nodiscard]] std::vector<std::string> getAllFeatures() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         std::vector<std::string> all_features;
@@ -1945,7 +1952,7 @@ public:
     }
 
     // Get all group names
-    std::vector<std::string> get_all_groups() const
+    [[nodiscard]] std::vector<std::string> getAllGroups() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         std::vector<std::string> all_groups;
@@ -1957,20 +1964,20 @@ public:
     }
 
     // Serialize to JSON
-    std::string to_json() const
+    [[nodiscard]] std::string toJson() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         JsonObject root;
         JsonObject features_json;
         for (const auto& [name, node] : mFeatures)
         {
-            features_json[name] = node.to_json();
+            features_json[name] = node.toJson();
         }
         root["features"] = JsonValue{std::move(features_json)};
         JsonObject groups_json;
         for (const auto& [name, group] : mGroups)
         {
-            groups_json[name] = group->to_json();
+            groups_json[name] = group->toJson();
         }
         root["groups"] = JsonValue{std::move(groups_json)};
         return to_json_string(root);
@@ -1984,7 +1991,7 @@ public:
     // 3. Full validation: cycles are detected and enabled-state invariants are checked
     //
     // If any validation fails, an error is returned and no partial state is created.
-    [[nodiscard]] static Expected<FeatureManager, std::string> from_json(const std::string& json_str)
+    [[nodiscard]] static Expected<FeatureManager, std::string> fromJson(const std::string& json_str)
     {
         JsonValue root;
         try
@@ -2011,7 +2018,7 @@ public:
             const auto& features_obj = std::get<JsonObject>(features_it->second);
             for (const auto& [name, value] : features_obj)
             {
-                auto node_res = FeatureNode::from_json(value);
+                auto node_res = FeatureNode::fromJson(value);
                 if (!node_res)
                 {
                     return unexpected("Error parsing feature '" + name + "': " + node_res.error());
@@ -2045,7 +2052,7 @@ public:
         {
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
-                const auto& targets = from_node.relationships[rel_idx(rel)];
+                const auto& targets = from_node.relationships[relIdx(rel)];
                 if (targets.empty())
                 {
                     continue;
@@ -2055,7 +2062,7 @@ public:
                     // Add reverse relationship if not already present.
                     // to_name is validated to exist by the relationship check above.
                     auto* to_node_ptr = manager.mFeatures.find(to_name);
-                    (void)to_node_ptr->relationships[rel_idx(rel)].insert(from_name);
+                    (void)to_node_ptr->relationships[relIdx(rel)].insert(from_name);
                 }
             }
         }
@@ -2095,7 +2102,7 @@ public:
 
         // Full validation: detect cycles and verify enabled-state invariants.
         // This catches invalid graphs that could cause problems during enable/disable.
-        auto validate_res = manager.validate_unlocked();
+        auto validate_res = manager.validateUnlocked();
         if (!validate_res)
         {
             return unexpected("Loaded graph fails validation: " + validate_res.error());
@@ -2105,7 +2112,7 @@ public:
     }
 
     // Export to GraphViz DOT format
-    std::string to_dot() const
+    [[nodiscard]] std::string toDot() const
     {
         [[maybe_unused]] auto guard = mSync.lock();
         std::ostringstream ss;
@@ -2168,4 +2175,5 @@ public:
     }
 };
 
+} // namespace feature
 } // namespace fat_p
