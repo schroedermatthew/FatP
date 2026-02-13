@@ -309,7 +309,7 @@ Pseudocode:
     
     check_conflicts(feature)
     run_validation(feature)
-    feature.mEnabled = true
+    feature.enabled = true
     path.pop()
 ```
 
@@ -356,9 +356,9 @@ Serialization:
 
 Deserialization:
   For each JSON feature:
-    node.mEnabled = JSON.mEnabled
+    node.enabled = JSON.enabled
     if JSON has check_key:
-      node.mCheck = factory.make(check_key)  // Reconstruct callback
+      node.check = factory.make(check_key)  // Reconstruct callback
     parse relationships
 ```
 
@@ -1187,14 +1187,14 @@ template<typename StateType>
 Expected<void, std::string> addGroup(
     const std::string& name,
     const std::vector<std::string>& featureNames,
-    std::function<StateType(const std::set<std::string>&)> mStateComputer
+    std::function<StateType(const std::set<std::string>&)> stateComputer
 );
 ```
 
 **Parameters:**
 - `name`: Unique group identifier
 - `featureNames`: Features belonging to this group
-- `mStateComputer`: Function that computes group state from set of enabled features
+- `stateComputer`: Function that computes group state from set of enabled features
 
 **Returns:**
 - `Expected<void>` on success
@@ -1645,7 +1645,7 @@ manager.addFeature("HighQuality", "hardware.memory");
 
 ```cpp
 factory.registerType("key", [monitor]() -> FeatureCheck {
-    return [monitor]() { return monitor->mCheck(); };
+    return [monitor]() { return monitor->check(); };
 });
 ```
 
@@ -2664,13 +2664,13 @@ Fix: Graphics should not require Context; Context requires Graphics instead.
 ```cpp
 // ❌ Dangling 'this'
 factory.registerType("key", [this]() -> FeatureCheck {
-    return [this]() { return this->mCheck(); };  // 'this' may be invalid
+    return [this]() { return this->check(); };  // 'this' may be invalid
 });
 
 // ✅ Use shared_ptr
 auto self = std::make_shared<MyClass>();
 factory.registerType("key", [self]() -> FeatureCheck {
-    return [self]() { return self->mCheck(); };  // 'self' kept alive
+    return [self]() { return self->check(); };  // 'self' kept alive
 });
 ```
 

@@ -246,6 +246,7 @@ FatP/
 - Include public headers as:
   - `#include "Stringify.h"`
 - The build system MUST provide `include/fat_p/` on the include path for all targets that consume Fat-P.
+- **Ordering:** Group includes by architectural layer with alphabetical sort within each group. See §5.11 for details.
 
 **CI workflow paths**
 
@@ -652,7 +653,7 @@ DerivePointerAlignment: false
 PointerAlignment: Left
 ReferenceAlignment: Left
 
-# Includes
+# Includes (see §5.11 for layer-grouped ordering convention)
 SortIncludes: CaseInsensitive
 IncludeBlocks: Preserve
 
@@ -702,10 +703,13 @@ SortUsingDeclarations: true
 |---------|-------|---------|
 | Class/Struct | PascalCase | `StableHashMap`, `CircularBuffer` |
 | Function/Method | camelCase | `findEntry()`, `insertOrAssign()` |
-| Instance member variable | `m` prefix + PascalCase | `mBucketCount`, `mLoadFactor` |
+| Class instance member | `m` prefix + PascalCase | `mBucketCount`, `mLoadFactor` |
+| Struct/aggregate member | camelCase (no prefix) | `id`, `priority`, `checkKey` |
 | Static member variable | `s` prefix + PascalCase | `sInstanceCount`, `sDefaultPolicy` |
 | Local variable | camelCase | `entryIndex`, `hashValue` |
 | Template parameter | PascalCase | `Key`, `Value`, `Policy` |
+| Type alias (STL-compatible) | snake_case | `value_type`, `state_type` |
+| Type alias (project-specific) | PascalCase | `FeatureCheckFactory`, `StateComputer` |
 | Preprocessor constant/macro | SCREAMING_SNAKE | `MAX_LOAD_FACTOR`, `BUFFER_SIZE` |
 | Compile-time constant (`constexpr`) | `k` prefix + PascalCase | `kDefaultCapacity`, `kMaxRetries` |
 | Namespace | lowercase | `fat_p`, `fat_p::detail` |
@@ -729,12 +733,38 @@ Functions that implement STL-compatible interfaces (e.g., for use with `std::bac
 
 **Member Variable Rationale:**
 
-The `m` prefix with PascalCase (e.g., `mBucketCount`) is mandatory for **instance** member variables.
+The `m` prefix with PascalCase (e.g., `mBucketCount`) is mandatory for **class** instance member variables — types with constructors, destructors, private state, or non-trivial invariants.
+
+**Aggregate structs** (plain data holders used with brace initialization) use plain camelCase with no prefix. The `m` prefix exists to disambiguate members from locals inside complex class methods; aggregates without methods don't have that problem, and `entry.mId` is worse than `entry.id` for a plain data struct.
+
+**The dividing line:** If the type has a user-declared constructor, destructor, or private/protected members, use `m` prefix. If it's a simple aggregate (all public members, no user-declared special members), use plain camelCase.
+
+```cpp
+// Class — uses mPrefix (has constructor, destructor, private state)
+class ScopedObserver
+{
+private:
+    FeatureManager* mManager;
+    ObserverId mId;
+public:
+    ScopedObserver(FeatureManager& mgr, FeatureObserver cb, int priority = 0);
+    ~ScopedObserver();
+};
+
+// Aggregate struct — plain camelCase (all public, no special members)
+struct ObserverEntry
+{
+    ObserverId id;
+    int priority;
+    FeatureObserver callback;
+};
+```
 
 **Why this convention:**
 - **Disambiguation without `this->`**: In header-only code, parameter names often shadow member names. The `m` prefix eliminates ambiguity without requiring `this->` throughout the codebase.
 - **AI code generation**: Explicit member identification helps code generation tools produce correct code without context about class structure.
 - **Grep-ability**: `mFoo` is trivially searchable as a member; `foo` could be anything.
+- **Aggregates are different**: Aggregate members are accessed as `entry.field`, never bare. The dot already disambiguates, making `m` prefix redundant noise.
 
 While modern style guides vary on member prefixes, this convention is load-bearing for header-only libraries where disambiguation matters.
 
@@ -1320,6 +1350,49 @@ iterator erase(iterator pos);  // No [[nodiscard]]
 
 In the intrusive list case, the node remains valid after insertion/erasure (intrusive semantics), and position can be recovered via `iteratorTo()` if needed. Forcing callers to write `(void)list.insert(...)` is friction without safety benefit.
 
+### 5.11 Include Ordering Convention
+
+**Rule:** Includes are grouped by layer, with alphabetical ordering within each group. Groups are separated by a blank line.
+
+**Group order (top to bottom):**
+
+1. Standard library headers (`<algorithm>`, `<string>`, `<vector>`, ...)
+2. Fat-P Foundation layer headers
+3. Fat-P Containers layer headers
+4. Fat-P Concurrency layer headers
+5. Fat-P Domain layer headers
+6. Fat-P Integration layer headers
+7. Fat-P Testing layer headers (test/benchmark files only)
+
+Within each group, headers are sorted alphabetically (case-insensitive).
+
+**Example:**
+
+```cpp
+// Standard library
+#include <algorithm>
+#include <string>
+#include <vector>
+
+// Foundation
+#include "ConcurrencyPolicies.h"
+#include "EnumPlus.h"
+#include "Expected.h"
+
+// Containers
+#include "FastHashMap.h"
+#include "FlatSet.h"
+
+// Domain
+#include "JsonLite.h"
+#include "Stringify.h"
+#include "ValueGuard.h"
+```
+
+**Rationale:** Layer-grouped ordering communicates dependency structure at a glance. A maintainer can immediately see which architectural layers a header depends on. Alphabetical within groups eliminates bikeshedding about ordering within a layer. The `IncludeBlocks: Preserve` clang-format setting respects blank-line-separated groups, so this convention is tool-compatible.
+
+**Enforcement priority:** Low. Fix opportunistically when modifying a file's includes for other reasons. Do not create dedicated include-reordering patches.
+
 ---
 
 ## 6. Unit Testing Standards
@@ -1840,6 +1913,7 @@ g++ -std=c++20 -O3 -DNDEBUG -march=native -flto
 - [ ] No backwards compatibility aliases
 - [ ] For headers: `#pragma once` first, then `FATP_META`, then Doxygen file header
 - [ ] `FATP_META.layer` present and verified against actual includes
+- [ ] Includes grouped by layer with alphabetical sort within groups (§5.11; fix opportunistically)
 
 ### Before Submitting Tests:
 
@@ -2266,6 +2340,14 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ## Changelog
 
+### v3.5 (February 2026)
+- Added Section 5.11: Include Ordering Convention — group includes by architectural layer with alphabetical sort within groups
+- Cross-referenced §5.11 from Section 1.7.1 (Include directives) and clang-format config comment
+- Added include ordering to code submission checklist (opportunistic enforcement)
+- Enforcement priority: Low — fix when modifying a file's includes for other reasons
+- Clarified §5.3: `m` prefix applies to **class** instance members only; aggregate struct members use plain camelCase
+- Clarified §5.3: Type aliases that follow STL conventions (`value_type`, `state_type`) retain snake_case
+
 ### v3.4 (February 2026)
 - Added item 12 to AI Non-Goals (§11.3): prohibition on delivering band-aids when root cause is known
 - Added Section 11.3.12: The Band-Aid Rule -- if the AI knows the root cause, it must fix the root cause
@@ -2393,4 +2475,4 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.4 -- February 2026*
+*Fat-P Library Development Guidelines v3.5 -- February 2026*
