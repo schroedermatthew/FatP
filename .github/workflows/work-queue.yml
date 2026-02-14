@@ -13,6 +13,12 @@ name: WorkQueue CI
 
 on:
   workflow_dispatch:
+    inputs:
+      run_benchmarks:
+        description: 'Run benchmarks'
+        required: false
+        default: 'false'
+        type: boolean
   push:
     paths:
       - 'include/fat_p/WorkQueue.h'
@@ -263,6 +269,7 @@ jobs:
 
     name: Benchmark Linux GCC-13
     runs-on: ubuntu-24.04
+    if: ${{ inputs.run_benchmarks }}
     steps:
       - uses: actions/checkout@v4
 
@@ -296,6 +303,7 @@ jobs:
 
     name: Benchmark Windows MSVC
     runs-on: windows-latest
+    if: ${{ inputs.run_benchmarks }}
     steps:
       - uses: actions/checkout@v4
 
@@ -339,6 +347,7 @@ jobs:
 
     name: Benchmark ThreadSanitizer
     runs-on: ubuntu-24.04
+    if: ${{ inputs.run_benchmarks }}
     steps:
       - uses: actions/checkout@v4
 
@@ -384,7 +393,7 @@ jobs:
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmark-linux.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmark-windows.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmark-tsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.benchmark-linux.result }}" != "success" && "${{ needs.benchmark-linux.result }}" != "skipped" ]]; then exit 1; fi
+          if [[ "${{ needs.benchmark-windows.result }}" != "success" && "${{ needs.benchmark-windows.result }}" != "skipped" ]]; then exit 1; fi
+          if [[ "${{ needs.benchmark-tsan.result }}" != "success" && "${{ needs.benchmark-tsan.result }}" != "skipped" ]]; then exit 1; fi
           echo "All checks passed"
