@@ -7,7 +7,7 @@ FATP_META:
   path: include/fat_p/Expected.h
   namespace: fat_p
   layer: Foundation
-  summary: "Public header for Expected."
+  summary: "Public header for Expected. Includes AsyncTask (formerly AsyncOperations)."
   api_stability: in_work
   related:
     docs_search: "Expected"
@@ -16,6 +16,7 @@ FATP_META:
       - components/Enforce/tests/test_Enforce.cpp
       - components/Expected/tests/test_Expected.cpp
       - components/IdGenerator/tests/test_IdGenerator.cpp
+      - components/PipeOperator/tests/test_PipeOperator.cpp
   hygiene:
     pragma_once: true
     include_guard: false
@@ -30,7 +31,7 @@ FATP_META:
 
 /**
  * @file Expected.h
- * @brief Production-ready Expected<T,E> with complete monadic operations
+ * @brief Production-ready Expected<T,E> with complete monadic operations and AsyncTask
  *
  *
  *
@@ -44,6 +45,7 @@ FATP_META:
  * - Rebind template for type transformations
  * - Storage policies (Union/Variant)
  * - Comprehensive noexcept specifications
+ * - AsyncTask with monadic continuations (.then, .error, .poll)
  * - C++20 minimum, C++23 enhanced
  *
  * @section cpp_versions C++ Version Support
@@ -95,6 +97,9 @@ FATP_META:
 #include <concepts>    // For std::constructible_from, std::same_as, etc.
 #include <exception>   // Base for bad_expected_access
 #include <functional>  // For std::hash
+#include <future>      // For std::async, std::future (AsyncTask support)
+#include <memory>      // For std::shared_ptr (AsyncTask support)
+#include <optional>    // For std::optional (AsyncTask cached results)
 #include <stdexcept>   // For std::logic_error
 #include <string>      // Default error type
 #include <type_traits> // For std::is_constructible, std::is_same, etc.
@@ -312,9 +317,8 @@ struct unexpected
      * @param err The error to wrap.
      */
     template <typename Err = E>
-        requires (!std::same_as<std::remove_cvref_t<Err>, unexpected> &&
-                  !std::same_as<std::remove_cvref_t<Err>, std::in_place_t> &&
-                  std::constructible_from<E, Err>)
+        requires(!std::same_as<std::remove_cvref_t<Err>, unexpected> &&
+                 !std::same_as<std::remove_cvref_t<Err>, std::in_place_t> && std::constructible_from<E, Err>)
     constexpr explicit unexpected(Err&& err) noexcept(std::is_nothrow_constructible_v<E, Err>)
         : mError(std::forward<Err>(err))
     {
@@ -405,7 +409,7 @@ template <typename T, typename E>
 struct UnionStorage
 {
 private:
-    bool mHasValue;   ///< Discriminator: true if value is active
+    bool mHasValue;    ///< Discriminator: true if value is active
     bool mInitialized; ///< True if union has been initialized (either value or error)
     union
     {
@@ -883,7 +887,8 @@ struct VariantStorage
     /**
      * @brief Default constructor: Initializes in value state with default T (if T is default-constructible).
      */
-    VariantStorage() requires std::default_initializable<T>
+    VariantStorage()
+        requires std::default_initializable<T>
         : mData(T{})
     {
     }
@@ -1036,29 +1041,24 @@ concept expected_with_value = is_expected_with_value<U, Val>::value;
 
 // --- Helper concepts for constructor constraints ---
 
-namespace detail {
+namespace detail
+{
 
 /// T is not constructible or convertible from any cv/ref combination of Other.
 /// Guards converting constructors against hijacking by implicit conversions.
 template <typename T, typename Other>
 concept NotConstructibleFromExpected =
-    !std::is_constructible_v<T, Other&> &&
-    !std::is_constructible_v<T, const Other&> &&
-    !std::is_constructible_v<T, Other&&> &&
-    !std::is_constructible_v<T, const Other&&> &&
-    !std::is_convertible_v<Other&, T> &&
-    !std::is_convertible_v<const Other&, T> &&
-    !std::is_convertible_v<Other&&, T> &&
-    !std::is_convertible_v<const Other&&, T>;
+    !std::is_constructible_v<T, Other&> && !std::is_constructible_v<T, const Other&> &&
+    !std::is_constructible_v<T, Other&&> && !std::is_constructible_v<T, const Other&&> &&
+    !std::is_convertible_v<Other&, T> && !std::is_convertible_v<const Other&, T> &&
+    !std::is_convertible_v<Other&&, T> && !std::is_convertible_v<const Other&&, T>;
 
 /// T is not a tag type used for constructor disambiguation.
 template <typename T, typename Self>
 concept NotTagType =
-    !std::same_as<std::remove_cvref_t<T>, std::in_place_t> &&
-    !std::same_as<std::remove_cvref_t<T>, Self>;
+    !std::same_as<std::remove_cvref_t<T>, std::in_place_t> && !std::same_as<std::remove_cvref_t<T>, Self>;
 
 } // namespace detail
-
 
 
 /**
@@ -1160,8 +1160,7 @@ public:
      * @param v Const reference to T.
      */
     template <typename U = T>
-        requires (std::constructible_from<T, const U&> &&
-                  detail::NotTagType<U, ExpectedImpl>)
+        requires(std::constructible_from<T, const U&> && detail::NotTagType<U, ExpectedImpl>)
     constexpr ExpectedImpl(const U& v) noexcept(std::is_nothrow_constructible_v<T, const U&>)
     {
         mStorage.store_value(v);
@@ -1172,8 +1171,7 @@ public:
      * @param v Rvalue reference to T.
      */
     template <typename U = T>
-        requires (std::constructible_from<T, U&&> &&
-                  detail::NotTagType<U, ExpectedImpl>)
+        requires(std::constructible_from<T, U &&> && detail::NotTagType<U, ExpectedImpl>)
     constexpr ExpectedImpl(U&& v) noexcept(std::is_nothrow_constructible_v<T, U&&>)
     {
         mStorage.store_value(std::forward<U>(v));
@@ -1194,8 +1192,7 @@ public:
     /**
      * @brief In-place value construction with initializer list.
      */
-    template <typename U,
-              typename... Args>
+    template <typename U, typename... Args>
         requires std::constructible_from<T, std::initializer_list<U>&, Args...>
     constexpr explicit ExpectedImpl(std::in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible_v<T, std::initializer_list<U>&, Args...>)
@@ -1220,8 +1217,7 @@ public:
     /**
      * @brief In-place error construction with initializer list.
      */
-    template <typename U,
-              typename... Args>
+    template <typename U, typename... Args>
         requires std::constructible_from<E, std::initializer_list<U>&, Args...>
     constexpr explicit ExpectedImpl(unexpect_tag_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible_v<E, std::initializer_list<U>&, Args...>)
@@ -1294,12 +1290,9 @@ public:
     /**
      * @brief Converting copy constructor.
      */
-    template <
-        typename U,
-        typename G,
-        template <typename, typename> class SP>
-        requires (std::constructible_from<T, const U&> && std::constructible_from<E, const G&> &&
-                  detail::NotConstructibleFromExpected<T, ExpectedImpl<U, G, SP>>)
+    template <typename U, typename G, template <typename, typename> class SP>
+        requires(std::constructible_from<T, const U&> && std::constructible_from<E, const G&> &&
+                 detail::NotConstructibleFromExpected<T, ExpectedImpl<U, G, SP>>)
     explicit ExpectedImpl(const ExpectedImpl<U, G, SP>& other) noexcept(std::is_nothrow_constructible_v<T, const U&> &&
                                                                         std::is_nothrow_constructible_v<E, const G&>)
     {
@@ -1316,11 +1309,9 @@ public:
     /**
      * @brief Converting move constructor.
      */
-    template <typename U,
-              typename G,
-              template <typename, typename> class SP>
-        requires (std::constructible_from<T, U&&> && std::constructible_from<E, G&&> &&
-                  detail::NotConstructibleFromExpected<T, ExpectedImpl<U, G, SP>>)
+    template <typename U, typename G, template <typename, typename> class SP>
+        requires(std::constructible_from<T, U &&> && std::constructible_from<E, G &&> &&
+                 detail::NotConstructibleFromExpected<T, ExpectedImpl<U, G, SP>>)
     explicit ExpectedImpl(ExpectedImpl<U, G, SP>&& other) noexcept(std::is_nothrow_constructible_v<T, U&&> &&
                                                                    std::is_nothrow_constructible_v<E, G&&>)
     {
@@ -1430,8 +1421,8 @@ public:
      * @return Reference to this.
      */
     template <typename U = T>
-        requires (!std::same_as<std::remove_cvref_t<U>, ExpectedImpl> &&
-                  std::constructible_from<T, U> && std::is_assignable_v<T&, U>)
+        requires(!std::same_as<std::remove_cvref_t<U>, ExpectedImpl> && std::constructible_from<T, U> &&
+                 std::is_assignable_v<T&, U>)
     ExpectedImpl& operator=(U&& v) noexcept(std::is_nothrow_constructible_v<T, U> &&
                                             std::is_nothrow_assignable_v<T&, U>)
     {
@@ -2155,7 +2146,6 @@ template <typename T1, typename E1, typename T2, template <typename, typename> c
 }
 
 
-
 // Comparison with unexpected
 template <typename T, typename E1, typename E2, template <typename, typename> class SP>
 [[nodiscard]] constexpr bool operator==(const ExpectedImpl<T, E1, SP>& lhs, const unexpected<E2>& rhs)
@@ -2170,7 +2160,6 @@ template <typename T, typename E1, typename E2, template <typename, typename> cl
 }
 
 
-
 // --- Void Specialization Storage Policies ---
 
 /**
@@ -2182,7 +2171,7 @@ template <typename E>
 struct UnionStorage<void, E>
 {
 private:
-    bool mHasValue;   ///< Discriminator (true for success)
+    bool mHasValue;    ///< Discriminator (true for success)
     bool mInitialized; ///< True if union has been initialized (either value or error)
     union
     {
@@ -3102,7 +3091,6 @@ template <typename E1, typename E2, template <typename, typename> class SP>
 }
 
 
-
 // --- User-Facing Aliases ---
 
 // --- Storage Policy Configuration ---
@@ -3186,9 +3174,9 @@ public:
     }
 
     template <typename U = T>
-        requires (std::constructible_from<T, U&&> && !std::same_as<std::remove_cvref_t<U>, ExpectedImpl> &&
-                  !std::same_as<std::remove_cvref_t<U>, std::in_place_t> &&
-                  !std::same_as<std::remove_cvref_t<U>, unexpect_tag_t>)
+        requires(std::constructible_from<T, U &&> && !std::same_as<std::remove_cvref_t<U>, ExpectedImpl> &&
+                 !std::same_as<std::remove_cvref_t<U>, std::in_place_t> &&
+                 !std::same_as<std::remove_cvref_t<U>, unexpect_tag_t>)
     constexpr ExpectedImpl(U&& v)
         : mStorage(std::in_place, std::forward<U>(v))
     {
@@ -3432,7 +3420,6 @@ public:
         mStorage.store_value(std::forward<Args>(args)...);
         return mStorage.get_value();
     }
-
 };
 
 // --- User-Facing Aliases ---
@@ -3598,9 +3585,8 @@ void swap(unexpected<E>& lhs, unexpected<E>& rhs) noexcept(noexcept(lhs.swap(rhs
  * @endcode
  */
 template <typename T1, typename E1, typename T2, typename E2>
-    constexpr auto operator<=>
-    (const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
-        requires std::three_way_comparable_with<T1, T2>&& std::three_way_comparable_with<E1, E2>
+constexpr auto operator<=>(const Expected<T1, E1>& lhs, const Expected<T2, E2>& rhs)
+    requires std::three_way_comparable_with<T1, T2> && std::three_way_comparable_with<E1, E2>
 {
     // Error < Value ordering (matches C++23 std::expected)
     if (lhs.has_value() != rhs.has_value())
@@ -3622,8 +3608,8 @@ template <typename T1, typename E1, typename T2, typename E2>
  * @brief Three-way comparison for void Expected specialization (C++20+)
  */
 template <typename E1, typename E2>
-    constexpr auto operator<=>
-    (const Expected<void, E1>& lhs, const Expected<void, E2>& rhs)requires std::three_way_comparable_with<E1, E2>
+constexpr auto operator<=>(const Expected<void, E1>& lhs, const Expected<void, E2>& rhs)
+    requires std::three_way_comparable_with<E1, E2>
 {
     // Error < Value ordering
     if (lhs.has_value() != rhs.has_value())
@@ -3902,6 +3888,158 @@ struct is_expected_with_value<std::expected<Val, Err>, Val> : std::true_type
 // FATP_EXPECTED_TRY_UNIQUE_NAME are intentionally NOT #undef'd because they are
 // required for the user-facing macros FATP_EXPECTED_TRY, FATP_EXPECTED_TRY_VOID,
 // and FATP_EXPECTED_ASSIGN_OR_RETURN to function correctly.
+
+// ====================================================================
+// Async Operations (Expected-integrated async tasks)
+// ====================================================================
+
+/// @brief Helper to extract value_type from Expected return types.
+template <typename T>
+struct ExtractExpectedValue
+{
+    using type = T;
+};
+
+template <typename T, typename E, template <typename, typename> class SP>
+struct ExtractExpectedValue<ExpectedImpl<T, E, SP>>
+{
+    using type = T;
+};
+
+template <typename T>
+using ExtractExpectedValue_t = typename ExtractExpectedValue<T>::type;
+
+/// @brief Helper to extract error_type from Expected return types.
+template <typename T>
+struct ExtractExpectedError
+{
+    using type = std::string; // Default error type
+};
+
+template <typename T, typename E, template <typename, typename> class SP>
+struct ExtractExpectedError<ExpectedImpl<T, E, SP>>
+{
+    using type = E;
+};
+
+template <typename T>
+using ExtractExpectedError_t = typename ExtractExpectedError<T>::type;
+
+/**
+ * @brief Asynchronous task wrapper producing Expected<T, E> results.
+ *
+ * Wraps std::future with Expected integration, providing monadic
+ * continuation (.then), error handling (.error), and non-blocking poll.
+ *
+ * @tparam T Value type
+ * @tparam E Error type (default: std::string)
+ */
+template <typename T, typename E = std::string>
+class AsyncTask
+{
+private:
+    std::future<Expected<T, E>> mFuture;
+    std::optional<Expected<T, E>> mCachedResult;
+
+    AsyncTask(std::future<Expected<T, E>> fut)
+        : mFuture(std::move(fut))
+    {
+    }
+
+public:
+    AsyncTask() = delete;
+
+    template <typename Func, typename... Args>
+    static AsyncTask create(Func&& func, Args&&... args)
+    {
+        return AsyncTask(std::async(std::launch::async, std::forward<Func>(func), std::forward<Args>(args)...));
+    }
+
+    Expected<T, E> wait()
+    {
+        if (mCachedResult)
+        {
+            return *mCachedResult;
+        }
+        mCachedResult = mFuture.get();
+        return *mCachedResult;
+    }
+
+    bool valid() const
+    {
+        return mCachedResult.has_value() || mFuture.valid();
+    }
+
+    template <typename Func>
+    auto then(Func&& continuation) -> AsyncTask<ExtractExpectedValue_t<std::invoke_result_t<Func, T>>, E>
+    {
+        using ResultType = std::invoke_result_t<Func, T>;
+        using NewT = ExtractExpectedValue_t<ResultType>;
+
+        return AsyncTask<NewT, E>::create(
+            [fut = std::move(mFuture), cont = std::forward<Func>(continuation)]() mutable -> Expected<NewT, E> {
+                auto result = fut.get();
+                if (!result)
+                {
+                    return unexpected(result.error());
+                }
+                return cont(*result);
+            });
+    }
+
+    template <typename Func>
+    AsyncTask<T, E> error(Func&& error_handler)
+    {
+        return create(
+            [fut = std::move(mFuture), handler = std::forward<Func>(error_handler)]() mutable -> Expected<T, E> {
+                auto result = fut.get();
+                if (result)
+                {
+                    return result;
+                }
+                handler(result.error());
+                return unexpected(result.error());
+            });
+    }
+
+    /// @brief Non-blocking check for result availability.
+    Expected<T, E> poll()
+    {
+        if (mCachedResult)
+        {
+            return *mCachedResult;
+        }
+        if (mFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+        {
+            mCachedResult = mFuture.get();
+            return *mCachedResult;
+        }
+        return unexpected(notReadyError());
+    }
+
+private:
+    static const E& notReadyError()
+    {
+        static const E kInstance("Not ready");
+        return kInstance;
+    }
+};
+
+/**
+ * @brief Factory function for creating async tasks that produce Expected results.
+ *
+ * @tparam Func Callable returning Expected<T, E>
+ * @tparam Args Arguments forwarded to the callable
+ */
+template <typename Func, typename... Args>
+auto async_task(Func&& func, Args&&... args)
+{
+    using ResultType = std::invoke_result_t<Func, Args...>;
+    using ValueType = ExtractExpectedValue_t<ResultType>;
+    using ErrorType = ExtractExpectedError_t<ResultType>;
+
+    return AsyncTask<ValueType, ErrorType>::create(std::forward<Func>(func), std::forward<Args>(args)...);
+}
 
 } // namespace fat_p
 
