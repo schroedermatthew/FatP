@@ -342,19 +342,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install competitors
-        run: |
-          sudo apt-get update && sudo apt-get install -y libboost-dev
-          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps/concurrentqueue
-
       - name: Build benchmark with TSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -pthread \
             -I./include/fat_p \
-            -I./deps/concurrentqueue \
             ${{ env.BENCH_SRC }} -o bench_wq_tsan
+          # Note: moodycamel and boost::lockfree excluded from TSan builds.
+          # moodycamel's relaxed atomics cause false-positive TSan reports
+          # (concurrentqueue.h:1948). Only fat_p queues + std::mutex baseline
+          # are tested under TSan.
 
       - name: Run with TSan (reduced iterations)
         env:
