@@ -6,6 +6,7 @@
 # Directory structure:
 #   Headers:    include/fat_p/Expected.h
 #   Tests:      components/Expected/tests/test_Expected.cpp
+#               components/Expected/tests/test_AsyncOperations.cpp
 # =============================================================================
 
 name: Expected CI
@@ -28,6 +29,7 @@ on:
 env:
   HEADER: Expected.h
   TEST_SRC: components/Expected/tests/test_Expected.cpp
+  TEST_SRC_ASYNC: components/Expected/tests/test_AsyncOperations.cpp
 
 jobs:
   # ===========================================================================
@@ -62,6 +64,18 @@ jobs:
 
       - name: Run tests
         run: ./test_bin
+
+      - name: Build async tests
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC_ASYNC }} -o test_async_bin -pthread
+
+      - name: Run async tests
+        run: ./test_async_bin
 
   # ===========================================================================
   # Linux Clang Builds (C++20/C++23)
@@ -100,6 +114,19 @@ jobs:
       - name: Run tests
         run: ./test_bin
 
+      - name: Build async tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC_ASYNC }} -o test_async_bin -pthread
+
+      - name: Run async tests
+        run: ./test_async_bin
+
   # ===========================================================================
   # Windows MSVC Builds (C++20/C++23)
   # ===========================================================================
@@ -123,10 +150,17 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Expected\tests\test_Expected.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.TEST_SRC }} /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
+
+      - name: Build async tests
+        shell: cmd
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p ${{ env.TEST_SRC_ASYNC }} /Fe:test_async_bin.exe /link advapi32.lib
+
+      - name: Run async tests
+        run: .\test_async_bin.exe
 
   # ===========================================================================
   # Sanitizers (C++20)
@@ -151,6 +185,19 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
         run: ./test_bin
 
+      - name: Build async tests with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC_ASYNC }} -o test_async_bin -pthread
+
+      - name: Run async tests with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_async_bin
+
   sanitizer-ubsan:
 
     name: UndefinedBehaviorSanitizer
@@ -171,6 +218,19 @@ jobs:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: ./test_bin
 
+      - name: Build async tests with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC_ASYNC }} -o test_async_bin -pthread
+
+      - name: Run async tests with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_async_bin
+
   sanitizer-tsan:
 
     name: ThreadSanitizer
@@ -190,6 +250,19 @@ jobs:
         env:
           TSAN_OPTIONS: halt_on_error=1
         run: ./test_bin
+
+      - name: Build async tests with TSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC_ASYNC }} -o test_async_bin -pthread
+
+      - name: Run async tests with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_async_bin
 
   # ===========================================================================
   # Header Self-Containment (C++20)
@@ -252,6 +325,17 @@ jobs:
               -Werror \
               -DENABLE_TEST_APPLICATION -I./include/fat_p \
               -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
+
+      - name: Compile async tests with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_async_strict ${{ env.TEST_SRC_ASYNC }} -pthread
           echo "No warnings"
 
   # ===========================================================================
