@@ -27,19 +27,16 @@ FATP_META:
 /**
  * @file enforce_raiser_selector.h
  * @brief Defines the policy-to-raiser mapping and meta-logic required for the
- * policy-based contract system, including contextual enforcement.
+ * policy-based contract system.
  *
  *
  *
- * @details This header is central to the system, providing three key roles:
+ * @details This header is central to the system, providing two key roles:
  * 1. Mapping explicit Policy tags (e.g., AbortPolicy) to concrete Raisers.
  * 2. Mapping Predicates to their default exception Raisers (e.g.,
  *    InRangePredicate -> OutOfRangeRaiser).
- * 3. Defining the ContextualRaiserResolver metafunction to guarantee
- *    noexcept safety.
  */
 
-#include "enforce_contextual_policies.h"
 #include "enforce_predicates.h"
 #include "enforce_raisers.h"
 
@@ -286,18 +283,6 @@ template <>
 struct RaiserSelector<AbortPolicy>
 {
     using type = AbortRaiser;
-};
-
-template <>
-struct RaiserSelector<NoexceptFunctionPolicy>
-{
-    using type = NoThrowRaiser;
-};
-
-template <>
-struct RaiserSelector<ThrowingFunctionPolicy>
-{
-    using type = LogicRaiser;
 };
 
 template <>
