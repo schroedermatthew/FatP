@@ -14,6 +14,7 @@ FATP_META:
     headers:
       - include/fat_p/AlignedVector.h
       - include/fat_p/AllocationStrategies.h
+      - include/fat_p/AsyncOperations.h
       - include/fat_p/AtomicSharedPtr.h
       - include/fat_p/BinaryLite.h
       - include/fat_p/BitSet.h
@@ -35,6 +36,7 @@ FATP_META:
       - include/fat_p/CheckedArithmetic_IntSimd_NEON.h
       - include/fat_p/CheckedArithmetic_IntSimd_SSE2.h
       - include/fat_p/CircularBuffer.h
+      - include/fat_p/ComparisonTolerances.h
       - include/fat_p/Concepts.h
       - include/fat_p/ConcurrencyPolicies.h
       - include/fat_p/ConstexprBitOps.h
@@ -118,8 +120,6 @@ FATP_META:
       - include/fat_p/ValueGuard.h
       - include/fat_p/ViewLifetimeTracking.h
       - include/fat_p/enforce.h
-      - include/fat_p/enforce_contextual.h
-      - include/fat_p/enforce_contextual_policies.h
       - include/fat_p/enforce_enforcers.h
       - include/fat_p/enforce_predicates.h
       - include/fat_p/enforce_raiser_selector.h
@@ -152,6 +152,7 @@ FATP_META:
 
 #include "AlignedVector.h"
 #include "AllocationStrategies.h"
+#include "AsyncOperations.h"
 #include "AtomicSharedPtr.h"
 #include "BinaryLite.h"
 #include "BitSet.h"
@@ -169,6 +170,7 @@ FATP_META:
 #include "CheckedArithmeticInt.h"
 #include "CheckedArithmeticPolicies.h"
 #include "CircularBuffer.h"
+#include "ComparisonTolerances.h"
 #include "Concepts.h"
 #include "ConcurrencyPolicies.h"
 #include "ConstexprBitOps.h"
@@ -189,8 +191,6 @@ FATP_META:
 #include "DiagnosticLogger_Sinks.h"
 #include "DiagnosticLogger_TestUtilities.h"
 #include "enforce.h"
-#include "enforce_contextual.h"
-#include "enforce_contextual_policies.h"
 #include "enforce_enforcers.h"
 #include "enforce_predicates.h"
 #include "enforce_raiser_selector.h"

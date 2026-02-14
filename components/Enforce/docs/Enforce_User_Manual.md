@@ -38,17 +38,11 @@
 8. [Expected Integration](#expected-integration)
    - [Basic Pattern](#basic-pattern)
    - [Error Propagation](#error-propagation)
-9. [Contextual Enforcement](#contextual-enforcement)
-   - [Why Contextual Enforcement Matters](#why-contextual-enforcement-matters)
-   - [The std::terminate Trap](#the-stdterminate-trap)
-   - [Standard Library Optimization Implications](#standard-library-optimization-implications)
-   - [Using Contextual Enforcement](#using-contextual-enforcement)
-   - [Contextual Macro Reference](#contextual-macro-reference)
-10. [Custom Policies](#custom-policies)
+9. [Custom Policies](#custom-policies)
     - [Custom Predicates](#custom-predicates)
     - [Custom Raisers](#custom-raisers)
     - [Custom Violation Handler](#custom-violation-handler)
-11. [Performance Characteristics](#performance-characteristics)
+10. [Performance Characteristics](#performance-characteristics)
     - [Benchmark Methodology](#benchmark-methodology)
     - [Benchmark Results](#benchmark-results)
     - [Optimization Guidelines](#optimization-guidelines)
@@ -193,7 +187,6 @@ The Enforce system occupies a specific niche: **policy-based contract enforcemen
 - **Rich predicates**: Type-safe, reusable condition checking with semantic names
 - **Detailed diagnostics**: File, line, expression, and custom messages automatically
 - **Zero overhead option**: Debug-only macros compile to nothing in release
-- **Contextual awareness**: Automatic adaptation to noexcept functions
 - **Thread-safe**: All operations are thread-safe by default
 - **Header-only**: No library to link, no dependencies beyond C++17 standard library
 
@@ -330,7 +323,6 @@ The Enforce system consists of these headers:
 | `enforce_raisers.h` | Raiser policies (included by enforce.h) |
 | `enforce_raiser_selector.h` | Policy-to-raiser mapping (included by enforce.h) |
 | `enforce_enforcers.h` | RAII enforcer class (included by enforce.h) |
-| `enforce_contextual.h` | Contextual/noexcept-aware enforcement |
 | `ContractException.h` | Exception class hierarchy |
 
 Basic usage requires only:
@@ -339,12 +331,6 @@ Basic usage requires only:
 #include "enforce.h"
 ```
 
-For contextual enforcement (noexcept-aware):
-
-```cpp
-#include "enforce.h"
-#include "enforce_contextual.h"
-```
 
 ### First Program
 
@@ -730,205 +716,6 @@ fat_p::Expected<Connection, std::string> connect(const Config& cfg)
 
 ---
 
-## Contextual Enforcement
-
-### Why Contextual Enforcement Matters
-
-The contextual enforcement system addresses a subtle but critical problem in C++: **exceptions escaping `noexcept` functions cause immediate program termination**.
-
-This problem is more pervasive than it might appear. Consider a simple getter in a class:
-
-```cpp
-class Resource
-{
-    Handle handle_;
-    
-public:
-    Handle get_handle() const noexcept
-    {
-        // What if handle_ is invalid?
-        // We cannot throw - this function is noexcept
-        return handle_;
-    }
-};
-```
-
-The `noexcept` specifier is not just documentation; it is a contract with the compiler and the Standard Library. When a function is marked `noexcept`, the compiler generates code assuming no exception will propagate. If one does, `std::terminate()` is called immediately.
-
-### The std::terminate Trap
-
-```cpp
-void dangerous_function() noexcept
-{
-    // This looks innocent...
-    FATP_ALWAYS_ENFORCE(some_condition(), "Condition failed");
-    
-    // But if some_condition() returns false, FATP_ALWAYS_ENFORCE throws,
-    // and since we are in a noexcept function, the program calls
-    // std::terminate() - an immediate, unrecoverable crash with
-    // no stack unwinding and no cleanup.
-}
-```
-
-This is a common source of production crashes. The code works in testing where conditions are met, then fails catastrophically in production when an edge case triggers the violation.
-
-The contextual enforcement system solves this by automatically detecting the `noexcept` specification of the enclosing function and selecting an appropriate raiser:
-
-```cpp
-void safe_function() noexcept
-{
-    // Contextual enforcement detects noexcept and uses NoThrowRaiser
-    FATP_CONTEXTUAL_ENFORCE(&safe_function, some_condition(), "Condition failed");
-    
-    // If condition fails:
-    // 1. The violation is logged
-    // 2. The global violation handler is called
-    // 3. Execution continues (or handler calls abort)
-    // 4. No exception is thrown
-    // 5. No std::terminate
-}
-```
-
-### Standard Library Optimization Implications
-
-The `noexcept` specifier has significant performance implications beyond exception handling. The Standard Library uses it to optimize container operations:
-
-**Move Operations in Containers**
-
-When `std::vector` needs to reallocate (e.g., during `push_back`), it must move or copy existing elements to the new storage. If the element's move constructor is `noexcept`, the vector can safely move elements. If the move constructor might throw, the vector must copy elements to maintain the Strong Exception Guarantee.
-
-```cpp
-class Widget
-{
-public:
-    // If this can throw, std::vector will copy instead of move
-    Widget(Widget&& other);
-    
-    // If this is noexcept, std::vector will move (faster)
-    Widget(Widget&& other) noexcept;
-};
-```
-
-When your class has invariants that you want to enforce in the move constructor, you must use non-throwing enforcement to keep the `noexcept` guarantee:
-
-```cpp
-Widget::Widget(Widget&& other) noexcept
-    : data_(std::exchange(other.data_, nullptr))
-{
-    // Cannot use FATP_ALWAYS_ENFORCE - it throws
-    // Must use FATP_NOEXCEPT_ENFORCE or FATP_CONTEXTUAL_ENFORCE
-    FATP_NOEXCEPT_ENFORCE(data_ != nullptr, "Moved-from widget was empty");
-}
-```
-
-**Cross-Translation-Unit Opacity**
-
-Compilers cannot see across translation unit boundaries without Link-Time Optimization (LTO). This means the compiler cannot infer that a function called from a `noexcept` function will not throw:
-
-```cpp
-// In widget.h
-class Widget
-{
-public:
-    void validate() const;  // Might this throw? Compiler cannot know
-};
-
-// In widget.cpp
-void Widget::validate() const
-{
-    FATP_ALWAYS_ENFORCE(is_valid(), "Invalid widget");  // This throws!
-}
-
-// In user.cpp
-void process(const Widget& w) noexcept
-{
-    w.validate();  // Compiler cannot see that this might throw
-    // If validate() throws, std::terminate() is called
-}
-```
-
-The contextual enforcement system makes the intent explicit and ensures safety:
-
-```cpp
-void process(const Widget& w) noexcept
-{
-    // Explicitly non-throwing validation
-    FATP_CONTEXTUAL_ENFORCE(&process, w.is_valid(), "Invalid widget");
-}
-```
-
-### Using Contextual Enforcement
-
-The contextual macros require a function pointer as the first argument. This pointer is used to detect the `noexcept` specification at compile time:
-
-```cpp
-void throwing_function(int* ptr)
-{
-    // In a throwing function, uses LogicRaiser (throws on failure)
-    FATP_CONTEXTUAL_ENFORCE(&throwing_function, ptr != nullptr, "Null pointer");
-}
-
-void noexcept_function(int* ptr) noexcept
-{
-    // In a noexcept function, uses NoThrowRaiser (calls handler, never throws)
-    FATP_CONTEXTUAL_ENFORCE(&noexcept_function, ptr != nullptr, "Null pointer");
-}
-```
-
-The raiser selection happens at compile time based on the function pointer's type:
-
-| Function Type | Detected Via | Raiser Selected | Behavior |
-|---------------|--------------|-----------------|----------|
-| Regular (may throw) | `!noexcept(func(...))` | LogicRaiser | Throws exception |
-| `noexcept` | `noexcept(func(...))` | NoThrowRaiser | Calls handler, no throw |
-
-### Contextual Macro Reference
-
-**Basic Contextual Macros:**
-
-```cpp
-FATP_CONTEXTUAL_ENFORCE(func_ptr, condition, msg...)
-contextual_abort(func_ptr, condition, msg...)
-contextual_debug(func_ptr, condition, msg...)
-```
-
-**Predicate Variants:**
-
-```cpp
-contextual_enforce_1(func_ptr, Predicate, target, msg...)
-contextual_enforce_2(func_ptr, Predicate, arg1, arg2, msg...)
-contextual_enforce_3(func_ptr, Predicate, arg1, arg2, arg3, msg...)
-```
-
-**Convenience Predicates:**
-
-```cpp
-FATP_CONTEXTUAL_ENFORCE_NOT_NULL(func_ptr, ptr, msg...)
-contextual_enforce_is_positive(func_ptr, value, msg...)
-contextual_enforce_is_non_negative(func_ptr, value, msg...)
-contextual_enforce_in_range(func_ptr, value, min, max, msg...)
-contextual_enforce_not_empty(func_ptr, container, msg...)
-// ... and more
-```
-
-**Expected Variants:**
-
-```cpp
-contextual_enforce_expected(func_ptr, condition, msg...)
-contextual_enforce_expected_1(func_ptr, Predicate, target, msg...)
-```
-
-**Utility Assessment:**
-
-| Factor | Assessment |
-|--------|------------|
-| Performance (HPC) | High - Enables Standard Library optimizations |
-| Integrity (Safety) | Critical - Prevents `std::terminate` crashes |
-| Clarity | High - Documents exception contract explicitly |
-| Simplicity | High - Replaces manual `if constexpr` and `std::is_nothrow` logic |
-
----
-
 ## Custom Policies
 
 ### Custom Predicates
@@ -1184,15 +971,6 @@ FATP_ALWAYS_ENFORCE_VALID_INDEX(index, container, "index");
    }
    ```
 
-7. **Use contextual enforcement when noexcept behavior might vary**:
-   ```cpp
-   template <typename Func>
-   void wrapper(Func&& f)
-   {
-       FATP_CONTEXTUAL_ENFORCE(&wrapper<Func>, precondition(), "...");
-       f();
-   }
-   ```
 
 ---
 
@@ -1273,7 +1051,6 @@ int main()
 - **Rich predicates**: 25+ type-safe, reusable condition checks
 - **Detailed diagnostics**: file, line, expression, and custom messages
 - **Zero overhead option**: debug-only macros compile to nothing
-- **Contextual awareness**: automatic adaptation to noexcept functions
 - **Thread-safe**: all operations safe for concurrent use
 - **Header-only**: no linking required, C++17 compatible
 
@@ -1290,7 +1067,6 @@ int main()
 | Null check | `FATP_ALWAYS_ENFORCE_NOT_NULL(ptr, msg...)` |
 | Range check | `FATP_ALWAYS_ENFORCE_IN_RANGE(min, max, val, msg...)` |
 | Index check | `FATP_ALWAYS_ENFORCE_VALID_INDEX(idx, container, msg...)` |
-| Contextual | `FATP_CONTEXTUAL_ENFORCE(func_ptr, cond, msg...)` |
 
 ### Quick Start
 

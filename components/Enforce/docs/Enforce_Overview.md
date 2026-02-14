@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Enforce is a **policy-based contract enforcement system** that separates WHAT you check, HOW you raise errors, and WHERE policies apply through orthogonal compile-time composition. Unlike `assert()` (disabled in release, no customization) or manual `if/throw` (scattered, inconsistent), Enforce composes **predicates**, **raisers**, and **contextual policies** into zero-overhead contract checks. The `if constexpr` dispatch eliminates dead code paths, generating assembly identical to hand-written checks while providing architectural flexibility for debug/release/test configurations.
+Enforce is a **policy-based contract enforcement system** that separates WHAT you check and HOW you raise errors through orthogonal compile-time composition. Unlike `assert()` (disabled in release, no customization) or manual `if/throw` (scattered, inconsistent), Enforce composes **predicates** and **raisers** into zero-overhead contract checks. The `if constexpr` dispatch eliminates dead code paths, generating assembly identical to hand-written checks while providing architectural flexibility for debug/release/test configurations.
 
 ---
 
@@ -58,7 +58,7 @@ C++20 introduced contracts (`[[expects:]]`, `[[ensures:]]`) but they were remove
 
 ## Architecture: Orthogonal Policy Composition
 
-### The Mechanism: Three Axes of Customization
+### The Mechanism: Two Axes of Customization
 
 ```cpp
 // Axis 1: PREDICATES - What to check
@@ -93,22 +93,6 @@ struct log_raiser {
         log_error(file, line, msg);
         // Continues execution
     }
-};
-
-// Axis 3: CONTEXTUAL POLICIES - Where to apply what
-struct debug_policy {
-    using raiser = throw_raiser;
-    static constexpr bool enabled = true;
-};
-
-struct release_policy {
-    using raiser = abort_raiser;
-    static constexpr bool enabled = true;  // Stays enabled!
-};
-
-struct disabled_policy {
-    using raiser = void;
-    static constexpr bool enabled = false;
 };
 ```
 
@@ -175,22 +159,7 @@ enforce<predicate, throw_raiser>(value);
 enforce<predicate, abort_raiser>(value);
 ```
 
-### 3. Contextual Policies
-
-```cpp
-// Set default policy for a scope
-struct my_context : public enforce_context<release_policy> {
-    void validate() {
-        // Uses release_policy by default
-        enforce<not_null>(ptr);      // abort on violation
-    }
-};
-
-// Override per-check
-enforce<not_null, throw_raiser>(ptr);  // Explicit raiser overrides context
-```
-
-### 4. Expression-Based Enforcement
+### 3. Expression-Based Enforcement
 
 ```cpp
 // enforce_that: Captures expression text for error message
@@ -201,7 +170,7 @@ enforce_that(ptr != nullptr); // "Violation: ptr != nullptr"
 enforce_that(x > 0, "x must be positive for this algorithm");
 ```
 
-### 5. Multi-Condition Enforcement
+### 4. Multi-Condition Enforcement
 
 ```cpp
 // enforce_all: All conditions must pass
@@ -223,7 +192,7 @@ enforce_any<has_value, has_default>(optional, default_value);
 | Zero-overhead disable | âœ… Compiled out | âŒ Always present | âœ… Compiled out | âœ… if constexpr |
 | Expression capture | âŒ No | âŒ Manual | Partial | âœ… enforce_that |
 
-**The Sweet Spot:** Enforce is the only option combining predicate composition, raiser customization, contextual policies, and zero-overhead disabling.
+**The Sweet Spot:** Enforce is the only option combining predicate composition, raiser customization, and zero-overhead disabling.
 
 ---
 
@@ -281,8 +250,6 @@ enforce.h
     â†“ components
 enforce_predicates.h     (not_null, positive, in_range, ...)
 enforce_raisers.h        (throw_raiser, abort_raiser, log_raiser)
-enforce_contextual.h     (policy contexts)
-enforce_contextual_policies.h (debug_policy, release_policy)
     â†“ used by
 SmallVector.h            (bounds checking)
 CheckedArithmetic.h      (ThrowOnErrorPolicy)
