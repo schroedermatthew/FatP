@@ -1750,18 +1750,6 @@ fat_p::Expected<int, std::string> parse(const std::string& s)
 }
 ```
 
-### With PipeOperator
-
-```cpp
-#include "PipeOperator.h"
-
-// Expected works with pipe operator for fluent syntax
-auto result = input
-    | parse
-    | validate
-    | transform;
-```
-
 ---
 
 ## Troubleshooting
@@ -2077,7 +2065,6 @@ fat_p::TrivialExpected<int, int> fast_divide(int a, int b)
 |-----------|---------|
 | `CheckedArithmetic.h` | Overflow-safe arithmetic with Expected results |
 | `enforce.h` | Precondition checking with enforce_expected |
-| `PipeOperator.h` | Fluent syntax support |
 
 ---
 

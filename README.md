@@ -27,7 +27,6 @@ A header-only C++20 utility library. Zero external dependencies.
 ![AlignedVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/aligned-vector.yml/badge.svg)
 ![AllocationStrategies CI](https://github.com/schroedermatthew/FatP/actions/workflows/allocation-strategies.yml/badge.svg)
 ![AsyncOperations CI](https://github.com/schroedermatthew/FatP/actions/workflows/async-operations.yml/badge.svg)
-![AtomicSharedPtr CI](https://github.com/schroedermatthew/FatP/actions/workflows/atomic-shared-ptr.yml/badge.svg)
 ![BinaryLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/binary-lite.yml/badge.svg)
 ![BitSet CI](https://github.com/schroedermatthew/FatP/actions/workflows/bit-set.yml/badge.svg)
 ![CacheUtilities CI](https://github.com/schroedermatthew/FatP/actions/workflows/cache-utilities.yml/badge.svg)
@@ -77,9 +76,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![MemoryMappedFile CI](https://github.com/schroedermatthew/FatP/actions/workflows/memory-mapped-file.yml/badge.svg)
 ![NumaAllocator CI](https://github.com/schroedermatthew/FatP/actions/workflows/numa-allocator.yml/badge.svg)
 ![ObjectPool CI](https://github.com/schroedermatthew/FatP/actions/workflows/object-pool.yml/badge.svg)
-![PipeOperator CI](https://github.com/schroedermatthew/FatP/actions/workflows/pipe-operator.yml/badge.svg)
 ![PolicyIterator CI](https://github.com/schroedermatthew/FatP/actions/workflows/policy-iterator.yml/badge.svg)
-![PolicyQueue CI](https://github.com/schroedermatthew/FatP/actions/workflows/policy-queue.yml/badge.svg)
 ![RateLimiter CI](https://github.com/schroedermatthew/FatP/actions/workflows/rate-limiter.yml/badge.svg)
 ![RcuIntegration CI](https://github.com/schroedermatthew/FatP/actions/workflows/rcu-integration.yml/badge.svg)
 ![Reflection CI](https://github.com/schroedermatthew/FatP/actions/workflows/reflection.yml/badge.svg)
@@ -179,8 +176,6 @@ target_link_libraries(your_target PRIVATE fatp)
 | WorkQueue | Sharded lock-free MPMC work queue |
 | LockFreeQueue | Lock-free MPMC queue with ABA prevention |
 | LockFreeRingBuffer | Lock-free ring buffers (SPSC and MPMC) |
-| PolicyQueue | Policy-selected lock-free queue variants |
-| AtomicSharedPtr | Thread-safe atomic wrapper for shared_ptr |
 | ConcurrencyPolicies | Thread-safety policy classes for containers |
 | RateLimiter | Token bucket and sliding window rate limiters |
 | Signal | Signal/slot implementation |
@@ -225,7 +220,6 @@ target_link_libraries(your_target PRIVATE fatp)
 | StrongId | Type-safe ID wrapper preventing cross-domain mixing |
 | FeatureManager | Runtime feature flags with compile-time optimization |
 | ServiceLocator | Policy-based service locator with scoped overrides |
-| PipeOperator | Functional pipe operator for value composition |
 | IdGenerator | Type-safe unique ID generation with recycling |
 | Stringify | Type-to-string conversion using C++20 concepts |
 | DebugOnly | Debug-only utilities that compile away in release |

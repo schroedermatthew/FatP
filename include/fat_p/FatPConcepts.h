@@ -163,9 +163,6 @@ template <typename T,
 class WorkQueue;
 } // namespace work_queue
 
-template <typename T, typename TopologyPolicy>
-class PolicyQueue;
-
 template <typename T, typename E, template <typename, typename> class StoragePolicy>
 class ExpectedImpl;
 
@@ -323,12 +320,6 @@ struct is_lock_free_queue_impl<LockFreeQueue<T, M, S>> : std::true_type
 // WorkQueue detection (also a lock-free queue)
 template <typename T, std::size_t SC, std::size_t SCap, typename RP, typename BP>
 struct is_lock_free_queue_impl<work_queue::WorkQueue<T, SC, SCap, RP, BP>> : std::true_type
-{
-};
-
-// PolicyQueue detection (also a lock-free queue)
-template <typename T, typename TP>
-struct is_lock_free_queue_impl<PolicyQueue<T, TP>> : std::true_type
 {
 };
 

@@ -16,7 +16,6 @@ FATP_META:
       - components/AlignedVector/tests/test_AlignedVector.cpp
       - components/AllocationStrategies/tests/test_AllocationStrategies.cpp
       - components/AsyncOperations/tests/test_AsyncOperations.cpp
-      - components/AtomicSharedPtr/tests/test_AtomicSharedPtr.cpp
       - components/BinarySerialization/tests/test_BinaryLite.cpp
       - components/BitSet/tests/test_BitSet.cpp
       - components/CacheUtilities/tests/test_CacheUtilities.cpp
@@ -70,7 +69,6 @@ FATP_META:
       - components/MemoryMappedFile/tests/test_MemoryMappedFile.cpp
       - components/NumaAllocator/tests/test_NumaAllocator.cpp
       - components/ObjectPool/tests/test_ObjectPool.cpp
-      - components/PipeOperator/tests/test_PipeOperator.cpp
       - components/PolicyIterator/tests/test_PolicyIterator.cpp
       - components/RateLimiter/tests/test_RateLimiter.cpp
       - components/ConcurrencyPolicies/tests/test_RcuIntegration.cpp

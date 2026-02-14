@@ -15,7 +15,6 @@ FATP_META:
       - include/fat_p/AlignedVector.h
       - include/fat_p/AllocationStrategies.h
       - include/fat_p/AsyncOperations.h
-      - include/fat_p/AtomicSharedPtr.h
       - include/fat_p/BinaryLite.h
       - include/fat_p/BitSet.h
       - include/fat_p/CSRMatrix.h
@@ -81,14 +80,12 @@ FATP_META:
       - include/fat_p/JsonLite.h
       - include/fat_p/JsonStreamLite.h
       - include/fat_p/LockFreeQueue.h
-      - include/fat_p/PolicyQueue.h
       - include/fat_p/WorkQueue.h
       - include/fat_p/LockFreeRingBuffer.h
       - include/fat_p/MemoryMappedFile.h
       - include/fat_p/NumaAlignedAllocator.h
       - include/fat_p/NumaAllocator.h
       - include/fat_p/ObjectPool.h
-      - include/fat_p/PipeOperator.h
       - include/fat_p/PlatformDetection.h
       - include/fat_p/PolicyIterator.h
       - include/fat_p/RateLimiter.h
@@ -120,6 +117,8 @@ FATP_META:
       - include/fat_p/ValueGuard.h
       - include/fat_p/ViewLifetimeTracking.h
       - include/fat_p/enforce.h
+      - include/fat_p/enforce_contextual.h
+      - include/fat_p/enforce_contextual_policies.h
       - include/fat_p/enforce_enforcers.h
       - include/fat_p/enforce_predicates.h
       - include/fat_p/enforce_raiser_selector.h
@@ -153,7 +152,6 @@ FATP_META:
 #include "AlignedVector.h"
 #include "AllocationStrategies.h"
 #include "AsyncOperations.h"
-#include "AtomicSharedPtr.h"
 #include "BinaryLite.h"
 #include "BitSet.h"
 #include "CacheUtilities.h"
@@ -191,6 +189,8 @@ FATP_META:
 #include "DiagnosticLogger_Sinks.h"
 #include "DiagnosticLogger_TestUtilities.h"
 #include "enforce.h"
+#include "enforce_contextual.h"
+#include "enforce_contextual_policies.h"
 #include "enforce_enforcers.h"
 #include "enforce_predicates.h"
 #include "enforce_raiser_selector.h"
@@ -225,14 +225,12 @@ FATP_META:
 #include "JsonStreamLite.h"
 #include "LockFreeQueue.h"
 #include "PlatformDetection.h"
-#include "PolicyQueue.h"
 #include "WorkQueue.h"
 #include "LockFreeRingBuffer.h"
 #include "MemoryMappedFile.h"
 #include "NumaAlignedAllocator.h"
 #include "NumaAllocator.h"
 #include "ObjectPool.h"
-#include "PipeOperator.h"
 #include "PolicyIterator.h"
 #include "RateLimiter.h"
 #include "Reflection.h"

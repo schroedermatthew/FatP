@@ -84,7 +84,6 @@ int main()
     RUN_AND_RECORD(test_AlignedVector);
     RUN_AND_RECORD(test_AllocationStrategies);
     RUN_AND_RECORD(test_AsyncOperations);
-    RUN_AND_RECORD(test_AtomicSharedPtr);
     RUN_AND_RECORD(test_BinaryLite);
     RUN_AND_RECORD(test_BitSet);
     RUN_AND_RECORD(test_CacheUtilities);
@@ -133,12 +132,10 @@ int main()
     RUN_AND_RECORD(test_JsonStreamLite);
     RUN_AND_RECORD(test_LockFreeQueue);
     RUN_AND_RECORD(test_LockFreeRingBuffer);
-    RUN_AND_RECORD(test_PolicyQueue);
     RUN_AND_RECORD(test_WorkQueue);
     RUN_AND_RECORD(test_MemoryMappedFile);
     RUN_AND_RECORD(test_NumaAllocator);
     RUN_AND_RECORD(test_ObjectPool);
-    RUN_AND_RECORD(test_PipeOperator);
     RUN_AND_RECORD(test_PolicyIterator);
     RUN_AND_RECORD(test_RateLimiter);
     RUN_AND_RECORD(test_RcuIntegration);

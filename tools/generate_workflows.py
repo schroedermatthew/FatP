@@ -247,9 +247,6 @@ STANDARD_COMPONENTS = [
     ("id-generator.yml", "IdGenerator", "IdGenerator.h",
      "components/IdGenerator/tests/test_IdGenerator.cpp", None),
 
-    ("pipe-operator.yml", "PipeOperator", "PipeOperator.h",
-     "components/PipeOperator/tests/test_PipeOperator.cpp", None),
-
     ("rate-limiter.yml", "RateLimiter", "RateLimiter.h",
      "components/RateLimiter/tests/test_RateLimiter.cpp", None),
 
@@ -275,11 +272,8 @@ STANDARD_COMPONENTS = [
      "components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp", None),
 
     # --- Single-test components (previously missing, Gap 2) ---
-    ("async-operations.yml", "AsyncOperations", "Expected.h",
+    ("async-operations.yml", "AsyncOperations", "AsyncOperations.h",
      "components/AsyncOperations/tests/test_AsyncOperations.cpp", None),
-
-    ("atomic-shared-ptr.yml", "AtomicSharedPtr", "AtomicSharedPtr.h",
-     "components/AtomicSharedPtr/tests/test_AtomicSharedPtr.cpp", None),
 
     ("cache-utilities.yml", "CacheUtilities", "CacheUtilities.h",
      "components/CacheUtilities/tests/test_CacheUtilities.cpp", None),
@@ -319,9 +313,6 @@ STANDARD_COMPONENTS = [
 
     ("fatp-benchmark-runner.yml", "FatPBenchmarkRunner", "FatPBenchmarkRunner.h",
      "components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp", None),
-
-    ("policy-queue.yml", "PolicyQueue", "PolicyQueue.h",
-     "components/PolicyQueue/tests/test_PolicyQueue.cpp", None),
 
     ("work-queue.yml", "WorkQueue", "WorkQueue.h",
      "components/WorkQueue/tests/test_WorkQueue.cpp", None),

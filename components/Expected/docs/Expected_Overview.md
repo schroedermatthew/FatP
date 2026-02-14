@@ -250,7 +250,6 @@ TypeTraits.h           (SFINAE helpers, C++ version detection)
 CheckedArithmetic.h    (ReturnExpectedPolicy)
 IdGenerator.h          (Expected<Id, IdError>)
 JsonLite.h             (Expected<Value, ParseError>)
-PipeOperator.h         (Expected-aware composition)
 ```
 
 ---
