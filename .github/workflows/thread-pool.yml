@@ -404,14 +404,15 @@ jobs:
         run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p /I"%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\include" components\ThreadPool\benchmarks\benchmark_ThreadPool.cpp /Fe:bench_bin.exe /link advapi32.lib /LIBPATH:"%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\lib" tbb12.lib
 
       - name: Run benchmarks
+        shell: cmd
         env:
           FATP_BENCH_WARMUP_RUNS: 3
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_TARGET_WORK: 50000
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
-          PATH: ${{ env.PATH }};${{ env.VCPKG_INSTALLATION_ROOT }}\installed\x64-windows\bin
         run: |
-          .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
+          copy "%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\bin\tbb12.dll" . >nul 2>&1
+          bench_bin.exe 2>&1 | tee benchmark_msvc_cpp${{ matrix.std }}.log
 
       - name: Upload results
         uses: actions/upload-artifact@v4
