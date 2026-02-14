@@ -673,7 +673,7 @@ public:
             (void)mQueue->enqueue(pTok, static_cast<int>(i));
         }
 
-        int value;
+        int value = 0;
         for (size_t i = 0; i < mN; ++i)
         {
             (void)mQueue->dequeue(cTok, value);
@@ -712,7 +712,7 @@ public:
             (void)mQueue->enqueue(static_cast<int>(i));
         }
 
-        int value;
+        int value = 0;
         for (size_t i = 0; i < mN; ++i)
         {
             (void)mQueue->dequeue(value);
@@ -755,7 +755,7 @@ public:
             mQueue.push(static_cast<int>(i));
         }
 
-        int value;
+        int value = 0;
         for (size_t i = 0; i < mN; ++i)
         {
             std::lock_guard<std::mutex> lk(mMutex);
@@ -801,7 +801,7 @@ public:
         }
 
         moodycamel::ConsumerToken cTok(*mQueue);
-        int value;
+        int value = 0;
         for (size_t i = 0; i < mN; ++i)
         {
             (void)mQueue->try_dequeue(cTok, value);
@@ -844,7 +844,7 @@ public:
             }
         }
 
-        int value;
+        int value = 0;
         for (size_t i = 0; i < mN; ++i)
         {
             while (!mQueue->pop(value))
@@ -1011,7 +1011,7 @@ public:
                 while (!start.load(std::memory_order_acquire))
                 {
                 }
-                int value;
+                int value = 0;
                 while (consumed.load(std::memory_order_relaxed) < total_ops)
                 {
                     if (mQueue->dequeue(tok, value))
@@ -1085,7 +1085,7 @@ public:
                 while (!start.load(std::memory_order_acquire))
                 {
                 }
-                int value;
+                int value = 0;
                 while (consumed.load(std::memory_order_relaxed) < total_ops)
                 {
                     if (mQueue->dequeue(value))
@@ -1164,7 +1164,7 @@ public:
                 }
                 while (consumed.load(std::memory_order_relaxed) < total_ops)
                 {
-                    int value;
+                    int value = 0;
                     bool got = false;
                     {
                         std::lock_guard<std::mutex> lk(mMutex);
@@ -1250,7 +1250,7 @@ public:
                 while (!start.load(std::memory_order_acquire))
                 {
                 }
-                int value;
+                int value = 0;
                 while (consumed.load(std::memory_order_relaxed) < total_ops)
                 {
                     if (mQueue->try_dequeue(tok, value))
@@ -1326,7 +1326,7 @@ public:
                 while (!start.load(std::memory_order_acquire))
                 {
                 }
-                int value;
+                int value = 0;
                 while (consumed.load(std::memory_order_relaxed) < total_ops)
                 {
                     if (mQueue->pop(value))
@@ -1412,7 +1412,7 @@ public:
             while (!start.load(std::memory_order_acquire))
             {
             }
-            int value;
+            int value = 0;
             for (size_t i = 0; i < ops_per_side; ++i)
             {
                 while (!mQueue->dequeue(tok, value))
@@ -1471,7 +1471,7 @@ public:
             while (!start.load(std::memory_order_acquire))
             {
             }
-            int value;
+            int value = 0;
             for (size_t i = 0; i < ops_per_side; ++i)
             {
                 while (!mQueue->dequeue(value))
@@ -1533,7 +1533,7 @@ public:
             while (!start.load(std::memory_order_acquire))
             {
             }
-            int value;
+            int value = 0;
             size_t received = 0;
             while (received < ops_per_side)
             {
@@ -1611,7 +1611,7 @@ public:
             while (!start.load(std::memory_order_acquire))
             {
             }
-            int value;
+            int value = 0;
             for (size_t i = 0; i < ops_per_side; ++i)
             {
                 while (!mQueue->try_dequeue(tok, value))
@@ -1672,7 +1672,7 @@ public:
             while (!start.load(std::memory_order_acquire))
             {
             }
-            int value;
+            int value = 0;
             for (size_t i = 0; i < ops_per_side; ++i)
             {
                 while (!mQueue->pop(value))
@@ -2016,7 +2016,7 @@ public:
         }
 
         // Drain
-        int value;
+        int value = 0;
         size_t drained = 0;
         while (mQueue->dequeue(cTok, value))
         {
@@ -2050,7 +2050,7 @@ public:
             (void)mQueue->enqueue(static_cast<int>(i));
         }
 
-        int value;
+        int value = 0;
         size_t drained = 0;
         while (mQueue->dequeue(value))
         {
@@ -2084,7 +2084,7 @@ public:
         size_t drained = 0;
         while (true)
         {
-            int value;
+            int value = 0;
             std::lock_guard<std::mutex> lk(mMutex);
             if (mQueue.empty())
             {
@@ -2207,7 +2207,7 @@ bool verify_correctness()
             return false;
         }
         std::set<int> received;
-        int value;
+        int value = 0;
         while (q.dequeue(cTok, value))
         {
             received.insert(value);
@@ -2278,7 +2278,7 @@ bool verify_correctness()
                 while (!start.load(std::memory_order_acquire))
                 {
                 }
-                int value;
+                int value = 0;
                 size_t total = kProducers * kOpsPerProducer;
                 while (consumed.load(std::memory_order_relaxed) < total)
                 {
@@ -2321,7 +2321,7 @@ bool verify_correctness()
         }
         for (int i = 0; i < 100; ++i)
         {
-            int value;
+            int value = 0;
             if (!queue.dequeue(value) || value != i)
             {
                 std::cout << "  [FAIL] LockFreeQueue FIFO verification\n";

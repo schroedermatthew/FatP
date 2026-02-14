@@ -266,8 +266,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-13
+      - name: Install GCC and competitors
+        run: |
+          sudo apt-get update && sudo apt-get install -y g++-13 libboost-dev
+          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps/concurrentqueue
 
       - name: Build benchmark
         run: |
@@ -275,6 +277,7 @@ jobs:
             -Wall -Wextra -Wpedantic \
             -O3 -DNDEBUG -march=native -pthread \
             -I./include/fat_p \
+            -I./deps/concurrentqueue \
             ${{ env.BENCH_SRC }} -o bench_wq
 
       - name: Smoke run (reduced iterations)
@@ -299,9 +302,15 @@ jobs:
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
+      - name: Install competitors
+        shell: cmd
+        run: |
+          vcpkg install boost-lockfree:x64-windows
+          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps\concurrentqueue
+
       - name: Build benchmark
         shell: cmd
-        run: cl /std:c++20 /W4 /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p components\WorkQueue\benchmarks\benchmark_WorkQueue.cpp /Fe:bench_wq.exe /link advapi32.lib
+        run: cl /std:c++20 /W4 /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p /I.\deps\concurrentqueue /I"%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\include" components\WorkQueue\benchmarks\benchmark_WorkQueue.cpp /Fe:bench_wq.exe /link advapi32.lib
 
       - name: Smoke run (reduced iterations)
         env:
@@ -322,12 +331,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install competitors
+        run: |
+          sudo apt-get update && sudo apt-get install -y libboost-dev
+          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps/concurrentqueue
+
       - name: Build benchmark with TSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -pthread \
             -I./include/fat_p \
+            -I./deps/concurrentqueue \
             ${{ env.BENCH_SRC }} -o bench_wq_tsan
 
       - name: Run with TSan (reduced iterations)
