@@ -15,9 +15,17 @@
  * Competitors:
  * - std::async (baseline - always included)
  * - Mutex+CondVar thread pool (hand-rolled baseline - always included)
+ * - Intel TBB task_group + task_arena (optional via __has_include)
+ * - Boost.Asio thread_pool (optional via __has_include)
  *
  * Compile (minimal):
  *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread benchmark_ThreadPool.cpp -o bench_tp
+ *
+ * Compile (with TBB):
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread benchmark_ThreadPool.cpp -o bench_tp -ltbb
+ *
+ * Compile (with Boost.Asio):
+ *   g++ -std=c++20 -O3 -DNDEBUG -march=native -pthread -I/path/to/boost benchmark_ThreadPool.cpp -o bench_tp
  *
  * Windows (MSVC):
  *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_ThreadPool.cpp
@@ -39,7 +47,7 @@ FATP_META:
   path: components/ThreadPool/benchmarks/benchmark_ThreadPool.cpp
   layer: Testing
   namespace: fat_p
-  summary: "Comprehensive benchmarks for ThreadPool vs std::async and mutex+CV pool."
+  summary: "Comprehensive benchmarks for ThreadPool vs std::async, mutex+CV pool, TBB, and Boost.Asio."
   api_stability: in_work
   related:
     docs_search: "ThreadPool"
@@ -49,7 +57,7 @@ FATP_META:
   hygiene:
     pragma_once: false
     include_guard: false
-    defines_total: 2
+    defines_total: 6
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: true
@@ -80,6 +88,37 @@ FATP_META:
 #include <string>
 #include <thread>
 #include <vector>
+
+// ============================================================================
+// Competitor Auto-Detection (via __has_include)
+// ============================================================================
+
+// Intel TBB - task_group + task_arena for thread pool comparison
+// Rationale: Industry-standard task parallelism library from Intel/oneAPI.
+// The User Manual positions ThreadPool against TBB directly.
+#if __has_include(<oneapi/tbb/task_group.h>)
+#include <oneapi/tbb/task_group.h>
+#include <oneapi/tbb/task_arena.h>
+#include <oneapi/tbb/global_control.h>
+#define HAS_TBB 1
+#elif __has_include(<tbb/task_group.h>)
+#include <tbb/task_group.h>
+#include <tbb/task_arena.h>
+#include <tbb/global_control.h>
+#define HAS_TBB 1
+#else
+#define HAS_TBB 0
+#endif
+
+// Boost.Asio thread_pool - Boost's executor-based thread pool
+// Rationale: Widely deployed reference point for I/O + compute hybrid pools.
+#if __has_include(<boost/asio/thread_pool.hpp>)
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/post.hpp>
+#define HAS_BOOST_ASIO 1
+#else
+#define HAS_BOOST_ASIO 0
+#endif
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -425,6 +464,112 @@ private:
 };
 
 // ============================================================================
+// Intel TBB Pool Wrapper (optional)
+// ============================================================================
+
+#if HAS_TBB
+class TbbPool
+{
+public:
+    explicit TbbPool(size_t numThreads)
+        : control_(tbb::global_control::max_allowed_parallelism, numThreads)
+        , arena_(static_cast<int>(numThreads))
+    {
+    }
+
+    ~TbbPool()
+    {
+        arena_.execute([this]() { group_.wait(); });
+    }
+
+    template <typename F>
+    std::future<std::invoke_result_t<F>> submit(F&& f)
+    {
+        using R = std::invoke_result_t<F>;
+        auto task = std::make_shared<std::packaged_task<R()>>(std::forward<F>(f));
+        std::future<R> future = task->get_future();
+        pending_.fetch_add(1, std::memory_order_relaxed);
+        arena_.execute([this, task]() {
+            group_.run([this, task]() {
+                (*task)();
+                pending_.fetch_sub(1, std::memory_order_relaxed);
+            });
+        });
+        return future;
+    }
+
+    void waitIdle()
+    {
+        arena_.execute([this]() { group_.wait(); });
+    }
+
+    TbbPool(const TbbPool&) = delete;
+    TbbPool& operator=(const TbbPool&) = delete;
+
+private:
+    tbb::global_control control_;
+    tbb::task_arena arena_;
+    tbb::task_group group_;
+    std::atomic<size_t> pending_{0};
+};
+#endif
+
+// ============================================================================
+// Boost.Asio Thread Pool Wrapper (optional)
+// ============================================================================
+
+#if HAS_BOOST_ASIO
+class AsioPool
+{
+public:
+    explicit AsioPool(size_t numThreads)
+        : pool_(numThreads)
+    {
+    }
+
+    ~AsioPool()
+    {
+        pool_.join();
+    }
+
+    template <typename F>
+    std::future<std::invoke_result_t<F>> submit(F&& f)
+    {
+        using R = std::invoke_result_t<F>;
+        auto task = std::make_shared<std::packaged_task<R()>>(std::forward<F>(f));
+        std::future<R> future = task->get_future();
+        active_.fetch_add(1, std::memory_order_relaxed);
+        boost::asio::post(pool_, [this, task]() {
+            (*task)();
+            if (active_.fetch_sub(1, std::memory_order_acq_rel) == 1)
+            {
+                std::lock_guard<std::mutex> lock(idleMtx_);
+                idleCv_.notify_all();
+            }
+        });
+        return future;
+    }
+
+    void waitIdle()
+    {
+        std::unique_lock<std::mutex> lock(idleMtx_);
+        idleCv_.wait(lock, [this]() {
+            return active_.load(std::memory_order_acquire) == 0;
+        });
+    }
+
+    AsioPool(const AsioPool&) = delete;
+    AsioPool& operator=(const AsioPool&) = delete;
+
+private:
+    boost::asio::thread_pool pool_;
+    std::atomic<size_t> active_{0};
+    std::mutex idleMtx_;
+    std::condition_variable idleCv_;
+};
+#endif
+
+// ============================================================================
 // Section 1: Submission Overhead
 // ============================================================================
 
@@ -604,6 +749,90 @@ void bench_submission_overhead(const BenchConfig& cfg)
         print_result_row("MutexPool submit()", Statistics::compute(samples));
     }
 
+    // --- TBB task_group submit ---
+#if HAS_TBB
+    {
+        std::vector<double> samples;
+        samples.reserve(runs);
+
+        for (size_t r = 0; r < cfg.warmupRuns + runs; ++r)
+        {
+            TbbPool pool(4);
+            std::atomic<bool> gate{true};
+
+            for (size_t w = 0; w < 4; ++w)
+            {
+                (void)pool.submit([&gate]() {
+                    while (gate.load(std::memory_order_acquire))
+                    {
+                        std::this_thread::yield();
+                    }
+                });
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < N; ++i)
+            {
+                (void)pool.submit([]() {});
+            }
+            auto end = Clock::now();
+
+            gate.store(false, std::memory_order_release);
+            pool.waitIdle();
+
+            if (r >= cfg.warmupRuns)
+            {
+                double ns_per_op = elapsed_ns(start, end) / static_cast<double>(N);
+                samples.push_back(ns_per_op);
+            }
+        }
+        print_result_row("TBB task_group submit()", Statistics::compute(samples));
+    }
+#endif
+
+    // --- Boost.Asio post() ---
+#if HAS_BOOST_ASIO
+    {
+        std::vector<double> samples;
+        samples.reserve(runs);
+
+        for (size_t r = 0; r < cfg.warmupRuns + runs; ++r)
+        {
+            AsioPool pool(4);
+            std::atomic<bool> gate{true};
+
+            for (size_t w = 0; w < 4; ++w)
+            {
+                (void)pool.submit([&gate]() {
+                    while (gate.load(std::memory_order_acquire))
+                    {
+                        std::this_thread::yield();
+                    }
+                });
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < N; ++i)
+            {
+                (void)pool.submit([]() {});
+            }
+            auto end = Clock::now();
+
+            gate.store(false, std::memory_order_release);
+            pool.waitIdle();
+
+            if (r >= cfg.warmupRuns)
+            {
+                double ns_per_op = elapsed_ns(start, end) / static_cast<double>(N);
+                samples.push_back(ns_per_op);
+            }
+        }
+        print_result_row("Boost.Asio post()", Statistics::compute(samples));
+    }
+#endif
+
     std::cout << "\n";
 }
 
@@ -738,6 +967,74 @@ void bench_throughput_scaling(const BenchConfig& cfg)
         std::string label = "std::async [" + std::to_string(asyncN) + " tasks]";
         print_result_row(label, Statistics::compute(samples), "tasks/s");
     }
+
+    // TBB throughput
+#if HAS_TBB
+    {
+        std::vector<double> samples;
+        samples.reserve(runs);
+
+        for (size_t r = 0; r < cfg.warmupRuns + runs; ++r)
+        {
+            TbbPool pool(4);
+            std::atomic<uint64_t> sink{0};
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < N; ++i)
+            {
+                (void)pool.submit([&sink, i]() {
+                    sink.fetch_add(static_cast<uint64_t>(i & 0xFF), std::memory_order_relaxed);
+                });
+            }
+            pool.waitIdle();
+            auto end = Clock::now();
+
+            DoNotOptimize(sink.load());
+
+            if (r >= cfg.warmupRuns)
+            {
+                double seconds = elapsed_ns(start, end) / 1e9;
+                double tasks_per_sec = static_cast<double>(N) / seconds;
+                samples.push_back(tasks_per_sec);
+            }
+        }
+        print_result_row("TBB task_arena [4 workers]", Statistics::compute(samples), "tasks/s");
+    }
+#endif
+
+    // Boost.Asio throughput
+#if HAS_BOOST_ASIO
+    {
+        std::vector<double> samples;
+        samples.reserve(runs);
+
+        for (size_t r = 0; r < cfg.warmupRuns + runs; ++r)
+        {
+            AsioPool pool(4);
+            std::atomic<uint64_t> sink{0};
+
+            auto start = Clock::now();
+            for (size_t i = 0; i < N; ++i)
+            {
+                (void)pool.submit([&sink, i]() {
+                    sink.fetch_add(static_cast<uint64_t>(i & 0xFF), std::memory_order_relaxed);
+                });
+            }
+            pool.waitIdle();
+            auto end = Clock::now();
+
+            DoNotOptimize(sink.load());
+
+            if (r >= cfg.warmupRuns)
+            {
+                double seconds = elapsed_ns(start, end) / 1e9;
+                double tasks_per_sec = static_cast<double>(N) / seconds;
+                samples.push_back(tasks_per_sec);
+            }
+        }
+        print_result_row("Boost.Asio [4 workers]", Statistics::compute(samples), "tasks/s");
+    }
+#endif
 
     std::cout << "\n";
 }
@@ -1253,6 +1550,80 @@ void bench_vs_std_async(const BenchConfig& cfg)
             print_result_row(label, Statistics::compute(samples), "ms");
         }
 
+        // TBB head-to-head
+#if HAS_TBB
+        {
+            std::vector<double> samples;
+            samples.reserve(runs);
+
+            for (size_t r = 0; r < cfg.warmupRuns + runs; ++r)
+            {
+                TbbPool pool(4);
+                std::vector<std::future<uint64_t>> futures;
+                futures.reserve(taskCount);
+
+                auto start = Clock::now();
+                for (size_t i = 0; i < taskCount; ++i)
+                {
+                    futures.push_back(pool.submit([=]() { return workload(i * workPerTask, workPerTask); }));
+                }
+                uint64_t total = 0;
+                for (auto& f : futures)
+                {
+                    total += f.get();
+                }
+                auto end = Clock::now();
+
+                DoNotOptimize(total);
+
+                if (r >= cfg.warmupRuns)
+                {
+                    double ms = elapsed_ns(start, end) / 1e6;
+                    samples.push_back(ms);
+                }
+            }
+            std::string label = "TBB         [" + std::to_string(taskCount) + " tasks]";
+            print_result_row(label, Statistics::compute(samples), "ms");
+        }
+#endif
+
+        // Boost.Asio head-to-head
+#if HAS_BOOST_ASIO
+        {
+            std::vector<double> samples;
+            samples.reserve(runs);
+
+            for (size_t r = 0; r < cfg.warmupRuns + runs; ++r)
+            {
+                AsioPool pool(4);
+                std::vector<std::future<uint64_t>> futures;
+                futures.reserve(taskCount);
+
+                auto start = Clock::now();
+                for (size_t i = 0; i < taskCount; ++i)
+                {
+                    futures.push_back(pool.submit([=]() { return workload(i * workPerTask, workPerTask); }));
+                }
+                uint64_t total = 0;
+                for (auto& f : futures)
+                {
+                    total += f.get();
+                }
+                auto end = Clock::now();
+
+                DoNotOptimize(total);
+
+                if (r >= cfg.warmupRuns)
+                {
+                    double ms = elapsed_ns(start, end) / 1e6;
+                    samples.push_back(ms);
+                }
+            }
+            std::string label = "Boost.Asio  [" + std::to_string(taskCount) + " tasks]";
+            print_result_row(label, Statistics::compute(samples), "ms");
+        }
+#endif
+
         std::cout << "\n";
     }
 }
@@ -1445,6 +1816,16 @@ int main()
         {"fat_p::ThreadPool", true, "primary"},
         {"std::async", true, "baseline"},
         {"MutexPool (hand-rolled)", true, "baseline"},
+#if HAS_TBB
+        {"Intel TBB task_group", true, ""},
+#else
+        {"Intel TBB task_group", false, "not found"},
+#endif
+#if HAS_BOOST_ASIO
+        {"Boost.Asio thread_pool", true, ""},
+#else
+        {"Boost.Asio thread_pool", false, "not found"},
+#endif
     };
     fat_p::bench::print_standard_header(hdr);
 

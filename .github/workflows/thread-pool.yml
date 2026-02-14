@@ -281,15 +281,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+      - name: Install GCC and competitors
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-${{ matrix.version }} libtbb-dev libboost-dev
 
       - name: Build benchmark
         run: |
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
-            ${{ env.BENCH_SRC }} -o bench_bin -pthread
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread -ltbb
 
       - name: Run benchmarks
         env:
@@ -326,18 +328,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Clang
+      - name: Install Clang and competitors
         run: |
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
+          sudo apt-get install -y libtbb-dev libboost-dev
 
       - name: Build benchmark
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
-            ${{ env.BENCH_SRC }} -o bench_bin -pthread
+            ${{ env.BENCH_SRC }} -o bench_bin -pthread -ltbb
 
       - name: Run benchmarks
         env:
@@ -379,9 +382,15 @@ jobs:
         with:
           arch: x64
 
+      - name: Install competitors via vcpkg
+        run: |
+          vcpkg install tbb:x64-windows boost-asio:x64-windows
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows
+
       - name: Build benchmark
         shell: cmd
-        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p components\ThreadPool\benchmarks\benchmark_ThreadPool.cpp /Fe:bench_bin.exe /link advapi32.lib
+        run: cl /nologo ${{ matrix.flag }} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /EHsc /permissive- /Zc:preprocessor /I.\include\fat_p /I"%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\include" components\ThreadPool\benchmarks\benchmark_ThreadPool.cpp /Fe:bench_bin.exe /link advapi32.lib /LIBPATH:"%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\lib" tbb12.lib
 
       - name: Run benchmarks
         env:
@@ -389,6 +398,7 @@ jobs:
           FATP_BENCH_BATCHES: 20
           FATP_BENCH_TARGET_WORK: 50000
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{ matrix.std }}.csv
+          PATH: ${{ env.PATH }};${{ env.VCPKG_INSTALLATION_ROOT }}\installed\x64-windows\bin
         run: |
           .\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{ matrix.std }}.log
 
