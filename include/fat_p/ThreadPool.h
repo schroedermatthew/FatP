@@ -557,8 +557,8 @@ private:
      * @brief Worker thread main loop
      *
      * Priority order:
-     * 1. Local queue (best cache locality)
-     * 2. Global priority queue (high-priority tasks)
+     * 1. Global priority queue (honor task priority)
+     * 2. Local queue (cache locality for normal tasks)
      * 3. Steal from other threads (load balancing)
      *
      * Idle strategy:
@@ -573,13 +573,13 @@ private:
         {
             bool got_task = false;
 
-            // 1. Try local queue first (best cache locality)
-            if (mWorkerQueues[thread_idx].queue.pop(task))
+            // 1. Try global priority queue first (honor task priority)
+            if (try_pop_global(task))
             {
                 got_task = true;
             }
-            // 2. Try global priority queue
-            else if (try_pop_global(task))
+            // 2. Try local queue (cache locality for normal tasks)
+            else if (mWorkerQueues[thread_idx].queue.pop(task))
             {
                 got_task = true;
             }
