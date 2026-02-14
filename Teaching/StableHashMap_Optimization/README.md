@@ -1,39 +1,32 @@
-# StableHashMap Teaching Pack (Curated)
+# StableHashMap Teaching Pack
 
-This folder is laid out like a small “book + code” project for engineers and students.
+This folder is laid out as a self-contained "book + code" project for engineers and students interested in hash map design, benchmarking methodology, and performance engineering.
 
 ## Start here (docs/)
 
-Read in this order:
-
 1. **Companion Guide — The Hash Map Wars**
-   - `docs/Companion Guide - The Hash Map Wars.md`
+   `docs/Companion Guide - The Hash Map Wars.md`
+   Design philosophy, failed experiments, and architectural decisions behind both FastHashMap and StableHashMap.
 
 2. **Case Study — The Slow Miss**
-   - `docs/Case Study - The Slow Miss.md`
+   `docs/Case Study - The Slow Miss.md`
+   The miss-path bug investigation — how a 3.6x regression was diagnosed and what it taught us about benchmarking honestly.
 
-3. **Handbook — Performance Engineering Methodology**
-   - `docs/Handbook - Performance Engineering Methodology.md`
+For broader performance engineering methodology beyond hash maps, see the project-wide handbook:
+`../Handbook - Performance Engineering Methodology.md`
 
-4. **Teaching Pack README / TOC**
-   - `docs/README_Teaching_Pack.md`
+## Code
 
-## Code you’ll point to from the docs
-
-- `src/include/StableHashMap.h` — “latest” StableHashMap implementation
-- `variants/StableHashMap_optionA.h` — Option A (block allocator / stable-node improvements)
-- `variants/StableHashMap_optionB.h` — Option B (stop tag matches after first empty)
+- `src/include/` — Frozen copies of the headers at a teaching-relevant point in development (see `src/include/README.md`)
+- `variants/StableHashMap_optionA.h` — Option A: block allocator with stable-node improvements
+- `variants/StableHashMap_optionB.h` — Option B: stop tag matches after first empty
 
 ## Benchmarks and tests
 
 - `bench/benchmark_FatPHashMap_slim.cpp` — Core + Pathological + Slim MissDiag
-- `bench/benchmark_FatPHashMap.cpp` — full benchmark harness (if you want the extras)
-- `tests/` — sanity / API tests
+- `bench/benchmark_FatPHashMap_full.cpp` — Full benchmark harness
+- `tests/` — API and correctness tests
 
-## History / extra material
+## Archived material
 
-Everything that is **not** part of the current “front-of-book” docs has been moved into:
-
-- `archived/`
-
-That includes earlier draft narratives, older exports, bundles, and intermediate artifacts.
+`archived/` contains earlier drafts, old exports, intermediate artifacts, and prior benchmark logs. The current canonical docs are in `docs/`.

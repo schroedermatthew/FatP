@@ -1,4 +1,4 @@
-# Hey Grandpa, Never Mind GOTO, Just GO-AWAY
+# "We Put Men on the Moon With This Code"
 ## A Fortran → C++ Migration Guide for the Battle-Weary
 
 *"We put men on the moon with this code."*

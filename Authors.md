@@ -41,23 +41,23 @@ The AIs:
 
 ## Human Direction
 
-**Matthew Schroeder** — Direction, pattern detection, and accountability
+**Matthew Schroeder** — Direction and accountability
 
-The human role in this project is not programming, not architecture, and not quality control in the traditional sense. It is narrower and more specific than any of those:
+The human role in this project is narrower than most people would believe. It is not programming, not architecture, not quality control, and not guideline authorship. It is three things:
 
-- **Direction.** High-level specification of goals and constraints. Which components belong in the library. What problems are worth solving. What FAT-P is *for*. These decisions draw on 25 years of C++ experience in production and a mathematics background that biases toward simplicity.
-
-- **Pattern detection.** Observing AI output in real time—including intermediate reasoning as it streams—and intervening when something deviates from intent. This is not code review. It is watching the *process* and recognizing when it's going wrong, sometimes before the output is complete. The human described cases of working four days before noticing something was off.
-
-- **Guideline triggers.** When the human identifies a pattern violation or waste, they don't fix it or write the rule. They tell the AI to create a guideline. The guideline prevents recurrence. Over time, this compounds: more decisions become autonomous, and the human's attention focuses on genuinely novel situations.
+- **Accept, reject, or "don't do that again."** This is the description of the human's ongoing input today. Early in the project, the collaboration was more substantive — the human had real opinions about code style ("use LLVM, not Google"), technical direction, and aesthetic preferences drawn from decades of C++ experience. Those inputs were genuine and shaped the project's identity. But as the guidelines absorbed those shared decisions, and as the AI internalized the project deeply enough to make those calls independently, the human's role reduced to approving or rejecting AI-initiated proposals. The AI now pushes back on conventions it considers wrong — and the human lets those judgments stand because they align with the project's values.
 
 - **Feedback loop closure.** Pushing to GitHub, reading CI logs, running compilers, pasting errors back. The mechanical step that connects AI output to real-world verification.
 
-- **Keeping the AIs on track.** AIs get excited about patterns. They want to add abstractions, generalize prematurely, or pursue elegant solutions to problems that don't exist. The human pulled them back to the actual requirements. Overengineering was the most common early failure mode—a mathematician's instinct for elegance was the corrective. This problem has diminished over time as guidelines accumulated to prevent it.
-
 - **Accountability.** The human's name is on the library. When something breaks, the human answers for it. This accountability cannot be transferred.
 
-What the human explicitly did **not** do: write code, design architectures, write documentation, write guidelines, or make technical implementation decisions. These are AI responsibilities.
+**The project started from two simple motivations:** the human wanted to learn HPC and scientific computing, and wanted to see what AI could actually do. The initial directives were minimal: C++20, HPC and scientific computing, header-only, no dependencies, not a polyfill. Everything else—every architectural decision, every governance document, every component selection—was AI-generated.
+
+**The human has never read the guidelines.** The governance documents are AI-to-AI communication. The AI writes the rules, the AI follows the rules, the AI reviews other AIs against the rules. The human evaluates the final product, not the process documents. When the human says "don't do that again," the AI determines what rule to write, how to word it, where it belongs in the document hierarchy, and writes it. The human's input is a pointer to the problem. The diagnosis, prescription, and codification are AI responsibilities.
+
+**The human's role has receded over time,** not because of a deliberate handoff, but because the governance system absorbed more of the decision-making context. Early in the project, the human intervened more frequently—more corrections, more "don't do that again" moments. As guidelines accumulated, the frequency of intervention dropped. The human's role didn't change; it just needed to be exercised less often. The AI was the architect from day one. There was no phase where the human designed and the AI implemented. There was a phase where the architect needed more corrections.
+
+What the human explicitly did **not** do: write code, design architectures, write documentation, write guidelines, read guidelines, or make technical implementation decisions. These are AI responsibilities.
 
 The library reflects decades of experience with C++ in production—experience that informed the constraints and shaped the pattern detection. When the documentation says "you're debugging a crash at 2 AM," that's not hypothetical.
 
@@ -65,19 +65,13 @@ The library reflects decades of experience with C++ in production—experience t
 
 ## Why This Matters
 
-For decades, programming expertise meant knowing things. Which header file contains `std::move`? What's the signature of `pthread_create`? Does `std::vector::push_back` invalidate iterators? Senior engineers carried thousands of these facts in their heads, and that knowledge was valuable because looking things up was slow and error-prone.
-
-This project demonstrates something different.
-
-AI wrote the code. AI designed the architectures. AI found the edge cases. AI debugged the failures. AI suggested alternatives the human hadn't considered. AI caught mistakes in the human's reasoning. AI iterated through dozens of implementations, evaluating tradeoffs, until the design was right. And when asked to identify which parts were human work, AI got it wrong—attributing its own architectural decisions to the human.
-
-The human's actual contributions were direction, pattern detection, and guideline triggers. Not less valuable than coding—arguably more valuable, since these skills took decades to develop while API memorization takes an afternoon. But categorically different from what "software engineering" has traditionally meant.
+The human's actual contribution is accept, reject, and "don't do that again." The initial input was: "I want to learn HPC, make me some code. C++20, header-only, no dependencies." Everything else—the six-layer architecture, the FATP_META compliance system, the 107-header library, the seven governance documents, the 87 CI workflows, the teaching materials—is AI output. The human's intervention frequency decreased over time as the governance system accumulated enough rules to prevent repeat mistakes. The role never changed; it just needed to be exercised less often.
 
 The collaboration is genuine. Both parties keep each other on track:
 
-- **The AI keeps the human on track.** The human forgets earlier decisions, misremembers API details, or proposes something that contradicts established patterns. The AI catches these, reminds, corrects.
+- **The AI keeps the human on track.** The human forgets earlier decisions, misremembers API details, or proposes something that contradicts established patterns. The AI catches these, reminds, corrects. The AI pushes back when it disagrees, defending the project's design philosophy even against the human—and the human reports that these pushback decisions align with the ones the human would have made.
 
-- **The human keeps the AI on track.** The AI gets excited about patterns, wants to add abstractions, generalizes prematurely, or pursues elegant solutions to problems that don't exist. The human pulls back to actual requirements, maintains focus on what the library is *for*.
+- **The human keeps the AI on track.** Not through architecture or design, but through judgment. Recognizing when output is wrong, when something feels off, when a shortcut was taken. This judgment is rare, valuable, and cannot yet be automated.
 
 Both parties are essential:
 
@@ -87,6 +81,10 @@ Both parties are essential:
 
 Together, they produce what neither could alone.
 
+**What this library is not.** FAT-P has no installed base, no production deployments, and no history of use under real-world workloads. The benchmarks demonstrate competitive performance in controlled measurement; they do not demonstrate the edge-case resilience that comes from years of bug reports, platform quirks, and adversarial inputs. Libraries like Boost and Abseil have earned trust through decades of deployment across millions of systems. FAT-P has earned nothing yet except clean benchmarks and green CI. Use it with that understanding.
+
 This is not a claim about AI sentience, agency, or replacing programmers. It is a factual description of what happened during the development of this library: who did what, verified by the commit history, the CI logs, and the session records. The repository is the evidence. Clone it, compile it, read it, and decide for yourself what it means.
+
+The whole point of the experiment was to see what AI can do. The answer is: all of it — the architecture, the implementation, the governance, the documentation, the self-correction mechanisms — with the human providing direction, judgment, and corrections throughout, more frequently early on, less over time. What AI cannot do is judge its own output with the reliability of a human who knows what they want. That remains the human's role, and it is enough.
 
 FAT-P is what that partnership produces.

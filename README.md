@@ -10,7 +10,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Layer & Dependency Verification](https://github.com/schroedermatthew/FatP/actions/workflows/ci_verify.yml/badge.svg)
 
 <details>
-<summary><strong>All 92 CI Workflows</strong></summary>
+<summary><strong>All 87 CI Workflows</strong></summary>
 
 #### Core Infrastructure
 ![FatP CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-test-core.yml/badge.svg)
@@ -26,7 +26,6 @@ A header-only C++20 utility library. Zero external dependencies.
 #### Components
 ![AlignedVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/aligned-vector.yml/badge.svg)
 ![AllocationStrategies CI](https://github.com/schroedermatthew/FatP/actions/workflows/allocation-strategies.yml/badge.svg)
-![AsyncOperations CI](https://github.com/schroedermatthew/FatP/actions/workflows/async-operations.yml/badge.svg)
 ![BinaryLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/binary-lite.yml/badge.svg)
 ![BitSet CI](https://github.com/schroedermatthew/FatP/actions/workflows/bit-set.yml/badge.svg)
 ![CacheUtilities CI](https://github.com/schroedermatthew/FatP/actions/workflows/cache-utilities.yml/badge.svg)
@@ -120,6 +119,8 @@ All code, architecture, documentation, and governance in this library were autho
 The library was developed using a multi-AI collaborative pipeline: independent parallel design, cross-review and synthesis, adversarial review, and context reset cycles. The complete methodology is documented in [Fat-P AI-Collaborative Development Methodology](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md).
 
 Across 20 benchmarked components and 50+ competitor implementations, every Fat-P component benchmarked to date matches or exceeds the performance of its industry-standard equivalent from Boost, Abseil, LLVM, and EASTL. Benchmark data is in [`benchmark_results/`](benchmark_results/).
+
+**What this library is not.** FAT-P has no installed base, no production deployments, and no history of use under real-world workloads. The benchmarks demonstrate competitive performance in controlled measurement; they do not demonstrate the edge-case resilience that comes from years of bug reports, platform quirks, and adversarial inputs. Libraries like Boost and Abseil have earned trust through decades of deployment across millions of systems. FAT-P has earned nothing yet except clean benchmarks and green CI. Use it with that understanding.
 
 For the full account of who did what, see [Authors.md](Authors.md).
 
@@ -246,11 +247,11 @@ target_link_libraries(your_target PRIVATE fatp)
 
 ```
 FatP/
-├── include/fat_p/       # Library headers (111 files)
+├── include/fat_p/       # Library headers (107 files)
 ├── components/          # Per-component tests, benchmarks, and docs
 ├── Teaching/            # Guides, case studies, and reference material
 ├── Read_Me/             # Development guidelines and style guides
-└── .github/workflows/   # CI workflows (92 workflows)
+└── .github/workflows/   # CI workflows (87 workflows)
 ```
 
 ## Building Tests

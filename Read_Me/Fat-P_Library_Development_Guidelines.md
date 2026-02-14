@@ -1796,6 +1796,16 @@ Do not comment on the psychological effect documentation will have on readers. L
 **Wrong:** "Being honest about limitations builds trust with readers."
 **Right:** "Be honest about limitations." (Then actually be honest.)
 
+#### Library Maturity Claims
+
+FAT-P has no installed base, no production deployments, and no history of use under real-world workloads. Benchmarks demonstrate competitive performance in controlled measurement; they do not demonstrate the edge-case resilience that comes from years of bug reports, platform quirks, and adversarial inputs. Documentation must not imply otherwise.
+
+**Rules:**
+- Never describe the library as "production-tested", "production-ready", "battle-tested", or "proven". Use "written to production standards" if describing code quality intent.
+- Never claim parity with established libraries (Boost, Abseil, LLVM, etc.). Per-component benchmark comparisons with explicit methodology are fine. Blanket equivalence claims are not.
+- When comparing against established libraries, acknowledge what they have that we don't: installed base, cross-platform validation, years of real-world bug reports, and community trust earned through deployment.
+- "Production-quality" as an aspiration for code standards is acceptable. "Production" as a description of deployment status is not.
+
 ### 8.5 Comparison Sections
 
 When comparing to external libraries, **assume the reader doesn't know them**. Don't just list feature differences -- provide context:
@@ -2150,6 +2160,20 @@ Downloads (modified files only)
 
 Never claim compilation success without tool invocation evidence.
 
+#### Inventory Count Maintenance
+
+Several documents contain hardcoded counts (header files, line counts, CI workflows, governance documents, etc.): README.md, Authors.md, and the Methodology document. These numbers drift out of sync whenever files are added, removed, or restructured.
+
+**Rule:** When any session adds, removes, or significantly restructures files (headers, tests, benchmarks, workflows, documentation, presentations), update the counts in all affected documents before the session ends. The documents that contain counts are:
+
+| Document | Contains |
+|----------|----------|
+| `README.md` | Header count, workflow count, badge list |
+| `Authors.md` | Header count, governance doc count, workflow count |
+| `Fat-P_AI_Collaborative_Development_Methodology.md` | All counts (executive summary table, Appendix B inventory, inline references) |
+
+If you are unsure whether counts have drifted, run a count before quoting a number. Do not repeat a number from a document without verifying it is still accurate.
+
 ### 11.5 Failure Mode Expectations
 
 When uncertain or constrained:
@@ -2339,6 +2363,11 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 ---
 
 ## Changelog
+
+### v3.6 (February 2026)
+- Added §8.4 Library Maturity Claims rule: no "production-tested", "battle-tested", or parity claims; acknowledge what established libraries have that FAT-P does not
+- Added §11.4 Inventory Count Maintenance rule: AI must update hardcoded counts in README.md, Authors.md, and Methodology when files are added, removed, or restructured
+- Origin: header count (111 vs 107), workflow count (92 vs 87), and documentation line count (192,302 vs 94,265) had drifted after file deletions and restructuring
 
 ### v3.5 (February 2026)
 - Added Section 5.11: Include Ordering Convention — group includes by architectural layer with alphabetical sort within groups
