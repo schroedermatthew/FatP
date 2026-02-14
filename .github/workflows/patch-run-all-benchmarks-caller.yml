@@ -1,0 +1,23 @@
+# =============================================================================
+# PATCH: run-all-benchmarks.yml
+# =============================================================================
+#
+# 1. REMOVE the inline fatp-hash-map job.
+#
+# 2. ADD this in its place:
+# =============================================================================
+
+  # ===========================================================================
+  # FatPHashMap Benchmark (reusable workflow)
+  # ===========================================================================
+  fatp-hash-map:
+    uses: ./.github/workflows/bench-fatp-hash-map.yml
+    with:
+      batches: ${{ inputs.batches }}
+      target_work: ${{ inputs.target_work }}
+
+# =============================================================================
+# 3. Summary job: NO CHANGES.
+#    Job name "fatp-hash-map" preserved. Artifact pattern "bench-*" matches
+#    both "bench-FatPHashMap" (aggregated) and "bench-FatPHashMap-gcc14" etc.
+# =============================================================================

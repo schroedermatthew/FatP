@@ -1,0 +1,26 @@
+# =============================================================================
+# PATCH: fatp-hash-map.yml
+# =============================================================================
+#
+# 1. REMOVE these four jobs:
+#      - benchmarks-gcc
+#      - benchmarks-clang
+#      - benchmarks-msvc
+#      - benchmark-summary
+#
+# 2. ADD this in their place (before ci-success):
+# =============================================================================
+
+  # ===========================================================================
+  # Benchmarks (reusable workflow — GCC, Clang, MSVC with all competitors)
+  # ===========================================================================
+  benchmarks:
+    if: ${{ inputs.run_benchmarks }}
+    uses: ./.github/workflows/bench-fatp-hash-map.yml
+    with:
+      batches: '15'
+      target_work: '100000'
+
+# =============================================================================
+# 3. ci-success: NO CHANGES (does not depend on benchmark jobs).
+# =============================================================================

@@ -1082,6 +1082,27 @@ Acceptable patterns:
 
 ---
 
+## CI Workflow Integration
+
+Every benchmark must be runnable in CI. When a new benchmark is added for a
+component, two workflows must be updated:
+
+1. **Component workflow** (e.g., `.github/workflows/thread-pool.yml`): Add
+   benchmark jobs gated behind the `run_benchmarks` workflow_dispatch input.
+   See existing workflows for the pattern.
+
+2. **Unified runner** (`.github/workflows/run-all-benchmarks.yml`): Add the
+   new component to the appropriate job. Standard benchmarks (no external
+   dependencies) go in the `standard` matrix. Benchmarks requiring external
+   libraries (TBB, Boost, moodycamel, etc.) get a dedicated job with their
+   own dependency installation steps.
+
+Forgetting step 2 means the component will be missing from cross-project
+benchmark sweeps. The run-all workflow is the single place that exercises
+every benchmark in parallel.
+
+---
+
 ## Checklist
 
 * [ ] Canonical env vars supported (`FATP_BENCH_*` set)
@@ -1109,6 +1130,8 @@ Acceptable patterns:
 * [ ] **Platform line: canonical field names (`measured=` not `batches=`)**
 * [ ] **Competitors block: `[x]`/`[ ]` format with `(primary)`/`(baseline)` tags**
 * [ ] **ASCII-only output (no Unicode symbols)**
+* [ ] **Component CI workflow updated with benchmark jobs (gated behind `run_benchmarks`)**
+* [ ] **`run-all-benchmarks.yml` updated with new component**
 
 ---
 
@@ -1127,4 +1150,4 @@ Sequential runs are acceptable only when the benchmark has a single measured cas
 
 ---
 
-*Fat-P Benchmark Code Style Guide v1.4 — February 2026*
+*Fat-P Benchmark Code Style Guide v1.5 — February 2026*

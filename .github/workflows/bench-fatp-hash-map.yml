@@ -1,0 +1,442 @@
+# =============================================================================
+# .github/workflows/bench-fatp-hash-map.yml
+# =============================================================================
+# Reusable benchmark workflow for FatPHashMap (FastHashMap + StableHashMap).
+# Multi-compiler: GCC 13/14, Clang 16/17, MSVC C++23.
+#
+# Called by:
+#   - fatp-hash-map.yml       (component CI, gated behind run_benchmarks)
+#   - run-all-benchmarks.yml  (unified benchmark sweep)
+# Also runnable standalone via workflow_dispatch.
+#
+# Competitor matrix (all platforms):
+#   [x] std::unordered_map          (baseline, always available)
+#   [x] tsl::robin_map              (header-only)
+#   [x] ankerl::unordered_dense     (header-only)
+#   [x] boost::unordered_flat_map   (header-only since Boost 1.81)
+#   [x] boost::unordered_node_map   (same)
+#   [x] absl::flat_hash_map         (CMake/vcpkg, static link)
+#   [x] absl::node_hash_map         (same)
+#   [x] folly::F14FastMap            (CMake/vcpkg, requires -DUSE_FOLLY=1)
+#   [x] folly::F14NodeMap            (same)
+#   [x] llvm::DenseMap               (CMake/vcpkg)
+#
+# vcpkg port names (from project vcpkg.json):
+#   abseil, boost, folly, llvm, fmt
+# =============================================================================
+
+name: FatPHashMap Benchmarks
+
+on:
+  workflow_call:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+env:
+  BENCH_SRC: components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Benchmarks
+  # ===========================================================================
+  benchmarks-gcc:
+    name: GCC-${{ matrix.version }} C++23
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [13, 14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC and system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-${{ matrix.version }} cmake libboost-dev
+
+      - name: Cache third-party libraries
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: ~/thirdparty
+          key: hashmap-all-competitors-gcc${{ matrix.version }}-v1
+
+      - name: Install header-only competitors
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $HOME/thirdparty
+          git clone --depth 1 https://github.com/Tessil/robin-map.git \
+            $HOME/thirdparty/robin-map
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git \
+            $HOME/thirdparty/unordered_dense
+
+      - name: Build Abseil from source
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
+            $HOME/thirdparty/abseil-src
+          cmake -S $HOME/thirdparty/abseil-src \
+                -B $HOME/thirdparty/abseil-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }} \
+                -DABSL_BUILD_TESTING=OFF \
+                -DABSL_USE_GOOGLETEST_HEAD=OFF \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil
+          cmake --build $HOME/thirdparty/abseil-build --parallel $(nproc)
+          cmake --install $HOME/thirdparty/abseil-build
+
+      - name: Build Folly from source
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y \
+            libfmt-dev libglog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev
+
+          git clone --depth 1 https://github.com/facebook/folly.git \
+            $HOME/thirdparty/folly-src
+          cmake -S $HOME/thirdparty/folly-src \
+                -B $HOME/thirdparty/folly-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }} \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/folly
+          cmake --build $HOME/thirdparty/folly-build --parallel $(nproc)
+          cmake --install $HOME/thirdparty/folly-build
+
+      - name: Install LLVM headers
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          # We only need the ADT headers + LLVMSupport library.
+          # Full LLVM source build is too heavy; use the distro package.
+          sudo apt-get install -y llvm-dev
+          # Copy into thirdparty so the cache captures it
+          mkdir -p $HOME/thirdparty/llvm
+          cp -r /usr/include/llvm $HOME/thirdparty/llvm/include/
+          mkdir -p $HOME/thirdparty/llvm/lib
+          cp /usr/lib/llvm-*/lib/libLLVMSupport.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
+          cp /usr/lib/llvm-*/lib/libLLVMDemangle.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
+
+      - name: Build benchmark
+        run: |
+          ABSL_LIBS=$(find $HOME/thirdparty/abseil/lib -name '*.a' | sort)
+          FOLLY_LIBS=$(find $HOME/thirdparty/folly/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty/llvm/lib -name '*.a' | sort)
+
+          g++-${{ matrix.version }} -std=c++23 \
+            -O3 -DNDEBUG -march=native \
+            -DUSE_FOLLY=1 \
+            -I./include/fat_p \
+            -I$HOME/thirdparty/robin-map/include \
+            -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/abseil/include \
+            -I$HOME/thirdparty/folly/include \
+            -I$HOME/thirdparty/llvm/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_hashmap -pthread \
+            $ABSL_LIBS \
+            $FOLLY_LIBS \
+            $LLVM_LIBS \
+            -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp23.csv
+        run: ./bench_hashmap 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp23.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-FatPHashMap-gcc${{ matrix.version }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp23.csv
+            benchmark_gcc${{ matrix.version }}_cpp23.log
+
+  # ===========================================================================
+  # Linux Clang Benchmarks
+  # ===========================================================================
+  benchmarks-clang:
+    name: Clang-${{ matrix.version }} C++23
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [16, 17]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and system dependencies
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+          sudo apt-get install -y cmake libboost-dev \
+            libfmt-dev libglog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev
+
+      - name: Cache third-party libraries
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: ~/thirdparty
+          key: hashmap-all-competitors-clang${{ matrix.version }}-v1
+
+      - name: Install header-only competitors
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $HOME/thirdparty
+          git clone --depth 1 https://github.com/Tessil/robin-map.git \
+            $HOME/thirdparty/robin-map
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git \
+            $HOME/thirdparty/unordered_dense
+
+      - name: Build Abseil from source
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
+            $HOME/thirdparty/abseil-src
+          cmake -S $HOME/thirdparty/abseil-src \
+                -B $HOME/thirdparty/abseil-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }} \
+                -DABSL_BUILD_TESTING=OFF \
+                -DABSL_USE_GOOGLETEST_HEAD=OFF \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil
+          cmake --build $HOME/thirdparty/abseil-build --parallel $(nproc)
+          cmake --install $HOME/thirdparty/abseil-build
+
+      - name: Build Folly from source
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/facebook/folly.git \
+            $HOME/thirdparty/folly-src
+          cmake -S $HOME/thirdparty/folly-src \
+                -B $HOME/thirdparty/folly-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }} \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/folly
+          cmake --build $HOME/thirdparty/folly-build --parallel $(nproc)
+          cmake --install $HOME/thirdparty/folly-build
+
+      - name: Install LLVM headers
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y llvm-dev
+          mkdir -p $HOME/thirdparty/llvm/include $HOME/thirdparty/llvm/lib
+          cp -r /usr/include/llvm $HOME/thirdparty/llvm/include/
+          cp /usr/lib/llvm-*/lib/libLLVMSupport.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
+          cp /usr/lib/llvm-*/lib/libLLVMDemangle.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
+
+      - name: Build benchmark
+        run: |
+          if [[ ${{ matrix.version }} -lt 17 ]]; then
+            STD_FLAG="c++2b"
+          else
+            STD_FLAG="c++23"
+          fi
+
+          ABSL_LIBS=$(find $HOME/thirdparty/abseil/lib -name '*.a' | sort)
+          FOLLY_LIBS=$(find $HOME/thirdparty/folly/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty/llvm/lib -name '*.a' | sort)
+
+          clang++-${{ matrix.version }} -std=$STD_FLAG \
+            -O3 -DNDEBUG -march=native \
+            -DUSE_FOLLY=1 \
+            -I./include/fat_p \
+            -I$HOME/thirdparty/robin-map/include \
+            -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/abseil/include \
+            -I$HOME/thirdparty/folly/include \
+            -I$HOME/thirdparty/llvm/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_hashmap -pthread \
+            $ABSL_LIBS \
+            $FOLLY_LIBS \
+            $LLVM_LIBS \
+            -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lstdc++
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp23.csv
+        run: ./bench_hashmap 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp23.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-FatPHashMap-clang${{ matrix.version }}
+          path: |
+            results_clang${{ matrix.version }}_cpp23.csv
+            benchmark_clang${{ matrix.version }}_cpp23.log
+
+  # ===========================================================================
+  # Windows MSVC Benchmarks
+  # ===========================================================================
+  benchmarks-msvc:
+    name: MSVC C++23
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Cache header-only libraries
+        id: cache-headeronly
+        uses: actions/cache@v4
+        with:
+          path: thirdparty
+          key: hashmap-headeronly-${{ runner.os }}-v2
+
+      - name: Install header-only libraries
+        if: steps.cache-headeronly.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path thirdparty
+          git clone --depth 1 https://github.com/Tessil/robin-map.git thirdparty/robin-map
+          git clone --depth 1 https://github.com/martinus/unordered_dense.git thirdparty/unordered_dense
+
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg_cache
+          key: vcpkg-${{ runner.os }}-hashmap-all-v1
+          restore-keys: |
+            vcpkg-${{ runner.os }}-hashmap-all-
+
+      - name: Install competitors via vcpkg
+        run: |
+          if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
+          vcpkg install abseil:x64-windows boost-unordered:x64-windows folly:x64-windows llvm:x64-windows fmt:x64-windows
+        shell: cmd
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_cache
+
+      - name: Build benchmark
+        shell: pwsh
+        run: |
+          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include"
+          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib"
+
+          cl /nologo /std:c++latest /O2 /DNDEBUG /EHsc /permissive- `
+            /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
+            /D_CRT_SECURE_NO_WARNINGS /DUSE_FOLLY=1 `
+            /I.\include\fat_p `
+            /I.\thirdparty\robin-map\include `
+            /I.\thirdparty\unordered_dense\include `
+            /I"$vcpkgInc" `
+            components\FatPHashMap\benchmarks\benchmark_FatPHashMap.cpp `
+            /Fe:bench_hashmap.exe `
+            /link advapi32.lib /LIBPATH:"$vcpkgLib" `
+            abseil_dll.lib folly.lib fmt.lib glog.lib
+
+      - name: Run benchmark
+        shell: pwsh
+        env:
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp23.csv
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin;$env:PATH"
+          .\bench_hashmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp23.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-FatPHashMap-msvc
+          path: |
+            results_msvc_cpp23.csv
+            benchmark_msvc_cpp23.log
+
+  # ===========================================================================
+  # Benchmark Summary
+  # ===========================================================================
+  benchmark-summary:
+    name: FatPHashMap Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-FatPHashMap-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# FatPHashMap Benchmark Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+
+          for dir in all-benchmarks/bench-FatPHashMap-*/; do
+            name=$(basename "$dir" | sed 's/^bench-FatPHashMap-//')
+            if ls "$dir"/*.log 1>/dev/null 2>&1; then
+              echo "| $name | [PASS] |" >> summary.md
+            else
+              echo "| $name | [FAIL] |" >> summary.md
+            fi
+          done
+
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+
+          for dir in all-benchmarks/bench-FatPHashMap-*/; do
+            name=$(basename "$dir" | sed 's/^bench-FatPHashMap-//')
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            for log in "$dir"/*.log; do
+              if [ -f "$log" ]; then
+                echo '```' >> summary.md
+                tail -80 "$log" >> summary.md
+                echo '```' >> summary.md
+              fi
+            done
+          done
+
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-FatPHashMap
+          path: |
+            all-benchmarks/
+            summary.md
