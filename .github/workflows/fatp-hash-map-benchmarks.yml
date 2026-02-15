@@ -6,21 +6,25 @@
 #
 # Multi-compiler: GCC 12/13/14, Clang 16/17, MSVC C++20.
 #
+# Dependencies:
+#   Shared caches built by build-benchmark-deps.yml (run it first).
+#   In-repo vendored headers via -I./ThirdParty (automatic on checkout).
+#
 # Competitor matrix:
 #   All platforms:
 #     [x] std::unordered_map          (baseline, always available)
-#     [x] tsl::robin_map              (header-only, cached)
-#     [x] ankerl::unordered_dense     (header-only, cached)
-#     [x] boost::unordered_flat_map   (built from source, cached)
+#     [x] tsl::robin_map              (vendored in ThirdParty/)
+#     [x] ankerl::unordered_dense     (vendored in ThirdParty/)
+#     [x] boost::unordered_flat_map   (compiled, shared cache)
 #     [x] boost::unordered_node_map   (same)
 #   Linux only:
-#     [x] absl::flat_hash_map         (built from source, cached)
+#     [x] absl::flat_hash_map         (compiled, shared cache)
 #     [x] absl::node_hash_map         (same)
-#     [x] folly::F14FastMap            (built from source, cached)
+#     [x] folly::F14FastMap            (compiled, shared cache)
 #     [x] folly::F14NodeMap            (same)
-#     [x] llvm::DenseMap               (distro package, cached)
+#     [x] llvm::DenseMap               (compiled, shared cache)
 #   Windows:
-#     [x] absl, folly, llvm via vcpkg (cached)
+#     [x] absl, folly, llvm via vcpkg (shared cache)
 # =============================================================================
 
 name: FatPHashMap Benchmarks
@@ -64,94 +68,54 @@ jobs:
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
-      - name: Cache third-party libraries
-        id: cache-deps
-        uses: actions/cache@v4
+      - name: Restore header-only deps
+        id: cache-headeronly
+        uses: actions/cache/restore@v4
         with:
-          path: ~/thirdparty
-          key: hashmap-bench-all-gcc${{ matrix.version }}-v3
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
 
-      - name: Install header-only competitors
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p $HOME/thirdparty
-          git clone --depth 1 https://github.com/Tessil/robin-map.git \
-            $HOME/thirdparty/robin-map
-          git clone --depth 1 https://github.com/martinus/unordered_dense.git \
-            $HOME/thirdparty/unordered_dense
+      - name: Restore compiled deps
+        id: cache-compiled
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
 
-      - name: Build Boost from source
-        if: steps.cache-deps.outputs.cache-hit != 'true'
+      - name: Verify caches restored
         run: |
-          git clone --depth 1 --recurse-submodules \
-            https://github.com/boostorg/boost.git \
-            $HOME/thirdparty/boost-src
-          cd $HOME/thirdparty/boost-src
-          ./bootstrap.sh --prefix=$HOME/thirdparty/boost \
-            --with-libraries=context,filesystem,program_options,regex,system,thread
-          ./b2 -j$(nproc) variant=release link=static threading=multi \
-            cxxflags="-std=c++20" install
-          rm -rf $HOME/thirdparty/boost-src
-
-      - name: Build Abseil from source
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
-            $HOME/thirdparty/abseil-src
-          cmake -S $HOME/thirdparty/abseil-src \
-                -B $HOME/thirdparty/abseil-build \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CXX_STANDARD=20 \
-                -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }} \
-                -DABSL_BUILD_TESTING=OFF \
-                -DABSL_USE_GOOGLETEST_HEAD=OFF \
-                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil
-          cmake --build $HOME/thirdparty/abseil-build --parallel $(nproc)
-          cmake --install $HOME/thirdparty/abseil-build
-
-      - name: Build Folly from source
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 https://github.com/facebook/folly.git \
-            $HOME/thirdparty/folly-src
-          cmake -S $HOME/thirdparty/folly-src \
-                -B $HOME/thirdparty/folly-build \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CXX_STANDARD=20 \
-                -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }} \
-                -DCMAKE_PREFIX_PATH=$HOME/thirdparty/boost \
-                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/folly
-          cmake --build $HOME/thirdparty/folly-build --parallel $(nproc)
-          cmake --install $HOME/thirdparty/folly-build
-
-      - name: Install LLVM headers and libraries
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          # Only need ADT headers + LLVMSupport library.
-          # Full LLVM source build is too heavy; use the distro package.
-          sudo apt-get install -y llvm-dev
-          mkdir -p $HOME/thirdparty/llvm/include $HOME/thirdparty/llvm/lib
-          cp -r /usr/include/llvm $HOME/thirdparty/llvm/include/
-          cp /usr/lib/llvm-*/lib/libLLVMSupport.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
-          cp /usr/lib/llvm-*/lib/libLLVMDemangle.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
+          missing=0
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
+            echo "::warning::Compiled cache not found. Run build-benchmark-deps.yml first."
+            missing=1
+          fi
+          if [ ! -d "$HOME/thirdparty-headers" ]; then
+            echo "::warning::Header-only cache not found. Run build-benchmark-deps.yml first."
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml before running benchmarks."
+            exit 1
+          fi
+          echo "Caches restored successfully."
 
       - name: Build benchmark
         run: |
-          ABSL_LIBS=$(find $HOME/thirdparty/abseil/lib -name '*.a' | sort)
-          FOLLY_LIBS=$(find $HOME/thirdparty/folly/lib -name '*.a' | sort)
-          BOOST_LIBS=$(find $HOME/thirdparty/boost/lib -name '*.a' | sort)
-          LLVM_LIBS=$(find $HOME/thirdparty/llvm/lib -name '*.a' | sort)
+          ABSL_LIBS=$(find $HOME/thirdparty-compiled/abseil/lib -name '*.a' | sort)
+          FOLLY_LIBS=$(find $HOME/thirdparty-compiled/folly/lib -name '*.a' | sort)
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
 
           g++-${{ matrix.version }} -std=c++20 \
             -O3 -DNDEBUG -march=native \
             -DUSE_FOLLY=1 \
             -I./include/fat_p \
-            -I$HOME/thirdparty/robin-map/include \
-            -I$HOME/thirdparty/unordered_dense/include \
-            -I$HOME/thirdparty/boost/include \
-            -I$HOME/thirdparty/abseil/include \
-            -I$HOME/thirdparty/folly/include \
-            -I$HOME/thirdparty/llvm/include \
+            -I./ThirdParty \
+            -I$HOME/thirdparty-headers/entt/single_include \
+            -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-compiled/abseil/include \
+            -I$HOME/thirdparty-compiled/folly/include \
+            -I$HOME/thirdparty-compiled/llvm/include \
             ${{ env.BENCH_SRC }} \
             -o bench_hashmap -pthread \
             $ABSL_LIBS \
@@ -193,100 +157,59 @@ jobs:
 
       - name: Install Clang and system dependencies
         run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{ matrix.version }}
-          sudo apt-get install -y libunwind-dev
-          sudo apt-get install -y cmake \
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.version }}
+          sudo apt-get install -y libunwind-dev cmake \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
-      - name: Cache third-party libraries
-        id: cache-deps
-        uses: actions/cache@v4
+      - name: Restore header-only deps
+        id: cache-headeronly
+        uses: actions/cache/restore@v4
         with:
-          path: ~/thirdparty
-          key: hashmap-bench-all-clang${{ matrix.version }}-v3
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
 
-      - name: Install header-only competitors
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p $HOME/thirdparty
-          git clone --depth 1 https://github.com/Tessil/robin-map.git \
-            $HOME/thirdparty/robin-map
-          git clone --depth 1 https://github.com/martinus/unordered_dense.git \
-            $HOME/thirdparty/unordered_dense
+      - name: Restore compiled deps
+        id: cache-compiled
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
 
-      - name: Build Boost from source
-        if: steps.cache-deps.outputs.cache-hit != 'true'
+      - name: Verify caches restored
         run: |
-          git clone --depth 1 --recurse-submodules \
-            https://github.com/boostorg/boost.git \
-            $HOME/thirdparty/boost-src
-          cd $HOME/thirdparty/boost-src
-          ./bootstrap.sh --prefix=$HOME/thirdparty/boost \
-            --with-libraries=context,filesystem,program_options,regex,system,thread
-          ./b2 -j$(nproc) variant=release link=static threading=multi \
-            toolset=clang cxxflags="-std=c++20" install
-          rm -rf $HOME/thirdparty/boost-src
-
-      - name: Build Abseil from source
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
-            $HOME/thirdparty/abseil-src
-          cmake -S $HOME/thirdparty/abseil-src \
-                -B $HOME/thirdparty/abseil-build \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CXX_STANDARD=20 \
-                -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }} \
-                -DABSL_BUILD_TESTING=OFF \
-                -DABSL_USE_GOOGLETEST_HEAD=OFF \
-                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil
-          cmake --build $HOME/thirdparty/abseil-build --parallel $(nproc)
-          cmake --install $HOME/thirdparty/abseil-build
-
-      - name: Build Folly from source
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 https://github.com/facebook/folly.git \
-            $HOME/thirdparty/folly-src
-          cmake -S $HOME/thirdparty/folly-src \
-                -B $HOME/thirdparty/folly-build \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_CXX_STANDARD=20 \
-                -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }} \
-                -DCMAKE_PREFIX_PATH=$HOME/thirdparty/boost \
-                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/folly
-          cmake --build $HOME/thirdparty/folly-build --parallel $(nproc)
-          cmake --install $HOME/thirdparty/folly-build
-
-      - name: Install LLVM headers and libraries
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get install -y llvm-dev
-          mkdir -p $HOME/thirdparty/llvm/include $HOME/thirdparty/llvm/lib
-          cp -r /usr/include/llvm $HOME/thirdparty/llvm/include/
-          cp /usr/lib/llvm-*/lib/libLLVMSupport.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
-          cp /usr/lib/llvm-*/lib/libLLVMDemangle.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
+          missing=0
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
+            echo "::warning::Compiled cache not found. Run build-benchmark-deps.yml first."
+            missing=1
+          fi
+          if [ ! -d "$HOME/thirdparty-headers" ]; then
+            echo "::warning::Header-only cache not found. Run build-benchmark-deps.yml first."
+            missing=1
+          fi
+          if [ "$missing" -eq 1 ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml before running benchmarks."
+            exit 1
+          fi
+          echo "Caches restored successfully."
 
       - name: Build benchmark
         run: |
-          ABSL_LIBS=$(find $HOME/thirdparty/abseil/lib -name '*.a' | sort)
-          FOLLY_LIBS=$(find $HOME/thirdparty/folly/lib -name '*.a' | sort)
-          BOOST_LIBS=$(find $HOME/thirdparty/boost/lib -name '*.a' | sort)
-          LLVM_LIBS=$(find $HOME/thirdparty/llvm/lib -name '*.a' | sort)
+          ABSL_LIBS=$(find $HOME/thirdparty-compiled/abseil/lib -name '*.a' | sort)
+          FOLLY_LIBS=$(find $HOME/thirdparty-compiled/folly/lib -name '*.a' | sort)
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
 
           clang++-${{ matrix.version }} -std=c++20 \
             -O3 -DNDEBUG -march=native \
             -DUSE_FOLLY=1 \
             -I./include/fat_p \
-            -I$HOME/thirdparty/robin-map/include \
-            -I$HOME/thirdparty/unordered_dense/include \
-            -I$HOME/thirdparty/boost/include \
-            -I$HOME/thirdparty/abseil/include \
-            -I$HOME/thirdparty/folly/include \
-            -I$HOME/thirdparty/llvm/include \
+            -I./ThirdParty \
+            -I$HOME/thirdparty-headers/entt/single_include \
+            -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-compiled/abseil/include \
+            -I$HOME/thirdparty-compiled/folly/include \
+            -I$HOME/thirdparty-compiled/llvm/include \
             ${{ env.BENCH_SRC }} \
             -o bench_hashmap -pthread \
             $ABSL_LIBS \
@@ -327,36 +250,28 @@ jobs:
         with:
           arch: x64
 
-      - name: Cache header-only libraries
-        id: cache-headeronly
-        uses: actions/cache@v4
+      - name: Restore vcpkg cache
+        id: cache-vcpkg
+        uses: actions/cache/restore@v4
         with:
-          path: thirdparty
-          key: hashmap-bench-headeronly-${{ runner.os }}-v3
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
 
-      - name: Install header-only libraries
-        if: steps.cache-headeronly.outputs.cache-hit != 'true'
+      - name: Verify cache restored
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path thirdparty
-          git clone --depth 1 https://github.com/Tessil/robin-map.git thirdparty/robin-map
-          git clone --depth 1 https://github.com/martinus/unordered_dense.git thirdparty/unordered_dense
+          if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
+            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            exit 1
+          }
+          Write-Host "vcpkg cache restored successfully."
 
-      - name: Cache vcpkg packages
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/vcpkg_cache
-          key: vcpkg-${{ runner.os }}-hashmap-bench-all-v3
-          restore-keys: |
-            vcpkg-${{ runner.os }}-hashmap-bench-all-
-
-      - name: Install competitors via vcpkg
+      - name: Install competitors via vcpkg (from cache)
         shell: cmd
         env:
           VCPKG_DEFAULT_TRIPLET: x64-windows-release
-          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_cache
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
         run: |
-          if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
           vcpkg install abseil:x64-windows-release boost-unordered:x64-windows-release folly:x64-windows-release llvm:x64-windows-release fmt:x64-windows-release
 
       - name: Build benchmark
@@ -369,8 +284,7 @@ jobs:
             /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
             /D_CRT_SECURE_NO_WARNINGS /DUSE_FOLLY=1 `
             /I.\include\fat_p `
-            /I.\thirdparty\robin-map\include `
-            /I.\thirdparty\unordered_dense\include `
+            /I.\ThirdParty `
             /I"$vcpkgInc" `
             components\FatPHashMap\benchmarks\benchmark_FatPHashMap.cpp `
             /Fe:bench_hashmap.exe `

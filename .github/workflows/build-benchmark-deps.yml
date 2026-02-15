@@ -1,0 +1,474 @@
+# =============================================================================
+# .github/workflows/build-benchmark-deps.yml
+# =============================================================================
+# Shared dependency cache builder for all FatP benchmark workflows.
+#
+# Manual dispatch only. Builds all competitor libraries and saves them into
+# 4 shared caches that individual benchmark workflows restore read-only:
+#
+#   fatp-bench-deps-gcc-v1          Compiled deps (gcc-14, ubuntu-24.04)
+#   fatp-bench-deps-clang-v1        Compiled deps (clang-17, ubuntu-22.04)
+#   fatp-bench-deps-headeronly-v1   Header-only external deps (universal)
+#   fatp-bench-deps-vcpkg-v1        vcpkg x64-windows-release packages
+#
+# Cache contents:
+#
+#   ~/thirdparty-headers/           Header-only external deps
+#     entt/                         skypjack/entt
+#     concurrentqueue/              cameron314/concurrentqueue
+#     readerwriterqueue/            cameron314/readerwriterqueue
+#     plf_hive/                     mattreecebentley/plf_hive
+#
+#   ~/thirdparty-compiled/          Compiled deps (per toolset)
+#     boost/                        boostorg/boost
+#       include/
+#       lib/
+#     abseil/                       abseil/abseil-cpp
+#       include/
+#       lib/
+#     folly/                        facebook/folly
+#       include/
+#       lib/
+#     eastl/                        electronicarts/EASTL + EABase
+#       include/
+#       lib/
+#     llvm/                         distro llvm-dev
+#       include/
+#       lib/
+#
+# In-repo vendored headers (ThirdParty/) are NOT cached here -- they are
+# available automatically via actions/checkout + -I./ThirdParty.
+#
+# Rebuild: bump the -v1 suffix in cache keys here AND in all benchmark
+# workflows that consume them.
+# =============================================================================
+
+name: Build Benchmark Dependencies
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if cache exists'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  # ===========================================================================
+  # Header-Only External Dependencies (runs once, universal)
+  # ===========================================================================
+  header-only:
+    name: Header-Only External Deps
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check existing cache
+        if: inputs.force_rebuild != 'true'
+        id: cache-check
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          lookup-only: true
+
+      - name: Clone header-only libraries
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          rm -rf $HOME/thirdparty-headers
+          mkdir -p $HOME/thirdparty-headers
+
+          echo "::group::entt"
+          git clone --depth 1 https://github.com/skypjack/entt.git \
+            $HOME/thirdparty-headers/entt
+          echo "::endgroup::"
+
+          echo "::group::concurrentqueue"
+          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git \
+            $HOME/thirdparty-headers/concurrentqueue
+          echo "::endgroup::"
+
+          echo "::group::readerwriterqueue"
+          git clone --depth 1 https://github.com/cameron314/readerwriterqueue.git \
+            $HOME/thirdparty-headers/readerwriterqueue
+          echo "::endgroup::"
+
+          echo "::group::plf_hive"
+          git clone --depth 1 https://github.com/mattreecebentley/plf_hive.git \
+            $HOME/thirdparty-headers/plf_hive
+          echo "::endgroup::"
+
+      - name: Verify contents
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "Header-only dependency contents:"
+          for dir in $HOME/thirdparty-headers/*/; do
+            name=$(basename "$dir")
+            count=$(find "$dir" -name '*.h' -o -name '*.hpp' | wc -l)
+            echo "  $name: $count headers"
+          done
+
+      - name: Save cache
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+
+  # ===========================================================================
+  # GCC Compiled Dependencies (gcc-14, ubuntu-24.04)
+  # ===========================================================================
+  compiled-gcc:
+    name: Compiled Deps (GCC-14)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check existing cache
+        if: inputs.force_rebuild != 'true'
+        id: cache-check
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
+          lookup-only: true
+
+      - name: Install build tools and system dependencies
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14 cmake \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev \
+            llvm-dev
+
+      - name: Build Boost from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          rm -rf $HOME/thirdparty-compiled
+          mkdir -p $HOME/thirdparty-compiled
+
+          echo "::group::Boost clone"
+          git clone --depth 1 --recurse-submodules \
+            https://github.com/boostorg/boost.git \
+            /tmp/boost-src
+          echo "::endgroup::"
+
+          echo "::group::Boost build"
+          cd /tmp/boost-src
+          ./bootstrap.sh --prefix=$HOME/thirdparty-compiled/boost
+          ./b2 -j$(nproc) variant=release link=static threading=multi \
+            cxxflags="-std=c++20" \
+            --with-context --with-filesystem --with-program_options \
+            --with-regex --with-system --with-thread \
+            install
+          echo "::endgroup::"
+          rm -rf /tmp/boost-src
+
+      - name: Build Abseil from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::Abseil clone"
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
+            /tmp/abseil-src
+          echo "::endgroup::"
+
+          echo "::group::Abseil build"
+          cmake -S /tmp/abseil-src \
+                -B /tmp/abseil-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=g++-14 \
+                -DABSL_BUILD_TESTING=OFF \
+                -DABSL_USE_GOOGLETEST_HEAD=OFF \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/abseil
+          cmake --build /tmp/abseil-build --parallel $(nproc)
+          cmake --install /tmp/abseil-build
+          echo "::endgroup::"
+          rm -rf /tmp/abseil-src /tmp/abseil-build
+
+      - name: Build Folly from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::Folly clone"
+          git clone --depth 1 https://github.com/facebook/folly.git \
+            /tmp/folly-src
+          echo "::endgroup::"
+
+          echo "::group::Folly build"
+          cmake -S /tmp/folly-src \
+                -B /tmp/folly-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=g++-14 \
+                -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
+          cmake --build /tmp/folly-build --parallel $(nproc)
+          cmake --install /tmp/folly-build
+          echo "::endgroup::"
+          rm -rf /tmp/folly-src /tmp/folly-build
+
+      - name: Build EASTL from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::EASTL clone"
+          git clone --depth 1 --recurse-submodules \
+            https://github.com/electronicarts/EASTL.git \
+            /tmp/eastl-src
+          echo "::endgroup::"
+
+          echo "::group::EASTL build"
+          cmake -S /tmp/eastl-src \
+                -B /tmp/eastl-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=g++-14 \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/eastl
+          cmake --build /tmp/eastl-build --parallel $(nproc)
+          cmake --install /tmp/eastl-build
+          echo "::endgroup::"
+          rm -rf /tmp/eastl-src /tmp/eastl-build
+
+      - name: Install LLVM headers and libraries
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          mkdir -p $HOME/thirdparty-compiled/llvm/include \
+                   $HOME/thirdparty-compiled/llvm/lib
+          cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+          cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
+             $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
+          cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
+             $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
+
+      - name: Verify contents
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "Compiled dependency contents (GCC-14):"
+          for dir in $HOME/thirdparty-compiled/*/; do
+            name=$(basename "$dir")
+            headers=$(find "$dir/include" -name '*.h' -o -name '*.hpp' 2>/dev/null | wc -l)
+            libs=$(find "$dir/lib" -name '*.a' 2>/dev/null | wc -l)
+            echo "  $name: $headers headers, $libs static libs"
+          done
+
+      - name: Save cache
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
+
+  # ===========================================================================
+  # Clang Compiled Dependencies (clang-17, ubuntu-22.04)
+  # ===========================================================================
+  compiled-clang:
+    name: Compiled Deps (Clang-17)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check existing cache
+        if: inputs.force_rebuild != 'true'
+        id: cache-check
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
+          lookup-only: true
+
+      - name: Install Clang and system dependencies
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 17
+          sudo apt-get install -y libunwind-dev cmake \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev \
+            llvm-dev
+
+      - name: Build Boost from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          rm -rf $HOME/thirdparty-compiled
+          mkdir -p $HOME/thirdparty-compiled
+
+          echo "::group::Boost clone"
+          git clone --depth 1 --recurse-submodules \
+            https://github.com/boostorg/boost.git \
+            /tmp/boost-src
+          echo "::endgroup::"
+
+          echo "::group::Boost build"
+          cd /tmp/boost-src
+          ./bootstrap.sh --prefix=$HOME/thirdparty-compiled/boost
+          ./b2 -j$(nproc) variant=release link=static threading=multi \
+            toolset=clang cxxflags="-std=c++20" \
+            --with-context --with-filesystem --with-program_options \
+            --with-regex --with-system --with-thread \
+            install
+          echo "::endgroup::"
+          rm -rf /tmp/boost-src
+
+      - name: Build Abseil from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::Abseil clone"
+          git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
+            /tmp/abseil-src
+          echo "::endgroup::"
+
+          echo "::group::Abseil build"
+          cmake -S /tmp/abseil-src \
+                -B /tmp/abseil-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=clang++-17 \
+                -DABSL_BUILD_TESTING=OFF \
+                -DABSL_USE_GOOGLETEST_HEAD=OFF \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/abseil
+          cmake --build /tmp/abseil-build --parallel $(nproc)
+          cmake --install /tmp/abseil-build
+          echo "::endgroup::"
+          rm -rf /tmp/abseil-src /tmp/abseil-build
+
+      - name: Build Folly from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::Folly clone"
+          git clone --depth 1 https://github.com/facebook/folly.git \
+            /tmp/folly-src
+          echo "::endgroup::"
+
+          echo "::group::Folly build"
+          cmake -S /tmp/folly-src \
+                -B /tmp/folly-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=clang++-17 \
+                -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
+          cmake --build /tmp/folly-build --parallel $(nproc)
+          cmake --install /tmp/folly-build
+          echo "::endgroup::"
+          rm -rf /tmp/folly-src /tmp/folly-build
+
+      - name: Build EASTL from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::EASTL clone"
+          git clone --depth 1 --recurse-submodules \
+            https://github.com/electronicarts/EASTL.git \
+            /tmp/eastl-src
+          echo "::endgroup::"
+
+          echo "::group::EASTL build"
+          cmake -S /tmp/eastl-src \
+                -B /tmp/eastl-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_CXX_COMPILER=clang++-17 \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/eastl
+          cmake --build /tmp/eastl-build --parallel $(nproc)
+          cmake --install /tmp/eastl-build
+          echo "::endgroup::"
+          rm -rf /tmp/eastl-src /tmp/eastl-build
+
+      - name: Install LLVM headers and libraries
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          mkdir -p $HOME/thirdparty-compiled/llvm/include \
+                   $HOME/thirdparty-compiled/llvm/lib
+          cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+          cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
+             $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
+          cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
+             $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
+
+      - name: Verify contents
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "Compiled dependency contents (Clang-17):"
+          for dir in $HOME/thirdparty-compiled/*/; do
+            name=$(basename "$dir")
+            headers=$(find "$dir/include" -name '*.h' -o -name '*.hpp' 2>/dev/null | wc -l)
+            libs=$(find "$dir/lib" -name '*.a' 2>/dev/null | wc -l)
+            echo "  $name: $headers headers, $libs static libs"
+          done
+
+      - name: Save cache
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
+
+  # ===========================================================================
+  # Windows vcpkg Dependencies
+  # ===========================================================================
+  vcpkg-msvc:
+    name: vcpkg Deps (MSVC)
+    runs-on: windows-latest
+
+    steps:
+      - name: Check existing cache
+        if: inputs.force_rebuild != 'true'
+        id: cache-check
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
+          lookup-only: true
+
+      - name: Install competitors via vcpkg
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        shell: cmd
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows-release
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
+        run: |
+          if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
+          vcpkg install ^
+            abseil:x64-windows-release ^
+            boost-unordered:x64-windows-release ^
+            boost-container:x64-windows-release ^
+            boost-intrusive:x64-windows-release ^
+            boost-lockfree:x64-windows-release ^
+            boost-pool:x64-windows-release ^
+            boost-asio:x64-windows-release ^
+            folly:x64-windows-release ^
+            llvm:x64-windows-release ^
+            fmt:x64-windows-release ^
+            entt:x64-windows-release ^
+            tbb:x64-windows-release
+
+      - name: Save cache
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
+
+  # ===========================================================================
+  # Summary
+  # ===========================================================================
+  summary:
+    name: Cache Build Summary
+    needs: [header-only, compiled-gcc, compiled-clang, vcpkg-msvc]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Report results
+        run: |
+          echo "# Benchmark Dependency Cache Build" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Cache Key | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| fatp-bench-deps-headeronly-v1 | ${{ needs.header-only.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| fatp-bench-deps-gcc-v1 | ${{ needs.compiled-gcc.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| fatp-bench-deps-clang-v1 | ${{ needs.compiled-clang.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| fatp-bench-deps-vcpkg-v1 | ${{ needs.vcpkg-msvc.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Rebuild by bumping the version suffix (e.g. v1 → v2) in:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`build-benchmark-deps.yml\` (this file)" >> $GITHUB_STEP_SUMMARY
+          echo "- All \`*-benchmarks.yml\` workflows that consume these caches" >> $GITHUB_STEP_SUMMARY
