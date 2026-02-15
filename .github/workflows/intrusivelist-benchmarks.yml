@@ -92,7 +92,8 @@ jobs:
             $BOOST_LIBS \
             $LLVM_LIBS \
             $EASTL_LIBS \
-            -Wl,--end-group
+            -Wl,--end-group \
+            -ltinfo
 
       - name: Run benchmark
         env:
@@ -163,6 +164,7 @@ jobs:
             $LLVM_LIBS \
             $EASTL_LIBS \
             -Wl,--end-group \
+            -ltinfo \
             -lstdc++
 
       - name: Run benchmark

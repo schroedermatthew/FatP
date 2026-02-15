@@ -111,7 +111,8 @@ jobs:
             $LLVM_LIBS \
             $EASTL_LIBS \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto \
-            -Wl,--end-group
+            -Wl,--end-group \
+            -ltinfo
 
       - name: Run benchmark
         env:
@@ -199,6 +200,7 @@ jobs:
             $LLVM_LIBS \
             $EASTL_LIBS \
             -Wl,--end-group \
+            -ltinfo \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lstdc++
 
       - name: Run benchmark

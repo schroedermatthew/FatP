@@ -244,7 +244,8 @@ jobs:
             $LIBS \
             $SYS_LINK \
             ${{ matrix.extra_link }} \
-            -Wl,--end-group
+            -Wl,--end-group \
+            -ltinfo
 
       - name: Run benchmark
         env:

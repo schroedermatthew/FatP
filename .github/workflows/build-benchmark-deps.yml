@@ -64,13 +64,49 @@ on:
         options:
           - 'false'
           - 'true'
+      delete_caches:
+        description: 'Delete all existing dep caches before building'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
+  # ===========================================================================
+  # Delete Existing Caches (optional, runs first)
+  # ===========================================================================
+  purge-caches:
+    name: Purge Existing Caches
+    if: inputs.delete_caches == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete all fatp-bench-deps caches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          echo "Fetching fatp-bench-deps cache keys..."
+          keys=$(gh cache list --key fatp-bench-deps- --limit 100 --json key --jq '.[].key')
+          if [ -z "$keys" ]; then
+            echo "No caches found."
+          else
+            echo "$keys" | while read -r key; do
+              echo "Deleting: $key"
+              gh cache delete "$key" || true
+            done
+            echo "Done. All fatp-bench-deps caches deleted."
+          fi
   # ===========================================================================
   # Header-Only External Dependencies (runs once, universal)
   # ===========================================================================
   header-only:
     name: Header-Only External Deps
+    needs: purge-caches
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
 
     steps:
@@ -132,6 +168,8 @@ jobs:
   # ===========================================================================
   compiled-gcc:
     name: Compiled Deps (GCC-14)
+    needs: purge-caches
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
 
     steps:
@@ -340,6 +378,8 @@ jobs:
   # ===========================================================================
   compiled-clang:
     name: Compiled Deps (Clang-17)
+    needs: purge-caches
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
 
     steps:
@@ -549,6 +589,8 @@ jobs:
   # ===========================================================================
   vcpkg-msvc:
     name: vcpkg Deps (MSVC)
+    needs: purge-caches
+    if: ${{ !cancelled() }}
     runs-on: windows-latest
 
     steps:
