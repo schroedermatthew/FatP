@@ -258,12 +258,12 @@ ScopeGuard provides `finally`/`defer` semantics through RAII, aligning with C++ 
 
 ## Performance Characteristics
 
-| Scenario | Cost | Notes |
-|----------|------|-------|
-| Guard creation | ~0 ns | Lambda capture, no allocation |
-| Guard destruction (executes) | Cleanup cost | Direct function call |
-| Guard destruction (dismissed) | ~0 ns | Boolean check only |
-| `std::uncaught_exceptions()` | ~1-2 ns | Thread-local counter read |
+| Scenario | Mechanism | Cost Driver |
+|----------|-----------|-------------|
+| Guard creation | Lambda capture — no heap allocation, no virtual dispatch | Equivalent to storing a function pointer + captures on the stack |
+| Guard destruction (executes) | Direct function call to captured lambda | Cleanup function cost only — zero framework overhead |
+| Guard destruction (dismissed) | Single boolean check | One branch — predicted as "dismissed" in typical usage |
+| `std::uncaught_exceptions()` | Thread-local counter read | Single read of a thread-local integer (used by `ScopeFailure`/`ScopeSuccess`) |
 
 **Compiler Optimization:**
 

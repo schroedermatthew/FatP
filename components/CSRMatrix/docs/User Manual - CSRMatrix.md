@@ -655,7 +655,7 @@ matvec_threadpool_batch(A, x.data(), y.data(), pool);
 // All partitions submitted together, single wait point
 ```
 
-For matrices under 1M nnz, batch submission is typically 20-50% faster.
+For matrices under 1M nnz, batch submission reduces per-partition task submission overhead by amortizing a single synchronization point across all partitions. See `components/CSRMatrix/results/` for current platform-specific benchmark data.
 
 ---
 

@@ -23,7 +23,7 @@ status: "reviewed"
 
 ## Executive Summary
 
-ThreadPool is a work-stealing task executor that eliminates thread-creation overhead in parallel code. Unlike `std::async`, which may spawn a new OS thread per invocation, ThreadPool maintains a fixed set of workers with per-thread queues, a global priority queue for urgent work, and Fisher-Yates randomized victim selection for starvation-free load balancing. A two-phase idle strategy—configurable spin-wait followed by OS sleep—allows tuning the latency/CPU tradeoff per workload. Task submission costs ~100-200 ns; worker threads never touch the OS thread scheduler.
+ThreadPool is a work-stealing task executor that eliminates thread-creation overhead in parallel code. Unlike `std::async`, which may spawn a new OS thread per invocation, ThreadPool maintains a fixed set of workers with per-thread queues, a global priority queue for urgent work, and Fisher-Yates randomized victim selection for starvation-free load balancing. A two-phase idle strategy—configurable spin-wait followed by OS sleep—allows tuning the latency/CPU tradeoff per workload. Task submission is a lock-free enqueue to the submitting thread's local queue, avoiding OS thread scheduler interaction entirely.
 
 ---
 

@@ -1289,7 +1289,7 @@ for (int i = 0; i < 1000000; ++i)
     map[i] = data;  // No rehashing during loop
 ```
 
-Avoiding rehashes during bulk insertion provides ~20% speedup.
+Avoiding rehashes during bulk insertion eliminates O(n) element relocation per growth event. See `components/FatPHashMap/results/` for current platform-specific benchmark data.
 
 ---
 

@@ -288,9 +288,9 @@ fat_p::HpcInterleavedVector<int> interleaved(1000);
 
 **Multi-socket servers:** NUMA-local allocation reduces memory latency from ~150ns to ~60ns.
 
-**SIMD-heavy code:** `assume_aligned()` enables `vmovaps` instead of `vmovups`—10-30% faster loads/stores.
+**SIMD-heavy code:** `assume_aligned()` enables `vmovaps` instead of `vmovups`, eliminating the microarchitectural penalty for cache-line-crossing loads.
 
-**Combined effect:** Memory-bound HPC workloads see up to 2× throughput improvement.
+**Combined effect:** Memory-bound HPC workloads benefit from both reduced memory latency (NUMA-local) and eliminated alignment penalties (SIMD). See `components/HpcVector/results/` for measured throughput improvements on specific platforms.
 
 ### Where Fat-P Loses (Honesty Builds Trust)
 

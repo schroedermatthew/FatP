@@ -786,17 +786,19 @@ When both row and column access patterns occur (matmul, convolution), BlockedPol
 
 ## Performance Characteristics
 
-| Operation | Contiguous float (AVX2) | Non-contiguous | Notes |
-|---|---|---|---|
-| Element access `t(i,j)` | ~1 ns | ~1 ns | Offset computation |
-| Fill | ~0.1 ns/elem | ~0.5 ns/elem | SIMD memset vs strided |
-| Element-wise add | ~0.15 ns/elem | ~1 ns/elem | SIMD vs scalar |
-| Scalar multiply | ~0.15 ns/elem | ~1 ns/elem | SIMD vs scalar |
-| Broadcast add (vector) | ~0.2 ns/elem | ~1.5 ns/elem | SIMD broadcast |
-| View creation | ~50 ns | ~50 ns | No data copy |
-| Reshape | ~20 ns | N/A | Shape metadata only |
-| Transpose | ~30 ns | ~30 ns | Stride swap only |
-| Copy (1M floats) | ~250 us | ~1 ms | Memcpy vs strided |
+| Operation | Mechanism | Contiguous vs Non-contiguous |
+|---|---|---|
+| Element access `t(i,j)` | Offset computation from strides | Same cost — single multiply-add per dimension |
+| Fill | SIMD `memset` (contiguous) vs strided scalar writes | Contiguous uses bulk memory fill; strided pays per-element overhead |
+| Element-wise add | SIMD vectorized (contiguous) vs scalar loop | Contiguous processes 8 floats per AVX2 instruction |
+| Scalar multiply | SIMD vectorized (contiguous) vs scalar loop | Same SIMD advantage as element-wise add |
+| Broadcast add (vector) | SIMD broadcast + vectorized add | Contiguous enables full SIMD width; strided falls back to scalar |
+| View creation | Metadata construction only — no data copy | Same — zero-copy regardless of layout |
+| Reshape | Shape array update — no data movement | Only valid for contiguous tensors; metadata-only operation |
+| Transpose | Stride array swap — no data movement | Same — O(1) stride permutation |
+| Copy (1M floats) | `memcpy` (contiguous) vs strided element copy | Contiguous uses bulk memory copy; strided pays per-element overhead |
+
+See `components/Tensor/results/` for current platform-specific benchmark data.
 
 ---
 

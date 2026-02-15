@@ -726,7 +726,7 @@ void update(fat_p::HpcLocalVector<float>& pos,
 }
 ```
 
-The `assume_aligned()` call tells the compiler the pointer is 64-byte aligned, enabling aligned SIMD loads/stores (which are ~10-20% faster than unaligned on some architectures).
+The `assume_aligned()` call tells the compiler the pointer is 64-byte aligned, enabling aligned SIMD loads/stores (`vmovaps` instead of `vmovups`). Aligned operations avoid the microarchitectural penalty for crossing cache-line boundaries during SIMD loads.
 
 ## Use Case: Shared Data with Interleaved NUMA Policy
 
@@ -772,7 +772,7 @@ fat_p::HpcVector<float, 64> output_buffer(4096);
 
 ### Performance is the same as std::vector on a single-socket machine
 
-Expected. NUMA locality has no effect on single-socket systems. The benefit comes only from cache-line alignment and `assume_aligned()`, which provide 10-30% improvement for SIMD workloads.
+Expected. NUMA locality has no effect on single-socket systems. The benefit comes only from cache-line alignment and `assume_aligned()`, which eliminate cache-line-crossing penalties for SIMD workloads. See `components/HpcVector/results/` for measured improvement on specific platforms.
 
 ### SIGBUS or SIGSEGV on ARM when using assume_aligned()
 

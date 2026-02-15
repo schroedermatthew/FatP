@@ -250,7 +250,7 @@ EnumPlus provides enum enhancements **today** on C++17, with a migration path to
 | `enum_from_string` | O(n) | Linear search (n = enum size) |
 | `EnumPlusMap[]` | O(1) | Direct array access |
 | `EnumRange` iteration | O(n) | Loop over values |
-| Bounds check | ~1-2 ns | Single comparison |
+| Bounds check | O(1) | Single comparison against min/max |
 
 ### Where Fat-P Wins
 - Configuration systems with enum serialization

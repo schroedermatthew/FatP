@@ -2403,15 +2403,17 @@ manager.addObserver([&log_mutex](const std::string& name, bool state, bool succe
 4. **Depth Limit:** kMaxValidationDepth = 100 prevents stack overflow
 5. **Lock-Free Paths:** NoSynchronizationPolicy eliminates all locking overhead
 
-### Benchmarks
+### Performance Characteristics
 
-Typical performance on modern hardware (Intel i7, 3.5GHz):
+| Operation | Mechanism | Cost Driver |
+|-----------|-----------|-------------|
+| `isEnabled()` check | Single hash lookup + boolean read | O(1) — dominated by hash map access |
+| Enable feature with dependencies | Dependency graph traversal + state updates | O(d) in dependency count — graph walk + per-dependency enable |
+| Validate feature graph | Full graph traversal for cycle/conflict detection | O(V + E) in graph size |
+| Serialize to JSON | Feature iteration + JSON string construction | O(n) in feature count — string allocation dominates |
+| Deserialize from JSON | JSON parse + factory lookups per feature | O(n) in feature count — factory lookup per feature |
 
-- Enable feature with 5 dependencies: **~2 μs**
-- Validate 100-feature graph: **~50 μs**
-- Serialize 1000 features to JSON: **~200 μs**
-- Deserialize 1000 features from JSON: **~300 μs** (includes factory lookups)
-- `isEnabled()` check: **~20 ns**
+See `components/FeatureManager/results/` for current platform-specific benchmark data.
 
 ---
 

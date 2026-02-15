@@ -195,7 +195,7 @@ For HPC hot paths, use `NoStatisticsPolicy` for zero overhead:
 HPCFactory<std::string, Widget> factory;  // No atomic increments
 ```
 
-Benchmark shows **24-32% speedup** with `NoStatisticsPolicy` in tight loops.
+`NoStatisticsPolicy` eliminates atomic counter increments on every `create()` call, removing contention in multi-threaded hot paths. See `components/Factory/results/` for current platform-specific benchmark data.
 
 ### 6. Registration Policies (2 Options)
 

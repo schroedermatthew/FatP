@@ -209,11 +209,11 @@ Enforce provides contracts **today** with architectural flexibility the standard
 
 ## Performance Characteristics
 
-| Scenario | Cost | Notes |
-|----------|------|-------|
-| Check enabled, passes | ~0.5-2 ns | Branch prediction usually correct |
-| Check enabled, fails | Raiser cost | Exception: ~1000+ ns; Abort: ~100 ns |
-| Check disabled | 0 ns | Entire check compiled out |
+| Scenario | Mechanism | Cost Driver |
+|----------|-----------|-------------|
+| Check enabled, passes | Comparison + predicted branch | Branch prediction strongly favors the passing path |
+| Check enabled, fails | Raiser invocation | Exception construction (heap allocation for message) or `std::abort()` |
+| Check disabled | Entire check compiled out via `if constexpr` | Zero — no code generated |
 
 ### Code Generation Comparison
 
