@@ -14,7 +14,6 @@ FATP_META:
     headers:
       - include/fat_p/AlignedVector.h
       - include/fat_p/AllocationStrategies.h
-      - include/fat_p/AsyncOperations.h
       - include/fat_p/BinaryLite.h
       - include/fat_p/BitSet.h
       - include/fat_p/CSRMatrix.h
@@ -151,7 +150,6 @@ FATP_META:
 
 #include "AlignedVector.h"
 #include "AllocationStrategies.h"
-#include "AsyncOperations.h"
 #include "BinaryLite.h"
 #include "BitSet.h"
 #include "CacheUtilities.h"
