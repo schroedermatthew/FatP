@@ -834,6 +834,106 @@ When no SIMD is detected, SimdVector uses `std::array<T, 1>` with width = 1.
 
 ---
 
+---
+
+## Use Case: Audio Gain Processing
+
+Apply a gain curve to an audio buffer, processing 8 samples at a time:
+
+```cpp
+using SV = fat_p::SimdVector<float>;
+fat_p::AlignedVector<float, SV::alignment> samples(44100);
+fat_p::AlignedVector<float, SV::alignment> gains(44100);
+
+for (size_t i = 0; i < samples.size(); i += SV::width)
+{
+    auto s = SV::load_aligned(samples.assume_aligned() + i);
+    auto g = SV::load_aligned(gains.assume_aligned() + i);
+    auto result = s * g;
+    result.store_aligned(samples.data() + i);
+}
+```
+
+## Use Case: Distance Computation with FMA
+
+Compute Euclidean distances between point arrays using fused multiply-add for accuracy and speed:
+
+```cpp
+using SV = fat_p::SimdVector<float>;
+
+SV compute_distances(const float* ax, const float* ay,
+                     const float* bx, const float* by, size_t offset)
+{
+    auto dx = SV::load_aligned(ax + offset) - SV::load_aligned(bx + offset);
+    auto dy = SV::load_aligned(ay + offset) - SV::load_aligned(by + offset);
+    return (dx * dx + dy * dy).sqrt();  // sqrt(dx² + dy²)
+}
+```
+
+## Use Case: NaN Detection in Financial Data
+
+Check a batch of prices for invalid values before processing:
+
+```cpp
+using SV = fat_p::SimdVector<float>;
+
+bool has_invalid_prices(const float* prices, size_t n)
+{
+    for (size_t i = 0; i < n; i += SV::width)
+    {
+        auto v = SV::load_aligned(prices + i);
+        if (v.has_nan() || v.has_inf())
+            return true;
+    }
+    return false;
+}
+```
+
+## Use Case: Conditional Clamping with select()
+
+Clamp values to a range without branches, using mask-based selection:
+
+```cpp
+using SV = fat_p::SimdVector<float>;
+
+SV clamp(SV v, float lo, float hi)
+{
+    auto below = v < SV(lo);
+    auto above = v > SV(hi);
+    v = SV::select(below, SV(lo), v);   // Replace below-min with lo
+    v = SV::select(above, SV(hi), v);   // Replace above-max with hi
+    return v;
+}
+```
+
+## Best Practices
+
+**Always process in width-sized chunks.** The remainder loop (scalar) is much slower. Pad input arrays to `SV::width` multiples when possible.
+
+**Prefer FMA over separate multiply + add.** `fma(a, b, c)` computes `a*b + c` in one instruction with better accuracy (single rounding) and the same throughput as multiply alone.
+
+**Avoid horizontal reductions in inner loops.** `hsum()`, `hmin()`, `hmax()` are 5-10 cycles. Accumulate vertically (keep SIMD lanes separate) and reduce once after the loop.
+
+**Use select() instead of branches.** Branch misprediction costs ~15 cycles. `select()` (blendv) is always 1-2 cycles regardless of the predicate pattern.
+
+**Check width at compile time for portable code.** `if constexpr (SV::width >= 8)` lets you write AVX-specific optimizations that gracefully fall back on SSE/NEON.
+
+## Expanded Troubleshooting
+
+### Performance worse than scalar code
+
+Usually caused by: unaligned loads (use `load_aligned`), horizontal reductions in inner loops, or the input being too small (SIMD setup overhead exceeds the benefit for < 100 elements).
+
+### Different results between platforms
+
+Floating-point SIMD operations may produce different rounding than scalar operations. FMA produces a single-rounding result (more accurate) while separate multiply+add produces two-rounding. Results may differ by 1 ULP.
+
+### "static_assert: SimdVector only supports float and double"
+
+SimdVector does not support integer types. Use `CheckedArithmetic.h` for integer SIMD, or use raw intrinsics.
+
+---
+
 ## Summary
 
 SimdVector is a **lightweight, portable SIMD abstraction** for floating-point computation:

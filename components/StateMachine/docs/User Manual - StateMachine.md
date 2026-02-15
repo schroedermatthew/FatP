@@ -858,6 +858,121 @@ When things go wrong, these are the common problems and their solutions.
 
 ---
 
+---
+
+## Use Case: TCP Connection State Machine
+
+Model TCP connection states with strict transitions:
+
+```cpp
+struct TcpContext { int socket_fd; std::string buffer; };
+
+struct Closed    { void on_entry(TcpContext& ctx) { close(ctx.socket_fd); }
+                   void on_exit(TcpContext&) {} };
+struct Listening { void on_entry(TcpContext& ctx) { listen(ctx.socket_fd, 5); }
+                   void on_exit(TcpContext&) {} };
+struct Connected { void on_entry(TcpContext& ctx) { /* handshake */ }
+                   void on_exit(TcpContext& ctx) { ctx.buffer.clear(); } };
+
+using TcpTransitions = std::tuple<
+    std::pair<Closed, Listening>,
+    std::pair<Listening, Connected>,
+    std::pair<Connected, Closed>
+>;
+
+using TcpFSM = fat_p::StateMachine<
+    TcpContext, TcpTransitions,
+    fat_p::StrictTransitionPolicy,
+    fat_p::ThrowingActionPolicy,
+    0,  // Initial state = Closed
+    Closed, Listening, Connected
+>;
+
+TcpContext ctx{socket_fd, {}};
+TcpFSM fsm(ctx);                    // Enters Closed
+fsm.transition<Listening>();          // Closed -> Listening
+fsm.transition<Connected>();          // Listening -> Connected
+// fsm.transition<Listening>();       // Would throw: Connected->Listening not in TransitionList
+fsm.transition<Closed>();             // Connected -> Closed
+```
+
+## Use Case: UI Screen Navigation
+
+Model app screen flow with any-to-any transitions:
+
+```cpp
+struct AppContext { std::string current_user; };
+
+struct LoginScreen    { void on_entry(AppContext&) { /* show login */ }
+                        void on_exit(AppContext&) {} };
+struct HomeScreen     { void on_entry(AppContext&) { /* load feed */ }
+                        void on_exit(AppContext&) {} };
+struct SettingsScreen { void on_entry(AppContext&) { /* load prefs */ }
+                        void on_exit(AppContext&) {} };
+
+using AppFSM = fat_p::StateMachine<
+    AppContext, std::tuple<>,
+    fat_p::AnyToAnyTransitionPolicy,
+    fat_p::ThrowingActionPolicy,
+    0,
+    LoginScreen, HomeScreen, SettingsScreen
+>;
+```
+
+## Use Case: Embedded Motor Controller with NoExcept
+
+For embedded systems where exceptions are disabled:
+
+```cpp
+struct MotorContext { float speed; float target; };
+
+struct Idle    { void on_entry(MotorContext& c) noexcept { c.speed = 0; }
+                 void on_exit(MotorContext&) noexcept {} };
+struct Running { void on_entry(MotorContext& c) noexcept { /* start PWM */ }
+                 void on_exit(MotorContext& c) noexcept { c.speed = 0; } };
+struct Fault   { void on_entry(MotorContext&) noexcept { /* emergency stop */ }
+                 void on_exit(MotorContext&) noexcept {} };
+
+using MotorFSM = fat_p::StateMachine<
+    MotorContext, std::tuple<>,
+    fat_p::AnyToAnyTransitionPolicy,
+    fat_p::NoExceptActionPolicy,  // static_assert: all hooks must be noexcept
+    0, Idle, Running, Fault
+>;
+```
+
+## Best Practices
+
+**Use StrictTransitionPolicy for protocol state machines.** Protocols (TCP, HTTP, USB) have defined valid transitions. StrictPolicy catches invalid transitions at runtime (and invalid transition declarations at compile time via `is_transition_allowed`).
+
+**Use AnyToAnyTransitionPolicy for UI navigation.** Screen flows are flexible; any screen can potentially navigate to any other.
+
+**Never call transition() inside on_entry/on_exit hooks.** This is reentrant and causes undefined behavior in release builds (debug builds enforce/assert). Defer transitions to after the hook returns.
+
+**Keep context lean.** Every state's `on_entry`/`on_exit` receives the context by reference. Large contexts incur no copy cost, but consider whether all data belongs in the context vs. being local to specific states.
+
+**Use isInState<T>() for conditional logic, not currentStateIndex().** Type-based queries are more readable and refactor-safe than index-based.
+
+## Expanded Troubleshooting
+
+### "Static assertion failed: transition not in TransitionList"
+
+Using StrictTransitionPolicy and the requested transition is not declared. Add the transition pair to the TransitionList tuple, or switch to AnyToAnyTransitionPolicy.
+
+### on_entry/on_exit not being called
+
+Verify the hook signatures exactly match `void on_entry(Context&)` and `void on_exit(Context&)`. The `StateContract` concept checks these at compile time.
+
+### Self-transition does nothing
+
+By design. Transitioning to the current state is a no-op (no exit/entry hooks called). If you need re-entry behavior, transition to a different state first, then back.
+
+### Debug assert on reentrant transition
+
+`transition()` was called from within an `on_entry` or `on_exit` hook. Restructure the code to transition after the hook completes.
+
+---
+
 ## API Reference
 
 **Template Parameters:**

@@ -6,7 +6,7 @@
 # Directory structure:
 #   Headers:    include/fat_p/WorkQueue.h
 #   Tests:      components/WorkQueue/tests/test_WorkQueue.cpp
-#   Benchmarks: components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp
+# Benchmarks: Run separately via workqueue-benchmarks.yml
 # =============================================================================
 
 name: WorkQueue CI
@@ -14,28 +14,20 @@ name: WorkQueue CI
 on:
   workflow_dispatch:
     inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
   push:
     paths:
       - 'include/fat_p/WorkQueue.h'
       - 'components/WorkQueue/tests/test_WorkQueue.cpp'
-      - 'components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp'
       - '.github/workflows/work-queue.yml'
   pull_request:
     paths:
       - 'include/fat_p/WorkQueue.h'
       - 'components/WorkQueue/tests/test_WorkQueue.cpp'
-      - 'components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp'
       - '.github/workflows/work-queue.yml'
 
 env:
   HEADER: WorkQueue.h
   TEST_SRC: components/WorkQueue/tests/test_WorkQueue.cpp
-  BENCH_SRC: components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp
 
 jobs:
   # ===========================================================================
@@ -262,124 +254,9 @@ jobs:
               -o test_strict ${{ env.TEST_SRC }}
           echo "No warnings"
 
-  # ===========================================================================
-  # Benchmark Build + Smoke Run (Linux GCC, C++20)
-  # ===========================================================================
-  benchmark-linux:
-
-    name: Benchmark Linux GCC-13
-    runs-on: ubuntu-24.04
-    if: ${{ inputs.run_benchmarks }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install GCC and competitors
-        run: |
-          sudo apt-get update && sudo apt-get install -y g++-13 libboost-dev
-          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps/concurrentqueue
-
-      - name: Build benchmark
-        run: |
-          g++-13 -std=c++20 \
-            -Wall -Wextra -Wpedantic \
-            -O3 -DNDEBUG -march=native -pthread \
-            -I./include/fat_p \
-            -I./deps/concurrentqueue \
-            ${{ env.BENCH_SRC }} -o bench_wq
-
-      - name: Smoke run (reduced iterations)
-        env:
-          FATP_BENCH_WARMUP_RUNS: 1
-          FATP_BENCH_BATCHES: 3
-          FATP_BENCH_TARGET_WORK: 50000
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_NO_COOLDOWN: 1
-        run: ./bench_wq
-
-  # ===========================================================================
-  # Benchmark Build + Smoke Run (Windows MSVC, C++20)
-  # ===========================================================================
-  benchmark-windows:
-
-    name: Benchmark Windows MSVC
-    runs-on: windows-latest
-    if: ${{ inputs.run_benchmarks }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-
-      - name: Cache vcpkg packages
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/vcpkg_cache
-          key: vcpkg-${{ runner.os }}-boost-lockfree-${{ hashFiles('.github/workflows/work-queue.yml') }}
-          restore-keys: |
-            vcpkg-${{ runner.os }}-boost-lockfree-
-
-      - name: Install competitors
-        shell: cmd
-        env:
-          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_cache
-        run: |
-          if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
-          vcpkg install boost-lockfree:x64-windows
-          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps\concurrentqueue
-
-      - name: Build benchmark
-        shell: cmd
-        run: cl /std:c++20 /W4 /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p /I.\deps\concurrentqueue /I"%VCPKG_INSTALLATION_ROOT%\installed\x64-windows\include" components\WorkQueue\benchmarks\benchmark_WorkQueue.cpp /Fe:bench_wq.exe /link advapi32.lib
-
-      - name: Smoke run (reduced iterations)
-        env:
-          FATP_BENCH_WARMUP_RUNS: 1
-          FATP_BENCH_BATCHES: 3
-          FATP_BENCH_TARGET_WORK: 50000
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_NO_COOLDOWN: 1
-        run: .\bench_wq.exe
-
-  # ===========================================================================
-  # Benchmark ThreadSanitizer (C++20)
-  # ===========================================================================
-  benchmark-tsan:
-
-    name: Benchmark ThreadSanitizer
-    runs-on: ubuntu-24.04
-    if: ${{ inputs.run_benchmarks }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build benchmark with TSan
-        run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
-            -fsanitize=thread -fno-omit-frame-pointer \
-            -pthread \
-            -I./include/fat_p \
-            ${{ env.BENCH_SRC }} -o bench_wq_tsan
-          # Note: moodycamel and boost::lockfree excluded from TSan builds.
-          # moodycamel's relaxed atomics cause false-positive TSan reports
-          # (concurrentqueue.h:1948). Only fat_p queues + std::mutex baseline
-          # are tested under TSan.
-
-      - name: Run with TSan (reduced iterations)
-        env:
-          TSAN_OPTIONS: halt_on_error=1
-          FATP_BENCH_WARMUP_RUNS: 1
-          FATP_BENCH_BATCHES: 2
-          FATP_BENCH_TARGET_WORK: 10000
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_NO_COOLDOWN: 1
-          FATP_BENCH_NO_SCOPE: 1
-        run: ./bench_wq_tsan
-
-  # ===========================================================================
-  # CI Gate
-  # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings, benchmark-linux, benchmark-windows, benchmark-tsan]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -393,7 +270,4 @@ jobs:
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmark-linux.result }}" != "success" && "${{ needs.benchmark-linux.result }}" != "skipped" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmark-windows.result }}" != "success" && "${{ needs.benchmark-windows.result }}" != "skipped" ]]; then exit 1; fi
-          if [[ "${{ needs.benchmark-tsan.result }}" != "success" && "${{ needs.benchmark-tsan.result }}" != "skipped" ]]; then exit 1; fi
           echo "All checks passed"

@@ -8,7 +8,6 @@
 #               include/fat_p/StableHashMap.h
 #   Tests:      components/FatPHashMap/tests/test_FastHashMap.cpp
 #               components/FatPHashMap/tests/test_StableHashMap.cpp
-#   Benchmarks: components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
 #
 # Benchmarks are run separately via fatp-hash-map-benchmarks.yml
 # (manual dispatch only).
@@ -17,6 +16,7 @@
 #   - CI Style Guide Section 5: Required jobs
 #   - CI Style Guide Section 6: Compiler version matrix
 #   - CI Style Guide Section 15: Canonical workflow template
+# Benchmarks: Run separately via fatp-hash-map-benchmarks.yml
 # =============================================================================
 
 name: FatPHashMap CI
@@ -29,7 +29,6 @@ on:
       - 'include/fat_p/StableHashMap.h'
       - 'components/FatPHashMap/tests/test_FastHashMap.cpp'
       - 'components/FatPHashMap/tests/test_StableHashMap.cpp'
-      - 'components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp'
       - '.github/workflows/fatp-hash-map.yml'
   pull_request:
     paths:
@@ -37,7 +36,6 @@ on:
       - 'include/fat_p/StableHashMap.h'
       - 'components/FatPHashMap/tests/test_FastHashMap.cpp'
       - 'components/FatPHashMap/tests/test_StableHashMap.cpp'
-      - 'components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp'
       - '.github/workflows/fatp-hash-map.yml'
 
 env:
@@ -45,7 +43,6 @@ env:
   HEADER_STABLE: StableHashMap.h
   TEST_FAST: components/FatPHashMap/tests/test_FastHashMap.cpp
   TEST_STABLE: components/FatPHashMap/tests/test_StableHashMap.cpp
-  BENCH_SRC: components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
 
 jobs:
   # ===========================================================================

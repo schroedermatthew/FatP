@@ -788,6 +788,113 @@ The macro registrations are temporary scaffolding. The API they enable is the st
 
 ---
 
+---
+
+## Use Case: Generic Serialization
+
+Write a single function that serializes any reflectable struct to JSON:
+
+```cpp
+template <typename T>
+    requires fat_p::is_reflectable_v<T>
+JsonValue serialize(const T& obj)
+{
+    JsonValue j;
+    fat_p::visit_fields(obj, [&](std::string_view name, const auto& value) {
+        j[std::string(name)] = value;
+    });
+    return j;
+}
+
+// Works for any registered struct
+FATP_REFLECT_REGISTER(Config, host, port, timeout);
+Config cfg{"localhost", 8080, 30};
+auto j = serialize(cfg);  // {"host": "localhost", "port": 8080, "timeout": 30}
+```
+
+## Use Case: Diff / Change Detection
+
+Compare two instances of the same struct and report which fields changed:
+
+```cpp
+template <typename T>
+    requires fat_p::is_reflectable_v<T>
+std::vector<std::string> diff(const T& a, const T& b)
+{
+    std::vector<std::string> changed;
+    fat_p::visit_fields(a, [&](std::string_view name, const auto& val_a) {
+        fat_p::FieldAccessor<T>::visit_field(b, name, [&](const auto& val_b) {
+            if (val_a != val_b)
+                changed.emplace_back(name);
+        });
+    });
+    return changed;
+}
+```
+
+## Use Case: Debug Logging with to_debug_string
+
+Automatically format any registered struct for logging:
+
+```cpp
+FATP_REFLECT_REGISTER(Request, method, url, body_size, auth_token);
+
+void log_request(const Request& req)
+{
+    spdlog::debug("Incoming: {}", fat_p::to_debug_string(req));
+    // Output: "Request { method: GET, url: /api/v1/users, body_size: 0, auth_token: abc123 }"
+}
+```
+
+## Use Case: ORM-Style Field Mapping
+
+Map struct fields to database columns dynamically:
+
+```cpp
+template <typename T>
+std::string build_insert_sql(const std::string& table, const T& obj)
+{
+    auto names = fat_p::get_field_names<T>();
+    std::string cols, vals;
+    fat_p::visit_fields(obj, [&](std::string_view name, const auto& value) {
+        if (!cols.empty()) { cols += ", "; vals += ", "; }
+        cols += name;
+        vals += quote(value);
+    });
+    return "INSERT INTO " + table + " (" + cols + ") VALUES (" + vals + ")";
+}
+```
+
+## Best Practices
+
+**Register at namespace scope, not inside functions.** The `FATP_REFLECT_REGISTER` macro defines template specializations that must be at namespace scope.
+
+**Use visit_fields for generic algorithms, get_field<I> for known indices.** `visit_fields` is the workhorse for serialization/deserialization. `get_field<I>` is for cases where you know the field index at compile time.
+
+**Prefer to_debug_string for logging.** It handles all field types automatically and produces readable output.
+
+**Keep registered structs simple.** Reflection works best with plain data structs. Complex types with private members, virtual functions, or non-copyable fields may require more manual handling.
+
+## Expanded Troubleshooting
+
+### Compile error: "FATP_REFLECT_REGISTER must be at namespace scope"
+
+The macro defines template specializations which cannot be inside a function or class. Move the macro call to namespace scope, after the struct definition.
+
+### visit_fields doesn't see all fields
+
+Only fields listed in `FATP_REFLECT_REGISTER` are visible. If you added a field to the struct but not to the macro, reflection doesn't know about it. Update the macro call.
+
+### to_debug_string crashes with non-streamable types
+
+`to_debug_string` uses `operator<<` for each field. If a field type doesn't have `operator<<`, compilation fails. Provide one, or use `visit_fields` with a custom visitor that handles the type.
+
+### field_count returns 0
+
+The struct is not registered. Verify `FATP_REFLECT_REGISTER` is called and the header is included.
+
+---
+
 ## API Reference
 
 ### Registration Macros

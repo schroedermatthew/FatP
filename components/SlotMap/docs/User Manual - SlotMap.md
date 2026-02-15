@@ -821,6 +821,85 @@ if (!map.is_valid(handle))
 
 ---
 
+---
+
+## Use Case: Entity Component System (ECS)
+
+Game entities stored in a SlotMap for stable handles and fast iteration:
+
+```cpp
+struct Entity { float x, y; int health; std::string name; };
+
+fat_p::SlotMap<Entity> entities;
+
+auto player = entities.insert(Entity{0, 0, 100, "Player"});
+auto enemy  = entities.insert(Entity{10, 5, 50, "Goblin"});
+
+// O(1) access by handle — even after other entities are removed
+entities[player].health -= 10;
+
+// Iteration over all live entities — contiguous, cache-friendly
+for (auto& [key, entity] : entities)
+{
+    entity.x += entity.health > 0 ? 1.0f : 0.0f;
+}
+
+// Remove enemy — player handle remains valid
+entities.erase(enemy);
+assert(entities.contains(player));  // Still valid
+```
+
+## Use Case: Resource Manager with Safe Handles
+
+Manage GPU textures with handles that detect use-after-free:
+
+```cpp
+fat_p::SlotMap<Texture> textures;
+auto handle = textures.insert(load_texture("sprite.png"));
+
+// Later: release the texture
+textures.erase(handle);
+
+// Even later: accidentally use the old handle
+if (textures.contains(handle))  // false — generation mismatch
+    draw(textures[handle]);     // Not reached — safe
+```
+
+The generational index catches dangling handles: after erase, the slot's generation increments. The old handle's generation no longer matches, so `contains()` returns false.
+
+## Use Case: Event Listener Registry
+
+Register and unregister listeners with stable keys:
+
+```cpp
+fat_p::SlotMap<std::function<void(const Event&)>> listeners;
+
+auto id = listeners.insert([](const Event& e) { handle_click(e); });
+// Pass id to caller for later unregistration
+// ...
+listeners.erase(id);  // Clean removal, no dangling
+```
+
+## Best Practices
+
+**Use contains() before operator[] for untrusted handles.** `operator[]` does not validate the generation. If the handle might be stale (from a different system, from serialization), check `contains()` first.
+
+**Iterate with range-for for bulk processing.** SlotMap stores data contiguously. Range-for iteration is cache-friendly and faster than random access by handle.
+
+**Reserve capacity for known entity counts.** `reserve(n)` avoids reallocations. Reallocation invalidates raw pointers (but not handles).
+
+## Expanded Troubleshooting
+
+### Handle returns wrong entity after many insert/erase cycles
+
+Generation overflow. After 2^32 insert/erase cycles on the same slot, the generation wraps to 0 and a stale handle may accidentally match. This is astronomically unlikely in practice.
+
+### Iteration order changes after insert
+
+SlotMap does not guarantee insertion order during iteration. New entities may fill previously-erased slots. If order matters, maintain a separate sorted index.
+
+---
+
 ## API Reference
 
 ### Types

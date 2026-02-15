@@ -1,0 +1,348 @@
+# =============================================================================
+# .github/workflows/smallvector-benchmarks.yml
+# =============================================================================
+# Standalone benchmark workflow for SmallVector.
+# Manual dispatch only.
+#
+# Dependencies:
+#   Shared caches built by build-benchmark-deps.yml (run it first).
+#   In-repo vendored headers via -I./ThirdParty (ankerl::svector).
+#
+# Competitor matrix:
+#   All platforms:
+#     [x] std::vector                   (baseline, always available)
+#     [x] ankerl::svector               (vendored in ThirdParty/)
+#     [x] boost::container::small_vector (compiled, shared cache)
+#   Linux only:
+#     [x] absl::InlinedVector           (compiled, shared cache)
+#     [x] folly::small_vector           (compiled, shared cache)
+#     [x] llvm::SmallVector             (compiled, shared cache)
+#     [x] eastl::fixed_vector           (compiled, shared cache)
+#   Windows:
+#     [x] absl, folly, eastl via vcpkg (shared cache)
+# =============================================================================
+
+name: SmallVector Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+env:
+  BENCH_SRC: components/SmallVector/benchmarks/benchmark_SmallVector.cpp
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Benchmarks
+  # ===========================================================================
+  benchmarks-gcc:
+    name: GCC-${{ matrix.version }} C++20
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [12, 13, 14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC and system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-${{ matrix.version }} cmake \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev
+
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
+
+      - name: Restore compiled deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
+          restore-keys: fatp-bench-deps-gcc-v1-
+
+      - name: Verify caches restored
+        run: |
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml first."
+            exit 1
+          fi
+
+      - name: Build benchmark
+        run: |
+          ABSL_LIBS=$(find $HOME/thirdparty-compiled/abseil/lib -name '*.a' | sort)
+          FOLLY_LIBS=$(find $HOME/thirdparty-compiled/folly/lib -name '*.a' | sort)
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
+          EASTL_LIBS=$(find $HOME/thirdparty-compiled/eastl/lib -name '*.a' 2>/dev/null | sort)
+
+          g++-${{ matrix.version }} -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            -DUSE_FOLLY=1 \
+            -I./include/fat_p \
+            -I./ThirdParty \
+            -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-compiled/abseil/include \
+            -I$HOME/thirdparty-compiled/folly/include \
+            -I$HOME/thirdparty-compiled/llvm/include \
+            -I$HOME/thirdparty-compiled/eastl/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_smallvector -pthread \
+            $ABSL_LIBS \
+            $FOLLY_LIBS \
+            $BOOST_LIBS \
+            $LLVM_LIBS \
+            $EASTL_LIBS \
+            -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp20.csv
+        run: ./bench_smallvector 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-SmallVector-gcc${{ matrix.version }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp20.csv
+            benchmark_gcc${{ matrix.version }}_cpp20.log
+
+  # ===========================================================================
+  # Linux Clang Benchmarks
+  # ===========================================================================
+  benchmarks-clang:
+    name: Clang-${{ matrix.version }} C++20
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [16, 17]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and system dependencies
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.version }}
+          sudo apt-get install -y libunwind-dev cmake \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev
+
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
+
+      - name: Restore compiled deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
+          restore-keys: fatp-bench-deps-clang-v1-
+
+      - name: Verify caches restored
+        run: |
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml first."
+            exit 1
+          fi
+
+      - name: Build benchmark
+        run: |
+          ABSL_LIBS=$(find $HOME/thirdparty-compiled/abseil/lib -name '*.a' | sort)
+          FOLLY_LIBS=$(find $HOME/thirdparty-compiled/folly/lib -name '*.a' | sort)
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
+          EASTL_LIBS=$(find $HOME/thirdparty-compiled/eastl/lib -name '*.a' 2>/dev/null | sort)
+
+          clang++-${{ matrix.version }} -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            -DUSE_FOLLY=1 \
+            -I./include/fat_p \
+            -I./ThirdParty \
+            -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-compiled/abseil/include \
+            -I$HOME/thirdparty-compiled/folly/include \
+            -I$HOME/thirdparty-compiled/llvm/include \
+            -I$HOME/thirdparty-compiled/eastl/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_smallvector -pthread \
+            $ABSL_LIBS \
+            $FOLLY_LIBS \
+            $BOOST_LIBS \
+            $LLVM_LIBS \
+            $EASTL_LIBS \
+            -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lstdc++
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp20.csv
+        run: ./bench_smallvector 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-SmallVector-clang${{ matrix.version }}
+          path: |
+            results_clang${{ matrix.version }}_cpp20.csv
+            benchmark_clang${{ matrix.version }}_cpp20.log
+
+  # ===========================================================================
+  # Windows MSVC Benchmarks
+  # ===========================================================================
+  benchmarks-msvc:
+    name: MSVC C++20
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
+          restore-keys: fatp-bench-deps-vcpkg-v1-
+
+      - name: Verify cache restored
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
+            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            exit 1
+          }
+
+      - name: Install competitors via vcpkg (from cache)
+        shell: cmd
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows-release
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
+        run: |
+          vcpkg install abseil:x64-windows-release boost-container:x64-windows-release folly:x64-windows-release eastl:x64-windows-release fmt:x64-windows-release
+
+      - name: Build benchmark
+        shell: pwsh
+        run: |
+          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\include"
+          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\lib"
+
+          cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- `
+            /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
+            /D_CRT_SECURE_NO_WARNINGS /DUSE_FOLLY=1 `
+            /I.\include\fat_p `
+            /I.\ThirdParty `
+            /I"$vcpkgInc" `
+            ${{ env.BENCH_SRC }} `
+            /Fe:bench_smallvector.exe `
+            /link advapi32.lib ws2_32.lib /LIBPATH:"$vcpkgLib" `
+            abseil_dll.lib folly.lib fmt.lib glog.lib
+
+      - name: Run benchmark
+        shell: pwsh
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp20.csv
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
+          .\bench_smallvector.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-SmallVector-msvc
+          path: |
+            results_msvc_cpp20.csv
+            benchmark_msvc_cpp20.log
+
+  # ===========================================================================
+  # Benchmark Summary
+  # ===========================================================================
+  benchmark-summary:
+    name: SmallVector Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-SmallVector-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# SmallVector Benchmark Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+
+          for dir in all-benchmarks/bench-SmallVector-*/; do
+            name=$(basename "$dir" | sed 's/^bench-SmallVector-//')
+            if ls "$dir"/*.log 1>/dev/null 2>&1; then
+              echo "| $name | [PASS] |" >> summary.md
+            else
+              echo "| $name | [FAIL] |" >> summary.md
+            fi
+          done
+
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+
+          for dir in all-benchmarks/bench-SmallVector-*/; do
+            name=$(basename "$dir" | sed 's/^bench-SmallVector-//')
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            for log in "$dir"/*.log; do
+              if [ -f "$log" ]; then
+                echo '```' >> summary.md
+                tail -80 "$log" >> summary.md
+                echo '```' >> summary.md
+              fi
+            done
+          done
+
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-SmallVector-summary
+          path: |
+            all-benchmarks/
+            summary.md

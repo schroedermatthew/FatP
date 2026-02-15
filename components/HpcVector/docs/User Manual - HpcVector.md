@@ -688,6 +688,102 @@ HpcVector doesn't support `insert()` / `erase()` (by design—shifts are expensi
 
 ---
 
+---
+
+## Use Case: Particle Simulation on Multi-Socket Server
+
+A particle physics simulation on a dual-socket Xeon system. Each socket owns half the particles. NUMA-local allocation ensures each socket's cores access local memory:
+
+```cpp
+#include "HpcVector.h"
+
+// Socket-local particle data
+fat_p::HpcLocalVector<float> positions_x(N);   // NUMA-local to calling thread's socket
+fat_p::HpcLocalVector<float> positions_y(N);
+fat_p::HpcLocalVector<float> velocities_x(N);
+fat_p::HpcLocalVector<float> velocities_y(N);
+
+// SIMD update loop using assume_aligned()
+void update(fat_p::HpcLocalVector<float>& pos,
+            const fat_p::HpcLocalVector<float>& vel, float dt)
+{
+    const float* v = vel.assume_aligned();
+    float* p = pos.assume_aligned();
+    const size_t n = pos.size();
+
+    for (size_t i = 0; i < n; i += 8)
+    {
+        __m256 vp = _mm256_load_ps(p + i);
+        __m256 vv = _mm256_load_ps(v + i);
+        __m256 vdt = _mm256_set1_ps(dt);
+        vp = _mm256_fmadd_ps(vv, vdt, vp);
+        _mm256_store_ps(p + i, vp);
+    }
+}
+```
+
+The `assume_aligned()` call tells the compiler the pointer is 64-byte aligned, enabling aligned SIMD loads/stores (which are ~10-20% faster than unaligned on some architectures).
+
+## Use Case: Shared Data with Interleaved NUMA Policy
+
+When all threads read the same data and no single socket "owns" it, interleaved allocation distributes pages across NUMA nodes for balanced bandwidth:
+
+```cpp
+// Lookup table accessed by all threads
+fat_p::HpcInterleavedVector<float> lookup_table(1 << 20);  // 1M entries, interleaved
+
+// Each thread gets roughly equal bandwidth regardless of socket
+void worker(const fat_p::HpcInterleavedVector<float>& lut, int thread_id)
+{
+    const float* ptr = lut.assume_aligned();
+    // Process using the lookup table...
+}
+```
+
+## Use Case: Signal Processing with Cache-Line Alignment
+
+Audio signal processing where buffer alignment prevents false sharing between producer and consumer threads:
+
+```cpp
+fat_p::HpcVector<float, 64> input_buffer(4096);
+fat_p::HpcVector<float, 64> output_buffer(4096);
+// 64-byte alignment ensures no cache line is shared between buffers
+// Producer writes to input_buffer, consumer reads from output_buffer
+// No false sharing even when buffers are adjacent in memory
+```
+
+## Best Practices
+
+**Pin threads before allocating.** NUMA-local allocation binds pages to the calling thread's NUMA node. Pin threads to cores before calling `HpcVector` constructors so the allocation lands on the intended node.
+
+**Use assume_aligned() in every SIMD loop.** The compiler cannot infer alignment from the container alone. `assume_aligned()` provides the `__builtin_assume_aligned` hint that enables aligned instruction selection.
+
+**Size allocations to cache-line multiples.** If the vector size is not a multiple of 64 bytes / sizeof(T), the last cache line may cause false sharing. Pad to the next multiple when sharing data between threads.
+
+**Prefer HpcLocalVector for thread-private data.** Each thread's working buffer should be NUMA-local. Use `HpcInterleavedVector` only for shared read-only data.
+
+**Profile with `numastat` and `perf stat`.** `numastat -p <pid>` shows per-node allocation. `perf stat -e numa-*` shows remote vs local memory accesses. Verify allocations are where you expect.
+
+## Expanded Troubleshooting
+
+### Performance is the same as std::vector on a single-socket machine
+
+Expected. NUMA locality has no effect on single-socket systems. The benefit comes only from cache-line alignment and `assume_aligned()`, which provide 10-30% improvement for SIMD workloads.
+
+### SIGBUS or SIGSEGV on ARM when using assume_aligned()
+
+ARM requires strict alignment for NEON loads. If the data is not actually aligned (e.g., from a view into a larger buffer), `assume_aligned()` produces undefined behavior. Verify alignment with `reinterpret_cast<uintptr_t>(data()) % Alignment == 0`.
+
+### numa_alloc_local() returns nullptr
+
+The system may be out of memory on the local NUMA node. HpcVector falls back to standard allocation but prints a warning. Check available memory with `numastat -m`.
+
+### False sharing between adjacent HpcVectors
+
+Two HpcVectors allocated consecutively may share a cache line at the boundary. Use `alignas(64)` on the HpcVector objects themselves, or pad with `[[maybe_unused]] char pad[64]` between them.
+
+---
+
 ## Summary
 
 HpcVector is the **recommended container for HPC workloads** in Fat-P:

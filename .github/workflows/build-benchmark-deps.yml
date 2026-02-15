@@ -4,12 +4,20 @@
 # Shared dependency cache builder for all FatP benchmark workflows.
 #
 # Manual dispatch only. Builds all competitor libraries and saves them into
-# 4 shared caches that individual benchmark workflows restore read-only:
+# 4 shared caches that individual benchmark workflows restore read-only.
 #
-#   fatp-bench-deps-gcc-v1          Compiled deps (gcc-14, ubuntu-24.04)
-#   fatp-bench-deps-clang-v1        Compiled deps (clang-17, ubuntu-22.04)
-#   fatp-bench-deps-headeronly-v1   Header-only external deps (universal)
-#   fatp-bench-deps-vcpkg-v1        vcpkg x64-windows-release packages
+# Cache key strategy:
+#   Save key:    fatp-bench-deps-{name}-v1-{run_id}   (unique per run)
+#   Restore key: fatp-bench-deps-{name}-v1-            (prefix match → latest)
+#
+# This allows partial saves on failure without blocking future complete saves.
+# Each dispatch creates a new cache entry; GitHub evicts old ones automatically.
+#
+# Cache prefixes:
+#   fatp-bench-deps-gcc-v1-          Compiled deps (gcc-14, ubuntu-24.04)
+#   fatp-bench-deps-clang-v1-        Compiled deps (clang-17, ubuntu-22.04)
+#   fatp-bench-deps-headeronly-v1-   Header-only external deps (universal)
+#   fatp-bench-deps-vcpkg-v1-        vcpkg x64-windows-release packages
 #
 # Cache contents:
 #
@@ -72,7 +80,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
+          key: fatp-bench-deps-headeronly-v1-latest
+          restore-keys: fatp-bench-deps-headeronly-v1-
           lookup-only: true
 
       - name: Clone header-only libraries
@@ -111,12 +120,12 @@ jobs:
             echo "  $name: $count headers"
           done
 
-      - name: Save cache
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+      - name: Save cache (even on partial failure)
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
+          key: fatp-bench-deps-headeronly-v1-${{ github.run_id }}
 
   # ===========================================================================
   # GCC Compiled Dependencies (gcc-14, ubuntu-24.04)
@@ -132,7 +141,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/thirdparty-compiled
-          key: fatp-bench-deps-gcc-v1
+          key: fatp-bench-deps-gcc-v1-latest
+          restore-keys: fatp-bench-deps-gcc-v1-
           lookup-only: true
 
       - name: Install build tools and system dependencies
@@ -159,10 +169,20 @@ jobs:
           echo "::group::Boost build"
           cd /tmp/boost-src
           ./bootstrap.sh --prefix=$HOME/thirdparty-compiled/boost
+
+          # Generate the unified header tree (required for modular repo)
+          ./b2 headers
+
+          # Show available compiled libraries for diagnostics
+          ./b2 --show-libraries || true
+
+          # Build only libraries that have compiled components and are
+          # needed across the benchmark matrix. boost::system is fully
+          # header-only on modern Boost and is NOT a valid --with target.
           ./b2 -j$(nproc) variant=release link=static threading=multi \
             cxxflags="-std=c++20" \
             --with-context --with-filesystem --with-program_options \
-            --with-regex --with-system --with-thread \
+            --with-thread \
             install
           echo "::endgroup::"
           rm -rf /tmp/boost-src
@@ -253,12 +273,12 @@ jobs:
             echo "  $name: $headers headers, $libs static libs"
           done
 
-      - name: Save cache
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+      - name: Save cache (even on partial failure)
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ~/thirdparty-compiled
-          key: fatp-bench-deps-gcc-v1
+          key: fatp-bench-deps-gcc-v1-${{ github.run_id }}
 
   # ===========================================================================
   # Clang Compiled Dependencies (clang-17, ubuntu-22.04)
@@ -274,7 +294,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/thirdparty-compiled
-          key: fatp-bench-deps-clang-v1
+          key: fatp-bench-deps-clang-v1-latest
+          restore-keys: fatp-bench-deps-clang-v1-
           lookup-only: true
 
       - name: Install Clang and system dependencies
@@ -301,10 +322,20 @@ jobs:
           echo "::group::Boost build"
           cd /tmp/boost-src
           ./bootstrap.sh --prefix=$HOME/thirdparty-compiled/boost
+
+          # Generate the unified header tree (required for modular repo)
+          ./b2 headers
+
+          # Show available compiled libraries for diagnostics
+          ./b2 --show-libraries || true
+
+          # Build only libraries that have compiled components and are
+          # needed across the benchmark matrix. boost::system is fully
+          # header-only on modern Boost and is NOT a valid --with target.
           ./b2 -j$(nproc) variant=release link=static threading=multi \
             toolset=clang cxxflags="-std=c++20" \
             --with-context --with-filesystem --with-program_options \
-            --with-regex --with-system --with-thread \
+            --with-thread \
             install
           echo "::endgroup::"
           rm -rf /tmp/boost-src
@@ -395,12 +426,12 @@ jobs:
             echo "  $name: $headers headers, $libs static libs"
           done
 
-      - name: Save cache
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+      - name: Save cache (even on partial failure)
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ~/thirdparty-compiled
-          key: fatp-bench-deps-clang-v1
+          key: fatp-bench-deps-clang-v1-${{ github.run_id }}
 
   # ===========================================================================
   # Windows vcpkg Dependencies
@@ -416,7 +447,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ github.workspace }}\vcpkg_cache
-          key: fatp-bench-deps-vcpkg-v1
+          key: fatp-bench-deps-vcpkg-v1-latest
+          restore-keys: fatp-bench-deps-vcpkg-v1-
           lookup-only: true
 
       - name: Install competitors via vcpkg
@@ -427,6 +459,10 @@ jobs:
           VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
         run: |
           if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
+          REM LLVM is NOT built via vcpkg -- it takes 60-90+ min and
+          REM frequently OOMs on GitHub Actions runners. LLVM competitors
+          REM (DenseMap, SmallVector, etc.) are optional via __has_include
+          REM and are only benchmarked on Linux (via distro llvm-dev).
           vcpkg install ^
             abseil:x64-windows-release ^
             boost-unordered:x64-windows-release ^
@@ -436,17 +472,16 @@ jobs:
             boost-pool:x64-windows-release ^
             boost-asio:x64-windows-release ^
             folly:x64-windows-release ^
-            llvm:x64-windows-release ^
             fmt:x64-windows-release ^
             entt:x64-windows-release ^
             tbb:x64-windows-release
 
-      - name: Save cache
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+      - name: Save cache (even on partial failure)
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ${{ github.workspace }}\vcpkg_cache
-          key: fatp-bench-deps-vcpkg-v1
+          key: fatp-bench-deps-vcpkg-v1-${{ github.run_id }}
 
   # ===========================================================================
   # Summary

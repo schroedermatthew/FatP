@@ -1,0 +1,300 @@
+# =============================================================================
+# .github/workflows/intrusivelist-benchmarks.yml
+# =============================================================================
+# Standalone benchmark workflow for IntrusiveList.
+# Manual dispatch only.
+#
+# Dependencies:
+#   Shared caches built by build-benchmark-deps.yml (run it first).
+#   In-repo vendored headers via -I./ThirdParty (etl::intrusive_list).
+#
+# Competitor matrix:
+#   All platforms:
+#     [x] std::list                       (baseline)
+#     [x] etl::intrusive_list             (vendored in ThirdParty/)
+#     [x] boost::intrusive::list          (header-only, shared cache)
+#   Linux only:
+#     [x] llvm::simple_ilist              (compiled, shared cache)
+#     [x] eastl::intrusive_list           (compiled, shared cache)
+#   Windows:
+#     [x] boost, eastl via vcpkg    (shared cache)
+# =============================================================================
+
+name: IntrusiveList Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+env:
+  BENCH_SRC: components/IntrusiveList/benchmarks/benchmark_IntrusiveList.cpp
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Benchmarks
+  # ===========================================================================
+  benchmarks-gcc:
+    name: GCC-${{ matrix.version }} C++20
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [12, 13, 14]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Restore compiled deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
+          restore-keys: fatp-bench-deps-gcc-v1-
+
+      - name: Verify caches restored
+        run: |
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml first."
+            exit 1
+          fi
+
+      - name: Build benchmark
+        run: |
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
+          EASTL_LIBS=$(find $HOME/thirdparty-compiled/eastl/lib -name '*.a' 2>/dev/null | sort)
+
+          g++-${{ matrix.version }} -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            -I./include/fat_p \
+            -I./ThirdParty \
+            -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-compiled/llvm/include \
+            -I$HOME/thirdparty-compiled/eastl/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_intrusivelist -pthread \
+            $BOOST_LIBS \
+            $LLVM_LIBS \
+            $EASTL_LIBS
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp20.csv
+        run: ./bench_intrusivelist 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-IntrusiveList-gcc${{ matrix.version }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp20.csv
+            benchmark_gcc${{ matrix.version }}_cpp20.log
+
+  # ===========================================================================
+  # Linux Clang Benchmarks
+  # ===========================================================================
+  benchmarks-clang:
+    name: Clang-${{ matrix.version }} C++20
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [16, 17]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.version }}
+          sudo apt-get install -y libunwind-dev
+
+      - name: Restore compiled deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
+          restore-keys: fatp-bench-deps-clang-v1-
+
+      - name: Verify caches restored
+        run: |
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml first."
+            exit 1
+          fi
+
+      - name: Build benchmark
+        run: |
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
+          EASTL_LIBS=$(find $HOME/thirdparty-compiled/eastl/lib -name '*.a' 2>/dev/null | sort)
+
+          clang++-${{ matrix.version }} -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            -I./include/fat_p \
+            -I./ThirdParty \
+            -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-compiled/llvm/include \
+            -I$HOME/thirdparty-compiled/eastl/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_intrusivelist -pthread \
+            $BOOST_LIBS \
+            $LLVM_LIBS \
+            $EASTL_LIBS \
+            -lstdc++
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp20.csv
+        run: ./bench_intrusivelist 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-IntrusiveList-clang${{ matrix.version }}
+          path: |
+            results_clang${{ matrix.version }}_cpp20.csv
+            benchmark_clang${{ matrix.version }}_cpp20.log
+
+  # ===========================================================================
+  # Windows MSVC Benchmarks
+  # ===========================================================================
+  benchmarks-msvc:
+    name: MSVC C++20
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
+          restore-keys: fatp-bench-deps-vcpkg-v1-
+
+      - name: Verify cache restored
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
+            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            exit 1
+          }
+
+      - name: Install competitors via vcpkg (from cache)
+        shell: cmd
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows-release
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
+        run: |
+          vcpkg install boost-intrusive:x64-windows-release eastl:x64-windows-release
+
+      - name: Build benchmark
+        shell: pwsh
+        run: |
+          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\include"
+          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\lib"
+
+          cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- `
+            /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
+            /D_CRT_SECURE_NO_WARNINGS `
+            /I.\include\fat_p `
+            /I.\ThirdParty `
+            /I"$vcpkgInc" `
+            ${{ env.BENCH_SRC }} `
+            /Fe:bench_intrusivelist.exe `
+            /link advapi32.lib ws2_32.lib /LIBPATH:"$vcpkgLib"
+
+      - name: Run benchmark
+        shell: pwsh
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp20.csv
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
+          .\bench_intrusivelist.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-IntrusiveList-msvc
+          path: |
+            results_msvc_cpp20.csv
+            benchmark_msvc_cpp20.log
+
+  # ===========================================================================
+  benchmark-summary:
+    name: IntrusiveList Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-IntrusiveList-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# IntrusiveList Benchmark Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+          for dir in all-benchmarks/bench-IntrusiveList-*/; do
+            name=$(basename "$dir" | sed 's/^bench-IntrusiveList-//')
+            if ls "$dir"/*.log 1>/dev/null 2>&1; then
+              echo "| $name | [PASS] |" >> summary.md
+            else
+              echo "| $name | [FAIL] |" >> summary.md
+            fi
+          done
+          echo "" >> summary.md
+          echo "## Individual Results" >> summary.md
+          for dir in all-benchmarks/bench-IntrusiveList-*/; do
+            name=$(basename "$dir" | sed 's/^bench-IntrusiveList-//')
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            for log in "$dir"/*.log; do
+              [ -f "$log" ] && echo '```' >> summary.md && tail -80 "$log" >> summary.md && echo '```' >> summary.md
+            done
+          done
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-IntrusiveList-summary
+          path: |
+            all-benchmarks/
+            summary.md

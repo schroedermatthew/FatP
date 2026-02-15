@@ -731,6 +731,81 @@ for (size_t i : bits) {
 
 ---
 
+---
+
+## Use Case: Bloom Filter Backing Store
+
+Use BitSet as the bit array for a Bloom filter:
+
+```cpp
+fat_p::BitSet<1024 * 1024> filter;  // 1M bits
+
+void insert(uint64_t hash)
+{
+    filter.set(hash % filter.size());
+    filter.set((hash >> 16) % filter.size());
+    filter.set((hash >> 32) % filter.size());
+}
+
+bool maybe_contains(uint64_t hash) const
+{
+    return filter.test(hash % filter.size())
+        && filter.test((hash >> 16) % filter.size())
+        && filter.test((hash >> 32) % filter.size());
+}
+```
+
+## Use Case: Permission Flags
+
+Model a permission system with named bit positions:
+
+```cpp
+enum Permission : size_t { Read = 0, Write = 1, Execute = 2, Admin = 3 };
+
+fat_p::BitSet<64> user_perms;
+user_perms.set(Read);
+user_perms.set(Write);
+
+if (user_perms.test(Admin))
+    grant_admin_access();
+```
+
+## Use Case: Sparse Set Membership with find_first/find_next
+
+Iterate over set bits efficiently for sparse membership tracking:
+
+```cpp
+fat_p::BitSet<10000> active_entities;
+// ... set bits for active entities ...
+
+// Iterate only over active entities (skips zeros via SIMD popcount/tzcnt)
+for (auto i = active_entities.find_first(); i < active_entities.size();
+     i = active_entities.find_next(i))
+{
+    process_entity(i);
+}
+```
+
+## Best Practices
+
+**Use find_first/find_next for sparse iteration.** Iterating with `for (i = 0; i < N; ++i) if (test(i))` is O(N). `find_first`/`find_next` use hardware bit-scan instructions and skip zero words, making iteration O(popcount).
+
+**Prefer bitwise operators for bulk operations.** `a & b` (intersection), `a | b` (union), `a ^ b` (symmetric difference), `~a` (complement) operate on entire words at once, SIMD-accelerated.
+
+**Size to 64-bit multiples.** BitSet internally uses 64-bit words. Sizes not divisible by 64 waste up to 63 bits. This is typically negligible but matters for very large arrays.
+
+## Expanded Troubleshooting
+
+### count() returns wrong value
+
+If bits were set out of range (beyond `size()`), the extra bits in the last word may be counted. Ensure all `set()` calls use indices less than `size()`.
+
+### find_first() returns size() on non-empty BitSet
+
+`find_first()` returns `size()` when no bits are set. Verify bits were actually set (not just allocated).
+
+---
+
 ## API Reference
 
 ### Construction

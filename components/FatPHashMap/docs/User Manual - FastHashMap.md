@@ -790,6 +790,74 @@ Your hash function may have poor distribution. Verify the built-in mixer is acti
 
 ---
 
+---
+
+## Use Case: Symbol Table for a Compiler
+
+Fast string-to-ID mapping with heterogeneous lookup (avoid allocating `std::string` for lookups):
+
+```cpp
+fat_p::FastHashMap<std::string, uint32_t,
+    fat_p::TransparentHash, fat_p::TransparentEqual> symbols;
+
+uint32_t next_id = 0;
+symbols.insert("main", next_id++);
+symbols.insert("printf", next_id++);
+
+// Lookup with string_view — no allocation
+std::string_view token = "main";
+auto* id = symbols.find(token);  // Heterogeneous lookup
+```
+
+## Use Case: Read-Heavy Cache with Freeze Mode
+
+A configuration cache that is loaded once and then read millions of times:
+
+```cpp
+fat_p::FastHashMap<std::string, std::string> config;
+config.insert("db.host", "localhost");
+config.insert("db.port", "5432");
+config.freeze();  // Enable read-only optimizations
+
+// Millions of concurrent reads — no tombstone overhead, optimal probe sequences
+auto* host = config.find("db.host");
+```
+
+## Use Case: Fixed-Buffer Allocation for Embedded
+
+A hash map with zero heap allocation after construction:
+
+```cpp
+fat_p::FastHashMap<int, float, std::hash<int>, std::equal_to<int>,
+    fat_p::FixedBufferAllocator<256>> sensor_map;
+
+sensor_map.insert(SENSOR_TEMP, 22.5f);
+sensor_map.insert(SENSOR_HUMIDITY, 65.0f);
+// All storage within the fixed 256-slot buffer — no malloc
+```
+
+## Best Practices
+
+**Use heterogeneous lookup for string keys.** `TransparentHash` + `TransparentEqual` allows `find(string_view)` without allocating a `std::string`. This is critical for parsers and compilers.
+
+**Freeze read-only maps.** After loading, call `freeze()` to eliminate tombstone checks during probing and enable internal optimizations.
+
+**Reserve capacity upfront.** Rehashing is expensive. If you know the approximate size, `reserve(n)` avoids intermediate rehashes.
+
+**Prefer try_emplace over operator[].** `operator[]` default-constructs the value if missing, then overwrites. `try_emplace` constructs only if missing.
+
+## Expanded Troubleshooting
+
+### Performance degrades after many insert/erase cycles
+
+Tombstones accumulate with the default TombstoneDeletion policy. Call `rehash(capacity())` to eliminate tombstones, or use BackwardShiftDeletion which avoids tombstones entirely.
+
+### Hash collisions causing slow lookups
+
+`std::hash<int>` on small sequential integers often produces poor distribution. FastHashMap's built-in mixer handles this, but if you opt out via `is_avalanching`, ensure your hash function has good avalanche properties.
+
+---
+
 ## API Reference
 
 ### Construction

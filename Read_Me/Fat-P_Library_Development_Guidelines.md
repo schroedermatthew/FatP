@@ -2504,4 +2504,4 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.5 -- February 2026*
+*Fat-P Library Development Guidelines v3.6 -- February 2026*

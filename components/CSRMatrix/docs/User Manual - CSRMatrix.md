@@ -957,6 +957,82 @@ A.matvec(x.data(), y.data(), /*use_prefetch=*/false);
 
 ---
 
+---
+
+## Use Case: Sparse Matrix-Vector Multiplication (SpMV)
+
+The canonical sparse linear algebra operation:
+
+```cpp
+fat_p::CSRMatrix<double> A = load_matrix("system.mtx");
+std::vector<double> x(A.cols(), 1.0);
+std::vector<double> y(A.rows(), 0.0);
+
+// y = A * x
+for (size_t i = 0; i < A.rows(); ++i)
+{
+    double sum = 0.0;
+    for (auto it = A.row_begin(i); it != A.row_end(i); ++it)
+    {
+        sum += it->value * x[it->col];
+    }
+    y[i] = sum;
+}
+```
+
+## Use Case: Graph Adjacency Matrix
+
+Represent a sparse directed graph where entry (i,j) = edge weight:
+
+```cpp
+fat_p::CSRMatrix<float> graph(num_nodes, num_nodes);
+graph.insert(0, 1, 1.0f);  // Edge 0 -> 1, weight 1.0
+graph.insert(0, 3, 0.5f);  // Edge 0 -> 3, weight 0.5
+
+// BFS-style neighbor iteration
+for (auto it = graph.row_begin(node); it != graph.row_end(node); ++it)
+{
+    visit_neighbor(it->col, it->value);
+}
+```
+
+## Use Case: Finite Element Assembly
+
+Assemble a stiffness matrix from element contributions:
+
+```cpp
+fat_p::CSRMatrix<double> K(num_dofs, num_dofs);
+
+for (const auto& element : mesh.elements())
+{
+    auto ke = element.stiffness_matrix();  // Dense element matrix
+    for (size_t i = 0; i < ke.rows(); ++i)
+        for (size_t j = 0; j < ke.cols(); ++j)
+            K.add_to(element.dof(i), element.dof(j), ke(i, j));
+}
+K.finalize();  // Sort and compress
+```
+
+## Best Practices
+
+**Build in COO format, then convert to CSR.** Inserting into CSR directly requires sorted insertion. Build as coordinate list (triplets), then call `finalize()` which sorts and compresses.
+
+**Iterate rows with row_begin/row_end.** The CSR format is optimized for row access. Column access requires scanning the entire matrix.
+
+**Pre-allocate with estimated nnz.** If you know the approximate number of non-zeros, reserve storage to avoid reallocations during assembly.
+
+## Expanded Troubleshooting
+
+### Very slow random column access
+
+CSR is row-oriented. Column access is O(nnz). If you need fast column access, maintain a CSC (Compressed Sparse Column) copy, or use a different format.
+
+### Duplicate entries after finalize()
+
+`finalize()` sums duplicate (i, j) entries by default. If you want the last value instead of the sum, check the finalize options.
+
+---
+
 ## Summary
 
 The CSRMatrix suite provides production-ready sparse matrix operations with three levels of optimization:

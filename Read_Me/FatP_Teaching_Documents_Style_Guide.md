@@ -91,7 +91,7 @@ title: "Multi-Index Design, Stack/Heap/Cache, and Why SmallVector Wins"
 fatp_components: ["SmallVector"]
 topics: ["tensor indexing", "allocator overhead", "small buffer optimization", "cache locality"]
 constraints: ["heap allocation in hot loops", "memory hierarchy", "temporary containers"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: "std::inplace_vector"
 std_since: "C++26"
 boost_equivalent: "Boost.Container small_vector"
@@ -112,7 +112,7 @@ status: "reviewed"
 | `fatp_components` | Yes | Links document to code | List FAT-P header names without `.h` extension. Use `[]` if no specific component |
 | `topics` | Yes | Semantic search keywords | 3-8 specific terms. Prefer noun phrases over verbs. Include both problem terms ("heap allocation") and solution terms ("small buffer optimization") |
 | `constraints` | Yes | Engineering constraints addressed | What hardware/language/design constraints does this document explain? Examples: "cache effects", "exception boundaries", "UB rules", "memory hierarchy" |
-| `cxx_standard` | Yes | Minimum C++ version | "C++17", "C++20", or "C++23" |
+| `cxx_standard` | Yes | Minimum C++ version | "C++20" (library minimum), "C++23", or "C++26". Note: FAT-P requires C++20; use "C++23"/"C++26" only for docs covering features beyond the library minimum |
 | `std_equivalent` | If exists | Standard library equivalent | Component name (e.g., "std::expected", "std::flat_map"). Use `null` or omit if none exists |
 | `std_since` | If std_equivalent | C++ version that introduced std equivalent | "C++11", "C++14", "C++17", "C++20", "C++23", or "C++26" |
 | `boost_equivalent` | If exists | Boost library equivalent | Full component path (e.g., "Boost.Signals2", "Boost.Container flat_map"). Use `null` or omit if none exists |
@@ -414,7 +414,7 @@ title: "The Case of the Slow Miss"
 fatp_components: ["StableHashMap", "FatPBenchmarkUtils"]
 topics: ["hash table", "miss performance", "SIMD filtering", "empty slot detection", "Swiss Table"]
 constraints: ["cache misses", "SIMD mask operations", "probe sequence termination"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Release"]
 last_verified: "2025-12-27"
 audience: ["C++ developers", "AI assistants", "performance engineers"]
@@ -500,7 +500,7 @@ and the counter-based investigation that identified the root cause.
 | Flexible | Configurable, pluggable, adapter-compatible | Specify extension point |
 | Handles errors | Propagates, traps, returns Expected, terminates | Specify the mechanism |
 | Thread-safe | Lock-free, mutex-protected, thread-local | Specify the strategy |
-| Modern | C++17, constexpr-evaluated, SFINAE-free | Specify the standard |
+| Modern | C++20, constexpr-evaluated, concepts-based | Specify the standard |
 | Polyfill | Wrapper, shim, compatibility layer | Web-centric; wrong domain |
 | Backport | Architectural superset, enhanced implementation | Implies temporary |
 | Similar to | Inspired by, extends beyond | Implies mere equivalence |
@@ -714,6 +714,8 @@ The standard is one-size-fits-all; FAT-P is policy-based.
 **Wrong:** "Handles overflow safely."
 **Right:** "Allows compile-time selection of overflow behavior — throw, saturate, or return Expected — without virtual dispatch overhead."
 
+**Boundary with Library Maturity Claims (Development Guidelines §8.4):** Architectural superiority claims must be backed by specific mechanisms (benchmarks, API comparisons, complexity guarantees). Do not imply deployment history or installed-base parity with established libraries. The "Where FAT-P Loses" section (required below) is the counterbalance — position honestly by naming specific architectural advantages while acknowledging what established libraries have that FAT-P does not (installed base, cross-platform validation, years of real-world bug reports).
+
 ## Required Sections
 
 ### 1. Executive Summary (3-4 sentences)
@@ -769,14 +771,14 @@ When a std:: equivalent exists:
 
 | Aspect | std::expected | FAT-P Expected |
 |--------|---------------|----------------|
-| **Availability** | C++23 only | C++17+ |
+| **Availability** | C++23 only | C++20+ |
 | **Policies** | None | ThrowOnError, TerminateOnError, LogOnError |
 | **Monadic ops** | Basic | Extended (map, and_then, or_else, transform_error) |
 | **EXPECTED_TRY** | No | Yes (error propagation macro) |
 
 **When to use std::expected:** You're on C++23+, need only basic functionality, and want zero dependencies.
 
-**When to use FAT-P Expected:** You need C++17 compatibility, policy-based error handling, or extended monadic operations.
+**When to use FAT-P Expected:** You need policy-based error handling, extended monadic operations, or C++20 availability before C++23 adoption.
 ```
 
 #### Structure for Boost Comparison
@@ -819,7 +821,7 @@ Structure as exclusionary criteria when multiple alternatives exist:
 | Zero dependencies | LLVM SmallVector requires LLVM headers | Single header, STL only |
 | Standard allocators | Boost.Container uses custom allocator model | std::allocator compatible |
 | No metaprogramming | Folly uses heavy template machinery | Minimal template instantiation |
-| C++17 compatibility | std::expected requires C++23 | Works on C++17 |
+| C++20 availability | std::expected requires C++23 | Works on C++20 |
 
 **Key insight:** Position FAT-P as the ONLY option when combining multiple requirements.
 
@@ -827,7 +829,7 @@ Structure as exclusionary criteria when multiple alternatives exist:
 
 Address compiler lock-in explicitly:
 
-> **Compiler Reality Check:** Scientific clusters often run RHEL 7/8 with GCC 7.x for driver compatibility. Even when C++23 offers similar features, your codebase may be contractually locked to C++17 for years. FAT-P bridges this gap permanently — not as a temporary shim, but as an architecturally superior solution that remains valuable even after compiler upgrades.
+> **Compiler Reality Check:** Scientific clusters often run RHEL 8 with GCC 11.x for driver compatibility. Even when C++23/26 offers similar features, your codebase may be contractually locked to C++20 for years. FAT-P bridges this gap permanently — not as a temporary shim, but as an architecturally superior solution that remains valuable even after compiler upgrades.
 
 ### 7. Performance Characteristics
 
@@ -871,13 +873,15 @@ FatPJsonLite.h (inline JSON arrays)
 
 Use these to describe FAT-P advantages:
 - "Architectural superset of the standard feature"
-- "Production-hardened implementation"
+- "Written to production-quality standards"
 - "Zero-overhead abstraction"
 - "Compile-time policy resolution"
 - "Pointer-discriminating storage"
 - "Deterministic memory behavior"
 - "No virtual dispatch overhead"
 - "Transforms [X]-bound code to [Y]-bound code"
+
+**Note:** Per the Development Guidelines §8.4 (Library Maturity Claims), do not describe FAT-P as "production-tested," "battle-tested," or "production-ready." These phrases imply deployment history that does not exist. Use "written to production-quality standards" to describe code quality intent.
 
 ## Overview Template
 
@@ -889,7 +893,7 @@ title: "[Component Name]"
 fatp_components: ["[Component]"]
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: "[std::name or null]"
 std_since: "[C++XX or null]"
 boost_equivalent: "[Boost.Library name or null]"
@@ -1122,7 +1126,7 @@ Now — and only now — show basic usage:
 
 ### Prerequisites and Integration
 
-StableHashMap requires C++17 and has no dependencies...
+StableHashMap requires C++20 and has no dependencies...
 
 ### Your First StableHashMap
 
@@ -1415,7 +1419,7 @@ doc_type: "User Manual"
 title: "[Component]"
 fatp_components: ["[Component]"]
 topics: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -1725,7 +1729,7 @@ title: "[Domain Name]"
 fatp_components: ["...", "..."]
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -2079,7 +2083,7 @@ title: "[Evocative Problem Name]"
 fatp_components: ["..."]
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
@@ -2409,7 +2413,7 @@ title: "[Concept Name]"
 fatp_components: []
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -2682,7 +2686,7 @@ title: "[Discipline Name]"
 fatp_components: []
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -3028,7 +3032,7 @@ title: "[Pattern Name]"
 fatp_components: ["..."]
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -3194,7 +3198,7 @@ What requirements limited the options:
 1. **Zero runtime overhead** — The selection must not add virtual dispatch cost
 2. **noexcept compatibility** — The system must work inside noexcept functions
 3. **Auditability** — It must be possible to statically determine which handler is used
-4. **C++17 compatibility** — No C++20 concepts or later features
+4. **C++20 baseline** — May use concepts and constexpr improvements from C++20
 ```
 
 ### 4. Options Considered
@@ -3298,7 +3302,7 @@ title: "[Decision Name]"
 fatp_components: ["..."]
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "final"
@@ -3520,7 +3524,7 @@ doc_type: "Benchmark Results"
 title: "[Component]"
 fatp_components: ["[Component]"]
 topics: ["performance", "benchmarking"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "YYYY-MM-DD"
 audience: ["C++ developers", "AI assistants"]
 status: "draft"
@@ -3611,7 +3615,7 @@ Including too much explanation. Benchmark Results are data presentations. If you
 
 # 10. MIGRATION GUIDE
 
-Migration Guides explain how to migrate an existing **C** pattern/API/codebase usage to an equivalent (or intentionally improved) **C++17+** design. They are operational documents: they must specify compatibility boundaries, verification, and rollback.
+Migration Guides explain how to migrate an existing **C** pattern/API/codebase usage to an equivalent (or intentionally improved) **C++20+** design. They are operational documents: they must specify compatibility boundaries, verification, and rollback.
 
 ## Migration Guide Required Sections
 
@@ -3643,14 +3647,14 @@ title: "[From] to [To]"
 fatp_components: ["..."]
 topics: ["c-to-cpp", "migration", "..."]
 constraints: ["ABI", "lifetime", "thread-safety"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 audience: ["C developers", "C++ developers", "AI assistants"]
 status: "draft"
 last_verified: 2026-01-09
 
 from_language: "C"
 to_language: "C++"
-to_standard: "C++17"
+to_standard: "C++20"
 from_pattern: ["callbacks", "manual lifetime"]
 to_component: ["Signal"]
 compatibility: ["C ABI", "plugin boundary"]
@@ -3668,7 +3672,7 @@ title: "[From] to [To]"
 fatp_components: ["..."]
 topics: ["..."]
 constraints: ["..."]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 audience: ["...", "AI assistants"]
 status: "draft"
 last_verified: 2026-01-09
@@ -3804,7 +3808,8 @@ Prefer many small, high-signal docs over one mega-doc.
 
 ---
 
-*FAT-P Teaching Documents Style Guide (Enhanced Edition) v1.4 — January 2026*
+*FAT-P Teaching Documents Style Guide (Enhanced Edition) v1.5 — February 2026*
+*v1.5: Updated all templates and examples from C++17 to C++20 (aligns with Development Guidelines v3.2+ minimum standard); reconciled Power Phrases with §8.4 Library Maturity Claims rule; added maturity claims boundary note to Three-Note Checklist; updated "Forever Stuck" section to reference C++20 floor; updated cxx_standard field reference; updated vocabulary replacement for "Modern"; added governance compatibility note*
 *v1.4: Added Migration Guide as a first-class doc type (MG prefix), with card, template, YAML guidance, and checklist*
 *v1.3: Added Alternatives section requirement for Migration Guides*
 *v1.2: Added Prose-Code Discipline section and checklist items*

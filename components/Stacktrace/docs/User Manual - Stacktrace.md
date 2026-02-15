@@ -914,6 +914,107 @@ void handler(int sig) {
 
 ---
 
+---
+
+## Use Case: Enhanced Exception Messages
+
+Capture a stack trace when throwing an exception:
+
+```cpp
+class TracedException : public std::runtime_error
+{
+public:
+    TracedException(const std::string& msg)
+        : std::runtime_error(msg)
+        , trace_(fat_p::Stacktrace::capture())
+    {}
+
+    const fat_p::Stacktrace& trace() const { return trace_; }
+
+private:
+    fat_p::Stacktrace trace_;
+};
+
+// In catch handler:
+catch (const TracedException& e)
+{
+    log_error("{}\nStack trace:\n{}", e.what(), e.trace().to_string());
+}
+```
+
+## Use Case: Memory Leak Tracker
+
+Record allocation stack traces for leak detection:
+
+```cpp
+struct AllocRecord
+{
+    void* ptr;
+    size_t size;
+    fat_p::Stacktrace trace;
+};
+
+std::unordered_map<void*, AllocRecord> live_allocations;
+
+void* tracked_alloc(size_t size)
+{
+    void* ptr = malloc(size);
+    live_allocations[ptr] = {ptr, size, fat_p::Stacktrace::capture()};
+    return ptr;
+}
+
+void report_leaks()
+{
+    for (auto& [ptr, record] : live_allocations)
+    {
+        log_warning("Leak: {} bytes at {}\n{}", record.size, ptr,
+                    record.trace.to_string());
+    }
+}
+```
+
+## Use Case: Assertion Failure Diagnostics
+
+Include stack traces in enforce/assertion failures:
+
+```cpp
+void custom_enforce_handler(const char* expr, const char* file, int line)
+{
+    auto trace = fat_p::Stacktrace::capture();
+    log_fatal("Assertion failed: {} at {}:{}\n{}", expr, file, line,
+              trace.to_string());
+    std::abort();
+}
+```
+
+## Best Practices
+
+**Capture sparingly in hot paths.** Stack trace capture is expensive (~1-50 μs depending on depth and backend). Capture on error paths, not on every function call.
+
+**Use skip parameter to omit framework frames.** `capture(skip=2)` omits the capture function itself and its caller, showing the user's code first.
+
+**Prefer to_string() for logging, frames() for programmatic access.** `to_string()` produces human-readable output. `frames()` returns structured data for filtering or serialization.
+
+## Expanded Troubleshooting
+
+### Stack trace shows only addresses, no function names
+
+Symbol information is not available. On Linux, compile with `-g` and link with `-rdynamic`. On Windows, ensure PDB files are present. On macOS, use `dsymutil` to generate debug symbols.
+
+### capture() returns empty trace
+
+The backend may not be available. Check `Stacktrace::backend()` to see which backend is active. If "none", no stack trace support was detected at compile time.
+
+### Function names are mangled
+
+The backend returns raw symbol names. Use `to_string()` which runs demangling automatically. For programmatic access, use `abi::__cxa_demangle` (GCC/Clang) or `UnDecorateSymbolName` (MSVC).
+
+---
+
+*Tier C Manual Expansions — Fat-P Library*
+
+---
+
 ## API Reference
 
 ### Stacktrace Class

@@ -1,0 +1,235 @@
+# =============================================================================
+# .github/workflows/workqueue-benchmarks.yml
+# =============================================================================
+# Standalone benchmark workflow for WorkQueue.
+# Manual dispatch only.
+#
+# Competitor matrix:
+#   All platforms:
+#     [x] std::mutex + std::queue        (baseline)
+#     [x] boost::lockfree::queue         (header-only, shared cache)
+#     [x] moodycamel::ConcurrentQueue    (header-only, shared cache)
+# =============================================================================
+
+name: WorkQueue Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+env:
+  BENCH_SRC: components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp
+
+jobs:
+  benchmarks-gcc:
+    name: GCC-${{ matrix.version }} C++20
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [12, 13, 14]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GCC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-${{ matrix.version }}
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+      - name: Restore compiled deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
+      - name: Verify caches restored
+        run: |
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ] || [ ! -d "$HOME/thirdparty-headers" ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml first."
+            exit 1
+          fi
+      - name: Build benchmark
+        run: |
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          g++-${{ matrix.version }} -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            -I./include/fat_p \
+            -I$HOME/thirdparty-headers/concurrentqueue \
+            -I$HOME/thirdparty-compiled/boost/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_workqueue -pthread \
+            $BOOST_LIBS
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp20.csv
+        run: ./bench_workqueue 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-WorkQueue-gcc${{ matrix.version }}
+          path: |
+            results_gcc${{ matrix.version }}_cpp20.csv
+            benchmark_gcc${{ matrix.version }}_cpp20.log
+
+  benchmarks-clang:
+    name: Clang-${{ matrix.version }} C++20
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [16, 17]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Clang
+        run: |
+          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.version }}
+          sudo apt-get install -y libunwind-dev
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+      - name: Restore compiled deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
+      - name: Verify caches restored
+        run: |
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ] || [ ! -d "$HOME/thirdparty-headers" ]; then
+            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml first."
+            exit 1
+          fi
+      - name: Build benchmark
+        run: |
+          BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
+          clang++-${{ matrix.version }} -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            -I./include/fat_p \
+            -I$HOME/thirdparty-headers/concurrentqueue \
+            -I$HOME/thirdparty-compiled/boost/include \
+            ${{ env.BENCH_SRC }} \
+            -o bench_workqueue -pthread \
+            $BOOST_LIBS \
+            -lstdc++
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp20.csv
+        run: ./bench_workqueue 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-WorkQueue-clang${{ matrix.version }}
+          path: |
+            results_clang${{ matrix.version }}_cpp20.csv
+            benchmark_clang${{ matrix.version }}_cpp20.log
+
+  benchmarks-msvc:
+    name: MSVC C++20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Restore vcpkg cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
+      - name: Verify cache restored
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
+            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            exit 1
+          }
+      - name: Install competitors via vcpkg (from cache)
+        shell: cmd
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows-release
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
+        run: |
+          vcpkg install boost-lockfree:x64-windows-release concurrentqueue:x64-windows-release
+      - name: Build benchmark
+        shell: pwsh
+        run: |
+          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\include"
+          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\lib"
+          cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- `
+            /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
+            /D_CRT_SECURE_NO_WARNINGS `
+            /I.\include\fat_p `
+            /I"$vcpkgInc" `
+            ${{ env.BENCH_SRC }} `
+            /Fe:bench_workqueue.exe `
+            /link advapi32.lib /LIBPATH:"$vcpkgLib"
+      - name: Run benchmark
+        shell: pwsh
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp20.csv
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
+          .\bench_workqueue.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-WorkQueue-msvc
+          path: |
+            results_msvc_cpp20.csv
+            benchmark_msvc_cpp20.log
+
+  benchmark-summary:
+    name: WorkQueue Benchmark Summary
+    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-WorkQueue-*
+          path: all-benchmarks
+          merge-multiple: false
+      - name: Aggregate results
+        run: |
+          echo "# WorkQueue Benchmark Summary" > summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Status |" >> summary.md
+          echo "|----------|--------|" >> summary.md
+          for dir in all-benchmarks/bench-WorkQueue-*/; do
+            name=$(basename "$dir" | sed 's/^bench-WorkQueue-//')
+            if ls "$dir"/*.log 1>/dev/null 2>&1; then echo "| $name | [PASS] |" >> summary.md; else echo "| $name | [FAIL] |" >> summary.md; fi
+          done
+          echo "" >> summary.md; echo "## Individual Results" >> summary.md
+          for dir in all-benchmarks/bench-WorkQueue-*/; do
+            name=$(basename "$dir" | sed 's/^bench-WorkQueue-//'); echo "" >> summary.md; echo "### $name" >> summary.md
+            for log in "$dir"/*.log; do [ -f "$log" ] && echo '```' >> summary.md && tail -80 "$log" >> summary.md && echo '```' >> summary.md; done
+          done
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-WorkQueue-summary
+          path: |
+            all-benchmarks/
+            summary.md

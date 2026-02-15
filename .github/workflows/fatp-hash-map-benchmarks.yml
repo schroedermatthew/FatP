@@ -24,7 +24,7 @@
 #     [x] folly::F14NodeMap            (same)
 #     [x] llvm::DenseMap               (compiled, shared cache)
 #   Windows:
-#     [x] absl, folly, llvm via vcpkg (shared cache)
+#     [x] absl, folly via vcpkg (shared cache)
 # =============================================================================
 
 name: FatPHashMap Benchmarks
@@ -74,6 +74,7 @@ jobs:
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
 
       - name: Restore compiled deps
         id: cache-compiled
@@ -81,6 +82,7 @@ jobs:
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
+          restore-keys: fatp-bench-deps-gcc-v1-
 
       - name: Verify caches restored
         run: |
@@ -168,6 +170,7 @@ jobs:
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
 
       - name: Restore compiled deps
         id: cache-compiled
@@ -175,6 +178,7 @@ jobs:
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1
+          restore-keys: fatp-bench-deps-clang-v1-
 
       - name: Verify caches restored
         run: |
@@ -256,6 +260,7 @@ jobs:
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
+          restore-keys: fatp-bench-deps-vcpkg-v1-
 
       - name: Verify cache restored
         shell: pwsh
@@ -272,7 +277,7 @@ jobs:
           VCPKG_DEFAULT_TRIPLET: x64-windows-release
           VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
         run: |
-          vcpkg install abseil:x64-windows-release boost-unordered:x64-windows-release folly:x64-windows-release llvm:x64-windows-release fmt:x64-windows-release
+          vcpkg install abseil:x64-windows-release boost-unordered:x64-windows-release folly:x64-windows-release fmt:x64-windows-release
 
       - name: Build benchmark
         shell: pwsh
