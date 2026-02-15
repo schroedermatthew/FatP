@@ -60,14 +60,14 @@ jobs:
       - name: Install GCC and system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-${{ matrix.version }} cmake libboost-dev
+          sudo apt-get install -y g++-${{ matrix.version }} cmake libboost-dev libboost-context-dev
 
       - name: Cache third-party libraries
         id: cache-deps
         uses: actions/cache@v4
         with:
           path: ~/thirdparty
-          key: hashmap-bench-all-gcc${{ matrix.version }}-v2
+          key: hashmap-bench-all-gcc${{ matrix.version }}-v3
 
       - name: Install header-only competitors
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -190,7 +190,8 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
-          sudo apt-get install -y cmake libboost-dev \
+          sudo apt-get install -y libunwind-dev
+          sudo apt-get install -y cmake libboost-dev libboost-context-dev \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
@@ -199,7 +200,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/thirdparty
-          key: hashmap-bench-all-clang${{ matrix.version }}-v2
+          key: hashmap-bench-all-clang${{ matrix.version }}-v3
 
       - name: Install header-only competitors
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -308,7 +309,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: thirdparty
-          key: hashmap-bench-headeronly-${{ runner.os }}-v2
+          key: hashmap-bench-headeronly-${{ runner.os }}-v3
 
       - name: Install header-only libraries
         if: steps.cache-headeronly.outputs.cache-hit != 'true'
@@ -322,24 +323,24 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ github.workspace }}/vcpkg_cache
-          key: vcpkg-${{ runner.os }}-hashmap-bench-all-v2
+          key: vcpkg-${{ runner.os }}-hashmap-bench-all-v3
           restore-keys: |
             vcpkg-${{ runner.os }}-hashmap-bench-all-
 
       - name: Install competitors via vcpkg
         shell: cmd
         env:
-          VCPKG_DEFAULT_TRIPLET: x64-windows
+          VCPKG_DEFAULT_TRIPLET: x64-windows-release
           VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_cache
         run: |
           if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
-          vcpkg install abseil:x64-windows boost-unordered:x64-windows folly:x64-windows llvm:x64-windows fmt:x64-windows
+          vcpkg install abseil:x64-windows-release boost-unordered:x64-windows-release folly:x64-windows-release llvm:x64-windows-release fmt:x64-windows-release
 
       - name: Build benchmark
         shell: pwsh
         run: |
-          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\include"
-          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\lib"
+          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\include"
+          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\lib"
 
           cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- `
             /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
@@ -362,7 +363,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp20.csv
         run: |
-          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows\bin;$env:PATH"
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
           .\bench_hashmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
 
       - name: Upload results
