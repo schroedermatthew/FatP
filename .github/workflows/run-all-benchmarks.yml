@@ -1,18 +1,19 @@
 # =============================================================================
 # .github/workflows/run-all-benchmarks.yml
 # =============================================================================
-# One-click trigger: builds and runs every component benchmark.
-# Manual-only (workflow_dispatch) — not triggered by push/PR.
+# One-click trigger: runs every component benchmark on Linux GCC-14.
+# Manual-only (workflow_dispatch).
+#
+# Prerequisites:
+#   Shared caches built by build-benchmark-deps.yml (run it first).
 #
 # Structure:
-#   1. Standard benchmarks (no external deps) — single matrix job
-#   2. ThreadPool benchmark (needs TBB + Boost.Asio) — dedicated job
-#   3. WorkQueue benchmark (needs moodycamel + Boost.Lockfree) — dedicated job
-#   4. Summary job — aggregates all artifacts
+#   1. Standard benchmarks — matrix job with shared cache deps
+#   2. Summary job — aggregates all artifacts
 #
-# Each benchmark compiles against GCC-13 C++20 on ubuntu-24.04 with
-# -O3 -DNDEBUG -march=native. Reduced iteration counts keep total
-# wall-clock under 30 minutes.
+# All benchmarks compile against GCC-14 C++20 on ubuntu-24.04 with
+# -O3 -DNDEBUG -march=native. Competitors are loaded from the shared
+# cache and vendored ThirdParty/ headers.
 # =============================================================================
 
 name: Run All Benchmarks
@@ -33,9 +34,9 @@ on:
 
 jobs:
   # ===========================================================================
-  # Standard Benchmarks (no external dependencies)
+  # All Benchmarks (shared cache + vendored deps)
   # ===========================================================================
-  standard:
+  benchmarks:
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     strategy:
@@ -44,89 +45,211 @@ jobs:
         include:
           - name: AlignedVector
             src: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
           - name: AllocationStrategies
             src: components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
           - name: BitSet
             src: components/BitSet/benchmarks/benchmark_BitSet.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost llvm"
+            system_deps: ""
           - name: CircularBuffer
             src: components/CircularBuffer/benchmarks/benchmark_CircularBuffer.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I$HOME/thirdparty-headers/readerwriterqueue"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: FatPHashMap
+            src: components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+            extra_includes: "-I./ThirdParty"
+            extra_defines: "-DUSE_FOLLY=1"
+            compiled_libs: "boost abseil folly llvm"
+            system_deps: "libfmt-dev libgoogle-glog-dev libgflags-dev libdouble-conversion-dev libevent-dev libssl-dev"
           - name: FeatureManager
             src: components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
           - name: FlatMapSet
             src: components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: "-DUSE_FOLLY=1"
+            compiled_libs: "boost abseil folly"
+            system_deps: "libfmt-dev libgoogle-glog-dev libgflags-dev libdouble-conversion-dev libevent-dev libssl-dev"
           - name: FloatingPointComparison
             src: components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
           - name: IntrusiveList
             src: components/IntrusiveList/benchmarks/benchmark_IntrusiveList.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I./ThirdParty"
+            extra_defines: ""
+            compiled_libs: "boost llvm eastl"
+            system_deps: ""
+          - name: LockFreeQueue
+            src: components/LockFreeContainers/benchmarks/benchmark_LockFreeQueue.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/concurrentqueue"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
           - name: ObjectPool
             src: components/ObjectPool/benchmarks/benchmark_ObjectPool.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost eastl"
+            system_deps: ""
           - name: PolicyIterator
             src: components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
           - name: ServiceLocator
             src: components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I$HOME/thirdparty-headers/entt/single_include"
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
+            needs_headers: "true"
           - name: SlotMap
             src: components/SlotMap/benchmarks/benchmark_SlotMap.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/entt/single_include -I$HOME/thirdparty-headers/plf_hive"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
           - name: SmallVector
             src: components/SmallVector/benchmarks/benchmark_SmallVector.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I./ThirdParty"
+            extra_defines: "-DUSE_FOLLY=1"
+            compiled_libs: "boost abseil folly llvm eastl"
+            system_deps: "libfmt-dev libgoogle-glog-dev libgflags-dev libdouble-conversion-dev libevent-dev libssl-dev"
           - name: SparseSet
             src: components/SparseSet/benchmarks/benchmark_SparseSet.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I$HOME/thirdparty-headers/entt/single_include"
+            extra_defines: ""
+            compiled_libs: "abseil llvm"
+            system_deps: ""
+            needs_headers: "true"
           - name: Stacktrace
             src: components/Stacktrace/benchmarks/benchmark_Stacktrace.cpp
-            extra_flags: ""
-            link: "-lstdc++exp"
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
+            extra_link: "-lstdc++exp"
+          - name: StateMachine
+            src: components/StateMachine/benchmarks/benchmark_StateMachine.cpp
+            extra_includes: "-I./ThirdParty"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
           - name: Stringify
             src: components/Stringify/benchmarks/benchmark_Stringify.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
           - name: StrongId
             src: components/StrongId/benchmarks/benchmark_StrongId.cpp
-            extra_flags: ""
-            link: ""
+            extra_includes: "-I./ThirdParty"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+          - name: ThreadPool
+            src: components/ThreadPool/benchmarks/benchmark_ThreadPool.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: "libtbb-dev"
+            extra_link: "-ltbb"
+          - name: WorkQueue
+            src: components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/concurrentqueue"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        if: matrix.system_deps != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.system_deps }}
+
+      - name: Restore header-only deps
+        if: matrix.needs_headers == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
+
+      - name: Restore compiled deps
+        if: matrix.compiled_libs != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-gcc-v1
+          restore-keys: fatp-bench-deps-gcc-v1-
+
       - name: Build benchmark
         run: |
-          g++-13 -std=c++20 \
+          # Collect library archives from compiled deps
+          LIBS=""
+          for dep in ${{ matrix.compiled_libs }}; do
+            DEP_LIBS=$(find $HOME/thirdparty-compiled/$dep/lib -name '*.a' 2>/dev/null | sort)
+            LIBS="$LIBS $DEP_LIBS"
+          done
+
+          # Build include paths for compiled deps
+          COMP_INCLUDES=""
+          for dep in ${{ matrix.compiled_libs }}; do
+            if [ -d "$HOME/thirdparty-compiled/$dep/include" ]; then
+              COMP_INCLUDES="$COMP_INCLUDES -I$HOME/thirdparty-compiled/$dep/include"
+            fi
+          done
+
+          # System link libs (fmt, glog, etc. for Folly)
+          SYS_LINK=""
+          if echo "${{ matrix.compiled_libs }}" | grep -q "folly"; then
+            SYS_LINK="-lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto"
+          fi
+
+          g++-14 -std=c++20 \
             -O3 -DNDEBUG -march=native \
+            ${{ matrix.extra_defines }} \
             -I./include/fat_p \
-            ${{ matrix.extra_flags }} \
-            ${{ matrix.src }} -o bench_bin -pthread ${{ matrix.link }}
+            ${{ matrix.extra_includes }} \
+            $COMP_INCLUDES \
+            ${{ matrix.src }} \
+            -o bench_bin -pthread \
+            $LIBS \
+            $SYS_LINK \
+            ${{ matrix.extra_link }}
 
       - name: Run benchmark
         env:
-          FATP_BENCH_WARMUP_RUNS: 3
+          FATP_BENCH_WARMUP_RUNS: "3"
           FATP_BENCH_BATCHES: ${{ inputs.batches }}
           FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results.csv
         run: ./bench_bin 2>&1 | tee benchmark.log
 
@@ -139,135 +262,11 @@ jobs:
             benchmark.log
 
   # ===========================================================================
-  # FatPHashMap Benchmark (tsl::robin_map + ankerl::unordered_dense, C++23)
-  # ===========================================================================
-  fatp-hash-map:
-    name: FatPHashMap
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache competitors
-        id: cache-hashmap-deps
-        uses: actions/cache@v4
-        with:
-          path: ~/thirdparty
-          key: hashmap-thirdparty-gcc-${{ runner.os }}-v2
-
-      - name: Install competitors
-        if: steps.cache-hashmap-deps.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p $HOME/thirdparty
-          git clone --depth 1 https://github.com/Tessil/robin-map.git $HOME/thirdparty/robin-map
-          git clone --depth 1 https://github.com/martinus/unordered_dense.git $HOME/thirdparty/unordered_dense
-
-      - name: Build benchmark
-        run: |
-          g++-14 -std=c++23 \
-            -O3 -DNDEBUG -march=native \
-            -I./include/fat_p \
-            -I$HOME/thirdparty/robin-map/include \
-            -I$HOME/thirdparty/unordered_dense/include \
-            components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp \
-            -o bench_bin -pthread
-
-      - name: Run benchmark
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: ${{ inputs.batches }}
-          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
-          FATP_BENCH_OUTPUT_CSV: results.csv
-        run: ./bench_bin 2>&1 | tee benchmark.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: bench-FatPHashMap
-          path: |
-            results.csv
-            benchmark.log
-
-  # ===========================================================================
-  # ThreadPool Benchmark (TBB + Boost.Asio)
-  # ===========================================================================
-  thread-pool:
-    name: ThreadPool
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install competitors
-        run: sudo apt-get update && sudo apt-get install -y libtbb-dev libboost-dev
-
-      - name: Build benchmark
-        run: |
-          g++-13 -std=c++20 \
-            -O3 -DNDEBUG -march=native \
-            -I./include/fat_p \
-            components/ThreadPool/benchmarks/benchmark_ThreadPool.cpp \
-            -o bench_bin -pthread -ltbb
-
-      - name: Run benchmark
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: ${{ inputs.batches }}
-          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
-          FATP_BENCH_OUTPUT_CSV: results.csv
-        run: ./bench_bin 2>&1 | tee benchmark.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: bench-ThreadPool
-          path: |
-            results.csv
-            benchmark.log
-
-  # ===========================================================================
-  # WorkQueue Benchmark (moodycamel + Boost.Lockfree)
-  # ===========================================================================
-  work-queue:
-    name: WorkQueue
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install competitors
-        run: |
-          sudo apt-get update && sudo apt-get install -y libboost-dev
-          git clone --depth 1 https://github.com/cameron314/concurrentqueue.git deps/concurrentqueue
-
-      - name: Build benchmark
-        run: |
-          g++-13 -std=c++20 \
-            -O3 -DNDEBUG -march=native \
-            -I./include/fat_p \
-            -I./deps/concurrentqueue \
-            components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp \
-            -o bench_bin -pthread
-
-      - name: Run benchmark
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: ${{ inputs.batches }}
-          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
-          FATP_BENCH_OUTPUT_CSV: results.csv
-        run: ./bench_bin 2>&1 | tee benchmark.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: bench-WorkQueue
-          path: |
-            results.csv
-            benchmark.log
-
-  # ===========================================================================
   # Summary
   # ===========================================================================
   summary:
     name: Benchmark Summary
-    needs: [standard, fatp-hash-map, thread-pool, work-queue]
+    needs: [benchmarks]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -304,7 +303,6 @@ jobs:
           echo "**$passed passed, $failed failed out of $((passed + failed)) benchmarks**" >> summary.md
           echo "" >> summary.md
 
-          # Append tail of each log
           echo "## Individual Results" >> summary.md
           for dir in all-benchmarks/bench-*/; do
             name=$(basename "$dir" | sed 's/^bench-//')
