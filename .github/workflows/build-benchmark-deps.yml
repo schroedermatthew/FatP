@@ -13,12 +13,6 @@
 # This allows partial saves on failure without blocking future complete saves.
 # Each dispatch creates a new cache entry; GitHub evicts old ones automatically.
 #
-# IMPORTANT: actions/cache/restore sets cache-hit='true' ONLY on exact key
-# match.  A restore-key prefix match sets cache-hit='' but DOES set
-# cache-matched-key to the found key.  Since our save keys include run_id,
-# the exact key never matches on subsequent runs.  All skip conditions
-# therefore check cache-matched-key (non-empty = cache exists).
-#
 # Cache prefixes:
 #   fatp-bench-deps-gcc-v1-          Compiled deps (gcc-14, ubuntu-24.04)
 #   fatp-bench-deps-clang-v1-        Compiled deps (clang-17, ubuntu-22.04)
@@ -91,7 +85,7 @@ jobs:
           lookup-only: true
 
       - name: Clone header-only libraries
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           rm -rf $HOME/thirdparty-headers
           mkdir -p $HOME/thirdparty-headers
@@ -117,7 +111,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Verify contents
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "Header-only dependency contents:"
           for dir in $HOME/thirdparty-headers/*/; do
@@ -127,7 +121,7 @@ jobs:
           done
 
       - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true')
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ~/thirdparty-headers
@@ -152,7 +146,7 @@ jobs:
           lookup-only: true
 
       - name: Install build tools and system dependencies
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-14 cmake \
@@ -161,7 +155,7 @@ jobs:
             llvm-dev
 
       - name: Build Boost from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           rm -rf $HOME/thirdparty-compiled
           mkdir -p $HOME/thirdparty-compiled
@@ -185,22 +179,16 @@ jobs:
           # Build only libraries that have compiled components and are
           # needed across the benchmark matrix. boost::system is fully
           # header-only on modern Boost and is NOT a valid --with target.
-          #
-          # Build BOTH static and shared so downstream consumers (Folly)
-          # can find whichever variant they request. Folly's CMake sets
-          # Boost_USE_STATIC_LIBS internally; if only static libs exist
-          # but Folly asks for shared, boost_context_FOUND is set to
-          # FALSE and the build fails.
-          ./b2 -j$(nproc) variant=release link=static,shared threading=multi \
-            cxxflags="-std=c++20 -fPIC" \
+          ./b2 -j$(nproc) variant=release link=static threading=multi \
+            cxxflags="-std=c++20" \
             --with-context --with-filesystem --with-program_options \
-            --with-thread \
+            --with-regex --with-thread \
             install
           echo "::endgroup::"
           rm -rf /tmp/boost-src
 
       - name: Build Abseil from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::Abseil clone"
           git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
@@ -222,13 +210,17 @@ jobs:
           rm -rf /tmp/abseil-src /tmp/abseil-build
 
       - name: Build Folly from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
-        continue-on-error: true
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::Folly clone"
           git clone --depth 1 https://github.com/facebook/folly.git \
             /tmp/folly-src
           echo "::endgroup::"
+
+          # Boost >= 1.89 removed the system stub library.  Folly's CMake
+          # still lists it as REQUIRED, but it has been header-only since
+          # Boost 1.69.  Patch it out so cmake configure succeeds.
+          sed -i '/^\s*system\s*$/d' /tmp/folly-src/CMake/folly-deps.cmake
 
           echo "::group::Folly build"
           cmake -S /tmp/folly-src \
@@ -236,6 +228,7 @@ jobs:
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=g++-14 \
+                -DBoost_USE_STATIC_LIBS=ON \
                 -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
@@ -244,7 +237,7 @@ jobs:
           rm -rf /tmp/folly-src /tmp/folly-build
 
       - name: Build EASTL from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::EASTL clone"
           git clone --depth 1 --recurse-submodules \
@@ -265,18 +258,26 @@ jobs:
           rm -rf /tmp/eastl-src /tmp/eastl-build
 
       - name: Install LLVM headers and libraries
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           mkdir -p $HOME/thirdparty-compiled/llvm/include \
                    $HOME/thirdparty-compiled/llvm/lib
-          cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+          # Ubuntu 24.04 llvm-dev installs to /usr/include/llvm-NN/ not /usr/include/llvm/
+          LLVM_INC=$(find /usr/include/llvm-* -maxdepth 0 -type d 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LLVM_INC" ] && [ -d "$LLVM_INC/llvm" ]; then
+            cp -r "$LLVM_INC/llvm" $HOME/thirdparty-compiled/llvm/include/
+          elif [ -d /usr/include/llvm ]; then
+            cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+          else
+            echo "WARNING: Could not find LLVM headers"
+          fi
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
 
       - name: Verify contents
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "Compiled dependency contents (GCC-14):"
           for dir in $HOME/thirdparty-compiled/*/; do
@@ -287,7 +288,7 @@ jobs:
           done
 
       - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true')
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ~/thirdparty-compiled
@@ -312,7 +313,7 @@ jobs:
           lookup-only: true
 
       - name: Install Clang and system dependencies
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 17
           sudo apt-get install -y libunwind-dev cmake \
@@ -321,7 +322,7 @@ jobs:
             llvm-dev
 
       - name: Build Boost from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           rm -rf $HOME/thirdparty-compiled
           mkdir -p $HOME/thirdparty-compiled
@@ -345,19 +346,16 @@ jobs:
           # Build only libraries that have compiled components and are
           # needed across the benchmark matrix. boost::system is fully
           # header-only on modern Boost and is NOT a valid --with target.
-          #
-          # Build BOTH static and shared so downstream consumers (Folly)
-          # can find whichever variant they request.
-          ./b2 -j$(nproc) variant=release link=static,shared threading=multi \
-            toolset=clang cxxflags="-std=c++20 -fPIC" \
+          ./b2 -j$(nproc) variant=release link=static threading=multi \
+            toolset=clang cxxflags="-std=c++20" \
             --with-context --with-filesystem --with-program_options \
-            --with-thread \
+            --with-regex --with-thread \
             install
           echo "::endgroup::"
           rm -rf /tmp/boost-src
 
       - name: Build Abseil from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::Abseil clone"
           git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
@@ -379,13 +377,17 @@ jobs:
           rm -rf /tmp/abseil-src /tmp/abseil-build
 
       - name: Build Folly from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
-        continue-on-error: true
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::Folly clone"
           git clone --depth 1 https://github.com/facebook/folly.git \
             /tmp/folly-src
           echo "::endgroup::"
+
+          # Boost >= 1.89 removed the system stub library.  Folly's CMake
+          # still lists it as REQUIRED, but it has been header-only since
+          # Boost 1.69.  Patch it out so cmake configure succeeds.
+          sed -i '/^\s*system\s*$/d' /tmp/folly-src/CMake/folly-deps.cmake
 
           echo "::group::Folly build"
           cmake -S /tmp/folly-src \
@@ -393,6 +395,7 @@ jobs:
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=clang++-17 \
+                -DBoost_USE_STATIC_LIBS=ON \
                 -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
@@ -401,7 +404,7 @@ jobs:
           rm -rf /tmp/folly-src /tmp/folly-build
 
       - name: Build EASTL from source
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::EASTL clone"
           git clone --depth 1 --recurse-submodules \
@@ -422,18 +425,26 @@ jobs:
           rm -rf /tmp/eastl-src /tmp/eastl-build
 
       - name: Install LLVM headers and libraries
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           mkdir -p $HOME/thirdparty-compiled/llvm/include \
                    $HOME/thirdparty-compiled/llvm/lib
-          cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+          # Ubuntu 24.04 llvm-dev installs to /usr/include/llvm-NN/ not /usr/include/llvm/
+          LLVM_INC=$(find /usr/include/llvm-* -maxdepth 0 -type d 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LLVM_INC" ] && [ -d "$LLVM_INC/llvm" ]; then
+            cp -r "$LLVM_INC/llvm" $HOME/thirdparty-compiled/llvm/include/
+          elif [ -d /usr/include/llvm ]; then
+            cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+          else
+            echo "WARNING: Could not find LLVM headers"
+          fi
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
 
       - name: Verify contents
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "Compiled dependency contents (Clang-17):"
           for dir in $HOME/thirdparty-compiled/*/; do
@@ -444,7 +455,7 @@ jobs:
           done
 
       - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true')
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ~/thirdparty-compiled
@@ -469,7 +480,7 @@ jobs:
           lookup-only: true
 
       - name: Install competitors via vcpkg
-        if: steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true'
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         shell: cmd
         env:
           VCPKG_DEFAULT_TRIPLET: x64-windows-release
@@ -480,13 +491,6 @@ jobs:
           REM frequently OOMs on GitHub Actions runners. LLVM competitors
           REM (DenseMap, SmallVector, etc.) are optional via __has_include
           REM and are only benchmarked on Linux (via distro llvm-dev).
-          REM
-          REM Retry up to 3 times to handle transient GitHub CDN
-          REM failures (HTTP 502 on individual Boost sub-package downloads).
-          set ATTEMPTS=0
-          :retry
-          set /a ATTEMPTS+=1
-          echo [Attempt %ATTEMPTS%/3] vcpkg install ...
           vcpkg install ^
             abseil:x64-windows-release ^
             boost-unordered:x64-windows-release ^
@@ -499,19 +503,9 @@ jobs:
             fmt:x64-windows-release ^
             entt:x64-windows-release ^
             tbb:x64-windows-release
-          if %errorlevel% equ 0 goto done
-          if %ATTEMPTS% geq 3 (
-            echo All 3 attempts failed.
-            exit /b 1
-          )
-          echo Attempt %ATTEMPTS% failed, retrying in 30 seconds...
-          timeout /t 30 /nobreak >nul
-          goto retry
-          :done
-          echo vcpkg install succeeded on attempt %ATTEMPTS%
 
       - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-matched-key == '' || inputs.force_rebuild == 'true')
+        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
         uses: actions/cache/save@v4
         with:
           path: ${{ github.workspace }}\vcpkg_cache
