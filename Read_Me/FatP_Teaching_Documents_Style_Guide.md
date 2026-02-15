@@ -548,6 +548,8 @@ For documents > ~1000 lines or those introducing significant terminology, includ
 
 If unproven: label as **Hypothesis**.
 
+**Rule: Benchmark numbers belong in benchmark results, not in documentation prose.** Specific multiplier claims ("3-5x faster"), absolute timings ("~24 ns/op"), and percentage claims ("20-40% improvement") are platform-dependent, compiler-dependent, and stale on any code change. Overviews and User Manuals should describe *architectural mechanisms* that explain why performance is good (O(1) complexity, SIMD acceleration, cache-friendly layout, zero-allocation paths) and direct readers to `components/<n>/results/` and `benchmark_results/` for current data. Companion Guides and Case Studies are exempt when numbers describe historical development events. See Development Guidelines §8.6 for the full rule and litmus test.
+
 ### Debug vs Release Must Be Explicit
 
 If behavior changes under `NDEBUG`, `noexcept`, LTO, sanitizer builds, etc., include a callout:
@@ -724,10 +726,10 @@ The standard is one-size-fits-all; FAT-P is policy-based.
 1. What it is (one sentence)
 2. The architectural advantage (one sentence)
 3. Key differentiator from standard/alternatives (one sentence)
-4. Quantified benefit if available (one sentence)
+4. Architectural mechanism that enables the advantage (one sentence). Do not include specific benchmark numbers — these belong in benchmark results files (see Development Guidelines §8.6)
 
 **Example:**
-> SmallVector is a hybrid stack/heap container that eliminates heap allocation for small element counts. Unlike naive implementations using boolean flags, it employs pointer-discriminating storage to achieve branchless element access. This architectural choice — inspired by LLVM but dependency-free — transforms allocation-bound loops into compute-bound operations, delivering 2-10x speedup for small collections.
+> SmallVector is a hybrid stack/heap container that eliminates heap allocation for small element counts. Unlike naive implementations using boolean flags, it employs pointer-discriminating storage to achieve branchless element access. This architectural choice — inspired by LLVM but dependency-free — transforms allocation-bound loops into compute-bound operations for small collections.
 
 ### 2. The Problem Domain
 
@@ -1037,7 +1039,7 @@ status: "draft"
 - [ ] Compiler lock-in reality acknowledged
 - [ ] Integration points documented
 - [ ] Active voice throughout
-- [ ] Specific numbers where possible (not "fast" but "2-10x")
+- [ ] Architectural mechanisms described (not "fast" but "O(1) amortized," "SIMD-accelerated," "zero-allocation"). No specific benchmark numbers in Overviews or User Manuals (see Development Guidelines §8.6)
 
 ### Prose-Code Discipline
 - [ ] Every code block is preceded by prose explaining what to notice
