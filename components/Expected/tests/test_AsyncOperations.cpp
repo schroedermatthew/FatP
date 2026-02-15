@@ -7,7 +7,7 @@ FATP_META:
   meta_version: 1
   component: AsyncOperations
   file_role: test
-  path: components/AsyncOperations/tests/test_AsyncOperations.cpp
+  path: components/Expected/tests/test_AsyncOperations.cpp
   layer: Testing
   namespace: fat_p::testing::asyncoperations
   summary: "Unit tests for AsyncOperations."

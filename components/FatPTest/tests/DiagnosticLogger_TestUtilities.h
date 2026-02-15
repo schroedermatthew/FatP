@@ -5,7 +5,7 @@ FATP_META:
   meta_version: 1
   component: DiagnosticLogger_TestUtilities
   file_role: public_header
-  path: include/fat_p/DiagnosticLogger_TestUtilities.h
+  path: components/FatPTest/tests/DiagnosticLogger_TestUtilities.h
   namespace: fat_p
   layer: Domain
   summary: "Public header for DiagnosticLogger_TestUtilities."

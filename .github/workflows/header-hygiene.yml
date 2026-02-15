@@ -135,6 +135,7 @@ jobs:
           ${{ matrix.compiler }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
+            -I./components/FatPTest/tests \
             -c test_include_all.cpp -o /dev/null
 
           echo "IncludeAllFatPHeaders.h compiles successfully"

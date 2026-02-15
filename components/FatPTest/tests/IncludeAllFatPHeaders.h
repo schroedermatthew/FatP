@@ -4,7 +4,7 @@ FATP_META:
   meta_version: 1
   component: IncludeAllFatPHeaders
   file_role: internal_header
-  path: include/fat_p/IncludeAllFatPHeaders.h
+  path: components/FatPTest/tests/IncludeAllFatPHeaders.h
   namespace: fat_p
   layer: Testing
   summary: "Test support header that includes all public FAT-P headers."
