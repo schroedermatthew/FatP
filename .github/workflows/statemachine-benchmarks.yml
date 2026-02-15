@@ -78,7 +78,9 @@ jobs:
             -I$HOME/thirdparty-compiled/boost/include \
             ${{ env.BENCH_SRC }} \
             -o bench_statemachine -pthread \
-            $BOOST_LIBS
+            -Wl,--start-group \
+            $BOOST_LIBS \
+            -Wl,--end-group \
 
       - name: Run benchmark
         env:
@@ -140,7 +142,9 @@ jobs:
             -I$HOME/thirdparty-compiled/boost/include \
             ${{ env.BENCH_SRC }} \
             -o bench_statemachine -pthread \
+            -Wl,--start-group \
             $BOOST_LIBS \
+            -Wl,--end-group \
             -lstdc++
 
       - name: Run benchmark
