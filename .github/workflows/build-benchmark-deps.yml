@@ -274,15 +274,31 @@ jobs:
         run: |
           mkdir -p $HOME/thirdparty-compiled/llvm/include \
                    $HOME/thirdparty-compiled/llvm/lib
+
+          echo "=== LLVM header search diagnostics ==="
+          echo "Directories matching /usr/include/llvm*:"
+          ls -d /usr/include/llvm* 2>/dev/null || echo "  (none)"
+
           # Ubuntu 24.04 llvm-dev installs to /usr/include/llvm-NN/ not /usr/include/llvm/
           LLVM_INC=$(find /usr/include/llvm-* -maxdepth 0 -type d 2>/dev/null | sort -V | tail -1)
+          echo "LLVM_INC resolved to: '$LLVM_INC'"
+          if [ -n "$LLVM_INC" ]; then
+            echo "Contents of $LLVM_INC (top-level):"
+            ls "$LLVM_INC" 2>/dev/null || echo "  (empty or not found)"
+          fi
+
           if [ -n "$LLVM_INC" ] && [ -d "$LLVM_INC/llvm" ]; then
+            echo "Copying from $LLVM_INC/llvm ..."
             cp -r "$LLVM_INC/llvm" $HOME/thirdparty-compiled/llvm/include/
+            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           elif [ -d /usr/include/llvm ]; then
+            echo "Copying from /usr/include/llvm ..."
             cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           else
             echo "WARNING: Could not find LLVM headers"
           fi
+
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
@@ -454,15 +470,31 @@ jobs:
         run: |
           mkdir -p $HOME/thirdparty-compiled/llvm/include \
                    $HOME/thirdparty-compiled/llvm/lib
+
+          echo "=== LLVM header search diagnostics ==="
+          echo "Directories matching /usr/include/llvm*:"
+          ls -d /usr/include/llvm* 2>/dev/null || echo "  (none)"
+
           # Ubuntu 24.04 llvm-dev installs to /usr/include/llvm-NN/ not /usr/include/llvm/
           LLVM_INC=$(find /usr/include/llvm-* -maxdepth 0 -type d 2>/dev/null | sort -V | tail -1)
+          echo "LLVM_INC resolved to: '$LLVM_INC'"
+          if [ -n "$LLVM_INC" ]; then
+            echo "Contents of $LLVM_INC (top-level):"
+            ls "$LLVM_INC" 2>/dev/null || echo "  (empty or not found)"
+          fi
+
           if [ -n "$LLVM_INC" ] && [ -d "$LLVM_INC/llvm" ]; then
+            echo "Copying from $LLVM_INC/llvm ..."
             cp -r "$LLVM_INC/llvm" $HOME/thirdparty-compiled/llvm/include/
+            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           elif [ -d /usr/include/llvm ]; then
+            echo "Copying from /usr/include/llvm ..."
             cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
+            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           else
             echo "WARNING: Could not find LLVM headers"
           fi
+
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \

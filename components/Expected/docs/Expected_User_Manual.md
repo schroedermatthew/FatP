@@ -1389,34 +1389,13 @@ The memory store in the UnionStorage version can cause cache misses in tight loo
 
 ### Benchmark Results
 
-**Test Environment:**
-
-| Component | Specification |
-|-----------|---------------|
-| Processor | Intel Core i7-8850H @ 2.60 GHz |
-| RAM | 32 GB |
-| OS | Windows 10 / Ubuntu 22.04 |
-| Compiler | MSVC 19.35 / GCC 12.2 |
-| Flags | `/O2 /std:c++17` or `-O2 -std=c++17` |
-
-**Operation Timings (nanoseconds per operation):**
-
-| Operation | UnionStorage | TrivialStorage | std::variant | Raw Union |
-|-----------|--------------|----------------|--------------|-----------|
-| Construction (value) | 2.1 | 1.8 | 3.5 | 1.9 |
-| Construction (error) | 2.3 | 2.0 | 3.8 | 2.1 |
-| Same-state assignment | 1.5 | 1.3 | 2.8 | 1.4 |
-| Different-state assignment | 4.2 | 3.8 | 5.1 | 4.0 |
-| Value access (operator*) | 0.3 | 0.2 | 1.2 | 0.3 |
-| map() | 3.8 | 3.5 | N/A | N/A |
-| and_then() | 4.1 | 3.8 | N/A | N/A |
-| has_value() | 0.2 | 0.2 | 0.4 | 0.2 |
-
-**Interpretation:**
+**Performance Characteristics:**
 - Expected matches raw union performance (zero overhead abstraction)
-- TrivialStorage is ~10% faster due to register passing
-- Same-state assignment is ~3x faster than different-state (optimization for common case)
-- Monadic operations add ~2-4ns overhead per operation
+- TrivialStorage enables register passing for trivially copyable types
+- Same-state assignment avoids the destroy-then-construct path, making it cheaper than cross-state assignment
+- Monadic operations add a function call and state check per operation
+
+See `components/Expected/results/` for current platform-specific benchmark data.
 
 ### Memory Layout
 

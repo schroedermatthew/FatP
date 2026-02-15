@@ -219,7 +219,7 @@ auto result = checked_add_vec_fp_aligned<SaturatingPolicy, double,
 | `checked_div_vec_fp` | Float/Double | Scalar + div-zero check | Batch FP division |
 | `checked_*_vec_fp_aligned` | Float/Double | Scalar + checks | AlignedVector/HpcVector |
 
-**Performance:** Integer SIMD: ~0.5-1 ns per element (vs. 2-5 ns scalar). FP operations include per-element NaN/Inf validation.
+**Performance:** Integer SIMD paths process multiple elements per instruction via packed arithmetic, providing significant throughput over scalar one-at-a-time checking. FP operations include per-element NaN/Inf validation. See `components/CheckedArithmetic/results/` for current platform-specific benchmark data.
 
 ### 3. Floating-Point Anomaly Detection
 

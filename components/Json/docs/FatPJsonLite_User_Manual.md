@@ -85,7 +85,7 @@ FatPJsonLite is not a new JSON parser. It's a **safety and performance layer** o
 | **SmallVector arrays** | Inline storage for small arrays | No heap allocation for ≤8 elements |
 | **FlatMap objects** | Cache-friendly sorted vector | Better iteration performance |
 | **StringPool** | Deduplicate repeated keys | 99%+ memory savings for logs/configs |
-| **Memory-mapped I/O** | OS-level file caching | 1.3x faster for large files |
+| **Memory-mapped I/O** | OS-level file caching | Avoids read() syscall overhead for large files |
 | **Atomic saves** | Write-then-rename pattern | No corrupted files on crash |
 | **Numeric overflow checks** | Detect truncation/overflow | Safe int64→int8 conversions |
 

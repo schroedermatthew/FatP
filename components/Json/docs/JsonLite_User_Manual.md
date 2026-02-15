@@ -2528,7 +2528,7 @@ Before comparing features, it helps to understand where each library comes from 
 | **Error Handling** | Exceptions | Expected<T, E> |
 | **Data Structures** | std::vector/map | SmallVector/FlatMap |
 | **Dependencies** | Zero | fat_p components |
-| **Performance** | Moderate | 2-5x faster |
+| **Performance** | Moderate | Higher (SmallVector/FlatMap reduce allocations, memory-mapped I/O) |
 | **Memory** | Standard | Optimized (30-50% savings) |
 | **Large Files** | Standard I/O | Memory-mapped I/O |
 | **Binary Size** | Smaller | Larger (+20-30%) |
@@ -2686,7 +2686,7 @@ JsonLite is **not** designed for high-frequency or real-time systems:
 - No SIMD acceleration
 
 **Better alternatives:**
-- FatPJsonLite (exception-free, 2-5x faster)
+- FatPJsonLite (exception-free, allocation-optimized via SmallVector/FlatMap)
 - RapidJSON (custom allocators, SAX parsing)
 - FlatBuffers or Protocol Buffers (binary formats)
 
@@ -2945,17 +2945,7 @@ All headers are part of the C++17 standard library.
 
 ### Parsing Throughput
 
-JsonLite achieves **100-200 MB/s** parsing throughput on typical hardware:
-
-**Test system:**
-- CPU: Intel Core i7-8850H @ 2.60GHz
-- RAM: 32 GB
-- OS: Windows 10
-
-**Typical performance:**
-- Small objects (<1KB): ~650 ns per parse
-- Medium objects (1-10KB): ~5-50 us per parse
-- Large objects (>100KB): ~500 us - 5 ms per parse
+JsonLite is a standard-library-only parser without SIMD acceleration or custom allocators. Parsing cost scales with input size, dominated by string allocation and container construction.
 
 This is sufficient for:
 - Configuration files at application startup
@@ -2968,6 +2958,8 @@ This is insufficient for:
 - Real-time systems with tight latency requirements
 - Large data processing (>100MB files)
 - Streaming data ingestion
+
+See `components/Json/results/` for current platform-specific benchmark data.
 
 ### Memory Usage
 

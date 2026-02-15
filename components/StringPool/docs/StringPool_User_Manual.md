@@ -700,13 +700,7 @@ for (const auto& symbol : parse_symbol_table(file)) {
 }
 ```
 
-**Performance impact:**
-
-| Scenario | Time per Insert |
-|----------|-----------------|
-| Bulk insert (no reserve) | ~159 ns |
-| Bulk insert (with reserve) | ~103 ns |
-| **Improvement** | **35% faster** |
+**Performance impact:** Calling `reserve()` before bulk insertion avoids incremental rehashing, reducing per-insert cost. See `components/StringPool/results/` for current benchmark data.
 
 **When to use reserve():**
 - Loading from files or databases
@@ -928,7 +922,7 @@ applications, that overhead is pure waste.
 fat_p::StringPool<> pool;  // Defaults to SingleThreadedPolicy
 
 // Fastest possible operations
-const char* s = pool.intern("key");  // ~11 ns
+const char* s = pool.intern("key");  // Fastest path: no synchronization
 ```
 
 **⚠️ Warning:** Using `SingleThreadedPolicy` from multiple threads is **undefined behavior**. 
@@ -960,12 +954,7 @@ pool.clear();           // Exclusive lock (write)
 pool.reserve(1000);     // Exclusive lock (write)
 ```
 
-**Performance:**
-
-| Operation | SingleThreaded | SharedMutex (uncontended) |
-|-----------|----------------|---------------------------|
-| Intern (hit) | ~11 ns | ~33 ns |
-| Intern (miss) | ~360 ns | ~400 ns |
+**Performance:** SharedMutexPolicy adds reader/writer lock overhead to every operation. Intern hits (read-only path) take a shared lock; intern misses (write path) require an exclusive lock. The overhead relative to SingleThreadedPolicy reflects the cost of lock acquisition, not algorithmic differences. See `components/StringPool/results/` for current platform-specific benchmark data.
 
 ### MutexSynchronizationPolicy
 
@@ -1012,35 +1001,22 @@ with your actual workload.
 | **OS** | 64-bit Linux |
 | **Compiler** | GCC with `-O2 -std=c++17` |
 
-> **Note:** Performance varies with hardware, compiler, and workload. These numbers are 
-> representative but should be validated on your target platform.
+> **Note:** Performance varies with hardware, compiler, and workload. See 
+> `components/StringPool/results/` for current platform-specific benchmark data.
 
 ### Operation Timings
 
 #### Single-Threaded Performance (SingleThreadedPolicy)
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| `intern()` - hit | ~11 ns | String already in pool |
-| `intern()` - miss | ~360 ns | First time seeing a string |
-| `contains()` | ~14 ns | Check existence |
-| `find()` | ~9 ns | Lookup without insert |
+Intern hits are the fastest intern path (hash lookup only, string already in pool). Intern misses are slower (hash lookup + string copy + possible rehash). `find()` and `contains()` are read-only hash lookups with no insert path, making them the cheapest operations.
 
 #### Multi-Threaded Performance (SharedMutexPolicy)
 
-| Operation | Threads | Time | Notes |
-|-----------|---------|------|-------|
-| `intern()` - hit | 1 | ~33 ns | Lock overhead |
-| `intern()` - hit | 4 | ~243 ns/op | Shared lock contention |
-| `intern()` - miss | 4 | ~3,383 ns/op | Exclusive lock contention |
+Lock acquisition adds overhead to every operation. Under contention with multiple threads, shared lock costs increase for hits, and exclusive lock costs increase substantially for misses due to serialization. Contention scaling depends on read/write ratio and thread count. See `components/StringPool/results/` for current platform-specific benchmark data.
 
 #### reserve() Impact
 
-| Scenario | Time per Insert |
-|----------|-----------------|
-| Bulk insert (no reserve) | ~159 ns |
-| Bulk insert (with reserve) | ~103 ns |
-| **Improvement** | **35% faster** |
+Calling `reserve()` before bulk insertion avoids incremental rehashing, reducing per-insert cost.
 
 ### Memory Overhead
 
@@ -1083,7 +1059,7 @@ prefer one over another.
 | **Return type** | `const char*` | Wrapper object | `const char*` | `String` reference |
 | **Statistics** | Built-in | None | Manual | None |
 | **C++20 optimization** | Automatic | Manual | Manual | N/A |
-| **Performance (hit)** | ~11 ns | ~30-50 ns | ~15-20 ns | ~50-100 ns |
+| **Performance (hit)** | Fastest (no sync) | Lock overhead | Manual control | GC overhead |
 | **Memory control** | Full (`clear()`) | Reference counted | Full | GC-managed |
 | **Learning curve** | Simple | Moderate | DIY | Simple |
 
@@ -1604,18 +1580,13 @@ fat_p::StringPool<fat_p::MutexSynchronizationPolicy> pool_b;
 | **O(1) equality** | Pointer comparison instead of strcmp |
 | **Policy-based thread safety** | Zero overhead for single-threaded use |
 | **Built-in statistics** | Monitor effectiveness with hit rate |
-| **reserve()** | 35% faster bulk loading |
+| **reserve()** | Faster bulk loading (avoids incremental rehashing) |
 | **Header-only** | No linking, just `#include` |
 | **Zero dependencies** | Standard library only (+ ConcurrencyPolicies.h) |
 
 ### Performance Profile
 
-| Operation | Time |
-|-----------|------|
-| Intern (hit) | ~11 ns |
-| Intern (miss) | ~360 ns |
-| contains() | ~14 ns |
-| find() | ~9 ns |
+Intern hits are the fastest path (hash lookup, no allocation). Intern misses are slower (hash + string copy). `find()` and `contains()` are read-only lookups. See `components/StringPool/results/` for current benchmark data.
 
 ### Quick Start
 

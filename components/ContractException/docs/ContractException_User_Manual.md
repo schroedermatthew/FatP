@@ -304,8 +304,8 @@ const char* category() const noexcept override
 | Metric | Cost | Notes |
 |--------|------|-------|
 | **Object size** | +8 bytes | One additional vtable pointer for `ContractViolationBase` |
-| **Construction** | ~50 ns | Dominated by `std::string` construction |
-| **Throw time** | ~1-5 us | Same as standard exceptions (dominated by stack unwinding) |
+| **Construction** | String concatenation | Dominated by `std::string` construction for prefix |
+| **Throw time** | Same as standard exceptions | Dominated by stack unwinding |
 | **what() call** | O(1) | Returns pointer to internal string |
 | **category() call** | O(1) | Returns static string literal |
 | **Memory allocation** | 1 heap allocation | For the message string (same as `std::logic_error`) |
@@ -810,37 +810,11 @@ public:
 - Warmup iterations before measurement
 - Results averaged across multiple runs
 
-### Benchmark Results
+### Performance Characteristics
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| **Construction** | | |
-| `std::logic_error` construction | ~24 ns | Baseline |
-| `LogicContractError` construction | ~71 ns | +47 ns for prefix concatenation |
-| `AllocContractError` construction | ~48 ns | Slightly faster (simpler path) |
-| **Throw and Catch** | | |
-| `std::logic_error` throw/catch | ~932 ns | Baseline |
-| `LogicContractError` throw/catch | ~1,033 ns | ~11% overhead |
-| `LogicContractError` catch as base | ~1,067 ns | ~14% overhead |
-| **Method Access** | | |
-| `what()` access | ~2.1 ns | Pointer return |
-| `category()` access | ~0.3 ns | Static string return |
-| `message()` access | ~2.1 ns | Same as what() |
-| **Stream Operator** | | |
-| `operator<<` to ostringstream | ~236 ns | Dominated by stream operations |
-| **Copy vs Move** | | |
-| `AllocContractError` copy | ~20 ns | String copy |
-| `AllocContractError` move | ~41 ns | String move + construction |
+Construction overhead is dominated by string concatenation for the category prefix, not by the dual inheritance model. Throw/catch cost is comparable to standard exceptions (dominated by stack unwinding). Access methods (`what()`, `category()`, `message()`) return pointers to internal storage with negligible overhead. `category()` is the cheapest (returns a static string literal). Copy and move costs are dominated by the internal `std::string` operations. Memory overhead is +8 bytes per exception (one additional vtable pointer for `ContractViolationBase`).
 
-### Interpretation
-
-- **Construction overhead:** ~47 ns additional due to string concatenation for prefix
-- **Throw/catch overhead:** ~11-14% additional (dual vtable, slightly larger object)
-- **Memory overhead:** +8 bytes per exception (one vtable pointer for `ContractViolationBase`)
-- **Access methods:** Negligible overhead (return pointers to internal storage)
-- **category():** Fastest method (~0.3 ns) - returns static string literal
-
-The overhead is dominated by string operations (prefix concatenation), not the dual inheritance model. In practice, exception handling overhead is negligible compared to the stack unwinding cost (~1 us).
+See `components/ContractException/results/` for current platform-specific benchmark data.
 
 ---
 
@@ -1208,11 +1182,11 @@ catch (const fat_p::ContractViolationBase& e) { }
 | Metric | Value |
 |--------|-------|
 | Memory overhead | +8 bytes per exception |
-| Construction overhead | ~47 ns (string concatenation) |
-| Throw/catch overhead | ~11-14% |
-| `what()` / `message()` | O(1), ~2 ns |
-| `category()` | O(1), ~0.3 ns |
-| `operator<<` | ~236 ns (stream dominated) |
+| Construction overhead | Dominated by string concatenation for prefix |
+| Throw/catch overhead | Comparable to `std::logic_error` (stack unwinding dominates) |
+| `what()` / `message()` | O(1), returns pointer to internal storage |
+| `category()` | O(1), returns static string literal |
+| `operator<<` | Dominated by stream operations |
 
 ### Quick Start
 

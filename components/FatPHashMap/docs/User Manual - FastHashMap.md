@@ -682,7 +682,7 @@ You generally don't need to force a backend—the compile-time detection handles
 
 **You need iterator stability.** `std::unordered_map` guarantees iterators survive insertions (unless rehash occurs). FastHashMap makes no such guarantee.
 
-**Miss detection dominates.** If most queries return "not found," `boost::unordered_flat_map` is ~2x faster due to different group layout optimizations.
+**Miss detection dominates.** If most queries return "not found," `boost::unordered_flat_map` is faster due to different group layout optimizations that examine fewer candidates per miss.
 
 **Maximum possible speed with no other constraints.** `absl::flat_hash_map` has more aggressive optimizations from years of Google-scale production tuning. If you can accept the Abseil dependency, it's faster.
 

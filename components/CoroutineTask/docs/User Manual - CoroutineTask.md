@@ -36,7 +36,7 @@ status: "draft"
 **Key API:** `CoroutineTask<T,E>`, `EagerTask<T,E>`, `Generator<T>`, `when_all()`, `when_any()`, `Task<T>`, `VoidTask`
 **std equivalent:** `std::generator` (C++23) for Generator; nothing for Task types
 **Common mistakes:** Awaiting a CoroutineTask twice (UB); forgetting CoroutineTask is lazy; using Generator after coroutine finishes
-**Performance notes:** Frame allocation ~10-20 ns (HALO may elide); resume/suspend ~5-10 ns; Generator yield ~2-5 ns
+**Performance notes:** Frame allocation is a single heap allocation (HALO may elide it entirely); resume/suspend manipulates coroutine handles; Generator yield is a suspend plus value store — the lightest coroutine operation. See `components/CoroutineTask/results/` for current platform-specific benchmark data.
 
 ---
 
@@ -463,7 +463,7 @@ fat_p::CoroutineTask<User, AppError> find_user(int id)
 
 ## Coroutine Frame Allocation and HALO
 
-Each coroutine invocation allocates a coroutine frame on the heap (~10-20 ns). The frame holds local variables, the promise object, and suspension state.
+Each coroutine invocation allocates a coroutine frame on the heap. The frame holds local variables, the promise object, and suspension state.
 
 The compiler can elide this allocation when the coroutine's lifetime is provably bounded by the caller (Heap Allocation eLision Optimization---HALO). GCC and Clang perform HALO at `-O2` and above. To maximize HALO:
 
@@ -479,9 +479,9 @@ If coroutine overhead matters in your hot path, verify with a profiler that the 
 
 | Operation | Cost | Notes |
 |-----------|------|-------|
-| Coroutine frame allocation | ~10-20 ns | Heap; HALO may elide |
-| Resume/suspend | ~5-10 ns | Coroutine handle manipulation |
-| Generator yield | ~2-5 ns | Suspend + store value |
+| Coroutine frame allocation | Single heap allocation | HALO may elide entirely at -O2 |
+| Resume/suspend | Coroutine handle manipulation | No syscall, no lock |
+| Generator yield | Suspend + store value | Lightest coroutine operation |
 | when_all (N tasks) | O(N) * per-task cost | Sequential in current implementation |
 
 ---

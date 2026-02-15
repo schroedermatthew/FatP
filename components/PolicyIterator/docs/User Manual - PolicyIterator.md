@@ -682,7 +682,7 @@ Stride1DPolicy<float> policy(1000, 4);  // 1000 elements, stride 4
 Stride2DPolicy<float> policy(100, 200, 200, 1);  // 100 rows, 200 cols
 ```
 
-These are 3-5x faster than TensorStridePolicy for their specific use cases.
+These avoid the generality overhead of TensorStridePolicy (no rank-generic stride computation), making them significantly faster for their specific use cases. See `components/PolicyIterator/results/` for current platform-specific benchmark data.
 
 ---
 

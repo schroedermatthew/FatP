@@ -181,7 +181,7 @@ The `ActiveIdTracker` uses a specialized design for O(1) amortized performance:
 
 2. **Lazy Max Tracking**: The tracker caches the maximum ID. This cache is only invalidated when the maximum ID is released, triggering a one-time O(N) recomputation on the next `generate()`.
 
-3. **Result**: Sequential generation is O(1) amortized, providing **~3x speedup** over `std::set`-based implementations for typical HPC workloads.
+3. **Result**: Sequential generation is O(1) amortized through bitmap scanning and lazy max tracking, avoiding the O(log N) tree operations of `std::set`-based implementations. See `components/IdGenerator/results/` for current platform-specific benchmark data.
 
 **Trade-off**: Repeatedly releasing the maximum ID degrades to O(N) per generation. See [Performance Characteristics](#performance-characteristics) for details.
 
@@ -888,15 +888,7 @@ std::thread t2([&]() {
 
 ### Performance Trade-offs
 
-Thread safety comes with measurable overhead. Based on benchmarks:
-
-| Operation | Single-Threaded | Thread-Safe | Overhead |
-|-----------|-----------------|-------------|----------|
-| generate() | ~115 ns | ~56-65 ns* | ~-50%** |
-| Batch (100 IDs) | ~4.1 µs | ~4.3 µs | ~5% |
-
-*Lower thread-safe times can occur due to mutex implementation optimizations on Linux.
-**Apparent speedup is a measurement artifact; actual overhead varies by platform.
+Thread safety comes with measurable overhead from mutex acquisition on every operation. Batch generation amortizes this cost across multiple IDs. See `components/IdGenerator/results/` for current platform-specific benchmark data.
 
 **Guidelines for choosing:**
 
@@ -1026,20 +1018,10 @@ catch (const std::exception& e)
 
 ### Benchmark Results
 
-| Operation | Windows (ns) | Linux (ns) | Notes |
-|-----------|--------------|------------|-------|
-| Generate (sequential) | 99 | 115 | Fresh ID, O(1) amortized |
-| Release | 72 | 27 | O(1) hash erase |
-| Generate (recycled) | 85 | 31 | From recycle pool |
-| Generate (thread-safe) | 111 | 56 | Mutex overhead |
-| is_active query | <1* | 6 | O(1) hash lookup |
-| Batch generate (100 IDs) | ~8,500 | ~4,250 | Single lock acquisition |
-| Batch generate (thread-safe, 100 IDs) | ~9,500 | ~4,300 | Single lock for batch |
-
-*Windows `is_active` measurement shows precision warning; actual time likely ~1-10 ns.
+All core operations (generate, release, is_active) are O(1) amortized. Batch generation acquires the lock once for the entire batch, amortizing synchronization cost. Platform differences exist between Windows and Linux mutex implementations. See `components/IdGenerator/results/` for current platform-specific benchmark data.
 
 **Platform Observations:**
-- Windows shows faster generation but slower release/recycling
+- Windows and Linux show different relative costs for generation vs release/recycling
 - Linux mutex implementation appears faster, though environments differ
 - Both platforms achieve O(1) amortized performance
 - Linux benchmarks from sandboxed container; real hardware may differ
@@ -1121,7 +1103,7 @@ For typical HPC workloads (bulk allocation, random access, batch release), the c
 | Recyclable | Yes | No | No | No |
 | Type-safe | Yes (with StrongId) | No | Yes | No |
 | Size (bits) | Configurable | Fixed | 128 | Typically 64 |
-| Performance | ~100 ns | ~10 ns | ~500 ns | ~1 ms |
+| Performance | O(1) amortized | Single atomic increment | Random generation | Network round-trip |
 | Overflow handling | Yes | No | N/A | Database-dependent |
 | Dependencies | None | None | Boost | Database client |
 

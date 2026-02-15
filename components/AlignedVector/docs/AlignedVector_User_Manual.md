@@ -1241,7 +1241,7 @@ for (size_t i = 0; i < 1000; i += 8) {
 }
 ```
 
-The second version is up to 8x faster.
+The second version processes 8 floats per iteration instead of 1, directly leveraging the AVX register width.
 
 ### The assume_aligned Accessor
 
@@ -1422,14 +1422,7 @@ fat_p::AlignedVector<float, 64> copy = floats;
 
 Typical performance on Intel i7-8850H, GCC 11, `-O3 -march=native`:
 
-| Operation | AlignedVector<float, 64> | std::vector<float> |
-|-----------|--------------------------|-------------------|
-| push_back 1000 elements | ~920 ns | ~920 ns |
-| Iterate sum 10000 elements | ~4.5 µs | ~4.5 µs |
-| assume_aligned sum 10000 | ~4.4 µs | N/A |
-| insert at begin (100 elem) | ~950 ns | ~950 ns |
-
-**Key insight:** Raw performance is comparable to `std::vector`. The advantage is guaranteed alignment for SIMD code and explicit alignment communication to the compiler—not faster scalar operations.
+Raw performance is comparable to `std::vector` for scalar operations — `push_back`, iteration, and insertion show equivalent throughput. The advantage is guaranteed alignment for SIMD code and explicit alignment communication to the compiler, not faster scalar operations. See `components/AlignedVector/results/` for current platform-specific benchmark data.
 
 ### Optimization Tips
 

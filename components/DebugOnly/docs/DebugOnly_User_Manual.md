@@ -961,12 +961,7 @@ struct OptimizedStruct
 
 ### Benchmark Results
 
-| Operation | Debug Mode | Release Mode | Release Overhead |
-|-----------|------------|--------------|------------------|
-| Assignment | 8.8 ns | 0.3 ns | ~0 (noise) |
-| Increment | 6.6 ns | 0.15 ns | ~0 (noise) |
-| `if_debug()` | 11.3 ns | 0.3 ns | ~0 (noise) |
-| `value_or()` | 5.5 ns | 0.15 ns | ~0 (noise) |
+In release mode, all `DebugOnly` operations compile to no-ops via `if constexpr` elimination — the optimizer removes them entirely, producing zero measurable overhead. In debug mode, operations execute normally with the cost of the underlying type's operations. See `components/DebugOnly/results/` for current platform-specific benchmark data.
 
 ### Size Characteristics
 

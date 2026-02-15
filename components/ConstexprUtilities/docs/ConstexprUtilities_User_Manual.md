@@ -693,7 +693,7 @@ constexpr int bits_for_n(unsigned n)
 
 ### Bit Operations
 
-Portable implementations of common bit manipulation operations. Uses compiler intrinsics (`__builtin_popcount`, etc.) on GCC/Clang for 10-50x faster execution while maintaining `constexpr` compatibility.
+Portable implementations of common bit manipulation operations. Uses compiler intrinsics (`__builtin_popcount`, etc.) on GCC/Clang for single-instruction execution while maintaining `constexpr` compatibility.
 
 ```cpp
 template <typename T>

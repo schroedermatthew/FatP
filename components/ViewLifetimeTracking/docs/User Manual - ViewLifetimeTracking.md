@@ -36,7 +36,7 @@ status: "draft"
 **Key API:** `LifetimeTracker<T>`, `TrackedView`, `ViewGuard`, `FATP_TRACKED_VIEW()`, `FATP_VIEW_GUARD()`, `check_weak_ptr()`
 **std equivalent:** None
 **Common mistakes:** Using TrackedView in release builds expecting overhead (it is a no-op); forgetting that LifetimeTracker is move-only; creating views after tracker is destroyed
-**Performance notes:** Debug: one shared_ptr check per view access (~5-20 ns). Release: zero overhead (compiled away).
+**Performance notes:** Debug: one shared_ptr validity check per view access. Release: zero overhead (compiled away).
 
 ---
 
@@ -194,7 +194,7 @@ auto& ref = fat_p::check_weak_ptr(wp, "shared_resource");
 | ViewGuard | Checks at construction/destruction | No-op |
 | FATP_TRACKED_VIEW | Creates tracker | Passes object through |
 | FATP_VIEW_GUARD | Creates guard | No-op |
-| Overhead | ~5-20 ns per access (shared_ptr check) | Zero |
+| Overhead | shared_ptr validity check per access | Zero |
 
 The entire tracking system is compiled away in release. No `shared_ptr`, no atomic operations, no branches.
 
@@ -245,7 +245,7 @@ If a view persists across function boundaries or is stored in a container, check
 
 ### Do Not Use in Performance-Critical Loops in Debug
 
-The shared_ptr check adds ~5-20 ns per access. In tight loops (millions of iterations), this can dominate debug-mode runtime. Move the `check_valid()` call outside the loop.
+The shared_ptr validity check adds overhead on every access. In tight loops (millions of iterations), this can dominate debug-mode runtime. Move the `check_valid()` call outside the loop.
 
 ---
 

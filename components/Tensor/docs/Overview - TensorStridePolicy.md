@@ -22,7 +22,7 @@ status: "reviewed"
 **Component:** TensorStridePolicy  
 **Problem solved:** Iterates N-dimensional tensors with arbitrary memory layouts (padded, strided, transposed) through a single iterator interface  
 **When to use:** Multi-dimensional arrays with non-trivial layouts; GPU textures with pitch; submatrix views; transposed traversal without copying  
-**When NOT to use:** Simple contiguous 1D/2D arrays where manual loops suffice; hot paths where 2-3x overhead is unacceptable  
+**When NOT to use:** Simple contiguous 1D/2D arrays where manual loops suffice; hot paths where rank-generic overhead is unacceptable  
 **Key guarantee:** Correct element visitation regardless of memory layout; O(1) amortized advance  
 **Alternatives:** Manual nested loops, NumPy-style strided iteration, Eigen tensor module  
 **Read next:** User Manual - TensorStridePolicy, Companion Guide - TensorStridePolicy
@@ -99,15 +99,15 @@ for (auto it = begin(data, policy); it != end(data, policy); ++it) {
 ```mermaid
 flowchart TB
     subgraph Tier1["Tier 1: Full Generality"]
-        T1["TensorStridePolicy<br/>Any N-D, any layout<br/>~2-3x overhead"]
+        T1["TensorStridePolicy<br/>Any N-D, any layout<br/>Rank-generic overhead"]
     end
     
     subgraph Tier2["Tier 2: 2D Optimized"]
-        T2["Stride2DPolicy<br/>2D row-major, pitched<br/>~1.1x overhead"]
+        T2["Stride2DPolicy<br/>2D row-major, pitched<br/>Minimal overhead"]
     end
     
     subgraph Tier3["Tier 3: 1D Optimized"]
-        T3["Stride1DPolicy<br/>1D strided<br/>~1.0x overhead"]
+        T3["Stride1DPolicy<br/>1D strided<br/>Near-zero overhead"]
     end
     
     T1 --> T2 --> T3
@@ -115,19 +115,15 @@ flowchart TB
 
 | Tier | Policy | Overhead | Use Case |
 |------|--------|----------|----------|
-| 1 | TensorStridePolicy | 1.7-3.1x | N-D, complex layouts |
-| 2 | Stride2DPolicy | ~1.1x | 2D row-major, GPU textures |
-| 3 | Stride1DPolicy | ~1.0x | Column extraction, strided 1D |
+| 1 | TensorStridePolicy | Highest (rank-generic odometer logic) | N-D, complex layouts |
+| 2 | Stride2DPolicy | Low (fixed 2D arithmetic) | 2D row-major, GPU textures |
+| 3 | Stride1DPolicy | Near-zero (single multiply-add) | Column extraction, strided 1D |
 
 ---
 
 ## Performance
 
-| Operation | Manual Loop | Stride1DPolicy | Stride2DPolicy | TensorStridePolicy |
-|-----------|-------------|----------------|----------------|-------------------|
-| 1D stride-4 | 0.23 ms | 0.23 ms | — | 0.39 ms |
-| 2D 1000×1000 | 0.89 ms | — | 0.98 ms | 1.78 ms |
-| 3D 100×100×100 | 0.91 ms | — | — | 2.82 ms |
+TensorStridePolicy's overhead comes from rank-generic odometer logic (carry propagation across dimensions). Stride2DPolicy eliminates this with fixed two-index arithmetic. Stride1DPolicy reduces to a single multiply-add per step. Manual loops avoid all policy overhead but lose the abstraction. See `components/Tensor/results/` for current platform-specific benchmark data.
 
 ---
 
@@ -141,7 +137,7 @@ flowchart TB
 ## Where TensorStridePolicy Loses
 
 - **Simple contiguous arrays** — Manual loops are faster and clearer
-- **Hot inner loops** — 2-3x overhead may be unacceptable
+- **Hot inner loops** — Rank-generic overhead may be unacceptable; use Stride1D/2DPolicy or manual loops
 - **SIMD vectorization** — Odometer logic inhibits auto-vectorization
 
 ---

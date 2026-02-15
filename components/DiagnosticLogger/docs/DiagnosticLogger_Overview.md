@@ -235,11 +235,13 @@ DiagnosticLogger provides a complete logging solution permanently, without waiti
 
 | Scenario | Cost | Notes |
 |----------|------|-------|
-| Disabled level | 0 ns | Compiled out via `if constexpr` |
-| Enabled level (no formatting) | ~5-10 ns | Level check + sink dispatch |
-| Enabled level (formatting) | ~50-200 ns | String formatting dominates |
-| JSON formatting | ~100-500 ns | Field serialization |
-| File write | ~1-10 μs | I/O dominates |
+| Disabled level | Zero | Compiled out via `if constexpr` |
+| Enabled level (no formatting) | Level check + sink dispatch | Minimal overhead path |
+| Enabled level (formatting) | String formatting dominates | Cost scales with message complexity |
+| JSON formatting | Field serialization | Heavier than plain text |
+| File write | I/O dominates | Sink-dependent latency |
+
+See `components/DiagnosticLogger/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 - Hot paths needing trace logging in debug only

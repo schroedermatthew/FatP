@@ -122,10 +122,7 @@ StringPool<MutexSynchronizationPolicy> mutex_pool;
 
 **Mechanism:** `ConcurrencyPolicy::lock()` returns a lock guard. For `SingleThreadedPolicy`, this is an empty struct—the compiler eliminates it entirely.
 
-**Measured overhead:**
-- SingleThreadedPolicy: ~100 ns per intern
-- SharedMutexPolicy: ~150 ns per intern
-- MutexPolicy: ~180 ns per intern
+**Measured overhead:** SingleThreadedPolicy has the lowest overhead (no synchronization). SharedMutexPolicy adds reader/writer lock acquisition. MutexPolicy adds exclusive lock acquisition on every operation. See `components/StringPool/results/` for current platform-specific benchmark data.
 
 ### 3. C++20 Heterogeneous Lookup (Zero-Allocation Find)
 
@@ -214,14 +211,9 @@ Compilers, JSON parsers, and game engines have implemented string pools for deca
 
 ## Performance Characteristics
 
-### Benchmark Results (Release Build, i7-8850H @ 2.60GHz)
+### Performance Characteristics
 
-| Operation | SingleThreaded | SharedMutex | Mechanism |
-|-----------|---------------|-------------|-----------|
-| `intern()` (hit) | ~26 ns | ~150 ns | Hash lookup only |
-| `intern()` (miss) | ~100 ns | ~180 ns | Hash + string copy |
-| `find()` | ~20 ns | ~40 ns | Hash lookup, no modification |
-| `contains()` | ~20 ns | ~40 ns | Hash lookup |
+Intern hits are fast (hash lookup only, no allocation). Intern misses are slower (hash + string copy into the pool). `find()` and `contains()` are the cheapest operations (read-only hash lookup, no modification path). SharedMutexPolicy adds lock overhead on every operation, with contention scaling under multiple threads. See `components/StringPool/results/` for current platform-specific benchmark data.
 
 ### Memory Savings Examples
 

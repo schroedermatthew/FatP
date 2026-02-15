@@ -189,7 +189,7 @@ flowchart TD
 
 **Named registry (Level 2).** Keyed by a `ServiceKey` containing both the type identifier and a `std::string` name. The hash combines the type pointer hash with a string hash via `FNV-1a`. Lookup is slower due to string hashing and composite key construction.
 
-The 7-9x gap between unnamed and named resolution is fundamental: string hashing touches every character, while the unnamed path hashes a single pointer. Use unnamed services for the common case; use named services only when you need multiple implementations of the same interface.
+Named resolution is significantly slower than unnamed because string hashing touches every character, while the unnamed path hashes a single pointer. Use unnamed services for the common case; use named services only when you need multiple implementations of the same interface. See `components/ServiceLocator/results/` for current platform-specific benchmark data.
 
 ---
 
