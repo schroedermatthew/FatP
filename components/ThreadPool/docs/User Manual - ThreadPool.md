@@ -127,11 +127,11 @@ For comparison:
 | L1 cache hit | 1 ns | 4 |
 | L2 cache hit | 4 ns | 16 |
 | Mutex lock (uncontended) | 15-25 ns | 60-100 |
-| ThreadPool submit | 100-200 ns | 400-800 |
+| ThreadPool submit | heap allocation + mutex + notify | dominant cost: `shared_ptr<packaged_task>` allocation |
 | Thread creation (Linux) | 2,500-12,500 ns | 10,000-50,000 |
 | Thread creation (Windows) | 5,000-50,000 ns | 20,000-200,000 |
 
-A single thread creation costs **12-125x** more than a pool submission.
+Thread creation costs orders of magnitude more than a pool submission because it requires kernel transitions, stack allocation, and TLB invalidation. See `components/ThreadPool/results/` for current platform-specific submission cost measurements.
 
 ### The Context Switch Problem
 
@@ -404,7 +404,7 @@ Understanding the submission path helps diagnose performance issues. Here's what
 
 6. **Notification.** A single `notify_one()` on the global condition variable wakes one sleeping worker.
 
-The dominant cost is step 2: heap-allocating the `shared_ptr<packaged_task>`. This is why submission costs ~100-200 ns rather than just the mutex lock time (~25 ns).
+The dominant cost is step 2: heap-allocating the `shared_ptr<packaged_task>`. Submission cost is dominated by this allocation rather than the uncontended mutex lock. See `components/ThreadPool/results/` for current platform-specific measurements.
 
 ### submit_priority(): When Order Matters
 
@@ -1976,7 +1976,7 @@ auto f = pool.submit([]() { return GoodType{}; });  // OK
 
 **Symptom:** Work completes no faster than single-threaded despite multiple workers.
 
-**Cause 1:** Tasks too short. If each task takes 10 ns but submission costs 2,500 ns, overhead dominates. Batch elements into chunks of 1,000-10,000.
+**Cause 1:** Tasks too short. If each task's useful work is shorter than the submission overhead (heap allocation + queue insertion + notification), overhead dominates. Batch elements into chunks of 1,000-10,000.
 
 **Cause 2:** Tasks block on a shared resource. If every task acquires the same mutex, execution is effectively serial regardless of worker count. Add timing instrumentation to identify the bottleneck.
 

@@ -290,14 +290,26 @@ jobs:
           if [ -n "$LLVM_INC" ] && [ -d "$LLVM_INC/llvm" ]; then
             echo "Copying from $LLVM_INC/llvm ..."
             cp -r "$LLVM_INC/llvm" $HOME/thirdparty-compiled/llvm/include/
-            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           elif [ -d /usr/include/llvm ]; then
             echo "Copying from /usr/include/llvm ..."
             cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
-            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           else
             echo "WARNING: Could not find LLVM headers"
           fi
+
+          # LLVM headers cross-reference llvm-c/ (e.g. llvm/Support/DataTypes.h
+          # includes llvm-c/DataTypes.h).  On Ubuntu 24.04, llvm-c headers live
+          # in /usr/include/llvm-c-NN/llvm-c/.
+          LLVM_C_INC=$(find /usr/include -maxdepth 1 -type d -name "llvm-c-[0-9]*" 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LLVM_C_INC" ] && [ -d "$LLVM_C_INC/llvm-c" ]; then
+            echo "Copying from $LLVM_C_INC/llvm-c ..."
+            cp -r "$LLVM_C_INC/llvm-c" $HOME/thirdparty-compiled/llvm/include/
+          elif [ -d /usr/include/llvm-c ]; then
+            echo "Copying from /usr/include/llvm-c ..."
+            cp -r /usr/include/llvm-c $HOME/thirdparty-compiled/llvm/include/
+          fi
+
+          echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
 
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
@@ -486,14 +498,26 @@ jobs:
           if [ -n "$LLVM_INC" ] && [ -d "$LLVM_INC/llvm" ]; then
             echo "Copying from $LLVM_INC/llvm ..."
             cp -r "$LLVM_INC/llvm" $HOME/thirdparty-compiled/llvm/include/
-            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           elif [ -d /usr/include/llvm ]; then
             echo "Copying from /usr/include/llvm ..."
             cp -r /usr/include/llvm $HOME/thirdparty-compiled/llvm/include/
-            echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
           else
             echo "WARNING: Could not find LLVM headers"
           fi
+
+          # LLVM headers cross-reference llvm-c/ (e.g. llvm/Support/DataTypes.h
+          # includes llvm-c/DataTypes.h).  On Ubuntu 24.04, llvm-c headers live
+          # in /usr/include/llvm-c-NN/llvm-c/.
+          LLVM_C_INC=$(find /usr/include -maxdepth 1 -type d -name "llvm-c-[0-9]*" 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LLVM_C_INC" ] && [ -d "$LLVM_C_INC/llvm-c" ]; then
+            echo "Copying from $LLVM_C_INC/llvm-c ..."
+            cp -r "$LLVM_C_INC/llvm-c" $HOME/thirdparty-compiled/llvm/include/
+          elif [ -d /usr/include/llvm-c ]; then
+            echo "Copying from /usr/include/llvm-c ..."
+            cp -r /usr/include/llvm-c $HOME/thirdparty-compiled/llvm/include/
+          fi
+
+          echo "Headers copied: $(find $HOME/thirdparty-compiled/llvm/include -name '*.h' | wc -l)"
 
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
