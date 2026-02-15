@@ -280,6 +280,7 @@ jobs:
                 -DCMAKE_CXX_COMPILER=g++-14 \
                 -DBOOST_LINK_STATIC=ON \
                 -DCMAKE_CXX_FLAGS="-march=native" \
+                -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -march=native" \
                 -DCMAKE_PREFIX_PATH="$HOME/thirdparty-compiled/boost;/usr/local" \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
@@ -491,6 +492,7 @@ jobs:
                 -DCMAKE_CXX_COMPILER=clang++-17 \
                 -DBOOST_LINK_STATIC=ON \
                 -DCMAKE_CXX_FLAGS="-march=native" \
+                -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -march=native" \
                 -DCMAKE_PREFIX_PATH="$HOME/thirdparty-compiled/boost;/usr/local" \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
