@@ -1,11 +1,43 @@
-# IdGenerator User Manual
+---
+doc_id: UM-IDGENERATOR-001
+doc_type: "User Manual"
+title: "IdGenerator"
+fatp_components: ["IdGenerator"]
+topics: ["unique ID generation", "thread-safe IDs", "ID policies", "sequential IDs", "recycling IDs", "overflow handling", "type-safe IDs", "StrongId integration"]
+constraints: ["ID uniqueness under concurrency", "ID space exhaustion", "recycled ID ABA problem", "atomic counter overhead"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Library:** C++ Utilities Library (fat_p)  
-**Standard:** C++17  
-**Type:** Header-only
+# User Manual - IdGenerator
+
+**Scope:** Complete usage guide for `fat_p::IdGenerator`: policy-based ID generation (sequential, recycling, thread-safe), overflow handling, type-safe ID wrappers via StrongId integration, and performance characteristics.
+
+**Not covered:**
+- Distributed ID generation (UUIDs, Snowflake IDs)
+- Database-assigned IDs
+- Cryptographic random IDs
+
+**Prerequisites:** C++20; understanding of unique identifier requirements in systems programming; awareness of thread safety concerns with shared counters
 
 ---
 
+## User Manual Card
+
+**Component:** IdGenerator
+**Primary use case:** Generate unique identifiers with configurable policies for threading, overflow, and recycling
+**Integration pattern:** Create `IdGenerator<Policy>`, call `.next()` to get IDs; use with `StrongId` for type-safe handles; configure thread safety policy based on usage context
+**Key API:** `IdGenerator<Policy>`, `.next()`, `.recycle(id)`, `.reset()`, `SequentialPolicy`, `RecyclingPolicy`, `ThreadSafePolicy`
+**std equivalent:** None
+**Common mistakes:** Using SequentialPolicy in multi-threaded code; ignoring overflow errors from `.next()`; recycling IDs that are still in use (ABA problem)
+**Performance notes:** Sequential generation is a single increment. Thread-safe generation is an atomic increment. Recycling policy adds a free-list lookup. See `components/IdGenerator/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is IdGenerator?](#what-is-idgenerator)

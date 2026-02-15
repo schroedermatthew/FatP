@@ -1,5 +1,43 @@
-# Signal User Manual
+---
+doc_id: UM-SIGNAL-001
+doc_type: "User Manual"
+title: "Signal"
+fatp_components: ["Signal"]
+topics: ["observer pattern", "signal slot", "event system", "reentrancy safety", "connection management", "RAII disconnect", "thread-safe signals", "priority ordering", "return value collection", "short-circuit emission"]
+constraints: ["reentrancy during emission", "connection invalidation during iteration", "thread safety of connect/disconnect/emit", "slot lifetime management"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Signals2"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - Signal
+
+**Scope:** Complete usage guide for `fat_p::Signal<Signature>`: connection management (ScopedConnection, manual), member function connections, priority ordering, emission (basic, return value collection, short-circuit), exception handling policies, thread safety policies, reentrancy guarantees, and migration from Boost.Signals2.
+
+**Not covered:**
+- Callback factory pattern (see Factory User Manual)
+- Thread pool task submission (see ThreadPool)
+- Coroutine-based event handling (see CoroutineTask)
+
+**Prerequisites:** C++20; understanding of the observer pattern; familiarity with `std::function` and callable objects
+
+---
+
+## User Manual Card
+
+**Component:** Signal
+**Primary use case:** Implement the observer pattern with type-safe signals, RAII connection management, and configurable thread safety
+**Integration pattern:** Declare `Signal<void(int)> onEvent;` in your class, let observers `connect()` callables, emit with `onEvent.emit(42)` or `onEvent(42)`. Connections auto-disconnect via `ScopedConnection` RAII.
+**Key API:** `Signal<Sig>`, `.connect()`, `.emit()`, `ScopedConnection`, `.disconnect()`, `.block()`, `.unblock()`, `ThreadSafeSignal<Sig>`, `SpinlockSignal<Sig>`
+**std equivalent:** None
+**Common mistakes:** Discarding the `Connection` return value (needed for disconnect); connecting member functions without ensuring object lifetime; modifying the signal's slot list from within a slot callback (reentrancy - handled, but understand the semantics)
+**Performance notes:** Small-object optimization avoids heap allocation for small slot counts. Emission is O(N) over connected slots. See `components/Signal/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Signal and Why Do You Need It?](#what-is-signal-and-why-do-you-need-it)

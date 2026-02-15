@@ -21,6 +21,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for Fat-P concept definitions: core concepts, container concepts, iterator concepts, callable concepts, and FatPConcepts integration utilities.
+
+**Not covered:**
+- C++20 standard library concepts tutorial (assumes familiarity)
+- Concept-based overload resolution internals
+- Writing custom concepts from scratch
+
+**Prerequisites:** C++20; understanding of C++20 concepts and `requires` clauses; familiarity with `<concepts>` header
+
+---
+
+## User Manual Card
+
+**Component:** Concepts
+**Primary use case:** Constrain template parameters with descriptive, composable concepts that provide clear error messages at the call site
+**Integration pattern:** Use `requires fat_p::Hashable<T>` or `template<fat_p::Stringifiable T>` to constrain templates with Fat-P concepts
+**Key API:** Core concepts (`Hashable`, `Stringifiable`, `Printable`), container concepts (`Iterable`, `Reservable`), iterator concepts, callable concepts
+**std equivalent:** None
+**Common mistakes:** Over-constraining templates with multiple concepts when one suffices; using SFINAE where a concept would be clearer; defining project-local concepts that duplicate Fat-P concepts
+**Performance notes:** Concepts are compile-time only with zero runtime cost
+
+---
 ## Table of Contents
 
 1. [The Type Constraint Story](#the-type-constraint-story)

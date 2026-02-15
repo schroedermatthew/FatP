@@ -16,6 +16,30 @@ status: "reviewed"
 
 *Updated December 2025*
 
+
+
+**Scope:** Complete usage guide for `fat_p::StableHashMap<K, V>`: pointer-stable open-addressing hash map with node indirection, insertion, lookup, erasure, iteration, freeze/unfreeze, and comparison with alternatives.
+
+**Not covered:**
+- SIMD-accelerated hash map without stability (see FastHashMap)
+- Concurrent hash maps
+- Hash function design
+
+**Prerequisites:** C++20; understanding of hash table basics; awareness of pointer stability requirements (references remain valid across insert/erase)
+
+---
+
+## User Manual Card
+
+**Component:** StableHashMap
+**Primary use case:** Hash map where pointers and references to values remain valid across insertions and erasures
+**Integration pattern:** Use where code holds `Value*` or `Value&` that must survive mutations; use `freeze()` for read-only mode with better cache locality
+**Key API:** `StableHashMap<K, V>`, `.insert()`, `.find()`, `.erase()`, `.insertOrAssign()`, `.freeze()`, `.unfreeze()`, `.operator[]()`, `.contains()`
+**std equivalent:** None
+**Common mistakes:** Using StableHashMap when pointer stability isn't needed (FastHashMap is faster); forgetting to unfreeze before mutation; assuming frozen mode is thread-safe (it's not; use ConcurrencyPolicies)
+**Performance notes:** Node indirection adds one pointer dereference per access vs FastHashMap. Freeze mode enables dense iteration. See `components/FatPHashMap/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Hash Table Story](#the-hash-table-story)

@@ -20,6 +20,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::StateMachine`: compile-time state machine definition, transition tables, entry/exit hooks, guard conditions, compile-time validation, and policy-based error handling.
+
+**Not covered:**
+- Hierarchical state machines (HSM)
+- UML state chart semantics beyond basic FSM
+- Coroutine-based state machines
+
+**Prerequisites:** C++20; understanding of finite state machines (states, transitions, events); familiarity with template metaprogramming concepts
+
+---
+
+## User Manual Card
+
+**Component:** StateMachine
+**Primary use case:** Define type-safe finite state machines with compile-time validated transitions, entry/exit hooks, and zero-overhead dispatch
+**Integration pattern:** Define states as types, define a transition table, construct `StateMachine<States, Transitions>`, process events with `.process(event)`
+**Key API:** `StateMachine<States..., TransitionTable>`, `.process()`, `.currentState()`, `.is<State>()`, entry/exit hooks, guard functions
+**std equivalent:** None
+**Common mistakes:** Defining transitions to states not in the state list (compile error); forgetting entry/exit hooks when state requires initialization/cleanup; using exceptions in noexcept-policy state machines
+**Performance notes:** State dispatch is a compile-time index lookup. Transition validation is entirely at compile time. See `components/StateMachine/results/` for current data
+
+---
 ## The Finite State Machine Story
 
 In 1961, an engineer at Bell Labs was debugging a telephone switching system. The system tracked whether each line was idle, ringing, connected, or on hold. Different events meant different things depending on the line's current condition: a hangup during a call meant disconnect, but a hangup while ringing meant the caller gave up. The engineer drew a diagram on the whiteboard—circles for conditions, arrows for events, labels for what happened on each transition.

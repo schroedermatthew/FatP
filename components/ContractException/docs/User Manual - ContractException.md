@@ -1,11 +1,44 @@
-# ContractException User Manual
+---
+doc_id: UM-CONTRACTEXCEPTION-001
+doc_type: "User Manual"
+title: "ContractException"
+fatp_components: ["ContractException"]
+topics: ["contract violation", "exception hierarchy", "dual inheritance", "precondition failure", "postcondition failure", "invariant violation", "exception categories", "enforce integration", "custom raisers"]
+constraints: ["exception specification propagation", "catch hierarchy ordering", "noexcept boundary interaction", "dual inheritance diamond avoidance"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Exception (different model)"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Library:** fat_p C++ Utilities  
-**Standard:** C++17  
-**Type:** Header-only
+# User Manual - ContractException
+
+**Scope:** Complete usage guide for `fat_p::ContractViolationError` and the contract exception hierarchy: the dual inheritance model, pre-defined exception types (Precondition, Postcondition, Invariant, Range, Null, Alloc), integration with the Enforce macro system, custom raiser classes, and catch hierarchy patterns.
+
+**Not covered:**
+- Enforce macro system in detail (see Enforce User Manual)
+- Expected-based error handling (see Expected User Manual)
+- Exception safety guarantees of other components
+- C++26 contracts proposal
+
+**Prerequisites:** C++20; understanding of C++ exception handling (`try`/`catch`/`throw`); awareness of `std::logic_error` vs `std::runtime_error` distinction
 
 ---
 
+## User Manual Card
+
+**Component:** ContractException
+**Primary use case:** Throw semantically rich contract violation exceptions that can be caught by both standard type and contract category
+**Integration pattern:** Use via Enforce macros (`FATP_ENFORCE_PRE`, `FATP_ENFORCE_POST`) which select the appropriate ContractException automatically; catch by `ContractViolationBase&` or by `std::logic_error&`/`std::runtime_error&`
+**Key API:** `ContractViolationError<Base, Category>`, `PreconditionViolation`, `PostconditionViolation`, `InvariantViolation`, `RangeViolation`, `NullViolation`, `AllocContractError`
+**std equivalent:** None
+**Common mistakes:** Catching by value instead of reference; ordering catch blocks incorrectly (specific before general); throwing ContractException directly instead of using Enforce macros
+**Performance notes:** Zero overhead on the non-throwing path. Exception construction captures source location and formats a diagnostic message. See `components/ContractException/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is ContractException?](#what-is-contractexception)

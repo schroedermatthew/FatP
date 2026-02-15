@@ -20,6 +20,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::CircularBuffer<T, N>`: fixed-capacity ring buffer, push/pop operations, random access, iteration, full/empty detection, and overwrite-on-full behavior.
+
+**Not covered:**
+- Dynamically-sized ring buffers
+- Lock-free ring buffers (see LockFreeContainers)
+- Concurrent producer/consumer queues (see WorkQueue)
+
+**Prerequisites:** C++20; understanding of ring buffer concepts (circular indexing, head/tail pointers)
+
+---
+
+## User Manual Card
+
+**Component:** CircularBuffer
+**Primary use case:** Fixed-capacity FIFO buffer that overwrites oldest entries when full, with O(1) push/pop and random access
+**Integration pattern:** Construct `CircularBuffer<T, N>`, push elements, access by index or iterate, oldest elements are overwritten when capacity is reached
+**Key API:** `CircularBuffer<T, N>`, `.push_back()`, `.pop_front()`, `.front()`, `.back()`, `.operator[]()`, `.full()`, `.empty()`, `.size()`
+**std equivalent:** None
+**Common mistakes:** Assuming push_back fails when full (it overwrites); holding references across push operations (invalidated); using CircularBuffer for unbounded queues (use WorkQueue instead)
+**Performance notes:** All operations are O(1). Contiguous storage enables cache-friendly iteration. See `components/CircularBuffer/results/` for current data
+
+---
 ## Table of Contents
 
 1. [Getting Started](#getting-started)

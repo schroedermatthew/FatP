@@ -1,5 +1,44 @@
-# JsonLite User Manual
+---
+doc_id: UM-JSONLITE-001
+doc_type: "User Manual"
+title: "JsonLite"
+fatp_components: ["JsonLite"]
+topics: ["JSON parsing", "JSON serialization", "JSON deserialization", "variant-based JSON", "type macros", "stream parsing", "JSON builder", "numeric safety", "container serialization"]
+constraints: ["variant storage overhead", "parse error reporting", "numeric precision in JSON", "macro-based type registration"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.JSON (different model)"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - JsonLite
+
+**Scope:** Complete usage guide for `fat_p::json::JsonValue`: the variant-based type system, serialization (C++ to JSON) and deserialization (JSON to C++), the macro system (DEFINE_TYPE_NON_INTRUSIVE, DEFINE_TYPE_OPTIONAL, DEFINE_TYPE_INTRUSIVE), stream parsing, numeric safety, container support, and JSON Pointer navigation.
+
+**Not covered:**
+- Expected-based JSON API (see FatPJsonLite User Manual)
+- Binary serialization (see BinarySerialization)
+- CBOR serialization (see Cbor User Manual)
+- JSON Schema validation
+
+**Prerequisites:** C++20; familiarity with JSON format; understanding of `std::variant`
+
+---
+
+## User Manual Card
+
+**Component:** JsonLite
+**Primary use case:** Parse, build, serialize, and deserialize JSON data with type-safe macros for struct mapping
+**Integration pattern:** Define structs with `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE`, serialize with `to_json(obj)`, deserialize with `from_json<T>(json_value)`
+**Key API:** `JsonValue`, `to_json()`, `from_json<T>()`, `parseJson()`, `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE`, `FATP_JSON_DEFINE_TYPE_OPTIONAL`, `JsonPointer`
+**std equivalent:** None
+**Common mistakes:** Using throwing `from_json` without try/catch (use FatPJsonLite for Expected-based API); forgetting macro registration for nested types; assuming JSON numbers map to specific C++ types (JSON has one number type)
+**Performance notes:** Single-pass parser. Variant storage uses the size of the largest JSON type. See `components/Json/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is JSON and Why JsonLite?](#what-is-json-and-why-jsonlite)

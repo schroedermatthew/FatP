@@ -1,5 +1,44 @@
-# ScopeGuard User Manual
+---
+doc_id: UM-SCOPEGUARD-001
+doc_type: "User Manual"
+title: "ScopeGuard"
+fatp_components: ["ScopeGuard"]
+topics: ["RAII cleanup", "scope exit", "scope fail", "scope success", "exception-aware guards", "transaction pattern", "resource management", "undo actions", "policy-based exception handling"]
+constraints: ["exception safety of cleanup actions", "noexcept interaction", "guard dismissal correctness", "nested guard ordering"]
+cxx_standard: "C++20"
+std_equivalent: "std::experimental::scope_exit"
+std_since: "TS (Library Fundamentals v3)"
+boost_equivalent: "Boost.ScopeExit"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - ScopeGuard
+
+**Scope:** Complete usage guide for `fat_p::ScopeGuard`: core RAII guard, factory functions (`makeScopeGuard`, `makeScopeExit`), macros (`SCOPE_EXIT`, `SCOPE_FAIL`, `SCOPE_SUCCESS`), exception policies (Nothrow, Terminate, LogAndSwallow, Rethrow), transaction patterns, Expected integration, and nested guard behavior.
+
+**Not covered:**
+- ValueGuard (save-modify-restore pattern; see ValueGuard User Manual)
+- General RAII wrapper design
+- Expected monadic error handling (see Expected User Manual)
+
+**Prerequisites:** C++20; understanding of RAII and destructor-based cleanup; awareness that cleanup actions may throw and this interacts with stack unwinding
+
+---
+
+## User Manual Card
+
+**Component:** ScopeGuard
+**Primary use case:** Execute cleanup or rollback actions automatically when a scope exits, with configurable exception handling policy
+**Integration pattern:** Place `auto guard = makeScopeGuard([&]{ cleanup(); });` at the point of acquisition; use `SCOPE_FAIL` for rollback-on-exception patterns; call `guard.dismiss()` on successful commit
+**Key API:** `ScopeGuard<F, Policy>`, `makeScopeGuard()`, `makeScopeExit()`, `SCOPE_EXIT`, `SCOPE_FAIL`, `SCOPE_SUCCESS`, `.dismiss()`
+**std equivalent:** std::experimental::scope_exit (TS (Library Fundamentals v3))
+**Common mistakes:** Forgetting to dismiss guards on success in transaction patterns; putting throwing code in Nothrow-policy guards; capturing references to locals that go out of scope before the guard fires
+**Performance notes:** Zero overhead for the guard itself (one bool + function pointer). Policy dispatch is compile-time. See `components/ScopeGuard/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is ScopeGuard?](#what-is-scopeguard)

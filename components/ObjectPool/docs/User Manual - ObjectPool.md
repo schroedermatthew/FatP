@@ -20,6 +20,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::ObjectPool<T>`: pre-allocated object recycling, acquire/release semantics, RAII handles, growth policies, thread safety policies, statistics, and integration patterns.
+
+**Not covered:**
+- General-purpose allocators (see AllocationStrategies)
+- NUMA-aware allocation (see NumaAllocator)
+- Memory-mapped allocation (see MemoryMappedFile)
+
+**Prerequisites:** C++20; understanding of allocation overhead in hot paths; awareness of object reuse patterns
+
+---
+
+## User Manual Card
+
+**Component:** ObjectPool
+**Primary use case:** Pre-allocate and recycle objects to eliminate allocation overhead in hot paths
+**Integration pattern:** Create `ObjectPool<T>(initialSize)`, acquire objects with `pool.acquire()` returning an RAII handle, objects automatically return to pool when handle is destroyed
+**Key API:** `ObjectPool<T>`, `.acquire()`, `.release()`, `PoolHandle<T>`, `.capacity()`, `.available()`, `.stats()`
+**std equivalent:** None
+**Common mistakes:** Holding pool handles beyond pool lifetime; using ObjectPool for types with expensive construction (pool reuses memory, not initialized state); ignoring growth policy configuration
+**Performance notes:** Acquire is O(1) from free list. No system allocator calls after initial allocation. See `components/ObjectPool/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Memory Pooling Story](#the-memory-pooling-story)

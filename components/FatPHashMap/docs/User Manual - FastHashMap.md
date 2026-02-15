@@ -16,6 +16,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::FastHashMap<K, V>`: SIMD-accelerated open-addressing hash map, insertion, lookup, erasure, iteration, load factor management, and comparison with alternatives.
+
+**Not covered:**
+- Pointer-stable hash map (see StableHashMap)
+- Hash function design
+- Concurrent hash maps
+
+**Prerequisites:** C++20; understanding of hash table basics (hash function, collision resolution); awareness of `std::unordered_map` API
+
+---
+
+## User Manual Card
+
+**Component:** FastHashMap
+**Primary use case:** High-throughput hash map using SIMD-accelerated probing for maximum lookup and insertion speed
+**Integration pattern:** Drop-in replacement for `std::unordered_map` where maximum throughput is needed and pointer stability is not required
+**Key API:** `FastHashMap<K, V>`, `.insert()`, `.find()`, `.erase()`, `.operator[]()`, `.contains()`, `.reserve()`, `.load_factor()`
+**std equivalent:** None
+**Common mistakes:** Holding pointers/references across mutations (not pointer-stable; use StableHashMap for stability); assuming iteration order is stable; using with non-hashable key types
+**Performance notes:** SIMD-accelerated probing reduces cache misses per lookup. See `components/FatPHashMap/results/` for current data
+
+---
 ## The Hash Table Story
 
 ### The Idea That Changed Computing

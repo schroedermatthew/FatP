@@ -1,11 +1,43 @@
-# EnumPlus User Manual
+---
+doc_id: UM-ENUMPLUS-001
+doc_type: "User Manual"
+title: "EnumPlus"
+fatp_components: ["EnumPlus"]
+topics: ["enum safety", "strong typing", "bitwise flags", "enum validation", "enum-indexed map", "safe cast", "enum reflection", "flag manipulation"]
+constraints: ["implicit enum-to-integer conversion bugs", "invalid enum values from casts", "flag combination type safety", "enum range validation"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Library:** fat_p C++ Utilities  
-**Standard:** C++17 (C++20 enhanced)  
-**Type:** Header-only
+# User Manual - EnumPlus
+
+**Scope:** Complete usage guide for `fat_p::EnumPlusWrapper`, `fat_p::EnumPlusMap`, bitwise operator enablement, validation utilities (`is_valid_enum`, `safe_enum_cast`, `safe_to_underlying`), and enum reflection.
+
+**Not covered:**
+- String-to-enum conversion beyond reflection basics (see Stringify)
+- Serialization of enums (see JsonLite, BinarySerialization)
+- Compile-time enum iteration (not supported)
+
+**Prerequisites:** C++20; understanding of `enum class` and its type safety benefits over unscoped enums; awareness of the bitwise flag pattern
 
 ---
 
+## User Manual Card
+
+**Component:** EnumPlus
+**Primary use case:** Wrap enums for type-safe arithmetic, bitwise flag operations, and safe validation/casting without implicit conversions
+**Integration pattern:** Define `enum class`, use `FATP_ENABLE_ENUM_BITWISE_OPS` for flags, wrap values in `EnumPlusWrapper` for strong typing, use `EnumPlusMap` for enum-indexed arrays
+**Key API:** `EnumPlusWrapper<E>`, `EnumPlusMap<E, V, N>`, `is_valid_enum<E>()`, `safe_enum_cast<E>()`, `safe_to_underlying()`, `FATP_ENABLE_ENUM_BITWISE_OPS`
+**std equivalent:** None
+**Common mistakes:** Forgetting to enable bitwise ops before using `|` and `&` on enum flags; using raw `static_cast` instead of `safe_enum_cast`; assuming contiguous enum values when using EnumPlusMap
+**Performance notes:** EnumPlusWrapper is zero overhead (same size and layout as the underlying enum). EnumPlusMap is a fixed-size array with O(1) indexed access. See `components/EnumPlus/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is EnumPlus?](#what-is-enumplus)

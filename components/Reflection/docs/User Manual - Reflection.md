@@ -20,6 +20,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::Reflection`: compile-time type reflection, member enumeration, type name extraction, and integration with serialization and logging.
+
+**Not covered:**
+- Runtime type information (RTTI)
+- C++26 static reflection proposal
+- Dynamic object inspection
+
+**Prerequisites:** C++20; understanding of template metaprogramming basics; awareness that C++ lacks built-in reflection
+
+---
+
+## User Manual Card
+
+**Component:** Reflection
+**Primary use case:** Enumerate struct members at compile time for serialization, logging, comparison, and debugging without manual registration
+**Integration pattern:** Register types with reflection macros, then use `reflect<T>::members()` to enumerate fields generically
+**Key API:** `FATP_REFLECT`, `reflect<T>::members()`, `reflect<T>::name()`, `reflect<T>::for_each()`
+**std equivalent:** None
+**Common mistakes:** Forgetting to register types with the reflection macro; assuming private members are reflected (only registered public members); using reflection in constexpr contexts where the macro doesn't support it
+**Performance notes:** Reflection is compile-time only. Runtime enumeration is a constexpr array traversal. Zero overhead when not used
+
+---
 ## Table of Contents
 
 1. [The Function You've Written a Hundred Times](#the-function-youve-written-a-hundred-times)

@@ -1,5 +1,44 @@
-# AlignedVector User Manual
+---
+doc_id: UM-ALIGNEDVECTOR-001
+doc_type: "User Manual"
+title: "AlignedVector"
+fatp_components: ["AlignedVector"]
+topics: ["memory alignment", "SIMD", "cache line alignment", "aligned allocator", "auto-vectorization", "AVX", "SSE", "vector container", "aligned memory"]
+constraints: ["SIMD register width", "cache line boundaries", "platform-specific alignment APIs", "allocator propagation", "exception safety with aligned storage"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - AlignedVector
+
+**Scope:** Complete usage guide for `fat_p::AlignedVector<T, Alignment>`: the aligned allocator model, platform abstraction, construction, element access, capacity management, modifiers, iterators, SIMD and auto-vectorization integration, exception safety guarantees, and standard algorithm compatibility.
+
+**Not covered:**
+- NUMA-aware allocation (see NumaAllocator)
+- SIMD intrinsics programming (see SimdVector)
+- Custom allocator design beyond AlignedAllocator
+- Benchmark methodology (see Benchmark Code Style Guide)
+
+**Prerequisites:** C++20; understanding of memory alignment concepts; familiarity with `std::vector` API; basic awareness of SIMD (helpful but not required)
+
+---
+
+## User Manual Card
+
+**Component:** AlignedVector
+**Primary use case:** Store elements with guaranteed memory alignment for SIMD operations and cache-optimal access
+**Integration pattern:** Drop-in replacement for `std::vector` where alignment guarantees are needed; pair with SimdVector for explicit SIMD operations
+**Key API:** `AlignedVector()`, `push_back()`, `emplace_back()`, `data()`, `alignedLoad()`, `alignedStore()`, `reserve()`, `resize()`
+**std equivalent:** None
+**Common mistakes:** Using default `std::vector` where alignment matters for SIMD; forgetting that iterator invalidation rules match `std::vector`; assuming alignment persists after copying to unaligned containers
+**Performance notes:** Alignment enables compiler auto-vectorization and explicit SIMD loads/stores without penalty. See `components/AlignedVector/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Memory Alignment and Why AlignedVector?](#what-is-memory-alignment-and-why-alignedvector)

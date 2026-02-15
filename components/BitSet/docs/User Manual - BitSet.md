@@ -20,6 +20,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::BitSet`: dynamic bit manipulation, sparse iteration using hardware intrinsics, population count, find operations, range operations, set operations (union, intersection, difference, symmetric difference), and bitwise operations.
+
+**Not covered:**
+- Fixed-size bitsets (use `std::bitset` for compile-time-sized sets)
+- Bloom filters
+- Bit manipulation tricks beyond BitSet API
+
+**Prerequisites:** C++20; understanding of bitwise operations; awareness that `std::bitset` has O(N) iteration for sparse sets
+
+---
+
+## User Manual Card
+
+**Component:** BitSet
+**Primary use case:** Manipulate and iterate over dynamic bit sets with hardware-accelerated sparse iteration
+**Integration pattern:** Construct `BitSet`, set/clear bits, iterate set bits with range-for, use set operations for combining
+**Key API:** `BitSet`, `.set()`, `.clear()`, `.test()`, `.count()`, `.findFirst()`, `.findNext()`, range-for iteration, `operator|`, `operator&`, `operator^`
+**std equivalent:** None
+**Common mistakes:** Using `std::bitset` when dynamic sizing is needed; iterating all bits instead of using sparse iteration; assuming bit indices are checked (use bounds-checked mode in debug)
+**Performance notes:** Sparse iteration uses `popcount` and `ctz` hardware intrinsics for O(set bits) iteration. See `components/BitSet/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Bit Manipulation Story](#the-bit-manipulation-story)

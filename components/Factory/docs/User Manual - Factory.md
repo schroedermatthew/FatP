@@ -1,5 +1,43 @@
-# Factory User Manual
+---
+doc_id: UM-FACTORY-001
+doc_type: "User Manual"
+title: "Factory"
+fatp_components: ["Factory"]
+topics: ["factory pattern", "object creation", "type registration", "dependency injection", "named factories", "singleton factory", "Expected integration", "policy-based factory"]
+constraints: ["virtual dispatch overhead", "registration ordering", "factory lifetime vs product lifetime", "thread-safe registration"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - Factory
+
+**Scope:** Complete usage guide for `fat_p::Factory`: type-safe factory registration by name, Expected-based creation, policy system (registration, thread safety, naming), singleton and transient creation, and integration patterns.
+
+**Not covered:**
+- Full dependency injection containers (Factory is a factory, not a DI framework)
+- ServiceLocator pattern (see ServiceLocator User Manual)
+- Abstract factory pattern beyond basic Factory usage
+
+**Prerequisites:** C++20; understanding of why object creation should be decoupled from usage; familiarity with interface-based design (abstract base classes)
+
+---
+
+## User Manual Card
+
+**Component:** Factory
+**Primary use case:** Register concrete types by string name and create instances through a type-safe factory interface
+**Integration pattern:** Register factories at startup with `factory.registerType<ConcreteType>("name")`; create instances with `factory.create("name")` returning `Expected<unique_ptr<Base>, Error>`
+**Key API:** `Factory<Base>`, `.registerType<T>()`, `.create()`, `.createExpected()`, `.has()`, `.registeredNames()`
+**std equivalent:** None
+**Common mistakes:** Registering types after first use; forgetting that `create()` returns Expected (not a raw pointer); using Factory as a service locator (use ServiceLocator instead)
+**Performance notes:** Registration is O(1) amortized (hash map insert). Creation involves one hash lookup + one virtual call. See `components/Factory/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Factory?](#1-what-is-factory)

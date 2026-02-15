@@ -21,6 +21,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::Stacktrace`: stack frame capture, symbol resolution, demangling, formatting, integration with error handling and logging, and platform-specific behavior.
+
+**Not covered:**
+- Post-mortem debugging with core dumps
+- Profiler integration
+- Sampling-based stack collection
+
+**Prerequisites:** C++20; understanding of call stacks and stack frames; awareness that debug symbols are needed for symbol resolution
+
+---
+
+## User Manual Card
+
+**Component:** Stacktrace
+**Primary use case:** Capture and format stack traces at runtime for error reporting, logging, and diagnostic purposes
+**Integration pattern:** Call `Stacktrace::capture()` at the point of interest, format with `.toString()` or iterate frames, embed in exception messages or log entries
+**Key API:** `Stacktrace::capture()`, `.frames()`, `.toString()`, `StackFrame`, `.functionName()`, `.fileName()`, `.lineNumber()`
+**std equivalent:** std::stacktrace (C++23)
+**Common mistakes:** Capturing stack traces in hot paths (expensive operation); expecting symbol resolution without debug symbols; assuming stack depth is unlimited (default capture depth is bounded)
+**Performance notes:** Capture is expensive (system call + frame walking). Use selectively in error paths, not in hot loops. See `components/Stacktrace/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Stack Trace Story](#the-stack-trace-story)

@@ -1,5 +1,44 @@
-# DiagnosticLogger User Manual
+---
+doc_id: UM-DIAGNOSTICLOGGER-001
+doc_type: "User Manual"
+title: "DiagnosticLogger"
+fatp_components: ["DiagnosticLogger"]
+topics: ["structured logging", "log levels", "sinks", "formatters", "JSON logging", "named loggers", "thread-safe logging", "log filtering", "file rotation", "deferred formatting"]
+constraints: ["hot-path logging overhead", "string formatting cost", "log output ordering under concurrency", "sink I/O latency", "log message lifetime"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Log (heavier, more features)"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - DiagnosticLogger
+
+**Scope:** Complete usage guide for the `fat_p::diagnostics` logging system: log levels, basic logging macros, named loggers, sink architecture (console, file, rotating file, callback, null), formatters (text, JSON), structured JSON logging, thread safety, and performance characteristics.
+
+**Not covered:**
+- Network sinks (syslog, remote collectors)
+- Asynchronous logging with background threads
+- Log aggregation and analysis tools
+- DebugOnly compile-time elimination (see DebugOnly User Manual)
+
+**Prerequisites:** C++20; understanding of log levels (trace/debug/info/warn/error/fatal); awareness that logging can be a performance bottleneck in hot paths
+
+---
+
+## User Manual Card
+
+**Component:** DiagnosticLogger
+**Primary use case:** Production-grade diagnostic logging with structured output, multiple sinks, and configurable formatting
+**Integration pattern:** Get or create a named logger, attach sinks, use `LOG_INFO` / `LOG_ERROR` macros throughout code; configure at application startup
+**Key API:** `Logger::get()`, `LOG_TRACE/DEBUG/INFO/WARN/ERROR/FATAL`, `ConsoleSink`, `FileSink`, `RotatingFileSink`, `JsonFormatter`, `addSink()`, `setLevel()`
+**std equivalent:** None
+**Common mistakes:** Formatting strings eagerly in the hot path (use structured fields instead); creating new Logger instances instead of using `Logger::get()`; setting log level too low in production; forgetting to flush before program exit
+**Performance notes:** Level-filtered messages short-circuit before formatting. Structured logging defers string conversion to the sink. See `components/DiagnosticLogger/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Diagnostic Logging?](#what-is-diagnostic-logging)

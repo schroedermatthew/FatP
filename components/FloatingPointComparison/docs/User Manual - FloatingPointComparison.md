@@ -1,7 +1,44 @@
-# FloatingPointComparison User Manual
+---
+doc_id: UM-FLOATINGPOINTCOMPARISON-001
+doc_type: "User Manual"
+title: "FloatingPointComparison"
+fatp_components: ["FloatingPointComparison"]
+topics: ["floating-point comparison", "ULP distance", "relative tolerance", "absolute tolerance", "combined tolerance", "IEEE 754", "NaN handling", "infinity handling", "near-zero comparison", "control systems", "scientific computing"]
+constraints: ["magnitude-dependent tolerance selection", "near-zero comparison instability", "NaN propagation semantics", "ULP distance computation for special values"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Test floating-point comparison"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-*Updated December 2025*
+# User Manual - FloatingPointComparison
 
+**Scope:** Complete usage guide for `fat_p::FloatingPointComparison`: the four comparison strategies (absolute, relative, ULP, combined), special value handling (NaN, infinity, subnormals), the control system problem, strategy selection guidelines, zero-overhead validation, and migration from manual epsilon checks.
+
+**Not covered:**
+- Container-level equality comparison (see EqualityComparisons)
+- Arbitrary-precision floating point
+- Fixed-point arithmetic
+- Interval arithmetic
+
+**Prerequisites:** C++20; awareness that floating-point arithmetic produces rounding errors; understanding of IEEE 754 basics (sign, exponent, mantissa)
+
+---
+
+## User Manual Card
+
+**Component:** FloatingPointComparison
+**Primary use case:** Compare floating-point values correctly across different magnitude ranges using the appropriate tolerance strategy
+**Integration pattern:** Choose a strategy (absolute for known-range values, relative for unknown-range, ULP for precision-critical, combined for general use), call the comparison function
+**Key API:** `absoluteEqual()`, `relativeEqual()`, `ulpEqual()`, `combinedEqual()`, `isNearZero()`, `ulpDistance()`
+**std equivalent:** None
+**Common mistakes:** Using absolute tolerance for values of very different magnitudes; using relative tolerance near zero (division by near-zero); ignoring NaN (NaN != NaN); assuming tolerance is transitive (a≈b and b≈c does not mean a≈c)
+**Performance notes:** All comparisons are branchless arithmetic. ULP comparison uses bit reinterpretation. See `components/FloatingPointComparison/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Floating-Point Problem](#the-floating-point-problem)

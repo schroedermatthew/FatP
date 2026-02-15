@@ -1,5 +1,43 @@
-# DebugOnly User Manual
+---
+doc_id: UM-DEBUGONLY-001
+doc_type: "User Manual"
+title: "DebugOnly"
+fatp_components: ["DebugOnly"]
+topics: ["debug data elimination", "zero-overhead debugging", "conditional compilation", "debug counters", "NDEBUG", "compile-time conditional", "HPC diagnostics", "release build optimization"]
+constraints: ["debug data memory overhead in release", "manual ifdef discipline", "compile-time vs runtime conditional", "no-op optimization in release builds"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - DebugOnly
+
+**Scope:** Complete usage guide for `fat_p::DebugOnly<T>`: the zero-overhead debug data wrapper, conditional execution, counter and arithmetic operations, C++20 `[[no_unique_address]]` optimization, integration with HPC diagnostic patterns, and migration from manual `#ifdef` approaches.
+
+**Not covered:**
+- DiagnosticLogger (runtime logging system; see DiagnosticLogger User Manual)
+- Benchmark instrumentation (see FatPBenchmarkRunner)
+- Sanitizer-based debugging (compiler feature, not a component)
+
+**Prerequisites:** C++20; understanding of `NDEBUG` and its effect on `assert()`; awareness that debug instrumentation can dominate memory in HPC workloads
+
+---
+
+## User Manual Card
+
+**Component:** DebugOnly
+**Primary use case:** Embed diagnostic data (counters, statistics, trace info) in data structures that compiles to zero bytes and zero instructions in release builds
+**Integration pattern:** Replace `#ifdef DEBUG` data members with `DebugOnly<T>` members; use `.exec()` for conditional debug actions; arithmetic operators work transparently in debug, compile away in release
+**Key API:** `DebugOnly<T>`, `.value()`, `.exec(callable)`, `.reset()`, `operator+=`, `operator++`, `operator<<`
+**std equivalent:** None
+**Common mistakes:** Using `std::optional` instead of DebugOnly (optional still occupies memory in release); accessing `.value()` in release code paths; forgetting that DebugOnly<T> is empty in release (sizeof == 1 without `[[no_unique_address]]`)
+**Performance notes:** In release builds (`NDEBUG` defined), all operations compile to no-ops. With C++20 `[[no_unique_address]]`, the member occupies zero bytes in the parent struct. See `components/DebugOnly/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is DebugOnly?](#what-is-debugonly)

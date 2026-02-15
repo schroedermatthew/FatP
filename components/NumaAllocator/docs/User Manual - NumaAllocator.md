@@ -1,5 +1,44 @@
-# NumaAllocator User Manual
+---
+doc_id: UM-NUMAALLOCATOR-001
+doc_type: "User Manual"
+title: "NumaAllocator"
+fatp_components: ["NumaAllocator"]
+topics: ["NUMA allocation", "memory placement", "thread affinity", "NUMA topology", "memory pool", "aligned allocation", "memory statistics", "multi-socket", "interleave policy", "local allocation"]
+constraints: ["NUMA hardware availability", "OS NUMA API differences", "page-level granularity of NUMA placement", "thread migration across nodes"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - NumaAllocator
+
+**Scope:** Complete usage guide for `fat_p::memory::NumaAllocator` and related utilities: NUMA topology discovery, allocation policies (local, interleave, bind), `NumaAlignedAllocator` for combined NUMA + alignment, thread-local memory pools, thread affinity binding, memory statistics, and over-aligned type support.
+
+**Not covered:**
+- HpcVector (higher-level NUMA-aware container; see HpcVector User Manual)
+- Operating system NUMA page migration APIs
+- NUMA-aware scheduling algorithms
+- Hardware performance counters for NUMA analysis
+
+**Prerequisites:** C++20; understanding of NUMA architecture (local vs remote memory access, nodes, topology); access to a multi-socket system (or willingness to test on single-socket with simulated NUMA)
+
+---
+
+## User Manual Card
+
+**Component:** NumaAllocator
+**Primary use case:** Allocate memory on specific NUMA nodes for optimal data locality in multi-socket HPC systems
+**Integration pattern:** Query topology with `NumaTopology::discover()`, select a policy, construct `NumaAllocator<T, Policy>`, use as a standard allocator with containers
+**Key API:** `NumaAllocator<T, Policy>`, `NumaAlignedAllocator<T, Align, Policy>`, `NumaTopology::discover()`, `bindThreadToNode()`, `LocalPolicy`, `InterleavePolicy`, `BindPolicy`
+**std equivalent:** None
+**Common mistakes:** Assuming NUMA allocation is always faster (it's only beneficial for large, long-lived allocations); forgetting to bind threads to nodes (thread migration defeats NUMA placement); using NUMA allocation for small, short-lived objects
+**Performance notes:** NUMA-local allocation avoids cross-socket latency. Thread affinity binding prevents thread migration. Allocation overhead is slightly higher than standard malloc due to policy evaluation. See `components/NumaAllocator/results/` for current data
+
+---
 ## Table of Contents
 
 0. [Quick Start](#quick-start)

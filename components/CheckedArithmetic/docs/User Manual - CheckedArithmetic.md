@@ -1,11 +1,44 @@
-# CheckedArithmetic User Manual
+---
+doc_id: UM-CHECKEDARITHMETIC-001
+doc_type: "User Manual"
+title: "CheckedArithmetic"
+fatp_components: ["CheckedArithmetic"]
+topics: ["overflow detection", "arithmetic safety", "integer overflow", "floating-point validation", "checked cast", "saturation arithmetic", "NaN detection", "policy-based arithmetic", "vector arithmetic"]
+constraints: ["silent integer overflow in C++", "floating-point NaN propagation", "compiler optimization of undefined overflow", "SIMD vectorization of checked operations"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.SafeNumerics"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Library:** fat_p C++ Utilities  
-**Standard:** C++17 (C++20 enhanced)  
-**Type:** Header-only
+# User Manual - CheckedArithmetic
+
+**Scope:** Complete usage guide for `fat_p::CheckedArithmetic`: integer and floating-point checked operations, vector operations, checked casts, compile-time operations, policy system (Expected-based and throwing), and edge case handling.
+
+**Not covered:**
+- Arbitrary precision arithmetic
+- Fixed-point arithmetic
+- Floating-point comparison tolerance (see FloatingPointComparison, EqualityComparisons)
+- SIMD intrinsics for manual vectorization (see SimdVector)
+
+**Prerequisites:** C++20; understanding of integer overflow as undefined behavior in C++; awareness of IEEE 754 special values (NaN, Inf)
 
 ---
 
+## User Manual Card
+
+**Component:** CheckedArithmetic
+**Primary use case:** Detect arithmetic overflow, underflow, division by zero, and invalid floating-point results at the point of computation rather than downstream
+**Integration pattern:** Replace raw arithmetic with `checked::add()`, `checked::mul()`, etc. in safety-critical paths; use `checked::cast<To>(from)` for safe narrowing conversions
+**Key API:** `checked::add()`, `checked::sub()`, `checked::mul()`, `checked::div()`, `checked::cast<To>()`, `checked::clamp()`, `checked::inRange()`
+**std equivalent:** None
+**Common mistakes:** Assuming signed overflow is defined behavior; ignoring the Expected return value; using checked arithmetic in inner loops where overflow is impossible (unnecessary overhead)
+**Performance notes:** Checked operations add a branch per operation. Use selectively in boundaries and validation paths, not in proven-safe inner loops. See `components/CheckedArithmetic/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is CheckedArithmetic?](#what-is-checkedarithmetic)

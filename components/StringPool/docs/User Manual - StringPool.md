@@ -1,13 +1,43 @@
-# StringPool User Manual
+---
+doc_id: UM-STRINGPOOL-001
+doc_type: "User Manual"
+title: "StringPool"
+fatp_components: ["StringPool"]
+topics: ["string interning", "string deduplication", "string handle", "memory optimization", "hash-based lookup", "thread-safe interning", "pool management", "reference-stable strings"]
+constraints: ["pool memory growth", "string handle invalidation on pool clear", "hash collision handling", "thread contention on interning"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Version:** 1.0  
-**C++ Standard:** C++17 minimum, C++20 optimized  
-**Thread Safety:** Policy-based (configurable)  
-**Dependencies:** ConcurrencyPolicies.h only  
-**License:** None required — free to use and modify
+# User Manual - StringPool
+
+**Scope:** Complete usage guide for `fat_p::StringPool`: string interning, deduplication, `StringHandle` safe wrapper, pool statistics and monitoring, pool management (clear, reserve), thread safety policies, and performance characteristics.
+
+**Not covered:**
+- Runtime string formatting (see Stringify)
+- JSON string handling (see JsonLite)
+- Compile-time string hashing (see ConstexprUtilities)
+
+**Prerequisites:** C++20; understanding of string interning (storing one copy of each unique string); awareness that repeated string allocation is a common memory and performance issue
 
 ---
 
+## User Manual Card
+
+**Component:** StringPool
+**Primary use case:** Deduplicate strings in memory by interning them into a pool, returning stable handles that can be compared by pointer instead of by content
+**Integration pattern:** Create `StringPool`, intern strings with `pool.intern("key")`, compare handles with `==` (pointer comparison, O(1)), look up by handle or string
+**Key API:** `StringPool<Policy>`, `.intern()`, `.find()`, `.contains()`, `.size()`, `.stats()`, `.clear()`, `StringHandle`
+**std equivalent:** None
+**Common mistakes:** Holding StringHandle references after clearing the pool (dangling); assuming StringPool compresses strings (it deduplicates, doesn't compress); interning very short strings where the handle overhead exceeds the savings
+**Performance notes:** Intern is O(1) amortized hash lookup + insert. Handle comparison is O(1) pointer comparison vs O(N) string comparison. See `components/StringPool/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is String Pooling?](#what-is-string-pooling)

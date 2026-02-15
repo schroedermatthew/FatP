@@ -1,5 +1,44 @@
-# FeatureManager User Manual
+---
+doc_id: UM-FEATUREMANAGER-001
+doc_type: "User Manual"
+title: "FeatureManager"
+fatp_components: ["FeatureManager"]
+topics: ["feature flags", "feature dependencies", "feature relationships", "feature validation", "callback factory", "observer pattern", "automatic resolution", "dependency graph", "JSON configuration", "thread-safe features"]
+constraints: ["dependency cycle detection", "feature state consistency under concurrent access", "observer notification ordering", "relationship validation cost"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - FeatureManager
+
+**Scope:** Complete usage guide for `fat_p::FeatureManager`: feature registration, dependency and relationship management (requires, conflicts, implies), automatic resolution, callback factory system, observer notifications, JSON configuration, thread safety, and diagnostic APIs.
+
+**Not covered:**
+- A/B testing frameworks
+- Feature flag distribution systems (LaunchDarkly, etc.)
+- Remote configuration management
+- Gradual rollout strategies
+
+**Prerequisites:** C++20; understanding of feature flags and their use in software development; familiarity with dependency graphs
+
+---
+
+## User Manual Card
+
+**Component:** FeatureManager
+**Primary use case:** Manage feature flags with complex interdependencies, automatic conflict detection, and observer-based notification of state changes
+**Integration pattern:** Create `FeatureManager`, register features with dependencies via `addFeature()`, enable/disable features (auto-resolution handles dependencies), observe changes via callbacks
+**Key API:** `FeatureManager`, `.addFeature()`, `.enable()`, `.disable()`, `.isEnabled()`, `.addObserver()`, `.addDependency()`, `.addConflict()`, `.loadFromJson()`
+**std equivalent:** None
+**Common mistakes:** Creating dependency cycles (detected at runtime, throws); enabling features without checking relationship constraints; modifying features from observer callbacks (reentrancy)
+**Performance notes:** Feature lookup is O(1) hash map access. Dependency resolution is O(V+E) graph traversal. Observer notification is O(N) per observer. See `components/FeatureManager/results/` for current data
+
+---
 ## Table of Contents
 
 1. [Introduction](#introduction)

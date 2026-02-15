@@ -1,5 +1,44 @@
-# FatPJsonLite User Manual
+---
+doc_id: UM-FATPJSONLITE-001
+doc_type: "User Manual"
+title: "FatPJsonLite"
+fatp_components: ["FatPJsonLite"]
+topics: ["JSON parsing", "Expected-based JSON", "safe type conversion", "JSON pointer", "file I/O", "enum serialization", "string pool", "optimized JSON", "error handling"]
+constraints: ["heap allocation for JSON values", "parse error recovery", "type conversion safety", "string pool lifetime"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - FatPJsonLite
+
+**Scope:** Complete usage guide for `fat_p::FatPJsonLite`: Expected-based error handling for all JSON operations, safe type conversions, optimized data structures, string pool and memory optimization, file I/O operations, JSON Pointer navigation, and enum serialization.
+
+**Not covered:**
+- Raw JsonLite API without Expected integration (see JsonLite User Manual)
+- Binary serialization (see BinarySerialization)
+- CBOR serialization (see Cbor User Manual)
+- JSON Schema validation
+
+**Prerequisites:** C++20; familiarity with JSON format; understanding of Expected-based error handling (see Expected User Manual)
+
+---
+
+## User Manual Card
+
+**Component:** FatPJsonLite
+**Primary use case:** Parse, navigate, and manipulate JSON data with Expected-based error handling that never throws exceptions
+**Integration pattern:** Parse JSON with `FatPJson::parse(str)` returning `Expected<JsonValue, Error>`, navigate with JSON Pointer, extract values with safe type conversion
+**Key API:** `FatPJson::parse()`, `.get<T>()`, `.at()`, `JsonPointer`, `.toFile()`, `.fromFile()`, `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE`
+**std equivalent:** None
+**Common mistakes:** Ignoring the Expected return from parse (use `.and_then()` or check `.has_value()`); using raw JsonLite when Expected integration is needed; holding references to JSON values after mutation
+**Performance notes:** Parse is single-pass. String pool deduplicates repeated keys. See `components/Json/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is FatPJsonLite?](#what-is-fatpjsonlite)

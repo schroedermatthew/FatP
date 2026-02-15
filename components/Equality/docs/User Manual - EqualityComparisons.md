@@ -1,9 +1,43 @@
-# EqualityComparisons User Manual
+---
+doc_id: UM-EQUALITYCOMPARISONS-001
+doc_type: "User Manual"
+title: "EqualityComparisons"
+fatp_components: ["EqualityComparisons"]
+topics: ["floating-point equality", "tolerance comparison", "ULP comparison", "container comparison", "deep equality", "policy-based comparison", "EqualityAny", "type-erased comparison", "relative tolerance", "absolute tolerance"]
+constraints: ["floating-point representation error", "tolerance selection for different magnitudes", "NaN comparison semantics", "container element-wise comparison cost"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Test floating-point comparison (test-only)"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-*Fat-P Library — December 2025*
+# User Manual - EqualityComparisons
 
-*Document type: User Manual (teaching document, not API reference)*
+**Scope:** Complete usage guide for `fat_p::EqualityComparisons`: tolerance-based floating-point comparison, ULP-based comparison, the policy system (Strict, Tolerant, ULP, Custom), container deep equality, `EqualityAny` type-erased comparison, and integration with testing frameworks.
 
+**Not covered:**
+- Floating-point comparison strategies and IEEE 754 theory (see FloatingPointComparison User Manual)
+- Ordering comparisons (less-than, greater-than)
+- Hash-based equality for hash tables
+
+**Prerequisites:** C++20; awareness that `==` fails for floating-point results of computation; basic understanding of relative vs absolute tolerance
+
+---
+
+## User Manual Card
+
+**Component:** EqualityComparisons
+**Primary use case:** Compare floating-point values, containers of floating-point values, and heterogeneous types with configurable tolerance
+**Integration pattern:** Use `equalWithinTolerance(a, b, tol)` for scalar comparison; use `deepEqual(containerA, containerB, policy)` for container comparison; use `EqualityAny` for type-erased comparison in test frameworks
+**Key API:** `equalWithinTolerance()`, `equalWithinUlps()`, `deepEqual()`, `EqualityAny`, `StrictPolicy`, `TolerantPolicy`, `UlpPolicy`
+**std equivalent:** None
+**Common mistakes:** Using absolute tolerance for values of very different magnitudes; using too-tight ULP tolerance for results of long computation chains; comparing NaN values (NaN != NaN by IEEE 754)
+**Performance notes:** Scalar comparison is a single subtraction + comparison. Container deep equality is O(N) with early exit on first mismatch. See `components/Equality/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Floating-Point Comparison Problem](#the-floating-point-comparison-problem)

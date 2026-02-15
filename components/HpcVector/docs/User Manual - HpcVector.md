@@ -1,5 +1,44 @@
-# HpcVector User Manual
+---
+doc_id: UM-HPCVECTOR-001
+doc_type: "User Manual"
+title: "HpcVector"
+fatp_components: ["HpcVector"]
+topics: ["NUMA-aware vector", "HPC container", "SIMD integration", "aligned storage", "multi-socket", "memory placement", "runtime verification", "cache-friendly iteration"]
+constraints: ["NUMA topology discovery cost", "cross-socket memory access penalty", "alignment requirements for SIMD", "memory placement policy limitations on non-NUMA systems"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - HpcVector
+
+**Scope:** Complete usage guide for `fat_p::HpcVector`: NUMA-aware memory placement policies, SIMD integration, aligned storage, runtime verification, integration with Fat-P components (AlignedVector, NumaAllocator, SimdVector), and performance characteristics on multi-socket systems.
+
+**Not covered:**
+- NUMA allocator internals (see NumaAllocator User Manual)
+- SIMD instruction selection (see SimdDetection, SimdVector)
+- Distributed memory across nodes (MPI)
+- GPU memory management
+
+**Prerequisites:** C++20; understanding of NUMA architecture (local vs remote memory); awareness of SIMD alignment requirements
+
+---
+
+## User Manual Card
+
+**Component:** HpcVector
+**Primary use case:** Allocate and operate on large vectors with NUMA-aware placement and SIMD-ready alignment for multi-socket HPC systems
+**Integration pattern:** Replace `std::vector<T>` with `HpcVector<T, Policy>` in NUMA-sensitive code; select a NUMA policy (local, interleave, bind); use SIMD operations directly on the aligned data
+**Key API:** `HpcVector<T, Policy>`, `.data()`, `.size()`, `.push_back()`, NUMA policy types, `.verify()` for runtime correctness checks
+**std equivalent:** None
+**Common mistakes:** Using HpcVector on single-socket systems (no NUMA benefit, use AlignedVector instead); ignoring NUMA policy selection (default may not be optimal); forgetting that NUMA benefits only appear at large data sizes
+**Performance notes:** NUMA-local allocation avoids cross-socket memory access. Alignment enables SIMD without penalty. Overhead over std::vector is allocation-time only. See `components/HpcVector/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is HpcVector and Why Does It Matter?](#what-is-hpcvector-and-why-does-it-matter)

@@ -1,5 +1,43 @@
-# Enforce System User Manual
+---
+doc_id: UM-ENFORCE-001
+doc_type: "User Manual"
+title: "Enforce"
+fatp_components: ["Enforce"]
+topics: ["contract enforcement", "preconditions", "postconditions", "invariants", "policy-based assertions", "debug assertions", "Expected integration", "predicate macros", "error messages", "source location"]
+constraints: ["noexcept boundary interaction", "NDEBUG behavior differences", "macro hygiene", "predicate composition", "error message formatting cost"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - Enforce
+
+**Scope:** Complete usage guide for the `fat_p::enforce` macro system: condition macros (ENFORCE_PRE, ENFORCE_POST, ENFORCE_INVARIANT), Expected macros, predicate macros, policies (DebugOnly, AlwaysEnforce, Warning, NoThrow, Abort), predicates (core, container, range, floating-point, iterator), error message formatting, and Expected integration.
+
+**Not covered:**
+- ContractException hierarchy design (see ContractException User Manual)
+- Expected<T,E> monadic operations (see Expected User Manual)
+- C++26 contracts language feature
+
+**Prerequisites:** C++20; understanding of preconditions/postconditions/invariants; awareness of `assert()` limitations (no control over failure behavior, stripped in release)
+
+---
+
+## User Manual Card
+
+**Component:** Enforce
+**Primary use case:** Replace `assert()` with policy-controlled contract checking that can throw, terminate, log, or return Expected based on compile-time configuration
+**Integration pattern:** Use `FATP_ENFORCE_PRE(condition)` at function entry, `FATP_ENFORCE_POST(condition)` at exit, `FATP_ENFORCE_INVARIANT(condition)` in state-sensitive code; configure policy via template parameter or build mode
+**Key API:** `FATP_ENFORCE_PRE`, `FATP_ENFORCE_POST`, `FATP_ENFORCE_INVARIANT`, `FATP_ENFORCE_EXPECTED`, `DebugOnlyPolicy`, `AlwaysEnforcePolicy`, `NoThrowPolicy`, `AbortPolicy`
+**std equivalent:** None
+**Common mistakes:** Placing side effects inside enforce conditions (stripped in some policies); using AlwaysEnforcePolicy for checks that should be debug-only; ignoring the Expected return from ENFORCE_EXPECTED macros
+**Performance notes:** DebugOnlyPolicy compiles to nothing in release. AlwaysEnforcePolicy adds a branch per check. Message formatting is deferred until violation. See `components/Enforce/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Enforce?](#what-is-enforce)

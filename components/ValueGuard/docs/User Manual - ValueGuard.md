@@ -1,5 +1,43 @@
-# ValueGuard User Manual
+---
+doc_id: UM-VALUEGUARD-001
+doc_type: "User Manual"
+title: "ValueGuard"
+fatp_components: ["ValueGuard"]
+topics: ["RAII value restoration", "temporary mutation", "save-restore pattern", "scope-based value management", "exception-safe value changes"]
+constraints: ["value copy cost", "destructor exception interaction", "nested guard ordering"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - ValueGuard
+
+**Scope:** Complete usage guide for `fat_p::ValueGuard`: the save-modify-restore RAII pattern, construction options (save-only, save-and-modify), early restoration, integration with ScopeGuard, and exception safety guarantees.
+
+**Not covered:**
+- ScopeGuard (general cleanup actions; see ScopeGuard User Manual)
+- Transaction rollback patterns beyond single-value restoration
+- Thread-safe value guarding (ValueGuard is single-threaded)
+
+**Prerequisites:** C++20; understanding of RAII and destructor-based cleanup; familiarity with the temporary-value-mutation pattern
+
+---
+
+## User Manual Card
+
+**Component:** ValueGuard
+**Primary use case:** Temporarily change a value and guarantee automatic restoration when the scope exits, regardless of exceptions or early returns
+**Integration pattern:** Construct `ValueGuard guard(variable, newValue);` at the point where the temporary change is needed; the original value is restored automatically when `guard` goes out of scope
+**Key API:** `ValueGuard<T>`, constructor (reference, optional new value), `.restore()` (early restoration), `.dismiss()` (cancel restoration)
+**std equivalent:** None
+**Common mistakes:** Creating a ValueGuard for a reference that outlives the guarded scope; dismissing a guard and forgetting to restore manually; guarding non-copyable types without move support
+**Performance notes:** One copy on construction (save), one copy on destruction (restore). Zero overhead beyond the copies. See `components/ValueGuard/results/` for current data
+
+---
 ## What is ValueGuard?
 
 ### The Problem: Temporary Value Mutations

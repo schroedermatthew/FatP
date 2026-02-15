@@ -1,5 +1,44 @@
-# FatPTest User Manual
+---
+doc_id: UM-FATPTEST-001
+doc_type: "User Manual"
+title: "FatPTest"
+fatp_components: ["FatPTest"]
+topics: ["test framework", "assertions", "test fixtures", "parameterized tests", "subtests", "floating-point testing", "string assertions", "container assertions", "exception testing", "CI integration", "test filtering", "benchmarking"]
+constraints: ["header-only test framework size", "compile time for large test suites", "assertion failure reporting quality", "test isolation"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Test"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - FatPTest
+
+**Scope:** Complete usage guide for the FatPTest framework: core assertions, floating-point assertions, string assertions, container/range assertions, exception assertions, test organization, fixtures, parameterized tests, subtests, performance benchmarking, test filtering, configuration, CI/CD integration, and migration from other frameworks.
+
+**Not covered:**
+- Benchmark methodology and statistics (see Benchmark Code Style Guide)
+- Mocking frameworks (FatPTest does not include mocking)
+- Code coverage tooling
+- Fuzz testing
+
+**Prerequisites:** C++20; experience with at least one C++ test framework (Google Test, Catch2, Boost.Test); understanding of assertions and test organization
+
+---
+
+## User Manual Card
+
+**Component:** FatPTest
+**Primary use case:** Write and run unit tests for Fat-P components with rich assertion messages, parameterized tests, and CI integration
+**Integration pattern:** Include `test_FatP.h`, write `TEST(suite, name)` or `TEST_F(fixture, name)` functions, compile, and run the test executable
+**Key API:** `TEST()`, `TEST_F()`, `ASSERT_EQ`, `ASSERT_NEAR`, `ASSERT_THROWS`, `ASSERT_CONTAINS`, `SUBTEST()`, `PARAMETERIZED_TEST()`
+**std equivalent:** None
+**Common mistakes:** Using `EXPECT_*` where `ASSERT_*` is needed (EXPECT continues on failure, ASSERT aborts the test); forgetting `return` after a failing ASSERT in a helper function; not filtering tests in CI (running all tests when only a subset changed)
+**Performance notes:** Header-only framework with minimal compile-time overhead. Assertion evaluation is branch-only on the happy path. See `components/FatPTest/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is FatPTest?](#what-is-fatptest)

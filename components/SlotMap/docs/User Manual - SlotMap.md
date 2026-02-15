@@ -16,6 +16,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::SlotMap<T>`: generational handle-based container, insertion, removal, lookup by handle, iteration, generation counter ABA safety, and dense storage layout.
+
+**Not covered:**
+- Entity Component System (ECS) architecture patterns
+- Handle-based memory management beyond SlotMap
+- Concurrent slot maps
+
+**Prerequisites:** C++20; understanding of handle-based containers (indirection through handle rather than pointer); awareness of the ABA problem in handle reuse
+
+---
+
+## User Manual Card
+
+**Component:** SlotMap
+**Primary use case:** Store objects with stable handles that detect use-after-free via generation counters, with dense storage for cache-friendly iteration
+**Integration pattern:** Insert objects, receive a `SlotKey` handle, use the handle for O(1) lookup, handles become invalid after removal (generation mismatch detects stale use)
+**Key API:** `SlotMap<T>`, `.insert()`, `.remove()`, `.operator[]()`, `.contains()`, `SlotKey`, `.generation()`
+**std equivalent:** None
+**Common mistakes:** Using raw indices instead of SlotKey (bypasses generation check); holding SlotKey to removed elements (stale handle, detected at runtime); assuming iteration order matches insertion order
+**Performance notes:** Insert and remove are O(1). Lookup by handle is O(1) with one generation check. Dense storage enables cache-friendly iteration. See `components/SlotMap/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Handle Problem: Why Pointers Fail](#the-handle-problem-why-pointers-fail)

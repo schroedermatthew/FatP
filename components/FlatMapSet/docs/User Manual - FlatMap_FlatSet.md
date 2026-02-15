@@ -18,6 +18,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::FlatMap<K, V>` and `fat_p::FlatSet<K>`: sorted contiguous containers, insertion, lookup, erasure, iteration, bulk operations, and comparison with std::map and hash maps.
+
+**Not covered:**
+- Hash-based maps (see FastHashMap, StableHashMap)
+- Concurrent sorted containers
+- Multi-map / multi-set variants
+
+**Prerequisites:** C++20; understanding of sorted containers vs hash containers; awareness of cache locality benefits of contiguous storage
+
+---
+
+## User Manual Card
+
+**Component:** FlatMap and FlatSet
+**Primary use case:** Sorted associative containers with contiguous storage for cache-friendly iteration and small-to-medium collections
+**Integration pattern:** Drop-in replacement for `std::map` / `std::set` where cache locality matters more than O(log N) insertion for large N
+**Key API:** `FlatMap<K, V>`, `FlatSet<K>`, `.insert()`, `.find()`, `.erase()`, `.lower_bound()`, `.upper_bound()`, `.operator[]()`, `.contains()`
+**std equivalent:** std::flat_map / std::flat_set (C++23)
+**Common mistakes:** Using FlatMap for large collections with frequent insertions (O(N) insert due to shifting); holding iterators across mutations (invalidated); assuming FlatMap is a hash map (it's sorted)
+**Performance notes:** Binary search lookup is O(log N). Contiguous storage enables cache-friendly iteration. Insertion is O(N) due to element shifting. See `components/FlatMapSet/results/` for current data
+
+---
 ## Table of Contents
 
 1. [The Sorted Container Story](#the-sorted-container-story)

@@ -1,11 +1,43 @@
-# ConstexprUtilities User Manual
+---
+doc_id: UM-CONSTEXPRUTILITIES-001
+doc_type: "User Manual"
+title: "ConstexprUtilities"
+fatp_components: ["ConstexprUtilities"]
+topics: ["constexpr hashing", "compile-time string operations", "FNV-1a", "string switch", "compile-time arithmetic", "string conversion", "hex conversion", "string concatenation"]
+constraints: ["no heap allocation in constexpr context", "compiler constexpr step limits", "hash collision probability", "compile-time vs runtime string comparison"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Library:** fat_p C++ Utilities  
-**Standard:** C++17  
-**Type:** Header-only
+# User Manual - ConstexprUtilities
+
+**Scope:** Complete usage guide for `fat_p::constexpr_utils`: compile-time FNV-1a hashing for string-switch patterns, constexpr arithmetic utilities, string-to-number and number-to-string conversion, hexadecimal conversion, and string manipulation utilities.
+
+**Not covered:**
+- Runtime hashing for hash tables (see FastHashMap/StableHashMap)
+- Compile-time regular expressions
+- consteval-only utilities (C++23+)
+
+**Prerequisites:** C++20; understanding of `constexpr` evaluation; familiarity with the string-switch problem (why `switch` doesn't work with `std::string`)
 
 ---
 
+## User Manual Card
+
+**Component:** ConstexprUtilities
+**Primary use case:** Enable `switch`-like dispatch on string values using compile-time hashing, and perform string conversions at compile time
+**Integration pattern:** Use `constexprHash("key")` in `case` labels alongside runtime `constexprHash(input)` in the `switch` expression
+**Key API:** `constexprHash()`, `toChars()`, `fromChars()`, `toHex()`, `fromHex()`, `concat()`
+**std equivalent:** None
+**Common mistakes:** Relying on hash uniqueness without collision handling; using runtime string operations where constexpr versions exist; exceeding compiler constexpr evaluation limits with very long strings
+**Performance notes:** Compile-time hashing enables jump table optimization by the compiler. Runtime hashing is branch-free FNV-1a. See `components/ConstexprUtilities/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is ConstexprUtilities?](#what-is-constexprutilities)

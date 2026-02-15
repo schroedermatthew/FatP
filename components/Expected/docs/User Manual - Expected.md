@@ -1,5 +1,44 @@
-# Expected<T, E> User Manual
+---
+doc_id: UM-EXPECTED-001
+doc_type: "User Manual"
+title: "Expected"
+fatp_components: ["Expected"]
+topics: ["error handling", "Expected type", "monadic operations", "error propagation", "EXPECTED_TRY", "sum type", "value or error", "railway programming", "storage policies", "void Expected"]
+constraints: ["exception-free error handling", "monadic chaining overhead", "storage policy selection", "noexcept context compatibility"]
+cxx_standard: "C++20"
+std_equivalent: "std::expected<T, E>"
+std_since: "C++23"
+boost_equivalent: "Boost.Outcome"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - Expected
+
+**Scope:** Complete usage guide for `fat_p::Expected<T, E>`: creation, value and error access, monadic operations (`map`, `and_then`, `or_else`, `transform_error`, `inspect`, `fold`), error handling patterns (early return, chaining, EXPECTED_TRY, EXPECTED_ASSIGN_OR_RETURN), storage policies (Union, Variant, Trivial), void Expected, and migration from exceptions.
+
+**Not covered:**
+- Contract enforcement macros (see Enforce User Manual)
+- Exception hierarchy design (see ContractException User Manual)
+- Coroutine integration with Expected
+
+**Prerequisites:** C++20; understanding of the problem with error codes (forgotten checks) and exceptions (invisible control flow); awareness of `std::optional`
+
+---
+
+## User Manual Card
+
+**Component:** Expected
+**Primary use case:** Return success values or typed errors from functions without exceptions, with monadic chaining for pipeline-style error handling
+**Integration pattern:** Return `Expected<T, Error>` from fallible functions; chain with `.and_then()` / `.map()` for pipelines; use `FATP_EXPECTED_TRY` for early-return propagation
+**Key API:** `Expected<T, E>`, `.value()`, `.error()`, `.has_value()`, `.map()`, `.and_then()`, `.or_else()`, `.transform_error()`, `FATP_EXPECTED_TRY`, `FATP_EXPECTED_ASSIGN_OR_RETURN`
+**std equivalent:** std::expected<T, E> (C++23)
+**Common mistakes:** Accessing `.value()` without checking `has_value()` first; using exceptions alongside Expected (pick one model per boundary); ignoring the error from `EXPECTED_TRY` in void-returning functions
+**Performance notes:** UnionStorage (default) is the same size as a tagged union. TrivialStorage is trivially copyable for HPC. No heap allocation. See `components/Expected/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Expected?](#what-is-expected)

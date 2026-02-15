@@ -1,5 +1,44 @@
-# CacheUtilities User Manual
+---
+doc_id: UM-CACHEUTILITIES-001
+doc_type: "User Manual"
+title: "CacheUtilities"
+fatp_components: ["CacheUtilities"]
+topics: ["cache line", "prefetching", "cache flushing", "streaming stores", "false sharing", "memory barriers", "cache blocking", "memory hierarchy", "L1 cache", "L2 cache", "non-temporal stores"]
+constraints: ["cache line size varies by platform", "prefetch distance tuning", "streaming store ordering", "false sharing in concurrent code", "compiler memory barrier semantics"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - CacheUtilities
+
+**Scope:** Complete usage guide for `fat_p::cache`: cache information constants, prefetching, cache flushing and invalidation, streaming (non-temporal) stores, false sharing prevention with `CacheAligned<T>`, memory barriers and fences, cache-aware blocking utilities, and alignment utilities.
+
+**Not covered:**
+- NUMA topology and remote memory latency (see NumaAllocator)
+- SIMD instruction selection (see SimdDetection, SimdVector)
+- Hardware performance counter programming
+- Operating system page cache behavior
+
+**Prerequisites:** C++20; basic understanding of CPU cache hierarchy (L1/L2/L3); awareness that memory access patterns affect performance
+
+---
+
+## User Manual Card
+
+**Component:** CacheUtilities
+**Primary use case:** Explicit cache control for HPC hot paths: prefetching, non-temporal stores, false sharing prevention
+**Integration pattern:** Include `CacheUtilities.h` and use `fat_p::cache::` utilities in performance-critical loops; combine with AlignedVector for cache-aligned storage
+**Key API:** `prefetch()`, `cacheLineFlush()`, `streamingStore()`, `CacheAligned<T>`, `cacheLineSize()`, `blockForCache()`
+**std equivalent:** None
+**Common mistakes:** Prefetching too early or too late; using streaming stores for data that will be read soon; assuming cache line size is always 64 bytes across all platforms
+**Performance notes:** Prefetching hides memory latency; streaming stores bypass cache for write-only patterns. Effectiveness is workload-dependent. See `components/CacheUtilities/results/` for current data
+
+---
 ## Table of Contents
 
 1. [Why Cache-Aware Programming Matters](#why-cache-aware-programming-matters)

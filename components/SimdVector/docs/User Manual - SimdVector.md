@@ -1,5 +1,44 @@
-# SimdVector User Manual
+---
+doc_id: UM-SIMDVECTOR-001
+doc_type: "User Manual"
+title: "SimdVector"
+fatp_components: ["SimdVector"]
+topics: ["SIMD abstraction", "vectorized operations", "SSE", "AVX", "NEON", "portable SIMD", "data parallelism", "horizontal reduction", "masked operations", "math operations"]
+constraints: ["platform-specific SIMD instruction sets", "alignment requirements", "register width differences", "scalar fallback overhead"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - SimdVector
+
+**Scope:** Complete usage guide for `fat_p::SimdVector<T>`: loading and storing data, arithmetic operations, comparisons and masks, conditional logic with `select()`, math operations, horizontal reductions, special value detection, integration with Fat-P components, and platform-specific behavior.
+
+**Not covered:**
+- SIMD instruction set detection (see SimdDetection)
+- Aligned memory allocation (see AlignedVector)
+- NUMA-aware SIMD vectors (see HpcVector)
+- Manual intrinsics programming
+
+**Prerequisites:** C++20; basic understanding of SIMD (one instruction operates on multiple data elements simultaneously); awareness of SSE/AVX/NEON instruction set families
+
+---
+
+## User Manual Card
+
+**Component:** SimdVector
+**Primary use case:** Perform data-parallel arithmetic on vectors of floats/doubles/ints using a portable API that maps to the best available SIMD instructions
+**Integration pattern:** Load data with `SimdVector<float>::load(ptr)`, operate with arithmetic operators and math functions, store results with `.store(ptr)`. Works with AlignedVector for aligned loads.
+**Key API:** `SimdVector<T>`, `.load()`, `.store()`, arithmetic operators, `.select()`, `.sum()`, `.min()`, `.max()`, `.sqrt()`, `.abs()`
+**std equivalent:** None
+**Common mistakes:** Loading from unaligned memory without using unaligned load (crashes on some platforms); assuming a specific SIMD width (use `SimdVector<T>::lanes()` instead); operating on arrays whose length is not a multiple of the SIMD width without handling the tail
+**Performance notes:** Operations map to native SIMD instructions when available. Scalar fallback is functional but not accelerated. See `components/SimdVector/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is SIMD and Why SimdVector?](#what-is-simd-and-why-simdvector)

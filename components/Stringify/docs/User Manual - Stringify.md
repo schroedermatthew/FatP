@@ -1,5 +1,44 @@
-# Stringify User Manual
+---
+doc_id: UM-STRINGIFY-001
+doc_type: "User Manual"
+title: "Stringify"
+fatp_components: ["Stringify"]
+topics: ["type-to-string conversion", "compile-time dispatch", "custom type stringification", "container formatting", "floating-point formatting", "priority-based resolution", "stream operator", "enum stringification", "debug output"]
+constraints: ["compile-time type detection overhead", "formatting allocation cost", "priority ordering of stringification methods", "constexpr string limitations"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.LexicalCast (partial overlap)"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - Stringify
+
+**Scope:** Complete usage guide for `fat_p::stringify()`: built-in type conversion, string and C-string handling, pointer formatting, container formatting, custom type support (method-based, stream operator, enum), formatting options (precision, boolean display, container delimiters, locale), advanced features, and compile-time dispatch mechanism.
+
+**Not covered:**
+- JSON serialization (see JsonLite, FatPJsonLite)
+- Binary serialization (see BinarySerialization)
+- Localization and internationalization
+- std::format integration
+
+**Prerequisites:** C++20; understanding of `operator<<` for output streams; awareness that C++ lacks a universal `toString()` method
+
+---
+
+## User Manual Card
+
+**Component:** Stringify
+**Primary use case:** Convert any type to its string representation using a single function with compile-time dispatch to the best available conversion method
+**Integration pattern:** Call `fat_p::stringify(value)` for any type. Customize output by providing a `.toString()` method, `operator<<`, or template specialization. Pass `StringifyOptions` for formatting control.
+**Key API:** `stringify()`, `StringifyOptions`, `.toString()` method protocol, `operator<<` support, `FATP_ENUM_STRINGIFY` macro
+**std equivalent:** None
+**Common mistakes:** Defining both `.toString()` and `operator<<` without understanding priority (`.toString()` wins); forgetting that `stringify()` returns `std::string` (allocation); using stringify in hot loops without caching the result
+**Performance notes:** One allocation per call (returns std::string). Compile-time dispatch selects the optimal conversion path. See `components/Stringify/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is Stringify?](#what-is-stringify)

@@ -1,5 +1,44 @@
-# CSRMatrix User Manual
+---
+doc_id: UM-CSRMATRIX-001
+doc_type: "User Manual"
+title: "CSRMatrix"
+fatp_components: ["CSRMatrix"]
+topics: ["sparse matrix", "CSR format", "compressed sparse row", "sparse matrix-vector multiplication", "SpMV", "matrix assembly", "parallel SpMV", "HPC matrix", "duplicate handling", "matrix arithmetic"]
+constraints: ["CSR format immutability after construction", "duplicate entry handling during assembly", "parallel SpMV load balancing", "memory bandwidth bottleneck for SpMV"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
+# User Manual - CSRMatrix
+
+**Scope:** Complete usage guide for `fat_p::CSRMatrix<T>`: CSR format explanation, construction and assembly (including duplicate handling), matrix-vector multiplication (serial and parallel), matrix arithmetic, parallelism with OpenMP, HPC features, variant selection guide, performance tuning, and common patterns.
+
+**Not covered:**
+- Dense matrix operations (use Tensor)
+- Sparse direct solvers (LU, Cholesky)
+- Graph algorithms on sparse matrices
+- GPU-accelerated SpMV
+
+**Prerequisites:** C++20; understanding of sparse matrices (most entries are zero); familiarity with matrix-vector multiplication; awareness of CSR format (helpful but explained in the manual)
+
+---
+
+## User Manual Card
+
+**Component:** CSRMatrix
+**Primary use case:** Store and operate on large sparse matrices efficiently using Compressed Sparse Row format, with HPC-grade parallel matrix-vector multiplication
+**Integration pattern:** Build with `CSRMatrixBuilder`, call `.build()` to get immutable `CSRMatrix`, perform SpMV with `matrix.multiply(x, y)` or parallel variant
+**Key API:** `CSRMatrix<T>`, `CSRMatrixBuilder<T>`, `.addEntry()`, `.build()`, `.multiply()`, `.parallelMultiply()`, `.rows()`, `.cols()`, `.nnz()`
+**std equivalent:** None
+**Common mistakes:** Modifying a CSRMatrix after construction (it's immutable; rebuild from builder); ignoring duplicate entries during assembly (use duplicate handling policy); assuming parallel SpMV is always faster (overhead exceeds benefit for small matrices)
+**Performance notes:** SpMV is memory-bandwidth bound for large matrices. Parallel SpMV scales with core count. CSR format enables O(nnz) iteration. See `components/CSRMatrix/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is CSRMatrix and Why Use It?](#what-is-csrmatrix-and-why-use-it)

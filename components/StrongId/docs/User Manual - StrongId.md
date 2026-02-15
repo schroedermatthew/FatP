@@ -20,6 +20,30 @@ status: "reviewed"
 
 ---
 
+
+
+**Scope:** Complete usage guide for `fat_p::StrongId<Tag, T>`: type-safe ID wrappers, phantom type tagging, comparison, hashing, serialization support, and integration with IdGenerator and SlotMap.
+
+**Not covered:**
+- ID generation policies (see IdGenerator User Manual)
+- Handle-based containers (see SlotMap User Manual)
+- Database-assigned IDs
+
+**Prerequisites:** C++20; understanding of phantom types (using unused template parameters for type safety); awareness of the problem with using raw integers as IDs
+
+---
+
+## User Manual Card
+
+**Component:** StrongId
+**Primary use case:** Prevent accidental mixing of IDs from different domains (e.g., UserID vs OrderID) through compile-time type checking
+**Integration pattern:** Define `using UserId = StrongId<struct UserTag, uint64_t>;`, use `UserId` in APIs instead of raw `uint64_t`; compiler rejects mixing UserIds with OrderIds
+**Key API:** `StrongId<Tag, T>`, `.value()`, comparison operators, `std::hash` specialization, `StrongId::invalid()`
+**std equivalent:** None
+**Common mistakes:** Using `.value()` to bypass type safety (defeats the purpose); forgetting to provide `std::hash` specialization for use in hash maps (it's automatic); defining two StrongId types with the same tag (they're the same type)
+**Performance notes:** Zero overhead: same size and layout as the underlying integer type. All operations inline to the underlying type's operations
+
+---
 ## Table of Contents
 
 1. [The ID Safety Story](#the-id-safety-story)

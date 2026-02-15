@@ -1,11 +1,44 @@
-# ConcurrencyPolicies User Manual
+---
+doc_id: UM-CONCURRENCYPOLICIES-001
+doc_type: "User Manual"
+title: "ConcurrencyPolicies"
+fatp_components: ["ConcurrencyPolicies"]
+topics: ["synchronization policies", "mutex", "spinlock", "sequence lock", "RCU", "hazard pointers", "lock-free", "thread safety", "policy-based concurrency", "reader-writer lock", "MCS lock", "ticket lock", "adaptive lock"]
+constraints: ["lock contention at scale", "false sharing in lock structures", "priority inversion", "ABA problem in lock-free code", "memory ordering requirements"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: "Boost.Thread (partial overlap)"
+build_modes: ["Debug", "Release"]
+last_verified: "2026-02-15"
+audience: ["C++ developers", "AI assistants"]
+status: "reviewed"
+---
 
-**Library:** fat_p C++ Utilities  
-**Standard:** C++17 (C++20/23 enhanced)  
-**Type:** Header-only
+# User Manual - ConcurrencyPolicies
+
+**Scope:** Complete usage guide for `fat_p::concurrency`: all synchronization policies (SingleThreaded, Mutex, SharedMutex, Spinlock, SeqLock, TicketLock, MCSLock, RCU, HazardPointer, AdaptiveLock), the trait system for compile-time policy detection, usage patterns (template parameter, CRTP, conditional compilation), and performance characteristics.
+
+**Not covered:**
+- Lock-free data structure design (see LockFreeContainers)
+- Thread pool scheduling (see ThreadPool)
+- Coroutine-based concurrency (see CoroutineTask)
+- Atomic operations tutorial
+
+**Prerequisites:** C++20; understanding of `std::mutex`, `std::shared_mutex`; awareness of data races and undefined behavior in concurrent code
 
 ---
 
+## User Manual Card
+
+**Component:** ConcurrencyPolicies
+**Primary use case:** Make containers and components thread-safety-configurable via compile-time policy selection, paying zero overhead for single-threaded use
+**Integration pattern:** Add `template<typename ConcurrencyPolicy = SingleThreadedPolicy>` to your class template; use policy's `lock()` / `shared_lock()` in member functions
+**Key API:** `SingleThreadedPolicy`, `MutexSynchronizationPolicy`, `SharedMutexPolicy`, `SpinlockSynchronizationPolicy`, `SeqLockPolicy`, `RCUPolicy`, `is_concurrent_v<P>`
+**std equivalent:** None
+**Common mistakes:** Using spinlocks for long critical sections; using mutex policies when single-threaded suffices; holding locks across allocation boundaries; ignoring trait checks in generic code
+**Performance notes:** SingleThreadedPolicy compiles to zero overhead. Spinlocks win for short critical sections (<1μs). SharedMutex wins for read-heavy workloads. See `components/ConcurrencyPolicies/results/` for current data
+
+---
 ## Table of Contents
 
 1. [What is ConcurrencyPolicies?](#what-is-concurrencypolicies)
