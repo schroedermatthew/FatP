@@ -33,7 +33,7 @@ status: "draft"
 **Primary use case:** Validate indices with detailed error messages
 **Key API:** `bounds_check()`, `debug_bounds_check()`, `bounds_check_with<E>()`, `enforce_bounds()`, `debug_enforce_bounds()`
 **Common mistakes:** Using `bounds_check()` in hot loops (always-on cost); forgetting `debug_bounds_check()` is stripped in release
-**Performance notes:** ~2-5 ns per check (branch prediction favors the in-bounds path)
+**Performance notes:** Each check is a single comparison + predicted branch; branch prediction strongly favors the in-bounds path
 
 ---
 
@@ -70,11 +70,11 @@ Integrates with Fat-P's enforce system. Uses `fat_p::enforce()` predicates for c
 
 | Function | Release cost | Use case |
 |---|---|---|
-| `bounds_check` | ~2-5 ns | Public API boundaries, user-facing input |
-| `debug_bounds_check` | Zero | Internal invariant checks, hot paths |
-| `bounds_check_with<E>` | ~2-5 ns | Domain-specific exception hierarchies |
-| `enforce_bounds` | ~2-5 ns | Integration with enforce predicates |
-| `debug_enforce_bounds` | Zero | Internal checks with enforce integration |
+| `bounds_check` | Single comparison + branch | Public API boundaries, user-facing input |
+| `debug_bounds_check` | Zero (compiled out) | Internal invariant checks, hot paths |
+| `bounds_check_with<E>` | Single comparison + branch | Domain-specific exception hierarchies |
+| `enforce_bounds` | Single comparison + branch | Integration with enforce predicates |
+| `debug_enforce_bounds` | Zero (compiled out) | Internal checks with enforce integration |
 
 ---
 

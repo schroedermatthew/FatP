@@ -191,11 +191,11 @@ for (auto entry : entities.entries()) {
 
 ### 5. Checked vs. Unchecked Access
 
-| Method | Validation | Performance | Use Case |
+| Method | Validation | Mechanism | Use Case |
 |--------|--------|-------------|----------|
-| `get(handle)` | Returns `nullptr` if invalid | ~5 ns | General code |
-| `get_unchecked(handle)` | Undefined if invalid | ~2 ns | Hot paths with pre-validated handles |
-| `operator[](handle)` | Throws if invalid | ~5 ns | When exceptions are appropriate |
+| `get(handle)` | Returns `nullptr` if invalid | Two array lookups + generation compare | General code |
+| `get_unchecked(handle)` | Undefined if invalid | Two array lookups, no validation | Hot paths with pre-validated handles |
+| `operator[](handle)` | Throws if invalid | Two array lookups + generation compare + throw path | When exceptions are appropriate |
 
 ```cpp
 // Validated: check before use
@@ -257,13 +257,15 @@ Game engines have implemented this pattern for decades (Unity, Unreal, EnTT). Fa
 
 ### Benchmark Results (Release Build, i7-8850H @ 2.60GHz)
 
-| Operation | Time | Mechanism |
-|-----------|------|-----------|
-| `insert()` | ~15 ns | Free list pop + data push_back |
-| `erase()` | ~12 ns | Swap-and-pop + free list push |
-| `get()` (valid) | ~5 ns | Two array lookups + generation compare |
-| `get_unchecked()` | ~2 ns | Two array lookups, no validation |
-| Iteration (1000 elements) | ~450 ns | Direct data_ traversal |
+| Operation | Mechanism |
+|-----------|-----------|
+| `insert()` | Free list pop + data `push_back` — O(1) amortized with no search |
+| `erase()` | Swap-and-pop + free list push — O(1) with no tombstones or rehashing |
+| `get()` (valid) | Two array lookups + generation compare — constant-time indirection |
+| `get_unchecked()` | Two array lookups, no validation — minimal indirection |
+| Iteration | Direct `data_` traversal — contiguous, cache-friendly, no gaps |
+
+See `components/SlotMap/results/` for current platform-specific benchmark data.
 
 ### Complexity Analysis
 

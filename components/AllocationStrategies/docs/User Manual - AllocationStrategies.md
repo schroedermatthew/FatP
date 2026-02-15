@@ -36,7 +36,7 @@ status: "draft"
 **Key API:** `allocate(args...)`, `deallocate(ptr)` on all three allocators
 **std equivalent:** None (closest: `std::pmr::monotonic_buffer_resource` for BlockAllocator behavior)
 **Common mistakes:** Using PoolAllocator with non-trivially-copyable types; using BlockAllocator with T smaller than a pointer; forgetting allocators are not thread-safe
-**Performance notes:** NewDelete ~30-80 ns/alloc; BlockAllocator ~5-15 ns/alloc; PoolAllocator ~3-8 ns/alloc
+**Performance notes:** NewDelete delegates to CRT heap (per-object syscall path); BlockAllocator amortizes one heap allocation across 256 objects via bump pointer; PoolAllocator provides O(1) free-list pop with zero heap interaction after initialization
 
 ---
 
@@ -102,10 +102,10 @@ Deallocation pushes the object onto a free list. Subsequent allocations check th
 ```mermaid
 flowchart TD
     Alloc["allocate()"] --> FreeCheck{"Free list empty?"}
-    FreeCheck -->|No| Reuse["Pop from free list<br/>~3 ns"]
+    FreeCheck -->|No| Reuse["Pop from free list<br/>O(1) pointer swap"]
     FreeCheck -->|Yes| BumpCheck{"Block has space?"}
-    BumpCheck -->|Yes| Bump["Bump pointer<br/>~5 ns"]
-    BumpCheck -->|No| NewBlock["Allocate new block<br/>~100 ns (amortized across 256)"]
+    BumpCheck -->|Yes| Bump["Bump pointer<br/>O(1) increment"]
+    BumpCheck -->|No| NewBlock["Allocate new block<br/>amortized across 256 objects"]
     NewBlock --> Bump
 ```
 
@@ -144,7 +144,7 @@ Real-time systems where heap allocation is forbidden after initialization. Workl
 
 | Criterion | NewDelete | Block | Pool |
 |---|---|---|---|
-| Allocation speed | ~30-80 ns | ~5-15 ns | ~3-8 ns |
+| Allocation speed | CRT heap (per-object) | Bump pointer (amortized) | Free-list pop (O(1), no heap) |
 | Memory overhead | Per-object malloc header | Block granularity waste | Fixed upfront |
 | Cache locality | Depends on malloc | Excellent (contiguous) | Excellent (contiguous) |
 | Thread-safe | Via CRT | No | No |
@@ -207,7 +207,7 @@ fat_p::StableHashMap<std::string, int, std::hash<std::string>,
 
 ## Use Case: High-Throughput Insertion
 
-Inserting 10 million entries into a hash map. BlockAllocator reduces per-insert allocation cost from ~50 ns to ~8 ns, yielding a measurable throughput improvement for insert-heavy workloads.
+Inserting 10 million entries into a hash map. BlockAllocator amortizes heap allocation across 256 objects via bump pointer, replacing per-insert CRT heap calls with a single pointer increment. This yields a measurable throughput improvement for insert-heavy workloads. See `components/AllocationStrategies/results/` for current platform-specific benchmark data.
 
 ## Use Case: Real-Time System with Known Capacity
 

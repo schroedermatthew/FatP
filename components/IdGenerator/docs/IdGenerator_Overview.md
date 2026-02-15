@@ -274,15 +274,17 @@ No single standard API could satisfy all these requirements. IdGenerator's polic
 
 ## Performance Characteristics
 
-### Benchmark Results (Release Build, i7-8850H @ 2.60GHz)
+### Benchmark Results
 
-| Operation | SimpleIdGenerator | ThreadSafeIdGenerator | Mechanism |
-|-----------|-------------------|----------------------|-----------|
-| Generate (fresh) | ~25 ns | ~45 ns | Counter increment + hash insert |
-| Generate (recycled) | ~20 ns | ~40 ns | Queue pop + hash insert |
-| Release | ~18 ns | ~38 ns | Hash erase + queue push |
-| `is_active()` query | ~8 ns | ~15 ns | Hash lookup |
-| Batch generate (100) | ~2.5 μs | ~4.5 μs | Single lock, N operations |
+| Operation | Mechanism | ThreadSafe Overhead |
+|-----------|-----------|---------------------|
+| Generate (fresh) | Counter increment + hash insert | + mutex lock/unlock per operation |
+| Generate (recycled) | Queue pop + hash insert | + mutex lock/unlock per operation |
+| Release | Hash erase + queue push | + mutex lock/unlock per operation |
+| `is_active()` query | Hash lookup | + mutex lock/unlock per query |
+| Batch generate (N) | Single lock, N × O(1) operations | One lock acquisition amortized across N |
+
+See `components/IdGenerator/results/` for current platform-specific benchmark data.
 
 ### Complexity Analysis
 

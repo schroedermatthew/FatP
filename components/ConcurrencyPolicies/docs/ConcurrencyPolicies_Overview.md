@@ -264,14 +264,16 @@ Fat-p components use ConcurrencyPolicies internally (StringPool, IdGenerator, Si
 
 ## Performance Characteristics
 
-### Benchmark Results (Release Build, i7-8850H @ 2.60GHz)
+### Performance Characteristics
 
-| Policy | Lock Overhead | Memory Overhead |
+| Policy | Lock Mechanism | Memory Overhead |
 |--------|---------------|-----------------|
-| SingleThreadedPolicy | 0 ns | 0 bytes |
-| MutexSynchronizationPolicy | ~20-50 ns | 40 bytes (mutex) |
-| SharedMutexPolicy | ~30-60 ns (exclusive), ~20-40 ns (shared) | 56 bytes |
-| SpinLockPolicy | ~5-15 ns (uncontended) | 1 byte (atomic_flag) |
+| SingleThreadedPolicy | No synchronization — compiles to nothing | 0 bytes |
+| MutexSynchronizationPolicy | OS mutex lock/unlock | 40 bytes (mutex) |
+| SharedMutexPolicy | OS shared mutex — shared lock for reads, exclusive for writes | 56 bytes |
+| SpinLockPolicy | Atomic flag CAS spin — no OS transition when uncontended | 1 byte (atomic_flag) |
+
+See `components/ConcurrencyPolicies/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 

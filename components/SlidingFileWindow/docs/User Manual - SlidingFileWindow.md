@@ -84,7 +84,7 @@ Every SlidingFileWindow operation has a cost determined by where the element liv
 ```mermaid
 flowchart TD
     Access["operator[i]"] --> Check{"Is i in window?"}
-    Check -->|"Yes"| InWindow["Deque lookup<br/>~1-10 ns"]
+    Check -->|"Yes"| InWindow["Deque lookup<br/>in-memory only"]
     Check -->|"No"| ShiftCheck{"Near or far miss?"}
     ShiftCheck -->|"Near"| Shift["Flush dirty + Load new<br/>O(shift) disk I/O<br/>~0.1-100 ms"]
     ShiftCheck -->|"Far"| Direct["Single-element read<br/>~5-50 us"]
@@ -420,14 +420,16 @@ Two windows on the same file can implement a streaming transform. Requires exter
 
 ## Performance Characteristics
 
-| Operation | Cost | Notes |
-|-----------|------|-------|
-| In-window `operator[]` | ~1-10 ns | Deque lookup |
-| Shift (per element) | ~50-200 ns (SSD) | Sequential I/O, BinaryPolicy |
-| Direct I/O fallback | ~5-50 us | Single seek+read |
-| `flush()` per dirty element | ~50-200 ns (SSD) | Sequential write |
-| `open()` | ~1-10 ms | File open + initial load |
-| `close()` | ~0.1-10 ms | Flush + file close |
+| Operation | Mechanism | Cost Driver |
+|-----------|-----------|-------------|
+| In-window `operator[]` | Deque index lookup | In-memory only — no I/O; dominated by deque indirection |
+| Shift (per element) | Sequential I/O via BinaryPolicy | Disk throughput — sequential read/write of contiguous elements |
+| Direct I/O fallback | Single seek + read | Disk latency — one random I/O operation |
+| `flush()` per dirty element | Sequential write via BinaryPolicy | Disk throughput — sequential write of dirty range |
+| `open()` | File open + initial window load | Disk latency + sequential read of initial window |
+| `close()` | Flush dirty elements + file close | Flush cost + OS file handle release |
+
+See `components/SlidingFileWindow/results/` for current platform-specific benchmark data.
 
 ---
 

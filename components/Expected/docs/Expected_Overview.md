@@ -219,14 +219,16 @@ These are architectural decisions, not oversights. Fat-P Expected provides these
 
 ## Performance Characteristics
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Construction (value) | ~1-5 ns | Placement new |
-| Construction (error) | ~1-5 ns | Placement new |
-| `has_value()` check | ~0.5 ns | Boolean read |
-| `value()` access | ~0.5 ns | Direct member access |
-| `map()` | Function cost + ~2 ns | Conditional + construction |
-| `and_then()` | Function cost + ~2 ns | Conditional + construction |
+| Operation | Mechanism | Cost Driver |
+|-----------|-----------|-------------|
+| Construction (value) | Placement new into discriminated union | Same cost as constructing T — no heap, no indirection |
+| Construction (error) | Placement new into discriminated union | Same cost as constructing E |
+| `has_value()` check | Boolean read | Single branch — zero overhead beyond a comparison |
+| `value()` access | Direct member access | No indirection — equivalent to accessing a struct field |
+| `map()` | Conditional + construction of new Expected | Function call cost + one branch + one placement new |
+| `and_then()` | Conditional + construction of new Expected | Function call cost + one branch + one placement new |
+
+See `components/Expected/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 - Error-handling hot paths where exceptions are too expensive

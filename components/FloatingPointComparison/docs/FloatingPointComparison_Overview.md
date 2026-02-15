@@ -206,11 +206,13 @@ FloatingPointComparison bridges this gap **permanently**—not as a temporary sh
 
 | Operation | Complexity | Mechanism |
 |-----------|------------|-----------|
-| Absolute comparison | O(1) | `std::fabs` + compare (~2 ns) |
-| Relative comparison | O(1) | + `std::max` + multiply (~5 ns) |
-| ULP comparison | O(1) | Bit-cast + ordered-space subtraction (~10 ns) |
-| Hybrid comparison | O(1) | Absolute (early-exit) + relative (~6 ns) |
-| Special value check | O(1) | `std::isnan` + `std::isinf` (~1 ns, amortized) |
+| Absolute comparison | O(1) | `std::fabs` + compare — single subtraction + branch |
+| Relative comparison | O(1) | `std::fabs` + `std::max` + multiply — three FP operations |
+| ULP comparison | O(1) | `std::bit_cast` to integer + ordered-space subtraction — integer arithmetic on FP bits |
+| Hybrid comparison | O(1) | Absolute (early-exit on success) + relative fallback — best-case is one branch |
+| Special value check | O(1) | `std::isnan` + `std::isinf` — typically single FP classify instruction |
+
+See `components/FloatingPointComparison/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 

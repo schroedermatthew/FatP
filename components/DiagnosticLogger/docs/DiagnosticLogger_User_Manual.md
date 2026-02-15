@@ -162,7 +162,7 @@ flowchart TD
     A[LOG_DEBUG macro] --> B{Compile-time check<br/>if constexpr}
     B -->|Level disabled| C[Return immediately<br/>0 ns, 0 bytes]
     B -->|Level enabled| D{Runtime check<br/>atomic load}
-    D -->|Logger disabled| E[Return immediately<br/>~10 ns]
+    D -->|Logger disabled| E[Return immediately<br/>single atomic load]
     D -->|Level filtered| E
     D -->|Should log| F[Slow path - NO_INLINE]
     F --> G[Acquire mutex]
@@ -1165,11 +1165,9 @@ DiagnosticLogger is designed for **near-zero cost when disabled**, enabling you 
 
 Understanding latency in terms of CPU cycles reveals whether the implementation is optimal:
 
-**Disabled/filtered log path (~6ns @ 4.3 GHz):**
+**Disabled/filtered log path:**
 
 ```
-6 ns × 4.3 GHz = ~26 CPU cycles
-
 Breakdown:
   Atomic load (L1 cache hit):     ~15-20 cycles
   Comparison:                     ~1 cycle
@@ -1181,25 +1179,22 @@ Breakdown:
 
 This is **near the theoretical minimum** for any check involving an atomic load. The `UNLIKELY` macro ensures the branch predictor almost always predicts "don't log."
 
-**Scaling by CPU frequency:**
+Actual latency scales linearly with CPU frequency — the cycle count is constant regardless of clock speed.
 
-| CPU Speed | Filtered Log Overhead |
-|-----------|----------------------|
-| 3.0 GHz server | ~9 ns |
-| 4.3 GHz desktop | ~6 ns |
-| 5.0 GHz desktop | ~5 ns |
+### Performance Characteristics
 
-### Benchmark Results
+DiagnosticLogger's performance is dominated by the fast path design. The cost hierarchy, from cheapest to most expensive:
 
-| Scenario | Latency | Notes |
-|----------|---------|-------|
-| Compile-time filtered | **0 ns** | Code eliminated entirely |
-| Runtime filtered | **~6-10 ns** | Atomic load + branch |
-| Active logging (logger path only) | **~80-125 ns** | Timestamp + record construction |
-| Active + ConsoleSink | **~200 ns** | + stream write |
-| Active + FileSink (buffered) | **~180 ns** | + file write |
-| Active + AsyncSink | **~150 ns** | + lock-free enqueue |
-| Multi-threaded (4 threads, ConsoleSink) | **~330 ns** | Mutex contention |
+| Scenario | Mechanism | Cost Driver |
+|----------|-----------|-------------|
+| Compile-time filtered | `if constexpr` elimination | Zero — code removed entirely |
+| Runtime filtered | Single atomic load + predicted branch | L1 cache hit latency for the atomic; branch predictor handles the rest |
+| Active logging (logger path only) | Timestamp acquisition + LogRecord construction | `std::chrono` clock read + memory allocation for record |
+| Active + synchronous sink | + stream/file write | I/O syscall dominates |
+| Active + AsyncSink | + lock-free enqueue | CAS on ring buffer; avoids I/O on hot path |
+| Multi-threaded (synchronous sink) | + mutex contention | Mutex acquisition serializes writers |
+
+See `components/DiagnosticLogger/results/` for current platform-specific benchmark data.
 
 ### Memory Usage
 
@@ -1758,13 +1753,15 @@ DiagnosticLogger provides **high-performance, zero-dependency diagnostic logging
 
 ### Performance Profile
 
-| Scenario | Latency |
-|----------|---------|
-| Disabled logging (compile-time) | **0 ns** |
-| Disabled logging (runtime) | **~10 ns** |
-| Active logging (ConsoleSink) | **~200 ns** |
-| Active logging (AsyncSink) | **~150 ns** |
-| Multi-threaded (4 threads) | **~330 ns** |
+| Scenario | Cost Driver |
+|----------|-------------|
+| Disabled logging (compile-time) | Zero — `if constexpr` eliminates code entirely |
+| Disabled logging (runtime) | Single atomic load + predicted branch |
+| Active logging (synchronous sink) | Timestamp + record construction + I/O syscall |
+| Active logging (AsyncSink) | Timestamp + record construction + lock-free enqueue |
+| Multi-threaded (synchronous sink) | Mutex contention serializes writers |
+
+See `components/DiagnosticLogger/results/` for current platform-specific benchmark data.
 
 ### Quick Start
 

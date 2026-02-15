@@ -786,16 +786,18 @@ void safe_remove(Task& t, fat_p::IntrusiveList<Task>& list) {
 
 ### Operation Costs
 
-| Operation | Time | Allocations | Cache Behavior |
-|-----------|------|-------------|----------------|
-| `push_back/front` | ~2 ns | 0 | 2 cache lines touched |
-| `remove` | ~2 ns | 0 | 3 cache lines touched |
-| `isLinked()` | <1 ns | 0 | 1 cache line (node itself) |
-| `iteratorTo()` | <1 ns | 0 | 1 cache line (node itself) |
-| `splice` (Fast) | O(1) | 0 | 4 cache lines |
-| `splice` (Safe) | O(N) | 0 | N+4 cache lines |
-| `size()` | O(1) | 0 | 1 cache line (list header) |
-| Iteration per node | ~2 ns | 0 | 1 cache line per node |
+| Operation | Mechanism | Allocations | Cache Behavior |
+|-----------|-----------|-------------|----------------|
+| `push_back/front` | Two pointer assignments (prev/next) | 0 | 2 cache lines touched |
+| `remove` | Three pointer reassignments (prev→next, next→prev, self-reset) | 0 | 3 cache lines touched |
+| `isLinked()` | Single pointer comparison (prev ≠ self) | 0 | 1 cache line (node itself) |
+| `iteratorTo()` | Address-of node → iterator construction | 0 | 1 cache line (node itself) |
+| `splice` (Fast) | O(1) pointer surgery | 0 | 4 cache lines |
+| `splice` (Safe) | O(N) ownership verification + pointer surgery | 0 | N+4 cache lines |
+| `size()` | Cached counter read | 0 | 1 cache line (list header) |
+| Iteration per node | Pointer chase (node→next) | 0 | 1 cache line per node |
+
+See `components/IntrusiveList/results/` for current platform-specific benchmark data.
 
 ### Memory Layout Considerations
 

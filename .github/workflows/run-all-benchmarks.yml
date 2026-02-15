@@ -232,15 +232,6 @@ jobs:
             SYS_LINK="-lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto"
           fi
 
-          # Abseil (and Folly) static archives have circular inter-library
-          # dependencies.  The GNU linker does a single left-to-right pass,
-          # so alphabetical ordering doesn't resolve all symbols.
-          # --start-group/--end-group forces repeated scanning until every
-          # symbol is resolved.
-          if [ -n "$LIBS" ]; then
-            LIBS="-Wl,--start-group $LIBS -Wl,--end-group"
-          fi
-
           g++-14 -std=c++20 \
             -O3 -DNDEBUG -march=native \
             ${{ matrix.extra_defines }} \

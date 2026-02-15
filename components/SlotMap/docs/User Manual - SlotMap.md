@@ -444,17 +444,19 @@ For truly paranoid applications, stop reusing slots at max generation (not imple
 | Compiler | GCC 13.3, `-O3` |
 | CPU | Sandboxed (variable) |
 
-### Benchmark Results
+### Performance Characteristics
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Insert | ~99 ns | Amortized, may allocate |
-| Get | ~3 ns | Two array lookups + validation |
-| get_unchecked | ~3 ns | Two array lookups, no validation |
-| is_valid | ~3 ns | One lookup + compare |
-| Erase | ~11 ns | Swap-and-pop |
-| Iteration (10k) | ~1.1 µs | Dense, cache-friendly |
-| Entry iteration (10k) | ~1.6 µs | Handle reconstruction overhead |
+| Operation | Mechanism |
+|-----------|-----------|
+| Insert | Free list pop + data `push_back` — O(1) amortized |
+| Get | Two array lookups + generation validation — O(1) |
+| get_unchecked | Two array lookups, no validation — O(1) |
+| is_valid | One array lookup + generation compare — O(1) |
+| Erase | Swap-and-pop + free list push — O(1) |
+| Iteration (dense) | Contiguous `data_` traversal — cache-friendly, no gaps |
+| Entry iteration | Handle reconstruction from slot indirection adds overhead vs. plain iteration |
+
+See `components/SlotMap/results/` for current platform-specific benchmark data.
 
 **Note:** `get()` and `get_unchecked()` show similar times in benchmarks because branch prediction is perfect when all handles are valid. The difference appears when branches mispredict or in code-size-sensitive scenarios.
 
@@ -593,7 +595,7 @@ Both are fat_p components with complementary purposes:
 | **Owns data** | Yes | No |
 | **Purpose** | Store objects with validated handles | Generate unique IDs for external resources |
 | **ABA protection** | Built-in (generational) | Requires `is_active()` check |
-| **Validation cost** | ~3 ns (array lookup) | ~30 ns (hash lookup) |
+| **Validation cost** | O(1) array lookup | O(1) hash lookup (higher constant factor) |
 | **Iteration** | Dense, cache-friendly | N/A (doesn't store data) |
 | **Use case** | Object pools, ECS | Network handles, file IDs, database keys |
 

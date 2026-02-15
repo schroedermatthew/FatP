@@ -665,39 +665,19 @@ sig.emit();  // No deadlock
 
 ### Benchmark Results
 
-**Test Environment:**
+Benchmarks were run on Windows (MSVC 2022, `/O2`) and Linux (g++ 13.2, `-O2`) on an Intel Core i7-8850H. The operations measured were emit (single-threaded and thread-safe), connect, and disconnect, across varying slot counts.
 
-| Component | Specification |
-|-----------|---------------|
-| Processor | Intel Core i7-8850H @ 2.60 GHz |
-| RAM | 32 GB |
-| Architecture | x64 |
+**Performance is driven by these architectural properties:**
 
-**Windows (MSVC 2022, Release /O2):**
+| Operation | Mechanism | Cost Driver |
+|-----------|-----------|-------------|
+| Emit (≤4 slots) | Direct iteration over SmallVector inline storage | No heap indirection; cache-local traversal |
+| Emit (>4 slots) | Heap-backed SmallVector iteration | Single pointer chase, then contiguous |
+| Emit (ThreadSafe) | SharedMutexPolicy shared lock + emit | Shared lock acquisition adds constant overhead |
+| Connect | SmallVector `push_back` + type-erased slot construction | Inline for ≤4 slots; heap allocation beyond |
+| Disconnect | O(n) scan for matching connection ID | Linear search dominates; O(n) in slot count |
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Emit (1 slot) | 16.2 ns | SingleThreadedPolicy |
-| Emit (4 slots) | 26.9 ns | Still inline storage |
-| Emit (ThreadSafe, 1 slot) | 29.2 ns | SharedMutexPolicy overhead |
-| Connect | 45.6 ns | Includes SmallVector insert |
-| Disconnect | 2.27 μs | Includes slot search O(n) |
-
-**Linux (g++ 13.2, -O2):**
-
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Emit (1 slot) | 17.0 ns | SingleThreadedPolicy |
-| Emit (4 slots) | 18.8 ns | Still inline storage |
-| Emit (ThreadSafe, 1 slot) | 31.3 ns | SharedMutexPolicy overhead |
-| Connect | 164.7 ns | Includes SmallVector insert |
-| Disconnect | 2.02 μs | Includes slot search O(n) |
-
-**Analysis:**
-- Emit performance is comparable across platforms (~16-17 ns single slot)
-- MSVC shows faster Connect (~46 ns vs ~165 ns) likely due to allocator differences
-- ThreadSafe overhead is minimal (~12-13 ns) on both platforms
-- Disconnect is O(n) scan, ~2 μs regardless of platform
+See `components/Signal/results/` for current platform-specific benchmark data.
 
 ### Memory Layout
 
@@ -737,7 +717,7 @@ auto c2 = sig.connect([bigData]() { /* ... */ });
 ```
 
 **Virtual call overhead:** Each slot invocation goes through `std::function`'s type-erased 
-call mechanism (~2-5 ns overhead).
+call mechanism (virtual dispatch + possible heap indirection for large captures).
 
 **Move-only callbacks not supported:** `std::function` requires copyable functors:
 
@@ -1162,7 +1142,7 @@ public:
 
 **Decision:** Use `std::function<Signature>` for callbacks.
 
-**Tradeoff:** Type-erasure overhead (~2-5 ns per call) and no move-only callbacks.
+**Tradeoff:** Type-erasure overhead (virtual dispatch per call) and no move-only callbacks.
 
 **Rationale:** 
 - Uniform slot storage in SmallVector
@@ -1221,13 +1201,15 @@ public:
 
 ### Performance Profile
 
-| Metric | Windows (MSVC) | Linux (g++) |
-|--------|----------------|-------------|
-| Emit (1 slot) | 16.2 ns | 17.0 ns |
-| Emit (4 slots) | 26.9 ns | 18.8 ns |
-| Connect | 45.6 ns | 164.7 ns |
-| ThreadSafe overhead | ~13 ns | ~14 ns |
-| Memory (0-4 slots) | Stack only | Stack only |
+| Metric | Cost Driver |
+|--------|-------------|
+| Emit (≤4 slots) | SmallVector inline traversal — no heap, cache-local |
+| Emit (>4 slots) | Heap-backed SmallVector iteration — single pointer chase |
+| Connect | SmallVector `push_back` + type-erased slot construction |
+| ThreadSafe overhead | SharedMutexPolicy shared lock acquisition per emit |
+| Memory (0-4 slots) | Stack only (SmallVector inline capacity) |
+
+See `components/Signal/results/` for current platform-specific benchmark data.
 
 ### Quick Start
 

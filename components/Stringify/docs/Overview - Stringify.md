@@ -253,16 +253,18 @@ Each project has different preferences. Stringify provides sensible defaults wit
 
 ## Performance Characteristics
 
-### Benchmark Results (Release Build, i7-8850H @ 2.60GHz)
+### Benchmark Results
 
-| Type | Time | Mechanism |
-|------|------|-----------|
-| `bool` | ~10 ns | Direct string literal |
-| `int` | ~50 ns | `std::to_string` |
-| `double` | ~400 ns | `std::to_string` (default precision) |
-| `std::string` | ~5 ns | Copy/return |
-| `vector<int, 10>` | ~600 ns | Iteration + concat |
-| Custom with `.toString()` | Method time + ~5 ns | Direct method call |
+| Type | Mechanism | Cost Driver |
+|------|-----------|-------------|
+| `bool` | Direct string literal return | Compile-time dispatch; no conversion |
+| `int` | `std::to_string` delegation | Integer-to-decimal conversion dominates |
+| `double` | `std::to_string` delegation (default precision) | Floating-point formatting dominates |
+| `std::string` | Copy/return (already a string) | Minimal — string copy only |
+| `vector<int, N>` | Iteration + per-element conversion + concatenation | O(n) in element count; string allocation per element |
+| Custom with `.toString()` | Direct method call via ADL/trait dispatch | User method cost + minimal dispatch overhead |
+
+See `components/Stringify/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 

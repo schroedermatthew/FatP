@@ -486,12 +486,14 @@ Each worker is initialized individually. Accessing an uninitialized worker is ca
 
 ## Performance Characteristics
 
-| Policy | init() overhead | get() overhead | Memory overhead |
-|--------|----------------|----------------|-----------------|
-| SingleThreaded | ~0 (optional emplace) | ~1 ns (has_value check) | sizeof(optional<T>) |
-| Atomic | ~5 ns (atomic store) | ~5 ns (atomic load) | + 1 byte atomic flag |
-| Mutex | ~20-50 ns (lock/unlock) | ~20-50 ns (lock/unlock) | + sizeof(mutex) |
-| ConditionVar | ~20-50 ns (lock + notify) | ~20-50 ns (lock) | + sizeof(mutex) + sizeof(condition_variable) |
+| Policy | init() mechanism | get() mechanism | Memory overhead |
+|--------|-----------------|-----------------|-----------------|
+| SingleThreaded | `optional::emplace` — no synchronization | `has_value()` check — single branch | sizeof(optional<T>) |
+| Atomic | Atomic store (release) | Atomic load (acquire) | + 1 byte atomic flag |
+| Mutex | Mutex lock/unlock | Mutex lock/unlock | + sizeof(mutex) |
+| ConditionVar | Lock + notify_all | Lock + wait-if-uninitialized | + sizeof(mutex) + sizeof(condition_variable) |
+
+See `components/EnforcedInit/results/` for current platform-specific benchmark data.
 
 ---
 

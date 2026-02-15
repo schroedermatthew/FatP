@@ -238,12 +238,14 @@ ConstexprUtilities provides compile-time computation capabilities that the stand
 
 ## Performance Characteristics
 
-| Operation | Compile-Time | Runtime Fallback | Notes |
-|-----------|-------------|------------------|-------|
-| `constexpr_hash` | 0 ns (embedded) | ~5-10 ns | FNV-1a |
-| `popcount` | 0 ns (embedded) | ~1 ns (builtin) | Single instruction |
-| `next_power_of_two` | 0 ns (embedded) | ~2-5 ns | Bit manipulation |
-| `count_digits` | 0 ns (embedded) | ~3-8 ns | Comparison ladder |
+| Operation | Compile-Time | Runtime Fallback | Algorithm |
+|-----------|-------------|------------------|-----------|
+| `constexpr_hash` | Zero — result embedded in binary | FNV-1a iteration over input bytes | FNV-1a |
+| `popcount` | Zero — result embedded in binary | Compiler builtin → single instruction | `__builtin_popcount` / `POPCNT` |
+| `next_power_of_two` | Zero — result embedded in binary | Bit manipulation (shift + OR cascade) | `std::bit_ceil` equivalent |
+| `count_digits` | Zero — result embedded in binary | Comparison ladder (log10 approximation) | Successive division/comparison |
+
+At compile time, all operations are evaluated by the compiler and the result is embedded directly in the binary — zero runtime cost. At runtime, each operation maps to a small number of ALU instructions. See `components/ConstexprUtilities/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 - Compile-time dispatch tables (string switches)

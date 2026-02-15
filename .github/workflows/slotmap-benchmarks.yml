@@ -92,9 +92,7 @@ jobs:
             -I$HOME/thirdparty-compiled/boost/include \
             ${{ env.BENCH_SRC }} \
             -o bench_slotmap -pthread \
-            -Wl,--start-group \
-            $BOOST_LIBS \
-            -Wl,--end-group \
+            $BOOST_LIBS
 
       - name: Run benchmark
         env:
@@ -118,7 +116,7 @@ jobs:
   # ===========================================================================
   benchmarks-clang:
     name: Clang-${{ matrix.version }} C++20
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -129,8 +127,7 @@ jobs:
 
       - name: Install Clang
         run: |
-          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.version }}
-          sudo apt-get install -y libunwind-dev
+          sudo apt-get install -y clang-${{ matrix.version }}
 
       - name: Restore header-only deps
         uses: actions/cache/restore@v4
@@ -164,9 +161,7 @@ jobs:
             -I$HOME/thirdparty-compiled/boost/include \
             ${{ env.BENCH_SRC }} \
             -o bench_slotmap -pthread \
-            -Wl,--start-group \
             $BOOST_LIBS \
-            -Wl,--end-group \
             -lstdc++
 
       - name: Run benchmark

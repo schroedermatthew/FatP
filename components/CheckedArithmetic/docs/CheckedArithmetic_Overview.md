@@ -112,11 +112,11 @@ The `jo` instruction checks the CPU's overflow flag—**zero overhead** compared
 #endif
 ```
 
-| Path | Mechanism | Performance |
-|------|-----------|-------------|
-| Builtin (GCC/Clang) | Single `jo` instruction | 2-5 ns |
-| Fallback | Pre-computation check | 10-20 ns |
-| Unchecked | Raw arithmetic | ~1 ns |
+| Path | Mechanism | Overhead |
+|------|-----------|----------|
+| Builtin (GCC/Clang) | Single `jo`/`jc` instruction after arithmetic | One conditional jump — branch-predictor friendly |
+| Fallback | Pre-computation limit check before arithmetic | Additional comparison + branch per operation |
+| Unchecked | Raw arithmetic | Zero — baseline cost |
 
 ---
 
@@ -296,13 +296,15 @@ CheckedArithmetic provides **architectural control** that the standard committee
 
 ## Performance Characteristics
 
-| Operation | Builtin Path | Fallback Path | Unchecked | Mechanism |
-|-----------|-------------|---------------|-----------|-----------|
-| `checked_add` | 2-5 ns | 10-20 ns | ~1 ns | `__builtin_add_overflow` → `jo` |
-| `checked_mul` | 3-7 ns | 15-30 ns | ~1 ns | `__builtin_mul_overflow` → flags |
-| `checked_div` | 15-25 ns | 20-35 ns | ~15 ns | Pre-check + division |
-| `checked_add_vec` (×8 int) | 4-8 ns | N/A | ~2 ns | AVX2 + overflow detect |
-| `checked_add_vec_fp` (×8 double) | 15-25 ns | N/A | ~8 ns | Scalar + NaN/Inf check |
+| Operation | Builtin Path | Fallback Path | Mechanism |
+|-----------|-------------|---------------|-----------|
+| `checked_add` | Single `jo` after `add` | Limit check + branch | `__builtin_add_overflow` compiles to one flag-checking instruction |
+| `checked_mul` | Single flag check after `imul` | Limit check + branch | `__builtin_mul_overflow` compiles to overflow flag test |
+| `checked_div` | Pre-check + hardware division | Pre-check + hardware division | Division itself dominates; both paths pay the divider latency |
+| `checked_add_vec` (×8 int) | AVX2 parallel add + overflow detect | N/A (no SIMD fallback) | SIMD processes 8 elements per instruction; overflow via saturation compare |
+| `checked_add_vec_fp` (×8 double) | Scalar + NaN/Inf check | N/A | Per-element `std::isnan`/`std::isinf`; no SIMD path for FP validation |
+
+See `components/CheckedArithmetic/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 - Mixed-policy codebases (throw here, saturate there)
@@ -313,7 +315,7 @@ CheckedArithmetic provides **architectural control** that the standard committee
 
 ### Where Fat-P Loses (Honesty Builds Trust)
 - Single-policy codebases where `std::add_sat` suffices
-- Performance-critical inner loops where 2-5 ns overhead matters
+- Performance-critical inner loops where the additional branch per operation matters
 - Codebases already using Boost.SafeNumerics with acceptable behavior
 - FP vector operations without SIMD (scalar with per-element checks)
 

@@ -699,17 +699,17 @@ Both models validate all reads against buffer bounds. Neither model performs val
 
 ## Performance Characteristics
 
-| Operation | Cost | Notes |
-|-----------|------|-------|
-| Write tagged primitive | ~5-20 ns | `push_back` for tag + `memcpy` for value |
-| Read tagged primitive | ~5-15 ns | Bounds check + tag check + `memcpy` |
-| Write raw primitive | ~3-10 ns | `memcpy` only, no tag |
-| Write string (N bytes) | ~10 ns + N/32 ns (AVX2) | Length prefix + bulk copy |
-| Byte swap (when needed) | ~1 ns | Single instruction via intrinsic |
-| Archive write (arithmetic) | ~10-30 ns | Stream write, no tag |
-| Archive write (string) | ~20 ns + stream cost | Length prefix + character data |
+| Operation | Mechanism |
+|-----------|-----------|
+| Write tagged primitive | `push_back` for type tag + `memcpy` for value — two operations per field |
+| Read tagged primitive | Bounds check + tag validation + `memcpy` — three checks per field |
+| Write raw primitive | `memcpy` only, no tag overhead — minimal per-field cost |
+| Write string (N bytes) | Length prefix + bulk copy; SIMD-accelerated when available |
+| Byte swap (when needed) | Single compiler intrinsic (`_byteswap_ulong` / `__builtin_bswap32`) |
+| Archive write (arithmetic) | Stream write without type tag — lower per-field overhead than tagged model |
+| Archive write (string) | Length prefix + character data via stream interface |
 
-These are order-of-magnitude estimates. Actual performance depends on buffer locality (hot cache vs. cold), string lengths, and whether the compiler inlines the Encoder methods (it should, at `-O2`).
+Actual performance depends on buffer locality (hot cache vs. cold), string lengths, and whether the compiler inlines the Encoder methods (it should, at `-O2`). See `components/BinarySerialization/results/` for current platform-specific benchmark data.
 
 ---
 

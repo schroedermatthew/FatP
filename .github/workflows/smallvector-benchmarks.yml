@@ -104,13 +104,11 @@ jobs:
             -I$HOME/thirdparty-compiled/eastl/include \
             ${{ env.BENCH_SRC }} \
             -o bench_smallvector -pthread \
-            -Wl,--start-group \
             $ABSL_LIBS \
             $FOLLY_LIBS \
             $BOOST_LIBS \
             $LLVM_LIBS \
             $EASTL_LIBS \
-            -Wl,--end-group \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto
 
       - name: Run benchmark
@@ -135,7 +133,7 @@ jobs:
   # ===========================================================================
   benchmarks-clang:
     name: Clang-${{ matrix.version }} C++20
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -146,8 +144,8 @@ jobs:
 
       - name: Install Clang and system dependencies
         run: |
-          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- ${{ matrix.version }}
-          sudo apt-get install -y libunwind-dev cmake \
+          sudo apt-get install -y clang-${{ matrix.version }}
+          sudo apt-get install -y cmake \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
@@ -192,13 +190,11 @@ jobs:
             -I$HOME/thirdparty-compiled/eastl/include \
             ${{ env.BENCH_SRC }} \
             -o bench_smallvector -pthread \
-            -Wl,--start-group \
             $ABSL_LIBS \
             $FOLLY_LIBS \
             $BOOST_LIBS \
             $LLVM_LIBS \
             $EASTL_LIBS \
-            -Wl,--end-group \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lstdc++
 
       - name: Run benchmark

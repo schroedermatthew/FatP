@@ -252,13 +252,15 @@ Fat_p Signal provides a production-ready implementation that:
 
 ## Performance Characteristics
 
-| Scenario | Cost | Notes |
-|----------|------|-------|
-| Connect (≤4 slots) | ~10 ns | SmallVector inline storage |
-| Connect (>4 slots) | ~50 ns | Heap allocation |
-| Emit (N slots) | N × callback cost | Direct iteration |
-| Disconnect | ~15 ns | ID lookup + removal |
-| Emit with mutex | +30-50 ns | Lock acquisition |
+| Scenario | Mechanism | Cost Driver |
+|----------|-----------|-------------|
+| Connect (≤4 slots) | SmallVector inline `push_back` | No heap allocation; pointer assignment only |
+| Connect (>4 slots) | SmallVector heap-backed `push_back` | Single heap allocation on transition from inline to heap |
+| Emit (N slots) | Direct iteration over slot storage | N × callback cost; contiguous for ≤4 slots |
+| Disconnect | ID lookup + removal from slot vector | O(n) scan in slot count |
+| Emit with mutex | SharedMutexPolicy shared lock + emit | Lock acquisition overhead added per emit |
+
+See `components/Signal/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 - Event-driven systems with many small signals (1-4 listeners typical)

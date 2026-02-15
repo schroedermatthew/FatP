@@ -237,13 +237,15 @@ ContractException provides a pattern for extending standard exceptions with cust
 
 ## Performance Characteristics
 
-| Scenario | Cost | Notes |
-|----------|------|-------|
-| No exception thrown | 0 ns | Zero overhead on happy path |
-| Exception construction | ~50-200 ns | String allocation dominates |
-| Throw + catch | ~1-5 μs | Stack unwinding dominates |
-| `what()` call | ~1 ns | Virtual call + string return |
-| `category()` call | ~1 ns | Virtual call + constant return |
+| Scenario | Mechanism | Cost Driver |
+|----------|-----------|-------------|
+| No exception thrown | Zero-overhead — no code generated on happy path | None |
+| Exception construction | String allocation + `std::source_location` capture | Heap allocation for message string dominates |
+| Throw + catch | C++ exception unwinding mechanism | Stack unwinding dominates — proportional to call depth |
+| `what()` call | Virtual dispatch + `std::string::c_str()` return | Single virtual call + pointer return |
+| `category()` call | Virtual dispatch + constant return | Single virtual call |
+
+See `components/ContractException/results/` for current platform-specific benchmark data.
 
 ### Memory Overhead
 
