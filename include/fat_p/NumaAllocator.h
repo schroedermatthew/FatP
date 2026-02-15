@@ -393,7 +393,7 @@ private:
 #elif defined(_WIN32) && FATP_HAS_NUMA_SUPPORT
         // NOTE: VirtualAllocExNuma is a "preferred" hint, not a guarantee.
         // Under memory pressure, Windows may allocate on a different node.
-        // This can cause cross-socket latency (150ns vs 60ns). For critical
+        // This can cause elevated cross-socket latency. For critical
         // real-time workloads, verify placement with get_memory_node().
         void* ptr = VirtualAllocExNuma(GetCurrentProcess(),
                                        nullptr,

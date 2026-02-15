@@ -47,8 +47,8 @@ FATP_META:
  * @date 2025-11
  *
  * @section performance Performance Benefits
- * - Sequential read: 2-5x faster than fread()
- * - Random access: 10-50x faster than fseek+fread
+ * - Sequential read: avoids redundant kernel-to-user copies
+ * - Random access: avoids seek+read syscall overhead
  * - Zero-copy: No buffer allocation or copying
  * - OS page cache: Shared across processes
  *

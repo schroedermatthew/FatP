@@ -38,7 +38,7 @@ FATP_META:
  *
  * Key Features:
  * - Lock-free atomic reference counting
- * - 10-20% faster than std::shared_ptr in read-heavy scenarios
+ * - Lower overhead than std::shared_ptr in read-heavy scenarios
  * - Zero overhead for single-threaded use
  * - Custom allocator support
  * - Proper alignment for SIMD operations
@@ -86,7 +86,7 @@ struct ReleaseAcquirePolicy
  * @brief Sequential consistency policy (paranoid mode)
  * @details Strictest ordering for maximum safety
  *          - Use for debugging or extremely high-contention scenarios
- *          - Performance: ~2-5% overhead vs. release-acquire
+ *          - Performance: slight overhead vs. release-acquire
  */
 struct SeqCstPolicy
 {

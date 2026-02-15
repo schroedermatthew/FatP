@@ -757,7 +757,7 @@ public:
      *
      * @warning Undefined behavior if handle is invalid.
      * @note Use only when validity is guaranteed by surrounding logic.
-     * @note For HPC tight loops where the ~3ns validation overhead matters.
+     * @note For HPC tight loops where validation overhead matters.
      */
     [[nodiscard]] T& get_unchecked(Handle handle) noexcept
     {

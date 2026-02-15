@@ -65,9 +65,9 @@ FATP_META:
  *   - CheckedArithmeticFP.h for floating-point-only
  *
  * @performance
- * - Builtin path (GCC/Clang): ~2-5 ns per scalar op
- * - SIMD vectors (int32, AVX2): ~0.5-1 ns per element
- * - SIMD vectors (float/double): ~0.5-1 ns per element
+ * - Builtin path (GCC/Clang): low overhead per scalar op
+ * - SIMD vectors (int32, AVX2): vectorized batch processing
+ * - SIMD vectors (float/double): vectorized batch processing
  */
 
 // Include the split components

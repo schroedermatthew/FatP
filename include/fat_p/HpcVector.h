@@ -74,9 +74,9 @@ FATP_META:
  *   +-------------------------------------------------------------+
  *
  * Performance Impact:
- * - NUMA: Reduces memory latency from ~150ns to ~60ns on multi-socket
- * - Alignment: Enables vmovaps vs vmovups (10-30% faster SIMD)
- * - Combined: Up to 2x throughput for memory-bound HPC workloads
+ * - NUMA: Reduces cross-socket memory latency on multi-socket systems
+ * - Alignment: Enables vmovaps vs vmovups (aligned SIMD loads/stores)
+ * - Combined: significant throughput improvement for memory-bound HPC workloads
  *
  * Usage:
  *   // Basic usage (local NUMA node, 64-byte aligned)

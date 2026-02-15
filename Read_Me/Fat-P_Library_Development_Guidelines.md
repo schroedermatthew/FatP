@@ -1835,7 +1835,42 @@ Battle-tested at massive scale within Google.
 [Then show the feature comparison table with context established]
 ```
 
-### 8.6 Diagram Guidelines
+### 8.6 Performance Claims in Headers and Documentation
+
+**Specific benchmark numbers do not belong in headers or documentation prose.**
+
+Performance numbers are platform-dependent, compiler-dependent, and stale the moment code changes. A "3.5x faster" claim measured on Windows x64 MSVC may not hold on Linux ARM GCC. Embedding these numbers in headers and manuals creates maintenance liability and misleads readers on platforms where the numbers don't apply.
+
+**Rules:**
+
+**Headers (Doxygen comments, file-level comments):**
+- Do not include specific multiplier claims ("3-5x faster than X")
+- Do not include absolute timing numbers ("~24 ns/op", "~100-200 ns")
+- Do not include percentage performance claims ("20-40% faster")
+- Do describe architectural characteristics that explain *why* performance is good: O(1) complexity, SIMD acceleration, cache-friendly layout, lock-free design, zero-allocation paths
+- Do describe algorithmic properties: "SIMD-accelerated probing," "contiguous storage for cache-optimal iteration," "wait-free SPSC"
+
+**Overviews and User Manuals:**
+- Same rules as headers. No specific benchmark numbers in prose
+- Do not embed benchmark result tables. These go stale and duplicate data that belongs in `components/<name>/results/` and `benchmark_results/`
+- A Performance section may describe *what was benchmarked* (which operations, which competitors, which methodology) and direct the reader to the results directory for current data
+- Qualitative architectural descriptions are encouraged: "contiguous storage eliminates pointer chasing," "sharding reduces CAS contention under high producer load"
+
+**Companion Guides and Case Studies (EXEMPT):**
+- Historical narratives about the development process may include specific numbers: "Gemini's optimization caused a 3.6x regression" or "we measured 5.8x fewer cache misses after switching to block allocation"
+- These are teaching materials describing what happened, not claims about current performance
+- The distinction: "this component is 3x faster" (a claim) vs. "during development, we measured a 3x improvement from this change" (a historical fact)
+
+**Benchmark Results files (EXEMPT):**
+- Files in `components/<name>/results/` and `benchmark_results/` exist specifically to hold benchmark data
+- These should be timestamped and platform-identified
+- Dedicated benchmark analysis documents (e.g., `*_Benchmark_Results.md`) may contain full results tables
+
+**Rationale:** Benchmark results live in `components/<name>/results/` and `benchmark_results/` where they are timestamped, platform-identified, and reproducible. Headers and manuals should describe the design; benchmark results should present the data. Duplicating numbers across both creates a maintenance burden and guarantees staleness. This rule exists because an audit found 107 of 148 documentation files contained specific benchmark numbers, many unbacked by actual benchmark result files.
+
+**Litmus test:** If a code change, compiler update, or platform difference could invalidate the number, it does not belong in a header or manual. If it describes an architectural property that holds regardless of measurement ("O(1) amortized," "zero heap allocation for N < inline capacity," "SIMD processes 8 elements per instruction"), it belongs.
+
+### 8.7 Diagram Guidelines
 
 Use Mermaid diagrams for complex concepts:
 
@@ -2363,6 +2398,13 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 ---
 
 ## Changelog
+
+### v3.7 (February 2026)
+- Added §8.6: Performance Claims in Headers and Documentation — no specific benchmark numbers (multipliers, absolute timings, percentages) in headers or user-facing documentation prose
+- Companion Guides and Case Studies exempt (historical narratives about development process)
+- Benchmark Results files exempt (dedicated data files)
+- Renumbered former §8.6 Diagram Guidelines to §8.7
+- Origin: Audit found 107 of 148 documentation files contained specific benchmark numbers, many unbacked by benchmark result files. Numbers are platform-dependent, compiler-dependent, and stale on any code change
 
 ### v3.6 (February 2026)
 - Added §8.4 Library Maturity Claims rule: no "production-tested", "battle-tested", or parity claims; acknowledge what established libraries have that FAT-P does not

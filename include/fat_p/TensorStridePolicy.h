@@ -38,7 +38,7 @@ FATP_META:
  * @note **Performance guidance:** For hot 1D/2D row-major loops, prefer
  *       Stride1DPolicy / Stride2DPolicy (defined at the end of this file).
  *       TensorStridePolicy is more general but has higher per-step overhead
- *       (~3-6x slower than manual loops in benchmarks). The specialized
+ *       (significantly slower than manual loops). The specialized
  *       policies achieve near zero-overhead (~1.0-1.3x manual loops).
  *
  * PERFORMANCE CHARACTERISTICS:

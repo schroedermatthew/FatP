@@ -65,11 +65,11 @@ FATP_META:
  * - std::hash support
  *
  * Performance:
- * - Float operations: ~490 us for 1M elements (AVX2: 8 floats/instruction)
- * - Double operations: ~1.05 ms for 1M elements (AVX2: 4 doubles/instruction)
- * - With AVX10.1: Even faster performance with wider SIMD registers
- * - Expression templates: 2-5x speedup for chained operations (zero temp allocations)
- * - Parallel operations: 2-8x speedup on multi-core systems (for large tensors)
+ * - Float operations: SIMD-accelerated (AVX2: 8 floats/instruction)
+ * - Double operations: SIMD-accelerated (AVX2: 4 doubles/instruction)
+ * - With AVX10.1: wider SIMD registers available
+ * - Expression templates: eliminates temporary allocations for chained operations
+ * - Parallel operations: ThreadPool-based parallelism for large tensors
  * - Debug checks compiled out in release builds (-DNDEBUG)
  *
  * SIMD Support:
@@ -2865,7 +2865,7 @@ private:
     }
 
     std::shared_ptr<T[]>
-        shared_data_; // Using std::shared_ptr for now - consider TensorStorage for 10-20% performance gain
+        shared_data_; // Using std::shared_ptr for now - consider TensorStorage for lower overhead
     T* mData;
     std::vector<size_t> mShape;
     std::vector<ptrdiff_t> mStrides;

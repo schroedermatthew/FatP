@@ -334,7 +334,7 @@ struct DefaultOpPolicy
  *
  * Use when maximum performance is required and inputs are known to be safe.
  * Behavior on overflow is undefined (same as raw integer arithmetic).
- * Benchmarks show this achieves identical performance to raw integers.
+ * Compiles to identical instructions as raw integer arithmetic.
  */
 template <typename U>
 struct UncheckedOpPolicy

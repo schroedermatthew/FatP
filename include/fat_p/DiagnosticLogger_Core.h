@@ -31,7 +31,7 @@ FATP_META:
  * @brief Core high-performance logging infrastructure.
  *
  * PHILOSOPHY: "The Race Car"
- * - Zero overhead when disabled (<5ns).
+ * - Near-zero overhead when disabled.
  * - Minimal compile time impact.
  * - Strict C++20 compliance.
  *

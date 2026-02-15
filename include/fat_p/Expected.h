@@ -1375,7 +1375,7 @@ public:
      * @param other The other ExpectedImpl.
      * @return Reference to this.
      *
-     * Uses fast path for same-state assignments (2-10x speedup).
+     * Uses fast path for same-state assignments.
      */
     ExpectedImpl& operator=(ExpectedImpl&& other) noexcept(std::is_nothrow_move_constructible_v<T> &&
                                                            std::is_nothrow_move_constructible_v<E> &&

@@ -563,8 +563,8 @@ private:
     //    - Making enable/validate iterative instead of recursive
     //    - Increasing this constant (test with your stack size)
     //
-    // Performance: Each level adds ~50-100ns overhead for function call + map lookups
-    // At depth 100: ~5-10us total, which is acceptable for enable operations
+    // Performance: Each level adds overhead for function call + map lookups
+    // Deep dependency chains add cumulative overhead but are acceptable for enable operations
     //
     // To measure actual depth in your system:
     //   - Enable verbose logging or use depth parameter in error messages

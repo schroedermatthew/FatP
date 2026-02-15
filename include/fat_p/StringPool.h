@@ -44,8 +44,8 @@ FATP_META:
  * - Reserve capacity to avoid rehashing
  *
  * @section performance Performance Impact
- * - Intern: O(1) average, ~100ns (single-threaded) to ~150ns (multi-threaded)
- * - Memory savings: 50-90% for duplicate-heavy workloads
+ * - Intern: O(1) average
+ * - Significant memory savings for duplicate-heavy workloads
  * - Cache-friendly: Single string instance improves locality
  * - Zero overhead with SingleThreadedPolicy (no locks, no atomics)
  *
@@ -218,13 +218,13 @@ inline void store_stat(T& stat, size_t value) noexcept
  *
  * @section performance Performance Characteristics
  * SingleThreadedPolicy:
- * - Intern (hit): ~26ns
- * - Intern (miss): ~240ns
+ * - Intern (hit): fast path (no allocation)
+ * - Intern (miss): allocates and inserts new string
  * - Memory overhead: 0 bytes (no locks, no atomics)
  *
  * SharedMutexPolicy:
- * - Intern (hit, uncontended): ~150ns (shared lock)
- * - Intern (miss, uncontended): ~200ns (exclusive lock)
+ * - Intern (hit, uncontended): shared lock path
+ * - Intern (miss, uncontended): exclusive lock path
  * - Memory overhead: ~40 bytes (shared_mutex)
  *
  * @section when_to_use When to Use Each Policy

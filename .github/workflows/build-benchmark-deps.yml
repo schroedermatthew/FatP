@@ -228,7 +228,7 @@ jobs:
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=g++-14 \
-                -DBoost_USE_STATIC_LIBS=ON \
+                -DBOOST_LINK_STATIC=ON \
                 -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
@@ -395,7 +395,7 @@ jobs:
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=clang++-17 \
-                -DBoost_USE_STATIC_LIBS=ON \
+                -DBOOST_LINK_STATIC=ON \
                 -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)

@@ -51,9 +51,9 @@ FATP_META:
  * - vs folly::coro: Simpler API, integrated with Expected
  *
  * @performance
- * - Coroutine frame allocation: ~10-20 ns (compiler-optimized)
- * - Resume/suspend: ~5-10 ns
- * - Generator iteration: ~2-5 ns per yield
+ * - Coroutine frame allocation: compiler-optimized
+ * - Resume/suspend: minimal overhead
+ * - Generator iteration: low overhead per yield
  *
  * Requires: C++20, Expected.h
  */

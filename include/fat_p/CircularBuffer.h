@@ -75,8 +75,8 @@ namespace fat_p
  * Index Caching Optimization:
  * - Producer caches consumer's read index locally
  * - Consumer caches producer's write index locally
- * - Reduces cache coherency traffic by ~50-70%
- * - Provides ~1.7x throughput improvement on multi-core systems
+ * - Reduces cache coherency traffic between producer and consumer cores
+ * - Improves throughput on multi-core systems by avoiding unnecessary atomic loads
  *
  * Memory ordering:
  * - Producer uses relaxed load on mWriteIdx, acquire load on mReadIdx (when cache miss),

@@ -40,7 +40,7 @@ FATP_META:
  * - Randomized victim selection (Fisher-Yates) for fair stealing
  *
  * @section performance Performance Characteristics
- * - Task submission: ~100-200ns (lock acquisition)
+ * - Task submission: lock-based enqueue
  * - Work stealing: O(N) worst case, amortized O(1) with shuffle
  * - Spin-wait reduces latency for bursty workloads
  * - Cache-line aligned queues prevent false sharing

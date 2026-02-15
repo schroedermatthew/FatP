@@ -38,7 +38,7 @@ FATP_META:
  *
  * Performance Enhancements:
  * - HpcVector storage: NUMA-local allocation + cache-line alignment
- * - Software prefetching: Reduces memory latency in SpMV by 20-40%
+ * - Software prefetching: Reduces memory latency in SpMV
  * - assume_aligned() hints: Enables compiler auto-vectorization
  * - NUMA-local workspaces: Avoids remote memory access in matmul/transpose
  *

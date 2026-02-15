@@ -63,7 +63,7 @@ FATP_META:
  *
  * Performance Impact:
  * - Prefetching can reduce memory latency by 2-3x
- * - Proper alignment prevents 10-20% performance loss
+ * - Proper alignment prevents performance loss from split cache-line access
  * - Cache-aware blocking improves locality
  *
  * Requires: C++20

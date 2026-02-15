@@ -180,8 +180,7 @@ using underlying_id_type_t = typename detail::extract_value_type<T>::type;
  * @brief High-performance tracker for active IDs using std::unordered_set with lazy max.
  *
  * @details Provides O(1) average insert/erase/contains operations. The max element is
- * cached and only recomputed when the current max is erased. Benchmarks show ~3x faster
- * than std::set-based tracking.
+ * cached and only recomputed when the current max is erased.
  *
  * @tparam T The ID type (must be unsigned and hashable)
  */

@@ -890,7 +890,7 @@ using FastFactory = Factory<K,
                             AtomicStatisticsPolicy>;
 
 /**
- * @brief Recommended factory for string keys (2x+ faster lookups)
+ * @brief Recommended factory for string keys (hash-based lookup)
  */
 template <typename T>
 using StringKeyFactory = FastFactory<std::string, T>;

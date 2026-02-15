@@ -52,9 +52,9 @@ FATP_META:
  * - vs xtensor: Compile-time shapes, no heap, simpler API
  *
  * @performance
- * - Vector operations: 0.3-1.0 ns per element (SIMD)
+ * - Vector operations: SIMD-accelerated
  * - Matrix multiply (NxN): ~O(N^3) with SIMD acceleration
- * - Checked policy: +2-5 ns overhead per operation
+ * - Checked policy: additional overhead per operation for validation
  *
  * Requires: C++20, CheckedArithmetic.h (for checked policies)
  */

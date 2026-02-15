@@ -47,7 +47,7 @@ FATP_META:
  *
  * Complexity:
  *   - register/unregister: Average O(1)
- *   - tryResolve/resolve: Average O(1), ~4.5 ns for unnamed services
+ *   - tryResolve/resolve: Average O(1) for unnamed services
  *   - createExpected (factory): Average O(1) + factory cost
  *
  * Thread Safety:

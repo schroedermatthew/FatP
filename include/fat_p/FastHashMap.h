@@ -34,7 +34,7 @@ FATP_META:
  *
  * @details
  * A single-header Swiss table implementation with configurable deletion policy
- * and allocator support. 3-5x faster than std::unordered_map for most workloads.
+ * and allocator support.
  * Version: December 22, 2025
  * Fixes applied:
  * - P0 Critical: Control byte prefix mirroring (fixes probing hang)
@@ -84,11 +84,6 @@ FATP_META:
  * bool operator()(std::string_view a, std::string_view b) const { return a == b; }};
  * fat_p::FastHashMap<std::string, int, StringHash, StringEqual> map;
  * map.find("key");  // No allocation! Uses string_view internally
- * Performance (vs std::unordered_map at N=1M):
- * - Insert: 3-5x faster
- * - Find:   1.5-2x faster
- * - Erase:  7-10x faster (with TombstoneDeletion)
- * For maximum performance, consider boost::unordered_flat_map.
  * SIMD Detection:
  * - Compile-time: AVX512/AVX2/SSE2/NEON selected based on compiler flags
  * - Runtime: CPUID detection reports optimization status

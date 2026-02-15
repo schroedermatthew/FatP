@@ -53,8 +53,7 @@ FATP_META:
  * - enforce.h (enhanced error messages)
  *
  * @section features Key Features
- * - 30-50% memory savings for large JSON with repeated keys
- * - 2-5x faster small object operations
+ * - Reduced memory usage for large JSON with repeated keys (via StringPool)
  * - No heap allocation for arrays < 8 elements
  * - Memory-mapped I/O for files > 10MB
  * - Expected-based API for zero-overhead error handling
@@ -498,8 +497,7 @@ query_json_pointer_noexcept(const JsonValue& root, std::string_view pointer) noe
  * @brief Exception-free JSON parsing
  *
  * @details Parses JSON without throwing exceptions. Returns Expected<JsonValue, JsonError>
- * for composable error handling. This is 10-100x faster than exception-based parsing
- * in error paths.
+ * for composable error handling. Avoids exception overhead in error paths.
  *
  * @tparam Policy Parsing policy (StandardJsonPolicy, ConfigJsonPolicy, etc.)
  * @param json JSON string to parse
@@ -843,7 +841,7 @@ safe_from_json_enum(const JsonValue& j) noexcept
  * @brief String pool for JSON object key deduplication
  *
  * @details Deduplicates repeated string keys in JSON objects. Typical savings:
- * - 20-40% memory reduction for repeated keys
+ * - Memory reduction for repeated keys (via StringPool interning)
  * - Faster string comparison (pointer equality for interned strings)
  * - Thread-safe with appropriate policy
  *

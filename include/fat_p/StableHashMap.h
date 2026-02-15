@@ -60,11 +60,6 @@ FATP_META:
  * Example with BlockAllocator for insert-heavy workload:
  * fat_p::StableHashMap<K, V, std::hash<K>, std::equal_to<K>,
  * fat_p::BlockAllocator> map;
- * Performance vs std::unordered_map (N=1M, AVX2, NewDeleteAllocator):
- * Insert: 2.3x faster
- * Find:   1.8x faster
- * Miss:   11x faster
- * Erase:  4.6x faster
  * Compiler flags for AVX2: -mavx2 or -march=native (GCC/Clang), /arch:AVX2 (MSVC)
  */
 

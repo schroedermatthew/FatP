@@ -52,8 +52,8 @@ FATP_META:
  * 3. Leaky Bucket: Constant outflow rate
  *
  * @section performance Performance
- * - acquire(): 20-50ns (uncontended)
- * - try_acquire(): 10-20ns (fast path)
+ * - acquire(): low overhead (atomic operations)
+ * - try_acquire(): fast path for non-blocking check
  * - Memory: O(1) for token bucket, O(window_size) for sliding window
  *
  * @section usage Usage Example
