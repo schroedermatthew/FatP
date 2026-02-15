@@ -240,9 +240,11 @@ jobs:
             $COMP_INCLUDES \
             ${{ matrix.src }} \
             -o bench_bin -pthread \
+            -Wl,--start-group \
             $LIBS \
             $SYS_LINK \
-            ${{ matrix.extra_link }}
+            ${{ matrix.extra_link }} \
+            -Wl,--end-group
 
       - name: Run benchmark
         env:

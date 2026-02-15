@@ -83,8 +83,10 @@ jobs:
             -I$HOME/thirdparty-compiled/llvm/include \
             ${{ env.BENCH_SRC }} \
             -o bench_bitset -pthread \
+            -Wl,--start-group \
             $BOOST_LIBS \
-            $LLVM_LIBS
+            $LLVM_LIBS \
+            -Wl,--end-group
 
       - name: Run benchmark
         env:
@@ -147,8 +149,10 @@ jobs:
             -I$HOME/thirdparty-compiled/llvm/include \
             ${{ env.BENCH_SRC }} \
             -o bench_bitset -pthread \
+            -Wl,--start-group \
             $BOOST_LIBS \
             $LLVM_LIBS \
+            -Wl,--end-group \
             -lstdc++
 
       - name: Run benchmark

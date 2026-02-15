@@ -104,12 +104,14 @@ jobs:
             -I$HOME/thirdparty-compiled/eastl/include \
             ${{ env.BENCH_SRC }} \
             -o bench_smallvector -pthread \
+            -Wl,--start-group \
             $ABSL_LIBS \
             $FOLLY_LIBS \
             $BOOST_LIBS \
             $LLVM_LIBS \
             $EASTL_LIBS \
-            -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto
+            -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto \
+            -Wl,--end-group
 
       - name: Run benchmark
         env:
@@ -190,11 +192,13 @@ jobs:
             -I$HOME/thirdparty-compiled/eastl/include \
             ${{ env.BENCH_SRC }} \
             -o bench_smallvector -pthread \
+            -Wl,--start-group \
             $ABSL_LIBS \
             $FOLLY_LIBS \
             $BOOST_LIBS \
             $LLVM_LIBS \
             $EASTL_LIBS \
+            -Wl,--end-group \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lstdc++
 
       - name: Run benchmark

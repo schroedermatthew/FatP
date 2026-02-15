@@ -67,8 +67,10 @@ jobs:
             -I$HOME/thirdparty-compiled/boost/include \
             ${{ env.BENCH_SRC }} \
             -o bench_threadpool -pthread \
+            -Wl,--start-group \
             $BOOST_LIBS \
-            -ltbb
+            -ltbb \
+            -Wl,--end-group
       - name: Run benchmark
         env:
           FATP_BENCH_WARMUP_RUNS: "3"
@@ -117,7 +119,9 @@ jobs:
             -I$HOME/thirdparty-compiled/boost/include \
             ${{ env.BENCH_SRC }} \
             -o bench_threadpool -pthread \
+            -Wl,--start-group \
             $BOOST_LIBS \
+            -Wl,--end-group \
             -ltbb -lstdc++
       - name: Run benchmark
         env:
