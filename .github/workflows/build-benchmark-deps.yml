@@ -214,14 +214,26 @@ jobs:
         if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
           echo "::group::Folly clone"
-          git clone --depth 1 https://github.com/facebook/folly.git \
-            /tmp/folly-src
+          git clone --depth 1 \
+            https://github.com/facebook/folly.git /tmp/folly-src
           echo "::endgroup::"
 
           # Boost >= 1.89 removed the system stub library.  Folly's CMake
           # still lists it as REQUIRED, but it has been header-only since
           # Boost 1.69.  Patch it out so cmake configure succeeds.
           sed -i '/^\s*system\s*$/d' /tmp/folly-src/CMake/folly-deps.cmake
+
+          # Install fast_float from source (Ubuntu 24.04 ships v5.x but
+          # Folly's main requires v6+ for allow_leading_plus support).
+          if [ ! -d /usr/local/include/fast_float ]; then
+            git clone --depth 1 --branch v8.0.0 \
+              https://github.com/fastfloat/fast_float.git /tmp/fast_float
+            sudo cmake -S /tmp/fast_float -B /tmp/fast_float/build \
+              -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DFASTFLOAT_TEST=OFF
+            sudo cmake --install /tmp/fast_float/build
+            rm -rf /tmp/fast_float
+          fi
 
           echo "::group::Folly build"
           cmake -S /tmp/folly-src \
@@ -230,7 +242,7 @@ jobs:
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=g++-14 \
                 -DBOOST_LINK_STATIC=ON \
-                -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
+                -DCMAKE_PREFIX_PATH="$HOME/thirdparty-compiled/boost;/usr/local" \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
           cmake --install /tmp/folly-build
@@ -391,6 +403,18 @@ jobs:
           # Boost 1.69.  Patch it out so cmake configure succeeds.
           sed -i '/^\s*system\s*$/d' /tmp/folly-src/CMake/folly-deps.cmake
 
+          # Install fast_float from source (Ubuntu 24.04 ships v5.x but
+          # Folly's main requires v6+ for allow_leading_plus support).
+          if [ ! -d /usr/local/include/fast_float ]; then
+            git clone --depth 1 --branch v8.0.0 \
+              https://github.com/fastfloat/fast_float.git /tmp/fast_float
+            sudo cmake -S /tmp/fast_float -B /tmp/fast_float/build \
+              -DCMAKE_INSTALL_PREFIX=/usr/local \
+              -DFASTFLOAT_TEST=OFF
+            sudo cmake --install /tmp/fast_float/build
+            rm -rf /tmp/fast_float
+          fi
+
           echo "::group::Folly build"
           cmake -S /tmp/folly-src \
                 -B /tmp/folly-build \
@@ -398,7 +422,7 @@ jobs:
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=clang++-17 \
                 -DBOOST_LINK_STATIC=ON \
-                -DCMAKE_PREFIX_PATH=$HOME/thirdparty-compiled/boost \
+                -DCMAKE_PREFIX_PATH="$HOME/thirdparty-compiled/boost;/usr/local" \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/folly
           cmake --build /tmp/folly-build --parallel $(nproc)
           cmake --install /tmp/folly-build
