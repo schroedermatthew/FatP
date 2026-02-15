@@ -152,7 +152,6 @@ jobs:
           sudo apt-get install -y g++-14 cmake \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev \
-            libfast-float-dev \
             llvm-dev
 
       - name: Build Boost from source
@@ -332,7 +331,6 @@ jobs:
           sudo apt-get install -y libunwind-dev cmake \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev \
-            libfast-float-dev \
             llvm-dev
 
       - name: Build Boost from source
