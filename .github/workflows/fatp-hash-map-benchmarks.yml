@@ -11,7 +11,7 @@
 #     [x] std::unordered_map          (baseline, always available)
 #     [x] tsl::robin_map              (header-only, cached)
 #     [x] ankerl::unordered_dense     (header-only, cached)
-#     [x] boost::unordered_flat_map   (header-only via libboost-dev / vcpkg)
+#     [x] boost::unordered_flat_map   (built from source, cached)
 #     [x] boost::unordered_node_map   (same)
 #   Linux only:
 #     [x] absl::flat_hash_map         (built from source, cached)
@@ -60,7 +60,9 @@ jobs:
       - name: Install GCC and system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y g++-${{ matrix.version }} cmake libboost-dev libboost-context-dev
+          sudo apt-get install -y g++-${{ matrix.version }} cmake \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
+            libdouble-conversion-dev libevent-dev libssl-dev
 
       - name: Cache third-party libraries
         id: cache-deps
@@ -78,6 +80,19 @@ jobs:
           git clone --depth 1 https://github.com/martinus/unordered_dense.git \
             $HOME/thirdparty/unordered_dense
 
+      - name: Build Boost from source
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --recurse-submodules \
+            https://github.com/boostorg/boost.git \
+            $HOME/thirdparty/boost-src
+          cd $HOME/thirdparty/boost-src
+          ./bootstrap.sh --prefix=$HOME/thirdparty/boost \
+            --with-libraries=context,filesystem,program_options,regex,system,thread
+          ./b2 -j$(nproc) variant=release link=static threading=multi \
+            cxxflags="-std=c++20" install
+          rm -rf $HOME/thirdparty/boost-src
+
       - name: Build Abseil from source
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
@@ -94,13 +109,6 @@ jobs:
           cmake --build $HOME/thirdparty/abseil-build --parallel $(nproc)
           cmake --install $HOME/thirdparty/abseil-build
 
-      - name: Install Folly system dependencies
-        if: steps.cache-deps.outputs.cache-hit != 'true'
-        run: |
-          sudo apt-get install -y \
-            libfmt-dev libgoogle-glog-dev libgflags-dev \
-            libdouble-conversion-dev libevent-dev libssl-dev
-
       - name: Build Folly from source
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
@@ -111,6 +119,7 @@ jobs:
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }} \
+                -DCMAKE_PREFIX_PATH=$HOME/thirdparty/boost \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/folly
           cmake --build $HOME/thirdparty/folly-build --parallel $(nproc)
           cmake --install $HOME/thirdparty/folly-build
@@ -126,16 +135,11 @@ jobs:
           cp /usr/lib/llvm-*/lib/libLLVMSupport.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a $HOME/thirdparty/llvm/lib/ 2>/dev/null || true
 
-      - name: Install Folly runtime dependencies
-        run: |
-          sudo apt-get install -y \
-            libfmt-dev libgoogle-glog-dev libgflags-dev \
-            libdouble-conversion-dev libevent-dev libssl-dev
-
       - name: Build benchmark
         run: |
           ABSL_LIBS=$(find $HOME/thirdparty/abseil/lib -name '*.a' | sort)
           FOLLY_LIBS=$(find $HOME/thirdparty/folly/lib -name '*.a' | sort)
+          BOOST_LIBS=$(find $HOME/thirdparty/boost/lib -name '*.a' | sort)
           LLVM_LIBS=$(find $HOME/thirdparty/llvm/lib -name '*.a' | sort)
 
           g++-${{ matrix.version }} -std=c++20 \
@@ -144,6 +148,7 @@ jobs:
             -I./include/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/boost/include \
             -I$HOME/thirdparty/abseil/include \
             -I$HOME/thirdparty/folly/include \
             -I$HOME/thirdparty/llvm/include \
@@ -151,6 +156,7 @@ jobs:
             -o bench_hashmap -pthread \
             $ABSL_LIBS \
             $FOLLY_LIBS \
+            $BOOST_LIBS \
             $LLVM_LIBS \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto
 
@@ -191,7 +197,7 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
           sudo apt-get install -y libunwind-dev
-          sudo apt-get install -y cmake libboost-dev libboost-context-dev \
+          sudo apt-get install -y cmake \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
@@ -210,6 +216,19 @@ jobs:
             $HOME/thirdparty/robin-map
           git clone --depth 1 https://github.com/martinus/unordered_dense.git \
             $HOME/thirdparty/unordered_dense
+
+      - name: Build Boost from source
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --recurse-submodules \
+            https://github.com/boostorg/boost.git \
+            $HOME/thirdparty/boost-src
+          cd $HOME/thirdparty/boost-src
+          ./bootstrap.sh --prefix=$HOME/thirdparty/boost \
+            --with-libraries=context,filesystem,program_options,regex,system,thread
+          ./b2 -j$(nproc) variant=release link=static threading=multi \
+            toolset=clang cxxflags="-std=c++20" install
+          rm -rf $HOME/thirdparty/boost-src
 
       - name: Build Abseil from source
         if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -237,6 +256,7 @@ jobs:
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
                 -DCMAKE_CXX_COMPILER=clang++-${{ matrix.version }} \
+                -DCMAKE_PREFIX_PATH=$HOME/thirdparty/boost \
                 -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/folly
           cmake --build $HOME/thirdparty/folly-build --parallel $(nproc)
           cmake --install $HOME/thirdparty/folly-build
@@ -254,6 +274,7 @@ jobs:
         run: |
           ABSL_LIBS=$(find $HOME/thirdparty/abseil/lib -name '*.a' | sort)
           FOLLY_LIBS=$(find $HOME/thirdparty/folly/lib -name '*.a' | sort)
+          BOOST_LIBS=$(find $HOME/thirdparty/boost/lib -name '*.a' | sort)
           LLVM_LIBS=$(find $HOME/thirdparty/llvm/lib -name '*.a' | sort)
 
           clang++-${{ matrix.version }} -std=c++20 \
@@ -262,6 +283,7 @@ jobs:
             -I./include/fat_p \
             -I$HOME/thirdparty/robin-map/include \
             -I$HOME/thirdparty/unordered_dense/include \
+            -I$HOME/thirdparty/boost/include \
             -I$HOME/thirdparty/abseil/include \
             -I$HOME/thirdparty/folly/include \
             -I$HOME/thirdparty/llvm/include \
@@ -269,6 +291,7 @@ jobs:
             -o bench_hashmap -pthread \
             $ABSL_LIBS \
             $FOLLY_LIBS \
+            $BOOST_LIBS \
             $LLVM_LIBS \
             -lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto -lstdc++
 
