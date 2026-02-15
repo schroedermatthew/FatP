@@ -98,7 +98,7 @@ jobs:
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
           sudo apt-get install -y \
-            libfmt-dev libglog-dev libgflags-dev \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
       - name: Build Folly from source
@@ -129,7 +129,7 @@ jobs:
       - name: Install Folly runtime dependencies
         run: |
           sudo apt-get install -y \
-            libfmt-dev libglog-dev libgflags-dev \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
       - name: Build benchmark
@@ -191,7 +191,7 @@ jobs:
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
           sudo apt-get install -y cmake libboost-dev \
-            libfmt-dev libglog-dev libgflags-dev \
+            libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev
 
       - name: Cache third-party libraries
