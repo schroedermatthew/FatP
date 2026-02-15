@@ -5,7 +5,7 @@ title: "FastHashMap User Manual"
 fatp_components: ["FastHashMap"]
 topics: ["hash map", "SIMD probing", "Swiss Table"]
 constraints: ["cache efficiency", "probe sequences"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
@@ -218,7 +218,7 @@ The alignment ensures that loading a group's control bytes touches exactly one c
 
 FastHashMap requires:
 
-- C++17 compiler (GCC 7+, Clang 5+, MSVC 2017+)
+- C++20 compiler (GCC 12+, Clang 14+, MSVC 2022+)
 - `FatPSimdDetection.h` header (included in Fat-P distribution)
 
 No external dependencies. No build system integration. Just include and use.

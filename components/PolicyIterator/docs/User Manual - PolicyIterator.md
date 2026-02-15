@@ -5,7 +5,7 @@ title: "PolicyIterator"
 fatp_components: ["PolicyIterator"]
 topics: ["iterator usage", "policy configuration", "STL integration", "filter iteration", "transform iteration", "stride iteration", "zero-overhead abstraction"]
 constraints: ["iterator category requirements", "predicate storage", "bounds checking overhead", "factory method initialization", "virtual dispatch avoidance"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-30"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
@@ -328,8 +328,8 @@ Debug builds (NDEBUG not defined): All `enforce()` checks are active.
 Release builds (NDEBUG defined): All checks are elided—zero overhead.
 
 ```bash
-g++ -std=c++17 -g -O0 my_code.cpp           # Debug: checks active
-g++ -std=c++17 -O3 -DNDEBUG my_code.cpp     # Release: checks elided
+g++ -std=c++20 -g -O0 my_code.cpp           # Debug: checks active
+g++ -std=c++20 -O3 -DNDEBUG my_code.cpp     # Release: checks elided
 ```
 
 ---
@@ -778,7 +778,7 @@ int sum_policy(int* data, int* end) {
 Compile with `-O2` and inspect the assembly:
 
 ```bash
-g++ -std=c++17 -O2 -S -o output.s source.cpp
+g++ -std=c++20 -O2 -S -o output.s source.cpp
 ```
 
 ### x86-64 Assembly Comparison

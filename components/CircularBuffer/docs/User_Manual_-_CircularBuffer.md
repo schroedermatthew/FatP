@@ -5,7 +5,7 @@ title: "CircularBuffer"
 fatp_components: ["CircularBuffer"]
 topics: ["SPSC queue", "lock-free communication", "wait-free operations", "ring buffer", "index caching", "producer-consumer pattern"]
 constraints: ["mutex contention", "false sharing", "cache coherency traffic", "bounded completion time"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.Circular_buffer"
 build_modes: ["Debug", "Release"]
@@ -43,7 +43,7 @@ status: "reviewed"
 
 | Requirement | Version |
 |-------------|---------|
-| C++ Standard | C++17 or later |
+| C++ Standard | C++20 or later |
 | Compiler | GCC 7+, Clang 5+, MSVC 2017+ |
 | Dependencies | None (header-only) |
 

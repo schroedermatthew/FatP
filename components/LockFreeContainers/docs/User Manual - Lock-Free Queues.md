@@ -5,7 +5,7 @@ title: "Lock-Free Queues"
 fatp_components: ["LockFreeQueue", "WorkQueue", "PolicyQueue", "LockFreeRingBuffer"]
 topics: ["lock-free programming", "MPMC queues", "SPSC queues", "producer-consumer patterns", "thread safety", "capacity management", "sequence numbers"]
 constraints: ["bounded capacity", "trivially copyable types", "memory ordering", "ABA problem", "cache contention"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "boost::lockfree::queue"
 build_modes: ["Debug", "Release"]
@@ -245,7 +245,7 @@ This is the definition of lock-free: the system as a whole makes progress even i
 
 ### Prerequisites and Integration
 
-Fat-P's lock-free queues require C++17 and have no external dependencies. Include the appropriate header:
+Fat-P's lock-free queues require C++20 and have no external dependencies. Include the appropriate header:
 
 ```cpp
 #include "LockFreeQueue.h"   // LockFreeQueue

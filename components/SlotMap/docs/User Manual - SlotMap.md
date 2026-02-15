@@ -5,7 +5,7 @@ title: "SlotMap User Manual"
 fatp_components: ["SlotMap"]
 topics: ["slot map", "handle stability", "generation counters"]
 constraints: ["ABA safety", "dense storage"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
@@ -234,7 +234,7 @@ Valid access              data_[1] = actual Entity
 
 ### Prerequisites
 
-- C++17 or later
+- C++20 or later
 - Header files: `SlotMap.h`, `FatPTypeTraits.h`
 
 ### Integration
@@ -779,12 +779,12 @@ fatal error: FatPTypeTraits.h: No such file or directory
 
 **Symptom:**
 ```
-error: 'if constexpr' only available with '-std=c++17'
+error: requires at least '-std=c++20'
 ```
 
-**Solution:** Enable C++17 or later:
-- GCC/Clang: `-std=c++17`
-- MSVC: `/std:c++17`
+**Solution:** Enable C++20 or later:
+- GCC/Clang: `-std=c++20`
+- MSVC: `/std:c++20`
 
 ### Runtime Issues
 

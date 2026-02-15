@@ -5,7 +5,7 @@ title: "FlatMap and FlatSet User Manual"
 fatp_components: ["FlatMap", "FlatSet"]
 topics: ["flat map", "sorted vector", "cache locality"]
 constraints: ["contiguous storage", "binary search"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
@@ -13,7 +13,7 @@ status: "reviewed"
 # FlatMap and FlatSet User Manual
 
 **Library:** fat_p C++ Utilities  
-**Standard:** C++17  
+**Standard:** C++20  
 **Type:** Header-only
 
 ---
@@ -470,7 +470,7 @@ map.erase(map.end());  // Debug: enforce triggers with "invalid iterator"
 
 | Requirement | Minimum |
 |-------------|---------|
-| C++ Standard | C++17 |
+| C++ Standard | C++20 |
 | Compiler | GCC 7+, Clang 5+, MSVC 2017+ |
 | Dependencies | `enforce.h`, `FatPTypeTraits.h` |
 
@@ -481,7 +481,7 @@ map.erase(map.end());  // Debug: enforce triggers with "invalid iterator"
 #include "FlatSet.h"  // For fat_p::FlatSet
 ```
 
-No special compiler flags required beyond C++17 mode (`-std=c++17` or `/std:c++17`).
+No special compiler flags required beyond C++20 mode (`-std=c++20` or `/std:c++20`).
 
 ### First Program
 
@@ -744,7 +744,7 @@ if (it != map.end()) {
     std::cout << it->second;  // "three"
 }
 
-// contains(): Boolean existence check (C++20-style, available in C++17)
+// contains(): Boolean existence check
 if (map.contains(5)) {
     std::cout << "Found 5\n";
 }
@@ -1082,7 +1082,7 @@ Performance was measured on two platforms with automatic system information capt
 | Timer | QueryPerformanceCounter (100 ns resolution) |
 
 ```
-Compiler Flags: /std:c++17 /O2 /DNDEBUG /MD /EHsc /W3
+Compiler Flags: /std:c++20 /O2 /DNDEBUG /MD /EHsc /W3
 Defines: NOMINMAX, WIN32_LEAN_AND_MEAN
 ```
 
@@ -1095,7 +1095,7 @@ Defines: NOMINMAX, WIN32_LEAN_AND_MEAN
 | Timer | std::chrono::high_resolution_clock (1 ns resolution) |
 
 ```
-Compiler Flags: -std=c++17 -O2 -DNDEBUG
+Compiler Flags: -std=c++20 -O2 -DNDEBUG
 ```
 
 All measurements represent the average time per operation over thousands of iterations with warmup runs excluded. Benchmarks use `DoNotOptimize` patterns to prevent compiler elimination of measured operations.
@@ -1247,13 +1247,13 @@ Memory savings: ~80%
 
 | Aspect | fat_p::FlatMap | std::flat_map (C++23) |
 |--------|----------------|----------------------|
-| Standard | C++17 | C++23 |
+| Standard | C++20 | C++23 |
 | Implementation | Single header | Standard library |
 | Key storage | Interleaved pairs | Separate key/value vectors (typically) |
 | Customization | Compare, Allocator | Compare, KeyContainer, ValueContainer |
 | Debug checks | Via enforce.h | Implementation-defined |
 
-**Verdict:** Use `fat_p::FlatMap` for C++17 compatibility. Consider `std::flat_map` when targeting C++23 exclusively.
+**Verdict:** Use `fat_p::FlatMap` for C++20 availability. Consider `std::flat_map` when targeting C++23 exclusively.
 
 ### vs Boost.Container flat_map
 

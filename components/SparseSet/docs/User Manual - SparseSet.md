@@ -5,7 +5,7 @@ title: "SparseSet"
 fatp_components: ["SparseSet", "SparseSetWithData"]
 topics: ["sparse set", "dense iteration", "ECS", "entity tracking", "O(1) operations", "swap-with-back", "integer set", "dual-array indirection", "component storage"]
 constraints: ["unsigned integers only", "memory proportional to max value", "unstable erase order", "not thread-safe for writes", "cache-line sequential iteration"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: null
 build_modes: ["Debug", "Release"]
@@ -29,7 +29,7 @@ status: "reviewed"
 - Sparse arrays for non-integer keys (use a hash map for string/struct keys)
 
 **Prerequisites:**
-- C++17 (if constexpr, structured bindings)
+- C++20 (concepts, ranges, if constexpr, structured bindings)
 - Basic understanding of contiguous vs. node-based containers
 - Familiarity with iterator invalidation rules in standard containers
 - Understanding of cache locality and why sequential memory access matters for performance
@@ -253,23 +253,23 @@ This layout is what makes SparseSet ideal for ECS component storage. Iterating a
 
 ### Prerequisites and Integration
 
-SparseSet requires C++17. It depends only on the standard library. Include a single header:
+SparseSet requires C++20. It depends only on the standard library. Include a single header:
 
 ```cpp
 #include <fat_p/SparseSet.h>
 ```
 
-Compile with C++17 support:
+Compile with C++20 support:
 
 ```bash
 # GCC
-g++ -std=c++17 -O2 my_program.cpp
+g++ -std=c++20 -O2 my_program.cpp
 
 # Clang
-clang++ -std=c++17 -O2 my_program.cpp
+clang++ -std=c++20 -O2 my_program.cpp
 
 # MSVC
-cl /std:c++17 /O2 my_program.cpp
+cl /std:c++20 /O2 my_program.cpp
 ```
 
 ### Your First SparseSet

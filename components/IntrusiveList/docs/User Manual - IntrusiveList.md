@@ -5,7 +5,7 @@ title: "IntrusiveList"
 fatp_components: ["IntrusiveList", "IntrusiveListNode", "IntrusiveListIterator", "IntrusiveListFast", "IntrusiveListSafe"]
 topics: ["intrusive containers", "zero allocation", "linked list", "free list", "CRTP inheritance", "object pools", "embedded systems", "real-time systems", "ownership policy"]
 constraints: ["heap allocation in hot loops", "memory fragmentation", "allocation latency", "single list membership", "node ownership", "iterator invalidation"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.Intrusive list"
 build_modes: ["Debug", "Release"]

@@ -5,7 +5,7 @@ title: "SmallVector User Manual"
 fatp_components: ["SmallVector"]
 topics: ["small buffer optimization", "API reference", "usage patterns"]
 constraints: ["inline capacity", "heap fallback"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
@@ -930,11 +930,11 @@ v.push_back(1.0);  // Still inline
 v.reserve(100);  // Allocates from arena
 ```
 
-The allocator must satisfy C++17's allocator requirements and must provide alignment suitable for type `T`. SmallVector uses `std::allocator_traits` for all allocator interactions, so stateless allocators benefit from empty base optimization.
+The allocator must satisfy the standard allocator requirements and must provide alignment suitable for type `T`. SmallVector uses `std::allocator_traits` for all allocator interactions, so stateless allocators benefit from empty base optimization.
 
 ### Allocator Propagation
 
-SmallVector supports C++17 allocator propagation traits:
+SmallVector supports standard allocator propagation traits:
 
 | Trait | Effect |
 |-------|--------|
@@ -1106,7 +1106,7 @@ class SmallVector;
 
 **InlineCapacity** determines how many elements can be stored without heap allocation. The default of 8 is reasonable for pointer-sized elements but should be tuned based on profiling. Larger values increase `sizeof(SmallVector)` proportionally: each additional element of capacity adds `sizeof(T)` bytes to the object size. The object is aligned to `alignof(T)` to ensure proper element alignment.
 
-**Allocator** must satisfy C++17 allocator requirements and must provide alignment suitable for type `T`. The allocator is used only for heap storage; inline storage uses the SmallVector object's own memory. SmallVector uses `std::allocator_traits` for all allocator interactions. Stateless allocators (like `std::allocator`) benefit from empty base optimization via `[[no_unique_address]]`, adding no storage overhead.
+**Allocator** must satisfy standard allocator requirements and must provide alignment suitable for type `T`. The allocator is used only for heap storage; inline storage uses the SmallVector object's own memory. SmallVector uses `std::allocator_traits` for all allocator interactions. Stateless allocators (like `std::allocator`) benefit from empty base optimization via `[[no_unique_address]]`, adding no storage overhead.
 
 ### Constructors
 
@@ -1609,7 +1609,7 @@ SmallVector is a hybrid container that eliminates heap allocation for small coll
 - **Automatic heap promotion** when inline capacity is exceeded
 - **Heap-to-inline demotion** via `shrink_to_fit()` for memory reclamation
 - **Strong exception safety** on all reallocating operations
-- **Full C++17 allocator model** with proper propagation semantics
+- **Full standard allocator model** with proper propagation semantics
 
 **Performance profile:**
 

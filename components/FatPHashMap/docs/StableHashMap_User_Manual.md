@@ -5,7 +5,7 @@ title: "StableHashMap"
 fatp_components: ["StableHashMap"]
 topics: ["hash map API", "insert methods", "heterogeneous lookup", "load factor tuning", "block allocator", "hash mixing", "migration from std::unordered_map"]
 constraints: ["reference stability requirements", "rehash costs", "allocator strategy", "exception boundaries", "debug-mode enforcement"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2026-01-09"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
@@ -731,7 +731,7 @@ For most applications, these costs are acceptable. The stability guarantee simpl
 
 ### Prerequisites and Integration
 
-StableHashMap requires C++17 and has no dependencies beyond the standard library. It's a single header file:
+StableHashMap requires C++20 and has no dependencies beyond the standard library. It's a single header file:
 
 ```cpp
 #include "StableHashMap.h"
@@ -741,13 +741,13 @@ For optimal performance, enable AVX2 instructions:
 
 ```bash
 # GCC
-g++ -std=c++17 -O2 -mavx2 program.cpp -o program
+g++ -std=c++20 -O2 -mavx2 program.cpp -o program
 
 # Clang
-clang++ -std=c++17 -O2 -mavx2 program.cpp -o program
+clang++ -std=c++20 -O2 -mavx2 program.cpp -o program
 
 # MSVC
-cl /std:c++17 /O2 /arch:AVX2 program.cpp
+cl /std:c++20 /O2 /arch:AVX2 program.cpp
 ```
 
 Without AVX2, StableHashMap uses a portable scalar fallback. Performance is reduced but the API is identical.

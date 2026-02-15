@@ -5,7 +5,7 @@ title: "WorkQueue"
 fatp_components: ["WorkQueue"]
 topics: ["work queue", "sharded queue", "MPMC", "lock-free", "producer-consumer", "token affinity", "backoff policy", "routing policy", "CAS ring buffer", "cache-line contention"]
 constraints: ["trivially copyable only", "no global FIFO", "bounded capacity", "relaxed shard ordering", "CAS contention at high thread counts", "memory ordering visibility"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "boost::lockfree::queue"
 build_modes: ["Debug", "Release"]
@@ -30,7 +30,7 @@ status: "reviewed"
 - NUMA-aware producer/consumer placement
 
 **Prerequisites:**
-- C++17 (constexpr, `if constexpr`, fold expressions)
+- C++20 (concepts, constexpr, `if constexpr`, fold expressions)
 - Familiarity with `std::atomic`, `memory_order_acquire`, `memory_order_release`
 - Basic understanding of why mutex contention destroys throughput in MPMC queues
 - Understanding of `std::is_trivially_copyable` (what types qualify and why)
@@ -291,23 +291,23 @@ if (task_queue.dequeue(idx)) {
 
 ### Prerequisites and Integration
 
-WorkQueue requires C++17. It depends only on the standard library and `<atomic>`. Include a single header:
+WorkQueue requires C++20. It depends only on the standard library and `<atomic>`. Include a single header:
 
 ```cpp
 #include <fat_p/WorkQueue.h>
 ```
 
-Compile with C++17 support:
+Compile with C++20 support:
 
 ```bash
 # GCC
-g++ -std=c++17 -O2 -pthread my_program.cpp
+g++ -std=c++20 -O2 -pthread my_program.cpp
 
 # Clang
-clang++ -std=c++17 -O2 -pthread my_program.cpp
+clang++ -std=c++20 -O2 -pthread my_program.cpp
 
 # MSVC
-cl /std:c++17 /O2 my_program.cpp
+cl /std:c++20 /O2 my_program.cpp
 ```
 
 ### Your First WorkQueue

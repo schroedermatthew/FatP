@@ -5,7 +5,7 @@ title: "StrongId"
 fatp_components: ["StrongId", "AtomicStrongId"]
 topics: ["strong typing", "type safety", "ID wrapper", "validation policies", "overflow checking", "atomic IDs", "hashing", "serialization"]
 constraints: ["parameter ordering bugs", "ID type confusion", "integer overflow", "thread-safe counters", "container key requirements"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.Serialization BOOST_STRONG_TYPEDEF"
 build_modes: ["Debug", "Release"]
@@ -100,7 +100,7 @@ No tests required. No code review heroics. The type system enforces correctness.
 
 ### Prerequisites
 
-StrongId requires C++17 or later and a conforming compiler (GCC 7+, Clang 5+, MSVC 2017+).
+StrongId requires C++20 or later and a conforming compiler (GCC 12+, Clang 14+, MSVC 2022+).
 
 ### Integration
 

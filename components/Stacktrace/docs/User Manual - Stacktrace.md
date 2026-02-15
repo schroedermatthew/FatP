@@ -5,7 +5,7 @@ title: "Stacktrace"
 fatp_components: ["Stacktrace", "StackFrame"]
 topics: ["stack trace capture", "symbol resolution", "crash diagnostics", "async-signal-safe capture", "demangling", "debug information", "cross-platform diagnostics", "exception debugging"]
 constraints: ["async-signal-safety requirements", "symbol resolution cost", "platform backend availability", "debug info dependency", "signal handler restrictions", "memory allocation in handlers"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: "std::stacktrace"
 std_since: "C++23"
 boost_equivalent: "Boost.Stacktrace"

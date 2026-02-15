@@ -5,7 +5,7 @@ title: "ObjectPool"
 fatp_components: ["ObjectPool", "ThreadSafeObjectPool", "PooledObject"]
 topics: ["object pooling", "free-list allocation", "memory recycling", "transactional acquire", "RAII pooling", "constructor exception safety", "cache locality"]
 constraints: ["heap contention in hot loops", "constructor exception corruption", "LIFO locality collapse", "memory fragmentation", "per-object allocation overhead"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.Pool object_pool"
 build_modes: ["Debug", "Release"]

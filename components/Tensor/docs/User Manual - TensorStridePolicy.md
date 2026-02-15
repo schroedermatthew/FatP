@@ -5,7 +5,7 @@ title: "TensorStridePolicy"
 fatp_components: ["TensorStridePolicy", "PolicyIterator", "SmallVector"]
 topics: ["tensor usage", "shape configuration", "stride calculation", "2D iteration", "GPU texture iteration", "submatrix views", "N-dimensional traversal"]
 constraints: ["odometer complexity", "contiguous detection requirements", "row-major assumptions", "memory footprint", "SIMD barriers"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-30"
 audience: ["C++ developers", "numerical computing engineers", "HPC developers", "AI assistants"]

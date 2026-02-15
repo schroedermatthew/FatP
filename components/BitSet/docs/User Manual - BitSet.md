@@ -5,7 +5,7 @@ title: "BitSet"
 fatp_components: ["BitSet"]
 topics: ["bit manipulation", "sparse iteration", "hardware intrinsics", "population count", "find operations", "range operations", "set operations", "bitwise operations"]
 constraints: ["O(N) sparse iteration in std::bitset", "missing find operations", "missing range operations", "branch predictor pollution", "last word invariant"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "boost::dynamic_bitset"
 build_modes: ["Debug", "Release"]
@@ -210,7 +210,7 @@ On platforms lacking hardware support, BitSet provides efficient software implem
 
 ### Prerequisites
 
-BitSet requires C++17 or later and a compiler with intrinsics support. All major compilers (GCC 7+, Clang 5+, MSVC 2017+) qualify.
+BitSet requires C++20 or later and a compiler with intrinsics support. All major compilers (GCC 12+, Clang 14+, MSVC 2022+) qualify.
 
 ### Integration
 
@@ -224,10 +224,10 @@ BitSet is header-only:
 
 ```bash
 # GCC/Clang: enable POPCNT instruction
-g++ -std=c++17 -O2 -mpopcnt your_code.cpp
+g++ -std=c++20 -O2 -mpopcnt your_code.cpp
 
 # MSVC: intrinsics enabled by default
-cl /std:c++17 /O2 your_code.cpp
+cl /std:c++20 /O2 your_code.cpp
 ```
 
 ### First Program
