@@ -232,6 +232,11 @@ jobs:
             SYS_LINK="-lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto"
           fi
 
+          echo "DEBUG: COMP_INCLUDES=$COMP_INCLUDES"
+          echo "DEBUG: LIBS count=$(echo $LIBS | wc -w)"
+          echo "DEBUG: SYS_LINK=$SYS_LINK"
+          ls $HOME/thirdparty-compiled/*/include/ 2>/dev/null | head -20
+
           g++-14 -std=c++20 \
             -O3 -DNDEBUG -march=native \
             ${{ matrix.extra_defines }} \
