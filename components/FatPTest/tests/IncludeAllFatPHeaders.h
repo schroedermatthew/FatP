@@ -34,7 +34,6 @@ FATP_META:
       - include/fat_p/CheckedArithmetic_IntSimd_NEON.h
       - include/fat_p/CheckedArithmetic_IntSimd_SSE2.h
       - include/fat_p/CircularBuffer.h
-      - include/fat_p/ComparisonTolerances.h
       - include/fat_p/Concepts.h
       - include/fat_p/ConcurrencyPolicies.h
       - include/fat_p/ConstexprBitOps.h
@@ -49,7 +48,6 @@ FATP_META:
       - include/fat_p/DiagnosticLogger_IO.h
       - include/fat_p/DiagnosticLogger_Json.h
       - include/fat_p/DiagnosticLogger_Sinks.h
-      - include/fat_p/DiagnosticLogger_TestUtilities.h
       - include/fat_p/EnforcedInit.h
       - include/fat_p/EnhancedBoundsChecking.h
       - include/fat_p/EnumPlus.h
@@ -59,6 +57,7 @@ FATP_META:
       - include/fat_p/Expected.h
       - include/fat_p/Factory.h
       - include/fat_p/FastHashMap.h
+      - include/fat_p/FatPBenchmarkHeader.h
       - include/fat_p/FatPBenchmarkRunner.h
       - include/fat_p/FatPBinary.h
       - include/fat_p/FatPCbor.h
@@ -116,8 +115,6 @@ FATP_META:
       - include/fat_p/ValueGuard.h
       - include/fat_p/ViewLifetimeTracking.h
       - include/fat_p/enforce.h
-      - include/fat_p/enforce_contextual.h
-      - include/fat_p/enforce_contextual_policies.h
       - include/fat_p/enforce_enforcers.h
       - include/fat_p/enforce_predicates.h
       - include/fat_p/enforce_raiser_selector.h
@@ -166,7 +163,6 @@ FATP_META:
 #include "CheckedArithmeticInt.h"
 #include "CheckedArithmeticPolicies.h"
 #include "CircularBuffer.h"
-#include "ComparisonTolerances.h"
 #include "Concepts.h"
 #include "ConcurrencyPolicies.h"
 #include "ConstexprBitOps.h"
@@ -185,10 +181,7 @@ FATP_META:
 #include "DiagnosticLogger_IO.h"
 #include "DiagnosticLogger_Json.h"
 #include "DiagnosticLogger_Sinks.h"
-#include "DiagnosticLogger_TestUtilities.h"
 #include "enforce.h"
-#include "enforce_contextual.h"
-#include "enforce_contextual_policies.h"
 #include "enforce_enforcers.h"
 #include "enforce_predicates.h"
 #include "enforce_raiser_selector.h"
@@ -202,6 +195,7 @@ FATP_META:
 #include "Expected.h"
 #include "Factory.h"
 #include "FastHashMap.h"
+#include "FatPBenchmarkHeader.h"
 #include "FatPBenchmarkRunner.h"
 #include "FatPBinary.h"
 #include "FatPCbor.h"
