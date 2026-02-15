@@ -10,7 +10,7 @@ last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
-# SlotMap User Manual
+# User Manual - SlotMap
 
 *Fat-P Library — December 2025*
 

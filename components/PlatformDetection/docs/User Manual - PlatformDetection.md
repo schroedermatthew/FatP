@@ -18,6 +18,12 @@ status: "draft"
 
 **Scope:** Complete reference for the platform detection macros in `PlatformDetection.h`.
 
+**Not covered:**
+- C++ standard and library feature detection (see User Manual - CppFeatureDetection)
+- SIMD instruction set detection (see User Manual - SimdDetection)
+- Portability attribute macros and configuration constants (see User Manual - FatPConfig)
+- Platform-specific API usage beyond macro detection (e.g., Win32 API patterns, POSIX system calls)
+
 **Prerequisites:** C++20. Basic understanding of conditional compilation.
 
 ---

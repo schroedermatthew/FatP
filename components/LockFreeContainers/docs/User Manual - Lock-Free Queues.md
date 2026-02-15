@@ -59,6 +59,19 @@ status: "reviewed"
 
 ---
 
+**Scope:** Practical usage of Fat-P's lock-free queue family: LockFreeQueue, WorkQueue, PolicyQueue, and LockFreeRingBuffer. Covers integration, API, patterns, migration, and troubleshooting.
+
+**Not covered:**
+- Design rationale and algorithm derivation (see Companion Guide - Lock-Free Queues)
+- SIMD-accelerated containers and hash maps (see User Manual - FastHashMap, User Manual - StableHashMap)
+- General concurrency policy design (see User Manual - ConcurrencyPolicies)
+- Memory ordering theory and C++ memory model foundations
+- Unbounded or dynamically-resizing lock-free queues
+
+**Prerequisites:** C++20. Familiarity with `std::atomic` and basic multi-threaded programming. Understanding of producer-consumer patterns.
+
+---
+
 ## The Lock-Free Queue Story
 
 ### The Concurrency Revolution

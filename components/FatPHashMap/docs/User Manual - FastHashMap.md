@@ -10,7 +10,7 @@ last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
-# FastHashMap User Manual
+# User Manual - FastHashMap
 
 *Fat-P Library — December 2025*
 

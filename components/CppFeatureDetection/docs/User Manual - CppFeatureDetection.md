@@ -18,6 +18,12 @@ status: "draft"
 
 **Scope:** Reference for the C++ standard and library feature detection macros in `CppFeatureDetection.h`.
 
+**Not covered:**
+- Compiler and OS detection (see User Manual - PlatformDetection)
+- SIMD instruction set detection (see User Manual - SimdDetection)
+- Portability attribute macros and library configuration (see User Manual - FatPConfig)
+- How individual Fat-P components use these macros internally
+
 **Prerequisites:** C++20.
 
 ---

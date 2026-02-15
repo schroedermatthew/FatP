@@ -12,7 +12,7 @@ audience: ["C++ developers", "library maintainers", "performance engineers", "AI
 status: "reviewed"
 ---
 
-# StableHashMap User Manual
+# User Manual - StableHashMap
 
 *Updated December 2025*
 

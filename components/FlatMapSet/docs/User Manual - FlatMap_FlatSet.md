@@ -10,7 +10,7 @@ last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
-# FlatMap and FlatSet User Manual
+# User Manual - FlatMap and FlatSet
 
 **Library:** fat_p C++ Utilities  
 **Standard:** C++20  

@@ -10,7 +10,7 @@ last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
-# SmallVector User Manual
+# User Manual - SmallVector
 
 *Updated December 2025*
 

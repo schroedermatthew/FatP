@@ -18,6 +18,12 @@ status: "draft"
 
 **Scope:** Reference for the portability and configuration macros in `FatPConfig.h`.
 
+**Not covered:**
+- C++ standard and library feature detection (see User Manual - CppFeatureDetection)
+- Compiler, OS, and architecture detection (see User Manual - PlatformDetection)
+- SIMD instruction set detection (see User Manual - SimdDetection)
+- Build system integration and CMake configuration
+
 **Prerequisites:** C++20.
 
 ---
