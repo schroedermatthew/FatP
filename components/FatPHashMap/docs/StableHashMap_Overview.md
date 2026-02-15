@@ -17,7 +17,7 @@ status: "reviewed"
 
 ## Executive Summary
 
-StableHashMap is a **SIMD-accelerated Swiss Table** with **reference stability**—pointers to values remain valid across insertions and rehashes. Unlike `std::unordered_map` (slow chaining) or `absl::flat_hash_map` (invalidates pointers), StableHashMap combines node-based storage with SIMD metadata probing. The **Block allocator** variant eliminates per-node allocation overhead, delivering **3-5x speedup** over `std::unordered_map` while preserving pointer stability.
+StableHashMap is a **SIMD-accelerated Swiss Table** with **reference stability**—pointers to values remain valid across insertions and rehashes. Unlike `std::unordered_map` (slow chaining) or `absl::flat_hash_map` (invalidates pointers), StableHashMap combines node-based storage with SIMD metadata probing. The **Block allocator** variant eliminates per-node allocation overhead through contiguous block allocation, providing substantial throughput improvements over `std::unordered_map` while preserving pointer stability.
 
 ---
 
@@ -68,7 +68,7 @@ Group 0:
 |---------|-----------|---------|
 | SIMD lookup | AVX2 H2 fingerprint comparison | 16 candidates checked per instruction |
 | Reference stability | Node-based storage | Pointers valid across insert/rehash |
-| Block allocator | Contiguous node allocation | 2-4x faster insert/erase |
+| Block allocator | Contiguous node allocation | Amortizes allocation overhead, significantly faster insert/erase |
 | Built-in hash mixer | SplitMix64 finalizer | Prevents clustering from weak hashes |
 | Heterogeneous lookup | Transparent hash/equal | Zero-allocation string_view finds |
 
@@ -97,7 +97,7 @@ StableHashMap<int, Data> standard;
 // Block: nodes allocated in contiguous chunks
 using BlockStableMap = fat_p::StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator>;
 BlockStableMap block;
-// 2.3x faster insert, 4.2x faster erase at N=1M
+// Block allocator amortizes allocation overhead across contiguous chunks
 ```
 
 ### Built-in Hash Protection
@@ -125,34 +125,26 @@ map["hello"] = 1;
 
 std::string_view key = get_key_from_network();
 int* val = map.find(key);  // No temporary string allocation
-// Saves 25-35 ns per lookup
 ```
 
 ---
 
 ## Performance
 
-| Map | Insert | Find | Miss | Erase |
-|-----|--------|------|------|-------|
-| **StableHashMap[Block]+SM64** | **17** | **9** | **9** | **24** |
-| StableHashMap+SM64 | 40 | 13 | 10 | 100 |
-| boost::unordered_node_map | 36 | 11 | **5** | 81 |
-| std::unordered_map | 83 | 29 | 36 | 128 |
+StableHashMap's SIMD-accelerated probing and Block allocator provide substantial improvements over `std::unordered_map` across insert, find, and erase operations. Benchmarks compare against `std::unordered_map`, `boost::unordered_node_map`, and `absl::node_hash_map`—all node-based maps for fair comparison of reference-stable containers.
 
-*N=1M, median ns/op. All node-based maps for fair comparison.*
-
-**Speedup vs std::unordered_map:** 4.8x insert, 3.3x find, 5.4x erase
+See `components/FatPHashMap/results/` and `benchmark_results/` for current platform-specific benchmark data.
 
 ### Where StableHashMap Wins
 - Reference stability required (graph structures, indices, observers)
-- Insert-heavy workloads (Block allocator: 4.8x speedup)
+- Insert-heavy workloads (Block allocator amortizes allocation overhead across contiguous blocks)
 - Zero dependencies (single header, STL only)
 - Weak hash protection (sequential integer keys)
 
 ### Where StableHashMap Loses
-- Miss-heavy workloads: boost achieves ~2x faster miss detection
-- Flat storage acceptable: flat maps are 2-3x lower latency if pointers don't matter
-- Erase without Block allocator: ~100 ns per erase (use Block variant)
+- Miss-heavy workloads: boost's group layout achieves fewer key comparisons per miss
+- Flat storage acceptable: flat maps avoid per-node allocation entirely when pointer stability is not needed
+- Erase without Block allocator: per-node `free()` calls are expensive (use Block variant)
 
 ---
 

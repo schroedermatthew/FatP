@@ -122,9 +122,9 @@ The error includes the key, error code, and human-readable message—not just `n
 
 | Policy | Lock Type | Overhead | Use Case |
 |--------|-----------|----------|----------|
-| `SingleThreadedPolicy` | None | 0 ns | Maximum performance |
-| `MutexSynchronizationPolicy` | `std::mutex` | ~15-20 ns | General thread safety |
-| `SharedMutexPolicy` | `std::shared_mutex` | ~20-25 ns | Read-heavy workloads |
+| `SingleThreadedPolicy` | None | Zero | Maximum performance |
+| `MutexSynchronizationPolicy` | `std::mutex` | Mutex acquisition | General thread safety |
+| `SharedMutexPolicy` | `std::shared_mutex` | Shared/exclusive lock | Read-heavy workloads |
 
 All policies implement the same interface (`LockGuard`, `SharedGuard`, `getLock()`), so switching is a one-line change.
 
@@ -395,7 +395,7 @@ Factory provides:
 - Expected-based error handling with rich context
 - Variadic creator parameters
 
-**Value ratio: ~30x a polyfill.**
+**Value ratio: substantially exceeds a polyfill.**
 
 ### 2. "Thoughtful API Design"
 
@@ -423,20 +423,16 @@ Bugs caught and fixed during development:
 
 ### 4. "Performance Characteristics Appropriate for HPC"
 
-| Operation | Complexity | Time (1000 keys) |
-|-----------|------------|------------------|
-| `make()` | O(log n) / O(1) | 25-45 ns |
-| `hasType()` | O(log n) / O(1) | 15 ns |
-| `registerType()` | O(log n) / O(1) | 450 ns |
+| Operation | Complexity | Cost Driver |
+|-----------|------------|-------------|
+| `make()` | O(log n) / O(1) | Hash or tree lookup + creator function call |
+| `hasType()` | O(log n) / O(1) | Lookup only, no creation |
+| `registerType()` | O(log n) / O(1) | Map insertion + function construction |
 | Iteration | O(n) | Linear |
 
-The storage policy choice matters for large registries:
+The storage policy choice matters for large registries: `MapStoragePolicy` (std::map, O(log n)) maintains sorted order but degrades at scale, while `UnorderedMapStoragePolicy` (std::unordered_map, amortized O(1)) provides better lookup performance as registry size grows.
 
-| Registry Size | MapStorage | UnorderedMapStorage | Speedup |
-|---------------|------------|---------------------|---------|
-| 10 keys | 35 ns | 35 ns | 1.0x |
-| 100 keys | 42 ns | 38 ns | 1.1x |
-| 1000 keys | 55 ns | 24 ns | 2.3x |
+See `components/Factory/results/` for current platform-specific benchmark data.
 
 ### 5. "Header-Only, No External Dependencies"
 

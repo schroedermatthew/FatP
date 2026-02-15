@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The CSRMatrix suite delivers **production-hardened sparse matrix storage** using Compressed Sparse Row (CSR) format, optimized for sparse matrix-vector multiplication (SpMV)—the dominant kernel in iterative solvers, graph analytics, and machine learning. Unlike naive sparse representations that scatter data across memory, CSR achieves **cache-optimal row traversal** through contiguous value storage. The suite provides three variants—`CSRMatrix` for standard use, `CSRMatrixParallel` for ThreadPool-based parallelism, and `HpcCSRMatrix` with NUMA-aware allocation and software prefetching—delivering 2–5x speedups on multi-socket systems with irregular sparsity patterns.
+The CSRMatrix suite delivers **production-hardened sparse matrix storage** using Compressed Sparse Row (CSR) format, optimized for sparse matrix-vector multiplication (SpMV)—the dominant kernel in iterative solvers, graph analytics, and machine learning. Unlike naive sparse representations that scatter data across memory, CSR achieves **cache-optimal row traversal** through contiguous value storage. The suite provides three variants—`CSRMatrix` for standard use, `CSRMatrixParallel` for ThreadPool-based parallelism, and `HpcCSRMatrix` with NUMA-aware allocation and software prefetching—delivering significant speedups on multi-socket systems with irregular sparsity patterns.
 
 ---
 

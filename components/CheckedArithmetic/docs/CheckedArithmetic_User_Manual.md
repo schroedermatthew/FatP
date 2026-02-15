@@ -252,7 +252,7 @@ bool overflow = (b > 0 && a > std::numeric_limits<T>::max() - b) ||
                 (b < 0 && a < std::numeric_limits<T>::min() - b);
 ```
 
-This explains the ~4-6x performance difference between GCC and MSVC in benchmarks.
+This explains the significant performance difference between GCC and MSVC in benchmarks.
 
 #### Floating-Point Validation
 
@@ -1226,133 +1226,33 @@ Two test environments provide cross-platform performance data:
 
 ### Benchmark Results
 
-#### Scalar Integer Operations
+Benchmarks measure the overhead of safety checking across scalar integer operations, scalar floating-point operations, bitwise operations, vector (SIMD) operations, and policy comparison. Testing covers both Windows (MSVC) and Linux (GCC) to show the impact of compiler intrinsic support.
 
-| Operation | Windows (ns) | Linux (ns) |
-|-----------|-------------|------------|
-| `checked_add` (int32) | 4.04 | 0.60 |
-| `checked_sub` (int32) | 4.51 | 0.59 |
-| `checked_mul` (int32) | 8.82 | 0.66 |
-| `checked_div` (int32) | 5.79 | 2.55 |
-| `checked_mod` (int32) | 6.71 | 2.38 |
+**What the benchmarks measure:**
 
-The significant difference between Windows and Linux results from GCC's superior use of compiler intrinsics (`__builtin_add_overflow`, etc.) which compile to single CPU instructions on supported platforms.
+- **Scalar integer operations:** Overflow-checked add, sub, mul, div, mod. GCC achieves substantially lower overhead than MSVC because `__builtin_*_overflow` intrinsics compile to single CPU instructions with flag-based overflow detection, while MSVC requires explicit pre-check logic.
 
-#### Scalar Floating-Point Operations
+- **Scalar floating-point operations:** NaN/Inf-checked arithmetic. All policies validate inputs and outputs, adding overhead proportional to the number of checks.
 
-| Operation | Windows (ns) | Linux (ns) |
-|-----------|-------------|------------|
-| `checked_add_fp` (double) | 16.09 | 3.37 |
-| `checked_sub_fp` (double) | 17.06 | 3.37 |
-| `checked_mul_fp` (double) | 12.40 | 2.68 |
-| `checked_div_fp` (double) | 14.32 | 3.27 |
+- **Bitwise operations:** Shift range validation. Near-zero overhead because the checks are simple range comparisons that branch predictors handle efficiently.
 
-#### Bitwise Operations
+- **Vector operations (AVX2):** SIMD-accelerated checked arithmetic on arrays. The safety checking cost is amortized across elements processed in parallel, making the per-element overhead much lower than scalar operations.
 
-| Operation | Windows (ns) | Linux (ns) |
-|-----------|-------------|------------|
-| `checked_and` | 0.76 | 0.30 |
-| `checked_or` | 0.74 | 0.29 |
-| `checked_xor` | 0.74 | 0.30 |
-| `checked_left_shift` | 0.74 | 0.30 |
-| `checked_right_shift` | 0.74 | 0.29 |
+- **Policy comparison:** `SaturatingPolicy` and `ReturnExpectedPolicy` are typically faster than `ThrowOnErrorPolicy` because exception setup infrastructure (`try`/`catch` frames on MSVC) adds overhead even when no exception is thrown.
 
-#### Vector Operations (1000 elements, AVX2)
+**Key architectural insights:**
 
-| Operation | Windows (us) | Linux (us) |
-|-----------|-------------|------------|
-| `checked_add_vec` (int32) | 3.68 | 2.23 |
-| `checked_sub_vec` (int32) | 2.72 | 2.24 |
-| `checked_mul_vec` (int32) | 10.26 | 1.37 |
-| `checked_add_vec_fp` (double) | 2.28 | 2.06 |
-| `checked_mul_vec_fp` (double) | 2.25 | 2.10 |
-| `checked_div_vec_fp` (double) | 3.43 | 2.10 |
+- The dominant factor in safety overhead is compiler intrinsic support. GCC's `__builtin_*_overflow` family maps directly to CPU flag checks, while MSVC requires explicit pre-check arithmetic.
+- Bitwise operations have near-zero overhead because shift range validation is a simple comparison.
+- Vector operations amortize checking cost across SIMD lanes, making them efficient for bulk arithmetic.
+- Policy selection affects overhead: `SaturatingPolicy` avoids exception machinery entirely; `ThrowOnErrorPolicy` carries setup cost even on the success path (MSVC).
 
-### Policy Overhead Comparison
-
-#### Integer Addition by Policy
-
-| Policy | Windows (ns) | Linux (ns) |
-|--------|-------------|------------|
-| `ThrowOnErrorPolicy` | 3.86 | 0.61 |
-| `ReturnExpectedPolicy` | 0.95 | 0.30 |
-| `SaturatingPolicy` | 1.38 | 0.32 |
-
-#### Integer Multiplication by Policy
-
-| Policy | Windows (ns) | Linux (ns) |
-|--------|-------------|------------|
-| `ThrowOnErrorPolicy` | 8.63 | 0.59 |
-| `ReturnExpectedPolicy` | 5.96 | 0.32 |
-| `SaturatingPolicy` | 4.16 | 0.29 |
-
-#### Integer Division by Policy
-
-| Policy | Windows (ns) | Linux (ns) |
-|--------|-------------|------------|
-| `ThrowOnErrorPolicy` | 5.59 | 2.44 |
-| `ReturnExpectedPolicy` | 3.07 | 1.79 |
-| `SaturatingPolicy` | 3.03 | 1.78 |
-
-#### FP Multiplication by Policy
-
-| Policy | Windows (ns) | Linux (ns) |
-|--------|-------------|------------|
-| `ThrowOnErrorPolicy` | 10.71 | 2.74 |
-| `ReturnExpectedPolicy` | 8.12 | 1.88 |
-| `SaturatingPolicy` | 7.04 | 1.61 |
-| `InfTolerantPolicy` | 11.76 | 2.37 |
-
-### Raw vs Checked Overhead
-
-**Windows (MSVC):**
-
-| Operation | Raw (ns) | Checked (ns) | Overhead |
-|-----------|----------|--------------|----------|
-| Int add | 0.67 | 3.80 | 5.7x |
-| Int mul | 0.67 | 8.09 | 12.1x |
-| Int div | 2.69 | 5.40 | 2.0x |
-| FP add | 0.75 | 14.07 | 18.8x |
-| FP mul | 0.75 | 10.49 | 14.0x |
-| Vec add (1K) | 187.92 ns | 2.42 us | 12.9x |
-
-**Linux (GCC):**
-
-| Operation | Raw (ns) | Checked (ns) | Overhead |
-|-----------|----------|--------------|----------|
-| Int add | 0.34 | 0.69 | 2.0x |
-| Int mul | 0.30 | 0.65 | 2.2x |
-| Int div | 0.29 | 2.56 | 8.7x |
-| FP add | 0.31 | 3.38 | 10.9x |
-| FP mul | 0.29 | 2.61 | 8.9x |
-| Vec add (1K) | 115.76 ns | 2.17 us | 18.8x |
-
-### Vector Size Scaling (AVX2)
-
-#### Integer Vector Addition
-
-| Elements | Windows | Linux |
-|----------|---------|-------|
-| 64 | 241.50 ns | 142.69 ns |
-| 256 | 903.10 ns | 541.23 ns |
-| 1024 | 2.65 us | 2.23 us |
-| 4096 | 11.41 us | 8.47 us |
-| 16384 | 39.07 us | 33.36 us |
-
-#### FP Vector Multiplication
-
-| Elements | Windows | Linux |
-|----------|---------|-------|
-| 64 | 336.10 ns | 132.33 ns |
-| 256 | 978.50 ns | 555.53 ns |
-| 1024 | 2.31 us | 2.06 us |
-| 4096 | 9.00 us | 9.45 us |
-| 16384 | 134.41 us | 42.25 us |
+See `components/CheckedArithmetic/results/` and `benchmark_results/` for current platform-specific benchmark data with per-operation timings and overhead ratios.
 
 ### Performance Guidelines
 
-1. **Scalar operations**: Safety overhead is 2-20x depending on operation complexity
-2. **Bitwise operations**: Near-zero overhead (< 1ns)
+1. **Scalar operations**: Safety checking adds measurable overhead, varying significantly by compiler and operation complexity
+2. **Bitwise operations**: Near-zero overhead (simple range validation)
 3. **Vector operations**: SIMD amortizes checking cost across elements
 4. **Policy selection**: `SaturatingPolicy` typically fastest, `ThrowOnErrorPolicy` has exception setup overhead
 5. **FP operations**: NaN/Inf validation adds overhead; use `InfTolerantPolicy` if Inf results are acceptable
@@ -1373,7 +1273,7 @@ int result = fat_p::checked_mul<fat_p::ThrowOnErrorPolicy>(a, b);
 
 | Aspect | Raw | CheckedArithmetic |
 |--------|-----|-------------------|
-| Performance | Fastest | 2-20x slower |
+| Performance | Fastest | Measurable overhead (varies by compiler and operation) |
 | Safety | None | Full overflow detection |
 | Error handling | None | Policy-based |
 | FP support | Basic | NaN/Inf detection |
@@ -1798,15 +1698,9 @@ if (shift >= 0 && shift < 32)
 
 ### Performance Profile
 
-| Category | Windows (MSVC) | Linux (GCC) |
-|----------|----------------|-------------|
-| Scalar integer | 4-9 ns/op | 0.6-2.5 ns/op |
-| Scalar FP | 12-17 ns/op | 2.7-3.4 ns/op |
-| Bitwise | < 1 ns/op | < 0.3 ns/op |
-| Vector (1K, AVX2) | 2-10 us/op | 1.4-2.2 us/op |
-| Safety overhead | 2-18x raw | 2-11x raw |
+Safety checking adds overhead that varies significantly by compiler (GCC's `__builtin_*_overflow` intrinsics provide substantially lower overhead than MSVC's explicit pre-check approach), operation type (bitwise operations have near-zero overhead; floating-point validation is more expensive), and policy selection (`SaturatingPolicy` avoids exception machinery). SIMD vector operations amortize checking cost across elements processed in parallel.
 
-GCC achieves lower overhead through compiler intrinsics (`__builtin_*_overflow`).
+GCC achieves lower overhead through compiler intrinsics (`__builtin_*_overflow`). See `components/CheckedArithmetic/results/` for current platform-specific benchmark data.
 
 ### Quick Reference
 

@@ -1034,7 +1034,7 @@ map[1000000] = data;  // malloc() for node 1000000
 
 One million insertions means one million `malloc()` calls. Each call has overhead:
 
-**Allocator bookkeeping (20-50 ns):** The allocator maintains free lists, size classes, and metadata. Each allocation updates these structures.
+**Allocator bookkeeping:** The allocator maintains free lists, size classes, and metadata. Each allocation updates these structures, adding overhead per call.
 
 **Lock contention:** In multi-threaded code, threads compete for allocator locks. At high concurrency, this becomes a bottleneck.
 
@@ -1042,7 +1042,7 @@ One million insertions means one million `malloc()` calls. Each call has overhea
 
 **Cache pollution:** Allocator metadata occupies cache lines that could hold your data. Each allocation touches bookkeeping structures, potentially evicting useful data from cache.
 
-At scale, the overhead is substantial. Inserting one million elements can spend 50+ milliseconds in pure allocator overhead.
+At scale, the overhead is substantial. Inserting one million elements spends significant time in pure allocator overhead.
 
 ### How Block Allocation Works
 
@@ -1100,22 +1100,17 @@ Nodes within a block are contiguous in memory. When iterating, nearby nodes like
 
 ### Performance Impact
 
-Benchmarks at N=1,000,000:
+The Block allocator improves performance across all operations through two mechanisms:
 
-| Operation | Standard Alloc | Block Alloc | Improvement |
-|-----------|----------------|-------------|-------------|
-| Insert | 40 ns | 17 ns | **2.3x** |
-| Find | 13 ns | 9 ns | **1.4x** |
-| Erase | 100 ns | 24 ns | **4.2x** |
-| Iteration | 15 ns/elem | 8 ns/elem | **1.9x** |
+**Insert:** Block allocation amortizes `malloc()` overhead across ~1000 nodes. Instead of one system allocation per insert, nodes are carved from pre-allocated contiguous blocks.
 
-**Insert:** Block allocation amortizes `malloc()` overhead across ~1000 nodes.
+**Find:** Block-allocated nodes have better cache locality. Nodes allocated together are stored contiguously, so finding a node is more likely to hit cache.
 
-**Find:** Block-allocated nodes have better cache locality. Finding a node is more likely to hit cache.
+**Erase:** Deallocation in the Block allocator is O(1) bookkeeping (returning a slot to the free list), not a `free()` call to the system allocator.
 
-**Erase:** Deallocation in the Block allocator is O(1) bookkeeping, not a `free()` call to the system allocator.
+**Iteration:** Contiguous node storage means sequential memory access. The prefetcher can stay ahead of the access pattern.
 
-**Iteration:** Contiguous node storage means sequential memory access. The prefetcher can help.
+See `components/FatPHashMap/results/` for current platform-specific benchmark data comparing standard and Block allocator performance.
 
 ### When to Use Block Allocation
 
@@ -1203,14 +1198,9 @@ Sequential integers produce seemingly random hashes. The clustering problem disa
 
 ### Benchmark Impact
 
-Testing with sequential integer keys:
+The mixer's impact depends on the quality of the underlying hash function. On platforms where `std::hash<int>` is an identity function (MSVC), the mixer eliminates clustering and significantly improves probe sequences. On platforms where `std::hash` already includes some mixing (GCC's libstdc++), the additional mixer is neutral.
 
-| Platform | Without Mixer | With Mixer | Improvement |
-|----------|---------------|------------|-------------|
-| Windows (MSVC) | 28 ns/op | 17 ns/op | **39%** |
-| Linux (GCC) | 18 ns/op | 17 ns/op | ~0% |
-
-The dramatic Windows improvement occurs because MSVC's `std::hash<int>` is identity. Linux's libstdc++ includes some mixing already, so the additional mixer is neutral.
+See `components/FatPHashMap/results/` for platform-specific measurements of mixer impact.
 
 ### Opting Out
 
@@ -1337,13 +1327,9 @@ The lookup uses `string_view` directly. No temporary `std::string` is constructe
 
 ### Performance Impact
 
-| N | find(string_view) | find(temp string) | Savings |
-|---|-------------------|-------------------|---------|
-| 1K | 25 ns | 53 ns | 28 ns |
-| 10K | 28 ns | 55 ns | 27 ns |
-| 100K | 38 ns | 74 ns | 36 ns |
+Heterogeneous lookup eliminates the cost of constructing a temporary `std::string` on every lookup. For string-keyed maps, this avoids a heap allocation and copy per query. The savings are proportional to key length and lookup frequency—for workloads that perform frequent view-based or `const char*` lookups, the overhead elimination is significant.
 
-For string-keyed maps with frequent view-based lookups, heterogeneous lookup provides ~2x speedup.
+See `components/FatPHashMap/results/` for measured impact across different map sizes and key types.
 
 ### Built-in Support
 
@@ -1387,43 +1373,26 @@ All benchmarks were performed on:
 
 ### Core Operations (N=1,000,000)
 
-| Map | Insert | Find | Miss | Erase |
-|-----|--------|------|------|-------|
-| **StableHashMap[Block]+SM64** | **17** | **9** | **9** | **24** |
-| StableHashMap+SM64 | 40 | 13 | 10 | 100 |
-| boost::unordered_node_map | 36 | 11 | **5** | 81 |
-| absl::node_hash_map | 41 | 16 | 9 | 102 |
-| std::unordered_map | 83 | 29 | 36 | 128 |
+Benchmarks compare StableHashMap (with and without Block allocator) against `std::unordered_map`, `boost::unordered_node_map`, and `absl::node_hash_map` across insert, find, miss, and erase operations. All competitors are node-based (reference-stable) for fair comparison.
 
-*Values: median ns/op. All maps are node-based (reference-stable) for fair comparison.*
+**What the benchmarks show:**
 
-**StableHashMap[Block] vs std::unordered_map:**
-- Insert: 4.8x faster
-- Find: 3.3x faster
-- Miss: 4x faster
-- Erase: 5.4x faster
+- **Insert:** The Block allocator variant significantly outperforms all competitors by amortizing allocation overhead across contiguous blocks instead of calling `malloc()` per node.
+- **Find (hit):** SIMD-accelerated metadata probing reduces key comparisons. Performance is competitive with boost and substantially faster than `std::unordered_map`.
+- **Miss (not found):** boost's group layout achieves fewer candidate key comparisons per miss, giving it an edge on miss-heavy workloads.
+- **Erase:** Block allocator's O(1) deallocation (returning a slot to the free list) dramatically outperforms system `free()` calls.
+
+See `components/FatPHashMap/results/` for current platform-specific benchmark data with exact timings.
 
 ### Miss Performance Analysis
 
-Miss lookups--searching for keys that don't exist--reveal SIMD efficiency:
-
-| Map | Miss (ns) | Eq/miss | Notes |
-|-----|-----------|---------|-------|
-| StableHashMap | 9 | 0.12 | ~0.12 key comparisons per miss |
-| boost::unordered_node_map | 5 | 0.03 | ~0.03 key comparisons per miss |
-
-boost achieves ~2x faster miss detection by checking ~4x fewer candidate keys. This is due to:
-- boost's 15-slot groups (vs StableHashMap's 16-slot)
-- Different probing sequences
-- Optimized group layout
-
-For miss-heavy workloads, boost has an edge.
+Miss lookups—searching for keys that don't exist—reveal SIMD efficiency differences. StableHashMap and boost both use SIMD metadata probing, but boost's 15-slot group layout and different probing sequence achieve fewer candidate key comparisons per miss. For miss-heavy workloads, boost has an edge.
 
 ### Where StableHashMap Wins
 
 **Reference stability + SIMD:** The only zero-dependency option combining both
 
-**Insert-heavy workloads:** Block allocator is 4.8x faster than std::unordered_map
+**Insert-heavy workloads:** Block allocator amortizes allocation overhead across contiguous blocks, eliminating per-node `malloc()` calls
 
 **Weak hash protection:** Built-in mixer prevents clustering from sequential integer keys
 
@@ -1431,11 +1400,11 @@ For miss-heavy workloads, boost has an edge.
 
 ### Where StableHashMap Loses
 
-**Miss-heavy workloads:** boost is ~2x faster for miss detection
+**Miss-heavy workloads:** boost's group layout achieves fewer key comparisons per miss
 
-**No stability needed:** Flat maps (absl::flat_hash_map) are 2-3x faster overall
+**No stability needed:** Flat maps (e.g., `absl::flat_hash_map`) avoid per-node allocation entirely and are faster overall when pointer stability is not required
 
-**Standard erase:** Without Block allocator, erase is ~100 ns
+**Standard erase without Block allocator:** Per-node `free()` calls are expensive; use the Block allocator variant for erase-heavy workloads
 
 ---
 
@@ -1455,7 +1424,7 @@ n->process();  // Must remain valid
 ```cpp
 StableHashMap<int, Data, std::hash<int>, std::equal_to<int>, fat_p::BlockAllocator> map;
 for (int i = 0; i < 1000000; ++i)
-    map[i] = compute(i);  // 4.8x faster than std
+    map[i] = compute(i);  // Block allocator amortizes allocation overhead
 ```
 
 **Zero external dependencies required:**
@@ -1480,7 +1449,7 @@ absl::flat_hash_map<int, Data> map;
 
 **Miss-heavy workloads:**
 ```cpp
-// boost is ~2x faster for misses
+// boost's group layout achieves fewer key comparisons per miss
 boost::unordered_node_map<int, Data> map;
 ```
 
@@ -1708,18 +1677,13 @@ StableHashMap is a SIMD-accelerated Swiss Table with node-based storage, combini
 
 - **SIMD metadata scanning:** 16-slot groups with AVX2 parallel comparison
 - **Node-based storage:** Pointers stable across all mutations except erase
-- **Block allocator option:** 2-4x faster insert/erase for bulk workloads
+- **Block allocator option:** Amortizes allocation overhead across contiguous blocks, significantly improving insert and erase throughput
 - **Built-in hash mixer:** Protects against weak std::hash implementations
 - **Heterogeneous lookup:** Zero-allocation string_view finds
 
-**Performance vs std::unordered_map:**
+**Performance characteristics:**
 
-| Operation | Improvement |
-|-----------|-------------|
-| Insert (Block) | 4.8x |
-| Find | 3.3x |
-| Miss | 4x |
-| Erase (Block) | 5.4x |
+StableHashMap's SIMD-accelerated probing and Block allocator provide substantial improvements over `std::unordered_map` across insert, find, and erase operations. See `components/FatPHashMap/results/` for current platform-specific benchmark data.
 
 **Use StableHashMap for:**
 - Code requiring pointer/reference stability
@@ -1728,8 +1692,8 @@ StableHashMap is a SIMD-accelerated Swiss Table with node-based storage, combini
 - Integer keys with weak std::hash
 
 **Use alternatives when:**
-- Pointer stability unnecessary (flat maps are faster)
-- Miss-heavy workloads (boost is faster)
+- Pointer stability unnecessary (flat maps avoid per-node allocation entirely)
+- Miss-heavy workloads (boost's group layout achieves fewer key comparisons per miss)
 - Very small maps (overhead not amortized)
 
 ---

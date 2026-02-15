@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-NumaAllocator is a **policy-based NUMA-aware memory allocator** that transforms memory-bound HPC workloads into compute-bound operations by ensuring data locality on many-core systems. Unlike manual `numa_alloc_*` calls (error-prone, platform-specific) or standard allocators (NUMA-oblivious), NumaAllocator provides **STL-compatible allocation** with compile-time policy selection for local, interleaved, or preferred-node placement. The `ThreadLocalNumaPool` arena eliminates per-allocation syscall overhead, delivering up to 500x speedup for high-frequency small allocations.
+NumaAllocator is a **policy-based NUMA-aware memory allocator** that transforms memory-bound HPC workloads into compute-bound operations by ensuring data locality on many-core systems. Unlike manual `numa_alloc_*` calls (error-prone, platform-specific) or standard allocators (NUMA-oblivious), NumaAllocator provides **STL-compatible allocation** with compile-time policy selection for local, interleaved, or preferred-node placement. The `ThreadLocalNumaPool` arena eliminates per-allocation syscall overhead through pointer-bump allocation from pre-allocated contiguous blocks.
 
 ---
 
@@ -114,12 +114,9 @@ class ThreadLocalNumaPool
 
 **The performance mechanism:**
 
-| Allocation Path | Syscalls | Latency |
-|-----------------|----------|---------|
-| `std::malloc` | 0-1 | ~50 ns |
-| `numa_alloc_onnode` | 1 | ~500-2000 ns |
-| `ThreadLocalNumaPool` (pool hit) | 0 | ~10 ns |
-| `ThreadLocalNumaPool` (pool miss) | 1 | ~500-2000 ns |
+The key insight is syscall elimination. Direct NUMA allocation (`numa_alloc_onnode`) requires a kernel syscall per allocation. `ThreadLocalNumaPool` pre-allocates contiguous blocks from the target NUMA node and dispenses memory via pointer-bump—no syscall on the fast path. When the pool is exhausted, it falls back to direct allocation to refill.
+
+See `components/NumaAllocator/results/` for current platform-specific allocation latency data.
 
 ---
 
@@ -352,7 +349,7 @@ Policy-based allocation eliminates runtime dispatch. Thread-local pooling amorti
 ### 3. Control
 Three allocation policies (`Local`, `Interleaved`, `Preferred`) cover all NUMA placement strategies. `ThreadLocalNumaPool` trades memory for latency in hot paths. `bind_thread_to_node` provides explicit affinity control. Choose the right tool for each workload.
 
-**Architectural Verdict:** NumaAllocator transforms NUMA-aware allocation from **platform-specific syscalls** to **STL-compatible, policy-based containers**, with thread-local pooling that delivers up to 500x speedup for high-frequency allocations.
+**Architectural Verdict:** NumaAllocator transforms NUMA-aware allocation from **platform-specific syscalls** to **STL-compatible, policy-based containers**, with thread-local pooling that amortizes syscall overhead for high-frequency allocations.
 
 ---
 

@@ -36,7 +36,7 @@ using namespace fat_p::memory;
 NumaLocalVector<double> data(1000000);
 data.reserve(2000000);  // Always reserve to avoid repeated NUMA syscalls
 
-// Ultra-fast arena for hot loops (500x faster than direct NUMA allocation)
+// Ultra-fast arena for hot loops (avoids per-allocation NUMA syscall overhead)
 double* ptr = ThreadLocalNumaPool<double>::allocate(100);
 ptr[0] = 42.0;
 ThreadLocalNumaPool<double>::deallocate(ptr, 100);  // No-op for pool allocs
@@ -94,7 +94,7 @@ graph TB
     S2 --- QPI
     S3 --- QPI
     
-    Note["Local: ~80 ns | Remote: ~150-250 ns"]
+    Note["Local access is significantly faster than remote"]
 ```
 
 *QPI (QuickPath Interconnect) and UPI (Ultra Path Interconnect) are Intel's high-speed interconnects between CPU sockets. AMD uses Infinity Fabric for the same purpose.*
@@ -108,7 +108,7 @@ std::vector<double> data(1000000);  // Memory lands on Node 0 (first-touch)
 // Thread on Socket 3 accesses its "own" data
 for (double& x : data)
 {
-    x = compute(x);  // Every access crosses the interconnect: 2-3x slower
+    x = compute(x);  // Every access crosses the interconnect: significantly slower
 }
 ```
 
@@ -863,33 +863,28 @@ assert(reinterpret_cast<uintptr_t>(vectors) % 64 == 0);
 
 ### Allocation Latency
 
-| Method | Typical Latency | Notes |
-|--------|-----------------|-------|
-| `std::malloc` | ~50 ns | No NUMA awareness |
-| `numa_alloc_onnode` | ~500-2000 ns | Syscall overhead |
-| `ThreadLocalNumaPool` (hit) | ~10 ns | Pointer bump |
-| `ThreadLocalNumaPool` (miss) | ~500-2000 ns | Falls back to direct |
+The key performance insight is the difference between direct NUMA allocation (which requires a syscall per allocation) and pooled allocation (which amortizes the syscall across many allocations via pointer-bump allocation from pre-allocated blocks).
+
+`ThreadLocalNumaPool` eliminates per-allocation syscall overhead by pre-allocating contiguous blocks from the target NUMA node and dispensing memory via pointer-bump. Cache hits (allocation from existing block) are dramatically faster than direct `numa_alloc_onnode` calls. Cache misses (new block needed) fall back to direct allocation cost.
 
 ### Memory Access Latency
 
-| Access Pattern | Latency | Bandwidth |
-|----------------|---------|-----------|
-| Local NUMA node | ~80 ns | Full |
-| Remote NUMA node (1 hop) | ~150 ns | ~60-70% |
-| Remote NUMA node (2 hops) | ~200-250 ns | ~40-50% |
+Memory access latency depends on the NUMA topology. Local memory (attached to the same node as the executing CPU) provides the fastest access. Remote memory requires traversal of the inter-node interconnect, with latency increasing proportionally to the number of hops. Bandwidth also decreases for remote access. These are hardware architecture characteristics, not component benchmark claims—see your platform's NUMA topology documentation for specific numbers.
 
 ### Where NumaAllocator Wins
 
-- **Thread-local data:** 2-3x memory access speedup from locality
-- **High-frequency allocations:** Up to 500x allocation speedup from pooling
+- **Thread-local data:** Significant memory access speedup from NUMA locality
+- **High-frequency allocations:** Pooling amortizes syscall overhead across many allocations
 - **Mixed NUMA/non-NUMA systems:** Graceful fallback, consistent API
 
 ### Where NumaAllocator Loses (Honesty Builds Trust)
 
 - **Single large allocation:** Direct `numa_alloc_onnode` matches performance
-- **Non-NUMA systems:** Small overhead (~3 ns) for availability checks
+- **Non-NUMA systems:** Small overhead for availability checks
 - **Complex topologies:** hwloc provides richer topology discovery
 - **Streaming workloads:** Interleaving benefits vary by access pattern
+
+See `components/NumaAllocator/results/` and `benchmark_results/` for current platform-specific benchmark data.
 
 ---
 
@@ -1050,7 +1045,7 @@ for (int i = 0; i < expected_size; ++i)
     data.push_back(compute(i));  // No reallocations
 }
 ```
-Without `reserve()`, each reallocation triggers a NUMA syscall (~3 µs), making `push_back` loops 30-40x slower than `std::vector`.
+Without `reserve()`, each reallocation triggers a NUMA syscall, making `push_back` loops dramatically slower than `std::vector`.
 
 ✅ **Bind threads before allocating, then touch:**
 ```cpp
@@ -1313,10 +1308,10 @@ perf stat -e node-load-misses,node-store-misses ./program
 
 | Scenario | Benefit |
 |----------|---------|
-| Thread-local data | 2-3x memory access speedup |
-| High-frequency small allocations | Up to 500x allocation speedup (pool) |
+| Thread-local data | Significant memory access speedup from NUMA locality |
+| High-frequency small allocations | Pooling amortizes syscall overhead via pointer-bump allocation |
 | Shared read-only data | Balanced bandwidth (interleaved) |
-| Non-NUMA systems | Minimal overhead (~3 ns per allocation) |
+| Non-NUMA systems | Minimal overhead for availability checks |
 
 ### Quick Start Code
 
@@ -1364,9 +1359,9 @@ int main()
 
 **NUMA Node:** A group of CPUs and their directly-attached memory. On a 4-socket server, you typically have 4 NUMA nodes (nodes 0-3).
 
-**Local Memory:** Memory attached to the same NUMA node as the executing CPU. Access latency is typically ~80 ns.
+**Local Memory:** Memory attached to the same NUMA node as the executing CPU. Access latency is the lowest available on the system.
 
-**Remote Memory:** Memory attached to a different NUMA node. Access latency is 2-3x higher (~150-250 ns) due to interconnect traversal.
+**Remote Memory:** Memory attached to a different NUMA node. Access latency is significantly higher due to interconnect traversal.
 
 **First-Touch Allocation:** The default Linux policy where memory pages are physically placed on the NUMA node of the first thread to write to them—not the thread that called `malloc()`.
 

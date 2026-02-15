@@ -45,7 +45,7 @@ status: "reviewed"
 **std equivalent:** None
 **Migration from std:** Replace `std::unordered_set<uint32_t>` with `SparseSet<uint32_t>`; replace `std::unordered_map<uint32_t, Data>` with `SparseSetWithData<uint32_t, Data>`
 **Common mistakes:** Erasing during forward iteration (UB); using huge key spaces with few active elements (memory waste); relying on iteration order across erases (order is unstable)
-**Performance notes:** 1 ns insert, 1 ns find, 1.3 ns erase at N=1,000 — 7-28x faster than std::unordered_set
+**Performance notes:** O(1) insert, find, and erase via direct array indexing — no hashing, no pointer chasing. See `components/SparseSet/results/` for current data
 
 ---
 
@@ -93,7 +93,7 @@ The first impulse is `std::unordered_set<uint32_t>`. It provides O(1) average in
 
 When the physics system iterates all entities with Position, it walks this linked list. Each `++iterator` follows a pointer to a different heap allocation. These allocations are not contiguous — `malloc` places them wherever free space exists. The CPU prefetcher, which predicts sequential access patterns and fetches cache lines ahead of time, cannot help. Every element is a potential cache miss, costing 50-100 ns to fetch from L3 or main memory.
 
-At 10,000 elements, iterating an `std::unordered_set` touches 10,000 scattered memory locations. Iterating a contiguous array touches approximately 160 cache lines (10,000 × 4 bytes / 64 bytes per line), all sequential, all prefetcher-friendly. The difference is 7-10x in measured iteration time.
+At 10,000 elements, iterating an `std::unordered_set` touches 10,000 scattered memory locations. Iterating a contiguous array touches approximately 160 cache lines (10,000 × 4 bytes / 64 bytes per line), all sequential, all prefetcher-friendly. The difference in measured iteration time is dramatic.
 
 The problem compounds in an ECS. The physics system iterates Position entities. Then the rendering system iterates Position entities again. Then the damage system iterates Health entities. Each iteration pays the cache-miss penalty independently. In a frame with 20 system iterations over 10 component types, the cumulative cost of scattered memory access can consume a significant fraction of the frame budget.
 
@@ -306,7 +306,7 @@ int main() {
 }
 ```
 
-Two things to notice. First, `contains()` is a direct array lookup — it reads `sparse_[42]` to get a dense index, then verifies `dense_[index] == 42`. No hash function, no bucket traversal, no comparison chain. This is faster than any hash-based container for integer keys. Second, the range-for loop walks the dense array sequentially. The CPU prefetcher predicts the access pattern and fetches cache lines ahead of time. For 10,000 entities, this is 7x faster than iterating `std::unordered_set`.
+Two things to notice. First, `contains()` is a direct array lookup — it reads `sparse_[42]` to get a dense index, then verifies `dense_[index] == 42`. No hash function, no bucket traversal, no comparison chain. This is faster than any hash-based container for integer keys. Second, the range-for loop walks the dense array sequentially. The CPU prefetcher predicts the access pattern and fetches cache lines ahead of time. For large element counts, this is dramatically faster than iterating `std::unordered_set`.
 
 ### Your First SparseSetWithData
 
@@ -457,13 +457,9 @@ SparseSet's dense array stores all active elements in a contiguous `std::vector`
 
 `std::unordered_set` stores elements in heap-allocated nodes linked by pointers. Each `++iterator` follows a pointer to a different heap address. These addresses are not sequential — `malloc` places them wherever free space exists. The prefetcher cannot predict the pattern. Every element is a potential cache miss.
 
-The benchmark data quantifies the difference. At N=1,000:
+SparseSet's contiguous dense array enables the hardware prefetcher to stay ahead of sequential reads. `std::unordered_set`'s scattered node storage forces random cache-line fetches. The performance difference is most pronounced at larger N as the working set exceeds L1 and L2 cache sizes.
 
-| Operation | fat_p::SparseSet | std::unordered_set | Speedup |
-|-----------|------------------|--------------------|---------|
-| Iterate (per element) | 1.20 ns | 8.80 ns | **7x** |
-
-At larger N, the gap widens further as the working set exceeds L1 and L2 cache sizes.
+See `components/SparseSet/results/` for current benchmark data.
 
 ### Range-For Iteration
 
@@ -848,21 +844,15 @@ In Release builds, these assertions are elided. An out-of-bounds access to the s
 
 ### Benchmark Data
 
-At N=1,000 (Windows-x64, MSVC-1950, 24 threads @ 3686 MHz):
+Benchmarks compare SparseSet against `std::unordered_set` across insert, find, erase, iterate, and clear operations.
 
-| Operation | fat_p::SparseSet | std::unordered_set | Speedup |
-|-----------|------------------|--------------------|---------|
-| Insert | 1.00 ns | 28.40 ns | **28x** |
-| Find (hit) | 1.00 ns | 10.80 ns | **11x** |
-| Erase | 1.30 ns | 23.80 ns | **18x** |
-| Iterate (per element) | 1.20 ns | 8.80 ns | **7x** |
-| Clear | 0.50 ns | 11.10 ns | **22x** |
+See `components/SparseSet/results/` and `benchmark_results/` for current platform-specific data.
 
 ### Why SparseSet Is Faster
 
 Every SparseSet operation resolves to array indexing — two array lookups for `contains()`, one append for `insert()`, two swaps and a decrement for `erase()`. No hashing, no bucket traversal, no node allocation, no pointer chasing. The operations are so simple that the CPU can execute them in a handful of cycles, limited only by memory access latency.
 
-`std::unordered_set` must compute a hash (CRC or multiplication-based, 3-10 ns), find the bucket (array index, fast), walk the bucket chain (pointer chasing, slow if multiple elements hash to the same bucket), compare keys (trivial for integers, but the function call overhead exists), and — for insert and erase — allocate or deallocate a heap node (20-50 ns per `malloc`/`free`).
+`std::unordered_set` must compute a hash, find the bucket, walk the bucket chain (pointer chasing, slow if multiple elements hash to the same bucket), compare keys, and — for insert and erase — allocate or deallocate a heap node.
 
 ### Where SparseSet Loses
 

@@ -201,7 +201,7 @@ For 1,000 elements of 8 bytes each:
 | `std::map` | ~1,000 (one per node) | ~12% (8 of 64 bytes used) |
 | `FlatMap` | ~125 (sequential) | ~100% (all bytes used) |
 
-This is why FlatMap iteration is 3-10x faster—not because of algorithmic differences, but because of *memory layout*.
+This is why FlatMap iteration is dramatically faster—not because of algorithmic differences, but because of *memory layout*. Contiguous storage means the hardware prefetcher can stay ahead of the access pattern, and every fetched cache line is fully utilized.
 
 ### Binary Search on Contiguous Data
 
@@ -1108,71 +1108,27 @@ Windows benchmarks were captured in two conditions:
 
 ### Benchmark Results
 
-#### FlatMap Performance (1,000 elements, cache-resident)
+Benchmarks compare FlatMap/FlatSet against `std::map`/`std::set` across insert, find, iteration, and erase operations. Testing covers multiple platforms (Windows MSVC, Linux GCC), thermal conditions (throttled and unthrottled), and data scales (1,000 and 100,000 elements) to stress both cache-resident and cache-exceeding workloads.
 
-| Operation | Windows (unthrottled) | Windows (throttled) | Linux | Notes |
-|-----------|----------------------|---------------------|-------|-------|
-| Insert (random) | 70 ns | 118 ns | 27 ns | Amortized, includes vector growth |
-| Insert (sorted, reserved) | 4.2 ns | 8.2 ns | 1.4 ns | Best case with pre-reserved capacity |
-| Find | 90 ns | 129 ns | 28 ns | Binary search with varying keys |
-| Iteration (1k) | 2.6 µs | 4.2 µs | 2.0 µs | Cache-friendly traversal |
-| std::map Find | 74 ns | 110 ns | 29 ns | Tree traversal |
-| std::map Iteration (1k) | 7.9 µs | 14.8 µs | 3.9 µs | Pointer chasing |
+**What the benchmarks measure:**
 
-#### FlatSet Performance (1,000 elements, cache-resident)
+- **Find:** Binary search on contiguous storage vs. tree traversal through pointer-chasing nodes. At small scale the two are comparable; at larger scale the cache-friendly layout of flat containers provides a measurable advantage because binary search touches fewer scattered cache lines.
 
-| Operation | Windows (unthrottled) | Windows (throttled) | Linux | Notes |
-|-----------|----------------------|---------------------|-------|-------|
-| Insert (random) | 69 ns | 93 ns | 31 ns | Amortized, includes vector growth |
-| Insert (sorted, reserved) | 2.8 ns | 6.9 ns | 1.2 ns | Best case with pre-reserved capacity |
-| Find | 58 ns | 98 ns | 32 ns | Binary search with varying keys |
-| Iteration (1k) | 2.7 µs | 4.2 µs | 2.0 µs | Cache-friendly traversal |
-| std::set Find | 68 ns | 125 ns | 32 ns | Tree traversal |
-| std::set Iteration (1k) | 6.8 µs | 14.1 µs | 4.2 µs | Pointer chasing |
+- **Iteration:** Sequential memory access with hardware prefetching vs. pointer chasing through separately allocated nodes. This is where contiguous layout provides the largest advantage—the CPU prefetcher can stay ahead of a sequential scan but cannot predict pointer-chasing patterns.
 
-#### Small-Scale Performance Summary (1,000 elements)
+- **Insert (sorted, pre-reserved):** Appending to a pre-sorted, pre-reserved vector avoids both element shifting and reallocation, reducing insert to an append operation. This is the best-case scenario for bulk loading.
 
-| Metric | FlatMap/FlatSet | std::map/set | Speedup |
-|--------|-----------------|--------------|---------|
-| Find | 28-129 ns | 29-125 ns | Comparable |
-| Insert (sorted, reserved) | 1-8 ns | ~100+ ns | **12-100x faster** |
-| Iteration (1k elements) | 2.0-4.2 µs | 3.9-14.8 µs | **2-3x faster** |
-| Memory usage (1000 int pairs) | ~8 KB | ~40 KB | **80% less** |
+- **Insert (random):** Amortized cost including vector growth and element shifting. The O(n) shift is a cache-friendly `memmove`, which modern CPUs handle efficiently.
 
-**Analysis:**
+- **Memory:** Flat containers store only the data with no per-node pointer overhead, resulting in substantially lower memory usage than node-based containers.
 
-- **Throttling impact:** Windows throttled times are ~1.5-2x slower than unthrottled, but **relative speedups remain consistent** across conditions.
+**Key architectural insights:**
 
-- **Insert performance:** FlatMap/FlatSet show better amortized insert times than theoretical O(n) suggests because vector shift operations are highly optimized by modern CPUs (prefetching, cache locality). The O(n) shift becomes a cache-friendly memmove.
+- The flat container advantage increases as data size grows beyond L2 cache, because cache misses become relatively more expensive for scattered node-based storage.
+- Under thermal throttling (reduced CPU frequency), memory latency becomes relatively more costly, which maintains or slightly enhances the advantage of cache-efficient layouts.
+- Platform differences (MSVC vs GCC) affect absolute timings but the relative advantage of contiguous storage remains consistent.
 
-- **Find performance:** Nearly identical between flat and node-based containers at small scale. Binary search on contiguous memory is comparable to tree traversal.
-
-- **Iteration performance:** 2-3x faster for flat containers due to sequential memory access enabling CPU prefetching, no pointer chasing, and better cache utilization.
-
-### Large-Scale Benchmarks (Cache Stress)
-
-The small-scale benchmarks above use 1,000 elements (~8 KB), which fits entirely in CPU L1/L2 cache. Real-world HPC workloads often exceed cache sizes. We tested with **100,000 elements** (~800 KB) using random access patterns to stress the cache hierarchy.
-
-#### Large-Scale Results (100,000 elements)
-
-| Operation | Platform | FlatMap/FlatSet | std::map/set | Speedup |
-|-----------|----------|-----------------|--------------|---------|
-| Find (random) | Windows (unthrottled) | 187-231 ns | 317-392 ns | **1.7x faster** |
-| Find (random) | Windows (throttled) | 250-369 ns | 480-701 ns | **1.9x faster** |
-| Find (random) | Linux | 97-99 ns | 227-240 ns | **2.3-2.5x faster** |
-| Iteration | Windows (unthrottled) | 210-242 µs | 954 µs-1.0 ms | **3.9-4.8x faster** |
-| Iteration | Windows (throttled) | 285-352 µs | 1.2-1.3 ms | **3.7-4.3x faster** |
-| Iteration | Linux | 187-198 µs | 585-673 µs | **3.0-3.4x faster** |
-
-#### Why the Gap Widens at Scale
-
-1. **Find operations:** Binary search on contiguous memory touches `log₂(100,000) ≈ 17` cache lines. With FlatMap, these are sequential and predictable. With std::map, each of the 17 tree nodes is a separate memory location, causing cache misses on every level.
-
-2. **Iteration:** FlatMap reads memory sequentially, allowing the CPU hardware prefetcher to stay ahead of the access pattern. std::map requires chasing pointers through randomly-allocated nodes, stalling the CPU on almost every access.
-
-3. **Thermal throttling amplifies the advantage:** Under reduced CPU frequencies, the ratio of CPU cycles to memory latency worsens. Memory-efficient operations (flat containers) become relatively faster compared to memory-hostile operations (node-based containers).
-
-**Conclusion:** The performance advantage of flat containers **increases** as data size grows beyond L2 cache. For cache-resident data (1K elements), expect 2-3.5x faster iteration. For larger datasets (100K+ elements), expect **2-2.5x faster find** and **3-4x faster iteration**.
+See `components/FlatMapSet/results/` and `benchmark_results/` for current platform-specific benchmark data with exact timings, speedup ratios, and methodology details.
 
 ### Memory Usage
 
@@ -1192,32 +1148,15 @@ Memory savings: ~80%
 
 ### Interpreting the Results
 
-**Throttled vs Unthrottled:** Windows benchmarks show ~1.5-2x slower absolute times when thermally throttled, but the **relative speedups remain consistent**:
+**Throttled vs Unthrottled:** The relative advantage of flat containers remains consistent regardless of CPU frequency. When thermal throttling reduces clock speed, memory latency becomes relatively more expensive, which benefits cache-efficient data structures.
 
-| Condition | FlatMap Iteration Speedup | FlatSet Iteration Speedup |
-|-----------|---------------------------|---------------------------|
-| Unthrottled (2.6 GHz) | 3.0x | 2.5x |
-| Throttled (~1.5 GHz) | 3.5x | 3.4x |
-| Large-scale (100k) | 3.7-4.8x | 3.7-4.8x |
+**Platform differences:** Windows vs Linux differences are due to different compiler optimization strategies (MSVC vs GCC), timer resolution, and memory subsystem behavior. The architectural advantage of contiguous storage holds across platforms.
 
-**Platform differences:** Windows vs Linux differences are due to:
-- Different compiler optimization strategies (MSVC vs GCC)
-- Timer resolution differences (100 ns vs 1 ns)
-- Memory subsystem and cache behavior
+**Find performance:** At small scale, binary search on contiguous memory is comparable to tree traversal. At larger scale, flat containers show a clear advantage because binary search on contiguous data touches fewer scattered cache lines.
 
-**Find performance:** Nearly identical between flat and node-based containers at small scale. At large scale (100K elements), flat containers show 1.7-2.5x advantage due to cache-friendly memory access patterns.
+**Insert performance:** FlatMap shows efficient amortized insert times because vector shift operations are cache-friendly `memmove` calls that modern CPUs handle well, and geometric growth avoids per-element allocation.
 
-**Insert performance:** FlatMap shows better amortized insert times in benchmarks because:
-- No allocation per element (vector grows geometrically)
-- Cache-friendly memmove for shifts
-- The O(n) complexity only dominates for very large containers or random insertion patterns
-
-**Iteration performance:** 2.5-4.8x faster depending on scale and thermal conditions:
-- Small scale (1K): 2.5-3.5x faster
-- Large scale (100K): 3.7-4.8x faster
-- Advantage increases with data size due to prefetcher effectiveness
-
-**Thermal throttling insight:** The Windows benchmarks demonstrate that flat container advantages are **maintained or slightly enhanced** under thermal throttling. When CPU frequency drops, memory latency becomes relatively more expensive, making cache-efficient data structures even more valuable.
+**Iteration performance:** Sequential memory access enables CPU prefetching and full cache line utilization. The advantage grows with data size as the working set exceeds L2 cache.
 
 **When flat containers lose:**
 - Frequent insertions/deletions in the middle of large containers
@@ -1704,10 +1643,12 @@ FlatMap and FlatSet provide **sorted, contiguous associative containers** backed
 
 **Performance Profile:**
 
-- Lookup: ~9 ns (comparable to std::map)
-- Iteration: 8-9x faster than std::map/std::set
-- Memory: ~80% less than node-based containers
-- Insert: O(n) but often faster due to cache effects
+- Lookup: O(log n) binary search on contiguous storage, comparable to `std::map` tree traversal
+- Iteration: Significantly faster than node-based containers due to sequential memory access and hardware prefetching
+- Memory: Substantially less than node-based containers (no per-node pointer overhead)
+- Insert: O(n) but cache-friendly `memmove`; amortized efficiently with `reserve()`
+
+See `components/FlatMapSet/results/` for current platform-specific benchmark data.
 
 **Best For:**
 

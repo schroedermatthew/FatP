@@ -648,9 +648,9 @@ that allow concurrent readers. Write-heavy code needs exclusive locks.
 
 | Policy | Overhead | Concurrent Reads | Concurrent Writes |
 |--------|----------|------------------|-------------------|
-| `SingleThreadedPolicy` | 0 ns | N/A | N/A |
-| `MutexSynchronizationPolicy` | ~15-20 ns | No | No |
-| `SharedMutexPolicy` | ~20-25 ns | Yes | No |
+| `SingleThreadedPolicy` | Zero | N/A | N/A |
+| `MutexSynchronizationPolicy` | Mutex acquisition | No | No |
+| `SharedMutexPolicy` | Shared/exclusive lock | Yes | No |
 
 | Policy | Lock Type | Use Case |
 |--------|-----------|----------|
@@ -867,8 +867,8 @@ operation add overhead that HPC code can't afford.
 
 | Policy | Overhead per op | Thread-safe | Use Case |
 |--------|-----------------|-------------|----------|
-| `AtomicStatisticsPolicy` | ~5-10 ns | Yes | Development, monitoring |
-| `NoStatisticsPolicy` | 0 ns | N/A | HPC, production hot paths |
+| `AtomicStatisticsPolicy` | Atomic increment per operation | Yes | Development, monitoring |
+| `NoStatisticsPolicy` | Zero | N/A | HPC, production hot paths |
 
 **Example: Zero-overhead HPC factory**
 
@@ -905,47 +905,30 @@ All benchmarks performed with:
 
 ### 6.3 Core Operations
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| `make()` (basic) | ~25 ns | Single registered type |
-| `make()` (lambda capture) | ~50 ns | Captured std::string + int |
-| `registerType()` | ~450 ns | Includes map insertion |
-| `hasType()` | ~15 ns | Lookup only |
+| Operation | Cost Driver |
+|-----------|-------------|
+| `make()` (basic) | Lock + map lookup + function copy (snapshot) + invocation |
+| `make()` (lambda capture) | Above + captured state copy overhead |
+| `registerType()` | Lock + map insertion + function construction |
+| `hasType()` | Lock + lookup only, no creation |
 
 ### 6.4 Storage Policy Comparison
 
-With 1000 registered types, looking up key in middle:
-
-| Storage | Lookup Time | Speedup |
-|---------|-------------|---------|
-| MapStoragePolicy | ~55 ns | baseline |
-| UnorderedMapStoragePolicy | ~24 ns | 2.3x |
+With large registries (hundreds+ of registered types), `UnorderedMapStoragePolicy` (amortized O(1) lookup) significantly outperforms `MapStoragePolicy` (O(log n) tree traversal).
 
 **Recommendation:** Use `FastFactory` or `UnorderedMapStoragePolicy` for registries
 with more than ~50 types.
 
 ### 6.5 Statistics Policy Overhead
 
-| Policy | make() Time | Overhead |
-|--------|-------------|----------|
-| AtomicStatisticsPolicy | ~25 ns | baseline |
-| NoStatisticsPolicy | ~19 ns | 24% faster |
-
-The overhead comes from `fetch_add(1, memory_order_relaxed)` on each operation.
+`AtomicStatisticsPolicy` adds a `fetch_add(1, memory_order_relaxed)` on each operation. `NoStatisticsPolicy` eliminates this entirely.
 For HPC hot paths, use `NoStatisticsPolicy`.
 
 ### 6.6 Factory vs Direct Construction
 
-| Approach | Time | Overhead |
-|----------|------|----------|
-| Direct `Widget{42}` | ~0.2 ns | baseline |
-| `factory.make("widget")` | ~25 ns | ~125x |
+Factory overhead over direct construction includes lock acquisition (no-op for single-threaded), map lookup, `std::function` copy (snapshot pattern), and `std::function` invocation. This is inherent to the indirection that Factory provides.
 
-The factory overhead includes:
-- Lock acquisition (no-op for single-threaded)
-- Map lookup
-- `std::function` copy (snapshot pattern)
-- `std::function` invocation
+See `components/Factory/results/` for current platform-specific benchmark data.
 
 **This is acceptable when:**
 - Object construction is non-trivial (database connections, file handles)

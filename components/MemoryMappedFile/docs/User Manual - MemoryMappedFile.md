@@ -43,7 +43,7 @@ status: "draft"
 **std equivalent:** None
 **Migration from std:** Replace `ifstream` read loops with `get_span<T>()` iteration
 **Common mistakes:** Using ReadWrite when ReadOnly suffices (disables page sharing); forgetting write errors are signals, not exceptions; mapping files on NFS; ignoring TLB pressure with random access on large files
-**Performance notes:** 2-5x sequential throughput vs `fread()`; 10-50x random access; first page access ~1-10 us (page fault); sequential access benefits from OS prefetcher
+**Performance notes:** Eliminates kernel-to-userspace memcpy for sequential reads; eliminates syscall pair for random access. Performance depends on page cache residency and TLB coverage. See `components/MemoryMappedFile/results/` for current data
 
 ---
 
@@ -126,7 +126,7 @@ The page cache typically occupies all available physical memory not in use by ap
 
 **Memory mapping:** Application dereferences pointer -> MMU translates virtual address -> address points directly to page cache page. One copy of the data exists. No system call, no kernel transition.
 
-For sequential reads of large files, memory mapping achieves 2-5x the throughput of `fread()` because it eliminates the `memcpy` from kernel to user space. For random access, the advantage is larger---10-50x---because each `fread()` random access involves a system call pair (`seek` + `read`, approximately 200-500 ns overhead), while each mapped random access is a pointer dereference (approximately 1-4 ns if the page is cached and the TLB entry is valid).
+For sequential reads of large files, memory mapping achieves significantly higher throughput than `fread()` because it eliminates the `memcpy` from kernel to user space. For random access, the advantage is larger still, because each `fread()` random access involves a system call pair (`seek` + `read`), while each mapped random access is a pointer dereference (if the page is cached and the TLB entry is valid).
 
 ---
 
@@ -528,29 +528,29 @@ No special alignment handling needed.
 
 ## Performance Characteristics
 
-| Operation | Cost | Mechanism |
-|-----------|------|-----------|
-| Construction (map) | ~10-100 us | Kernel mapping setup, no data I/O |
-| First page access (cache miss) | ~5-50 us (SSD) / ~5-15 ms (HDD) | Page fault + disk read |
-| First page access (cache hit) | ~1-10 us | Page fault + page cache lookup |
-| Subsequent access (TLB hit) | ~1-4 ns | L1/L2 cache hit |
-| Subsequent access (TLB miss) | ~16-25 ns | Page table walk + cache hit |
-| Destruction (unmap) | ~10-50 us | Kernel mapping teardown |
-| `msync(MS_SYNC)` per dirty page | ~0.5-2 ms | Disk write |
+Memory-mapped file performance depends on three factors: whether the page is in the OS page cache, whether the TLB has a valid translation, and whether the access is sequential (enabling OS readahead) or random.
+
+- **Construction/destruction:** Kernel mapping setup and teardown. No data is read during construction.
+- **First page access:** Triggers a page fault. Cost depends on whether the page is in the OS page cache (fast) or must be read from disk (SSD is much faster than HDD).
+- **Subsequent access (TLB hit):** A direct pointer dereference at L1/L2 cache speed.
+- **Subsequent access (TLB miss):** Requires a page table walk before the memory access.
+- **msync:** Synchronous disk write for dirty pages.
 
 ### Where MemoryMappedFile Wins
 
-**Sequential large-file reads.** No buffer management, no copy. OS prefetcher handles readahead. 2-5x throughput versus `fread()`.
+**Sequential large-file reads.** No buffer management, no kernel-to-userspace copy. OS prefetcher handles readahead, providing significantly higher throughput than `fread()`.
 
-**Random access within page cache.** Pointer dereference (~1-4 ns) versus syscall pair (~200-500 ns). 10-50x versus `fseek()` + `fread()`.
+**Random access within page cache.** A pointer dereference avoids the syscall pair (`fseek` + `fread`) required by stream I/O, providing dramatically faster random reads when pages are cached.
 
 **Multi-process sharing.** ReadOnly mappings share physical pages. Ten processes, one copy.
 
+See `components/MemoryMappedFile/results/` for current platform-specific benchmark data.
+
 ### Where MemoryMappedFile Loses
 
-**Random access beyond page cache.** Every miss triggers disk I/O. On spinning disk, 5-15 ms per access.
+**Random access beyond page cache.** Every miss triggers disk I/O.
 
-**Small files opened briefly.** Kernel setup/teardown overhead (~10-100 us) dominates for sub-millisecond accesses.
+**Small files opened briefly.** Kernel setup/teardown overhead dominates for sub-millisecond accesses.
 
 **Write error handling.** Errors are signals (POSIX) or structured exceptions (Windows), not return codes.
 

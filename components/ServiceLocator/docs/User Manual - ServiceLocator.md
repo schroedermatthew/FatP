@@ -36,7 +36,7 @@ status: "draft"
 **Key API:** `registerInstance`, `registerShared`, `registerFactory`, `tryResolve`, `resolveExpected`, `resolve`, `createExpected`, `makeScope`, `Registration`
 **std equivalent:** None (the service locator pattern is not in the standard library)
 **Common mistakes:** Resolving a transient as `T&` instead of `createExpected`; holding raw pointers across unregister; using `global()` assuming it is process-wide (it is per-instantiation); mutating the registry concurrently without `ThreadSafeServiceLocator`
-**Performance notes:** Unnamed resolve ~3-4.5 ns; MRU cache hit ~1.5 ns; named resolve ~20-25 ns (string hashing); registration ~50-100 ns
+**Performance notes:** Unnamed resolve is a single hash lookup; MRU cache eliminates repeated lookups for the same type; named resolve adds string hashing overhead. See `components/ServiceLocator/results/` for current data
 
 ---
 
@@ -165,8 +165,8 @@ ServiceLocator stores registrations in two separate hash maps for performance:
 flowchart TD
     Resolve["resolve<ILogger>()"]
     Check{"Name provided?"}
-    Unnamed["Unnamed Registry<br/>(StableHashMap&lt;void*, ServiceEntry&gt;)<br/>Key: type pointer only<br/>~3-4.5 ns"]
-    Named["Named Registry<br/>(StableHashMap&lt;ServiceKey, ServiceEntry&gt;)<br/>Key: type pointer + string<br/>~20-25 ns"]
+    Unnamed["Unnamed Registry<br/>(StableHashMap&lt;void*, ServiceEntry&gt;)<br/>Key: type pointer only<br/>Fast: single hash lookup"]
+    Named["Named Registry<br/>(StableHashMap&lt;ServiceKey, ServiceEntry&gt;)<br/>Key: type pointer + string<br/>Slower: string hashing + composite key"]
     Found{"Found in<br/>this locator?"}
     Parent{"Has parent?"}
     ParentResolve["Recurse into parent<br/>(same algorithm)"]
@@ -185,9 +185,9 @@ flowchart TD
     Parent -->|No| NotFound
 ```
 
-**Unnamed registry (Level 1).** Keyed by a `void*` type identifier only. No string allocation, no string hashing. This is the fast path. The hash function is a SplitMix64 finalizer on the pointer address, which produces well-distributed hashes with a single multiplication chain. Typical lookup: ~3-4.5 ns.
+**Unnamed registry (Level 1).** Keyed by a `void*` type identifier only. No string allocation, no string hashing. This is the fast path. The hash function is a SplitMix64 finalizer on the pointer address, which produces well-distributed hashes with a single multiplication chain.
 
-**Named registry (Level 2).** Keyed by a `ServiceKey` containing both the type identifier and a `std::string` name. The hash combines the type pointer hash with a string hash via `FNV-1a`. Typical lookup: ~20-25 ns due to string hashing and composite key construction.
+**Named registry (Level 2).** Keyed by a `ServiceKey` containing both the type identifier and a `std::string` name. The hash combines the type pointer hash with a string hash via `FNV-1a`. Lookup is slower due to string hashing and composite key construction.
 
 The 7-9x gap between unnamed and named resolution is fundamental: string hashing touches every character, while the unnamed path hashes a single pointer. Use unnamed services for the common case; use named services only when you need multiple implementations of the same interface.
 
@@ -284,7 +284,7 @@ Now a configuration reload thread wants to swap the logger (using `AllowOverwrit
 ```
 Config thread: registerInstance<ILogger>(newLogger) -> exclusive lock
   -> all resolve() calls block until registration completes
-  -> insert into StableHashMap (~50-100 ns)
+  -> insert into StableHashMap
   -> exclusive unlock
   -> all blocked resolve() calls resume, now seeing newLogger
 ```
@@ -699,13 +699,9 @@ IDatabase& db = locator.resolve<IDatabase>();
 
 ## The MRU Cache
 
-The MRU(2) cache accelerates repeated unnamed resolves by caching the two most recently resolved type pointers:
+The MRU(2) cache accelerates repeated unnamed resolves by caching the two most recently resolved type pointers. When the same type (or alternating between two types) is resolved repeatedly, the cache avoids the hash lookup entirely by returning the cached result from a simple pointer comparison. For three or more rotating types, the cache provides no benefit and falls through to the normal hash lookup.
 
-| Access pattern | Without cache | With cache | Speedup |
-|---|---|---|---|
-| Same type repeated (AAAA) | ~3 ns | ~1.8 ns | 1.65x |
-| Alternating two types (ABAB) | ~3 ns | ~1.9 ns | 1.58x |
-| Three+ types rotating | ~3 ns | ~3 ns | No benefit |
+See `components/ServiceLocator/results/` for current MRU cache hit/miss benchmark data.
 
 The cache is invalidated on any registry mutation (register, unregister, clear). It applies only to unnamed resolves. Named resolves always go through the full named registry.
 
@@ -1147,19 +1143,18 @@ struct Plugin
 
 ## Performance Characteristics
 
-| Operation | Unnamed | Named | Notes |
+Performance is dominated by the hash lookup mechanism. Unnamed operations use a single pointer hash (SplitMix64 finalizer), while named operations add string hashing (FNV-1a) and composite key construction.
+
+| Operation | Unnamed | Named | Cost Driver |
 |---|---|---|---|
-| registerInstance | ~50 ns | ~80 ns | Hash insert into StableHashMap |
-| registerShared | ~50 ns | ~80 ns | + shared_ptr copy (~5 ns) |
-| registerFactory | ~60 ns | ~90 ns | + function<> construction |
-| tryResolve | ~3-4.5 ns | ~20-25 ns | Hash lookup |
-| resolveExpected | ~3-5 ns | ~20-25 ns | + Expected construction |
-| resolve | ~3-5 ns | ~20-25 ns | + enforce check on miss |
+| register* | Fast | Slower | Hash insert; named adds string copy |
+| tryResolve / resolve | Fastest | Slower | Hash lookup; named adds string hashing |
 | createExpected (transient) | Factory cost | Factory cost | New instance per call |
-| createExpected (singleton, cached) | ~5 ns | ~25 ns | Shared_ptr copy |
-| MRU cache hit | ~1.5-1.8 ns | N/A | Unnamed only |
-| makeScope | ~200 ns | N/A | Allocates child locator |
-| isRegistered | ~3 ns | ~20 ns | Same as tryResolve |
+| createExpected (singleton, cached) | Fast | Slower | Shared_ptr copy |
+| MRU cache hit | Fastest | N/A | Simple pointer comparison, unnamed only |
+| makeScope | Moderate | N/A | Allocates child locator |
+
+See `components/ServiceLocator/results/` for current platform-specific benchmark data.
 
 ---
 
@@ -1205,9 +1200,9 @@ A singleton factory resolved itself (A -> A) or formed a cycle (A -> B -> A). Br
 
 Child locators do not copy parent registrations. They fall through to the parent on miss. If you registered in the parent and the child does not override it, resolution in the child succeeds (it finds the parent's registration). If you think it should fail, check that you are resolving the correct type.
 
-### Named resolve is 7-9x slower than unnamed
+### Named resolve is significantly slower than unnamed
 
-This is by design. String hashing costs ~15-20 ns. If you need to resolve a named service frequently, resolve once at startup and cache the reference.
+This is by design. Named resolution requires string hashing and composite key construction on every call. If you need to resolve a named service frequently, resolve once at startup and cache the reference.
 
 ### MRU cache not effective
 

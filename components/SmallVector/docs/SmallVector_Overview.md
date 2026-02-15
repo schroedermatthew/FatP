@@ -16,7 +16,7 @@ status: "reviewed"
 
 ## Executive Summary
 
-SmallVector is a hybrid stack/heap vector that eliminates heap allocation for small element counts through **pointer-discriminating storage**. A single `data_` pointer always addresses valid storage--inline buffer or heap--enabling **branchless element access** identical to `std::vector`. When inline capacity is exceeded, automatic heap promotion preserves correctness; when size shrinks, optional demotion reclaims stack locality. This architectural approach delivers **2-17x speedup** for the dominant use case: small, temporary collections in hot loops.
+SmallVector is a hybrid stack/heap vector that eliminates heap allocation for small element counts through **pointer-discriminating storage**. A single `data_` pointer always addresses valid storage--inline buffer or heap--enabling **branchless element access** identical to `std::vector`. When inline capacity is exceeded, automatic heap promotion preserves correctness; when size shrinks, optional demotion reclaims stack locality. This architectural approach eliminates the allocation/deallocation overhead that dominates the cost of small, temporary collections in hot loops.
 
 ---
 
@@ -70,7 +70,7 @@ flowchart LR
 
 | Feature | Mechanism | Benefit |
 |---------|-----------|---------|
-| Zero-allocation small vectors | Inline buffer in object memory | 17x faster create/destroy |
+| Zero-allocation small vectors | Inline buffer in object memory | Eliminates heap allocation/deallocation overhead |
 | Branchless element access | Single `data_` pointer, no flag check | Same codegen as std::vector |
 | Automatic heap promotion | Transactional migration via ScopeGuard | Strong exception safety |
 | Heap-to-inline demotion | `shrink_to_fit()` moves elements back | Memory reclamation for long-lived vectors |
@@ -81,12 +81,9 @@ flowchart LR
 
 ## Performance
 
-| Operation | std::vector | SmallVector | Improvement |
-|-----------|-------------|-------------|-------------|
-| Create + destroy (4 elem) | 52 ns | 3 ns | **17x** |
-| 4x push_back + destroy | 48 ns | 12 ns | **4x** |
-| Iteration (1000 elem) | 890 ns | 890 ns | 1x (identical) |
-| Random access (1000 elem) | 445 ns | 445 ns | 1x (identical) |
+SmallVector's performance advantage comes entirely from eliminating heap allocation for small element counts. For create/destroy cycles and small push_back sequences, the inline buffer avoids the dominant cost (`malloc`/`free`). For iteration and random access on heap-mode vectors, performance is identical to `std::vector` because the `data_` pointer dereference is the same operation.
+
+See `components/SmallVector/results/` for current platform-specific benchmark data.
 
 ### Where SmallVector Wins
 

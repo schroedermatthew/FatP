@@ -15,7 +15,7 @@
 #
 # Cache prefixes:
 #   fatp-bench-deps-gcc-v1-          Compiled deps (gcc-14, ubuntu-24.04)
-#   fatp-bench-deps-clang-v1-        Compiled deps (clang-17, ubuntu-22.04)
+#   fatp-bench-deps-clang-v1-        Compiled deps (clang-17, ubuntu-24.04)
 #   fatp-bench-deps-headeronly-v1-   Header-only external deps (universal)
 #   fatp-bench-deps-vcpkg-v1-        vcpkg x64-windows-release packages
 #
@@ -307,11 +307,11 @@ jobs:
           key: fatp-bench-deps-gcc-v1-${{ github.run_id }}
 
   # ===========================================================================
-  # Clang Compiled Dependencies (clang-17, ubuntu-22.04)
+  # Clang Compiled Dependencies (clang-17, ubuntu-24.04)
   # ===========================================================================
   compiled-clang:
     name: Compiled Deps (Clang-17)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check existing cache
@@ -327,8 +327,8 @@ jobs:
       - name: Install Clang and system dependencies
         if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
-          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 17
-          sudo apt-get install -y libunwind-dev cmake \
+          sudo apt-get update
+          sudo apt-get install -y clang-17 cmake \
             libfmt-dev libgoogle-glog-dev libgflags-dev \
             libdouble-conversion-dev libevent-dev libssl-dev \
             llvm-dev
@@ -418,6 +418,7 @@ jobs:
                 -B /tmp/folly-build \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMAKE_CXX_STANDARD=20 \
+                -DCMAKE_C_COMPILER=clang-17 \
                 -DCMAKE_CXX_COMPILER=clang++-17 \
                 -DBOOST_LINK_STATIC=ON \
                 -DCMAKE_PREFIX_PATH="$HOME/thirdparty-compiled/boost;/usr/local" \

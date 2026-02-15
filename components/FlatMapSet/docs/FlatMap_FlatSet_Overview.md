@@ -14,7 +14,7 @@ status: "reviewed"
 
 ## Executive Summary
 
-FlatMap and FlatSet are **cache-optimized associative containers** that store elements in a contiguous sorted vector instead of scattered tree nodes. Unlike `std::map`/`std::set` (red-black trees with per-node heap allocation), FlatMap/FlatSet achieve **10-50x faster iteration** through sequential memory access, **2-5x faster lookup** for small-to-medium collections via better cache utilization, and **zero per-element allocation overhead**. The sorted vector layout transforms pointer-chasing tree traversal into cache-friendly linear scans.
+FlatMap and FlatSet are **cache-optimized associative containers** that store elements in a contiguous sorted vector instead of scattered tree nodes. Unlike `std::map`/`std::set` (red-black trees with per-node heap allocation), FlatMap/FlatSet achieve dramatically faster iteration through sequential memory access, faster lookup for small-to-medium collections via better cache utilization, and zero per-element allocation overhead. The sorted vector layout transforms pointer-chasing tree traversal into cache-friendly linear scans.
 
 ---
 
@@ -137,7 +137,7 @@ for (const auto& [key, value] : map) {
                      // Hardware prefetcher works
                      // One cache line may contain multiple elements
 }
-// 10-50x faster than std::map iteration
+// Dramatically faster than std::map iteration due to contiguous memory layout
 ```
 
 ### 2. Binary Search Lookup
@@ -285,15 +285,13 @@ Fat_p's implementation offers capabilities the standard may never include:
 | Iteration | O(n) | O(n) | Sequential vs. pointer chasing |
 | Memory/element | 0 | ~32-48 bytes | No pointers vs. L/R/P/color |
 
-### Benchmark Results (i7-8850H, 1000 elements)
+### Benchmark Results
 
-| Operation | FlatMap | std::map | Speedup |
-|-----------|---------|----------|---------|
-| Iteration (full) | 890 ns | 12,400 ns | 14x |
-| find() (existing) | 45 ns | 120 ns | 2.7x |
-| find() (missing) | 42 ns | 115 ns | 2.7x |
-| insert() | 2,100 ns | 180 ns | 0.09x (map wins) |
-| Construction (sorted input) | 1,200 ns | 15,000 ns | 12x |
+Benchmarks compare FlatMap against `std::map` across iteration, find, insert, and construction operations at small-to-medium scale.
+
+The key results: iteration is where contiguous storage provides the largest advantage (sequential access vs. pointer chasing). Find operations benefit from cache-friendly binary search. Insert is where FlatMap loses — the O(n) element shift dominates at scale. Construction from sorted input is efficient because it avoids repeated insertion.
+
+See `components/FlatMapSet/results/` and `benchmark_results/` for current platform-specific data.
 
 ### Where Fat-P Wins
 - **Read-heavy workloads:** Lookup and iteration dominate
@@ -332,12 +330,12 @@ FlatMap/FlatSet deliver on the fat_p promise through three pillars:
 C++23's `std::flat_map` won't reach locked-down HPC codebases for years. Fat_p provides contiguous associative containers **now** on C++17.
 
 ### 2. Specialization
-Sorted vector storage optimizes for the common case: small-to-medium maps that are read more than written. Cache-friendly iteration delivers 10-50x speedup over pointer-chasing trees.
+Sorted vector storage optimizes for the common case: small-to-medium maps that are read more than written. Cache-friendly iteration provides dramatic speedup over pointer-chasing trees.
 
 ### 3. Control
 You choose the container based on workload characteristics. FlatMap for read-heavy, std::map for insert-heavy. The tradeoff is explicit, not hidden.
 
-**Architectural Verdict:** FlatMap/FlatSet transform associative containers from **pointer-chasing trees** to **cache-friendly sorted vectors**. For read-heavy workloads with <10,000 elements, they provide order-of-magnitude iteration speedup and significant lookup improvement.
+**Architectural Verdict:** FlatMap/FlatSet transform associative containers from **pointer-chasing trees** to **cache-friendly sorted vectors**. For read-heavy workloads with <10,000 elements, they provide substantial iteration and lookup improvements through cache-optimal memory layout.
 
 ---
 

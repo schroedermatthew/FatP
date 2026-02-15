@@ -228,17 +228,17 @@ flowchart TD
 
 ## Performance Characteristics
 
-Benchmarks on Linux, GCC 13, 2.1 GHz (median of 50 runs):
+Benchmarks compare IntrusiveList against `std::list<T*>` across push_back, remove, iteration, and splice operations.
 
-| Operation | std::list<T*> | IntrusiveList (Fast) | Speedup |
-|-----------|--------------|----------------------|---------|
-| push_back (N=10k) | 18.6 ns/op | **2.1 ns/op** | **8.9×** |
-| remove with known reference | 28.9 ns/op | **1.7 ns/op** | **17×** |
-| Iteration sum (N=10k) | 19.7 µs | 21.7 µs | 0.9× |
-| splice (N=10k) | 239 µs | **91 µs** | **2.6×** |
-| isLinked() check | N/A | **<1 ns** | - |
+**What the benchmarks show:**
 
-**Note on Iteration:** The iteration benchmark shows comparable performance because IntrusiveList nodes contain embedded payload accessed directly, while std::list stores separate pointers requiring indirection. For iteration-dominated workloads, actual performance depends on your memory layout.
+- **push_back:** IntrusiveList avoids per-node heap allocation (the node is already embedded in the object), eliminating `malloc()` overhead entirely. `std::list` allocates a separate heap node per insertion.
+- **remove with known reference:** IntrusiveList's O(1) unlink (adjusting prev/next pointers on the embedded node) avoids the O(n) search that `std::list::remove` requires, and avoids the `free()` call.
+- **Iteration:** Comparable performance—both traverse linked nodes. Actual performance depends on memory layout (IntrusiveList nodes may have better or worse locality depending on how the owning objects are allocated).
+- **splice:** IntrusiveList's O(1) splice (pointer adjustment only) outperforms `std::list`'s splice, which must update allocator bookkeeping.
+- **isLinked() check:** A simple pointer comparison on the embedded hook, effectively free.
+
+See `components/IntrusiveList/results/` for current platform-specific benchmark data.
 
 ### Memory Overhead Comparison
 

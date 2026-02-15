@@ -46,7 +46,7 @@ status: "reviewed"
 **std equivalent:** None
 **Migration from std:** Replace `std::queue<T>` + `std::mutex` + `std::condition_variable` with `WorkQueue<T>`; replace `push()`/`pop()` with `enqueue()`/`dequeue()`
 **Common mistakes:** Ignoring `enqueue()` return value (silent data loss); sharing tokens across threads (data race); choosing ShardCount=1 (pointless overhead); queueing non-trivially-copyable types (static_assert)
-**Performance notes:** 8-27 ns per operation depending on contention pattern; wins over single-queue designs at ≥ 4 producers
+**Performance notes:** Sharding maintains stable per-operation throughput under high producer contention where single-queue designs degrade; see `components/WorkQueue/results/` for current data
 
 ---
 
@@ -180,27 +180,13 @@ The tradeoff is ordering. A single queue guarantees global FIFO: the first eleme
 
 ### The Numbers
 
-The benchmark data shows the payoff. At 8 producers / 1 consumer on an x64 system:
+Benchmarks compare WorkQueue against `std::mutex + std::queue`, `fat_p::LockFreeQueue` (single MPMC queue), and `moodycamel::ConcurrentQueue` across contention patterns.
 
-| Implementation | Latency per op |
-|----------------|---------------|
-| `std::queue` + `std::mutex` | 36.73 ns |
-| `fat_p::LockFreeQueue` (single queue) | 47.91 ns |
-| `moodycamel::ConcurrentQueue` | 15.54 ns |
-| `fat_p::WorkQueue` (16 shards) | **22.00 ns** |
+At high producer contention (8P:1C), the single lock-free queue is actually *worse* than the mutex queue — the CAS retry storm under 8-way contention costs more than mutex scheduling. WorkQueue, by distributing contention across shards, cuts latency significantly compared to the single lock-free queue.
 
-The single lock-free queue is actually *worse* than the mutex queue at 8P:1C — the CAS retry storm under 8-way contention costs more than mutex scheduling. WorkQueue, by distributing contention across shards, cuts latency by more than half compared to the single lock-free queue.
+At balanced MPMC (8P:2C), the advantage widens further. WorkQueue outperforms all alternatives at this contention level because sharding distributes both producer-side and consumer-side contention.
 
-At 8 producers / 2 consumers, the advantage widens further:
-
-| Implementation | Latency per op |
-|----------------|---------------|
-| `std::queue` + `std::mutex` | 59.41 ns |
-| `fat_p::LockFreeQueue` | 62.38 ns |
-| `moodycamel::ConcurrentQueue` | 64.64 ns |
-| `fat_p::WorkQueue` | **27.68 ns** |
-
-WorkQueue is 2.3x faster than every alternative at this contention level.
+See `components/WorkQueue/results/` and `benchmark_results/` for current platform-specific data.
 
 ---
 
@@ -922,25 +908,19 @@ while (event_bus.dequeue(evt)) {
 
 ### Benchmark Data
 
-At 4 workers (Windows-x64, MSVC-1950, 24 threads @ 3686 MHz):
+Benchmarks compare WorkQueue against `fat_p::LockFreeQueue`, `moodycamel::ConcurrentQueue`, and `std::mutex + std::queue` across contention patterns from 1P:1C through 8P:2C.
 
-| Pattern | fat_p::WorkQueue | fat_p::LockFreeQueue | moodycamel | std::mutex |
-|---------|-----------------|---------------------|------------|------------|
-| 1P:1C | 8.64 ns | 8.07 ns | 8.12 ns | 16.81 ns |
-| 4P:1C | **22.15 ns** | 40.78 ns | 15.86 ns | 19.57 ns |
-| 8P:1C | **22.00 ns** | 47.91 ns | 15.54 ns | 36.73 ns |
-| 1P:8C | 62.15 ns | 74.72 ns | 78.41 ns | 181.66 ns |
-| 8P:2C | **27.68 ns** | 62.38 ns | 64.64 ns | 59.41 ns |
+See `components/WorkQueue/results/` and `benchmark_results/` for current platform-specific data.
 
 ### Where WorkQueue Wins
 
-WorkQueue dominates at high producer contention (4P+). With 8 producers and 2 consumers, it is 2.3x faster than every alternative tested. The sharding strategy eliminates the CAS retry storm that cripples single-queue designs under multi-producer load.
+WorkQueue dominates at high producer contention (4P+). The sharding strategy eliminates the CAS retry storm that cripples single-queue designs under multi-producer load. At balanced MPMC (8P:2C), WorkQueue outperforms all tested alternatives.
 
 ### Where WorkQueue Loses
 
-At low contention (1P:1C), the overhead of shard routing makes `LockFreeQueue` slightly faster — 8.07 ns vs 8.64 ns. The single-element CAS on a single queue is hard to beat when there's no contention to distribute. If your workload is genuinely single-producer/single-consumer, use `fat_p::LockFreeRingBuffer` (0.54 ns/op) instead.
+At low contention (1P:1C), the overhead of shard routing makes `LockFreeQueue` slightly faster. The single-element CAS on a single queue is hard to beat when there's no contention to distribute. If your workload is genuinely single-producer/single-consumer, use `fat_p::LockFreeRingBuffer` instead (purpose-built SPSC ring buffer).
 
-At very high consumer contention (1P:8C), WorkQueue's 62.15 ns is good but not dominant. When 8 consumers probe the same shards looking for the single producer's elements, the CAS retries on `head_` create the same contention pattern that sharding was designed to eliminate on the producer side. For workloads with many more consumers than producers, consider multiple queues with round-robin assignment.
+At very high consumer contention (1P:8C), WorkQueue is adequate but not dominant. When many consumers probe the same shards looking for a single producer's elements, the CAS retries on `head_` create contention that sharding was designed to eliminate on the producer side. For workloads with many more consumers than producers, consider multiple queues with round-robin assignment.
 
 ---
 
@@ -959,7 +939,7 @@ You can tolerate **relaxed ordering**. If per-element FIFO across all producers 
 | Scenario | Use instead |
 |----------|-------------|
 | Strict global FIFO ordering required | `fat_p::LockFreeQueue` |
-| Single-producer, single-consumer only | `fat_p::LockFreeRingBuffer` (0.54 ns/op) |
+| Single-producer, single-consumer only | `fat_p::LockFreeRingBuffer` (purpose-built SPSC) |
 | Non-trivially-copyable elements | Wrap in index/pointer and queue the handle |
 | Unbounded capacity needed | `std::queue` + `std::mutex`, or a growing allocator-backed queue |
 | 1-2 producers only | `fat_p::LockFreeQueue` (simpler, same or better speed at low contention) |
@@ -1067,7 +1047,7 @@ The mutex, condition variable, and manual locking are gone. The tradeoffs are ex
 ## Alternatives
 
 - **`fat_p::LockFreeQueue`** — Single lock-free queue with global FIFO. Better for ≤ 2 producers.
-- **`fat_p::LockFreeRingBuffer`** — SPSC ring buffer, 0.54 ns/op. Optimal for single-producer/single-consumer.
+- **`fat_p::LockFreeRingBuffer`** — SPSC ring buffer, optimal for single-producer/single-consumer.
 - **`boost::lockfree::queue`** — Boost's lock-free MPMC queue. Global FIFO but higher contention under multi-producer load.
 - **`moodycamel::ConcurrentQueue`** — High-performance MPMC queue with implicit producer tokens. Competitive throughput; header-only; MIT licensed.
 - **`folly::MPMCQueue`** — Facebook's bounded MPMC queue. Fixed-size, blocking wait support. Requires Folly dependency.

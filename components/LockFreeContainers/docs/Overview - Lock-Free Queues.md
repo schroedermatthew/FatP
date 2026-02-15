@@ -22,7 +22,7 @@ status: "reviewed"
 
 ## Executive Summary
 
-Fat-P provides a family of lock-free bounded queues optimized for different concurrency patterns. Unlike mutex-protected queues that serialize all access through a single lock, these queues use **sequence-number-per-slot coordination** to allow multiple producers and consumers to operate simultaneously without blocking each other. The result is predictable scaling under contention: where `std::mutex` queues collapse to 200+ ns/op at 8 threads, Fat-P's WorkQueue maintains 23 ns/op regardless of thread count.
+Fat-P provides a family of lock-free bounded queues optimized for different concurrency patterns. Unlike mutex-protected queues that serialize all access through a single lock, these queues use **sequence-number-per-slot coordination** to allow multiple producers and consumers to operate simultaneously without blocking each other. The result is predictable scaling under contention: where mutex-based queues degrade severely at high thread counts, Fat-P's WorkQueue maintains stable per-operation throughput regardless of thread count.
 
 **LockFreeQueue** delivers strict FIFO ordering for general MPMC (Multiple-Producer Multiple-Consumer) use. **WorkQueue** sacrifices global ordering for 3-4× better scaling through sharding—distributing work across independent sub-queues. **PolicyQueue** provides a unified facade for selecting between topologies at compile time. **LockFreeRingBuffer** offers specialized SPSC (Single-Producer Single-Consumer) implementation for dedicated pipelines.
 
@@ -93,7 +93,7 @@ The C++ standard library provides no lock-free queue. `std::queue` is a containe
 
 The Concurrency TS and various proposals have discussed lock-free data structures, but none have been standardized. The complexity of memory ordering, the platform-specific nature of atomic operations, and the difficulty of providing a one-size-fits-all API have kept lock-free queues out of the standard.
 
-`boost::lockfree::queue` exists but uses a Michael-Scott queue variant with pointer-based nodes. Each node is separately allocated. Each enqueue and dequeue traverses pointers, incurring cache misses. Under contention, it scales poorly—our benchmarks show 230+ ns/op at 16 threads versus Fat-P's 24 ns/op.
+`boost::lockfree::queue` exists but uses a Michael-Scott queue variant with pointer-based nodes. Each node is separately allocated. Each enqueue and dequeue traverses pointers, incurring cache misses. Under contention, it scales poorly compared to Fat-P's sequence-number-per-slot design.
 
 This gap is unlikely to close. Lock-free data structures require careful algorithm design for specific use cases. A general-purpose standard queue cannot optimize for the bounded-capacity, trivially-copyable, MPMC patterns that dominate high-performance computing.
 
@@ -276,7 +276,7 @@ Without multi-producer or multi-consumer coordination, SPSC achieves sub-nanosec
 |--------|------------------------|--------------|
 | **Algorithm** | Michael-Scott (pointer-based) | Sequence-number ring buffer |
 | **Memory layout** | Linked nodes, scattered | Contiguous slots, cache-friendly |
-| **Scaling at 16 threads** | 287 ns/op | 24 ns/op (WorkQueue) |
+| **Scaling at high thread counts** | Degrades significantly | Maintains stable throughput (WorkQueue) |
 | **Dependencies** | Boost headers | None (STL only) |
 | **Bounded capacity** | Optional | Required (by design) |
 
@@ -292,13 +292,9 @@ Boost's queue uses a classic lock-free linked list algorithm. Each node is separ
 | **Bounded mode** | Optional | Required |
 | **API complexity** | Higher (bulk operations, tokens) | Simpler |
 
-Moodycamel excels when many producers feed few consumers (MPSC). Each producer has its own queue; the consumer reads from all of them. But when few producers feed many consumers (SPMC), consumers must "steal" from producer queues, adding overhead. Fat-P's WorkQueue handles both patterns well because shards are shared, not producer-owned.
+Moodycamel excels when many producers feed few consumers (MPSC). Each producer has its own queue; the consumer reads from all of them. But when few producers feed many consumers (SPMC), consumers must "steal" from producer queues, adding overhead. Fat-P's WorkQueue handles both patterns well because shards are shared, not producer-owned. In SPMC and symmetric patterns, WorkQueue significantly outperforms moodycamel.
 
-| Configuration | Fat-P WorkQueue | moodycamel | Winner |
-|---------------|-----------------|------------|--------|
-| 8P:1C (MPSC) | 16.8 ns | 16.7 ns | Tie |
-| 1P:8C (SPMC) | 25.5 ns | 58.8 ns | **Fat-P 2.3×** |
-| 4P:4C (Symmetric) | 22.7 ns | 49.3 ns | **Fat-P 2.2×** |
+See `components/LockFreeContainers/results/` and `components/WorkQueue/results/` for current benchmark data.
 
 ### std::mutex + std::queue
 
@@ -306,8 +302,8 @@ Moodycamel excels when many producers feed few consumers (MPSC). Each producer h
 |--------|-------------------|--------------|
 | **Correctness** | Trivially correct | Requires careful algorithm |
 | **Simplicity** | Simple | More complex |
-| **1-2 threads** | 20-30 ns, adequate | 6-45 ns, overkill |
-| **8+ threads** | 200+ ns, collapsed | 23-80 ns, stable |
+| **Low thread counts** | Adequate performance | Overhead of lock-free machinery not always justified |
+| **High thread counts** | Degrades significantly under contention | Maintains stable throughput |
 | **Preemption** | Vulnerable | Immune (lock-free) |
 
 For low thread counts, mutex queues are simpler and fast enough. The crossover point is around 4 threads. Beyond that, lock-free queues provide meaningfully better performance and, crucially, bounded worst-case latency.
@@ -328,23 +324,15 @@ Fat-P's queues are not shims waiting for standardization. They fill gaps the sta
 
 ## Performance Characteristics
 
-Benchmarks on AMD Ryzen 9, GCC 13, -O2, Ubuntu 22.04 (median of 20 runs, round-robin execution to eliminate thermal bias):
+Benchmarks compare LockFreeQueue, WorkQueue, `std::mutex + std::queue`, moodycamel, and boost across symmetric MPMC patterns from 1 to 16 threads.
 
-### Symmetric MPMC (N producers, N consumers, ping-pong pattern)
-
-| Threads | LockFreeQueue | WorkQueue | std::mutex | moodycamel | boost |
-|---------|---------------|-----------|------------|------------|-------|
-| 1T | 6.4 ns | 9.3 ns | 19.8 ns | 19.7 ns | 63.2 ns |
-| 2T | 45.4 ns | 11.7 ns | 26.4 ns | 31.2 ns | 104.7 ns |
-| 4T | 62.2 ns | 22.7 ns | 47.2 ns | 49.3 ns | 188.8 ns |
-| 8T | 81.4 ns | 23.2 ns | 202.3 ns | 47.3 ns | 232.7 ns |
-| 16T | 89.5 ns | 24.4 ns | 247.4 ns | 38.8 ns | 287.5 ns |
+See `components/LockFreeContainers/results/` and `components/WorkQueue/results/` for current platform-specific benchmark data.
 
 ### Where Fat-P Wins
 
-**High thread counts.** WorkQueue maintains ~24 ns/op from 4 to 16 threads while mutex queues collapse to 200+ ns.
+**High thread counts.** WorkQueue maintains stable per-operation throughput from 4 to 16 threads while mutex queues degrade significantly under contention.
 
-**Consumer-heavy workloads (SPMC).** WorkQueue beats moodycamel 2.3× in 1P:8C patterns because consumers distribute across shards rather than stealing from one producer queue.
+**Consumer-heavy workloads (SPMC).** WorkQueue outperforms moodycamel in SPMC patterns because consumers distribute across shards rather than stealing from one producer queue.
 
 **Predictable latency.** Lock-free progress guarantees bound worst-case latency. No thread can block others indefinitely.
 

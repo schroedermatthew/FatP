@@ -29,7 +29,7 @@ In 2003, AMD introduced the Opteron processor with an integrated memory controll
 This is **NUMA: Non-Uniform Memory Access**. On a multi-socket system:
 
 - **Local memory access:** ~60ns
-- **Remote memory access:** ~150ns (2.5x slower!)
+- **Remote memory access:** significantly slower due to interconnect traversal
 - **Bandwidth penalty:** Often 50% reduction for remote access
 
 Every modern multi-socket server has NUMA, and ignoring it can cost you half your performance.
@@ -153,9 +153,11 @@ fat_p::HpcVector<float, 128> data(1000); // 128-byte aligned
 | Local, aligned | ~60ns | Best case: HpcVector default |
 
 **Performance impact:**
-- NUMA locality alone: Up to 2x improvement on memory-bound code
-- Cache alignment alone: 10-30% improvement for SIMD
-- Combined: Up to 2x throughput for HPC workloads
+- NUMA locality: Eliminates cross-node memory access latency on multi-socket systems
+- Cache alignment: Enables SIMD processing without unaligned-access penalties
+- Combined: Significant throughput improvement for memory-bound HPC workloads
+
+See `components/HpcVector/results/` for current platform-specific benchmark data.
 
 ---
 
@@ -581,11 +583,13 @@ Best scenarios:
 - Parallel code with thread affinity
 - SIMD-heavy processing
 
-| Scenario | std::vector | HpcVector | Improvement |
-|----------|-------------|-----------|-------------|
-| Sequential scan, local | 12 GB/s | 24 GB/s | 2.0x |
-| Parallel scan, scattered | 8 GB/s | 22 GB/s | 2.75x |
-| SIMD processing, aligned | 18 GB/s | 26 GB/s | 1.44x |
+| Scenario | std::vector | HpcVector | Why HpcVector Wins |
+|----------|-------------|-----------|-------------------|
+| Sequential scan, local | Baseline | Faster | NUMA-local allocation eliminates cross-node latency |
+| Parallel scan, scattered | Baseline | Significantly faster | Scattered std::vector hits remote DRAM; HpcVector is local |
+| SIMD processing, aligned | Baseline | Faster | Guaranteed cache-line alignment avoids split loads |
+
+See `components/HpcVector/results/` for current platform-specific benchmark data with exact throughput measurements.
 
 ### Allocation Overhead
 
@@ -809,9 +813,9 @@ for (size_t i = 0; i < data.size(); i += 8) {
 ```
 
 **Performance Impact:**
-- NUMA locality: Up to 2x on multi-socket
-- Cache alignment: 10-30% for SIMD
-- Combined: Up to 2x for memory-bound HPC
+- NUMA locality: Eliminates cross-node memory latency on multi-socket systems
+- Cache alignment: Enables penalty-free SIMD processing
+- Combined: Significant throughput improvement for memory-bound HPC workloads
 
 **Related Components:** `AlignedVector.h`, `SimdVector.h`, `NumaAllocator.h`, `CacheUtilities.h`
 

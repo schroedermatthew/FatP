@@ -44,7 +44,7 @@ status: "reviewed"
 **std equivalent:** None
 **Migration from std:** Replace `std::async(std::launch::async, f, args...)` with `pool.submit(f, args...)`
 **Common mistakes:** Submitting tasks after shutdown; ignoring returned futures (losing exceptions); choosing wrong spin duration; capturing local variables by reference in tasks
-**Performance notes:** ~100-200 ns per submission; work stealing balances load automatically
+**Performance notes:** Amortizes thread creation cost across tasks; work stealing balances load automatically. See `components/ThreadPool/results/` for current data
 
 ---
 
@@ -1391,58 +1391,25 @@ void benchmark_submission() {
 }
 ```
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| `submit()` with lambda | ~2,500 ns | Includes packaged_task heap allocation |
-| `submit_batch()` per task | ~500 ns | Amortizes lock and notification overhead |
-| Raw mutex lock/unlock | ~25 ns | Uncontended baseline |
+| Operation | Cost Driver | Notes |
+|-----------|------------|-------|
+| `submit()` with lambda | `shared_ptr<packaged_task>` heap allocation | Dominant cost is allocation, not synchronization |
+| `submit_batch()` per task | Amortized lock and notification | Still allocates per-task `std::function` |
+| Raw mutex lock/unlock | Uncontended synchronization | Baseline for comparison |
 
 The dominant cost is the `std::shared_ptr<std::packaged_task>` allocation in `submit()`. `submit_batch()` amortizes the lock and notification cost but still allocates per-task `std::function` objects.
 
 ### Throughput
 
-Maximum tasks completed per second:
-
-| Configuration | Throughput | Notes |
-|---------------|------------|-------|
-| 1 worker | ~150K tasks/sec | No contention baseline |
-| 4 workers | ~300K tasks/sec | Some queue contention |
-| 8 workers | ~350K tasks/sec | Diminishing returns (4 physical cores) |
-
 Scaling is sublinear due to mutex contention on the global queue, work stealing overhead, cache coherency traffic, and Amdahl's Law (serial portions in queue management).
-
-### Latency Distribution
-
-Time from submission to execution start:
-
-| Percentile | 0 ms Spin | 2 ms Spin (default) | 5 ms Spin |
-|------------|-----------|---------------------|-----------|
-| p50 | 30 us | 16 us | 15 us |
-| p90 | 45 us | 25 us | 24 us |
-| p99 | 55 us | 32 us | 35 us |
-| p99.9 | 100 us | 60 us | 70 us |
-
-The spin phase dramatically improves p50 and p90 by catching tasks before workers enter OS sleep. The p99.9 increase at 5 ms spin is noise from OS scheduler interference during prolonged spinning.
 
 ### Comparison Benchmarks
 
-**vs std::async (libstdc++, creating threads):**
+**vs std::async:** ThreadPool dramatically outperforms `std::async` (which creates a new thread per task on most implementations) because thread creation is extremely expensive compared to task submission to an existing pool. The memory difference is similarly dramatic—pre-allocated workers vs. per-task thread stacks.
 
-| Metric | ThreadPool | std::async | Ratio |
-|--------|------------|------------|-------|
-| 1000 tasks total time | 3.3 ms | 250 ms | 75x faster |
-| Peak memory | ~50 KB | ~1 GB | 20,000x less |
+**vs Intel TBB:** TBB achieves higher throughput due to lock-free Chase-Lev work stealing. The throughput gap is the price of mutex-based correctness in Fat-P's implementation. For most applications, the throughput difference is not the bottleneck, and ThreadPool's zero-dependency, simpler API is the practical advantage.
 
-**vs Intel TBB:**
-
-| Metric | ThreadPool | Intel TBB | Notes |
-|--------|------------|-----------|-------|
-| Throughput | 300K/sec | 400K/sec | TBB 33% faster (lock-free stealing) |
-| Latency p50 | 16 us | 12 us | TBB lower |
-| Binary size | 0 KB | 2+ MB | ThreadPool has zero dependencies |
-| API complexity | Low | High | ThreadPool is simpler |
-
-TBB is faster due to lock-free Chase-Lev work stealing. The 33% throughput gap is the price of mutex-based correctness. For most applications, 300K tasks/sec is not the bottleneck.
+See `components/ThreadPool/results/` and `benchmark_results/` for current platform-specific data.
 
 ---
 

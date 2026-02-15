@@ -160,7 +160,7 @@ std::string result = ss.str();
 
 **Limitations:**
 - ❌ Verbose syntax
-- ❌ 32x slower than std::to_string for integers
+- ❌ Significantly slower than std::to_string for integers (stream construction, virtual dispatch, and buffer management overhead)
 - ❌ Allocates stream objects
 - ❌ No container support by default
 - ✅ Works with any streamable type
@@ -285,9 +285,9 @@ flowchart TB
 
 **Key Features:**
 
-- **Fast Integer Path**: Matches std::to_string (~16 ns)
-- **Fast Boolean Path**: Direct literal return (~10 ns)
-- **Fast Float Path**: Matches std::to_string (~394 ns)
+- **Fast Integer Path**: Delegates directly to std::to_string, matching its performance
+- **Fast Boolean Path**: Direct literal return with no stream construction
+- **Fast Float Path**: Delegates directly to std::to_string, matching its performance
 - **Container Support**: Automatic stringification of STL containers
 - **Custom Types**: Multiple extension points (methods, operators, traits)
 - **Enum Support**: User-specializable EnumStringifier trait
@@ -409,7 +409,7 @@ classDiagram
         const char*
         ---
         Zero-copy passthrough
-        ~8 ns
+        Fastest path
     }
     
     class Priority2_CStrings {
@@ -417,7 +417,7 @@ classDiagram
         char*
         ---
         Null check + std::string
-        ~15 ns
+        Minimal overhead
     }
     
     class Priority2_5_Enums {
@@ -425,14 +425,14 @@ classDiagram
         ---
         EnumStringifier trait
         Falls back to underlying type
-        ~11 ns
+        Fast: no stream construction
     }
     
     class Priority3A_Booleans {
         bool
         ---
         Direct literal return
-        ~10 ns
+        No allocation
     }
     
     class Priority3B_Integers {
@@ -440,7 +440,7 @@ classDiagram
         Requires default options
         ---
         std::to_string fast path
-        ~16 ns
+        Matches std::to_string
     }
     
     class Priority3C_Floats {
@@ -448,7 +448,7 @@ classDiagram
         Requires default options
         ---
         std::to_string fast path
-        ~394 ns
+        Matches std::to_string
     }
     
     class Priority4_Methods {
@@ -456,14 +456,14 @@ classDiagram
         Has to_string member
         ---
         Call member function
-        ~29 ns
+        Low overhead
     }
     
     class Priority5_Streams {
         Has operator<<
         ---
         Use std::ostringstream
-        ~560 ns
+        High overhead: stream construction + virtual dispatch
     }
     
     class Priority6_Containers {
@@ -576,15 +576,12 @@ if (opts.float_precision == -1 && !opts.scientific_notation &&
 }
 ```
 
-**Benchmark:**
-```
-std::to_string():         16 ns
-Stringify fast path:      16 ns  (matches!)
-std::ostringstream:      508 ns  (32x slower)
-```
+**Performance insight:**
+
+The fast path delegates directly to `std::to_string()`, matching its performance exactly. The stream-based slow path (via `std::ostringstream`) carries substantial overhead from stream object construction, virtual dispatch, locale handling, and buffer management.
 
 **Why not always use ostringstream?**
-- 32x performance penalty for common case
+- Significant performance penalty for the common case (stream construction and virtual dispatch overhead)
 - Most integer stringification doesn't need custom formatting
 - Fast path covers 95% of use cases
 
@@ -2307,9 +2304,9 @@ Stringify uses **fast paths** for the most common types: booleans, integers, and
 // Booleans use direct string literal return
 if constexpr (std::is_same_v<PlainT, bool>) {
     if (opts.show_bool_as_text) {
-        return value ? "true" : "false";  // ~10 ns
+        return value ? "true" : "false";  // Direct literal return, no allocation
     } else {
-        return value ? "1" : "0";         // ~10 ns
+        return value ? "1" : "0";         // Direct literal return, no allocation
     }
 }
 ```
@@ -2321,10 +2318,10 @@ if (opts.float_precision == -1 &&        // Default precision
     opts.custom_locale == nullptr &&     // No custom locale
     opts.use_classic_locale)             // Using classic locale (default)
 {
-    return std::to_string(value);  // FAST PATH: ~16 ns
+    return std::to_string(value);  // FAST PATH: delegates directly to std::to_string
 }
 else {
-    return stringify_with_stream(value, opts);  // SLOW PATH: ~560 ns
+    return stringify_with_stream(value, opts);  // SLOW PATH: stream construction + virtual dispatch
 }
 ```
 
@@ -2336,10 +2333,10 @@ if (opts.float_precision == -1 &&        // Default precision (no rounding)
     opts.custom_locale == nullptr &&     // No custom locale
     opts.use_classic_locale)             // Using classic locale (default)
 {
-    return std::to_string(value);  // FAST PATH: ~394 ns
+    return std::to_string(value);  // FAST PATH: delegates directly to std::to_string
 }
 else {
-    return stringify_with_stream(value, opts);  // SLOW PATH: ~795 ns
+    return stringify_with_stream(value, opts);  // SLOW PATH: stream construction + virtual dispatch
 }
 ```
 
@@ -2369,8 +2366,8 @@ flowchart TB
 
     subgraph Performance ["Performance Impact"]
         direction LR
-        FastPerf["~16 ns for integers<br/>~394 ns for floats"]
-        SlowPerf["~560 ns for integers<br/>~795 ns for floats"]
+        FastPerf["Matches std::to_string performance"]
+        SlowPerf["Stream construction + virtual dispatch overhead"]
     end
 
     Fast --> FastPerf
@@ -2383,23 +2380,18 @@ flowchart TB
 ```
 
 **Performance Comparison:**
-```
-Operation                    Time        Speedup
-─────────────────────────────────────────────────
-std::to_string(int)         16 ns       Baseline
-toString(int) [fast path]   16 ns       Matches baseline
-toString(int) [slow path]  560 ns       35x slower
-```
 
-**Why 35x Difference?**
+The fast path delegates directly to `std::to_string()`, matching its performance. The slow path (via `std::ostringstream`) is dramatically slower due to stream object construction, locale handling, virtual dispatch, and buffer management. See `components/Stringify/results/` for current platform-specific benchmark data.
 
-**Fast Path (~16 ns):**
+**Why the Large Difference?**
+
+**Fast Path:**
 1. Template instantiation
 2. if constexpr checks (compile-time)
 3. Direct conversion (optimized)
 4. Return string
 
-**Slow Path (~560 ns):**
+**Slow Path:**
 1. Template instantiation
 2. if constexpr checks
 3. **Create std::ostringstream** (heap allocation)
@@ -2414,7 +2406,7 @@ toString(int) [slow path]  560 ns       35x slower
 StringifyOptions opts;
 
 opts.float_precision = 2;       // Custom precision
-toString(42, opts);              // Slow path (~560ns)
+toString(42, opts);              // Slow path
 
 opts.scientific_notation = true; // Scientific notation
 toString(42, opts);              // Slow path
@@ -2434,101 +2426,24 @@ toString(42, opts);              // Slow path
 
 ### Benchmark Results
 
-**Test Environments:**
+Benchmarks compare toString() against `std::to_string()`, `std::ostringstream`, and custom type conversion across core types (integers, floats, booleans, strings, enums), custom types, containers, and helper functions. Testing was performed on both Windows (MSVC) and Linux (GCC) platforms.
 
-| Environment | CPU | RAM | Compiler | Flags |
-|-------------|-----|-----|----------|-------|
-| Windows Laptop | Intel i7-8850H @ 2.60 GHz | 32 GB | MSVC 2022 (vc143) | `/std:c++20 /O2 /EHsc /DNDEBUG` |
-| Linux Container | x64 (4 cores) | 9 GB | GCC 13.3.0 | `-std=c++20 -O3 -DNDEBUG` |
+**What the benchmarks measure:**
 
-**Methodology:**
-- Iterations: 1,000,000 (except containers: 10,000 or 1,000 for large)
-- Each operation measured in isolation
-- Multiple runs averaged to reduce noise
+- **Core type fast paths:** Integer and float fast paths delegate directly to `std::to_string()` and match its performance. Boolean fast paths return literal strings with no allocation.
+- **Stream-based slow path:** Custom formatting options force the `std::ostringstream` path, which carries significant overhead from stream construction, virtual dispatch, locale handling, and buffer management.
+- **Custom types:** Member function dispatch (`.toString()`, `.to_string()`) adds minimal overhead. `operator<<` dispatch uses the expensive stream path.
+- **Containers:** Cost scales linearly with element count as each element is recursively stringified.
+- **Helper functions:** `toStringConcat` scales linearly with argument count. `toStringPadded` adds minimal overhead.
 
-**Core Type Conversions (Windows i7-8850H):**
-```
-Integer Conversion:
-  std::to_string(int):          16.06 ns   (baseline)
-  toString(int) [fast path]:    15.64 ns   (0.97x)
-  ostringstream << int:        508.43 ns   (32x slower)
-  toString(int, opts) [slow]:  559.48 ns   (35x slower)
+**Key architectural insights:**
 
-Floating-Point Conversion:
-  std::to_string(double):      388.75 ns   (baseline)
-  toString(double) [fast]:     393.77 ns   (1.01x)
-  toString(double, prec=2):    795.03 ns   (2x slower)
+- The fast path / slow path distinction is the dominant performance characteristic. Avoiding `std::ostringstream` construction is the single largest optimization.
+- String passthrough has near-zero overhead due to move semantics and SSO.
+- Container stringification is bounded by per-element conversion cost.
+- `tryToString` success path matches `toString`; failure path carries exception handling overhead.
 
-Boolean Conversion:
-  toString(bool) [text]:        10.48 ns
-  toString(bool) [numeric]:      9.55 ns
-
-String Passthrough:
-  toString(std::string):         8.52 ns   (near zero-copy)
-  toString(const char*):        15.34 ns
-
-Enum Conversion:
-  toString(enum) [specialized]: 10.98 ns
-  toString(enum) [fallback]:    10.88 ns
-```
-
-**Custom Type Conversions:**
-```
-Custom class toString():        28.91 ns
-Custom class to_string():       28.78 ns
-Custom class operator<<:       586.10 ns   (stream overhead)
-```
-
-**Container Conversions:**
-```
-vector<int> (5 elements):      167.82 ns
-vector<int> (20 elements):     449.90 ns
-vector<int> (100 elements):   2045.00 ns
-
-pair<int, string>:              89.72 ns
-tuple<int, double, string>:    528.53 ns
-
-optional<int> (has value):      54.71 ns
-optional<int> (empty):          54.67 ns
-```
-
-**Helper Functions:**
-```
-toStringConcat (2 args):        81.59 ns
-toStringConcat (4 args):       101.45 ns
-toStringConcat (6 args):       124.76 ns
-
-toStringPadded (right):         18.09 ns
-toStringPadded (zero):          18.86 ns
-
-tryToString (success):          14.26 ns
-tryToString (exception):      3485.00 ns   (exception overhead)
-```
-
-**Relative Performance (Baseline = std::to_string(int) @ 16 ns):**
-```
-                        Time (ns)    Relative
-───────────────────────────────────────────────
-std::to_string(int)       16.06       1.0x  ■■■■■■■■■■
-toString(int) [fast]      15.64       1.0x  ■■■■■■■■■■
-toString(bool)            10.48       0.7x  ■■■■■■■
-toString(custom)          28.91       1.8x  ■■■■■■■■■■■■■■■■■■
-toStringConcat(4)        101.45       6.3x  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-pair<int,string>          89.72       5.6x  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-vector(5)                167.82      10.5x  ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■
-ostringstream            508.43      31.7x  ████████████████████████████████████████
-```
-
-**Key Takeaways:**
-- Integer fast path matches std::to_string (~16 ns)
-- Boolean fast path is extremely efficient (~10 ns)
-- Floating-point fast path matches std::to_string (~394 ns)
-- String passthrough has near-zero overhead (~8.5 ns)
-- Custom toString() methods add minimal overhead (~29 ns)
-- Pair/tuple stringification uses direct concatenation (~90-530 ns)
-- toStringConcat scales linearly with argument count
-- Container overhead scales with element count (expected)
-- Stream-based slow path is ~32x slower than fast path
+See `components/Stringify/results/` and `benchmark_results/` for current platform-specific benchmark data with exact timings and relative comparisons.
 
 ### Memory Usage
 
@@ -2591,13 +2506,13 @@ for (int i = 0; i < 1000000; ++i) {
 
 **2. Use Fast Path When Possible:**
 ```cpp
-// ✅ FAST: Default options (~16 ns)
+// ✅ FAST: Default options (delegates to std::to_string)
 fat_p::toString(42);
 
-// ❌ SLOW: Custom options (~560 ns)
+// ❌ SLOW: Custom options (uses ostringstream)
 fat_p::StringifyOptions opts;
 opts.float_precision = 2;
-fat_p::toString(42, opts);  // 35x slower for no benefit (integer!)
+fat_p::toString(42, opts);  // Slow path for no benefit (integer!)
 ```
 
 **3. Consider Caching for Expensive Types:**
@@ -3110,13 +3025,13 @@ for (size_t i = 0; i < data.size(); ++i) {
 
 **3. Use Default Options When Possible:**
 ```cpp
-// ✅ FAST: ~16 ns
+// ✅ FAST: delegates to std::to_string
 fat_p::toString(42);
 
-// ❌ SLOW: ~560 ns
+// ❌ SLOW: uses ostringstream
 fat_p::StringifyOptions opts;
 opts.float_precision = 2;
-fat_p::toString(42, opts);  // 35x slower for integers!
+fat_p::toString(42, opts);  // Slow path: unnecessary for integers!
 ```
 
 **4. Consider String Pooling for Repeated Values:**
@@ -3210,7 +3125,7 @@ public:
 | Aspect | Stringify | std::to_string |
 |--------|-----------|----------------|
 | Type support | Universal (built-ins, containers, custom) | Numeric types only |
-| Performance (int) | ~16 ns | ~16 ns |
+| Performance (int) | Matches std::to_string (fast path delegates directly) | Baseline |
 | Containers | Yes (automatic) | No |
 | Custom types | Yes (multiple extension points) | No |
 | Formatting options | Yes (precision, notation, delimiters) | No |
@@ -3283,21 +3198,16 @@ fat_p::toString(custom_obj);
 
 | Aspect | Stringify | iostream (ostringstream) |
 |--------|-----------|--------------------------|
-| Performance (int) | ~16 ns | ~508 ns (32x slower) |
+| Performance (int) | Matches std::to_string (fast path) | Significantly slower (stream construction + virtual dispatch overhead) |
 | Syntax | Simple function call | Verbose stream operations |
 | Container support | Automatic | None (manual iteration) |
 | State management | Immutable options | Mutable state (locale, precision) |
 | Thread safety | Thread-safe by default | Shared state requires care |
 | Custom types | toString() method | operator<< overload |
 
-**Performance Comparison:**
-```
-Operation                    Time
-──────────────────────────────────
-toString(42)                 16 ns
-std::to_string(42)           16 ns
-ostringstream << 42         508 ns  (32x slower)
-```
+**Performance Insight:**
+
+Stringify's fast path delegates directly to `std::to_string()`, avoiding stream construction entirely. The `std::ostringstream` approach pays for stream object creation, locale initialization, virtual dispatch, and buffer management on every call. See `components/Stringify/results/` for current benchmark data.
 
 **Syntax Comparison:**
 ```cpp
@@ -3457,12 +3367,12 @@ std::string s = toString(value);
 
 **Performance Improvement:**
 ```cpp
-// Before: ~508 ns (32x slower)
+// Before: stream construction + virtual dispatch overhead
 std::ostringstream ss;
 ss << 42;
 std::string s = ss.str();
 
-// After: ~16 ns (matches std::to_string)
+// After: fast path delegates directly to std::to_string
 std::string s = fat_p::toString(42);
 ```
 
@@ -4167,11 +4077,10 @@ namespace fat_p {
 - Enums (with user-specializable stringification)
 
 ✅ **Performance:**
-- Fast path matches std::to_string (~16 ns for integers)
-- Boolean fast path (~10 ns)
-- Floating-point fast path (~394 ns)
-- 32x faster than ostringstream for integers
-- Zero-overhead compile-time dispatch
+- Fast path delegates directly to std::to_string, matching its performance for integers and floats
+- Boolean fast path returns literal strings with no allocation
+- Dramatically faster than ostringstream for common types (avoids stream construction and virtual dispatch)
+- Zero-overhead compile-time dispatch via `if constexpr`
 - Minimal memory footprint
 
 ✅ **Safety:**

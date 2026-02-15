@@ -152,7 +152,7 @@ FastHashMap occupies the intersection: single-header with STL-only dependencies,
 
 FastHashMap is not superior in every scenario.
 
-For miss-heavy workloads where most queries return "not found," `boost::unordered_flat_map` is approximately 2x faster due to different group layout optimizations.
+For miss-heavy workloads where most queries return "not found," `boost::unordered_flat_map` is faster due to its group layout examining fewer candidates per miss.
 
 For maximum possible throughput when dependencies are acceptable, `absl::flat_hash_map` has more aggressive optimizations from years of production tuning at Google scale.
 
@@ -170,13 +170,13 @@ FastHashMap isn't waiting for C++23 or C++26 to deliver Swiss Table performance.
 
 ## Performance Characteristics
 
-On a 2024 Intel Core Ultra 9 with MSVC 2022 and AVX2 enabled, FastHashMap inserts elements at 24 ns/op compared to 85 ns/op for `std::unordered_map`—a 3.5x improvement. Find operations show 1.8x improvement for hits and 2.4x for misses. Erase with tombstone deletion achieves 10 ns/op versus 75 ns/op—a 7.5x improvement. Iteration runs at 2.1 ns/element versus 8.5 ns/element—a 4x improvement from contiguous memory layout.
-
-These improvements stem from three mechanisms. First, flat storage eliminates per-entry allocation, removing `malloc()` overhead and heap lock contention. Second, SIMD probing examines 32 candidates per cache line access instead of one. Third, contiguous iteration benefits from hardware prefetching.
+FastHashMap's performance advantages stem from three architectural mechanisms. First, flat storage eliminates per-entry allocation, removing `malloc()` overhead and heap lock contention. Second, SIMD probing examines multiple candidates per cache line access instead of one. Third, contiguous iteration benefits from hardware prefetching that can stay ahead of sequential access patterns.
 
 FastHashMap wins on insert-heavy workloads (no per-entry allocation), erase-heavy workloads (O(1) tombstone marking versus `free()` plus linked-list surgery), iteration (contiguous memory layout), and any SIMD-capable platform (full hardware utilization).
 
-FastHashMap loses on miss-heavy workloads (`boost::unordered_flat_map` is approximately 2x faster), maximum optimization (`absl::flat_hash_map` has more aggressive tuning), and pointer stability (any insertion or rehash can invalidate pointers to values).
+FastHashMap loses on miss-heavy workloads (`boost::unordered_flat_map`'s group layout examines fewer candidates per miss), maximum optimization (`absl::flat_hash_map` has more aggressive tuning from years of production use), and pointer stability (any insertion or rehash can invalidate pointers to values).
+
+See `components/FatPHashMap/results/` and `benchmark_results/` for current platform-specific benchmark data.
 
 ---
 
@@ -184,7 +184,7 @@ FastHashMap loses on miss-heavy workloads (`boost::unordered_flat_map` is approx
 
 FastHashMap depends on `FatPSimdDetection.h` for compile-time SIMD backend selection.
 
-FastHashMap contrasts with `StableHashMap`, the node-based Fat-P hash table. Where FastHashMap stores values directly in slots for maximum throughput, StableHashMap stores values in separate heap nodes for pointer stability. FastHashMap delivers approximately 20-30% higher throughput; StableHashMap guarantees that pointers to values survive insertions and rehashing.
+FastHashMap contrasts with `StableHashMap`, the node-based Fat-P hash table. Where FastHashMap stores values directly in slots for maximum throughput, StableHashMap stores values in separate heap nodes for pointer stability. FastHashMap delivers higher throughput due to eliminating per-node allocation; StableHashMap guarantees that pointers to values survive insertions and rehashing.
 
 Choose FastHashMap for temporary maps, caches, and per-frame data structures where throughput dominates. Choose StableHashMap for long-lived maps where external code holds pointers to stored values.
 

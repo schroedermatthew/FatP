@@ -23,7 +23,7 @@ status: "reviewed"
 
 ## Executive Summary
 
-SparseSet is an integer set with O(1) insert, erase, contains, and cache-friendly dense iteration. It stores active elements contiguously in a dense array, achieving 28x faster insertion than `std::unordered_set` and 11x faster lookup by avoiding hashing, bucket management, and pointer chasing entirely. The cost is memory: a sparse array sized to the maximum possible value provides the O(1) index mapping. SparseSetWithData extends the pattern to associate arbitrary payload data with each integer key, maintaining the same O(1) guarantees.
+SparseSet is an integer set with O(1) insert, erase, contains, and cache-friendly dense iteration. It stores active elements contiguously in a dense array, achieving dramatically faster operations than `std::unordered_set` by avoiding hashing, bucket management, and pointer chasing entirely. The cost is memory: a sparse array sized to the maximum possible value provides the O(1) index mapping. SparseSetWithData extends the pattern to associate arbitrary payload data with each integer key, maintaining the same O(1) guarantees.
 
 ---
 
@@ -159,18 +159,11 @@ for (uint32_t id : sparse_set) {
 
 ## Performance Characteristics
 
-Benchmarked on Windows-x64, MSVC-1950, 24 threads @ 3686 MHz, N=1000:
+Benchmarks compare `fat_p::SparseSet` against `llvm::SparseSet`, `entt`, `absl::flat_hash_set`, and `std::unordered_set` across insert, find, erase, iterate, and clear operations.
 
-| Operation | fat_p::SparseSet | llvm::SparseSet | entt | absl::flat_hash_set | std::unordered_set |
-|-----------|------------------|-----------------|------|---------------------|-------------------|
-| Insert | **1.00 ns** | 1.30 ns | 2.90 ns | 17.60 ns | 28.40 ns |
-| Find (hit) | **1.00 ns** | 1.30 ns | 1.40 ns | 5.80 ns | 10.80 ns |
-| Find (miss) | **0.80 ns** | 0.60 ns | 0.60 ns | 2.50 ns | 2.50 ns |
-| Erase | **1.30 ns** | 1.40 ns | 5.00 ns | 21.00 ns | 23.80 ns |
-| Iterate | 1.20 ns | 1.20 ns | **0.90 ns** | 1.20 ns | 8.80 ns |
-| Clear | **0.50 ns** | 0.50 ns | 0.70 ns | 3.60 ns | 11.10 ns |
+SparseSet's O(1) direct-index operations (no hashing, no bucket traversal, no node allocation) provide substantial advantages over hash-based containers for all mutation operations. Iteration performance is comparable to other dense-storage containers. The architectural advantage is that every operation resolves to array indexing rather than hash computation + bucket chain traversal + heap allocation.
 
-Insert is **28x faster** than `std::unordered_set`. Find is **11x faster**. Clear is **22x faster**.
+See `components/SparseSet/results/` and `benchmark_results/` for current platform-specific data.
 
 ### Where SparseSet Wins
 

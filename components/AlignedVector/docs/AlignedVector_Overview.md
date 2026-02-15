@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-AlignedVector is a **cache-aware vector container** with configurable memory alignment for SIMD and HPC workloads. Unlike `std::vector` (which aligns to `alignof(T)` only) or naive aligned containers (which require boolean flags for inline storage), AlignedVector provides **compile-time alignment guarantees** through a policy-based allocator. The `assume_aligned()` accessor enables compiler auto-vectorization without runtime checks, transforming memory-bound loops into compute-bound operations with 2-10x speedup for vectorizable code.
+AlignedVector is a **cache-aware vector container** with configurable memory alignment for SIMD and HPC workloads. Unlike `std::vector` (which aligns to `alignof(T)` only) or naive aligned containers (which require boolean flags for inline storage), AlignedVector provides **compile-time alignment guarantees** through a policy-based allocator. The `assume_aligned()` accessor enables compiler auto-vectorization without runtime checks, transforming memory-bound loops into compute-bound operations by enabling aligned SIMD loads and stores.
 
 ---
 

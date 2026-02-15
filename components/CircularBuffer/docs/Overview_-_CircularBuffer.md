@@ -79,11 +79,7 @@ public:
 
 The C++ standard provides no lock-free SPSC queue. `std::queue` requires external synchronization. `std::atomic` provides primitives but not containers.
 
-**Benchmark comparison (single-threaded push+pop):**
-```
-std::queue + mutex:     25-40 ns/op
-CircularBuffer:         0.9-1.0 ns/op
-```
+**Benchmark comparison:** CircularBuffer's lock-free, cache-line-separated design dramatically outperforms `std::queue + mutex` because it eliminates mutex acquisition, cache line ping-pong, and unbounded wait times. See `components/CircularBuffer/results/` for current data.
 
 ---
 
@@ -184,18 +180,16 @@ if (auto* ptr = buffer.front()) {
 | emplace() | No | No | Yes |
 | front() peek | No | No | Yes |
 | Dependencies | Boost | Header-only | None |
-| Single-threaded | 1.25 ns | 20.65 ns | **0.98 ns** |
-| SPSC throughput | 82.5 ns | 125.9 ns | **62.5 ns** |
+| Single-threaded | Fastest (sub-ns) | Slower (mutex overhead) | **Fastest (sub-ns)** |
+| SPSC throughput | Good | Slower (cache invalidation) | **Best (cached indices)** |
 
 ---
 
 ## Performance Characteristics
 
-| Operation | fat_p::CircularBuffer | mutex+deque |
-|-----------|----------------------|-------------|
-| Single-threaded | **0.98 ns** | 25.22 ns |
-| SPSC throughput | **62.5 ns** | 335.9 ns |
-| Burst (fill+drain) | **0.88 ns** | 3.67 ns |
+CircularBuffer's wait-free design with cache-line-separated indices and cached counters provides sub-nanosecond single-threaded operations and significantly higher SPSC throughput than mutex-based alternatives. The three optimizations (power-of-2 masking, cache-line alignment, index caching) combine to minimize both instruction count and coherency traffic.
+
+See `components/CircularBuffer/results/` and `benchmark_results/` for current platform-specific data.
 
 ### Where Fat-P Wins
 
