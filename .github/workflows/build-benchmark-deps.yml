@@ -232,7 +232,7 @@ jobs:
               -DCMAKE_INSTALL_PREFIX=/usr/local \
               -DFASTFLOAT_TEST=OFF
             sudo cmake --install /tmp/fast_float/build
-            rm -rf /tmp/fast_float
+            sudo rm -rf /tmp/fast_float
           fi
 
           echo "::group::Folly build"
@@ -412,7 +412,7 @@ jobs:
               -DCMAKE_INSTALL_PREFIX=/usr/local \
               -DFASTFLOAT_TEST=OFF
             sudo cmake --install /tmp/fast_float/build
-            rm -rf /tmp/fast_float
+            sudo rm -rf /tmp/fast_float
           fi
 
           echo "::group::Folly build"
