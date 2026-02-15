@@ -9,6 +9,7 @@ FATP_META:
   file_role: test
   path: components/FeatureManager/tests/test_FeatureManager.cpp
   namespace: [fat_p::testing::logic, fat_p::testing::factory]
+  layer: Testing
   summary: "Unit tests for FeatureManager."
   api_stability: in_work
   related:

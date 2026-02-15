@@ -10,8 +10,8 @@ applies_to:
   - CMakeLists.txt
   - tools/**/*.{py,sh,ps1}
   - tooling/**/*.{py,sh,ps1}
-version: 1
-last_updated: 2026-02-08
+version: 2
+last_updated: 2026-02-14
 ---
 
 # FAT-P Meta Header Guidelines
@@ -141,11 +141,11 @@ If you need a “hint” that would normally be written as a recursive glob, use
 | `path` | string | Repo-relative path using forward slashes. |
 | `summary` | string | One sentence describing the file’s purpose. Avoid marketing. |
 
-### Required keys (headers only)
+### Required keys (all files, continued)
 
 | Key | Type | Meaning |
 |---|---|---|
-| `layer` | string | Logical layer label (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`, `Testing`). Required for `public_header` and `internal_header` roles. Omit for `test`, `benchmark`, `tooling`, and `doc_support` files—layer enforcement does not apply to non-header translation units. |
+| `layer` | string | Logical layer label. For `public_header` and `internal_header` roles, use the component's architectural layer (`Foundation`, `Containers`, `Concurrency`, `Domain`, `Integration`). For `test`, `benchmark`, `tooling`, and `doc_support` roles, use `Testing`. Required for all file roles. |
 
 ### Strongly recommended keys
 
@@ -184,7 +184,7 @@ Use this order inside `FATP_META`:
 3. `file_role`
 4. `path`
 5. `namespace`
-6. `layer` *(headers only; omit for test/benchmark/tooling)*
+6. `layer` *(architectural layer for headers; `Testing` for test/benchmark/tooling)*
 7. `summary`
 8. `api_stability`
 9. `related`
@@ -396,7 +396,7 @@ FATP_META:
 
 ### Test file example
 
-Test and benchmark files omit `layer` but must still use `FATP_` prefixed macros (or `#undef` unprefixed ones):
+Test and benchmark files use `layer: Testing` and must still use `FATP_` prefixed macros (or `#undef` unprefixed ones):
 
 ```cpp
 /**
@@ -410,7 +410,9 @@ FATP_META:
   file_role: test
   path: components/AlignedVector/tests/test_AlignedVector.cpp
   namespace: fat_p::testing::alignedvector
+  layer: Testing
   summary: Unit tests for AlignedVector.
+  api_stability: in_work
   related:
     headers:
       - include/fat_p/AlignedVector.h
@@ -429,7 +431,7 @@ FATP_META:
 ```
 
 
-Note: `layer` is omitted (not applicable to test files). Macros should use `FATP_` prefix (`defines_unprefixed: 0`) to prevent collisions in unity builds.
+Note: All test and benchmark files use `layer: Testing` regardless of the component's own architectural layer. Macros should use `FATP_` prefix (`defines_unprefixed: 0`) to prevent collisions in unity builds.
 
 ## Tooling
 
@@ -480,3 +482,14 @@ Reports any header that `#include`s a file from a layer above its own declared `
   - updated guidelines
   - updated CI linter expectations
   - a repo-wide metadata regeneration pass
+
+## Changelog
+
+### v2 (February 2026)
+- **Breaking:** `layer` is now required for all file roles, not just headers. Test, benchmark, tooling, and doc_support files must use `layer: Testing`. This aligns the guidelines with the `fatp_meta_inventory.py` enforcement script, which has always required `layer` in `K_REQUIRED_KEYS_COMMON`.
+- Updated Section "Required keys (headers only)" → "Required keys (all files, continued)" with revised `layer` description.
+- Updated canonical key order note from "headers only; omit" to "architectural layer for headers; Testing for test/benchmark/tooling".
+- Updated test file example to include `layer: Testing` and `api_stability: in_work`.
+
+### v1 (February 2026)
+- Initial release.

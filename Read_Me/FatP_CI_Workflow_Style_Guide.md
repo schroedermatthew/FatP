@@ -44,40 +44,62 @@ scripts/                                    # Verification scripts
 
 ## 3. Workflow Trigger Policy
 
-**Fat-P component CI workflows MUST trigger on push, pull_request, and support manual dispatch.**  
-Each component workflow triggers on pushes and PRs that modify its own files, plus manual dispatch for on-demand runs.
+### 3.1 Component CI Workflows
 
-**Required trigger block (component workflows):**
+**Component CI workflows trigger on push, pull_request, and support manual dispatch.**
+Each component workflow triggers on pushes and PRs that modify its own files, plus manual dispatch for on-demand runs. Component CI workflows do **not** contain benchmark jobs.
+
+**Required trigger block (component CI workflows):**
 ```yaml
 on:
   workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
   push:
     paths:
       - 'include/fat_p/<Header>.h'
       - 'components/<Component>/tests/<test_file>.cpp'
       - 'components/<Component>/benchmarks/<bench_file>.cpp'
-      - '.github/workflows/<workflow>.yml'
+      - '.github/workflows/<component-name>.yml'
   pull_request:
     paths:
       - 'include/fat_p/<Header>.h'
       - 'components/<Component>/tests/<test_file>.cpp'
       - 'components/<Component>/benchmarks/<bench_file>.cpp'
-      - '.github/workflows/<workflow>.yml'
+      - '.github/workflows/<component-name>.yml'
 ```
 
-Replace `<Header>`, `<Component>`, `<test_file>`, `<bench_file>`, and `<workflow>` with the actual component names. The `push` and `pull_request` paths must be identical.
+Replace `<Header>`, `<Component>`, `<test_file>`, `<bench_file>`, and `<component-name>` with the actual component names. The `push` and `pull_request` paths must be identical.
+
+Benchmark source paths are included so that CI validates benchmark code compiles (via the strict-warnings and header-check jobs that exercise the include graph), even though benchmarks run in the separate benchmark workflow.
 
 Rationale:
 - Push triggers with path filtering ensure changes are validated immediately without running unrelated workflows.
 - Pull request triggers provide pre-merge validation.
-- `workflow_dispatch` remains available for manual reruns and benchmark runs.
+- `workflow_dispatch` remains available for manual reruns.
 - The workflow file itself is included in paths so CI changes are self-testing.
+
+### 3.2 Benchmark Workflows
+
+**Benchmark workflows are separate YAML files triggered only by manual dispatch (`workflow_dispatch`).**
+They are never embedded in or called by the component CI workflow. This separation exists because benchmarks require third-party competitor libraries (Abseil, Folly, LLVM, tsl, ankerl, Boost) that are expensive to install and irrelevant to correctness testing.
+
+**Required trigger block (benchmark workflows):**
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+```
+
+**Naming convention:** `<component-name>-benchmarks.yml` (e.g., `fatp-hash-map-benchmarks.yml`).
 
 ---
 
@@ -87,7 +109,7 @@ Rationale:
 
 | Standard | Status | Compiler Matrix |
 |----------|--------|-----------------|
-| C++20 | Primary | GCC-13, Clang-16, MSVC |
+| C++20 | Primary | GCC-12, GCC-13, Clang-16, MSVC |
 | C++23 | Forward compat | GCC-14, Clang-17, MSVC (`/std:c++latest`) |
 
 ### Rationale
@@ -98,11 +120,13 @@ Fat-P requires C++20 features throughout (concepts, ranges, `std::span`, `conste
 
 ## 5. Required Jobs
 
-Every component workflow MUST include these jobs:
+### 5.1 Component CI Workflow Jobs
+
+Every component CI workflow MUST include these jobs:
 
 | Job | Purpose | Required |
 |-----|---------|----------|
-| `linux-gcc` | GCC 13/14 (C++20/C++23) build + tests | Yes |
+| `linux-gcc` | GCC 12/13/14 (C++20/C++23) build + tests | Yes |
 | `linux-clang` | Clang 16/17 (C++20/C++23) build + tests | Yes |
 | `windows-msvc` | MSVC (C++20/C++23) build + tests | Yes |
 | `sanitizer-asan` | AddressSanitizer | Yes |
@@ -112,14 +136,18 @@ Every component workflow MUST include these jobs:
 | `strict-warnings` | Extended warning flags | Yes |
 | `ci-success` | Gate job aggregating all results | Yes |
 
-### Optional Jobs (Manual Trigger)
+Benchmark jobs do **not** belong in the component CI workflow. See Section 13 for the separate benchmark workflow structure.
 
-| Job | Purpose | Trigger |
-|-----|---------|---------|
-| `benchmarks-gcc` | GCC benchmark runs | `inputs.run_benchmarks` |
-| `benchmarks-clang` | Clang benchmark runs | `inputs.run_benchmarks` |
-| `benchmarks-msvc` | MSVC benchmark runs | `inputs.run_benchmarks` |
-| `benchmark-summary` | Aggregate benchmark results | `inputs.run_benchmarks` |
+### 5.2 Benchmark Workflow Jobs
+
+Every benchmark workflow MUST include these jobs:
+
+| Job | Purpose | Required |
+|-----|---------|----------|
+| `benchmarks-gcc` | GCC benchmark runs with all competitors | Yes |
+| `benchmarks-clang` | Clang benchmark runs with all competitors | Yes |
+| `benchmarks-msvc` | MSVC benchmark runs with all competitors | Yes |
+| `benchmark-summary` | Aggregate results and write to `$GITHUB_STEP_SUMMARY` | Yes |
 
 ---
 
@@ -129,6 +157,7 @@ Every component workflow MUST include these jobs:
 
 | Version | C++ Standard | Runner | Role |
 |---------|--------------|--------|------|
+| GCC 12 | C++20 | ubuntu-24.04 | Oldest supported |
 | GCC 13 | C++20 | ubuntu-24.04 | Primary |
 | GCC 14 | C++23 | ubuntu-24.04 | Forward compat |
 
@@ -403,11 +432,119 @@ ci-success:
 
 ---
 
-## 13. Benchmark Jobs
+## 13. Benchmark Workflows
 
-Benchmarks are triggered manually via `inputs.run_benchmarks`.
+Benchmarks live in a **separate YAML file** from the component CI workflow. They are triggered only by manual dispatch (`workflow_dispatch`), never by push or pull_request, and are never embedded in or called by the component CI workflow.
 
-### 13.1 Benchmark Environment Variables
+**Rationale:** Benchmarks require third-party competitor libraries (Abseil, Folly, LLVM DenseMap, tsl::robin_map, ankerl::unordered_dense, Boost) that are expensive to build and install. Keeping them separate avoids slowing CI runs and cluttering CI workflow files with competitor dependency management.
+
+### 13.1 Benchmark Workflow Naming
+
+| Workflow Type | File Name |
+|---------------|-----------|
+| Component CI | `<component-name>.yml` |
+| Benchmarks | `<component-name>-benchmarks.yml` |
+
+Example: `fatp-hash-map.yml` (CI) + `fatp-hash-map-benchmarks.yml` (benchmarks).
+
+### 13.2 Competitor Libraries
+
+Benchmark workflows should include all relevant competitors for the component being benchmarked. For hash map components, the standard competitor set is:
+
+| Competitor | Type | Linux Install | Windows Install |
+|------------|------|---------------|-----------------|
+| `std::unordered_map` | Baseline | Always available | Always available |
+| `tsl::robin_map` | Header-only | `git clone` | `git clone` |
+| `ankerl::unordered_dense` | Header-only | `git clone` | `git clone` |
+| `boost::unordered_flat_map` | Header-only | `libboost-dev` | vcpkg |
+| `boost::unordered_node_map` | Header-only | `libboost-dev` | vcpkg |
+| `absl::flat_hash_map` | Static library | Build from source | vcpkg |
+| `absl::node_hash_map` | Static library | Build from source | vcpkg |
+| `folly::F14FastMap` | Static library | Build from source | vcpkg |
+| `folly::F14NodeMap` | Static library | Build from source | vcpkg |
+| `llvm::DenseMap` | Static library | Distro package | vcpkg |
+
+Other components should define their own competitor sets appropriate to the domain.
+
+### 13.3 Third-Party Caching
+
+Third-party competitor libraries MUST be cached using `actions/cache@v4`. Building Abseil, Folly, and LLVM from source takes significant time; caching avoids repeating this on every run.
+
+**Caching rules:**
+
+| Rule | Detail |
+|------|--------|
+| Cache path | `~/thirdparty` (Linux), `thirdparty` (Windows for header-only), vcpkg binary cache (Windows for compiled) |
+| Cache key | Must include compiler version to avoid ABI mismatches (e.g., `hashmap-bench-all-gcc14-v2`) |
+| Conditional install | Use `if: steps.cache-deps.outputs.cache-hit != 'true'` on all install/build steps |
+| Bump key version | Increment version suffix (`-v2`, `-v3`) when changing dependencies or build flags |
+| Runtime dependencies | System shared libraries needed at link time (e.g., `-lfmt`, `-lglog`) must be installed unconditionally, not gated on the cache. The cache stores compiled artifacts; the system packages provide the shared libraries for linking. |
+
+**Linux caching pattern (GCC example):**
+
+```yaml
+- name: Cache third-party libraries
+  id: cache-deps
+  uses: actions/cache@v4
+  with:
+    path: ~/thirdparty
+    key: hashmap-bench-all-gcc${{ matrix.version }}-v2
+
+- name: Install header-only competitors
+  if: steps.cache-deps.outputs.cache-hit != 'true'
+  run: |
+    mkdir -p $HOME/thirdparty
+    git clone --depth 1 https://github.com/Tessil/robin-map.git \
+      $HOME/thirdparty/robin-map
+    git clone --depth 1 https://github.com/martinus/unordered_dense.git \
+      $HOME/thirdparty/unordered_dense
+
+- name: Build Abseil from source
+  if: steps.cache-deps.outputs.cache-hit != 'true'
+  run: |
+    git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
+      $HOME/thirdparty/abseil-src
+    cmake -S $HOME/thirdparty/abseil-src \
+          -B $HOME/thirdparty/abseil-build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_CXX_STANDARD=20 \
+          -DCMAKE_CXX_COMPILER=g++-${{ matrix.version }} \
+          -DABSL_BUILD_TESTING=OFF \
+          -DABSL_USE_GOOGLETEST_HEAD=OFF \
+          -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty/abseil
+    cmake --build $HOME/thirdparty/abseil-build --parallel $(nproc)
+    cmake --install $HOME/thirdparty/abseil-build
+```
+
+**Windows caching pattern (vcpkg):**
+
+```yaml
+- name: Cache header-only libraries
+  id: cache-headeronly
+  uses: actions/cache@v4
+  with:
+    path: thirdparty
+    key: hashmap-bench-headeronly-${{ runner.os }}-v2
+
+- name: Cache vcpkg packages
+  uses: actions/cache@v4
+  with:
+    path: ${{ github.workspace }}/vcpkg_cache
+    key: vcpkg-${{ runner.os }}-hashmap-bench-all-v2
+    restore-keys: |
+      vcpkg-${{ runner.os }}-hashmap-bench-all-
+
+- name: Install competitors via vcpkg
+  shell: cmd
+  env:
+    VCPKG_DEFAULT_TRIPLET: x64-windows
+    VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg_cache
+  run: |
+    if not exist "${{ github.workspace }}\vcpkg_cache" mkdir "${{ github.workspace }}\vcpkg_cache"
+    vcpkg install abseil:x64-windows boost-unordered:x64-windows folly:x64-windows llvm:x64-windows fmt:x64-windows
+```
+
+### 13.4 Benchmark Environment Variables
 
 All benchmarks must support these canonical environment variables:
 
@@ -415,23 +552,41 @@ All benchmarks must support these canonical environment variables:
 |----------|---------|-------------|
 | `FATP_BENCH_WARMUP_RUNS` | 3 | Warmup batches (not reported) |
 | `FATP_BENCH_BATCHES` | 20 | Measured batches |
+| `FATP_BENCH_TARGET_WORK` | 100000 | Target ops per batch |
 | `FATP_BENCH_NO_STABILIZE` | 1 | Disable CPU stabilization (CI) |
 | `FATP_BENCH_OUTPUT_CSV` | (set) | CSV output path |
 
-### 13.2 Benchmark Build Flags
+All environment variable values MUST be quoted strings in YAML to avoid type coercion issues across platforms.
+
+### 13.5 Benchmark Build Flags
+
+Benchmarks build with C++20 and full optimization:
 
 ```yaml
 # Linux
-g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
-  -O3 -DNDEBUG -mavx2 -mfma \
+g++-${{ matrix.version }} -std=c++20 \
+  -O3 -DNDEBUG -march=native \
   -I./include/fat_p \
   ${{ env.BENCH_SRC }} -o bench_bin -pthread
 
 # Windows
-cl /nologo $stdFlag /W4 /wd4324 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- \
+cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- \
+  /Zc:preprocessor /wd4324 \
   /I.\include\fat_p components\<Component>\benchmarks\benchmark_<Component>.cpp \
   /Fe:bench_bin.exe /link advapi32.lib
 ```
+
+### 13.6 Benchmark Summary Job
+
+Every benchmark workflow MUST include a `benchmark-summary` job that:
+
+1. Depends on all benchmark jobs (`needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]`)
+2. Uses `if: always()` so it runs even if some benchmarks fail
+3. Downloads all benchmark artifacts using a pattern match
+4. Writes a summary table to `$GITHUB_STEP_SUMMARY`
+5. Uploads the combined results as a single artifact
+
+**Artifact naming convention:** `bench-<ComponentName>-<compiler>` for individual results, `bench-<ComponentName>-summary` for the combined artifact.
 
 ---
 
@@ -460,6 +615,8 @@ echo "âœ“ Header is self-contained"  # Bad (Unicode)
 
 ## 15. Complete Workflow Template
 
+### 15.1 Component CI Workflow Template
+
 ```yaml
 # =============================================================================
 # .github/workflows/<component-name>.yml
@@ -470,18 +627,27 @@ echo "âœ“ Header is self-contained"  # Bad (Unicode)
 #   Headers:    include/fat_p/<Component>.h
 #   Tests:      components/<Component>/tests/test_<Component>.cpp
 #   Benchmarks: components/<Component>/benchmarks/benchmark_<Component>.cpp
+#
+# Benchmarks are run separately via <component-name>-benchmarks.yml
+# (manual dispatch only).
 # =============================================================================
 
 name: <ComponentName> CI
 
 on:
   workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
+  push:
+    paths:
+      - 'include/fat_p/<Component>.h'
+      - 'components/<Component>/tests/test_<Component>.cpp'
+      - 'components/<Component>/benchmarks/benchmark_<Component>.cpp'
+      - '.github/workflows/<component-name>.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/<Component>.h'
+      - 'components/<Component>/tests/test_<Component>.cpp'
+      - 'components/<Component>/benchmarks/benchmark_<Component>.cpp'
+      - '.github/workflows/<component-name>.yml'
 
 env:
   HEADER: <Component>.h
@@ -499,6 +665,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - version: 12
+            std: 20
           - version: 13
             std: 20
           - version: 14
@@ -705,13 +873,16 @@ jobs:
 
 ## 16. Checklist for New Workflows
 
-Before committing a new workflow:
+### Component CI Workflow Checklist
+
+Before committing a new component CI workflow:
 
 - [ ] File named `.github/workflows/<component-name>.yml`
 - [ ] Header block with directory structure documented
+- [ ] Header comment notes benchmarks are in separate workflow
 - [ ] All paths use `include/fat_p/` and `components/<Component>/...`
 - [ ] `env:` block defines HEADER, TEST_SRC, BENCH_SRC
-- [ ] `linux-gcc` job with GCC 13 (C++20) and GCC 14 (C++23)
+- [ ] `linux-gcc` job with GCC 12 (C++20), GCC 13 (C++20), and GCC 14 (C++23)
 - [ ] `linux-clang` job with Clang 16 (C++20) and Clang 17 (C++23)
 - [ ] `windows-msvc` job with C++20 and C++23
 - [ ] MSVC uses `/wd4324` to suppress alignment warnings
@@ -723,9 +894,31 @@ Before committing a new workflow:
 - [ ] `header-check` job with standalone and include-order tests
 - [ ] `strict-warnings` job
 - [ ] `ci-success` gate job with all required jobs in `needs`
-- [ ] Benchmark jobs use `inputs.run_benchmarks` condition
+- [ ] No benchmark jobs in the CI workflow
+- [ ] No `run_benchmarks` input in the CI workflow
 - [ ] ASCII-only output (no Unicode symbols)
 - [ ] Tested locally or validated manually
+
+### Benchmark Workflow Checklist
+
+Before committing a new benchmark workflow:
+
+- [ ] File named `.github/workflows/<component-name>-benchmarks.yml`
+- [ ] Trigger is `workflow_dispatch` only (no push, no pull_request, no workflow_call)
+- [ ] `inputs.batches` and `inputs.target_work` parameters defined
+- [ ] `benchmarks-gcc` job with GCC 12/13/14
+- [ ] `benchmarks-clang` job with Clang 16/17
+- [ ] `benchmarks-msvc` job
+- [ ] All competitors cached with `actions/cache@v4`
+- [ ] Cache keys include compiler version (e.g., `gcc14`, `clang17`)
+- [ ] Install/build steps gated on `cache-hit != 'true'`
+- [ ] Runtime link dependencies installed unconditionally
+- [ ] Benchmark env vars quoted (`"3"`, `"1"`, not bare `3`, `1`)
+- [ ] `FATP_BENCH_TARGET_WORK` passed from `inputs.target_work`
+- [ ] `benchmark-summary` job with `if: always()`
+- [ ] Summary written to `$GITHUB_STEP_SUMMARY`
+- [ ] Artifact names follow `bench-<ComponentName>-<compiler>` convention
+- [ ] ASCII-only output
 
 ---
 
@@ -741,10 +934,25 @@ Before committing a new workflow:
 | Missing TSan in ci-success | Gate passes despite TSan failure | Add `sanitizer-tsan` to `needs` |
 | Old `FAT_P/FAT_P/` paths | `file not found` | Update to new structure |
 | Adding C++17 jobs | C++17 is not supported | Test C++20 and C++23 only |
+| Benchmark jobs in CI workflow | CI takes too long, competitor deps clutter CI | Move to separate `<component>-benchmarks.yml` |
+| Unquoted benchmark env vars | Type coercion differs across platforms | Quote all values: `"3"` not `3` |
+| Cache key missing compiler version | ABI mismatch in cached libraries | Include compiler version in key: `gcc14`, `clang17` |
 
 ---
 
 ## 18. Changelog
+
+### v3.1 (February 2026)
+- Added GCC 12 (C++20) to compiler matrix as "Oldest supported"
+- **Breaking:** Benchmark jobs are now separate YAML files, not embedded in component CI workflows
+- Rewrote Section 3: Split into 3.1 (component CI triggers) and 3.2 (benchmark triggers); removed `run_benchmarks` input from CI workflows
+- Rewrote Section 5: Split into 5.1 (CI jobs) and 5.2 (benchmark jobs); removed Optional Jobs subsection
+- Rewrote Section 13: Comprehensive benchmark workflow documentation including competitor libraries (Section 13.2), third-party caching rules with patterns (Section 13.3), environment variables with quoting requirement (Section 13.4), build flags at C++20 (Section 13.5), and summary job requirements (Section 13.6)
+- Updated Section 15: Template removes `run_benchmarks` input, header comment references separate benchmark workflow
+- Updated Section 16: Split into Component CI Checklist and Benchmark Workflow Checklist
+- Updated Section 17: Added common mistakes for benchmarks-in-CI, unquoted env vars, and cache key versioning
+- Updated Sections 4, 5, 6.1, 15, and 16 to include GCC 12
+- GCC matrix is now: GCC 12 (C++20), GCC 13 (C++20), GCC 14 (C++23)
 
 ### v3.0 (February 2026)
 - **Breaking:** Updated directory structure from `FAT_P/FAT_P/...` to `include/fat_p/` and `components/.../`
@@ -752,7 +960,7 @@ Before committing a new workflow:
 - Added Section 7: MSVC-specific requirements (`/wd4324`, `advapi32.lib`, backslash paths)
 - Added Section 14: ASCII-only output requirements
 - Added Section 17: Common mistakes reference
-- Updated compiler matrix: GCC 13/14, Clang 16/17, MSVC C++20/C++23
+- Updated compiler matrix: GCC 13/14, Clang 16/17, MSVC C++20/C++23 (GCC 12 added in v3.1)
 - Removed all references to `ci_core17.yml` and C++17 gates
 
 ### v2.1 (January 2026)
@@ -767,4 +975,4 @@ Before committing a new workflow:
 
 ---
 
-*Fat-P CI Workflow Style Guide v3.0 -- February 2026*
+*Fat-P CI Workflow Style Guide v3.1 -- February 2026*

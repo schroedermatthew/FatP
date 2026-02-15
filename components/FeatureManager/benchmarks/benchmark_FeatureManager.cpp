@@ -28,6 +28,7 @@ FATP_META:
   file_role: benchmark
   path: components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp
   namespace: fat_p
+  layer: Testing
   summary: "Benchmarks for FeatureManager."
   api_stability: in_work
   related:
