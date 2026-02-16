@@ -272,7 +272,7 @@ jobs:
             /I"$vcpkgInc" `
             ${{ env.BENCH_SRC }} `
             /Fe:bench_smallvector.exe `
-            /link advapi32.lib ws2_32.lib /LIBPATH:"$vcpkgLib" `
+            /link advapi32.lib ws2_32.lib EASTL.lib /LIBPATH:"$vcpkgLib" `
             abseil_dll.lib folly.lib fmt.lib glog.lib
 
       - name: Run benchmark

@@ -223,7 +223,7 @@ jobs:
             /I"$vcpkgInc" `
             ${{ env.BENCH_SRC }} `
             /Fe:bench_objectpool.exe `
-            /link advapi32.lib /LIBPATH:"$vcpkgLib"
+            /link advapi32.lib EASTL.lib /LIBPATH:"$vcpkgLib"
 
       - name: Run benchmark
         shell: pwsh
