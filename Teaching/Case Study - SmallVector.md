@@ -5,7 +5,7 @@ title: "Multi-Index Design, Stack/Heap/Cache, and Why SmallVector Wins"
 fatp_components: ["SmallVector"]
 topics: ["tensor indexing", "allocator overhead", "small buffer optimization", "cache locality", "performance"]
 constraints: ["heap allocation in hot loops", "memory hierarchy", "temporary containers"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-27"
 audience: ["C++ developers", "AI assistants"]
@@ -23,7 +23,7 @@ This case study focuses on why using `std::vector` for small multi-index argumen
 - Cross-platform allocator internals beyond the general "malloc/free in a hot loop is expensive" principle.
 
 ## Prerequisites
-- C++17 proficiency (RAII, temporaries, move semantics).
+- C++20 proficiency (RAII, temporaries, move semantics).
 - Familiarity with `std::vector`, initializer-lists, and tight loop performance basics.
 - Basic awareness of stack vs heap and CPU cache behavior.
 
@@ -182,7 +182,7 @@ You're not. You're in excellent company. This mistake is so common that **every 
 | **Qt** | `QVarLengthArray` | Same idea, different name. |
 | **EA (Games)** | `eastl::fixed_vector` | Game developers discovered this problem decades ago when frames started dropping. |
 
-The LLVM project — which compiles *your* code — says this in their official Programmer's Manual:
+The LLVM project — which compiles *your* code — says this in their official [Programmer's Manual](https://llvm.org/docs/ProgrammersManual.html#llvm-adt-smallvector-h):
 
 > "This can be a big win in cases where the malloc/free call is **far more expensive** than the code that fiddles around with the elements. This is good for vectors that are 'usually small' (e.g., the number of predecessors/successors of a block is usually less than 8)."
 
@@ -194,7 +194,7 @@ Sound like tensor indices to you? Three to six elements, created and destroyed m
 
 If you work with matrices, you might know the Eigen library. They learned this lesson the hard way too.
 
-A user reported a **130× performance difference** between fixed-size and dynamic-size small matrices:
+A user [reported a **130× performance difference**](https://gitlab.com/libeigen/eigen/-/issues/469) between fixed-size and dynamic-size small matrices:
 
 | Implementation | Time |
 |----------------|------|
@@ -225,7 +225,7 @@ The C++ committee has been discussing adding a `small_vector` to the standard li
 2. Writes their own, or  
 3. **Suffers in silence**, wondering why their "optimized" tensor code is slower than Python/NumPy.
 
-(NumPy, by the way, doesn't make this mistake. Its indexing uses stack-allocated tuples internally.)
+(NumPy, by the way, avoids this mistake differently. Its C core decomposes index tuples into fixed-size C integer arrays during dispatch, so the per-element indexing cost doesn't go through Python's heap-allocated tuple objects.)
 
 ---
 
@@ -1287,7 +1287,7 @@ The theory predicts `SmallVector` should dramatically outperform `std::vector` f
 | Parameter | Value |
 |-----------|-------|
 | Compiler | GCC with `-O3 -march=native -DNDEBUG` |
-| Standard | C++17 |
+| Standard | C++20 |
 | Iterations | 2,000,000 per benchmark |
 | Statistical Runs | 10 (mean ± stddev reported) |
 | SmallVector Capacity | 6 elements inline |
@@ -1387,7 +1387,7 @@ The benchmark harness is available as `benchmark_MultiIndex.cpp`. To run:
 
 ```bash
 # Compile with release flags (critical!)
-g++ -O3 -march=native -std=c++17 -DNDEBUG \
+g++ -O3 -march=native -std=c++20 -DNDEBUG \
     -I/path/to/fat_p \
     benchmark_MultiIndex.cpp -o bench_multiindex
 

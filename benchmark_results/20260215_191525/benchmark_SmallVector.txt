@@ -1,0 +1,375 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::SmallVector Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::SmallVector (primary)
+  [x] std::vector (baseline)
+  [x] boost::container::small_vector
+  [x] llvm::SmallVector
+  [x] absl::InlinedVector
+  [ ] folly::small_vector (not detected)
+  [x] ankerl::svector
+  [x] eastl::fixed_vector
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+
+================================================================================
+  CORE OPERATIONS
+================================================================================
+
+Comparing fundamental vector operations.
+All containers pre-reserved to target size.
+
+
+--- N = 100 ---
+
+[2026-02-15 19:59:12] Starting CPU: 2653 MHz (base: 3686)
+push_back:
+       SmallVector<16>: median=    1.00 mean=    0.93 +/-  0.26 min=0.00 max=1.00
+           std::vector: median=    1.00 mean=    1.07 +/-  0.26 min=1.00 max=2.00
+  boost::small_vector<16>: median=    1.00 mean=    0.73 +/-  0.59 min=0.00 max=2.00
+  llvm::SmallVector<16>: median=    1.00 mean=    0.93 +/-  0.46 min=0.00 max=2.00
+  absl::InlinedVector<16>: median=    1.00 mean=    1.00 +/-  0.38 min=0.00 max=2.00
+   ankerl::svector<16>: median=    1.00 mean=    1.00 +/-  0.53 min=0.00 max=2.00
+  eastl::fixed_vector<16>: median=    1.00 mean=    1.00 +/-  0.00 min=1.00 max=1.00
+
+emplace_back:
+       SmallVector<16>: median=    1.00 mean=    1.00 +/-  0.38 min=0.00 max=2.00
+           std::vector: median=    1.00 mean=    0.87 +/-  0.52 min=0.00 max=2.00
+  boost::small_vector<16>: median=    1.00 mean=    0.93 +/-  0.70 min=0.00 max=2.00
+  llvm::SmallVector<16>: median=    1.00 mean=    0.93 +/-  0.59 min=0.00 max=2.00
+  absl::InlinedVector<16>: median=    1.00 mean=    1.20 +/-  0.41 min=1.00 max=2.00
+   ankerl::svector<16>: median=    1.00 mean=    0.93 +/-  0.26 min=0.00 max=1.00
+  eastl::fixed_vector<16>: median=    1.00 mean=    0.80 +/-  0.41 min=0.00 max=1.00
+
+operator[]:
+       SmallVector<16>: median=    1.00 mean=    1.40 +/-  0.51 min=1.00 max=2.00
+           std::vector: median=    1.00 mean=    1.27 +/-  0.46 min=1.00 max=2.00
+  boost::small_vector<16>: median=    1.00 mean=    1.27 +/-  0.46 min=1.00 max=2.00
+  llvm::SmallVector<16>: median=    1.00 mean=    1.13 +/-  0.35 min=1.00 max=2.00
+  absl::InlinedVector<16>: median=    1.00 mean=    1.33 +/-  0.49 min=1.00 max=2.00
+   ankerl::svector<16>: median=    2.00 mean=    1.53 +/-  0.52 min=1.00 max=2.00
+  eastl::fixed_vector<16>: median=    1.00 mean=    1.40 +/-  0.51 min=1.00 max=2.00
+
+iteration:
+       SmallVector<16>: median=    1.00 mean=    1.47 +/-  0.52 min=1.00 max=2.00
+           std::vector: median=    1.00 mean=    1.27 +/-  0.46 min=1.00 max=2.00
+  boost::small_vector<16>: median=    1.00 mean=    1.33 +/-  0.49 min=1.00 max=2.00
+  llvm::SmallVector<16>: median=    1.00 mean=    1.20 +/-  0.41 min=1.00 max=2.00
+  absl::InlinedVector<16>: median=    1.00 mean=    1.40 +/-  0.51 min=1.00 max=2.00
+   ankerl::svector<16>: median=    1.00 mean=    1.27 +/-  0.46 min=1.00 max=2.00
+  eastl::fixed_vector<16>: median=    1.00 mean=    1.13 +/-  0.35 min=1.00 max=2.00
+
+copy ctor:
+       SmallVector<16>: median=    1.00 mean=    1.13 +/-  0.35 min=1.00 max=2.00
+           std::vector: median=    1.00 mean=    1.27 +/-  0.46 min=1.00 max=2.00
+  boost::small_vector<16>: median=    1.00 mean=    1.00 +/-  0.00 min=1.00 max=1.00
+  llvm::SmallVector<16>: median=    1.00 mean=    1.07 +/-  0.26 min=1.00 max=2.00
+  absl::InlinedVector<16>: median=    1.00 mean=    1.07 +/-  0.26 min=1.00 max=2.00
+   ankerl::svector<16>: median=    1.00 mean=    1.13 +/-  0.35 min=1.00 max=2.00
+  eastl::fixed_vector<16>: median=    1.00 mean=    1.13 +/-  0.35 min=1.00 max=2.00
+
+move ctor:
+       SmallVector<16>: median=    0.00 mean=    0.07 +/-  0.26 min=0.00 max=1.00
+           std::vector: median=    0.00 mean=    0.20 +/-  0.41 min=0.00 max=1.00
+  boost::small_vector<16>: median=    0.00 mean=    0.47 +/-  0.52 min=0.00 max=1.00
+  llvm::SmallVector<16>: median=    0.00 mean=    0.33 +/-  0.49 min=0.00 max=1.00
+  absl::InlinedVector<16>: median=    0.00 mean=    0.13 +/-  0.35 min=0.00 max=1.00
+   ankerl::svector<16>: median=    0.00 mean=    0.20 +/-  0.41 min=0.00 max=1.00
+  eastl::fixed_vector<16>: median=    1.00 mean=    1.40 +/-  0.51 min=1.00 max=2.00
+
+
+--- N = 1000 ---
+
+[2026-02-15 19:59:12] Starting CPU: 2653 MHz (base: 3686)
+push_back:
+       SmallVector<16>: median=    0.60 mean=    0.59 +/-  0.06 min=0.50 max=0.70
+           std::vector: median=    1.00 mean=    0.96 +/-  0.05 min=0.90 max=1.00
+  boost::small_vector<16>: median=    0.60 mean=    0.59 +/-  0.05 min=0.50 max=0.70
+  llvm::SmallVector<16>: median=    0.60 mean=    0.60 +/-  0.07 min=0.50 max=0.70
+  absl::InlinedVector<16>: median=    0.60 mean=    0.63 +/-  0.05 min=0.60 max=0.70
+   ankerl::svector<16>: median=    0.60 mean=    0.57 +/-  0.06 min=0.50 max=0.70
+  eastl::fixed_vector<16>: median=    0.70 mean=    0.75 +/-  0.05 min=0.70 max=0.80
+
+emplace_back:
+       SmallVector<16>: median=    0.60 mean=    0.60 +/-  0.04 min=0.50 max=0.70
+           std::vector: median=    0.60 mean=    0.57 +/-  0.06 min=0.50 max=0.70
+  boost::small_vector<16>: median=    0.60 mean=    0.57 +/-  0.07 min=0.50 max=0.70
+  llvm::SmallVector<16>: median=    0.50 mean=    0.47 +/-  0.07 min=0.40 max=0.60
+  absl::InlinedVector<16>: median=    0.60 mean=    0.65 +/-  0.08 min=0.50 max=0.80
+   ankerl::svector<16>: median=    0.60 mean=    0.61 +/-  0.08 min=0.50 max=0.80
+  eastl::fixed_vector<16>: median=    0.40 mean=    0.49 +/-  0.20 min=0.40 max=1.20
+
+operator[]:
+       SmallVector<16>: median=    1.20 mean=    1.19 +/-  0.04 min=1.10 max=1.20
+           std::vector: median=    1.20 mean=    1.20 +/-  0.04 min=1.10 max=1.30
+  boost::small_vector<16>: median=    1.20 mean=    1.19 +/-  0.05 min=1.10 max=1.30
+  llvm::SmallVector<16>: median=    1.20 mean=    1.22 +/-  0.04 min=1.20 max=1.30
+  absl::InlinedVector<16>: median=    1.20 mean=    1.17 +/-  0.06 min=1.10 max=1.30
+   ankerl::svector<16>: median=    1.20 mean=    1.21 +/-  0.11 min=1.10 max=1.50
+  eastl::fixed_vector<16>: median=    1.20 mean=    1.19 +/-  0.04 min=1.10 max=1.20
+
+iteration:
+       SmallVector<16>: median=    1.20 mean=    1.23 +/-  0.05 min=1.20 max=1.30
+           std::vector: median=    1.20 mean=    1.21 +/-  0.03 min=1.20 max=1.30
+  boost::small_vector<16>: median=    1.20 mean=    1.25 +/-  0.05 min=1.20 max=1.30
+  llvm::SmallVector<16>: median=    1.20 mean=    1.23 +/-  0.05 min=1.20 max=1.30
+  absl::InlinedVector<16>: median=    1.20 mean=    1.23 +/-  0.05 min=1.20 max=1.30
+   ankerl::svector<16>: median=    1.20 mean=    1.25 +/-  0.05 min=1.20 max=1.30
+  eastl::fixed_vector<16>: median=    1.20 mean=    1.21 +/-  0.04 min=1.20 max=1.30
+
+copy ctor:
+       SmallVector<16>: median=    0.30 mean=    0.28 +/-  0.04 min=0.20 max=0.30
+           std::vector: median=    0.10 mean=    0.12 +/-  0.04 min=0.10 max=0.20
+  boost::small_vector<16>: median=    0.20 mean=    0.15 +/-  0.05 min=0.10 max=0.20
+  llvm::SmallVector<16>: median=    0.10 mean=    0.43 +/-  1.13 min=0.10 max=4.50
+  absl::InlinedVector<16>: median=    0.10 mean=    0.13 +/-  0.05 min=0.10 max=0.20
+   ankerl::svector<16>: median=    0.10 mean=    0.12 +/-  0.04 min=0.10 max=0.20
+  eastl::fixed_vector<16>: median=    0.10 mean=    0.15 +/-  0.05 min=0.10 max=0.20
+
+move ctor:
+       SmallVector<16>: median=    0.00 mean=    0.03 +/-  0.05 min=0.00 max=0.10
+           std::vector: median=    0.00 mean=    0.01 +/-  0.04 min=0.00 max=0.10
+  boost::small_vector<16>: median=    0.00 mean=    0.02 +/-  0.04 min=0.00 max=0.10
+  llvm::SmallVector<16>: median=    0.00 mean=    0.03 +/-  0.05 min=0.00 max=0.10
+  absl::InlinedVector<16>: median=    0.00 mean=    0.03 +/-  0.05 min=0.00 max=0.10
+   ankerl::svector<16>: median=    0.00 mean=    0.03 +/-  0.05 min=0.00 max=0.10
+  eastl::fixed_vector<16>: median=    0.40 mean=    0.42 +/-  0.04 min=0.40 max=0.50
+
+
+--- N = 10000 ---
+
+[2026-02-15 19:59:12] Starting CPU: 2653 MHz (base: 3686)
+push_back:
+       SmallVector<16>: median=    0.74 mean=    0.74 +/-  0.01 min=0.72 max=0.78
+           std::vector: median=    1.15 mean=    1.15 +/-  0.01 min=1.14 max=1.16
+  boost::small_vector<16>: median=    0.73 mean=    0.73 +/-  0.02 min=0.72 max=0.80
+  llvm::SmallVector<16>: median=    0.59 mean=    0.63 +/-  0.19 min=0.56 max=1.33
+  absl::InlinedVector<16>: median=    0.75 mean=    0.75 +/-  0.01 min=0.74 max=0.79
+   ankerl::svector<16>: median=    0.56 mean=    0.57 +/-  0.02 min=0.55 max=0.63
+  eastl::fixed_vector<16>: median=    0.89 mean=    0.89 +/-  0.00 min=0.89 max=0.90
+
+emplace_back:
+       SmallVector<16>: median=    0.75 mean=    0.84 +/-  0.20 min=0.73 max=1.47
+           std::vector: median=    0.74 mean=    0.74 +/-  0.01 min=0.73 max=0.75
+  boost::small_vector<16>: median=    0.73 mean=    0.74 +/-  0.02 min=0.73 max=0.80
+  llvm::SmallVector<16>: median=    0.52 mean=    0.58 +/-  0.21 min=0.50 max=1.34
+  absl::InlinedVector<16>: median=    0.74 mean=    0.74 +/-  0.01 min=0.74 max=0.75
+   ankerl::svector<16>: median=    0.56 mean=    0.56 +/-  0.01 min=0.55 max=0.58
+  eastl::fixed_vector<16>: median=    0.51 mean=    2.57 +/-  7.97 min=0.50 max=31.39
+
+operator[]:
+       SmallVector<16>: median=    1.21 mean=    1.26 +/-  0.14 min=1.20 max=1.75
+           std::vector: median=    1.21 mean=    1.25 +/-  0.06 min=1.20 max=1.34
+  boost::small_vector<16>: median=    1.21 mean=    1.23 +/-  0.05 min=1.19 max=1.32
+  llvm::SmallVector<16>: median=    1.21 mean=    1.24 +/-  0.06 min=1.19 max=1.34
+  absl::InlinedVector<16>: median=    1.24 mean=    1.28 +/-  0.11 min=1.16 max=1.60
+   ankerl::svector<16>: median=    1.34 mean=    1.36 +/-  0.13 min=1.18 max=1.57
+  eastl::fixed_vector<16>: median=    1.21 mean=    1.27 +/-  0.14 min=1.19 max=1.75
+
+iteration:
+       SmallVector<16>: median=    1.23 mean=    1.24 +/-  0.03 min=1.22 max=1.34
+           std::vector: median=    1.20 mean=    1.21 +/-  0.03 min=1.19 max=1.33
+  boost::small_vector<16>: median=    1.23 mean=    1.25 +/-  0.05 min=1.21 max=1.39
+  llvm::SmallVector<16>: median=    1.23 mean=    1.24 +/-  0.05 min=1.21 max=1.36
+  absl::InlinedVector<16>: median=    1.23 mean=    1.27 +/-  0.14 min=1.21 max=1.74
+   ankerl::svector<16>: median=    1.22 mean=    1.23 +/-  0.03 min=1.21 max=1.34
+  eastl::fixed_vector<16>: median=    1.20 mean=    1.25 +/-  0.14 min=1.19 max=1.76
+
+copy ctor:
+       SmallVector<16>: median=    2.13 mean=    2.27 +/-  0.41 min=2.07 max=3.42
+           std::vector: median=    3.07 mean=    3.19 +/-  0.65 min=2.82 max=5.42
+  boost::small_vector<16>: median=    2.80 mean=    3.31 +/-  0.89 min=2.75 max=5.75
+  llvm::SmallVector<16>: median=    2.88 mean=    3.21 +/-  0.61 min=2.83 max=4.53
+  absl::InlinedVector<16>: median=    2.78 mean=    2.90 +/-  0.34 min=2.71 max=4.07
+   ankerl::svector<16>: median=    2.15 mean=    2.21 +/-  0.17 min=2.09 max=2.73
+  eastl::fixed_vector<16>: median=    2.95 mean=    3.38 +/-  0.78 min=2.88 max=5.55
+
+move ctor:
+       SmallVector<16>: median=    0.01 mean=    0.01 +/-  0.01 min=0.00 max=0.01
+           std::vector: median=    0.00 mean=    0.00 +/-  0.00 min=0.00 max=0.01
+  boost::small_vector<16>: median=    0.00 mean=    0.00 +/-  0.00 min=0.00 max=0.01
+  llvm::SmallVector<16>: median=    0.00 mean=    0.00 +/-  0.00 min=0.00 max=0.01
+  absl::InlinedVector<16>: median=    0.01 mean=    0.01 +/-  0.01 min=0.00 max=0.02
+   ankerl::svector<16>: median=    0.00 mean=    0.00 +/-  0.00 min=0.00 max=0.01
+  eastl::fixed_vector<16>: median=    2.32 mean=    2.67 +/-  0.68 min=2.04 max=3.93
+
+
+================================================================================
+  INLINE VS HEAP PERFORMANCE
+================================================================================
+
+The key SmallVector advantage: zero allocations for small sizes.
+Testing operations at various sizes relative to inline capacity.
+
+[2026-02-15 19:59:12] Starting CPU: 2838 MHz (base: 3686)
+Size | SmallVector push_back (ns) | std::vector push_back (ns) | Ratio
+-----|----------------------------|----------------------------|------
+   4 (inline) |                       3.98 |                      30.76 |  7.72x
+   8 (inline) |                       1.95 |                      16.59 |  8.51x
+  12 (inline) |                       1.54 |                      12.86 |  8.34x
+  16 (inline) |                       1.16 |                      11.28 |  9.69x
+  20 (heap) |                       2.55 |                      10.17 |  4.00x
+  32 (heap) |                       1.94 |                       7.22 |  3.72x
+  64 (heap) |                       2.00 |                       5.64 |  2.82x
+ 128 (heap) |                       2.02 |                       3.52 |  1.74x
+
+================================================================================
+  ALLOCATION COUNT COMPARISON
+================================================================================
+
+Counting heap allocations for various scenarios.
+SmallVector should have zero allocations when size <= InlineCapacity.
+
+[2026-02-15 19:59:12] Starting CPU: 2838 MHz (base: 3686)
+Scenario: push_back N elements (no reserve)
+
+    N | SmallVector allocs | std::vector allocs
+------|--------------------|-----------------
+    1 |                  0 |                 1
+    8 |                  0 |                 6
+   16 |                  0 |                 8
+   17 |                  1 |                 8
+   32 |                  1 |                10
+  100 |                  3 |                13
+ 1000 |                  6 |                18
+
+Note: SmallVector<16> uses inline storage for N <= 16
+
+================================================================================
+  INSERT/ERASE OPERATIONS
+================================================================================
+
+Comparing insert and erase at various positions.
+
+[2026-02-15 19:59:12] Starting CPU: 2838 MHz (base: 3686)
+Insert single element (N=1000, 100 ops each):
+
+Position | SmallVector (ns/op) | std::vector (ns/op) | Ratio
+---------|---------------------|---------------------|------
+   front |               60.13 |               55.67 |  0.93x
+  middle |               40.93 |               31.87 |  0.78x
+    back |               10.40 |                8.47 |  0.81x
+
+Erase single element (N=1000, 100 ops each):
+
+Position | SmallVector (ns/op) | std::vector (ns/op) | Ratio
+---------|---------------------|---------------------|------
+   front |               37.93 |               35.40 |  0.93x
+  middle |               20.53 |               20.07 |  0.98x
+    back |                6.40 |                6.60 |  1.03x
+
+================================================================================
+  INLINE CAPACITY SENSITIVITY
+================================================================================
+
+How does inline capacity choice affect performance?
+Testing push_back of N elements with various inline capacities.
+
+[2026-02-15 19:59:12] Starting CPU: 2838 MHz (base: 3686)
+Target size: 32 elements
+
+InlineCapacity | Time (ns/op) | Allocations | Notes
+---------------|--------------|-------------|------
+  0 (std::vec) |         7.10 |          10 | always heap
+             8 |         2.44 |           2 | transitions
+            16 |         1.36 |           1 | transitions
+            32 |         1.03 |           0 | all inline
+            64 |         0.97 |           0 | all inline
+
+================================================================================
+  FAST PATH THROUGHPUT (ISOLATION BENCHMARK)
+================================================================================
+
+Measuring pure fast-path performance with zero allocations.
+This isolates the emplace_back fast-path optimization from allocation benefits.
+
+[2026-02-15 19:59:12] Starting CPU: 2764 MHz (base: 3686)
+
+--- emplace_back Throughput (100% Fast Path) ---
+
+InlineCap | SmallVector (ns/op) | std::vector* (ns/op) | Ratio
+----------|---------------------|----------------------|------
+* std::vector is pre-reserved to avoid allocation
+
+        4 |                3.42 |                 3.35 |  0.98x
+        8 |                1.84 |                 2.35 |  1.28x
+       16 |                1.08 |                 1.11 |  1.03x
+       32 |                0.85 |                 0.83 |  0.98x
+
+--- push_back vs emplace_back (InlineCap=16) ---
+
+Operation   | SmallVector (ns/op) | std::vector* (ns/op)
+------------|---------------------|---------------------
+push_back   |                1.06 |                1.07
+emplace_back|                1.18 |                1.05
+
+--- Pairwise Fast-Path Comparisons (InlineCap=16, N=16) ---
+Each pair tested in isolated function call (noinline).
+
+fat_p= 1.14  std::vec= 1.10
+fat_p= 1.12  boost= 1.38
+fat_p= 1.10  llvm= 1.07
+fat_p= 1.20  absl= 1.88
+fat_p= 1.39  ankerl= 4.20
+fat_p= 1.09  eastl= 1.02
+
+--- Fill/Clear Cycle (1000 cycles, InlineCap=16) ---
+Tests repeated use of same SmallVector (cache-warm scenario)
+
+SmallVector (reused): 0.56 ns/op
+std::vector (reused): 0.49 ns/op
+
+Note: This benchmark measures the optimized fast-path code.
+The main SmallVector advantage (7-8x for small N) comes from
+avoiding heap allocation entirely, which is tested in
+benchmark_inline_vs_heap().
+
+================================================================================
+  OBJECT SIZE IMPACT
+================================================================================
+
+How does sizeof(SmallVector) compare to std::vector?
+Larger inline capacity = larger object size.
+
+Container                        | sizeof (bytes)
+---------------------------------|---------------
+            std::vector<int64_t> |             24
+         SmallVector<int64_t, 4> |             64
+         SmallVector<int64_t, 8> |             96
+        SmallVector<int64_t, 16> |            160
+        SmallVector<int64_t, 32> |            288
+        SmallVector<int64_t, 64> |            544
+
+Boost comparison:
+boost::small_vector<int64_t, 16> |            152
+
+LLVM comparison:
+  llvm::SmallVector<int64_t, 16> |            144
+
+Abseil comparison:
+absl::InlinedVector<int64_t, 16> |            136
+
+ankerl comparison:
+    ankerl::svector<int64_t, 16> |            136
+     ankerl::svector<int64_t, 1> |             16
+
+EASTL comparison:
+ eastl::fixed_vector<int64_t,16> |            168
+
+Note: SmallVector<T, N> size Γëê 3*sizeof(void*) + N*sizeof(T)
+
+================================================================================
+  Benchmark Complete
+================================================================================

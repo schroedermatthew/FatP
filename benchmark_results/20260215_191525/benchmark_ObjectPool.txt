@@ -1,0 +1,462 @@
+﻿[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::ObjectPool Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::ObjectPool (primary)
+  [x] boost::object_pool
+  [x] foonathan::memory_pool
+  [x] EASTL::fixed_pool (fixed-capacity, no auto-grow)
+  [x] std::pmr::unsynchronized_pool_resource (C++17)
+  [x] std::pmr::synchronized_pool_resource (C++17 thread-safe)
+  [x] new/delete (baseline)
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. CPU frequency stabilized before measurement
+
+Checking initial CPU state...
+[2026-02-15 19:40:11] Initial CPU: 2248 MHz (base: 3686)
+Waiting for CPU to stabilize...
+[CPU stable at 2513 MHz (68% of base)]
+
+
+================================================================================
+  Acquire + Release Cycle (SmallTrivial 16B)
+================================================================================
+Contract: Single acquire followed by immediate release
+          Measures raw pool overhead without allocation growth
+
+
+--- N = 1000 ops ---
+[2026-02-15 19:40:15] CPU: 2506 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2543 MHz]
+           fat_p::ObjectPool: median=    2.30 ns/op  mean=    2.27 +/-  0.05
+          boost::object_pool: median=    2.30 ns/op  mean=    2.35 +/-  0.06
+      foonathan::memory_pool: median=    3.40 ns/op  mean=    3.42 +/-  0.15
+   EASTL::fixed_pool [!grow]: median=    2.10 ns/op  mean=    2.13 +/-  0.05
+       std::pmr::unsync_pool: median=    6.30 ns/op  mean=    6.25 +/-  0.07
+                  new/delete: median=   20.60 ns/op  mean=   20.56 +/-  0.20
+  Speedup vs new/delete: 9.0x
+
+--- N = 10000 ops ---
+[2026-02-15 19:40:25] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2432 MHz]
+           fat_p::ObjectPool: median=    2.23 ns/op  mean=    2.41 +/-  0.47
+          boost::object_pool: median=    2.29 ns/op  mean=    2.32 +/-  0.15
+      foonathan::memory_pool: median=    3.04 ns/op  mean=    3.04 +/-  0.14
+   EASTL::fixed_pool [!grow]: median=    2.10 ns/op  mean=    2.18 +/-  0.25
+       std::pmr::unsync_pool: median=    6.61 ns/op  mean=    6.93 +/-  1.30
+                  new/delete: median=   20.59 ns/op  mean=   21.33 +/-  1.58
+  Speedup vs new/delete: 9.2x
+
+--- N = 100000 ops ---
+[2026-02-15 19:40:32] CPU: 2432 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2469 MHz]
+           fat_p::ObjectPool: median=    2.31 ns/op  mean=    2.29 +/-  0.18
+          boost::object_pool: median=    2.30 ns/op  mean=    2.34 +/-  0.17
+      foonathan::memory_pool: median=    2.89 ns/op  mean=    2.97 +/-  0.22
+   EASTL::fixed_pool [!grow]: median=    2.10 ns/op  mean=    2.16 +/-  0.23
+       std::pmr::unsync_pool: median=    6.21 ns/op  mean=    6.38 +/-  0.43
+                  new/delete: median=   19.60 ns/op  mean=   20.15 +/-  1.54
+  Speedup vs new/delete: 8.5x
+[Cooling: before bulk acquire] [Ready: 2690 MHz]
+
+================================================================================
+  Bulk Acquire (SmallTrivial 16B)
+================================================================================
+Contract: Acquire N objects, then release all
+          Tests sustained allocation throughput
+
+
+--- N = 1000 objects ---
+[2026-02-15 19:40:46] CPU: 2690 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2948 MHz]
+           fat_p::ObjectPool: median=    2.00 ns/op  mean=    2.06 +/-  0.10
+          boost::object_pool: median=    3.00 ns/op  mean=    2.93 +/-  0.19
+      foonathan::memory_pool: median=    2.20 ns/op  mean=    2.17 +/-  0.24
+   EASTL::fixed_pool [!grow]: median=    1.60 ns/op  mean=    1.66 +/-  0.08
+       std::pmr::unsync_pool: median=    5.30 ns/op  mean=    5.39 +/-  0.43
+                  new/delete: median=   15.30 ns/op  mean=   15.10 +/-  0.54
+
+--- N = 10000 objects ---
+[2026-02-15 19:41:02] CPU: 2948 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2690 MHz]
+           fat_p::ObjectPool: median=    2.17 ns/op  mean=    2.19 +/-  0.06
+          boost::object_pool: median=    9.82 ns/op  mean=    9.49 +/-  1.84
+      foonathan::memory_pool: median=    1.90 ns/op  mean=    2.14 +/-  0.40
+   EASTL::fixed_pool [!grow]: median=    1.69 ns/op  mean=    1.73 +/-  0.23
+       std::pmr::unsync_pool: median=   10.22 ns/op  mean=   10.15 +/-  1.53
+                  new/delete: median=   21.63 ns/op  mean=   23.04 +/-  5.17
+
+--- N = 100000 objects ---
+[2026-02-15 19:41:19] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2580 MHz]
+           fat_p::ObjectPool: median=    2.42 ns/op  mean=    2.56 +/-  0.38
+          boost::object_pool: median=    8.62 ns/op  mean=    8.87 +/-  0.87
+      foonathan::memory_pool: median=    2.42 ns/op  mean=    2.47 +/-  0.29
+   EASTL::fixed_pool [!grow]: median=    2.25 ns/op  mean=    2.43 +/-  0.66
+       std::pmr::unsync_pool: median=    8.97 ns/op  mean=    9.44 +/-  1.40
+                  new/delete: median=   23.83 ns/op  mean=   24.04 +/-  1.21
+[Cooling: before interleaved] [Ready: 2543 MHz]
+
+================================================================================
+  Interleaved Acquire/Release (SmallTrivial 16B)
+================================================================================
+Contract: Realistic workload with interleaved operations
+          50% acquire, 50% release (steady-state simulation)
+
+
+--- N = 1000 operations ---
+[2026-02-15 19:42:39] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2653 MHz]
+           fat_p::ObjectPool: median=    9.40 ns/op  mean=    9.44 +/-  0.40
+          boost::object_pool: median=   14.70 ns/op  mean=   15.45 +/-  2.83
+      foonathan::memory_pool: median=    9.90 ns/op  mean=   10.01 +/-  0.43
+   EASTL::fixed_pool [!grow]: median=    9.30 ns/op  mean=    9.41 +/-  0.50
+       std::pmr::unsync_pool: median=   13.50 ns/op  mean=   13.94 +/-  1.52
+                  new/delete: median=   21.60 ns/op  mean=   22.39 +/-  2.72
+
+--- N = 10000 operations ---
+[2026-02-15 19:42:55] CPU: 2653 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2543 MHz]
+           fat_p::ObjectPool: median=    7.71 ns/op  mean=    8.23 +/-  1.05
+          boost::object_pool: median=   12.45 ns/op  mean=   12.65 +/-  0.96
+      foonathan::memory_pool: median=    8.35 ns/op  mean=    8.62 +/-  0.88
+   EASTL::fixed_pool [!grow]: median=    7.46 ns/op  mean=    7.45 +/-  0.38
+       std::pmr::unsync_pool: median=   10.43 ns/op  mean=   10.97 +/-  1.22
+                  new/delete: median=   18.26 ns/op  mean=   17.90 +/-  0.84
+
+--- N = 100000 operations ---
+[2026-02-15 19:43:03] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2432 MHz]
+           fat_p::ObjectPool: median=    8.75 ns/op  mean=    9.06 +/-  1.35
+          boost::object_pool: median=   12.68 ns/op  mean=   12.96 +/-  1.20
+      foonathan::memory_pool: median=    8.55 ns/op  mean=    8.53 +/-  0.29
+   EASTL::fixed_pool [!grow]: median=    8.59 ns/op  mean=    8.62 +/-  1.18
+       std::pmr::unsync_pool: median=   11.37 ns/op  mean=   11.63 +/-  1.12
+                  new/delete: median=   18.65 ns/op  mean=   19.20 +/-  1.23
+[Cooling: before pool reuse] [Ready: 2322 MHz]
+
+================================================================================
+  Pool Reuse / Free List Efficiency (SmallTrivial 16B)
+================================================================================
+Contract: Acquire N, release all in random order, acquire N again
+          Tests free list traversal and memory reuse
+
+
+--- N = 1000 objects ---
+[2026-02-15 19:43:34] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2617 MHz]
+           fat_p::ObjectPool: median=    2.00 ns/op  mean=    2.39 +/-  0.70
+          boost::object_pool: median=    2.10 ns/op  mean=    2.23 +/-  0.39
+      foonathan::memory_pool: median=    2.40 ns/op  mean=    2.71 +/-  0.93
+   EASTL::fixed_pool [!grow]: median=    1.40 ns/op  mean=    1.61 +/-  0.56
+       std::pmr::unsync_pool: median=    4.60 ns/op  mean=    5.31 +/-  1.78
+                  new/delete: median=   15.20 ns/op  mean=   16.97 +/-  4.08
+
+--- N = 10000 objects ---
+[2026-02-15 19:43:45] CPU: 2359 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2617 MHz]
+           fat_p::ObjectPool: median=    2.69 ns/op  mean=    2.80 +/-  0.19
+          boost::object_pool: median=    2.18 ns/op  mean=    2.27 +/-  0.19
+      foonathan::memory_pool: median=    2.60 ns/op  mean=    3.36 +/-  1.99
+   EASTL::fixed_pool [!grow]: median=    2.03 ns/op  mean=    2.19 +/-  0.52
+       std::pmr::unsync_pool: median=    8.27 ns/op  mean=    8.36 +/-  0.59
+                  new/delete: median=   18.37 ns/op  mean=   20.03 +/-  4.63
+
+--- N = 100000 objects ---
+[2026-02-15 19:44:02] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2285 MHz]
+           fat_p::ObjectPool: median=    5.87 ns/op  mean=    6.18 +/-  1.06
+          boost::object_pool: median=    2.48 ns/op  mean=    2.68 +/-  0.48
+      foonathan::memory_pool: median=    4.64 ns/op  mean=    4.63 +/-  0.25
+   EASTL::fixed_pool [!grow]: median=    4.48 ns/op  mean=    4.94 +/-  1.86
+       std::pmr::unsync_pool: median=    7.47 ns/op  mean=    7.51 +/-  0.44
+                  new/delete: median=   23.90 ns/op  mean=   23.68 +/-  1.24
+[Cooling: before pool reuse with compact] [Ready: 2617 MHz]
+
+================================================================================
+  Pool Reuse With Compaction (SmallTrivial 16B)
+================================================================================
+Contract: Acquire N, release all randomly, COMPACT, then acquire N again
+          Tests whether compaction recovers allocation locality
+
+
+--- N = 1000 objects ---
+[2026-02-15 19:46:16] CPU: 2617 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2690 MHz]
+           fat_p::ObjectPool: median=    2.10 ns/op  mean=    2.23 +/-  0.45
+          boost::object_pool: median=    2.00 ns/op  mean=    2.04 +/-  0.07
+      foonathan::memory_pool: median=    2.00 ns/op  mean=    2.03 +/-  0.22
+   EASTL::fixed_pool [!grow]: median=    1.40 ns/op  mean=    1.45 +/-  0.18
+       std::pmr::unsync_pool: median=    4.60 ns/op  mean=    4.57 +/-  0.49
+                  new/delete: median=   15.00 ns/op  mean=   15.52 +/-  0.98
+
+--- N = 10000 objects ---
+[2026-02-15 19:46:23] CPU: 2764 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2617 MHz]
+           fat_p::ObjectPool: median=    2.17 ns/op  mean=    2.40 +/-  0.69
+          boost::object_pool: median=    2.19 ns/op  mean=    2.60 +/-  1.31
+      foonathan::memory_pool: median=    2.65 ns/op  mean=    2.81 +/-  0.56
+   EASTL::fixed_pool [!grow]: median=    2.04 ns/op  mean=    2.12 +/-  0.21
+       std::pmr::unsync_pool: median=    8.24 ns/op  mean=   10.37 +/-  7.59
+                  new/delete: median=   19.19 ns/op  mean=   20.72 +/-  5.47
+
+--- N = 100000 objects ---
+[2026-02-15 19:46:38] CPU: 2617 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2580 MHz]
+           fat_p::ObjectPool: median=    2.21 ns/op  mean=    2.33 +/-  0.25
+          boost::object_pool: median=    2.42 ns/op  mean=    2.55 +/-  0.36
+      foonathan::memory_pool: median=    4.64 ns/op  mean=    4.72 +/-  0.41
+   EASTL::fixed_pool [!grow]: median=    4.49 ns/op  mean=    4.73 +/-  1.01
+       std::pmr::unsync_pool: median=    7.65 ns/op  mean=    7.74 +/-  0.91
+                  new/delete: median=   23.12 ns/op  mean=   22.93 +/-  0.82
+[Cooling: before pool reuse full cycle] [Ready: 2322 MHz]
+
+================================================================================
+  Pool Reuse Full Cycle (SmallTrivial 16B)
+================================================================================
+Contract: Acquire N, then TIME [release all randomly + compact + reacquire all]
+          True cost of 'flush and refill' pattern (no hidden work)
+          Note: Boost's ordered_free O(N) cost is now visible
+
+
+--- N = 1000 objects ---
+[2026-02-15 19:48:43] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2727 MHz]
+           fat_p::ObjectPool: median=    4.70 ns/op  mean=    4.68 +/-  0.44
+          boost::object_pool: median=  904.90 ns/op  mean=  908.49 +/- 15.25
+      foonathan::memory_pool: median=    3.80 ns/op  mean=    3.78 +/-  0.31
+   EASTL::fixed_pool [!grow]: median=    2.70 ns/op  mean=    2.73 +/-  0.32
+       std::pmr::unsync_pool: median=    8.20 ns/op  mean=    8.47 +/-  1.06
+                  new/delete: median=   25.50 ns/op  mean=   24.81 +/-  1.16
+
+--- N = 10000 objects ---
+[2026-02-15 19:48:56] CPU: 2727 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2395 MHz]
+           fat_p::ObjectPool: median=    5.81 ns/op  mean=    6.02 +/-  0.54
+          boost::object_pool: median= 2347.28 ns/op  mean= 2341.33 +/- 57.51
+      foonathan::memory_pool: median=    5.02 ns/op  mean=    5.22 +/-  0.63
+   EASTL::fixed_pool [!grow]: median=    4.05 ns/op  mean=    4.14 +/-  0.50
+       std::pmr::unsync_pool: median=   11.32 ns/op  mean=   11.90 +/-  2.65
+                  new/delete: median=   31.46 ns/op  mean=   29.61 +/-  4.72
+
+--- N = 100000 objects ---
+[2026-02-15 19:49:12] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2469 MHz]
+           fat_p::ObjectPool: median=    7.36 ns/op  mean=    7.55 +/-  0.81
+          boost::object_pool: median=31479.42 ns/op  mean=31541.58 +/-760.00
+      foonathan::memory_pool: median=    7.28 ns/op  mean=    8.04 +/-  2.33
+   EASTL::fixed_pool [!grow]: median=    6.82 ns/op  mean=    6.96 +/-  0.60
+       std::pmr::unsync_pool: median=   19.14 ns/op  mean=   20.24 +/-  2.57
+                  new/delete: median=   46.37 ns/op  mean=   47.24 +/-  3.64
+[Cooling: before medium object benchmarks] [Ready: 2727 MHz]
+
+================================================================================
+  Acquire + Release Cycle (MediumObject 64B)
+================================================================================
+Contract: Single acquire followed by immediate release
+          Measures raw pool overhead without allocation growth
+
+
+--- N = 1000 ops ---
+[2026-02-15 19:51:19] CPU: 2727 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2395 MHz]
+           fat_p::ObjectPool: median=    2.60 ns/op  mean=    2.65 +/-  0.16
+          boost::object_pool: median=    2.90 ns/op  mean=    3.00 +/-  0.16
+      foonathan::memory_pool: median=    3.60 ns/op  mean=    3.62 +/-  0.12
+   EASTL::fixed_pool [!grow]: median=    2.50 ns/op  mean=    2.55 +/-  0.11
+       std::pmr::unsync_pool: median=    6.80 ns/op  mean=    7.43 +/-  1.93
+                  new/delete: median=   20.10 ns/op  mean=   20.62 +/-  0.87
+  Speedup vs new/delete: 7.7x
+
+--- N = 10000 ops ---
+[2026-02-15 19:51:22] CPU: 2395 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2285 MHz]
+           fat_p::ObjectPool: median=    2.44 ns/op  mean=    2.51 +/-  0.24
+          boost::object_pool: median=    2.84 ns/op  mean=    2.97 +/-  0.61
+      foonathan::memory_pool: median=    3.03 ns/op  mean=    3.16 +/-  0.29
+   EASTL::fixed_pool [!grow]: median=    2.31 ns/op  mean=    2.30 +/-  0.10
+       std::pmr::unsync_pool: median=    6.38 ns/op  mean=    6.43 +/-  0.47
+                  new/delete: median=   19.95 ns/op  mean=   19.74 +/-  0.52
+  Speedup vs new/delete: 8.2x
+
+--- N = 50000 ops ---
+[2026-02-15 19:51:38] CPU: 2285 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2469 MHz]
+           fat_p::ObjectPool: median=    2.83 ns/op  mean=    3.37 +/-  1.73
+          boost::object_pool: median=    2.89 ns/op  mean=    2.93 +/-  0.10
+      foonathan::memory_pool: median=    3.30 ns/op  mean=    3.36 +/-  0.19
+   EASTL::fixed_pool [!grow]: median=    2.37 ns/op  mean=    2.52 +/-  0.35
+       std::pmr::unsync_pool: median=    6.80 ns/op  mean=    6.86 +/-  0.40
+                  new/delete: median=   20.31 ns/op  mean=   21.16 +/-  2.12
+  Speedup vs new/delete: 7.2x
+[Cooling: before bulk acquire] [Ready: 2543 MHz]
+
+================================================================================
+  Bulk Acquire (MediumObject 64B)
+================================================================================
+Contract: Acquire N objects, then release all
+          Tests sustained allocation throughput
+
+
+--- N = 1000 objects ---
+[2026-02-15 19:52:10] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2543 MHz]
+           fat_p::ObjectPool: median=    2.80 ns/op  mean=    2.92 +/-  0.36
+          boost::object_pool: median=    4.30 ns/op  mean=    4.51 +/-  0.78
+      foonathan::memory_pool: median=    2.40 ns/op  mean=    2.49 +/-  0.30
+   EASTL::fixed_pool [!grow]: median=    2.90 ns/op  mean=    2.99 +/-  0.29
+       std::pmr::unsync_pool: median=    6.10 ns/op  mean=    7.86 +/-  6.12
+                  new/delete: median=   14.60 ns/op  mean=   16.92 +/-  4.56
+
+--- N = 10000 objects ---
+[2026-02-15 19:52:26] CPU: 2543 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2469 MHz]
+           fat_p::ObjectPool: median=    2.98 ns/op  mean=    3.02 +/-  0.18
+          boost::object_pool: median=   25.41 ns/op  mean=   19.39 +/- 13.17
+      foonathan::memory_pool: median=    4.42 ns/op  mean=    4.29 +/-  1.11
+   EASTL::fixed_pool [!grow]: median=    2.96 ns/op  mean=    3.05 +/-  0.31
+       std::pmr::unsync_pool: median=   21.90 ns/op  mean=   23.55 +/-  8.57
+                  new/delete: median=   26.39 ns/op  mean=   27.34 +/-  6.95
+
+--- N = 50000 objects ---
+[2026-02-15 19:52:31] CPU: 2395 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2395 MHz]
+           fat_p::ObjectPool: median=    3.57 ns/op  mean=    4.01 +/-  1.65
+          boost::object_pool: median=   23.09 ns/op  mean=   23.10 +/-  3.94
+      foonathan::memory_pool: median=    4.98 ns/op  mean=    5.62 +/-  1.29
+   EASTL::fixed_pool [!grow]: median=    4.51 ns/op  mean=    4.61 +/-  0.94
+       std::pmr::unsync_pool: median=   21.44 ns/op  mean=   21.60 +/-  2.13
+                  new/delete: median=   33.37 ns/op  mean=   34.40 +/-  2.71
+[Cooling: before large object benchmarks] [Ready: 2322 MHz]
+
+================================================================================
+  Acquire + Release Cycle (LargeObject 256B)
+================================================================================
+Contract: Single acquire followed by immediate release
+          Measures raw pool overhead without allocation growth
+
+
+--- N = 1000 ops ---
+[2026-02-15 19:53:05] CPU: 2322 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2690 MHz]
+           fat_p::ObjectPool: median=    6.90 ns/op  mean=    6.97 +/-  0.32
+          boost::object_pool: median=    7.10 ns/op  mean=    7.19 +/-  0.35
+      foonathan::memory_pool: median=    7.40 ns/op  mean=    7.39 +/-  0.17
+   EASTL::fixed_pool [!grow]: median=    6.60 ns/op  mean=    6.64 +/-  0.28
+       std::pmr::unsync_pool: median=   10.90 ns/op  mean=   11.32 +/-  1.21
+                  new/delete: median=   29.50 ns/op  mean=   29.48 +/-  1.38
+  Speedup vs new/delete: 4.3x
+
+--- N = 10000 ops ---
+[2026-02-15 19:53:21] CPU: 2690 MHz (base: 3686)
+[Cooling: size transition] [Ready: 2395 MHz]
+           fat_p::ObjectPool: median=    5.74 ns/op  mean=    5.79 +/-  0.42
+          boost::object_pool: median=    5.96 ns/op  mean=    6.32 +/-  1.41
+      foonathan::memory_pool: median=    6.08 ns/op  mean=    6.34 +/-  1.31
+   EASTL::fixed_pool [!grow]: median=    5.42 ns/op  mean=    5.68 +/-  1.24
+       std::pmr::unsync_pool: median=    8.80 ns/op  mean=    9.55 +/-  2.14
+                  new/delete: median=   24.44 ns/op  mean=   25.97 +/-  7.24
+  Speedup vs new/delete: 4.3x
+[Cooling: before specialized acquire] [Ready: 2395 MHz]
+
+================================================================================
+  Specialized Acquire (SmallTrivial - fat_p only)
+================================================================================
+Contract: Compare acquire() vs acquire_uninitialized() vs acquire_zeroed()
+          Shows overhead of zero-initialization and default construction
+
+[2026-02-15 19:53:40] CPU: 2395 MHz (base: 3686)
+
+--- N = 1000 objects ---
+[Cooling: size transition] [Ready: 2285 MHz]
+              acquire(value): median=    1.50 ns/op
+     acquire_uninitialized(): median=    1.40 ns/op  (1.1x faster)
+            acquire_zeroed(): median=     1.2 ns/op
+
+--- N = 10000 objects ---
+[Cooling: size transition] [Ready: 2395 MHz]
+              acquire(value): median=    1.82 ns/op
+     acquire_uninitialized(): median=    1.29 ns/op  (1.4x faster)
+            acquire_zeroed(): median=     1.2 ns/op
+
+--- N = 100000 objects ---
+[Cooling: size transition] [Ready: 2469 MHz]
+              acquire(value): median=    1.88 ns/op
+     acquire_uninitialized(): median=    1.32 ns/op  (1.4x faster)
+            acquire_zeroed(): median=     1.3 ns/op
+[Cooling: before multithreaded] [Ready: 2617 MHz]
+
+================================================================================
+  Multi-threaded Contention (Thread-Safe Pools)
+================================================================================
+Contract: Concurrent acquire/release from multiple threads
+          Tests lock contention and scalability
+          Comparing: fat_p::ThreadSafeObjectPool vs std::pmr::synchronized_pool_resource
+
+[2026-02-15 19:54:07] CPU: 2617 MHz (base: 3686)
+
+--- 1 threads, 10000 ops/thread ---
+[Cooling: thread count transition] [Ready: 2653 MHz]
+       fat_p::ThreadSafePool: median=  104.62 ns/op  throughput=   9558402 ops/sec
+         std::pmr::sync_pool: median=   89.67 ns/op  throughput=  11152002 ops/sec
+
+--- 2 threads, 10000 ops/thread ---
+[Cooling: thread count transition] [Ready: 2690 MHz]
+       fat_p::ThreadSafePool: median=   81.32 ns/op  throughput=  12297098 ops/sec
+         std::pmr::sync_pool: median=   52.33 ns/op  throughput=  19109497 ops/sec
+
+--- 4 threads, 10000 ops/thread ---
+[Cooling: thread count transition] [Ready: 2875 MHz]
+       fat_p::ThreadSafePool: median=   43.72 ns/op  throughput=  22874135 ops/sec
+         std::pmr::sync_pool: median=   41.73 ns/op  throughput=  23960704 ops/sec
+
+--- 8 threads, 10000 ops/thread ---
+[Cooling: thread count transition] [Ready: 2469 MHz]
+       fat_p::ThreadSafePool: median=   65.69 ns/op  throughput=  15222148 ops/sec
+         std::pmr::sync_pool: median=   90.40 ns/op  throughput=  11061641 ops/sec
+
+================================================================================
+  Memory Overhead Comparison (Theoretical)
+================================================================================
+
+  Per-object overhead (in addition to object storage):
+    fat_p::ObjectPool:    8 bytes (next pointer in free list)
+    boost::object_pool:   8 bytes (chunk linkage)
+    foonathan::memory:    8 bytes (node linkage)
+    EASTL::fixed_pool:    8 bytes (free list pointer)
+    std::pmr::pool:       8-16 bytes (block headers)
+    new/delete:           8-24 bytes (malloc metadata)
+
+  Feature comparison:
+    Allocator               O(1)   Thread-Safe  Auto-Grow  RAII Wrapper  try_acquire
+    ---------------------------------------------------------------------------------
+    fat_p::ObjectPool       Yes    Optional     Yes        Yes           Yes
+    boost::object_pool      Yes    No           Yes        No            No
+    foonathan::memory       Yes    Optional     Yes        No            No
+    EASTL::fixed_pool [!]   Yes    No           NO         No            Yes*
+    std::pmr::unsync_pool   Yes    No           Yes        No            No
+    std::pmr::sync_pool     Yes    Yes          Yes        No            No
+    new/delete              No**   Yes          N/A        No            No
+
+    [!] EASTL::fixed_pool is FIXED-CAPACITY (no auto-grow) - different contract
+    *   EASTL returns nullptr when exhausted
+    **  malloc may have O(1) fast path but can degrade
+
+  fat_p::ObjectPool<MediumObject> with capacity 10000:
+    sizeof(MediumObject): 64 bytes
+    total_capacity:       10000 objects
+    num_blocks:           1
+    block_size:           10000 objects
+
+================================================================================
+  Benchmark Complete
+================================================================================

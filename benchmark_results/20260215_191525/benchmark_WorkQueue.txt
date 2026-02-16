@@ -1,0 +1,142 @@
+﻿================================================================================
+  fat_p::WorkQueue Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1950 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::WorkQueue (primary)
+  [x] fat_p::LockFreeQueue (sibling)
+  [x] std::mutex + std::queue (baseline)
+  [x] moodycamel::ConcurrentQueue
+  [x] boost::lockfree::queue
+
+Configuration:
+  Target work:    1000000 ops/batch
+  Min batch ms:   50
+  Shards:         16
+  Shard capacity: 8192
+  Total capacity: 131072
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+  CSV output:     benchmark_results\20260215_191525\benchmark_WorkQueue.csv
+
+[INIT 20:00:44] CPU: 3686 MHz (base: 3686)
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. Start barrier for all concurrent benchmarks
+
+Correctness:
+  [PASS] WorkQueue round-trip (100 elements)
+  [PASS] WorkQueue capacity enforcement (accepted 32 / 32)
+  [PASS] WorkQueue MPMC exactly-once (4P:4C, 4000 elements)
+  [PASS] LockFreeQueue FIFO ordering
+
+Expected Results:
+  - fat_p::WorkQueue excels at: high-contention MPMC (>= 4 threads)
+  - fat_p::LockFreeQueue: lower overhead at low contention (1-2 threads)
+  - std::mutex + std::queue: correct but slow under contention
+  - WorkQueue pays shard-routing overhead in single-threaded/SPSC
+
+[BenchmarkScope] High priority, CPU non-0 affinity
+  [NOTE] Single-thread target work clamped from 1000000 to 131072 to avoid capacity overflow.
+
+================================================================================
+  Single-Threaded Throughput (enqueue + dequeue cycle)
+================================================================================
+
+[START 20:00:44] CPU: 3686 MHz (base: 3686)
+Contract: Pure queue overhead without contention. Measures enqueue+dequeue per op. WorkQueue pays shard-routing cost even single-threaded; this quantifies that overhead.
+
+Library                                  Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::WorkQueue (16 shards)               9.07        9.14      0.54  [    8.87,     9.42]  ns/op
+fat_p::LockFreeQueue                       8.24        8.52      0.60  [    8.22,     8.83]  ns/op
+std::mutex + std::queue (baseline)        17.23       17.63      1.30  [   16.98,    18.29]  ns/op
+moodycamel::ConcurrentQueue                5.40        5.55      0.41  [    5.34,     5.76]  ns/op
+boost::lockfree::queue                    36.73       38.01      3.02  [   36.48,    39.54]  ns/op
+
+[END 20:00:45] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  SPSC Throughput (1 producer, 1 consumer)
+================================================================================
+
+[START 20:00:45] CPU: 3686 MHz (base: 3686)
+Contract: Dedicated producer and consumer threads. Start barrier ensures simultaneous launch. WorkQueue is not optimized for SPSC; this measures the baseline cost of shard routing when contention is absent.
+
+Library                                  Median        Mean    Stddev  CI95
+------------------------------------------------------------------------------------------
+fat_p::WorkQueue (16 shards)               4.16        4.19      0.39  [    3.99,     4.38]  ns/op
+fat_p::LockFreeQueue                       5.15        5.50      1.82  [    4.58,     6.42]  ns/op
+std::mutex + std::queue (baseline)        19.80       19.48      3.12  [   17.90,    21.06]  ns/op
+moodycamel::ConcurrentQueue               16.25       17.59      4.56  [   15.28,    19.90]  ns/op
+boost::lockfree::queue                    97.16      100.31     43.83  [   78.13,   122.50]  ns/op
+
+[END 20:00:50] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  MPMC Symmetric Scaling (N producers, N consumers)
+================================================================================
+
+[START 20:00:51] CPU: 3686 MHz (base: 3686)
+Contract: Equal producer and consumer threads. Start barrier ensures simultaneous launch. Tests lock-free scaling under increasing contention. WorkQueue should dominate at >= 4 threads where CAS contention matters.
+
+Thread counts: 1 2 4 8 12 16 
+
+Library                                      1T          2T          4T          8T         12T         16T
+-----------------------------------------------------------------------------------------------------------
+fat_p::WorkQueue (16 shards)               16.1        13.3        27.8        26.1        24.9        29.4 ns/op
+fat_p::LockFreeQueue                        7.1        24.9        73.7        83.8        87.9        87.9 ns/op
+std::mutex + std::queue (baseline)         19.2        19.9        50.0       181.1       250.4       222.0 ns/op
+moodycamel::ConcurrentQueue                14.6        20.2        32.9        31.3        27.3        25.8 ns/op
+boost::lockfree::queue                    111.9       120.0       274.1       241.9       263.8       307.3 ns/op
+
+[END 20:02:27] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Asymmetric MPMC (MPSC, SPMC, Unbalanced)
+================================================================================
+
+[START 20:02:27] CPU: 3686 MHz (base: 3686)
+Contract: Non-symmetric producer/consumer ratios. Tests WorkQueue under real-world dispatch patterns: many-producer/single-consumer (task submission), single-producer/many-consumer (fan-out), and unbalanced ratios.
+
+
+Library                                   8P:1C     4P:1C     1P:8C     1P:4C     8P:2C     2P:8C
+-------------------------------------------------------------------------------------------------
+fat_p::WorkQueue (16 shards)               23.3      25.2      27.4      23.1      25.4      25.8 ns/op
+fat_p::LockFreeQueue                       53.2      42.1      78.8      50.7      58.8      83.3 ns/op
+std::mutex + std::queue (baseline)         40.0      20.7     184.0      27.1      63.2     145.3 ns/op
+moodycamel::ConcurrentQueue                17.8      13.6      64.2      45.3      13.6      36.1 ns/op
+boost::lockfree::queue                    194.0     135.2     225.7     201.0     233.6     234.6 ns/op
+
+[END 20:03:59] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Burst/Drain (single-threaded fill then drain)
+================================================================================
+
+[START 20:04:00] CPU: 3686 MHz (base: 3686)
+Contract: Fill the queue to a target burst size, then drain completely. Single-threaded, no contention. Measures throughput under bursty access where the queue transitions between near-full and empty states. Allocation is excluded (reserve performed).
+
+Library                                  1024 ops      8192 ops     65536 ops
+-----------------------------------------------------------------------------
+fat_p::WorkQueue (16 shards)                  8.5           8.9           9.0 ns/op
+fat_p::LockFreeQueue                          8.1           8.5           8.2 ns/op
+std::mutex + std::queue (baseline)           12.7          13.3          13.3 ns/op
+
+[END 20:04:00] CPU: 3686 MHz (base: 3686)
+
+================================================================================
+  Summary
+================================================================================
+
+Benchmarks completed.
+Hardware concurrency: 24 threads
+[FINAL 20:04:00] CPU: 3686 MHz (base: 3686)

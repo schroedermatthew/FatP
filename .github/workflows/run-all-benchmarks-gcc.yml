@@ -1,5 +1,5 @@
 # =============================================================================
-# .github/workflows/run-all-benchmarks.yml
+# .github/workflows/run-all-benchmarks-gcc.yml
 # =============================================================================
 # One-click trigger: runs every component benchmark on Linux GCC-14.
 # Manual-only (workflow_dispatch).
@@ -16,7 +16,7 @@
 # cache and vendored ThirdParty/ headers.
 # =============================================================================
 
-name: Run All Benchmarks
+name: Run All Benchmarks (GCC)
 
 on:
   workflow_dispatch:

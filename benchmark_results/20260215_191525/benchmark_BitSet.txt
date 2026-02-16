@@ -28,12 +28,12 @@ Design Invariants:
 --- Set Operation ---
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet          0.47          0.48        0.02
-                 std::bitset          0.33          0.43        0.17
-       boost::dynamic_bitset          0.29          0.29        0.01
-             llvm::BitVector          0.32          0.32        0.01
-            roaring::Roaring         42.59         44.94        5.28
-               bm::bvector<>          4.64          4.47        0.25
+               fat_p::BitSet          1.28          0.92        0.41
+                 std::bitset          0.48          0.48        0.01
+       boost::dynamic_bitset          0.43          0.43        0.00
+             llvm::BitVector          0.45          0.45        0.00
+            roaring::Roaring         42.08         42.23        0.48
+               bm::bvector<>          4.14          3.54        0.74
 
 ======================================================================
   Section 2: Population Count (N=1024)
@@ -41,12 +41,12 @@ Design Invariants:
 
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet          2.46          2.47        0.02
-                 std::bitset          3.38          3.40        0.03
-       boost::dynamic_bitset         48.40         58.84       18.58
-             llvm::BitVector         15.27         16.48        3.25
-   roaring::Roaring (cached)          1.96          2.00        0.15
-               bm::bvector<>       1364.63       1387.65      124.76
+               fat_p::BitSet          0.19          0.19        0.00
+                 std::bitset          3.42          3.63        0.62
+       boost::dynamic_bitset         45.45         45.59        0.31
+             llvm::BitVector         15.30         15.37        0.17
+   roaring::Roaring (cached)          1.96          2.01        0.17
+               bm::bvector<>       1220.12       1218.56       80.18
 
 ======================================================================
   Section 3: Find Operations (N=1024, k=100)
@@ -57,22 +57,22 @@ std::bitset has NO find_first/find_next - requires O(N) scan.
 --- find_first ---
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet          0.87          0.88        0.01
-   std::bitset (manual scan)          2.84          2.85        0.02
+               fat_p::BitSet          0.87          0.87        0.00
+   std::bitset (manual scan)          1.96          2.05        0.24
        boost::dynamic_bitset          1.38          1.38        0.01
-             llvm::BitVector          1.09          1.09        0.01
+             llvm::BitVector          1.09          1.10        0.01
             roaring::Roaring          1.52          1.53        0.01
                bm::bvector<>          2.62          2.62        0.01
 
 --- Iterate All Set Bits ---
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet        296.50        298.21        3.55
-     std::bitset (O(N) scan)        525.60        526.71        2.72
-       boost::dynamic_bitset        387.80        388.42        1.29
-             llvm::BitVector        247.90        334.44      149.82
-            roaring::Roaring        425.60        427.12        4.15
-               bm::bvector<>       1215.60       1642.05      526.53
+               fat_p::BitSet        318.30        319.33        2.34
+     std::bitset (O(N) scan)        524.40        525.15        1.45
+       boost::dynamic_bitset        387.60        390.89        9.04
+             llvm::BitVector        247.80        248.35        1.31
+            roaring::Roaring        426.00        427.29        2.61
+               bm::bvector<>       1181.70       1184.01       13.86
 
 ======================================================================
   Section 3: Find Operations (N=10000, k=1000)
@@ -83,22 +83,22 @@ std::bitset has NO find_first/find_next - requires O(N) scan.
 --- find_first ---
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet          0.93          1.22        0.48
-   std::bitset (manual scan)          4.14          4.35        0.79
-       boost::dynamic_bitset          2.54          2.68        0.38
-             llvm::BitVector          1.79          1.65        0.22
-            roaring::Roaring          2.19          2.10        0.25
-               bm::bvector<>          2.62          2.70        0.14
+               fat_p::BitSet          0.87          0.87        0.01
+   std::bitset (manual scan)          3.34          3.39        0.15
+       boost::dynamic_bitset          1.38          1.38        0.01
+             llvm::BitVector          1.31          1.31        0.01
+            roaring::Roaring          1.53          1.53        0.02
+               bm::bvector<>          2.62          2.62        0.01
 
 --- Iterate All Set Bits ---
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet       3077.00       3143.89      164.98
-     std::bitset (O(N) scan)       5109.90       5501.70     1049.17
-       boost::dynamic_bitset       4569.60       5930.13     2144.30
-             llvm::BitVector       4125.20       4400.85     1580.96
-            roaring::Roaring       4667.90       5035.14      815.09
-               bm::bvector<>       3434.90       4781.29     1811.69
+               fat_p::BitSet       3278.70       3281.84       10.43
+     std::bitset (O(N) scan)       5092.20       5095.81       11.72
+       boost::dynamic_bitset       5042.60       5170.58      428.05
+             llvm::BitVector       2946.30       2947.36       20.93
+            roaring::Roaring       4226.90       5561.60     2309.85
+               bm::bvector<>       3699.60       3701.83       61.52
 
 ======================================================================
   Section 4: Sparse Iteration (N=1024, k=50)
@@ -108,10 +108,10 @@ Density: 4.88%
 
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-    fat_p::BitSet (iterator)        149.02        162.30       25.69
-     std::bitset (O(N) scan)        527.65        554.61       63.34
-            roaring::Roaring        239.78        299.68      107.84
-               bm::bvector<>       1149.38       1277.66      356.03
+    fat_p::BitSet (iterator)        160.43        160.67        0.69
+     std::bitset (O(N) scan)        526.66        549.62       52.71
+            roaring::Roaring        215.81        230.02       40.01
+               bm::bvector<>       1032.67       1089.81      127.21
 
 ======================================================================
   Section 4: Sparse Iteration (N=10000, k=100)
@@ -121,10 +121,10 @@ Density: 1.00%
 
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-    fat_p::BitSet (iterator)        328.90        346.39       55.39
-     std::bitset (O(N) scan)       6338.24       6258.03      912.24
-            roaring::Roaring        427.11        571.23      271.01
-               bm::bvector<>       1058.03       1231.22      515.37
+    fat_p::BitSet (iterator)        350.51        428.72      145.28
+     std::bitset (O(N) scan)       5103.55       5261.08      349.19
+            roaring::Roaring        457.57        484.85       84.37
+               bm::bvector<>       1121.17       1178.93       98.04
 
 ======================================================================
   Section 5: Bitwise Operations (N=1024)
@@ -133,24 +133,24 @@ Density: 1.00%
 --- AND Operation ---
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-               fat_p::BitSet          3.84          3.89        0.19
-                 std::bitset          4.56          4.56        0.01
-            roaring::Roaring        291.76        372.97      176.49
-               bm::bvector<>       2179.68       2634.84      805.84
+               fat_p::BitSet          4.38          4.41        0.10
+                 std::bitset          4.53          4.53        0.00
+            roaring::Roaring        284.45        288.88        9.56
+               bm::bvector<>       2050.24       2049.77       73.09
 
 ======================================================================
   Section 6: Range Operations (N=1024, range=100)
 ======================================================================
 
-Fat-P has native set_range. Others require loops.
+Fat-P has native setRange. Others require loops.
 
                      Library    Median(ns)      Mean(ns)     Stddev
 --------------------------------------------------------------------
-      fat_p::BitSet (native)          3.29          3.29        0.00
-          std::bitset (loop)         93.24        119.43       48.44
-    llvm::BitVector (native)        118.46        120.31        3.89
-   roaring::Roaring (native)        207.12        185.66       40.70
-      bm::bvector<> (native)        301.48        400.31      148.65
+      fat_p::BitSet (native)          4.11          4.10        0.02
+          std::bitset (loop)         91.79         91.98        0.45
+    llvm::BitVector (native)         50.93         51.09        0.24
+   roaring::Roaring (native)         89.54         90.04        1.16
+      bm::bvector<> (native)        298.42        317.96      121.19
 
 ======================================================================
   Section 7: Object Sizes (bytes)

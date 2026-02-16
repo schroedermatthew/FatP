@@ -23,7 +23,7 @@ Backend info:
 
 Contract: Measures address capture without symbol resolution
 
-captureRaw()                          0.36 us/op  (mean: 0.37, stddev: 0.00)
+captureRaw()                          0.35 us/op  (mean: 0.35, stddev: 0.00)
 
 ======================================================================
   current() - Full Capture with Symbols
@@ -31,7 +31,7 @@ captureRaw()                          0.36 us/op  (mean: 0.37, stddev: 0.00)
 
 Contract: Measures capture + symbol resolution
 
-current()                             4.26 us/op  (mean: 4.32, stddev: 0.19)
+current()                             4.35 us/op  (mean: 4.45, stddev: 0.22)
 
 ======================================================================
   Formatting - toString() and toJson()
@@ -39,8 +39,8 @@ current()                             4.26 us/op  (mean: 4.32, stddev: 0.19)
 
 Contract: Measures output formatting from symbolized trace
 
-toString()                            2.96 us/op  (mean: 2.96, stddev: 0.05)
-toJson()                              5.01 us/op  (mean: 5.06, stddev: 0.09)
+toString()                            2.96 us/op  (mean: 2.97, stddev: 0.05)
+toJson()                              4.99 us/op  (mean: 5.02, stddev: 0.06)
 
 ======================================================================
   Depth Scaling - captureRaw() at Various Stack Depths
@@ -50,10 +50,10 @@ Contract: Measures capture cost vs stack depth
 
 Depth                               Median  us/op
 --------------------------------------------------
-depth=5                               0.71  us/op
-depth=10                              1.01  us/op
-depth=20                              1.56  us/op
-depth=50                              2.01  us/op
+depth=5                               0.70  us/op
+depth=10                              0.98  us/op
+depth=20                              1.55  us/op
+depth=50                              2.03  us/op
 
 ======================================================================
   hash() - For Deduplication
@@ -61,7 +61,7 @@ depth=50                              2.01  us/op
 
 Contract: Measures hash computation for container usage
 
-hash()                                7.87 ns/op  (mean: 7.89, stddev: 0.10)
+hash()                                7.87 ns/op  (mean: 7.93, stddev: 0.18)
 
 ======================================================================
   Summary
