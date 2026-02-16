@@ -167,6 +167,7 @@ jobs:
             extra_defines: ""
             compiled_libs: ""
             system_deps: "libfmt-dev"
+            extra_link: "-lfmt"
           - name: StrongId
             src: components/StrongId/benchmarks/benchmark_StrongId.cpp
             extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/type_safe"
