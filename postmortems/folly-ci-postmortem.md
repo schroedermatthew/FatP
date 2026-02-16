@@ -72,10 +72,3 @@ Seven sequential, invisible, undocumented failures. An AI with full log parsing 
 
 This is exactly the kind of dependency hell that FatP's zero-dependency design philosophy exists to avoid.
 
-## Current Status
-
-GCC-14 cache: **fully green** — Folly (1158 headers, 295 static libs), Boost (15900 headers, 10 libs), Abseil (374 headers, 92 libs), EASTL (283 headers, 1 lib), LLVM (2 libs, headers under investigation).
-
-Clang-17 cache: awaiting rebuild on ubuntu-24.04.
-
-LLVM headers: showing 0 in verify despite the copy logic appearing correct. Diagnostic logging added to the next run to trace the actual directory structure on the GitHub runner.
