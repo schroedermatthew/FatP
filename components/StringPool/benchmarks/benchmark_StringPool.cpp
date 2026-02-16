@@ -1,60 +1,3 @@
-/**
- * @file benchmark_StringPool.cpp
- * @brief FAT-P StringPool benchmarks vs industry competitors.
- *
- * Architecture: Round-robin execution with randomized order per run.
- * This ensures all libraries observe the same distribution of machine states,
- * eliminating drift-induced unfairness.
- *
- * Design Invariants:
- *   1. Each measured run executes exactly one timed iteration per library.
- *   2. Library execution order is randomized per run.
- *   3. Setup and teardown occur outside timed regions.
- *   4. All libraries observe the same distribution of machine states.
- *   5. Medians are the primary reported statistic.
- *
- * Fat-P Libraries:
- *   - fat_p::StringPool<SingleThreadedPolicy>: Zero-overhead single-threaded
- *   - fat_p::StringPool<SharedMutexPolicy>: Concurrent read-optimized
- *
- * Competitor Libraries (conditioned on availability):
- *   TIER 1 - Direct competitors (string interning):
- *     - boost::flyweight: Boost.Flyweight string interning
- *   TIER 2 - Standard library baselines:
- *     - std::unordered_set<std::string>: Hash set dedup (no pointer stability guarantee)
- *     - std::unordered_map<std::string, const char*>: Manual intern pattern
- *   TIER 3 - Baseline:
- *     - No interning: Raw string copies (shows what interning saves)
- *
- * Build (minimal):
- *   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_StringPool.cpp -o bench_stringpool
- *
- * Build (MSVC):
- *   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_StringPool.cpp /Fe:bench_stringpool.exe
- *
- * Build (with competitors):
- *   g++ -std=c++20 -O3 -DNDEBUG -march=native \
- *       -I/path/to/boost \
- *       benchmark_StringPool.cpp -o bench_stringpool
- *
- * Environment Variables (all optional):
- *   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)
- *   FATP_BENCH_BATCHES       - Measured batches (default: 50, Windows: 15)
- *   FATP_BENCH_SEED          - RNG seed (default: 12345)
- *   FATP_BENCH_TARGET_WORK   - Operations per library iteration (default: 1000000)
- *   FATP_BENCH_MIN_BATCH_MS  - Min batch duration (default: 50)
- *   FATP_BENCH_VERBOSE_STATS - Print extra statistics (default: 0)
- *   FATP_BENCH_OUTPUT_CSV    - CSV output path (default: disabled)
- *   FATP_BENCH_OUTPUT_JSON   - JSON output path (default: disabled)
- *   FATP_BENCH_NO_SCOPE      - Disable Windows priority/affinity changes
- *   FATP_BENCH_NO_STABILIZE  - Disable CPU stabilization wait
- *   FATP_BENCH_NO_COOLDOWN   - Disable cool-down sleeps
- *
- * Run:
- *   ./bench_stringpool
- *   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_stringpool
- */
-
 /*
 FATP_META:
   meta_version: 1
@@ -63,7 +6,7 @@ FATP_META:
   path: components/StringPool/benchmarks/benchmark_StringPool.cpp
   layer: Testing
   namespace: fat_p
-  summary: Comprehensive benchmarks for StringPool vs industry competitors.
+  summary: "Benchmarks for StringPool."
   api_stability: candidate
   related:
     docs_search: "StringPool"
@@ -84,27 +27,72 @@ FATP_META:
     mode: manual
 */
 
+// benchmark_StringPool.cpp
+//
+// FAT-P StringPool benchmarks using unified FatPBenchmarkRunner infrastructure.
+//
+// Architecture: Round-robin execution with randomized order per run.
+// This ensures all libraries observe the same distribution of machine states,
+// eliminating drift-induced unfairness.
+//
+// Design Invariants:
+//   1. Each measured run executes exactly one timed iteration per library.
+//   2. Library execution order is randomized per run.
+//   3. Setup and teardown occur outside timed regions.
+//   4. All libraries observe the same distribution of machine states.
+//   5. Medians are the primary reported statistic.
+//
+// Sections:
+//   1. Intern throughput - unique strings (cold insert, 100% miss)
+//   2. Intern throughput - high duplication (90% hit rate)
+//   3. Lookup throughput (find hit/miss)
+//   4. Pointer comparison vs string comparison
+//   5. String length impact
+//   6. Memory efficiency
+//
+// Build:
+//   g++ -std=c++20 -O3 -DNDEBUG -march=native benchmark_StringPool.cpp -o bench_stringpool
+//   cl /std:c++20 /O2 /DNDEBUG /EHsc benchmark_StringPool.cpp /link advapi32.lib
+//
+// Environment Variables (all optional):
+//   FATP_BENCH_WARMUP_RUNS   - Warmup iterations (default: 3)
+//   FATP_BENCH_BATCHES       - Measured batches (default: 50, Windows: 15)
+//   FATP_BENCH_SEED          - RNG seed (default: 12345)
+//   FATP_BENCH_MIN_BATCH_MS  - Min batch duration (default: 50)
+//   FATP_BENCH_VERBOSE_STATS - Print extra statistics (default: 0)
+//   FATP_BENCH_OUTPUT_CSV    - CSV output path (default: disabled)
+//   FATP_BENCH_OUTPUT_JSON   - JSON output path (default: disabled)
+//   FATP_BENCH_NO_SCOPE      - Disable Windows priority/affinity changes
+//   FATP_BENCH_NO_STABILIZE  - Disable CPU stabilization wait
+//   FATP_BENCH_NO_COOLDOWN   - Disable cool-down sleeps
+//
+// Run:
+//   ./bench_stringpool
+//   FATP_BENCH_OUTPUT_CSV=results.csv ./bench_stringpool
+
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
+#include <numeric>
 #include <random>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
-#include "CppFeatureDetection.h"
-#include "FatPBenchmarkRunner.h"
 #include "FatPBenchmarkHeader.h"
+#include "FatPBenchmarkRunner.h"
 #include "StringPool.h"
 
-// ============================================================================
-// Library Detection
-// ============================================================================
+#pragma warning(push, 0)
 
-// boost::flyweight
+// boost::flyweight - direct competitor for string interning
 #if __has_include(<boost/flyweight.hpp>)
 #include <boost/flyweight.hpp>
 #include <boost/flyweight/no_tracking.hpp>
@@ -114,31 +102,218 @@ FATP_META:
 #define HAS_BOOST_FLYWEIGHT 0
 #endif
 
-namespace
-{
+#pragma warning(pop)
 
-using namespace fat_p::bench;
+// ============================================================================
+// Global Configuration
+// ============================================================================
+
+static fat_p::bench::BenchConfig g_config;
+
+static size_t WARMUP_RUNS()
+{
+    return g_config.warmupRuns;
+}
+static size_t MEASURED_RUNS()
+{
+    return g_config.measuredRuns;
+}
+
+// ============================================================================
+// Benchmark Environment
+// ============================================================================
+
+using fat_p::bench::BenchmarkScope;
+
+// ============================================================================
+// CPU Frequency Monitoring
+// ============================================================================
+
+void print_cpu_context(const char* label = nullptr)
+{
+    fat_p::bench::print_cpu_context(std::cout, label);
+}
+
+// ============================================================================
+// Timer
+// ============================================================================
+
+struct Timer
+{
+    using clock = fat_p::bench::BenchClock;
+    clock::time_point t0;
+
+    void start()
+    {
+        t0 = clock::now();
+    }
+
+    double elapsed_ns() const
+    {
+        auto t1 = clock::now();
+        return std::chrono::duration<double, std::nano>(t1 - t0).count();
+    }
+};
+
+static inline double ns_per_op(double elapsed_ns, size_t ops)
+{
+    return (ops == 0) ? 0.0 : (elapsed_ns / static_cast<double>(ops));
+}
+
+// Prevent dead code elimination
+static volatile int64_t benchmark_sink = 0;
+
+// ============================================================================
+// Cooling Delays
+// ============================================================================
+
+#if defined(_WIN32) || defined(_WIN64)
+static constexpr int COOLING_DELAY_SECTION_MS = 2000;
+static constexpr int COOLING_DELAY_SIZE_MS = 1000;
+static constexpr int COOLING_DELAY_CASE_MS = 300;
+#else
+static constexpr int COOLING_DELAY_SECTION_MS = 1000;
+static constexpr int COOLING_DELAY_SIZE_MS = 500;
+static constexpr int COOLING_DELAY_CASE_MS = 200;
+#endif
+
+static inline void cooling_delay(int ms, const char* reason = nullptr)
+{
+    if (g_config.noCooldown)
+    {
+        return;
+    }
+
+    if (reason)
+    {
+        std::cout << "[Cooling: " << reason << "]" << std::flush;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+
+    if (reason)
+    {
+        auto info = fat_p::bench::capture_cpu_frequency();
+        if (info.has_reliable_detection())
+        {
+            std::cout << " [Ready: " << static_cast<int>(info.mCurrentFreqMHz) << " MHz]\n";
+        }
+        else
+        {
+            std::cout << " [Ready]\n";
+        }
+    }
+}
+
+// ============================================================================
+// Statistics
+// ============================================================================
+
+struct Statistics
+{
+    double median = 0;
+    double mean = 0;
+    double stddev = 0;
+    double ci95_low = 0;
+    double ci95_high = 0;
+    double min = 0;
+    double max = 0;
+
+    static Statistics compute(std::vector<double> samples)
+    {
+        Statistics s{};
+        if (samples.empty())
+        {
+            return s;
+        }
+
+        std::sort(samples.begin(), samples.end());
+        size_t n = samples.size();
+
+        s.min = samples.front();
+        s.max = samples.back();
+
+        // Median
+        if (n % 2 == 1)
+        {
+            s.median = samples[n / 2];
+        }
+        else
+        {
+            s.median = 0.5 * (samples[n / 2 - 1] + samples[n / 2]);
+        }
+
+        // Mean
+        double sum = std::accumulate(samples.begin(), samples.end(), 0.0);
+        s.mean = sum / static_cast<double>(n);
+
+        // Stddev (sample)
+        if (n > 1)
+        {
+            double acc = 0.0;
+            for (double x : samples)
+            {
+                double d = x - s.mean;
+                acc += d * d;
+            }
+            s.stddev = std::sqrt(acc / static_cast<double>(n - 1));
+
+            double se = s.stddev / std::sqrt(static_cast<double>(n));
+            constexpr double z = 1.96;
+            s.ci95_low = s.mean - z * se;
+            s.ci95_high = s.mean + z * se;
+        }
+
+        return s;
+    }
+};
+
+// ============================================================================
+// Result Storage + Output
+// ============================================================================
+
+struct BenchResult
+{
+    std::string library;
+    std::vector<double> samples;
+};
+
+static void print_results(const std::vector<BenchResult>& results)
+{
+    std::cout << std::fixed << std::setprecision(2);
+    for (const auto& r : results)
+    {
+        auto s = Statistics::compute(r.samples);
+        std::cout << "    " << std::setw(28) << r.library << ": "
+                  << std::setw(8) << s.median << " ns/op "
+                  << "(+/-" << std::setw(6) << s.stddev
+                  << ", CI:[" << s.ci95_low << "," << s.ci95_high << "])\n";
+    }
+}
+
+static void print_speedup(const char* label, double baseline_median, double test_median)
+{
+    if (test_median <= 0.0 || baseline_median <= 0.0)
+    {
+        return;
+    }
+    double speedup = baseline_median / test_median;
+    const char* verdict = (speedup > 1.05) ? "FASTER" : (speedup < 0.95) ? "SLOWER" : "SAME";
+    std::cout << "    -> " << label << ": " << std::fixed << std::setprecision(2)
+              << speedup << "x " << verdict << " than baseline\n";
+}
 
 // ============================================================================
 // Data Generation
 // ============================================================================
 
-/**
- * @brief Generate a corpus of unique strings with controlled characteristics.
- *
- * @param n_unique Number of unique strings to generate
- * @param min_len Minimum string length
- * @param max_len Maximum string length
- * @param seed RNG seed for reproducibility
- * @return Vector of unique strings
- */
-std::vector<std::string> generate_unique_strings(std::size_t n_unique,
-                                                  std::size_t min_len,
-                                                  std::size_t max_len,
-                                                  std::uint64_t seed)
+static std::vector<std::string> generate_unique_strings(size_t n_unique,
+                                                         size_t min_len,
+                                                         size_t max_len,
+                                                         uint64_t seed)
 {
     std::mt19937_64 rng(seed);
-    std::uniform_int_distribution<std::size_t> len_dist(min_len, max_len);
+    std::uniform_int_distribution<size_t> len_dist(min_len, max_len);
     std::uniform_int_distribution<int> char_dist('a', 'z');
 
     std::unordered_set<std::string> seen;
@@ -147,7 +322,7 @@ std::vector<std::string> generate_unique_strings(std::size_t n_unique,
 
     while (result.size() < n_unique)
     {
-        std::size_t len = len_dist(rng);
+        size_t len = len_dist(rng);
         std::string s(len, ' ');
         for (auto& c : s)
         {
@@ -162,651 +337,1083 @@ std::vector<std::string> generate_unique_strings(std::size_t n_unique,
     return result;
 }
 
-/**
- * @brief Build an intern workload: N operations with a given duplication ratio.
- *
- * @param unique_strings The corpus of unique strings
- * @param n_ops Total number of intern operations
- * @param dup_ratio Fraction that should be duplicates (0.0 = all unique, 0.9 = 90% dups)
- * @param seed RNG seed
- * @return Vector of string_views into the corpus
- */
-std::vector<std::size_t> generate_workload_indices(std::size_t n_unique,
-                                                    std::size_t n_ops,
-                                                    double dup_ratio,
-                                                    std::uint64_t seed)
+/// Build workload indices with a controlled duplication ratio.
+/// The unique portion is computed from n_unique (not n_ops) so that
+/// varying dup_ratio produces genuinely different unique counts.
+static std::vector<size_t> generate_workload_indices(size_t n_unique,
+                                                      size_t n_ops,
+                                                      double dup_ratio,
+                                                      uint64_t seed)
 {
     std::mt19937_64 rng(seed);
-    std::vector<std::size_t> indices;
+    std::vector<size_t> indices;
     indices.reserve(n_ops);
 
-    // First pass: insert unique strings up to the unique portion
-    std::size_t n_unique_ops = static_cast<std::size_t>(n_ops * (1.0 - dup_ratio));
-    if (n_unique_ops > n_unique) n_unique_ops = n_unique;
-
-    for (std::size_t i = 0; i < n_unique_ops; ++i)
+    size_t n_unique_used = static_cast<size_t>(
+        static_cast<double>(n_unique) * (1.0 - dup_ratio));
+    if (n_unique_used < 1 && n_unique > 0)
     {
-        indices.push_back(i % n_unique);
+        n_unique_used = 1;
+    }
+    if (n_unique_used > n_unique)
+    {
+        n_unique_used = n_unique;
     }
 
-    // Remaining are duplicates drawn from already-seen strings
-    std::uniform_int_distribution<std::size_t> dup_dist(0, n_unique_ops > 0 ? n_unique_ops - 1 : 0);
-    for (std::size_t i = n_unique_ops; i < n_ops; ++i)
+    // First: insert each unique string once
+    for (size_t i = 0; i < n_unique_used && indices.size() < n_ops; ++i)
     {
-        indices.push_back(dup_dist(rng));
+        indices.push_back(i);
     }
 
-    // Shuffle to avoid sequential patterns
+    // Fill remainder with random picks from the unique portion (duplicates)
+    if (n_unique_used > 0)
+    {
+        std::uniform_int_distribution<size_t> dup_dist(0, n_unique_used - 1);
+        while (indices.size() < n_ops)
+        {
+            indices.push_back(dup_dist(rng));
+        }
+    }
+
     std::shuffle(indices.begin(), indices.end(), rng);
     return indices;
 }
 
-/**
- * @brief Generate strings that will NOT be found in the pool (for miss benchmarks).
- */
-std::vector<std::string> generate_miss_strings(std::size_t n,
-                                                std::size_t min_len,
-                                                std::size_t max_len,
-                                                std::uint64_t seed)
-{
-    // Use a different seed range to ensure no overlap
-    return generate_unique_strings(n, min_len, max_len, seed + 999999);
-}
-
 // ============================================================================
-// Benchmark Helpers
+// Shared Corpus (generated once, used by all sections)
 // ============================================================================
 
-template <typename Func>
-Statistics run_benchmark(const char* /*name*/, std::size_t ops_per_batch, const BenchConfig& config, Func&& func)
+static constexpr size_t N_UNIQUE_SMALL  = 1000;
+static constexpr size_t N_UNIQUE_MEDIUM = 10000;
+static constexpr size_t N_UNIQUE_LARGE  = 100000;
+
+struct SharedCorpus
 {
-    // Warmup
-    for (std::size_t i = 0; i < config.warmupRuns; ++i)
+    std::vector<std::string> short_strings;  // 4-15 chars (SSO range)
+    std::vector<std::string> medium_strings; // 20-50 chars
+    std::vector<std::string> long_strings;   // 100-200 chars
+    std::vector<std::string> miss_strings;   // guaranteed not in any pool
+
+    size_t n_ops = 100000;
+
+    void generate(uint64_t seed, size_t target_ops)
     {
-        func();
+        n_ops = target_ops;
+        short_strings  = generate_unique_strings(N_UNIQUE_LARGE,  4, 15,  seed);
+        medium_strings = generate_unique_strings(N_UNIQUE_LARGE,  20, 50, seed + 1);
+        long_strings   = generate_unique_strings(N_UNIQUE_MEDIUM, 100, 200, seed + 2);
+        miss_strings   = generate_unique_strings(n_ops, 4, 15, seed + 999999);
+    }
+};
+
+static SharedCorpus g_corpus;
+
+// ============================================================================
+// Intern Adapter Interface
+//
+// Each adapter wraps a different string interning implementation.
+// Modeled after IVectorAdapter (SmallVector) / IMapAdapter (FlatMapSet).
+// ============================================================================
+
+struct IInternAdapter
+{
+    virtual ~IInternAdapter() = default;
+
+    virtual const char* name() const = 0;
+
+    virtual void setup(size_t hint) = 0;
+    virtual void teardown() = 0;
+
+    virtual size_t intern_unique(const std::vector<std::string>& corpus, size_t N) = 0;
+    virtual size_t intern_dup(const std::vector<std::string>& corpus,
+                              const std::vector<size_t>& indices) = 0;
+};
+
+// ============================================================================
+// fat_p::StringPool<SingleThreadedPolicy> Adapter
+// ============================================================================
+
+class FatpSTAdapter final : public IInternAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "fat_p::StringPool<ST>";
     }
 
-    // Measured runs
-    std::vector<double> samples;
-    samples.reserve(config.measuredRuns);
+    void setup(size_t) override {}
+    void teardown() override {}
 
-    for (std::size_t run = 0; run < config.measuredRuns; ++run)
+    size_t intern_unique(const std::vector<std::string>& corpus, size_t N) override
     {
-        Timer t;
-        t.start();
-        func();
-        double elapsed = t.elapsedNs();
-        samples.push_back(elapsed / static_cast<double>(ops_per_batch));
+        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
+        pool.reserve(N);
+        for (size_t i = 0; i < N; ++i)
+        {
+            auto ptr = pool.intern(corpus[i]);
+            benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+        }
+        return N;
     }
 
-    return Statistics::compute(samples);
-}
-
-void print_stats(const char* name, const Statistics& s)
-{
-    std::cout << std::fixed << std::setprecision(2);
-    std::cout << "  " << std::setw(30) << std::left << name << std::setw(10) << s.median << " ns"
-              << "  (mean: " << s.mean << ", stddev: " << s.stddev << ")"
-              << "  CI95: [" << s.ci95Low << ", " << s.ci95High << "]\n";
-}
-
-void print_speedup(const char* name, double baseline_median, double test_median)
-{
-    double speedup = baseline_median / test_median;
-    const char* verdict = (speedup > 1.05) ? "FASTER" : (speedup < 0.95) ? "SLOWER" : "SAME";
-    std::cout << "    -> " << name << ": " << std::fixed << std::setprecision(2) << speedup << "x " << verdict
-              << " than baseline\n";
-}
+    size_t intern_dup(const std::vector<std::string>& corpus,
+                      const std::vector<size_t>& indices) override
+    {
+        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
+        pool.reserve(N_UNIQUE_SMALL);
+        size_t n = indices.size();
+        for (size_t i = 0; i < n; ++i)
+        {
+            auto ptr = pool.intern(corpus[indices[i]]);
+            benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+        }
+        return n;
+    }
+};
 
 // ============================================================================
-// Correctness Checks (outside timed regions)
+// fat_p::StringPool<SharedMutexPolicy> Adapter
 // ============================================================================
 
-bool verify_intern_correctness()
+class FatpSMAdapter final : public IInternAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "fat_p::StringPool<SM>";
+    }
+
+    void setup(size_t) override {}
+    void teardown() override {}
+
+    size_t intern_unique(const std::vector<std::string>& corpus, size_t N) override
+    {
+        fat_p::StringPool<fat_p::SharedMutexPolicy> pool;
+        pool.reserve(N);
+        for (size_t i = 0; i < N; ++i)
+        {
+            auto ptr = pool.intern(corpus[i]);
+            benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+        }
+        return N;
+    }
+
+    size_t intern_dup(const std::vector<std::string>& corpus,
+                      const std::vector<size_t>& indices) override
+    {
+        fat_p::StringPool<fat_p::SharedMutexPolicy> pool;
+        pool.reserve(N_UNIQUE_SMALL);
+        size_t n = indices.size();
+        for (size_t i = 0; i < n; ++i)
+        {
+            auto ptr = pool.intern(corpus[indices[i]]);
+            benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+        }
+        return n;
+    }
+};
+
+// ============================================================================
+// std::unordered_set<string> Adapter (manual interning baseline)
+// ============================================================================
+
+class UnorderedSetAdapter final : public IInternAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "std::unordered_set";
+    }
+
+    void setup(size_t) override {}
+    void teardown() override {}
+
+    size_t intern_unique(const std::vector<std::string>& corpus, size_t N) override
+    {
+        std::unordered_set<std::string> set;
+        set.reserve(N);
+        for (size_t i = 0; i < N; ++i)
+        {
+            auto [it, inserted] = set.insert(corpus[i]);
+            benchmark_sink += reinterpret_cast<intptr_t>(it->c_str());
+        }
+        return N;
+    }
+
+    size_t intern_dup(const std::vector<std::string>& corpus,
+                      const std::vector<size_t>& indices) override
+    {
+        std::unordered_set<std::string> set;
+        set.reserve(N_UNIQUE_SMALL);
+        size_t n = indices.size();
+        for (size_t i = 0; i < n; ++i)
+        {
+            auto [it, ins] = set.insert(corpus[indices[i]]);
+            benchmark_sink += reinterpret_cast<intptr_t>(it->c_str());
+        }
+        return n;
+    }
+};
+
+// ============================================================================
+// std::unordered_map<string, const char*> Adapter
+// ============================================================================
+
+class UnorderedMapAdapter final : public IInternAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "std::unordered_map";
+    }
+
+    void setup(size_t) override {}
+    void teardown() override {}
+
+    size_t intern_unique(const std::vector<std::string>& corpus, size_t N) override
+    {
+        std::unordered_map<std::string, const char*> map;
+        map.reserve(N);
+        for (size_t i = 0; i < N; ++i)
+        {
+            auto [it, inserted] = map.try_emplace(corpus[i], nullptr);
+            if (inserted)
+            {
+                it->second = it->first.c_str();
+            }
+            benchmark_sink += reinterpret_cast<intptr_t>(it->second);
+        }
+        return N;
+    }
+
+    size_t intern_dup(const std::vector<std::string>& corpus,
+                      const std::vector<size_t>& indices) override
+    {
+        std::unordered_map<std::string, const char*> map;
+        map.reserve(N_UNIQUE_SMALL);
+        size_t n = indices.size();
+        for (size_t i = 0; i < n; ++i)
+        {
+            auto [it, ins] = map.try_emplace(corpus[indices[i]], nullptr);
+            if (ins)
+            {
+                it->second = it->first.c_str();
+            }
+            benchmark_sink += reinterpret_cast<intptr_t>(it->second);
+        }
+        return n;
+    }
+};
+
+// ============================================================================
+// boost::flyweight Adapter
+// ============================================================================
+
+#if HAS_BOOST_FLYWEIGHT
+class BoostFlyweightAdapter final : public IInternAdapter
+{
+public:
+    const char* name() const override
+    {
+        return "boost::flyweight";
+    }
+
+    void setup(size_t) override {}
+    void teardown() override {}
+
+    size_t intern_unique(const std::vector<std::string>& corpus, size_t N) override
+    {
+        std::vector<boost::flyweight<std::string>> storage;
+        storage.reserve(N);
+        for (size_t i = 0; i < N; ++i)
+        {
+            storage.emplace_back(corpus[i]);
+            benchmark_sink += reinterpret_cast<intptr_t>(storage.back().get().c_str());
+        }
+        return N;
+    }
+
+    size_t intern_dup(const std::vector<std::string>& corpus,
+                      const std::vector<size_t>& indices) override
+    {
+        std::vector<boost::flyweight<std::string>> storage;
+        storage.reserve(indices.size());
+        size_t n = indices.size();
+        for (size_t i = 0; i < n; ++i)
+        {
+            storage.emplace_back(corpus[indices[i]]);
+            benchmark_sink += reinterpret_cast<intptr_t>(storage.back().get().c_str());
+        }
+        return n;
+    }
+};
+#endif
+
+// ============================================================================
+// Correctness Checks (always outside timed regions)
+// ============================================================================
+
+static bool verify_intern_correctness()
 {
     fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
     const char* a = pool.intern("hello");
     const char* b = pool.intern("hello");
     const char* c = pool.intern("world");
 
-    if (a != b) return false;        // Same string -> same pointer
-    if (a == c) return false;        // Different string -> different pointer
-    if (pool.size() != 2) return false;
-    if (!pool.contains("hello")) return false;
-    if (pool.contains("missing")) return false;
-    return true;
-}
-
-bool verify_competitor_equivalence(const std::vector<std::string>& corpus)
-{
-    // Verify that interning N strings produces the right unique count
-    fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-    for (const auto& s : corpus)
+    bool ok = true;
+    if (a != b)
     {
-        pool.intern(s);
+        std::cerr << "FAIL: intern(\"hello\") returned different pointers\n";
+        ok = false;
     }
-    return pool.size() == corpus.size();
+    if (a == c)
+    {
+        std::cerr << "FAIL: intern(\"hello\") == intern(\"world\")\n";
+        ok = false;
+    }
+    if (pool.size() != 2)
+    {
+        std::cerr << "FAIL: pool.size() = " << pool.size() << ", expected 2\n";
+        ok = false;
+    }
+    if (!pool.contains("hello"))
+    {
+        std::cerr << "FAIL: pool.contains(\"hello\") returned false\n";
+        ok = false;
+    }
+    if (pool.contains("missing"))
+    {
+        std::cerr << "FAIL: pool.contains(\"missing\") returned true\n";
+        ok = false;
+    }
+
+    const char* f = pool.find("hello");
+    if (f != a)
+    {
+        std::cerr << "FAIL: pool.find(\"hello\") != intern result\n";
+        ok = false;
+    }
+    if (pool.find("missing") != nullptr)
+    {
+        std::cerr << "FAIL: pool.find(\"missing\") != nullptr\n";
+        ok = false;
+    }
+
+    return ok;
 }
 
 // ============================================================================
-// Main
+// Helper: build adapter list for intern benchmarks
 // ============================================================================
 
-} // anonymous namespace
-
-int main()
+static std::vector<std::unique_ptr<IInternAdapter>> make_intern_adapters()
 {
-    using namespace fat_p::bench;
+    std::vector<std::unique_ptr<IInternAdapter>> adapters;
+    adapters.push_back(std::make_unique<FatpSTAdapter>());
+    adapters.push_back(std::make_unique<FatpSMAdapter>());
+    adapters.push_back(std::make_unique<UnorderedSetAdapter>());
+    adapters.push_back(std::make_unique<UnorderedMapAdapter>());
+#if HAS_BOOST_FLYWEIGHT
+    adapters.push_back(std::make_unique<BoostFlyweightAdapter>());
+#endif
+    return adapters;
+}
 
-    // Load configuration from environment
-    BenchConfig config = BenchConfig::fromEnv();
+// ============================================================================
+// Section 1: Intern Throughput - Unique Strings
+// ============================================================================
 
-    // Apply benchmark scope (Windows priority/affinity)
-    BenchmarkScope scope(!config.noScope);
+void benchmark_intern_unique()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 1: Intern Throughput - Unique Strings\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Contract: Insert N unique strings into empty pool/set. Measures cold insertion.\n";
+    std::cout << "  No string appears twice. This is the worst case for interning (100% miss).\n\n";
+
+    print_cpu_context("Section start");
+
+    auto adapters = make_intern_adapters();
+    std::mt19937 rng(42);
+
+    for (size_t N : {N_UNIQUE_SMALL, N_UNIQUE_MEDIUM, N_UNIQUE_LARGE})
+    {
+        std::cout << "\n  --- N = " << N << " unique strings (short, 4-15 chars) ---\n\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        std::vector<BenchResult> results;
+        for (auto& a : adapters)
+        {
+            results.push_back({a->name(), {}});
+        }
+
+        // Warmup (round-robin with randomized order)
+        for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+        {
+            std::vector<size_t> order(adapters.size());
+            std::iota(order.begin(), order.end(), 0);
+            std::shuffle(order.begin(), order.end(), rng);
+
+            for (size_t idx : order)
+            {
+                adapters[idx]->setup(N);
+                adapters[idx]->intern_unique(g_corpus.short_strings, N);
+                adapters[idx]->teardown();
+            }
+        }
+
+        // Measured runs (round-robin with randomized order)
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            std::vector<size_t> order(adapters.size());
+            std::iota(order.begin(), order.end(), 0);
+            std::shuffle(order.begin(), order.end(), rng);
+
+            for (size_t idx : order)
+            {
+                adapters[idx]->setup(N);
+
+                Timer t;
+                t.start();
+                size_t ops = adapters[idx]->intern_unique(g_corpus.short_strings, N);
+                double elapsed = t.elapsed_ns();
+
+                adapters[idx]->teardown();
+
+                results[idx].samples.push_back(ns_per_op(elapsed, ops));
+            }
+        }
+
+        print_results(results);
+
+        auto s_fatp = Statistics::compute(results[0].samples);
+        auto s_uset = Statistics::compute(results[2].samples);
+        print_speedup("fat_p<ST> vs std::uset", s_uset.median, s_fatp.median);
+    }
+}
+
+// ============================================================================
+// Section 2: Intern Throughput - High Duplication (90% Hit Rate)
+// ============================================================================
+
+void benchmark_intern_duplicate()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 2: Intern Throughput - High Duplication (90% Hit Rate)\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Contract: Intern N strings with 90% duplicates. This is the common case:\n";
+    std::cout << "  config keys, JSON field names, log messages with repeated patterns.\n";
+    std::cout << "  Uses " << N_UNIQUE_SMALL << " unique strings, " << g_corpus.n_ops << " total ops.\n\n";
+
+    print_cpu_context("Section start");
+    cooling_delay(COOLING_DELAY_SECTION_MS, "section transition");
+
+    auto adapters = make_intern_adapters();
+    std::mt19937 rng(43);
+
+    auto dup_indices = generate_workload_indices(
+        N_UNIQUE_SMALL, g_corpus.n_ops, 0.9, g_config.seed + 50);
+
+    std::vector<BenchResult> results;
+    for (auto& a : adapters)
+    {
+        results.push_back({a->name(), {}});
+    }
+
+    // Warmup
+    for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+    {
+        std::vector<size_t> order(adapters.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::shuffle(order.begin(), order.end(), rng);
+
+        for (size_t idx : order)
+        {
+            adapters[idx]->setup(g_corpus.n_ops);
+            adapters[idx]->intern_dup(g_corpus.short_strings, dup_indices);
+            adapters[idx]->teardown();
+        }
+    }
+
+    // Measured runs (round-robin)
+    for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+    {
+        std::vector<size_t> order(adapters.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::shuffle(order.begin(), order.end(), rng);
+
+        for (size_t idx : order)
+        {
+            adapters[idx]->setup(g_corpus.n_ops);
+
+            Timer t;
+            t.start();
+            size_t ops = adapters[idx]->intern_dup(g_corpus.short_strings, dup_indices);
+            double elapsed = t.elapsed_ns();
+
+            adapters[idx]->teardown();
+
+            results[idx].samples.push_back(ns_per_op(elapsed, ops));
+        }
+    }
+
+    print_results(results);
+
+    auto s_fatp = Statistics::compute(results[0].samples);
+    auto s_uset = Statistics::compute(results[2].samples);
+    print_speedup("fat_p<ST> vs std::uset", s_uset.median, s_fatp.median);
+}
+
+// ============================================================================
+// Section 3: Lookup Throughput
+// ============================================================================
+
+void benchmark_lookup()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 3: Lookup Throughput\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Contract: Look up strings in a pre-populated pool. Tests find() performance\n";
+    std::cout << "  for both hits (string exists) and misses (string not in pool).\n\n";
+
+    print_cpu_context("Section start");
+    cooling_delay(COOLING_DELAY_SECTION_MS, "section transition");
+
+    const size_t POOL_SIZE = N_UNIQUE_MEDIUM;
+    const size_t LOOKUP_OPS = g_corpus.n_ops;
+
+    // Pre-populate pools (outside timed region)
+    fat_p::StringPool<fat_p::SingleThreadedPolicy> pool_fatp;
+    pool_fatp.reserve(POOL_SIZE);
+    std::unordered_set<std::string> pool_uset;
+    pool_uset.reserve(POOL_SIZE);
+    std::unordered_map<std::string, const char*> pool_umap;
+    pool_umap.reserve(POOL_SIZE);
+
+    for (size_t i = 0; i < POOL_SIZE; ++i)
+    {
+        pool_fatp.intern(g_corpus.short_strings[i]);
+        pool_uset.insert(g_corpus.short_strings[i]);
+        auto [it, ins] = pool_umap.try_emplace(g_corpus.short_strings[i], nullptr);
+        if (ins)
+        {
+            it->second = it->first.c_str();
+        }
+    }
+
+    // Lookup indices (random from pool)
+    std::mt19937_64 idx_rng(g_config.seed + 100);
+    std::uniform_int_distribution<size_t> hit_dist(0, POOL_SIZE - 1);
+    std::vector<size_t> hit_indices(LOOKUP_OPS);
+    for (auto& idx : hit_indices)
+    {
+        idx = hit_dist(idx_rng);
+    }
+
+    // === Lookup Hit ===
+    {
+        std::cout << "  --- Lookup Hit (N = " << LOOKUP_OPS
+                  << " ops, pool size = " << POOL_SIZE << ") ---\n\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_CASE_MS, nullptr);
+
+        // Use lambda-based libs (pools are pre-populated, no adapter teardown needed)
+        struct Lib { const char* nm; std::function<size_t()> fn; };
+
+        std::vector<Lib> libs;
+        libs.push_back({"fat_p::StringPool find", [&]() -> size_t {
+            size_t found = 0;
+            for (size_t i = 0; i < LOOKUP_OPS; ++i)
+            {
+                auto ptr = pool_fatp.find(g_corpus.short_strings[hit_indices[i]]);
+                if (ptr) ++found;
+                benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+            }
+            return LOOKUP_OPS;
+        }});
+        libs.push_back({"std::unordered_set find", [&]() -> size_t {
+            size_t found = 0;
+            for (size_t i = 0; i < LOOKUP_OPS; ++i)
+            {
+                auto it = pool_uset.find(g_corpus.short_strings[hit_indices[i]]);
+                if (it != pool_uset.end()) ++found;
+                benchmark_sink += static_cast<int64_t>(found);
+            }
+            return LOOKUP_OPS;
+        }});
+        libs.push_back({"std::unordered_map find", [&]() -> size_t {
+            size_t found = 0;
+            for (size_t i = 0; i < LOOKUP_OPS; ++i)
+            {
+                auto it = pool_umap.find(g_corpus.short_strings[hit_indices[i]]);
+                if (it != pool_umap.end()) ++found;
+                benchmark_sink += static_cast<int64_t>(found);
+            }
+            return LOOKUP_OPS;
+        }});
+
+        std::vector<BenchResult> results;
+        for (auto& l : libs)
+        {
+            results.push_back({l.nm, {}});
+        }
+
+        std::vector<size_t> order(libs.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::mt19937 shuffle_rng(44);
+
+        for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+        {
+            std::shuffle(order.begin(), order.end(), shuffle_rng);
+            for (size_t idx : order) { libs[idx].fn(); }
+        }
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            std::shuffle(order.begin(), order.end(), shuffle_rng);
+            for (size_t idx : order)
+            {
+                Timer t;
+                t.start();
+                size_t ops = libs[idx].fn();
+                double elapsed = t.elapsed_ns();
+                results[idx].samples.push_back(ns_per_op(elapsed, ops));
+            }
+        }
+
+        print_results(results);
+        auto s0 = Statistics::compute(results[0].samples);
+        auto s1 = Statistics::compute(results[1].samples);
+        print_speedup("fat_p vs std::uset", s1.median, s0.median);
+    }
+
+    // === Lookup Miss ===
+    {
+        std::cout << "\n  --- Lookup Miss (N = " << LOOKUP_OPS
+                  << " ops, pool size = " << POOL_SIZE << ") ---\n\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_CASE_MS, nullptr);
+
+        struct Lib { const char* nm; std::function<size_t()> fn; };
+
+        std::vector<Lib> libs;
+        libs.push_back({"fat_p::StringPool find", [&]() -> size_t {
+            size_t found = 0;
+            for (size_t i = 0; i < LOOKUP_OPS; ++i)
+            {
+                auto ptr = pool_fatp.find(g_corpus.miss_strings[i]);
+                if (ptr) ++found;
+                benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+            }
+            return LOOKUP_OPS;
+        }});
+        libs.push_back({"std::unordered_set find", [&]() -> size_t {
+            size_t found = 0;
+            for (size_t i = 0; i < LOOKUP_OPS; ++i)
+            {
+                auto it = pool_uset.find(g_corpus.miss_strings[i]);
+                if (it != pool_uset.end()) ++found;
+                benchmark_sink += static_cast<int64_t>(found);
+            }
+            return LOOKUP_OPS;
+        }});
+        libs.push_back({"std::unordered_map find", [&]() -> size_t {
+            size_t found = 0;
+            for (size_t i = 0; i < LOOKUP_OPS; ++i)
+            {
+                auto it = pool_umap.find(g_corpus.miss_strings[i]);
+                if (it != pool_umap.end()) ++found;
+                benchmark_sink += static_cast<int64_t>(found);
+            }
+            return LOOKUP_OPS;
+        }});
+
+        std::vector<BenchResult> results;
+        for (auto& l : libs)
+        {
+            results.push_back({l.nm, {}});
+        }
+
+        std::vector<size_t> order(libs.size());
+        std::iota(order.begin(), order.end(), 0);
+        std::mt19937 shuffle_rng(45);
+
+        for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+        {
+            std::shuffle(order.begin(), order.end(), shuffle_rng);
+            for (size_t idx : order) { libs[idx].fn(); }
+        }
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            std::shuffle(order.begin(), order.end(), shuffle_rng);
+            for (size_t idx : order)
+            {
+                Timer t;
+                t.start();
+                size_t ops = libs[idx].fn();
+                double elapsed = t.elapsed_ns();
+                results[idx].samples.push_back(ns_per_op(elapsed, ops));
+            }
+        }
+
+        print_results(results);
+        auto s0 = Statistics::compute(results[0].samples);
+        auto s1 = Statistics::compute(results[1].samples);
+        print_speedup("fat_p vs std::uset", s1.median, s0.median);
+    }
+}
+
+// ============================================================================
+// Section 4: Pointer Comparison vs String Comparison
+// ============================================================================
+
+void benchmark_pointer_comparison()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 4: Pointer Comparison vs String Comparison\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Contract: Compare interned strings by pointer (O(1)) vs by content (O(n)).\n";
+    std::cout << "  This is the key benefit of interning: identity checks become pointer equality.\n\n";
+
+    print_cpu_context("Section start");
+    cooling_delay(COOLING_DELAY_SECTION_MS, "section transition");
+
+    const size_t CMP_OPS = g_corpus.n_ops;
+
+    // Pre-intern and collect pointers (outside timed region)
+    fat_p::StringPool<fat_p::SingleThreadedPolicy> cmp_pool;
+    std::vector<const char*> cmp_ptrs;
+    cmp_ptrs.reserve(N_UNIQUE_SMALL);
+    for (size_t i = 0; i < N_UNIQUE_SMALL; ++i)
+    {
+        cmp_ptrs.push_back(cmp_pool.intern(g_corpus.short_strings[i]));
+    }
+
+    // Generate random comparison pairs
+    std::mt19937_64 pair_rng(g_config.seed + 200);
+    std::uniform_int_distribution<size_t> cmp_dist(0, N_UNIQUE_SMALL - 1);
+    std::vector<std::pair<size_t, size_t>> cmp_pairs(CMP_OPS);
+    for (auto& p : cmp_pairs)
+    {
+        p.first = cmp_dist(pair_rng);
+        p.second = cmp_dist(pair_rng);
+    }
+
+    print_cpu_context();
+
+    struct Lib { const char* nm; std::function<size_t()> fn; };
+
+    std::vector<Lib> libs;
+    libs.push_back({"pointer ==", [&]() -> size_t {
+        size_t matches = 0;
+        for (size_t i = 0; i < CMP_OPS; ++i)
+        {
+            if (cmp_ptrs[cmp_pairs[i].first] == cmp_ptrs[cmp_pairs[i].second])
+            {
+                ++matches;
+            }
+        }
+        benchmark_sink += static_cast<int64_t>(matches);
+        return CMP_OPS;
+    }});
+    libs.push_back({"std::strcmp", [&]() -> size_t {
+        size_t matches = 0;
+        for (size_t i = 0; i < CMP_OPS; ++i)
+        {
+            if (std::strcmp(cmp_ptrs[cmp_pairs[i].first],
+                            cmp_ptrs[cmp_pairs[i].second]) == 0)
+            {
+                ++matches;
+            }
+        }
+        benchmark_sink += static_cast<int64_t>(matches);
+        return CMP_OPS;
+    }});
+    libs.push_back({"string_view ==", [&]() -> size_t {
+        size_t matches = 0;
+        for (size_t i = 0; i < CMP_OPS; ++i)
+        {
+            std::string_view a(cmp_ptrs[cmp_pairs[i].first]);
+            std::string_view b(cmp_ptrs[cmp_pairs[i].second]);
+            if (a == b) { ++matches; }
+        }
+        benchmark_sink += static_cast<int64_t>(matches);
+        return CMP_OPS;
+    }});
+
+    // Round-robin
+    std::vector<BenchResult> results;
+    for (auto& l : libs)
+    {
+        results.push_back({l.nm, {}});
+    }
+
+    std::vector<size_t> order(libs.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::mt19937 shuffle_rng(46);
+
+    for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+    {
+        std::shuffle(order.begin(), order.end(), shuffle_rng);
+        for (size_t idx : order) { libs[idx].fn(); }
+    }
+    for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+    {
+        std::shuffle(order.begin(), order.end(), shuffle_rng);
+        for (size_t idx : order)
+        {
+            Timer t;
+            t.start();
+            size_t ops = libs[idx].fn();
+            double elapsed = t.elapsed_ns();
+            results[idx].samples.push_back(ns_per_op(elapsed, ops));
+        }
+    }
+
+    print_results(results);
+
+    auto s_ptr = Statistics::compute(results[0].samples);
+    auto s_strcmp = Statistics::compute(results[1].samples);
+    auto s_sv = Statistics::compute(results[2].samples);
+    print_speedup("pointer vs strcmp", s_strcmp.median, s_ptr.median);
+    print_speedup("pointer vs sv ==", s_sv.median, s_ptr.median);
+}
+
+// ============================================================================
+// Section 5: String Length Impact
+// ============================================================================
+
+void benchmark_string_length()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 5: String Length Impact\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Contract: Intern performance across string lengths. Short strings benefit from\n";
+    std::cout << "  SSO (no heap allocation for lookup), long strings show hashing cost.\n";
+    std::cout << "  All three length categories run round-robin to eliminate thermal bias.\n\n";
+
+    print_cpu_context("Section start");
+    cooling_delay(COOLING_DELAY_SECTION_MS, "section transition");
+
+    const size_t LEN_N = N_UNIQUE_MEDIUM;
+
+    struct LenCase
+    {
+        const char* name;
+        const std::vector<std::string>* corpus;
+    };
+
+    std::vector<LenCase> cases = {
+        {"short (4-15 chars)",  &g_corpus.short_strings},
+        {"medium (20-50 chars)", &g_corpus.medium_strings},
+        {"long (100-200 chars)", &g_corpus.long_strings}
+    };
+
+    // Round-robin across length categories
+    std::vector<BenchResult> results;
+    for (auto& c : cases)
+    {
+        results.push_back({c.name, {}});
+    }
+
+    std::vector<size_t> order(cases.size());
+    std::iota(order.begin(), order.end(), 0);
+    std::mt19937 rng(47);
+
+    // Warmup
+    for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+    {
+        std::shuffle(order.begin(), order.end(), rng);
+        for (size_t idx : order)
+        {
+            fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
+            pool.reserve(LEN_N);
+            for (size_t i = 0; i < LEN_N; ++i)
+            {
+                auto ptr = pool.intern((*cases[idx].corpus)[i]);
+                benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+            }
+        }
+    }
+
+    // Measured
+    for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+    {
+        std::shuffle(order.begin(), order.end(), rng);
+        for (size_t idx : order)
+        {
+            fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
+            pool.reserve(LEN_N);
+
+            Timer t;
+            t.start();
+            for (size_t i = 0; i < LEN_N; ++i)
+            {
+                auto ptr = pool.intern((*cases[idx].corpus)[i]);
+                benchmark_sink += reinterpret_cast<intptr_t>(ptr);
+            }
+            double elapsed = t.elapsed_ns();
+
+            results[idx].samples.push_back(ns_per_op(elapsed, LEN_N));
+        }
+    }
+
+    print_results(results);
+}
+
+// ============================================================================
+// Section 6: Memory Efficiency
+// ============================================================================
+
+void benchmark_memory_efficiency()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 6: Memory Efficiency\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Contract: Memory savings from deduplication at various duplication rates.\n";
+    std::cout << "  Uses " << N_UNIQUE_MEDIUM << " unique strings, " << g_corpus.n_ops << " total ops.\n";
+    std::cout << "  Single-library measurement (no round-robin needed).\n\n";
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "section transition");
+
+    std::cout << std::fixed;
+    std::cout << "  dup_rate | unique | total_interns |  hit_rate  | memory_saved\n";
+    std::cout << "  ---------|--------|---------------|------------|-------------\n";
+
+    for (double dup_rate : {0.0, 0.50, 0.90, 0.99})
+    {
+        auto indices = generate_workload_indices(
+            N_UNIQUE_MEDIUM, g_corpus.n_ops, dup_rate, g_config.seed + 50);
+
+        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
+        pool.reserve(N_UNIQUE_MEDIUM);
+        for (size_t i = 0; i < g_corpus.n_ops; ++i)
+        {
+            pool.intern(g_corpus.short_strings[indices[i]]);
+        }
+
+        auto st = pool.stats();
+        std::cout << "  " << std::setw(7) << std::setprecision(0) << (dup_rate * 100) << "%"
+                  << "  | " << std::setw(6) << st.unique_strings
+                  << " | " << std::setw(13) << st.total_interns
+                  << " | " << std::setw(9) << std::setprecision(1) << (st.hit_rate * 100) << "%"
+                  << " | " << std::setw(10) << st.memory_saved << " bytes\n";
+    }
+}
+
+// ============================================================================
+// main
+// ============================================================================
+
+int main(int argc, char* argv[])
+{
+    (void)argc;
+    (void)argv;
+
+    // Load configuration from FATP_BENCH_* environment variables
+    g_config = fat_p::bench::BenchConfig::fromEnv();
+
+    // Apply benchmark scope (Windows priority/affinity) unless disabled
+    BenchmarkScope scope(!g_config.noScope);
 
     // =========================================================================
     // Standardized header (via FatPBenchmarkHeader.h)
     // =========================================================================
     fat_p::bench::HeaderConfig hdr;
     hdr.component = "StringPool";
-    hdr.warmup = config.warmupRuns;
-    hdr.measured = config.measuredRuns;
-    hdr.seed = config.seed;
+    hdr.warmup = WARMUP_RUNS();
+    hdr.measured = MEASURED_RUNS();
+    hdr.seed = g_config.seed;
 
-    // Competitors
-    hdr.competitors.push_back({"fat_p::StringPool<SingleThreaded>", true, "primary"});
-    hdr.competitors.push_back({"fat_p::StringPool<SharedMutex>", true, "primary"});
+    hdr.competitors.push_back({"fat_p::StringPool<ST>", true, "primary (SingleThreadedPolicy)"});
+    hdr.competitors.push_back({"fat_p::StringPool<SM>", true, "SharedMutexPolicy"});
     hdr.competitors.push_back({"std::unordered_set<string>", true, "baseline"});
-    hdr.competitors.push_back({"std::unordered_map (manual intern)", true, "baseline"});
+    hdr.competitors.push_back({"std::unordered_map<string,ptr>", true, "manual intern"});
 #if HAS_BOOST_FLYWEIGHT
     hdr.competitors.push_back({"boost::flyweight<string>", true, ""});
 #else
-    hdr.competitors.push_back({"boost::flyweight<string>", false, "not detected"});
+    hdr.competitors.push_back({"boost::flyweight<string>", false, "boost/flyweight.hpp not found"});
 #endif
 
-    hdr.has_extended_config = false;
+    hdr.has_extended_config = true;
     hdr.is_multi_library = true;
     hdr.has_correctness_checks = true;
-    hdr.has_stabilization = !config.noStabilize;
+    hdr.has_stabilization = !g_config.noStabilize;
+
+    hdr.min_batch_ms = g_config.minBatchMs;
+    hdr.scope_enabled = !g_config.noScope;
+    hdr.stabilize_enabled = !g_config.noStabilize;
+    hdr.cooldown_enabled = !g_config.noCooldown;
+    hdr.cool_section_ms = COOLING_DELAY_SECTION_MS;
+    hdr.cool_size_ms = COOLING_DELAY_SIZE_MS;
+    hdr.cool_case_ms = COOLING_DELAY_CASE_MS;
 
     fat_p::bench::print_standard_header(hdr);
 
     // =========================================================================
-    // Correctness verification (outside timed regions)
+    // Correctness checks (before any timing)
     // =========================================================================
-    std::cout << "\nCorrectness verification:\n";
-    bool intern_ok = verify_intern_correctness();
-    std::cout << "  [" << (intern_ok ? "PASS" : "FAIL") << "] StringPool intern semantics\n";
-    if (!intern_ok)
+    std::cout << "\n--- Correctness Checks ---\n";
+    if (!verify_intern_correctness())
     {
-        std::cerr << "FATAL: StringPool correctness check failed\n";
+        std::cerr << "FATAL: StringPool correctness check failed. Aborting.\n";
         return 1;
     }
+    std::cout << "  intern/find/contains: PASS\n";
 
     // =========================================================================
-    // Data preparation
+    // Generate shared corpus (once)
     // =========================================================================
-    const std::size_t N_UNIQUE_SMALL  = 1000;
-    const std::size_t N_UNIQUE_MEDIUM = 10000;
-    const std::size_t N_UNIQUE_LARGE  = 100000;
-    const std::size_t N_OPS = 100000;
+    std::cout << "\n--- Generating corpus ---\n";
+    g_corpus.generate(g_config.seed, 100000);
+    std::cout << "  short:  " << g_corpus.short_strings.size() << " unique (4-15 chars)\n";
+    std::cout << "  medium: " << g_corpus.medium_strings.size() << " unique (20-50 chars)\n";
+    std::cout << "  long:   " << g_corpus.long_strings.size() << " unique (100-200 chars)\n";
+    std::cout << "  miss:   " << g_corpus.miss_strings.size() << " unique (guaranteed misses)\n";
 
-    // Short strings (SSO range, 4-15 chars)
-    auto short_corpus = generate_unique_strings(N_UNIQUE_LARGE, 4, 15, config.seed);
-    // Medium strings (past SSO, 20-50 chars)
-    auto medium_corpus = generate_unique_strings(N_UNIQUE_LARGE, 20, 50, config.seed + 1);
-    // Long strings (100-200 chars)
-    auto long_corpus = generate_unique_strings(N_UNIQUE_MEDIUM, 100, 200, config.seed + 2);
-    // Miss strings (for lookup miss benchmarks)
-    auto miss_strings = generate_miss_strings(N_OPS, 4, 15, config.seed + 3);
-
-    // Verify corpus
-    bool corpus_ok = verify_competitor_equivalence(short_corpus);
-    std::cout << "  [" << (corpus_ok ? "PASS" : "FAIL") << "] Corpus uniqueness verified ("
-              << short_corpus.size() << " strings)\n";
-
-    // ========================================================================
-    // Section 1: Intern Throughput - Unique Strings (Cold Insert)
-    // ========================================================================
-    std::cout << "\n================================================================================\n";
-    std::cout << "  INTERN THROUGHPUT - UNIQUE STRINGS\n";
-    std::cout << "================================================================================\n\n";
-    std::cout << "Contract: Insert N unique strings into empty pool/set. Measures cold insertion.\n";
-    std::cout << "No string appears twice. This is the worst case for interning (100% miss).\n\n";
-
-    for (std::size_t N : {N_UNIQUE_SMALL, N_UNIQUE_MEDIUM, N_UNIQUE_LARGE})
+    // Verify corpus uniqueness
     {
-        std::cout << "--- N = " << N << " unique strings (short, 4-15 chars) ---\n\n";
-        print_cpu_context(std::cout);
-
-        // fat_p::StringPool<SingleThreadedPolicy>
-        auto s_fatp_st = run_benchmark("fat_p::StringPool<ST>", N, config, [&]() {
-            fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-            pool.reserve(N);
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                auto ptr = pool.intern(short_corpus[i]);
-                DoNotOptimize(ptr);
-            }
-        });
-
-        // fat_p::StringPool<SharedMutexPolicy>
-        auto s_fatp_sm = run_benchmark("fat_p::StringPool<SM>", N, config, [&]() {
-            fat_p::StringPool<fat_p::SharedMutexPolicy> pool;
-            pool.reserve(N);
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                auto ptr = pool.intern(short_corpus[i]);
-                DoNotOptimize(ptr);
-            }
-        });
-
-        // std::unordered_set<std::string>
-        auto s_uset = run_benchmark("std::unordered_set", N, config, [&]() {
-            std::unordered_set<std::string> set;
-            set.reserve(N);
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                auto [it, inserted] = set.insert(short_corpus[i]);
-                auto ptr = it->c_str();
-                DoNotOptimize(ptr);
-            }
-        });
-
-        // std::unordered_map manual intern
-        auto s_umap = run_benchmark("std::unordered_map intern", N, config, [&]() {
-            std::unordered_map<std::string, const char*> map;
-            map.reserve(N);
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                auto [it, inserted] = map.try_emplace(short_corpus[i], nullptr);
-                if (inserted) it->second = it->first.c_str();
-                DoNotOptimize(it->second);
-            }
-        });
-
-#if HAS_BOOST_FLYWEIGHT
-        // boost::flyweight
-        auto s_boost = run_benchmark("boost::flyweight", N, config, [&]() {
-            std::vector<boost::flyweight<std::string>> storage;
-            storage.reserve(N);
-            for (std::size_t i = 0; i < N; ++i)
-            {
-                storage.emplace_back(short_corpus[i]);
-                auto ptr = storage.back().get().c_str();
-                DoNotOptimize(ptr);
-            }
-        });
-#endif
-
-        print_stats("fat_p::StringPool<ST>", s_fatp_st);
-        print_stats("fat_p::StringPool<SM>", s_fatp_sm);
-        print_stats("std::unordered_set", s_uset);
-        print_stats("std::unordered_map", s_umap);
-#if HAS_BOOST_FLYWEIGHT
-        print_stats("boost::flyweight", s_boost);
-#endif
-
-        print_speedup("fat_p<ST> vs std::uset", s_uset.median, s_fatp_st.median);
-#if HAS_BOOST_FLYWEIGHT
-        print_speedup("fat_p<ST> vs boost", s_boost.median, s_fatp_st.median);
-#endif
-        std::cout << "\n";
+        fat_p::StringPool<fat_p::SingleThreadedPolicy> verify_pool;
+        for (size_t i = 0; i < N_UNIQUE_SMALL; ++i)
+        {
+            verify_pool.intern(g_corpus.short_strings[i]);
+        }
+        if (verify_pool.size() != N_UNIQUE_SMALL)
+        {
+            std::cerr << "FATAL: Corpus not unique (" << verify_pool.size()
+                      << " vs " << N_UNIQUE_SMALL << ")\n";
+            return 1;
+        }
+        std::cout << "  uniqueness: PASS\n";
     }
 
-    // ========================================================================
-    // Section 2: Intern Throughput - High Duplication (90% hit rate)
-    // ========================================================================
-    std::cout << "================================================================================\n";
-    std::cout << "  INTERN THROUGHPUT - HIGH DUPLICATION (90% HIT RATE)\n";
-    std::cout << "================================================================================\n\n";
-    std::cout << "Contract: Intern N strings with 90% duplicates. This is the common case:\n";
-    std::cout << "config keys, JSON field names, log messages with repeated patterns.\n\n";
+    // =========================================================================
+    // Run all benchmark sections
+    // =========================================================================
+    benchmark_intern_unique();
+    benchmark_intern_duplicate();
+    benchmark_lookup();
+    benchmark_pointer_comparison();
+    benchmark_string_length();
+    benchmark_memory_efficiency();
 
-    auto dup_indices = generate_workload_indices(N_UNIQUE_SMALL, N_OPS, 0.9, config.seed);
-
-    std::cout << "--- N = " << N_OPS << " ops, " << N_UNIQUE_SMALL << " unique, 90% dup rate ---\n\n";
-    print_cpu_context(std::cout);
-
-    auto s2_fatp_st = run_benchmark("fat_p::StringPool<ST>", N_OPS, config, [&]() {
-        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-        pool.reserve(N_UNIQUE_SMALL);
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            auto ptr = pool.intern(short_corpus[dup_indices[i]]);
-            DoNotOptimize(ptr);
-        }
-    });
-
-    auto s2_fatp_sm = run_benchmark("fat_p::StringPool<SM>", N_OPS, config, [&]() {
-        fat_p::StringPool<fat_p::SharedMutexPolicy> pool;
-        pool.reserve(N_UNIQUE_SMALL);
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            auto ptr = pool.intern(short_corpus[dup_indices[i]]);
-            DoNotOptimize(ptr);
-        }
-    });
-
-    auto s2_uset = run_benchmark("std::unordered_set", N_OPS, config, [&]() {
-        std::unordered_set<std::string> set;
-        set.reserve(N_UNIQUE_SMALL);
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            auto [it, inserted] = set.insert(short_corpus[dup_indices[i]]);
-            auto ptr = it->c_str();
-            DoNotOptimize(ptr);
-        }
-    });
-
-    auto s2_umap = run_benchmark("std::unordered_map intern", N_OPS, config, [&]() {
-        std::unordered_map<std::string, const char*> map;
-        map.reserve(N_UNIQUE_SMALL);
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            auto [it, inserted] = map.try_emplace(short_corpus[dup_indices[i]], nullptr);
-            if (inserted) it->second = it->first.c_str();
-            DoNotOptimize(it->second);
-        }
-    });
-
-#if HAS_BOOST_FLYWEIGHT
-    auto s2_boost = run_benchmark("boost::flyweight", N_OPS, config, [&]() {
-        std::vector<boost::flyweight<std::string>> storage;
-        storage.reserve(N_OPS);
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            storage.emplace_back(short_corpus[dup_indices[i]]);
-            auto ptr = storage.back().get().c_str();
-            DoNotOptimize(ptr);
-        }
-    });
-#endif
-
-    print_stats("fat_p::StringPool<ST>", s2_fatp_st);
-    print_stats("fat_p::StringPool<SM>", s2_fatp_sm);
-    print_stats("std::unordered_set", s2_uset);
-    print_stats("std::unordered_map", s2_umap);
-#if HAS_BOOST_FLYWEIGHT
-    print_stats("boost::flyweight", s2_boost);
-#endif
-    print_speedup("fat_p<ST> vs std::uset", s2_uset.median, s2_fatp_st.median);
-#if HAS_BOOST_FLYWEIGHT
-    print_speedup("fat_p<ST> vs boost", s2_boost.median, s2_fatp_st.median);
-#endif
-
-    // ========================================================================
-    // Section 3: Lookup Throughput (find hit / miss)
-    // ========================================================================
-    std::cout << "\n================================================================================\n";
-    std::cout << "  LOOKUP THROUGHPUT\n";
-    std::cout << "================================================================================\n\n";
-    std::cout << "Contract: Look up strings in a pre-populated pool. Tests find() performance\n";
-    std::cout << "for both hits (string exists) and misses (string not in pool).\n\n";
-
-    // Pre-populate pools for lookup benchmarks
-    const std::size_t POOL_SIZE = N_UNIQUE_MEDIUM;
-    const std::size_t LOOKUP_OPS = N_OPS;
-
-    fat_p::StringPool<fat_p::SingleThreadedPolicy> prepop_fatp;
-    prepop_fatp.reserve(POOL_SIZE);
-    std::unordered_set<std::string> prepop_uset;
-    prepop_uset.reserve(POOL_SIZE);
-    std::unordered_map<std::string, const char*> prepop_umap;
-    prepop_umap.reserve(POOL_SIZE);
-#if HAS_BOOST_FLYWEIGHT
-    std::vector<boost::flyweight<std::string>> prepop_boost;
-    prepop_boost.reserve(POOL_SIZE);
-#endif
-
-    for (std::size_t i = 0; i < POOL_SIZE; ++i)
-    {
-        prepop_fatp.intern(short_corpus[i]);
-        prepop_uset.insert(short_corpus[i]);
-        auto [it, ins] = prepop_umap.try_emplace(short_corpus[i], nullptr);
-        if (ins) it->second = it->first.c_str();
-#if HAS_BOOST_FLYWEIGHT
-        prepop_boost.emplace_back(short_corpus[i]);
-#endif
-    }
-
-    // Lookup indices (hits: random from pool)
-    std::mt19937_64 rng(config.seed + 100);
-    std::uniform_int_distribution<std::size_t> hit_dist(0, POOL_SIZE - 1);
-    std::vector<std::size_t> hit_indices(LOOKUP_OPS);
-    for (auto& idx : hit_indices) idx = hit_dist(rng);
-
-    // --- Lookup Hit ---
-    std::cout << "--- Lookup Hit (N = " << LOOKUP_OPS << " ops, pool size = " << POOL_SIZE << ") ---\n\n";
-    print_cpu_context(std::cout);
-
-    auto s3_fatp_hit = run_benchmark("fat_p find (hit)", LOOKUP_OPS, config, [&]() {
-        std::size_t found = 0;
-        for (std::size_t i = 0; i < LOOKUP_OPS; ++i)
-        {
-            auto ptr = prepop_fatp.find(short_corpus[hit_indices[i]]);
-            if (ptr) ++found;
-            DoNotOptimize(ptr);
-        }
-        DoNotOptimize(found);
-    });
-
-    auto s3_uset_hit = run_benchmark("std::uset find (hit)", LOOKUP_OPS, config, [&]() {
-        std::size_t found = 0;
-        for (std::size_t i = 0; i < LOOKUP_OPS; ++i)
-        {
-            auto it = prepop_uset.find(short_corpus[hit_indices[i]]);
-            if (it != prepop_uset.end()) ++found;
-            DoNotOptimize(found);
-        }
-        DoNotOptimize(found);
-    });
-
-    auto s3_umap_hit = run_benchmark("std::umap find (hit)", LOOKUP_OPS, config, [&]() {
-        std::size_t found = 0;
-        for (std::size_t i = 0; i < LOOKUP_OPS; ++i)
-        {
-            auto it = prepop_umap.find(short_corpus[hit_indices[i]]);
-            if (it != prepop_umap.end()) ++found;
-            DoNotOptimize(found);
-        }
-        DoNotOptimize(found);
-    });
-
-    print_stats("fat_p::StringPool find", s3_fatp_hit);
-    print_stats("std::unordered_set find", s3_uset_hit);
-    print_stats("std::unordered_map find", s3_umap_hit);
-    print_speedup("fat_p vs std::uset", s3_uset_hit.median, s3_fatp_hit.median);
-
-    // --- Lookup Miss ---
-    std::cout << "\n--- Lookup Miss (N = " << LOOKUP_OPS << " ops, pool size = " << POOL_SIZE << ") ---\n\n";
-    print_cpu_context(std::cout);
-
-    auto s3_fatp_miss = run_benchmark("fat_p find (miss)", LOOKUP_OPS, config, [&]() {
-        std::size_t found = 0;
-        for (std::size_t i = 0; i < LOOKUP_OPS; ++i)
-        {
-            auto ptr = prepop_fatp.find(miss_strings[i]);
-            if (ptr) ++found;
-            DoNotOptimize(ptr);
-        }
-        DoNotOptimize(found);
-    });
-
-    auto s3_uset_miss = run_benchmark("std::uset find (miss)", LOOKUP_OPS, config, [&]() {
-        std::size_t found = 0;
-        for (std::size_t i = 0; i < LOOKUP_OPS; ++i)
-        {
-            auto it = prepop_uset.find(miss_strings[i]);
-            if (it != prepop_uset.end()) ++found;
-            DoNotOptimize(found);
-        }
-        DoNotOptimize(found);
-    });
-
-    auto s3_umap_miss = run_benchmark("std::umap find (miss)", LOOKUP_OPS, config, [&]() {
-        std::size_t found = 0;
-        for (std::size_t i = 0; i < LOOKUP_OPS; ++i)
-        {
-            auto it = prepop_umap.find(miss_strings[i]);
-            if (it != prepop_umap.end()) ++found;
-            DoNotOptimize(found);
-        }
-        DoNotOptimize(found);
-    });
-
-    print_stats("fat_p::StringPool find", s3_fatp_miss);
-    print_stats("std::unordered_set find", s3_uset_miss);
-    print_stats("std::unordered_map find", s3_umap_miss);
-    print_speedup("fat_p vs std::uset", s3_uset_miss.median, s3_fatp_miss.median);
-
-    // ========================================================================
-    // Section 4: Pointer Comparison vs String Comparison
-    // ========================================================================
-    std::cout << "\n================================================================================\n";
-    std::cout << "  POINTER COMPARISON VS STRING COMPARISON\n";
-    std::cout << "================================================================================\n\n";
-    std::cout << "Contract: Compare interned strings by pointer (O(1)) vs by content (O(n)).\n";
-    std::cout << "This is the key benefit of interning: identity checks become pointer equality.\n\n";
-
-    // Pre-intern strings and collect pointer pairs
-    fat_p::StringPool<fat_p::SingleThreadedPolicy> cmp_pool;
-    std::vector<const char*> cmp_ptrs;
-    cmp_ptrs.reserve(N_UNIQUE_SMALL);
-    for (std::size_t i = 0; i < N_UNIQUE_SMALL; ++i)
-    {
-        cmp_ptrs.push_back(cmp_pool.intern(short_corpus[i]));
-    }
-
-    // Generate random comparison pairs
-    std::uniform_int_distribution<std::size_t> cmp_dist(0, N_UNIQUE_SMALL - 1);
-    std::vector<std::pair<std::size_t, std::size_t>> cmp_pairs(N_OPS);
-    for (auto& p : cmp_pairs)
-    {
-        p.first = cmp_dist(rng);
-        p.second = cmp_dist(rng);
-    }
-
-    print_cpu_context(std::cout);
-
-    auto s4_ptr = run_benchmark("pointer ==", N_OPS, config, [&]() {
-        std::size_t matches = 0;
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            if (cmp_ptrs[cmp_pairs[i].first] == cmp_ptrs[cmp_pairs[i].second])
-                ++matches;
-        }
-        DoNotOptimize(matches);
-    });
-
-    auto s4_strcmp = run_benchmark("std::strcmp", N_OPS, config, [&]() {
-        std::size_t matches = 0;
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            if (std::strcmp(cmp_ptrs[cmp_pairs[i].first], cmp_ptrs[cmp_pairs[i].second]) == 0)
-                ++matches;
-        }
-        DoNotOptimize(matches);
-    });
-
-    auto s4_sv = run_benchmark("string_view ==", N_OPS, config, [&]() {
-        std::size_t matches = 0;
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            std::string_view a(cmp_ptrs[cmp_pairs[i].first]);
-            std::string_view b(cmp_ptrs[cmp_pairs[i].second]);
-            if (a == b) ++matches;
-        }
-        DoNotOptimize(matches);
-    });
-
-    print_stats("pointer ==", s4_ptr);
-    print_stats("std::strcmp", s4_strcmp);
-    print_stats("string_view ==", s4_sv);
-    print_speedup("pointer vs strcmp", s4_strcmp.median, s4_ptr.median);
-    print_speedup("pointer vs sv ==", s4_sv.median, s4_ptr.median);
-
-    // ========================================================================
-    // Section 5: String Length Impact
-    // ========================================================================
-    std::cout << "\n================================================================================\n";
-    std::cout << "  STRING LENGTH IMPACT\n";
-    std::cout << "================================================================================\n\n";
-    std::cout << "Contract: Intern performance across string lengths. Short strings benefit from\n";
-    std::cout << "SSO (no heap allocation for lookup), long strings show hashing cost.\n\n";
-
-    const std::size_t LEN_N = 10000;
-
-    print_cpu_context(std::cout);
-
-    // Short (4-15, within SSO)
-    auto s5_short = run_benchmark("short (4-15 chars)", LEN_N, config, [&]() {
-        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-        pool.reserve(LEN_N);
-        for (std::size_t i = 0; i < LEN_N; ++i)
-        {
-            auto ptr = pool.intern(short_corpus[i]);
-            DoNotOptimize(ptr);
-        }
-    });
-
-    // Medium (20-50, past SSO)
-    auto s5_medium = run_benchmark("medium (20-50 chars)", LEN_N, config, [&]() {
-        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-        pool.reserve(LEN_N);
-        for (std::size_t i = 0; i < LEN_N; ++i)
-        {
-            auto ptr = pool.intern(medium_corpus[i]);
-            DoNotOptimize(ptr);
-        }
-    });
-
-    // Long (100-200)
-    auto s5_long = run_benchmark("long (100-200 chars)", LEN_N, config, [&]() {
-        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-        pool.reserve(LEN_N);
-        for (std::size_t i = 0; i < LEN_N; ++i)
-        {
-            auto ptr = pool.intern(long_corpus[i]);
-            DoNotOptimize(ptr);
-        }
-    });
-
-    print_stats("short (4-15 chars)", s5_short);
-    print_stats("medium (20-50 chars)", s5_medium);
-    print_stats("long (100-200 chars)", s5_long);
-
-    // ========================================================================
-    // Section 6: Memory Efficiency
-    // ========================================================================
-    std::cout << "\n================================================================================\n";
-    std::cout << "  MEMORY EFFICIENCY\n";
-    std::cout << "================================================================================\n\n";
-    std::cout << "Contract: Memory savings from deduplication at various duplication rates.\n\n";
-
-    for (double dup_rate : {0.0, 0.5, 0.9, 0.99})
-    {
-        auto indices = generate_workload_indices(N_UNIQUE_SMALL, N_OPS, dup_rate, config.seed + 50);
-        fat_p::StringPool<fat_p::SingleThreadedPolicy> pool;
-        pool.reserve(N_UNIQUE_SMALL);
-        for (std::size_t i = 0; i < N_OPS; ++i)
-        {
-            pool.intern(short_corpus[indices[i]]);
-        }
-        auto st = pool.stats();
-        std::cout << "  dup_rate=" << std::fixed << std::setprecision(0) << (dup_rate * 100) << "%"
-                  << "  unique=" << std::setw(6) << st.unique_strings
-                  << "  total_interns=" << std::setw(7) << st.total_interns
-                  << "  hit_rate=" << std::setprecision(1) << (st.hit_rate * 100) << "%"
-                  << "  memory_saved=" << std::setw(8) << st.memory_saved << " bytes\n";
-    }
-
-    // ========================================================================
+    // =========================================================================
     // Footer
-    // ========================================================================
-    std::cout << "\n================================================================================\n";
+    // =========================================================================
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
     std::cout << "  Benchmark Complete\n";
     std::cout << "================================================================================\n";
 
     return 0;
 }
+
+// Clean up competitor-detection macros
+#undef HAS_BOOST_FLYWEIGHT
