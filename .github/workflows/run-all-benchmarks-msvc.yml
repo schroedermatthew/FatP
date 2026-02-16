@@ -124,7 +124,7 @@ jobs:
             vcpkg_deps: "boost-pool:x64-windows-release eastl:x64-windows-release"
             extra_includes: ""
             extra_defines: ""
-            extra_link: ""
+            extra_link: "EASTL.lib"
             exe_name: bench_objectpool
           - name: PolicyIterator
             src: components\PolicyIterator\benchmarks\benchmark_PolicyIterator.cpp
@@ -238,7 +238,7 @@ jobs:
           $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\lib"
 
           cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- `
-            /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
+            /utf-8 /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
             /D_CRT_SECURE_NO_WARNINGS `
             ${{ matrix.extra_defines }} `
             /I.\include\fat_p `
