@@ -76,5 +76,5 @@ ipch/
 *.ncb
 *.resource.h
 
-# Local-only competitor libs for benchmarks
-ThirdParty/
+# Visual Studio workspace settings (user-specific, not project config)
+VSWorkspaceSettings.json
