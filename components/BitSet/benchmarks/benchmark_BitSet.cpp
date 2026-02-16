@@ -1179,7 +1179,7 @@ void benchmark_range_operations(size_t range_size, size_t iterations)
             for (size_t i = 0; i < iterations; ++i)
             {
                 bm::bvector<> bits;
-                bits.setRange(0, range_size - 1);
+                bits.set_range(0, range_size - 1);
                 sum += bits.count();
             }
             samples.push_back(t.elapsed_ns() / iterations);
