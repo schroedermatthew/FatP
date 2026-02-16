@@ -10,7 +10,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Layer & Dependency Verification](https://github.com/schroedermatthew/FatP/actions/workflows/ci_verify.yml/badge.svg)
 
 <details>
-<summary><strong>All 87 CI Workflows</strong></summary>
+<summary><strong>All 109 CI Workflows</strong></summary>
 
 #### Core Infrastructure
 ![FatP CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-test-core.yml/badge.svg)
@@ -103,6 +103,33 @@ A header-only C++20 utility library. Zero external dependencies.
 ![ValueGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/value-guard.yml/badge.svg)
 ![ViewLifetimeTracking CI](https://github.com/schroedermatthew/FatP/actions/workflows/view-lifetime-tracking.yml/badge.svg)
 ![WorkQueue CI](https://github.com/schroedermatthew/FatP/actions/workflows/work-queue.yml/badge.svg)
+
+#### Benchmarks
+![AlignedVector Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/alignedvector-benchmarks.yml/badge.svg)
+![AllocationStrategies Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/allocationstrategies-benchmarks.yml/badge.svg)
+![BitSet Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/bitset-benchmarks.yml/badge.svg)
+![Build Benchmark Deps](https://github.com/schroedermatthew/FatP/actions/workflows/build-benchmark-deps.yml/badge.svg)
+![CircularBuffer Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/circularbuffer-benchmarks.yml/badge.svg)
+![FatPHashMap Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-hash-map-benchmarks.yml/badge.svg)
+![FlatMapSet Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/flatmapset-benchmarks.yml/badge.svg)
+![IntrusiveList Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/intrusivelist-benchmarks.yml/badge.svg)
+![LockFreeQueue Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/lockfreequeue-benchmarks.yml/badge.svg)
+![ObjectPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/objectpool-benchmarks.yml/badge.svg)
+![PolicyIterator Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/policyiterator-benchmarks.yml/badge.svg)
+![ServiceLocator Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/servicelocator-benchmarks.yml/badge.svg)
+![SlotMap Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/slotmap-benchmarks.yml/badge.svg)
+![SmallVector Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/smallvector-benchmarks.yml/badge.svg)
+![SparseSet Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/sparseset-benchmarks.yml/badge.svg)
+![StateMachine Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/statemachine-benchmarks.yml/badge.svg)
+![StrongId Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/strongid-benchmarks.yml/badge.svg)
+![ThreadPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/threadpool-benchmarks.yml/badge.svg)
+![WorkQueue Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/workqueue-benchmarks.yml/badge.svg)
+
+#### Aggregate Runners
+![Run All](https://github.com/schroedermatthew/FatP/actions/workflows/run-all.yml/badge.svg)
+![Run All Benchmarks (Clang)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-clang.yml/badge.svg)
+![Run All Benchmarks (GCC)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-gcc.yml/badge.svg)
+![Run All Benchmarks (MSVC)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-msvc.yml/badge.svg)
 
 </details>
 
@@ -251,7 +278,7 @@ FatP/
 ├── components/          # Per-component tests, benchmarks, and docs
 ├── Teaching/            # Guides, case studies, and reference material
 ├── Read_Me/             # Development guidelines and style guides
-└── .github/workflows/   # CI workflows (87 workflows)
+└── .github/workflows/   # CI workflows (109 workflows)
 ```
 
 ## Building Tests
