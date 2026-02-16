@@ -216,6 +216,36 @@ public:
         return mDense.begin() + static_cast<typename const_iterator::difference_type>(denseIndex);
     }
 
+    /**
+     * @brief Returns the dense-array index for a given sparse value.
+     *
+     * @param value Sparse value to look up.
+     * @return Dense index, or size() if value is not present.
+     *
+     * @details
+     * This is useful when the caller maintains parallel arrays that must
+     * stay synchronized with the dense array (e.g., an ECS component store
+     * that keeps a side-vector of full entity IDs alongside the sparse-key
+     * dense array). Knowing the dense index allows the caller to mirror
+     * swap-with-back erasure in its own parallel storage.
+     *
+     * @note Complexity: O(1).
+     * @note Thread-safety: Thread-safe for concurrent reads.
+     */
+    [[nodiscard]] size_type indexOf(T value) const noexcept
+    {
+        size_type sparseIndex = 0;
+        if (!tryToSparseIndex(value, sparseIndex))
+        {
+            return mDense.size();
+        }
+        if (!containsAtIndex(value, sparseIndex))
+        {
+            return mDense.size();
+        }
+        return static_cast<size_type>(mSparse[sparseIndex]);
+    }
+
     /// @brief Returns the number of elements.
     /// @note Complexity: O(1).
     /// @note Thread-safety: Thread-safe for concurrent reads.
@@ -688,6 +718,36 @@ public:
         }
         const size_type denseIndex = static_cast<size_type>(mSparse[sparseIndex]);
         return mDense.begin() + static_cast<typename const_iterator::difference_type>(denseIndex);
+    }
+
+    /**
+     * @brief Returns the dense-array index for a given sparse value.
+     *
+     * @param value Sparse value to look up.
+     * @return Dense index, or size() if value is not present.
+     *
+     * @details
+     * This is useful when the caller maintains parallel arrays that must
+     * stay synchronized with the dense array (e.g., an ECS component store
+     * that keeps a side-vector of full entity IDs alongside the sparse-key
+     * dense array). Knowing the dense index allows the caller to mirror
+     * swap-with-back erasure in its own parallel storage.
+     *
+     * @note Complexity: O(1).
+     * @note Thread-safety: Thread-safe for concurrent reads.
+     */
+    [[nodiscard]] size_type indexOf(T value) const noexcept
+    {
+        size_type sparseIndex = 0;
+        if (!tryToSparseIndex(value, sparseIndex))
+        {
+            return mDense.size();
+        }
+        if (!containsAtIndex(value, sparseIndex))
+        {
+            return mDense.size();
+        }
+        return static_cast<size_type>(mSparse[sparseIndex]);
     }
 
     /**
