@@ -122,7 +122,7 @@ jobs:
             needs_headers: "true"
           - name: ServiceLocator
             src: components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp
-            extra_includes: "-I$HOME/thirdparty-headers/entt/single_include"
+            extra_includes: "-I$HOME/thirdparty-headers/entt/single_include -I$HOME/thirdparty-headers/entt/src"
             extra_defines: ""
             compiled_libs: ""
             system_deps: ""

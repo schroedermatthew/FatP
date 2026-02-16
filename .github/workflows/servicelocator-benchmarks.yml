@@ -60,6 +60,7 @@ jobs:
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-headers/entt/single_include \
+            -I$HOME/thirdparty-headers/entt/src \
             ${{ env.BENCH_SRC }} \
             -o bench_servicelocator -pthread
       - name: Run benchmark
@@ -106,6 +107,7 @@ jobs:
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-headers/entt/single_include \
+            -I$HOME/thirdparty-headers/entt/src \
             ${{ env.BENCH_SRC }} \
             -o bench_servicelocator -pthread \
             -lstdc++
