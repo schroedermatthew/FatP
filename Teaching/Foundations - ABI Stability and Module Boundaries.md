@@ -5,7 +5,7 @@ title: "ABI Stability and Module Boundaries"
 fatp_components: ["ServiceLocator", "Factory"]
 topics: ["ABI stability", "plugin architecture", "shared libraries", "dynamic linking", "module boundaries", "C interface", "function pointer tables", "opaque handles", "extension mechanisms"]
 constraints: ["name mangling", "vtable layout", "exception propagation", "template instantiation", "DSO boundaries", "binary compatibility", "compiler differences"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-08"
 audience: ["C++ developers", "library authors", "plugin system designers", "AI assistants"]
 status: "draft"

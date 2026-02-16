@@ -5,7 +5,7 @@ title: "Integer Handles to Type-Safe IDs"
 from_pattern: "Raw integer handles, file descriptors, opaque int IDs"
 to_component: "StrongId"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Integer handles (`int fd`, `sqlite3*`, `HANDLE`), typedef'd integers |
-| **Problems Solved** | Type confusion, wrong-handle bugs, accidental arithmetic, double-close |
-| **Fat-P Component** | `StrongId<T, Tag, CheckPolicy, OpPolicy>` |
-| **Migration Complexity** | Low — mostly typedef changes and explicit construction |
-| **Runtime Overhead** | Zero — compiles to identical machine code |
-| **Breaking Changes** | API changes (explicit construction), but gradual migration possible |
+**From:** Integer handles (`int fd`, `HANDLE`), typedef'd integers  
+**To:** `StrongId<T, Tag, CheckPolicy, OpPolicy>` for type-distinguished handles  
+**Why migrate:** Typedef'd integers allow cross-type confusion — passing a file descriptor where a socket handle is expected compiles silently  
+**Compatibility strategy:** Incremental — replace `typedef int` with `StrongId`; explicit construction prevents implicit conversion  
+**Mechanical steps:**
+1. Identify integer handle types and their distinct domains.
+2. Create `StrongId` aliases with distinct tag types.
+3. Replace integer declarations with `StrongId` at declaration and call sites.
+4. Fix compilation errors from implicit conversions (these are the bugs being caught).
+**Behavioral equivalence:** Same handle values, same operations; zero runtime overhead  
+**Intentional differences:** Cross-domain handle confusion is a compile-time error  
+**Failure model:** Invalid handle use → compile error (not runtime check)  
+**Threading model:** Unchanged — `StrongId` is a value type with no synchronization requirements  
+**Lifetime model:** Value semantics; same lifetime rules as the underlying integer  
+**Alternatives:** Scoped enums, `enum class`-based handles, manual wrapper structs  
+**Verification:** Compile-time verification — wrong-handle-type bugs become compilation failures  
+**Rollback plan:** Replace `StrongId` aliases with `typedef int`; remove explicit construction
 
 ---
 

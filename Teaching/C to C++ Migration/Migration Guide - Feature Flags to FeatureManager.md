@@ -5,7 +5,7 @@ title: "Preprocessor Flags to Managed Feature Dependencies"
 from_pattern: "#ifdef chains, global booleans, bitfield flags"
 to_component: "FeatureManager"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 std_since: null
 boost_equivalent: null
@@ -22,16 +22,25 @@ last_verified: "2025-01-09"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | `#ifdef` chains, global booleans, bitfield flags, `sqlite3_config()` |
-| **Problems Solved** | Implicit dependencies, undetected conflicts, no validation, scattered logic |
-| **Fat-P Component** | `FeatureManager<SyncPolicy>` |
-| **Migration Complexity** | Medium — requires declaring dependencies explicitly |
-| **Runtime Overhead** | O(d × log n) per enable/disable, where d = dependency depth |
-| **Breaking Changes** | Yes — moves from implicit to explicit dependency management |
+**From:** `#ifdef` chains, global booleans, bitfield flags  
+**To:** `FeatureManager<SyncPolicy>` with explicit dependency DAG  
+**Why migrate:** Implicit flag dependencies cause silent conflicts; no validation that flag combinations are coherent  
+**Compatibility strategy:** Wrapper — existing flags become registered features; old checks become `isEnabled()` queries  
+**Mechanical steps:**
+1. Inventory all feature flags and their implicit dependencies.
+2. Declare features and dependencies in a `FeatureManager` instance.
+3. Replace `#ifdef` / boolean checks with `isEnabled()` calls.
+4. Add dependency validation at startup.
+**Behavioral equivalence:** Same feature activation/deactivation behavior  
+**Intentional differences:** Dependencies are explicit and validated; conflicting flags are detected at registration time  
+**Failure model:** Silent conflicts → `Expected`-based error reporting or enforcement on conflict  
+**Threading model:** Policy-selectable — `DefaultSyncPolicy` (single-threaded) or `ThreadSafeSyncPolicy`  
+**Lifetime model:** Manager owns feature state; features registered at startup, queried at runtime  
+**Alternatives:** Custom flag manager, `std::bitset` with manual checks, `#ifdef` discipline  
+**Verification:** Unit tests for dependency validation, conflict detection, enable/disable sequences  
+**Rollback plan:** Replace `isEnabled()` calls with original flag checks; remove dependency declarations
 
 ---
 

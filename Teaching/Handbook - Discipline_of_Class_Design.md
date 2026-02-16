@@ -1,4 +1,4 @@
-# **Handbook - The Discipline of Class Design**
+# Handbook - The Discipline of Class Design
 
 ### *Correctness, Testability, and Performance — Without Dogma*
 

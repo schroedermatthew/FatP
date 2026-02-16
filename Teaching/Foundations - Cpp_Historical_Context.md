@@ -1,4 +1,4 @@
-# **Foundations - C++ Historical Context**
+# Foundations - C++ Historical Context
 
 ### *Why the Language Is the Way It Is*
 

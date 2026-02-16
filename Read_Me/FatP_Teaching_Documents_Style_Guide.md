@@ -485,9 +485,11 @@ and the counter-based investigation that identified the root cause.
 
 ---
 
-## Universal Vocabulary Standards
+## Vocabulary Standards
 
-### Banned Terms and Replacements (All Document Types)
+### Banned Terms and Replacements (Component Overviews, User Manuals, and Companion Guides)
+
+The following terms are banned in **component Overviews, User Manuals, and Companion Guides** (documents in `components/` that describe a specific FAT-P header). Replace with mechanism-specific language:
 
 | Banned | Replacement | Rationale |
 |--------|-------------|-----------|
@@ -505,7 +507,7 @@ and the counter-based investigation that identified the root cause.
 | Backport | Architectural superset, enhanced implementation | Implies temporary |
 | Similar to | Inspired by, extends beyond | Implies mere equivalence |
 
-**Scope clarification:** These bans apply to documentation prose, not component names. `FastHashMap` is a valid identifier.
+**Scope clarification:** These bans apply to component documentation prose, not component names. `FastHashMap` is a valid identifier. Teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, Pattern Guides, Design Notes, Benchmark Results, and communication guides) are **exempt** — precise language is encouraged but vague terms are permitted in teaching prose where they serve readability.
 
 ### No Meta-Commentary (All Document Types)
 
@@ -3786,7 +3788,7 @@ Use explicit labels:
 - [ ] Verbatim/excerpt/pseudocode correctly labeled
 - [ ] Debug vs Release differences called out (if relevant)
 - [ ] Glossary exists if > ~1200 lines or many terms introduced
-- [ ] No banned vocabulary in prose
+- [ ] No banned vocabulary in prose (component Overviews, User Manuals, and Companion Guides only; see Vocabulary Standards)
 - [ ] Active voice throughout
 
 ## Component Documents (Overviews, User Manuals)
@@ -3810,7 +3812,8 @@ Prefer many small, high-signal docs over one mega-doc.
 
 ---
 
-*FAT-P Teaching Documents Style Guide (Enhanced Edition) v1.5 — February 2026*
+*FAT-P Teaching Documents Style Guide (Enhanced Edition) v1.6 — February 2026*
+*v1.6: Narrowed vocabulary ban scope — banned terms now apply only to component Overviews, User Manuals, and Companion Guides (in `components/`); teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, etc.) are exempt; aligned with Development Guidelines §8.2 scope clarification*
 *v1.5: Updated all templates and examples from C++17 to C++20 (aligns with Development Guidelines v3.2+ minimum standard); reconciled Power Phrases with §8.4 Library Maturity Claims rule; added maturity claims boundary note to Three-Note Checklist; updated "Forever Stuck" section to reference C++20 floor; updated cxx_standard field reference; updated vocabulary replacement for "Modern"; added governance compatibility note*
 *v1.4: Added Migration Guide as a first-class doc type (MG prefix), with card, template, YAML guidance, and checklist*
 *v1.3: Added Alternatives section requirement for Migration Guides*

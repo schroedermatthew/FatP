@@ -5,7 +5,7 @@ title: "Analyzing C Code for Migration (Open Source Tools - Linux)"
 fatp_components: ["ServiceLocator"]
 topics: ["global state", "C migration", "codebase analysis", "doxygen", "cscope", "clang-query", "TSan", "Infer", "static analysis", "call graphs"]
 constraints: ["legacy C code", "Linux environment", "open source tools", "deep analysis"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C developers", "C++ developers", "Linux developers", "AI assistants"]
 status: "reviewed"

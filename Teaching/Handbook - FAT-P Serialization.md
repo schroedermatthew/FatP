@@ -1,4 +1,4 @@
-# **The Data Boundary**
+# Handbook - The Data Boundary
 
 ### *A Companion Guide to FAT-P's Serialization Components*
 

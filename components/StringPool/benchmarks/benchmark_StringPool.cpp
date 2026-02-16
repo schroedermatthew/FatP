@@ -214,6 +214,51 @@ std::vector<std::string> generate_miss_strings(std::size_t n,
 }
 
 // ============================================================================
+// Benchmark Helpers
+// ============================================================================
+
+template <typename Func>
+Statistics run_benchmark(const char* /*name*/, std::size_t ops_per_batch, const BenchConfig& config, Func&& func)
+{
+    // Warmup
+    for (std::size_t i = 0; i < config.warmupRuns; ++i)
+    {
+        func();
+    }
+
+    // Measured runs
+    std::vector<double> samples;
+    samples.reserve(config.measuredRuns);
+
+    for (std::size_t run = 0; run < config.measuredRuns; ++run)
+    {
+        Timer t;
+        t.start();
+        func();
+        double elapsed = t.elapsedNs();
+        samples.push_back(elapsed / static_cast<double>(ops_per_batch));
+    }
+
+    return Statistics::compute(samples);
+}
+
+void print_stats(const char* name, const Statistics& s)
+{
+    std::cout << std::fixed << std::setprecision(2);
+    std::cout << "  " << std::setw(30) << std::left << name << std::setw(10) << s.median << " ns"
+              << "  (mean: " << s.mean << ", stddev: " << s.stddev << ")"
+              << "  CI95: [" << s.ci95Low << ", " << s.ci95High << "]\n";
+}
+
+void print_speedup(const char* name, double baseline_median, double test_median)
+{
+    double speedup = baseline_median / test_median;
+    const char* verdict = (speedup > 1.05) ? "FASTER" : (speedup < 0.95) ? "SLOWER" : "SAME";
+    std::cout << "    -> " << name << ": " << std::fixed << std::setprecision(2) << speedup << "x " << verdict
+              << " than baseline\n";
+}
+
+// ============================================================================
 // Correctness Checks (outside timed regions)
 // ============================================================================
 

@@ -5,7 +5,7 @@ title: "Variable-Size Small Collections to SmallVector"
 from_pattern: "Fixed array + count, alloca(), manual SBO, std::vector in hot paths"
 to_component: "SmallVector"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Fixed array + count, alloca(), manual small buffer optimization |
-| **Problems Solved** | Heap allocation in loops, truncation at max size, stack overflow from alloca |
-| **Fat-P Component** | `SmallVector<T, InlineCapacity>` |
-| **Migration Complexity** | Low — drop-in replacement for std::vector |
-| **Runtime Overhead** | Zero for sizes ≤ InlineCapacity; standard vector for larger |
-| **Breaking Changes** | No — API matches std::vector |
+**From:** Fixed array + count, `alloca()`, manual small buffer optimization  
+**To:** `SmallVector<T, InlineCapacity>` with stack-local storage and heap fallback  
+**Why migrate:** Fixed arrays truncate at max size; `alloca()` risks stack overflow; manual SBO is error-prone and non-portable  
+**Compatibility strategy:** Drop-in — `SmallVector` API matches `std::vector`  
+**Mechanical steps:**
+1. Identify fixed-size arrays used as variable-length collections.
+2. Choose `InlineCapacity` based on typical element count.
+3. Replace `T arr[MAX]; int count;` with `SmallVector<T, N>`.
+4. Replace manual bounds tracking with `push_back()` / `size()`.
+**Behavioral equivalence:** Same elements stored; same iteration order  
+**Intentional differences:** No truncation — heap fallback for collections exceeding inline capacity  
+**Failure model:** Allocation failure on heap fallback throws `std::bad_alloc` (standard vector semantics)  
+**Threading model:** Unchanged — not synchronized; same thread-safety as `std::vector`  
+**Lifetime model:** Container owns elements; destroyed on scope exit (RAII)  
+**Alternatives:** `std::inplace_vector` (C++26), Boost.Container `small_vector`, LLVM `SmallVector`  
+**Verification:** Unit tests for inline and heap paths; benchmark vs `std::vector` for target sizes  
+**Rollback plan:** Replace `SmallVector<T, N>` with `std::vector<T>` or fixed array + count
 
 ---
 

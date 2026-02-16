@@ -5,7 +5,7 @@ title: "Manual Resource Cleanup to ScopeGuard"
 fatp_components: ["ScopeGuard"]
 topics: ["C migration", "resource management", "goto cleanup", "RAII", "exception safety", "scope exit"]
 constraints: ["manual cleanup ordering", "exception path coverage", "early return leaks", "cleanup duplication"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-08"
 audience: ["C developers", "migration teams", "AI assistants"]
 status: "draft"
@@ -37,13 +37,23 @@ This document shows how to migrate C-style manual cleanup patterns to automatic 
 
 ## Migration Guide Card
 
-**C Pattern:** Manual resource cleanup via goto labels, nested conditionals, or explicit release calls  
-**Why it fails:** Exceptions bypass manual cleanup; early returns require discipline; cleanup ordering is error-prone  
-**C++ Solution:** `ScopeGuard` — RAII wrapper that executes cleanup on scope exit, regardless of exit path  
-**Migration effort:** Low — wrap cleanup code in lambda; no structural changes needed  
-**Verification method:** Cleanup always runs; dismiss() for conditional cleanup; exception-aware variants  
-**Incremental migration:** Yes — can migrate one resource at a time; works alongside manual cleanup  
-**Prerequisites:** None (leaf component)
+**From:** Manual resource cleanup via `goto` labels, nested conditionals, or explicit release calls  
+**To:** `ScopeGuard` — RAII wrapper that executes cleanup on scope exit, regardless of exit path  
+**Why migrate:** Exceptions bypass manual cleanup; early returns require discipline; cleanup ordering is error-prone and invisible  
+**Compatibility strategy:** Incremental — wrap cleanup code in lambda; no structural changes to surrounding code  
+**Mechanical steps:**
+1. Identify resource acquisition followed by manual cleanup (`goto cleanup`, nested `if`, explicit `close()`).
+2. Replace cleanup logic with `ScopeGuard` capturing the release operation.
+3. Use `dismiss()` for conditional cleanup (commit/rollback patterns).
+4. Remove `goto` labels and nested cleanup conditionals.
+**Behavioral equivalence:** Same resources acquired and released in same order  
+**Intentional differences:** Cleanup executes on all exit paths (exceptions, early returns, normal flow); no missed cleanup  
+**Failure model:** Cleanup failure in guard destructor — policy-selectable (log, terminate, swallow)  
+**Threading model:** Unchanged — `ScopeGuard` is scope-local with no synchronization requirements  
+**Lifetime model:** Guard lives on the stack; cleanup executes when guard goes out of scope  
+**Alternatives:** `std::experimental::scope_exit` (Library Fundamentals TS), Boost.ScopeExit, manual RAII wrapper classes  
+**Verification:** Unit tests for normal exit, exception exit, early return, and `dismiss()` paths; sanitizer runs  
+**Rollback plan:** Replace `ScopeGuard` with manual cleanup; restore `goto` labels or nested conditionals
 
 ---
 

@@ -1,4 +1,4 @@
-# **Pattern Guide - The Factory Pattern Done Right**
+# Pattern Guide - The Factory Pattern Done Right
 
 ### *Runtime Object Creation Without Dependency Explosion*
 

@@ -5,7 +5,7 @@ title: "Linear Search and bsearch to FlatMap"
 from_pattern: "Linear search in arrays, qsort/bsearch, manual binary search"
 to_component: "FlatMap"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Linear search, qsort/bsearch, manual binary search, parallel sorted arrays |
-| **Problems Solved** | Type-unsafe comparators, O(N) lookup, poor cache locality, manual maintenance |
-| **Fat-P Component** | `FlatMap<Key, Value>` |
-| **Migration Complexity** | Low — straightforward API similar to std::map |
-| **Runtime Overhead** | O(log N) lookup; O(N) iteration; excellent cache locality |
-| **Breaking Changes** | No — standard associative container interface |
+**From:** Linear search arrays, `qsort`/`bsearch`, manual binary search, parallel sorted arrays  
+**To:** `FlatMap<Key, Value>` for cache-friendly sorted associative storage  
+**Why migrate:** Linear search is O(N); `qsort`/`bsearch` require type-unsafe comparators and manual sorted-array maintenance  
+**Compatibility strategy:** Drop-in — `FlatMap` provides standard associative container interface  
+**Mechanical steps:**
+1. Identify sorted arrays or linear-search lookups.
+2. Replace with `FlatMap<Key, Value>`.
+3. Replace manual insert-and-sort with `flat_map.insert()`.
+4. Replace `bsearch` / manual binary search with `flat_map.find()`.
+**Behavioral equivalence:** Same key-value associations; same lookup results  
+**Intentional differences:** Sort order maintained automatically; type-checked comparisons; iterator stability on lookup  
+**Failure model:** Missing key returns iterator-to-end (standard associative container semantics)  
+**Threading model:** Not synchronized — external locking required for concurrent modification  
+**Lifetime model:** Value semantics; elements owned by the container  
+**Alternatives:** `std::flat_map` (C++23), `std::map`, Boost.Container `flat_map`  
+**Verification:** Unit tests for insert/find/erase; benchmark vs linear search for target data sizes  
+**Rollback plan:** Replace `FlatMap` with sorted array + `bsearch`; restore manual comparators
 
 ---
 

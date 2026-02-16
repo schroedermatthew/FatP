@@ -5,7 +5,7 @@ title: "C Codebase Analysis with Open Source Tools (Windows)"
 fatp_components: ["ServiceLocator"]
 topics: ["global state", "cscope", "doxygen", "clang-query", "static analysis", "migration analysis", "Windows", "PowerShell"]
 constraints: ["no commercial tools", "Windows environment", "compilable codebase"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"

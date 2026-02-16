@@ -5,7 +5,7 @@ title: "C Codebase Analysis with Minimal Tooling"
 fatp_components: ["ServiceLocator"]
 topics: ["global state", "grep", "PowerShell", "regex", "migration analysis", "vim", "VS Code", "editor plugins"]
 constraints: ["no specialized tools", "basic Unix utilities", "cross-platform"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"

@@ -5,7 +5,7 @@ title: "C++ Design Goals and C→C++ Migration"
 fatp_components: []
 topics: ["design goals", "C++ migration", "RAII", "memory safety", "performance engineering", "error handling", "API design", "maintainability", "HPC"]
 constraints: ["undefined behavior", "exception boundaries", "cache locality", "ABI stability", "resource lifetime", "backward compatibility"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-12-27"
 audience: ["C++ developers", "C programmers", "programmers from other languages", "mathematicians", "scientists", "technical leads", "AI assistants"]
 status: "draft"

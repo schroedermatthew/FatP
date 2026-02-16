@@ -5,7 +5,7 @@ title: "Initialization Patterns to EnforcedInit"
 from_pattern: "isInit flags, magic numbers, two-phase initialization"
 to_component: "EnforcedInit"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2026-01-26"

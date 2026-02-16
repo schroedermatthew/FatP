@@ -5,7 +5,7 @@ title: "Manual Overflow Checks to CheckedArithmetic"
 from_pattern: "Manual overflow detection, compiler builtins, unchecked math"
 to_component: "CheckedArithmetic"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Low-Medium"
 breaking_changes: false
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Manual overflow checks, compiler builtins, unchecked arithmetic |
-| **Problems Solved** | Integer overflow UB, silent wraparound, missed overflow checks |
-| **Fat-P Component** | `CheckedArithmetic<T, Policy>` |
-| **Migration Complexity** | Low-Medium — wrap arithmetic types; choose overflow policy |
-| **Runtime Overhead** | ~0.5-2ns per operation (branch for check); SIMD optimized |
-| **Breaking Changes** | No — explicit conversion to/from underlying type |
+**From:** Manual overflow checks, compiler builtins (`__builtin_add_overflow`), unchecked arithmetic  
+**To:** `CheckedArithmetic<T, Policy>` with policy-selected overflow behavior  
+**Why migrate:** Integer overflow is undefined behavior in C/C++; manual checks are error-prone and inconsistently applied  
+**Compatibility strategy:** Incremental — wrap arithmetic types one at a time; explicit conversion to/from underlying type  
+**Mechanical steps:**
+1. Identify arithmetic operations on security-sensitive or safety-critical values.
+2. Replace integer types with `CheckedArithmetic<T, Policy>`.
+3. Select overflow policy (throw, saturate, or return `Expected`).
+4. Fix call sites that rely on implicit conversion.
+**Behavioral equivalence:** Same arithmetic results when no overflow occurs  
+**Intentional differences:** Overflow is detected and handled per policy rather than silently producing undefined behavior  
+**Failure model:** Overflow → policy-determined response (throw, saturate, `Expected` error)  
+**Threading model:** Unchanged — value type with no synchronization requirements  
+**Lifetime model:** Value semantics; same lifetime as underlying integer  
+**Alternatives:** Compiler builtins (`__builtin_*_overflow`), SafeInt, Boost.SafeNumerics  
+**Verification:** Unit tests for overflow detection at boundary values; sanitizer runs (`-fsanitize=integer`)  
+**Rollback plan:** Replace `CheckedArithmetic<T>` with raw integer types; restore manual overflow checks
 
 ---
 

@@ -1,4 +1,4 @@
-# **Handbook - Designing Performance Invariants**
+# Handbook - Designing Performance Invariants
 
 ### *Why "Fast" Is Not a Specification*
 

@@ -5,7 +5,7 @@ title: "Fuzzy Equality Non-Transitivity in Sorted Ranges"
 fatp_components: ["FlatSet", "FloatingPointComparison"]
 topics: ["fuzzy equality", "non-transitivity", "floating-point comparison", "std::unique", "equivalence relation", "greedy forward scan", "epsilon chains"]
 constraints: ["IEEE 754 floating-point arithmetic", "std::unique equivalence relation requirement", "epsilon chain formation in sorted data"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: null
 build_modes: ["Debug", "Release"]

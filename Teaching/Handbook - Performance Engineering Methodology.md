@@ -5,7 +5,7 @@ title: "The Discipline of Performance Engineering"
 fatp_components: ["FatPBenchmarkRunner", "FatPBenchmarkUtils"]
 topics: ["benchmarking", "measurement", "optimization", "counters", "profiling", "methodology"]
 constraints: ["cache effects", "thermal throttling", "measurement noise", "platform variance", "statistical validity"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-27"
 audience: ["C++ developers", "AI assistants", "performance engineers"]

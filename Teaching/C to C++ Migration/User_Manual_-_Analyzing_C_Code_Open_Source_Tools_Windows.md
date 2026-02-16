@@ -5,7 +5,7 @@ title: "Analyzing C Code for Migration (Open Source Tools - Windows/MinGW)"
 fatp_components: ["ServiceLocator"]
 topics: ["global state", "C migration", "codebase analysis", "doxygen", "cscope", "Windows", "MinGW", "MSYS2", "static analysis"]
 constraints: ["legacy C code", "Windows environment", "MinGW toolchain", "open source tools"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C developers", "C++ developers", "Windows developers", "AI assistants"]
 status: "reviewed"

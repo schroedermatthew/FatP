@@ -5,7 +5,7 @@ title: "Type Switches to Registered Factories"
 from_pattern: "switch on type tag, function pointer tables, manual dispatch"
 to_component: "Factory"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | `switch` on type enum, function pointer tables, manual constructor dispatch |
-| **Problems Solved** | Enum/switch mismatch, closed for extension, scattered creation, no error handling |
-| **Fat-P Component** | `Factory<Key, Product, Policies...>` |
-| **Migration Complexity** | Medium — requires restructuring creation logic |
-| **Runtime Overhead** | O(log n) or O(1) lookup depending on storage policy |
-| **Breaking Changes** | Yes — from static dispatch to dynamic registration |
+**From:** `switch` on type enum, function pointer tables, manual constructor dispatch  
+**To:** `Factory<Key, Product, Policies...>` with type-registration and policy-based creation  
+**Why migrate:** Enum/switch-based creation is closed for extension; adding a type requires modifying every switch site  
+**Compatibility strategy:** Phased — register existing creation functions; migrate switch sites to `factory.create()` calls  
+**Mechanical steps:**
+1. Identify type-switch creation points and the type enum they dispatch on.
+2. Create a `Factory<Key, Product>` and register creator functions for each type.
+3. Replace `switch` dispatch with `factory.create(key)`.
+4. Remove the type enum if no longer needed elsewhere.
+**Behavioral equivalence:** Same objects created for same type keys  
+**Intentional differences:** New types are added by registration, not by modifying switch statements; creation errors are explicit  
+**Failure model:** Unknown type key → `Expected` error (not default case fallthrough)  
+**Threading model:** Registration is not synchronized; creation is read-only and concurrent-safe after registration completes  
+**Lifetime model:** Factory does not own created objects; caller owns the returned product  
+**Alternatives:** Manual registry pattern, `std::unordered_map<Key, std::function<...>>`, abstract factory  
+**Verification:** Unit tests for all registered types; test for unknown-key error handling; test registration ordering  
+**Rollback plan:** Replace `factory.create()` with `switch` dispatch; restore type enum
 
 ---
 

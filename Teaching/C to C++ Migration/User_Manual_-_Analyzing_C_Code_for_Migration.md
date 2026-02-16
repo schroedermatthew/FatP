@@ -5,7 +5,7 @@ title: "Analyzing C Code for Migration"
 fatp_components: ["ServiceLocator"]
 topics: ["global state", "C migration", "codebase analysis", "grep", "cross-reference", "thread safety", "dependency injection"]
 constraints: ["legacy C code", "minimal tooling", "cross-platform", "no commercial tools"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C developers", "C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"

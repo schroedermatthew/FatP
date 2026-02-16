@@ -5,7 +5,7 @@ title: "Manual Memory Management to RAII"
 fatp_components: ["ScopeGuard", "ObjectPool", "AlignedVector"]
 topics: ["C migration", "memory management", "malloc", "free", "RAII", "smart pointers", "unique_ptr", "shared_ptr", "ownership semantics"]
 constraints: ["manual deallocation discipline", "ownership ambiguity", "double-free", "memory leaks", "exception safety"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-08"
 audience: ["C developers", "migration teams", "AI assistants"]
 status: "draft"
@@ -38,13 +38,23 @@ This document shows how to migrate C-style manual memory management patterns to 
 
 ## Migration Guide Card
 
-**C Pattern:** Manual memory allocation/deallocation with malloc/free, new/delete  
-**Why it fails:** Compiler cannot enforce pairing; exceptions bypass deallocation; ownership unclear  
-**C++ Solution:** Smart pointers (`unique_ptr`, `shared_ptr`) and containers (`vector`, `string`)  
-**Migration effort:** Low to Medium — mechanical replacement of allocation patterns  
-**Verification method:** Compile-time ownership tracking; automatic deallocation on scope exit  
-**Incremental migration:** Yes — can migrate one allocation at a time; interop with raw pointers  
-**Prerequisites:** Understanding of ownership semantics
+**From:** Manual memory allocation/deallocation with `malloc`/`free`, `new`/`delete`  
+**To:** Smart pointers (`unique_ptr`, `shared_ptr`) and RAII containers (`vector`, `string`)  
+**Why migrate:** Compiler cannot enforce allocation/deallocation pairing; exceptions bypass manual `free`; ownership is implicit  
+**Compatibility strategy:** Incremental — migrate one allocation site at a time; smart pointers interop with raw pointers via `.get()`  
+**Mechanical steps:**
+1. Identify `malloc`/`free` and `new`/`delete` pairs.
+2. Replace single-owner allocations with `std::unique_ptr`.
+3. Replace shared-owner allocations with `std::shared_ptr`.
+4. Replace manual buffers with `std::vector` or `std::string`.
+**Behavioral equivalence:** Same objects allocated and deallocated; same lifetimes  
+**Intentional differences:** Deallocation is automatic on scope exit; double-free is structurally impossible with smart pointers  
+**Failure model:** Allocation failure throws `std::bad_alloc` (standard behavior)  
+**Threading model:** `unique_ptr` is single-threaded; `shared_ptr` reference count is atomic  
+**Lifetime model:** `unique_ptr` = exclusive ownership; `shared_ptr` = shared ownership with reference counting  
+**Alternatives:** `std::pmr` allocators, custom RAII wrappers, Boost.SmartPtr  
+**Verification:** Sanitizer runs (`-fsanitize=address`); valgrind; compile-time ownership verification  
+**Rollback plan:** Replace smart pointers with raw `new`/`delete`; replace containers with manual buffers
 
 ---
 

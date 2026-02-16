@@ -5,7 +5,7 @@ title: "Free Lists to Type-Safe Object Pooling"
 from_pattern: "Manual free lists, pre-allocated arrays, custom allocators"
 to_component: "ObjectPool"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 std_since: null
 boost_equivalent: "Boost.Pool"
@@ -22,16 +22,25 @@ last_verified: "2025-01-09"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Free lists, pre-allocated arrays, custom allocators, lookaside caches |
-| **Problems Solved** | Double-free, use-after-free, memory leaks, fragmentation, allocation latency |
-| **Fat-P Component** | `ObjectPool<T, SyncPolicy>` + `PooledObject<T>` RAII wrapper |
-| **Migration Complexity** | Low-Medium — mostly wrapping existing allocation sites |
-| **Runtime Overhead** | Near-zero — O(1) acquire/release, zero heap allocation for pooled objects |
-| **Breaking Changes** | Yes — explicit acquire/release semantics |
+**From:** Free lists, pre-allocated arrays, custom allocators, lookaside caches  
+**To:** `ObjectPool<T, SyncPolicy>` with `PooledObject<T>` RAII wrapper  
+**Why migrate:** Manual free lists are vulnerable to double-free, use-after-free, and leak when exception paths bypass return-to-pool  
+**Compatibility strategy:** Wrapper — pool replaces raw allocation; `PooledObject` RAII handles return-to-pool automatically  
+**Mechanical steps:**
+1. Identify allocation/deallocation pairs for pooled objects.
+2. Create `ObjectPool<T>` with appropriate capacity.
+3. Replace `malloc`/`new` with `pool.acquire()`; replace `free`/`delete` with `PooledObject` scope exit.
+4. Verify no raw pointer escapes the `PooledObject` lifetime.
+**Behavioral equivalence:** Same object allocation and deallocation semantics  
+**Intentional differences:** Return-to-pool is automatic via RAII; double-free is structurally impossible  
+**Failure model:** Pool exhaustion returns error via `Expected` rather than returning NULL  
+**Threading model:** Policy-selectable — single-threaded or mutex-protected pool access  
+**Lifetime model:** `PooledObject` owns the allocation; pool outlives all `PooledObject` instances  
+**Alternatives:** Boost.Pool, `std::pmr::unsynchronized_pool_resource`, custom slab allocator  
+**Verification:** Unit tests for acquire/release cycles; sanitizer runs for use-after-free; stress tests for pool exhaustion  
+**Rollback plan:** Replace `pool.acquire()` with direct allocation; remove `PooledObject` wrappers
 
 ---
 

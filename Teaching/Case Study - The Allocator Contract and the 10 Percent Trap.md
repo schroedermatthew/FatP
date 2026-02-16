@@ -5,7 +5,7 @@ title: "The Allocator Contract and the 10% Trap"
 fatp_components: ["SmallVector"]
 topics: ["allocator_traits::construct", "allocator hook observability", "microbenchmark trap", "benchmark-driven development", "PMR", "memcpy relocation"]
 constraints: ["allocator contract", "polymorphic memory resources", "custom allocator instrumentation", "uses-allocator construction"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: "std::inplace_vector"
 std_since: "C++26"
 boost_equivalent: "Boost.Container small_vector"

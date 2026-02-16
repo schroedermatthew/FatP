@@ -5,7 +5,7 @@ title: "The Case of the Slow Miss"
 fatp_components: ["StableHashMap", "FatPBenchmarkRunner"]
 topics: ["SIMD", "probing", "miss optimization", "instrumentation", "SwissTable"]
 constraints: ["reference stability", "pointer chasing", "node indirection"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-27"
 audience: ["C++ developers", "AI assistants"]

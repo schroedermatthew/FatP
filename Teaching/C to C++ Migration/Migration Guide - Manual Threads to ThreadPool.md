@@ -5,7 +5,7 @@ title: "Manual Thread Management to ThreadPool"
 from_pattern: "pthread_create, manual worker threads, condition variables"
 to_component: "ThreadPool"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Medium-High"
 breaking_changes: true
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | `pthread_create`, manual worker threads, task queues, condition variables |
-| **Problems Solved** | Thread lifecycle bugs, load imbalance, shutdown races, priority inversion |
-| **Fat-P Component** | `ThreadPool` with work stealing and priority queues |
-| **Migration Complexity** | Medium-High — requires rethinking task decomposition |
-| **Runtime Overhead** | ~100-200ns per task submission |
-| **Breaking Changes** | Yes — from thread-centric to task-centric model |
+**From:** `pthread_create`, manual worker threads, task queues with condition variables  
+**To:** `ThreadPool` with work stealing and priority queues  
+**Why migrate:** Manual thread management causes lifecycle bugs, shutdown races, load imbalance, and priority inversion  
+**Compatibility strategy:** Phased — submit existing work functions as tasks; migrate thread-centric logic to task-centric over time  
+**Mechanical steps:**
+1. Identify manual thread creation and associated synchronization.
+2. Create a `ThreadPool` with appropriate worker count.
+3. Replace `pthread_create` + work function with `pool.submit(task)`.
+4. Replace manual shutdown/join logic with pool destructor.
+**Behavioral equivalence:** Same work functions execute; same results produced  
+**Intentional differences:** Thread lifecycle is managed by the pool; task granularity replaces thread granularity  
+**Failure model:** Task submission failures return `Expected`; pool shutdown is orderly via destructor  
+**Threading model:** Pool manages thread lifecycle; tasks must be independently executable  
+**Lifetime model:** Pool owns worker threads; tasks must not outlive data they reference  
+**Alternatives:** `std::execution` (C++26), Boost.Asio `thread_pool`, Intel TBB `task_group`  
+**Verification:** Unit tests for task completion, shutdown ordering, exception propagation; stress tests under load  
+**Rollback plan:** Replace `pool.submit()` with direct `pthread_create`; restore manual synchronization
 
 ---
 

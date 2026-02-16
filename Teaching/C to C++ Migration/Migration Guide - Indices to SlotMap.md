@@ -5,7 +5,7 @@ title: "Array Indices to Generational Handles"
 from_pattern: "Raw indices, index + generation pairs, reusable ID pools"
 to_component: "SlotMap"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Raw array indices, index + version pairs, reusable ID pools |
-| **Problems Solved** | Stale references, ABA problem, dangling indices, iterator invalidation |
-| **Fat-P Component** | `SlotMap<T>` with `SlotMapHandle` |
-| **Migration Complexity** | Medium — requires switching from indices to handles |
-| **Runtime Overhead** | O(1) access, two array lookups vs one |
-| **Breaking Changes** | Yes — handle-based API vs index-based |
+**From:** Raw array indices, index + version pairs, reusable ID pools  
+**To:** `SlotMap<T>` with `SlotMapHandle` for generation-checked access  
+**Why migrate:** Raw indices suffer from the ABA problem — a freed index reused for a new object silently aliases the old reference  
+**Compatibility strategy:** Phased — convert index-based access to handle-based access one subsystem at a time  
+**Mechanical steps:**
+1. Identify arrays accessed by integer index that support add/remove.
+2. Replace array + index with `SlotMap<T>`.
+3. Replace integer indices with `SlotMapHandle` at all call sites.
+4. Replace direct indexing with `slotmap.get(handle)` (returns `Expected`).
+**Behavioral equivalence:** Same logical add/remove/access operations on collections  
+**Intentional differences:** Stale handles are detected at access time via generation check; no silent aliasing  
+**Failure model:** Stale index → silent corruption; stale handle → `Expected` error or enforcement  
+**Threading model:** SlotMap itself is not synchronized; external locking required for concurrent access  
+**Lifetime model:** Handles are valid only while the SlotMap contains the referenced object at that generation  
+**Alternatives:** Manual index + generation pair, `entt::registry`, custom handle system  
+**Verification:** Unit tests for stale-handle detection, insert/remove cycles, generation wraparound  
+**Rollback plan:** Replace `SlotMapHandle` with integer indices; replace `slotmap.get()` with direct array access
 
 ---
 

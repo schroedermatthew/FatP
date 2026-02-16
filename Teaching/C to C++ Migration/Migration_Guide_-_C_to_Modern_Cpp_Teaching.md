@@ -5,14 +5,14 @@ title: "C to Modern C++"
 fatp_components: ["ServiceLocator", "Expected", "StrongId", "ScopeGuard", "StateMachine"]
 topics: ["c-to-cpp", "migration", "API boundaries", "global state", "error handling", "RAII", "type safety", "component decomposition", "legacy code"]
 constraints: ["ABI compatibility", "incremental migration", "rollback capability", "C interop", "thread safety", "institutional knowledge"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-27"
 audience: ["C developers", "C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"
 
 from_language: "C"
 to_language: "C++"
-to_standard: "C++17"
+to_standard: "C++20"
 from_pattern: ["global variables", "manual memory", "return codes", "void pointers", "stringly-typed dispatch"]
 to_component: ["ServiceLocator", "Expected", "StrongId", "ScopeGuard", "RAII wrappers"]
 compatibility: ["C ABI", "extern C", "plugin boundary"]

@@ -5,7 +5,7 @@ title: "Error Handling Patterns to Expected"
 from_pattern: "Integer error codes, errno, output parameters, sentinel values"
 to_component: "Expected"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: "std::expected"
 std_since: "C++23"
 boost_equivalent: "Boost.Outcome"
@@ -22,16 +22,25 @@ last_verified: "2025-01-09"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Integer return codes, errno, output parameters, NULL/sentinel values |
-| **Problems Solved** | Ignored errors, errno clobbering, output parameter ambiguity, silent failure |
-| **Fat-P Component** | `Expected<T, E>` with monadic operations |
-| **Migration Complexity** | Medium — requires changing return types and call sites |
-| **Runtime Overhead** | Zero for trivial types; ~0.3ns for union storage |
-| **Breaking Changes** | No — can migrate incrementally; wrappers for legacy code |
+**From:** Integer return codes, errno, output parameters, NULL/sentinel values  
+**To:** `Expected<T, E>` with monadic operations  
+**Why migrate:** Ignored errors are invisible at the call site; errno clobbers across calls; output parameters conflate presence with validity  
+**Compatibility strategy:** Incremental — wrap legacy functions returning error codes; no breaking changes required  
+**Mechanical steps:**
+1. Identify functions returning error codes or using output parameters.
+2. Change return type to `Expected<T, E>`.
+3. Replace error-code checks at call sites with monadic operations or `EXPECTED_TRY`.
+4. Remove output parameters; return values directly inside `Expected`.
+**Behavioral equivalence:** Same error conditions detected; same recovery paths taken  
+**Intentional differences:** Errors are encoded in the return type; callers cannot silently ignore them (`[[nodiscard]]`)  
+**Failure model:** C-style integer codes / errno → `Expected<T, E>` with monadic error propagation  
+**Threading model:** Unchanged — `Expected` itself is value-typed and thread-compatible  
+**Lifetime model:** Value semantics; no ownership transfer; no teardown ordering concerns  
+**Alternatives:** `std::expected` (C++23), Boost.Outcome, exceptions  
+**Verification:** Unit tests for error paths; `[[nodiscard]]` enforcement; sanitizer runs  
+**Rollback plan:** Revert return types to error codes; restore output parameters; incremental rollback per function
 
 ---
 

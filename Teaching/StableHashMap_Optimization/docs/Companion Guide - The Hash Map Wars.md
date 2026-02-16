@@ -5,7 +5,7 @@ title: "The Hash Map Wars"
 fatp_components: ["FastHashMap", "StableHashMap", "AllocationStrategies"]
 topics: ["SIMD", "Swiss Table", "cache locality", "tombstone deletion", "reference stability", "allocator policy"]
 constraints: ["cache lines", "pointer stability", "allocation overhead", "platform differences"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-27"
 audience: ["C++ developers", "AI assistants"]

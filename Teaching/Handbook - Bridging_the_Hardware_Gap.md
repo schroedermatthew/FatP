@@ -1,4 +1,4 @@
-# **Bridging the Hardware Gap**
+# Handbook - Bridging the Hardware Gap
 
 ### *A Companion Guide to FAT-P's High-Performance Computing Components*
 

@@ -1,4 +1,4 @@
-# **Case Study - Benchmarking Hash Tables Without Lying to Yourself**
+# Case Study - Benchmarking Hash Tables Without Lying to Yourself
 
 ### *A Case Study in Performance Methodology*
 

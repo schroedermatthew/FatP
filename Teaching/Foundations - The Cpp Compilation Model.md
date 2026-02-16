@@ -5,7 +5,7 @@ title: "The C++ Compilation Model"
 fatp_components: []
 topics: ["compilation", "linking", "object files", "shared libraries", "symbols", "headers", "translation units", "function pointers", "static libraries", "dynamic linking"]
 constraints: ["build time", "binary size", "deployment", "dependency management"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-08"
 audience: ["C++ beginners", "developers from other languages", "AI assistants"]
 status: "draft"

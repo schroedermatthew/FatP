@@ -15,7 +15,7 @@ constraints:
   - "C ABI boundary"
   - "lifetime"
   - "thread-safety"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 audience:
   - "C developers"
   - "C++ developers"
@@ -25,7 +25,7 @@ last_verified: "2026-01-09"
 
 from_language: "C"
 to_language: "C++"
-to_standard: "C++17"
+to_standard: "C++20"
 from_pattern:
   - "function pointers"
   - "callback + context pairs"

@@ -5,7 +5,7 @@ title: "Manual Ring Buffers to Lock-Free CircularBuffer"
 from_pattern: "Manual ring buffers, modulo indexing, mutex-protected queues"
 to_component: "CircularBuffer"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | Manual ring buffers, modulo indexing, empty/full confusion, mutex queues |
-| **Problems Solved** | Off-by-one errors, empty/full ambiguity, cache thrashing, lock contention |
-| **Fat-P Component** | `CircularBuffer<T, Capacity>` |
-| **Migration Complexity** | Medium — requires understanding SPSC threading model |
-| **Runtime Overhead** | Near-zero — wait-free, ~300M ops/sec |
-| **Breaking Changes** | Yes — SPSC model (single producer, single consumer) |
+**From:** Manual ring buffers with modulo indexing, mutex-protected queues  
+**To:** `CircularBuffer<T, Capacity>` with compile-time capacity and SPSC support  
+**Why migrate:** Manual ring buffers are prone to off-by-one errors, empty/full ambiguity, and cache thrashing under contention  
+**Compatibility strategy:** Wrapper — replace manual buffer management with `CircularBuffer` API  
+**Mechanical steps:**
+1. Identify ring buffer implementations and their producer/consumer threading model.
+2. Replace manual buffer with `CircularBuffer<T, Capacity>`.
+3. Replace modulo arithmetic with `push_back()` / `pop_front()`.
+4. For SPSC use cases, leverage wait-free guarantees; remove unnecessary mutexes.
+**Behavioral equivalence:** Same FIFO ordering; same capacity semantics  
+**Intentional differences:** Compile-time capacity; SPSC model enables wait-free operation without mutexes  
+**Failure model:** Buffer full/empty is explicit via return value; no silent overwrite  
+**Threading model:** SPSC (single producer, single consumer) — wait-free; multi-producer/consumer requires external synchronization  
+**Lifetime model:** Buffer owns elements; elements destroyed on pop or buffer destruction  
+**Alternatives:** Boost.Circular_buffer, `moodycamel::ConcurrentQueue`, lock-free MPMC queues  
+**Verification:** Unit tests for push/pop sequences, full/empty boundary; SPSC stress tests; sanitizer runs  
+**Rollback plan:** Replace `CircularBuffer` with manual ring buffer; restore modulo indexing and mutexes
 
 ---
 

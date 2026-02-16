@@ -5,7 +5,7 @@ title: "Switch Statements to Type-Safe State Machines"
 from_pattern: "switch on enum, scattered state transitions, state flags"
 to_component: "StateMachine"
 fatp_version: "1.0"
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
@@ -19,16 +19,25 @@ last_verified: "2025-01-08"
 
 ---
 
-## Migration Card
+## Migration Guide Card
 
-| Aspect | Detail |
-|--------|--------|
-| **C Pattern** | `switch(state)`, enum states, scattered transitions, state flags |
-| **Problems Solved** | Missing transitions, invalid states, forgotten entry/exit, no compile-time validation |
-| **Fat-P Component** | `StateMachine<Context, TransitionList, Policy...>` |
-| **Migration Complexity** | Medium — requires restructuring state logic into state types |
-| **Runtime Overhead** | Zero — compiles to equivalent switch/jump table |
-| **Breaking Changes** | Yes — fundamental restructure of state management |
+**From:** `switch(state)` on enum, scattered state transitions, state flags  
+**To:** `StateMachine<Context, TransitionList, Policy...>` with compile-time transition validation  
+**Why migrate:** Switch-based state machines cannot enforce valid transitions at compile time; missing cases are silent bugs  
+**Compatibility strategy:** Restructure — requires converting enum states to state types and transitions to a transition list  
+**Mechanical steps:**
+1. Identify `switch(state)` blocks and enumerate all states and transitions.
+2. Define state types and a `TransitionList` encoding valid transitions.
+3. Replace switch logic with state entry/exit handlers and transition guards.
+4. Verify compile-time rejection of invalid transitions.
+**Behavioral equivalence:** Same states, same transitions, same entry/exit side effects  
+**Intentional differences:** Invalid transitions are compile-time errors; entry/exit actions are guaranteed to execute  
+**Failure model:** Invalid transition → compile error (not runtime check)  
+**Threading model:** Unchanged — state machine itself is not synchronized; external locking if shared  
+**Lifetime model:** StateMachine owns the current state; context must outlive the machine  
+**Alternatives:** Boost.MSM, Boost.SML, manual variant-based state machines  
+**Verification:** Compile-time verification of transition validity; unit tests for state sequences and guard conditions  
+**Rollback plan:** Replace state types with enum; replace transition list with `switch(state)` blocks
 
 ---
 

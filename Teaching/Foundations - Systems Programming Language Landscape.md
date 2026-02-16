@@ -5,7 +5,7 @@ title: "Systems Programming Language Landscape"
 fatp_components: []
 topics: ["language history", "systems programming", "object-oriented programming", "generic programming", "Ada", "Rust", "Fortran", "Simula", "static analysis", "lint", "memory safety", "type systems", "language design"]
 constraints: ["hardware access", "performance requirements", "memory safety", "abstraction overhead", "compilation model"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-19"
 audience: ["C++ developers", "language enthusiasts", "technical leads", "AI assistants"]
 status: "reviewed"

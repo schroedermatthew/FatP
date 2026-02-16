@@ -5,13 +5,13 @@ title: "Global Services to ServiceLocator"
 fatp_components: ["ServiceLocator"]
 topics: ["dependency injection", "service locator pattern", "global state elimination", "testability", "scoped overrides", "composition root"]
 constraints: ["global state in legacy code", "test isolation", "startup wiring complexity", "thread-safety requirements"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 std_since: null
 boost_equivalent: null
 from_language: "C/C++"
 to_language: "C++"
-to_standard: "C++17"
+to_standard: "C++20"
 from_pattern: ["global structs", "singleton accessors", "function pointer tables", "extern declarations"]
 to_component: ["ServiceLocator"]
 compatibility: ["incremental migration", "transitional global accessor"]

@@ -5,7 +5,7 @@ title: "C Codebase Migration Analysis"
 fatp_components: ["ServiceLocator"]
 topics: ["global state", "static analysis", "code comprehension", "dependency analysis", "thread safety", "migration planning"]
 constraints: ["legacy C code", "unknown architecture", "limited documentation", "threading correctness"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-01-09"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"

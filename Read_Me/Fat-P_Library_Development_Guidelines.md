@@ -405,7 +405,7 @@ Each adjective has a documented meaning:
 
 No vague adjectives. If an adjective isn't in this table, don't use it without adding it.
 
-**Note:** These adjectives are permitted in component *names*. The vocabulary ban in Section 8.2 applies to *documentation prose*, not naming. For example, `FastHashMap` is a valid component name, but documentation should not describe it as "fast" -- instead say "O(1) average lookup" or "SIMD-accelerated".
+**Note:** These adjectives are permitted in component *names*. The vocabulary ban in Section 8.2 applies to *component Overviews, User Manuals, and Companion Guides*, not naming or teaching documents. For example, `FastHashMap` is a valid component name, but its Overview should not describe it as "fast" -- instead say "O(1) average lookup" or "SIMD-accelerated".
 
 **Rule 3 -- Sets and maps differ only by value semantics**
 
@@ -1686,9 +1686,9 @@ These assignments are intentional and based on dependency analysis, not naming c
 
 ### 8.2 Documentation Vocabulary Rules
 
-**These vocabulary rules apply to user-facing documentation only.**
+**These vocabulary rules apply to component documentation only (Overviews, User Manuals, and Companion Guides).**
 
-The following terms are banned in **user manuals, guides, and overview documents** because they are vague. Replace with mechanism-specific language:
+The following terms are banned in **component Overviews, User Manuals, and Companion Guides** (i.e. documents inside `components/` that describe a specific FAT-P header) because they are vague. Replace with mechanism-specific language:
 
 | Banned Term | Required Replacement |
 |-------------|---------------------|
@@ -1704,12 +1704,13 @@ The following terms are banned in **user manuals, guides, and overview documents
 
 | Content Type | Vocabulary Ban Applies? |
 |--------------|------------------------|
-| Teaching documents (all types in Teaching Documents Style Guide) | **Yes** |
+| Component Overviews, User Manuals, and Companion Guides (in `components/`) | **Yes** |
+| Teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, etc.) | **No** — precise language encouraged but vague terms are permitted in teaching prose |
 | Doxygen comments (`/** */`, `///`) | **No** |
 | Code comments (`//`) | **No** |
 | Component names and identifiers | **No** |
 
-**Rationale:** User-facing documentation shapes expectations. Vague terms like "fast" create ambiguous promises. In contrast, Doxygen comments are technical specifications where terms like "fast lookup" are understood in context, and code comments are implementation notes for maintainers. Restricting vocabulary in code comments would impede communication without benefit.
+**Rationale:** Component documentation shapes user expectations about specific APIs and makes promises the library must keep. Vague terms like "fast" create ambiguous guarantees. Teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, communication guides) serve a different purpose — they explain concepts, compare approaches, and build understanding. Requiring mechanism-specific replacements for every use of "safe" or "modern" in a Foundations document about C++ history would produce awkward prose without benefit. Doxygen comments are technical specifications where terms like "fast lookup" are understood in context, and code comments are implementation notes for maintainers.
 
 ### 8.3 Documentation Philosophy
 
@@ -2103,7 +2104,7 @@ Upon receiving guidelines, code, or documentation:
 
 #### Vocabulary Enforcement
 
-Banned terms must be replaced with mechanism-specific language in user-facing documentation (manuals, guides, overviews). See Section 8.2 for scope. Doxygen comments and code comments are exempt.
+Banned terms must be replaced with mechanism-specific language in component documentation (Overviews, User Manuals, and Companion Guides in `components/`). See Section 8.2 for scope. Teaching documents, Doxygen comments, and code comments are exempt.
 
 #### Layer Verification Protocol
 
@@ -2247,7 +2248,7 @@ AI should expect reset reviews and should not anchor on prior conclusions.
 
 Before submitting any Fat-P artifact, AI should verify:
 
-- [ ] No banned vocabulary in user-facing documentation (manuals, guides, overviews)
+- [ ] No banned vocabulary in component documentation (Overviews, User Manuals, Companion Guides)
 - [ ] All required template sections present
 - [ ] Caveats/limitations section included
 - [ ] Complete files (no truncation of any file type)
@@ -2546,4 +2547,5 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.6 -- February 2026*
+*Fat-P Library Development Guidelines v3.7 -- February 2026*
+*v3.7: Narrowed §8.2 vocabulary ban scope — banned terms apply to component Overviews, User Manuals, and Companion Guides; teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, etc.) are exempt*
