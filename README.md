@@ -145,7 +145,7 @@ All code, architecture, documentation, and governance in this library were autho
 
 The library was developed using a multi-AI collaborative pipeline: independent parallel design, cross-review and synthesis, adversarial review, and context reset cycles. The complete methodology is documented in [Fat-P AI-Collaborative Development Methodology](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md).
 
-Across 20 benchmarked components and 50+ competitor implementations, every Fat-P component benchmarked to date matches or exceeds the performance of its industry-standard equivalent from Boost, Abseil, LLVM, and EASTL. Benchmark data is in [`benchmark_results/`](benchmark_results/).
+23 components have been benchmarked against 50+ competitor implementations from Boost, Abseil, LLVM, EASTL, and others. Most are competitive; some lead on specific operations, some trail. The data — including where FAT-P loses — is in [`benchmark_results/`](benchmark_results/).
 
 **What this library is not.** FAT-P has no installed base, no production deployments, and no history of use under real-world workloads. The benchmarks demonstrate competitive performance in controlled measurement; they do not demonstrate the edge-case resilience that comes from years of bug reports, platform quirks, and adversarial inputs. Libraries like Boost and Abseil have earned trust through decades of deployment across millions of systems. FAT-P has earned nothing yet except clean benchmarks and green CI. Use it with that understanding.
 
