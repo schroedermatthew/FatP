@@ -76,11 +76,5 @@ ipch/
 *.ncb
 *.resource.h
 
-# Vendored benchmark competitor headers (ThirdParty/) are NOT ignored.
-# They are header-only, permissively licensed (MIT / Boost), and required
-# by CI benchmark builds.  .gitattributes marks them linguist-vendored
-# so they don't skew language statistics.
-
 # Visual Studio workspace settings (user-specific, not project config)
 VSWorkspaceSettings.json
-
