@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Medium-High"
 breaking_changes: true
 last_verified: "2025-01-08"
+fatp_components: ["ThreadPool"]
+topics: ["c-to-cpp", "migration", "pthreads", "thread-pool", "task-parallelism", "work-stealing"]
+constraints: ["thread lifecycle", "shutdown ordering", "load balancing", "priority inversion"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Manual Thread Management to ThreadPool
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that manually creates and manages threads via `pthread_create`, custom work queues, and condition-variable signaling, and migrates those to a `ThreadPool` with task submission and work stealing.
+
+## Not covered
+
+- Coroutine-based concurrency (C++20 coroutines, Boost.Asio)
+- GPU compute dispatch (CUDA, OpenCL)
+- Distributed task scheduling across machines
+
+## Prerequisites
+
+- Familiarity with POSIX threads (`pthread_create`, `pthread_join`, `pthread_mutex`)
+- Understanding of producer-consumer patterns and condition variables
 
 ## Migration Guide Card
 
@@ -40,6 +60,35 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `pool.submit()` with direct `pthread_create`; restore manual synchronization
 
 ---
+
+## Alternatives
+
+`std::execution` (C++26 — sender/receiver model, not yet widely available), Boost.Asio `thread_pool` (tied to Asio ecosystem), Intel TBB `task_group` (mature but heavy dependency), `std::async` (limited control over thread reuse).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `pthread_create(&tid, NULL, func, arg)` | `pool.submit(func, args...)` | No manual thread lifecycle |
+| `pthread_join(tid, &result)` | `auto future = pool.submit(...); future.get()` | Future-based result retrieval |
+| Condition variable + mutex queue | Pool-internal work queue | Work stealing balances load automatically |
+| Manual `pthread_cancel` / signal | Pool destructor drains and joins | Orderly shutdown guaranteed |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns for internal threading. If threads interact with C libraries that use thread-local state, ensure the pool threads initialize that state. Thread IDs change — code that relies on specific `pthread_t` values must be adapted.
+
+## Lifetime and ownership model
+
+`ThreadPool` owns worker threads. Worker threads are created at pool construction and joined at destruction. Tasks submitted to the pool must not reference data that is destroyed before the task completes.
+
+## Error and failure model
+
+Task exceptions are captured in the returned `std::future` and rethrown on `.get()`. Pool shutdown is orderly — pending tasks complete before destruction. Submitting to a stopped pool returns an error.
+
+## Rollback plan
+
+Replace `pool.submit()` with `pthread_create` calls. Restore manual join/cancel logic. Restore condition-variable work queues. Work-stealing and automatic load balancing are lost on rollback.
 
 ## Table of Contents
 

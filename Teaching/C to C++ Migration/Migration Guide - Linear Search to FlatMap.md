@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2025-01-08"
+fatp_components: ["FlatMap"]
+topics: ["c-to-cpp", "migration", "linear-search", "sorted-arrays", "binary-search", "cache-locality"]
+constraints: ["O(N) lookup", "type-unsafe comparators", "sorted-array maintenance"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Linear Search and bsearch to FlatMap
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses linear search, `qsort`/`bsearch`, or manually maintained sorted arrays for key-value lookup, and migrates those to `FlatMap<Key, Value>` for cache-friendly sorted associative storage.
+
+## Not covered
+
+- Hash-based lookup (see StableHashMap/FastHashMap guides)
+- Multi-map or multi-index patterns
+- Concurrent associative containers
+
+## Prerequisites
+
+- Familiarity with C sorted-array patterns and `bsearch`
+- Understanding of Big-O complexity for search operations
 
 ## Migration Guide Card
 
@@ -40,6 +60,35 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `FlatMap` with sorted array + `bsearch`; restore manual comparators
 
 ---
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| Linear scan over array | `flat_map.find(key)` | O(log N) vs O(N) |
+| `qsort()` + `bsearch()` | `flat_map.insert()` + `flat_map.find()` | Type-checked comparisons |
+| Parallel sorted arrays (keys[], values[]) | `FlatMap<Key, Value>` | Single container; keys and values co-located |
+| Manual binary search | `flat_map.lower_bound()` / `find()` | Standard iterator interface |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns for internal use. At C boundaries, extract sorted key-value pairs into C arrays if needed. `FlatMap` iterators provide contiguous access to the underlying sorted storage.
+
+## Lifetime and ownership model
+
+`FlatMap` owns its elements. Elements are destroyed when erased or when the container is destroyed. Iterators are invalidated by insert/erase (same as `std::vector`).
+
+## Thread-safety and reentrancy
+
+Not internally synchronized. Concurrent reads (find, iteration) are permitted. Concurrent modification requires external locking.
+
+## Error and failure model
+
+Missing key: `find()` returns `end()` iterator (standard associative container semantics). No exceptions on lookup failure. `insert()` returns a pair indicating success/failure.
+
+## Rollback plan
+
+Replace `FlatMap` with sorted array + `bsearch`. Restore manual comparator functions and sort maintenance. Cache-locality advantage is preserved with sorted arrays but type safety is lost.
 
 ## Table of Contents
 

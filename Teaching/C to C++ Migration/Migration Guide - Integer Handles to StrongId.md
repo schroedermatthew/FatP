@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2025-01-08"
+fatp_components: ["StrongId"]
+topics: ["c-to-cpp", "migration", "integer-handles", "type-safety", "handle-confusion", "phantom-types"]
+constraints: ["cross-domain handle confusion", "implicit conversion", "type-level safety"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Integer Handles to Type-Safe IDs
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses raw integers or typedef'd integers as handles (file descriptors, connection IDs, resource handles) and migrates those to `StrongId<T, Tag>` for compile-time type distinction.
+
+## Not covered
+
+- Handle lifetime management (open/close pairing — see ScopeGuard or RAII guide)
+- Handle serialization across process boundaries
+- OS-specific handle types (`HANDLE`, `SOCKET`) with platform abstraction
+
+## Prerequisites
+
+- Familiarity with integer handle patterns in C APIs
+- Basic understanding of C++ templates and tag types
 
 ## Migration Guide Card
 
@@ -40,6 +60,35 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `StrongId` aliases with `typedef int`; remove explicit construction
 
 ---
+
+## Alternatives
+
+`enum class` (provides type distinction but no policy control), manual wrapper `struct` (boilerplate-heavy, no compile-time policy), Boost.StrongTypedef (similar concept, Boost dependency).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `typedef int FileId;` | `using FileId = StrongId<int, FileIdTag>;` | Cross-type confusion is compile error |
+| `int fd` parameter | `FileId fd` parameter | Wrong-handle-type is compile error |
+| `handle == other_handle` | Same — `StrongId` supports `==` | Cross-type comparison is compile error |
+| `handle + 1` (arithmetic) | Blocked by default policy | Accidental arithmetic is compile error |
+
+## Compatibility and ABI boundaries
+
+At C API boundaries, use `.value()` to extract the underlying integer for C function calls. Wrap returned integers with explicit `StrongId` construction at the boundary.
+
+## Lifetime and ownership model
+
+Value semantics. Same lifetime as the underlying integer. No ownership, no teardown ordering. Copies are independent values.
+
+## Thread-safety and reentrancy
+
+`StrongId` is a value type with no internal state beyond the integer. Thread-safe to the same degree as `int` — concurrent reads are safe; concurrent writes require synchronization.
+
+## Rollback plan
+
+Replace `StrongId` aliases with `typedef int`. Remove explicit construction. Restore implicit integer conversions. Type-safety guarantees are lost on rollback.
 
 ## Table of Contents
 

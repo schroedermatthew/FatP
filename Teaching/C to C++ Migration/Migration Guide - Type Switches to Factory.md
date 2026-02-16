@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
+fatp_components: ["Factory"]
+topics: ["c-to-cpp", "migration", "type-switch", "factory-pattern", "object-creation", "registration"]
+constraints: ["open-closed principle", "type-enum maintenance", "creation-site scattering"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Type Switches to Registered Factories
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses `switch` on type enums or function pointer tables for object creation dispatch, and migrates those to `Factory<Key, Product>` with type registration and policy-based creation.
+
+## Not covered
+
+- Abstract factory hierarchies (family-of-products patterns)
+- Dependency injection frameworks
+- Plugin systems with dynamic library loading (`dlopen`/`LoadLibrary`)
+
+## Prerequisites
+
+- Familiarity with type-enum dispatch patterns in C
+- Understanding of the open-closed principle
 
 ## Migration Guide Card
 
@@ -40,6 +60,39 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `factory.create()` with `switch` dispatch; restore type enum
 
 ---
+
+## Alternatives
+
+Manual `std::unordered_map<Key, std::function<...>>` (boilerplate, no policy control), virtual factory methods (classic OOP pattern, allocation overhead), `std::variant`-based construction (closed set of types only).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `switch(type) { case T1: return new T1(); }` | `factory.create(key)` | Open for extension; no switch modification |
+| Function pointer table | Factory registration | Type-checked; error handling on unknown key |
+| `enum TypeId { T1, T2, ... }` | `Key` type (string, enum, or custom) | No enum maintenance when adding types |
+| `default: return NULL;` | Unknown key returns `Expected` error | Explicit error; no silent null |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns for internal creation logic. If factory-created objects cross a C API boundary, the factory returns C++-managed objects that are passed as opaque pointers across the boundary.
+
+## Lifetime and ownership model
+
+Factory does not own created objects — the caller owns the returned product (typically via `unique_ptr`). Factory itself must outlive all registration calls but not necessarily all created objects. Creator functions are stored by value (copied) or by reference.
+
+## Thread-safety and reentrancy
+
+Registration is not synchronized — register all types before concurrent use. After registration completes, `create()` is read-only and concurrent-safe. If dynamic registration is needed during operation, external locking is required.
+
+## Error and failure model
+
+Unknown key produces `Expected` error (not null pointer, not exception). Creator function exceptions propagate to the caller. Registration of duplicate keys is an error (policy-selectable: overwrite or reject).
+
+## Rollback plan
+
+Replace `factory.create(key)` with `switch(type_enum)` dispatch. Restore function pointer tables. Re-add type enum entries. Open-closed extensibility is lost on rollback.
 
 ## Table of Contents
 

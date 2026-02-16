@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
+fatp_components: ["CircularBuffer"]
+topics: ["c-to-cpp", "migration", "ring-buffer", "circular-buffer", "SPSC", "lock-free", "producer-consumer"]
+constraints: ["off-by-one errors", "empty-full ambiguity", "cache-line contention", "SPSC threading"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Manual Ring Buffers to Lock-Free CircularBuffer
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code with hand-rolled ring buffers (modulo indexing, head/tail pointers, mutex-protected queues) and migrates those to `CircularBuffer<T, Capacity>` with compile-time capacity and optional SPSC wait-free guarantees.
+
+## Not covered
+
+- Multi-producer/multi-consumer (MPMC) lock-free queues
+- Dynamically resizable ring buffers
+- Network I/O ring buffers (io_uring, DPDK-style)
+
+## Prerequisites
+
+- Familiarity with ring buffer data structures and modulo arithmetic
+- Understanding of SPSC (single-producer, single-consumer) threading models
 
 ## Migration Guide Card
 
@@ -40,6 +60,39 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `CircularBuffer` with manual ring buffer; restore modulo indexing and mutexes
 
 ---
+
+## Alternatives
+
+Boost.Circular_buffer (dynamic capacity, not lock-free), `moodycamel::ConcurrentQueue` (MPMC, heavier), `folly::ProducerConsumerQueue` (SPSC, Facebook dependency), manual ring buffer with power-of-2 capacity (common but error-prone).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `buf[head % capacity]` | `buffer.push_back(value)` | No manual modulo arithmetic |
+| `head == tail` (empty check) | `buffer.empty()` | No empty/full ambiguity |
+| `(head + 1) % cap == tail` (full check) | `buffer.full()` | Compile-time capacity; no wasted slot |
+| `pthread_mutex` on enqueue/dequeue | SPSC: no mutex needed | Wait-free for single-producer/single-consumer |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns for internal use. At C boundaries, `CircularBuffer` can expose its contiguous storage regions via `linearize()` for C functions expecting flat arrays.
+
+## Lifetime and ownership model
+
+`CircularBuffer` owns its elements (inline storage for compile-time capacity). Elements are destroyed on `pop_front()` or buffer destruction. Capacity is fixed at compile time — no dynamic allocation.
+
+## Thread-safety and reentrancy
+
+SPSC mode: wait-free (one producer thread, one consumer thread, no mutex). Multi-producer or multi-consumer requires external synchronization. The SPSC guarantee requires that `push_back` is called from exactly one thread and `pop_front` from exactly one (possibly different) thread.
+
+## Error and failure model
+
+Push to full buffer and pop from empty buffer return `false` (not undefined behavior). No exceptions. Overflow behavior is explicit.
+
+## Rollback plan
+
+Replace `CircularBuffer` with manual ring buffer. Restore modulo indexing and head/tail pointer management. Re-add mutex for thread synchronization if the SPSC model was being used.
 
 ## Table of Contents
 

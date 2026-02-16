@@ -57,6 +57,35 @@ This document shows how to migrate C-style manual cleanup patterns to automatic 
 
 ---
 
+## Alternatives
+
+`std::experimental::scope_exit` (Library Fundamentals TS v3 — not yet standard), Boost.ScopeExit (macro-based, Boost dependency), custom RAII wrapper class (more boilerplate but explicit), D language `scope(exit)` (language-level).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `goto cleanup;` label | `ScopeGuard` at acquisition point | Cleanup runs on all exit paths |
+| Nested `if (resource) close(resource);` | `auto guard = makeScopeGuard([&]{ close(resource); });` | Single point of cleanup definition |
+| `__attribute__((cleanup))` (GCC) | `ScopeGuard` | Portable; lambda-based |
+| `atexit()` / `at_quick_exit()` | `ScopeGuard` in `main()` scope | Deterministic ordering; dismissable |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns. `ScopeGuard` is entirely internal. At C API boundaries, cleanup lambdas simply call the C release functions (`fclose`, `close`, `free`, etc.).
+
+## Lifetime and ownership model
+
+`ScopeGuard` lives on the stack. Cleanup executes when the guard goes out of scope (normal exit, exception, early return). `dismiss()` cancels cleanup (commit pattern). Guards execute in reverse declaration order (LIFO).
+
+## Error and failure model
+
+If the cleanup lambda throws during stack unwinding (exception already in flight), behavior depends on policy: `ScopeGuardNoexcept` calls `std::terminate`; `ScopeGuardMayThrow` allows propagation. Default policy is noexcept.
+
+## Rollback plan
+
+Replace `ScopeGuard` with `goto cleanup` labels or nested conditionals. Restore explicit resource release calls on each exit path. Exception-path coverage is lost on rollback.
+
 ## Table of Contents
 
 1. [The C Patterns](#the-c-patterns)

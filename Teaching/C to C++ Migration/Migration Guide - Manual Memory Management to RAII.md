@@ -58,6 +58,36 @@ This document shows how to migrate C-style manual memory management patterns to 
 
 ---
 
+## Alternatives
+
+`std::pmr` polymorphic allocators (C++17 — pool-based, arena-based), Boost.SmartPtr, custom RAII wrapper classes, `GSL::owner<T*>` annotation (lint-only, no enforcement).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `malloc()` / `free()` | `std::unique_ptr<T>` or `std::vector<T>` | Automatic deallocation on scope exit |
+| `new` / `delete` | `std::make_unique<T>(...)` | No raw `new`; ownership is explicit |
+| `new[]` / `delete[]` | `std::vector<T>` or `std::make_unique<T[]>(n)` | No array `delete` mismatch |
+| Shared ownership (manual refcount) | `std::shared_ptr<T>` | Atomic reference counting; automatic cleanup |
+| `realloc()` | `std::vector<T>::resize()` | Exception-safe reallocation |
+
+## Compatibility and ABI boundaries
+
+At C API boundaries, use `unique_ptr::get()` or `unique_ptr::release()` to pass raw pointers to C functions. Ensure the smart pointer outlives the C function's use of the pointer, or transfer ownership explicitly.
+
+## Lifetime and ownership model
+
+`unique_ptr`: destroyed when the owning scope exits. `shared_ptr`: destroyed when the last `shared_ptr` copy is destroyed. Move semantics transfer ownership without copying. No manual deallocation required.
+
+## Error and failure model
+
+Allocation failure throws `std::bad_alloc` (standard behavior). Double-free is structurally impossible with smart pointers. Use-after-free is prevented by ownership semantics (though `.get()` can still create dangling raw pointers if misused).
+
+## Rollback plan
+
+Replace smart pointers with raw `new`/`delete`. Replace `std::vector` with manual buffer management. Restore `realloc` calls. Exception-safety and automatic cleanup guarantees are lost on rollback.
+
 ## Table of Contents
 
 1. [The C Patterns](#the-c-patterns)

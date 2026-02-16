@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Low-Medium"
 breaking_changes: false
 last_verified: "2025-01-08"
+fatp_components: ["CheckedArithmetic"]
+topics: ["c-to-cpp", "migration", "integer-overflow", "undefined-behavior", "checked-arithmetic", "overflow-policy"]
+constraints: ["integer overflow UB", "silent wraparound", "security-critical arithmetic"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Manual Overflow Checks to CheckedArithmetic
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code with manual overflow checks, compiler builtins (`__builtin_add_overflow`), or unchecked arithmetic on security/safety-critical integer values, and migrates those to `CheckedArithmetic<T, Policy>` with policy-selected overflow handling.
+
+## Not covered
+
+- Floating-point overflow and special-value handling (NaN, Inf)
+- Arbitrary-precision integer libraries (GMP, Boost.Multiprecision)
+- Saturating arithmetic for DSP/signal-processing use cases (use SaturatingPolicy directly)
+
+## Prerequisites
+
+- Understanding that signed integer overflow is undefined behavior in C/C++
+- Familiarity with compiler builtins for overflow detection
 
 ## Migration Guide Card
 
@@ -40,6 +60,39 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `CheckedArithmetic<T>` with raw integer types; restore manual overflow checks
 
 ---
+
+## Alternatives
+
+Compiler builtins (`__builtin_add_overflow` — GCC/Clang only, not portable), Microsoft SafeInt (Windows-focused), Boost.SafeNumerics (heavier, Boost dependency), `-ftrapv` compiler flag (limited to signed overflow, performance cost).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `if (a > INT_MAX - b) error();` | `CheckedArithmetic<int> a; a + b` | Overflow detected by policy |
+| `__builtin_add_overflow(a, b, &r)` | `auto r = checked_a + checked_b;` | Portable; policy-selected response |
+| Unchecked `a * b` | `CheckedArithmetic<int, ThrowPolicy> a, b; a * b` | Overflow throws instead of UB |
+| `(unsigned)a + (unsigned)b` (wrapping) | `CheckedArithmetic<unsigned, WrappingPolicy>` | Explicit intent; no accidental UB |
+
+## Compatibility and ABI boundaries
+
+At C API boundaries, extract the underlying value with `.value()` for C function calls. Wrap returned integers with explicit `CheckedArithmetic` construction. No ABI impact.
+
+## Lifetime and ownership model
+
+Value semantics. Same lifetime as the underlying integer type. No ownership, no teardown ordering.
+
+## Thread-safety and reentrancy
+
+`CheckedArithmetic` is a value type with no internal synchronization. Same thread-safety as the underlying integer.
+
+## Error and failure model
+
+Overflow behavior is policy-selected: `ThrowPolicy` throws `std::overflow_error`; `SaturatePolicy` clamps to min/max; `ExpectedPolicy` returns `Expected<T, OverflowError>`; `TerminatePolicy` calls `std::terminate`. Policy is a compile-time template parameter.
+
+## Rollback plan
+
+Replace `CheckedArithmetic<T>` with raw integer types. Restore manual overflow checks or compiler builtins. Undefined-behavior protection is lost on rollback.
 
 ## Table of Contents
 

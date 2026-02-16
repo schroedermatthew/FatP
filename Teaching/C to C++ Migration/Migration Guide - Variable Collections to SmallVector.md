@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2025-01-08"
+fatp_components: ["SmallVector"]
+topics: ["c-to-cpp", "migration", "small-buffer-optimization", "stack-allocation", "variable-length-arrays", "alloca"]
+constraints: ["heap allocation in loops", "stack overflow", "fixed-array truncation", "cache locality"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Variable-Size Small Collections to SmallVector
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses fixed-size arrays with count variables, `alloca()`, or manual small-buffer optimization for usually-small variable-length collections, and migrates those to `SmallVector<T, N>` with inline storage and heap fallback.
+
+## Not covered
+
+- Large, always-heap collections (use `std::vector` directly)
+- Fixed-capacity containers with no heap fallback (see `std::inplace_vector` in C++26)
+- Custom allocator integration with `SmallVector`
+
+## Prerequisites
+
+- Familiarity with C variable-length array patterns and `alloca()`
+- Understanding of stack vs heap allocation tradeoffs
 
 ## Migration Guide Card
 
@@ -40,6 +60,39 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `SmallVector<T, N>` with `std::vector<T>` or fixed array + count
 
 ---
+
+## Alternatives
+
+`std::inplace_vector<T, N>` (C++26 — fixed capacity, no heap fallback), Boost.Container `small_vector` (similar design, Boost dependency), LLVM `SmallVector` (requires LLVM headers), `std::vector` with `reserve()` (heap-only, no inline storage).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `T arr[MAX]; int count = 0;` | `SmallVector<T, MAX>` | No truncation; heap fallback if exceeded |
+| `alloca(n * sizeof(T))` | `SmallVector<T, N>` with appropriate N | No stack overflow risk; heap fallback |
+| Manual SBO (union + flag) | `SmallVector<T, N>` | Branchless access; no manual flag |
+| `std::vector<T>` in hot loop | `SmallVector<T, N>` | Inline storage eliminates allocator calls |
+
+## Compatibility and ABI boundaries
+
+API matches `std::vector<T>`. At C boundaries, use `.data()` and `.size()` to pass as C array + length. No ABI concerns.
+
+## Lifetime and ownership model
+
+`SmallVector` owns its elements. Inline elements are on the stack; heap elements are owned by the container. Destruction frees heap storage and destroys all elements. Move semantics transfer ownership efficiently.
+
+## Thread-safety and reentrancy
+
+Same thread-safety as `std::vector` — not internally synchronized. Concurrent reads are permitted; concurrent modification requires external locking.
+
+## Error and failure model
+
+Heap fallback allocation failure throws `std::bad_alloc` (same as `std::vector`). Bounds-checked access via `at()` throws `std::out_of_range`. Unchecked access via `operator[]` has undefined behavior on out-of-bounds (same as `std::vector`).
+
+## Rollback plan
+
+Replace `SmallVector<T, N>` with `std::vector<T>` (loses inline storage) or restore fixed array + count pattern (loses dynamic sizing). Heap-avoidance benefit is lost on rollback to `std::vector`.
 
 ## Table of Contents
 

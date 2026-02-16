@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
+fatp_components: ["StateMachine"]
+topics: ["c-to-cpp", "migration", "state-machines", "switch-statements", "type-state", "compile-time-transitions"]
+constraints: ["missing transitions", "invalid states", "entry-exit guarantees", "compile-time validation"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Switch Statements to Type-Safe State Machines
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that implements state machines via `switch(state)` on enum values, scattered state transitions, and state flags, and migrates those to `StateMachine<Context, TransitionList>` with compile-time transition validation.
+
+## Not covered
+
+- Hierarchical (HSM) or nested state machines
+- UML statechart diagram-to-code generation
+- Runtime-configurable state machines (dynamic transition tables)
+
+## Prerequisites
+
+- Familiarity with enum-based state machines in C
+- Understanding of entry/exit actions and transition guards
 
 ## Migration Guide Card
 
@@ -40,6 +60,39 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace state types with enum; replace transition list with `switch(state)` blocks
 
 ---
+
+## Alternatives
+
+Boost.MSM (heavy, macro-based), Boost.SML (lighter, C++14), `std::variant`-based state machine (manual, no compile-time transition check), coroutine-based state machines (C++20, different model).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `enum State { IDLE, ... };` | State types: `struct Idle {};` | Each state is a distinct type |
+| `switch(state) { case IDLE: ... }` | `TransitionList` template parameter | Compiler verifies all transitions exist |
+| `state = CONNECTED;` (direct assign) | `machine.transition<Connected>()` | Invalid transitions are compile errors |
+| `if (state == X && cond)` guard | Guard function in transition definition | Guards are part of the transition declaration |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns — state machines are typically internal. If state must cross a C API boundary, provide an `enum` accessor that maps the current type-state to a C-compatible enum value.
+
+## Lifetime and ownership model
+
+`StateMachine` owns the current state. The `Context` (user data) must outlive the machine. State entry/exit actions execute during transitions. Machine destruction runs the current state's exit action.
+
+## Thread-safety and reentrancy
+
+Not internally synchronized. If the state machine is accessed from multiple threads, external locking is required around transitions. State queries (`is<State>()`) are read-only but not atomic with respect to concurrent transitions.
+
+## Error and failure model
+
+Invalid transitions are compile-time errors (not runtime). Guard failures return `false` from `transition()` — the machine stays in the current state. No exceptions from the transition mechanism itself.
+
+## Rollback plan
+
+Replace state types with enum values. Replace `TransitionList` with `switch(state)` blocks. Restore direct state assignment. Compile-time transition validation is lost on rollback.
 
 ## Table of Contents
 

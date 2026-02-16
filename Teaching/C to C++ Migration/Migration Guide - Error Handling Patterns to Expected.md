@@ -12,6 +12,11 @@ boost_equivalent: "Boost.Outcome"
 migration_complexity: "Medium"
 breaking_changes: false
 last_verified: "2025-01-09"
+fatp_components: ["Expected"]
+topics: ["c-to-cpp", "migration", "error-handling", "return-codes", "errno", "monadic-error-propagation"]
+constraints: ["error visibility", "call-site discipline", "exception boundaries"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Error Handling Patterns to Expected
@@ -21,6 +26,21 @@ last_verified: "2025-01-09"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses integer return codes, `errno`, output parameters, or sentinel values for error reporting, and migrates those patterns to `Expected<T, E>` with monadic error propagation.
+
+## Not covered
+
+- Exception-based error handling strategies
+- Error logging and telemetry infrastructure
+- Cross-process error propagation (IPC, RPC)
+
+## Prerequisites
+
+- Familiarity with C error-handling idioms (return codes, errno, output parameters)
+- Basic understanding of C++ templates and value semantics
 
 ## Migration Guide Card
 
@@ -53,6 +73,35 @@ last_verified: "2025-01-09"
 - **folly::Expected** — Facebook's implementation
 
 ---
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `int` return code | `Expected<T, ErrorCode>` | Caller cannot ignore (`[[nodiscard]]`) |
+| `errno` | Error type `E` in `Expected<T, E>` | No global state; error travels with value |
+| Output parameter (`T* out`) | Return `Expected<T, E>` directly | Eliminates null-check ambiguity |
+| Sentinel value (`NULL`, `-1`) | `Expected<T, E>` in error state | Type system distinguishes success from failure |
+
+## Compatibility and ABI boundaries
+
+No ABI boundary concerns for pure C++ migration. For mixed C/C++ codebases, keep C-facing functions returning error codes at the boundary; convert to `Expected` internally. Wrapper functions bridge the two models.
+
+## Lifetime and ownership model
+
+`Expected<T, E>` has value semantics — no ownership transfer, no teardown ordering. The contained value or error is destroyed when the `Expected` goes out of scope. No special lifetime considerations.
+
+## Thread-safety and reentrancy
+
+Thread-compatible. `Expected` is a value type with no internal synchronization. Concurrent reads are permitted; concurrent read/write requires external synchronization (same as any value type).
+
+## Error and failure model
+
+C integer return codes and `errno` are replaced by `Expected<T, E>`. Error propagation uses `EXPECTED_TRY` macro or monadic chaining (`and_then`, `or_else`). Policy selects behavior for unhandled errors (throw, terminate, or log).
+
+## Rollback plan
+
+Revert return types from `Expected<T, E>` to integer error codes. Restore output parameters. Remove `EXPECTED_TRY` macros and monadic chains. Migration is reversible per-function.
 
 ## Table of Contents
 

@@ -12,6 +12,11 @@ boost_equivalent: null
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-09"
+fatp_components: ["FeatureManager"]
+topics: ["c-to-cpp", "migration", "feature-flags", "ifdef", "dependency-management", "configuration"]
+constraints: ["implicit dependencies", "flag validation", "startup ordering"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Preprocessor Flags to Managed Feature Dependencies
@@ -21,6 +26,21 @@ last_verified: "2025-01-09"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses `#ifdef` chains, global booleans, or bitfield flags for feature configuration, and migrates those patterns to `FeatureManager` with explicit dependency tracking and validation.
+
+## Not covered
+
+- Runtime feature toggling in production (A/B testing, feature rollout services)
+- Build-system level feature selection (CMake options, configure scripts)
+- Compile-time feature detection (`#if __has_include`, feature-test macros)
+
+## Prerequisites
+
+- Familiarity with C preprocessor feature-flag patterns
+- Understanding of initialization ordering in C/C++ programs
 
 ## Migration Guide Card
 
@@ -56,6 +76,31 @@ No standard library or Boost equivalent exists for feature flag management with 
 - **Custom implementations** — Most codebases roll their own
 
 ---
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `#ifdef FEATURE_X` | `manager.isEnabled(Feature::X)` | Runtime queryable; dependencies validated |
+| Global `bool featureX = true;` | `manager.enable(Feature::X)` | Dependencies checked on state change |
+| Bitfield flags | Feature enum + `FeatureManager` | Type-checked; no bit-manipulation errors |
+| `sqlite3_config()` style | `manager.configure(...)` at startup | Validated before first use |
+
+## Compatibility and ABI boundaries
+
+No ABI boundary concerns. Feature queries are internal. For mixed codebases, the `FeatureManager` can wrap existing flag checks — old `#ifdef` paths remain available behind the manager.
+
+## Lifetime and ownership model
+
+`FeatureManager` is typically a singleton or composition-root object. It must outlive all code that queries feature state. Feature registrations happen at startup; queries happen at runtime. No teardown ordering concerns beyond normal singleton lifetime.
+
+## Error and failure model
+
+Dependency conflicts produce `Expected`-based errors at registration time. Querying an unregistered feature is an enforcement error (configurable policy). No silent failures.
+
+## Rollback plan
+
+Replace `manager.isEnabled()` calls with original `#ifdef` or boolean checks. Remove feature declarations and dependency registrations. The old flag infrastructure can coexist during migration.
 
 ## Table of Contents
 

@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Low"
 breaking_changes: false
 last_verified: "2026-01-26"
+fatp_components: ["EnforcedInit"]
+topics: ["c-to-cpp", "migration", "initialization", "uninitialized-data", "zero-initialization", "two-phase-init"]
+constraints: ["uninitialized reads", "two-phase initialization", "constructor ordering"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 # Migration Guide - Initialization Patterns to EnforcedInit
 
@@ -31,6 +36,21 @@ last_verified: "2026-01-26"
 
 ---
 
+## Scope
+
+This guide targets C code with uninitialized variables, `memset`-based initialization, or two-phase init patterns, and migrates those to `EnforcedInit<T>` wrappers that make uninitialized reads a compile-time or runtime error.
+
+## Not covered
+
+- Aggregate initialization and designated initializers (C99/C++20)
+- Placement new and custom construction patterns
+- Static initialization order fiasco (cross-TU init ordering)
+
+## Prerequisites
+
+- Familiarity with C initialization patterns (`memset`, `= {0}`, two-phase init)
+- Understanding of C++ constructor semantics
+
 ## Migration Guide Card
 
 **From:** `isInit` flags, magic numbers, two-phase initialization, defensive `memset`  
@@ -48,6 +68,39 @@ last_verified: "2026-01-26"
 **Rollback plan:** Remove `EnforcedInit<T>` wrappers and restore the old flags/checks behind a feature flag if needed
 
 ---
+
+## Alternatives
+
+`std::optional<T>` (C++17 — encodes 'not yet set' but no enforcement policy), compiler warnings (`-Wuninitialized` — best-effort, misses many cases), `std::construct_at` (C++20 — placement, not enforcement).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| Uninitialized `int x;` | `EnforcedInit<int> x;` | Access before assignment is an error |
+| `memset(&obj, 0, sizeof(obj))` | Constructor with member initializers | Zero-init is automatic for value-initialized members |
+| Two-phase init (`init()` after construction) | Single-phase constructor | Invariants established at construction |
+| `bool initialized` flag | `EnforcedInit<T>` state tracking | No manual flag management |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns. `EnforcedInit<T>` wraps the value type transparently. At C API boundaries, extract the underlying value after initialization check.
+
+## Lifetime and ownership model
+
+`EnforcedInit<T>` has the same lifetime as the underlying type. Destruction destroys the contained value if initialized. No teardown ordering concerns beyond normal scope rules.
+
+## Thread-safety and reentrancy
+
+Same thread-safety as the underlying type `T`. `EnforcedInit` adds no synchronization. Concurrent access requires external locking if `T` requires it.
+
+## Error and failure model
+
+Access before initialization triggers policy-selected response: assertion failure (debug), `Expected` error (checked), or compile-time error (where detectable). No silent use of uninitialized data.
+
+## Rollback plan
+
+Replace `EnforcedInit<T>` with raw `T` declarations. Remove initialization checks. Restore `memset` or manual initialization patterns. Uninitialized-read protection is lost on rollback.
 
 ## Table of Contents
 

@@ -12,6 +12,11 @@ boost_equivalent: "Boost.Pool"
 migration_complexity: "Low-Medium"
 breaking_changes: true
 last_verified: "2025-01-09"
+fatp_components: ["ObjectPool"]
+topics: ["c-to-cpp", "migration", "free-lists", "object-pool", "memory-reuse", "allocation-latency"]
+constraints: ["allocation latency", "fragmentation", "double-free", "use-after-free"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Free Lists to Type-Safe Object Pooling
@@ -21,6 +26,21 @@ last_verified: "2025-01-09"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses hand-rolled free lists, pre-allocated arrays, or lookaside caches for object reuse, and migrates those patterns to `ObjectPool<T>` with RAII-managed return-to-pool.
+
+## Not covered
+
+- General-purpose allocator replacement (`malloc`/`free` overrides)
+- NUMA-aware or arena-based allocation strategies
+- Garbage-collected memory models
+
+## Prerequisites
+
+- Familiarity with free-list data structures and pooled allocation
+- Understanding of RAII and `unique_ptr` semantics
 
 ## Migration Guide Card
 
@@ -54,6 +74,31 @@ last_verified: "2025-01-09"
 - **mimalloc** — Microsoft's high-performance allocator
 
 ---
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| Free-list `next` pointer | `ObjectPool<T>` internal free list | No user-visible linked list |
+| `pool_alloc()` / `pool_free()` | `pool.acquire()` / `PooledObject` destructor | Return-to-pool is automatic |
+| Pre-allocated array + bitmap | `ObjectPool<T>` with fixed capacity | Capacity set at construction |
+| Lookaside cache | `ObjectPool<T>` with appropriate capacity | Same reuse semantics |
+
+## Compatibility and ABI boundaries
+
+No ABI concerns for internal pool usage. If pooled objects cross a C API boundary, the `PooledObject` wrapper must not cross — extract the raw pointer at the boundary and ensure the `PooledObject` outlives the external use.
+
+## Lifetime and ownership model
+
+`ObjectPool` must outlive all `PooledObject` instances. `PooledObject` returns the object to the pool on destruction. If a `PooledObject` is moved, the source releases ownership. Destruction order: all `PooledObject`s first, then the pool.
+
+## Error and failure model
+
+Pool exhaustion returns `Expected` error from `acquire()` (not null pointer). Use-after-return is structurally impossible when using `PooledObject` RAII wrapper. Double-free is structurally impossible.
+
+## Rollback plan
+
+Replace `pool.acquire()` with direct `malloc`/`new`. Remove `PooledObject` wrappers and add explicit `free`/`delete` calls. Restore free-list data structure if needed.
 
 ## Table of Contents
 

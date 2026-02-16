@@ -9,6 +9,11 @@ cxx_standard: "C++20"
 migration_complexity: "Medium"
 breaking_changes: true
 last_verified: "2025-01-08"
+fatp_components: ["SlotMap"]
+topics: ["c-to-cpp", "migration", "array-indices", "handle-systems", "ABA-problem", "generational-handles"]
+constraints: ["stale references", "ABA problem", "index reuse", "generation tracking"]
+audience: ["C developers", "C++ developers", "AI assistants"]
+status: "draft"
 ---
 
 # Migration Guide - Array Indices to Generational Handles
@@ -18,6 +23,21 @@ last_verified: "2025-01-08"
 *FAT-P Library — January 2025*
 
 ---
+
+## Scope
+
+This guide targets C code that uses raw integer indices into arrays (with or without manual version counters) and migrates those patterns to `SlotMap<T>` with generation-checked handles.
+
+## Not covered
+
+- ECS (Entity Component System) architectures
+- Persistent handle systems across process boundaries (serialization)
+- Concurrent slot maps (multi-threaded insert/remove)
+
+## Prerequisites
+
+- Familiarity with array-index-based object references
+- Understanding of the ABA problem in reusable-index systems
 
 ## Migration Guide Card
 
@@ -40,6 +60,39 @@ last_verified: "2025-01-08"
 **Rollback plan:** Replace `SlotMapHandle` with integer indices; replace `slotmap.get()` with direct array access
 
 ---
+
+## Alternatives
+
+`entt::registry` (ECS-focused, heavier), manual index + generation pair (no type safety), `boost::container::stable_vector` (pointer stability but no generation tracking).
+
+## Mapping: From → To
+
+| C Pattern | C++ Replacement | Notes |
+|-----------|----------------|-------|
+| `int index` into array | `SlotMapHandle` | Generation-checked; stale access detected |
+| `array[index]` | `slotmap.get(handle)` | Returns `Expected`; stale handles produce error |
+| `index + version` pair | `SlotMapHandle` (encapsulates both) | Single type; no manual version management |
+| Free-index list | `SlotMap` internal free list | Automatic index recycling with generation bump |
+
+## Compatibility and ABI boundaries
+
+If indices cross a C API boundary, convert `SlotMapHandle` to/from a packed integer representation at the boundary. The handle's generation field prevents stale-index bugs even across the boundary.
+
+## Lifetime and ownership model
+
+Handles are valid only while the `SlotMap` contains the referenced object at that generation. After `remove()`, the handle's generation is stale and `get()` returns an error. The `SlotMap` owns all stored objects.
+
+## Thread-safety and reentrancy
+
+`SlotMap` is not internally synchronized. Concurrent `get()` is permitted if no concurrent `insert()`/`remove()`. For concurrent modification, external locking is required.
+
+## Error and failure model
+
+Stale handle access returns `Expected` error (not undefined behavior). Generation mismatch is detected on every access. No silent aliasing.
+
+## Rollback plan
+
+Replace `SlotMapHandle` with integer indices. Replace `slotmap.get(handle)` with direct array access. Restore manual free-index management. Generation-safety guarantees are lost on rollback.
 
 ## Table of Contents
 
