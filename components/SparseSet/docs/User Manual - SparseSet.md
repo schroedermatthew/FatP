@@ -41,7 +41,7 @@ status: "reviewed"
 **Component:** SparseSet / SparseSetWithData
 **Primary use case:** O(1) insert, erase, lookup, and cache-friendly dense iteration over integer sets — the canonical ECS component storage
 **Integration pattern:** One SparseSet per component type; entity IDs as keys; iterate the dense array for system updates
-**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `dense()`, `data()`
+**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dense()`, `data()`
 **std equivalent:** None
 **Migration from std:** Replace `std::unordered_set<uint32_t>` with `SparseSet<uint32_t>`; replace `std::unordered_map<uint32_t, Data>` with `SparseSetWithData<uint32_t, Data>`
 **Common mistakes:** Erasing during forward iteration (UB); using huge key spaces with few active elements (memory waste); relying on iteration order across erases (order is unstable)
@@ -578,6 +578,27 @@ transforms.emplace(entity_id, pos, rot, scale);
 
 All three return `true` if insertion occurred, `false` if the key already existed.
 
+### tryEmplace: Insert and Get a Reference in One Step
+
+`emplace()` returns a `bool`, which means callers who need a reference to the newly inserted data must perform a second lookup via `tryGet()` or `get()`. In hot paths — particularly ECS component creation — this redundant lookup is avoidable.
+
+`tryEmplace()` returns a `Data*`: a pointer to the newly constructed data on success, or `nullptr` if the key already existed. This eliminates the double-lookup pattern:
+
+```cpp
+// Before: emplace + tryGet = two sparse-array lookups
+transforms.emplace(entity_id, pos, rot, scale);
+Transform* t = transforms.tryGet(entity_id);
+
+// After: tryEmplace = one sparse-array lookup
+Transform* t = transforms.tryEmplace(entity_id, pos, rot, scale);
+if (t) {
+    // t points directly to the newly inserted Transform
+    t->x += offset;
+}
+```
+
+The returned pointer is valid for immediate use but follows standard `std::vector` invalidation rules — any subsequent insert, emplace, or tryEmplace may reallocate the data array and invalidate the pointer. Do not cache it across mutations.
+
 ### Data Access: get() vs tryGet()
 
 Two access methods with different failure semantics. The choice between them is a performance decision in hot paths:
@@ -808,6 +829,8 @@ For high-contention ECS scenarios, consider double-buffering: write to a staging
 | Operation | Guarantee | Can throw? | When it throws |
 |-----------|-----------|-----------|----------------|
 | `insert` | Strong | Yes | `std::bad_alloc` on sparse growth; `std::length_error` on overflow |
+| `emplace` | Strong | Yes | `std::bad_alloc` on sparse growth; `std::length_error` on overflow |
+| `tryEmplace` | Strong | Yes | `std::bad_alloc` on sparse growth; `std::length_error` on overflow |
 | `erase` | Noexcept (if Data nothrow-movable) | No (SparseSet); potentially (SparseSetWithData with throwing move) | |
 | `contains` | Noexcept | No | |
 | `find` | Noexcept | No | |
@@ -817,7 +840,7 @@ For high-contention ECS scenarios, consider double-buffering: write to a staging
 | `clear` | Noexcept | No | |
 | `reserve` | Strong | Yes | `std::bad_alloc`; `std::length_error` |
 
-The strong guarantee on `insert` means that if sparse array growth fails (allocation throws), the set is unchanged — no partial insertion, no corrupted invariants.
+The strong guarantee on `insert`, `emplace`, and `tryEmplace` means that if sparse array growth fails (allocation throws), the set is unchanged — no partial insertion, no corrupted invariants. `tryEmplace` returns `nullptr` for duplicate keys (no exception) and a valid `Data*` on success — the same strong guarantee as `emplace`, with a richer return type.
 
 ### Choosing Between get() and tryGet()
 
@@ -1025,6 +1048,7 @@ All of the above, plus:
 | `insert` | `bool insert(T value, const Data& data)` | O(1) amortized | `bad_alloc`, `length_error` |
 | `insert` | `bool insert(T value, Data&& data)` | O(1) amortized | `bad_alloc`, `length_error` |
 | `emplace` | `bool emplace(T value, Args&&... args)` | O(1) amortized | `bad_alloc`, `length_error` |
+| `tryEmplace` | `Data* tryEmplace(T value, Args&&... args)` | O(1) amortized | `bad_alloc`, `length_error` |
 | `get` | `Data& get(T value)` | O(1) | `out_of_range` |
 | `tryGet` | `Data* tryGet(T value) noexcept` | O(1) | No |
 | `dataAt` | `Data& dataAt(size_type index)` | O(1) | `out_of_range` |

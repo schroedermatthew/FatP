@@ -865,6 +865,121 @@ FATP_TEST_CASE(with_data_shrink_to_fit)
 }
 
 // ============================================================================
+// SparseSetWithData::tryEmplace Tests
+// ============================================================================
+
+FATP_TEST_CASE(with_data_try_emplace_success)
+{
+    SparseSetWithData<uint32_t, std::string> set;
+
+    auto* ptr = set.tryEmplace(10, "ten");
+    FATP_ASSERT_TRUE(ptr != nullptr, "tryEmplace should return non-null on success");
+    FATP_ASSERT_EQ(*ptr, std::string("ten"), "tryEmplace should return pointer to inserted data");
+    FATP_ASSERT_TRUE(set.contains(10), "Value should be present after tryEmplace");
+    FATP_ASSERT_EQ(set.size(), size_t(1), "Size should be 1");
+
+    return true;
+}
+
+FATP_TEST_CASE(with_data_try_emplace_duplicate)
+{
+    SparseSetWithData<uint32_t, std::string> set;
+
+    set.insert(10, "ten");
+    auto* ptr = set.tryEmplace(10, "duplicate");
+
+    FATP_ASSERT_TRUE(ptr == nullptr, "tryEmplace should return nullptr on duplicate");
+    FATP_ASSERT_EQ(set.get(10), std::string("ten"), "Original data should be unchanged");
+    FATP_ASSERT_EQ(set.size(), size_t(1), "Size should still be 1");
+
+    return true;
+}
+
+FATP_TEST_CASE(with_data_try_emplace_multiple)
+{
+    SparseSetWithData<uint32_t, int> set;
+
+    auto* p1 = set.tryEmplace(1, 100);
+    FATP_ASSERT_TRUE(p1 != nullptr, "First tryEmplace should succeed");
+    FATP_ASSERT_EQ(*p1, 100, "First value correct at insertion time");
+
+    auto* p2 = set.tryEmplace(2, 200);
+    FATP_ASSERT_TRUE(p2 != nullptr, "Second tryEmplace should succeed");
+    FATP_ASSERT_EQ(*p2, 200, "Second value correct at insertion time");
+
+    auto* p3 = set.tryEmplace(3, 300);
+    FATP_ASSERT_TRUE(p3 != nullptr, "Third tryEmplace should succeed");
+    FATP_ASSERT_EQ(*p3, 300, "Third value correct at insertion time");
+
+    FATP_ASSERT_EQ(set.size(), size_t(3), "Size should be 3");
+
+    // Verify via get() (stable access, not pointer)
+    FATP_ASSERT_EQ(set.get(1), 100, "First value retrievable via get()");
+    FATP_ASSERT_EQ(set.get(2), 200, "Second value retrievable via get()");
+    FATP_ASSERT_EQ(set.get(3), 300, "Third value retrievable via get()");
+
+    return true;
+}
+
+FATP_TEST_CASE(with_data_try_emplace_returned_pointer_is_stable)
+{
+    // The returned pointer should be valid for immediate use, but may be
+    // invalidated by subsequent insertions (vector reallocation).
+    // This test verifies it's usable immediately after the call.
+    SparseSetWithData<uint32_t, std::string> set;
+
+    auto* ptr = set.tryEmplace(42, "hello");
+    FATP_ASSERT_TRUE(ptr != nullptr, "tryEmplace should succeed");
+
+    // Modify through the returned pointer
+    *ptr = "modified";
+    FATP_ASSERT_EQ(set.get(42), std::string("modified"), "Modification via pointer should be visible");
+
+    return true;
+}
+
+FATP_TEST_CASE(with_data_try_emplace_move_only)
+{
+    SparseSetWithData<uint32_t, MoveOnly> set;
+
+    auto* ptr = set.tryEmplace(1, 42);
+    FATP_ASSERT_TRUE(ptr != nullptr, "tryEmplace with MoveOnly should succeed");
+    FATP_ASSERT_EQ(ptr->mValue, 42, "MoveOnly value should be correct");
+
+    auto* dup = set.tryEmplace(1, 99);
+    FATP_ASSERT_TRUE(dup == nullptr, "tryEmplace duplicate MoveOnly should return nullptr");
+    FATP_ASSERT_EQ(set.get(1).mValue, 42, "Original MoveOnly should be unchanged");
+
+    return true;
+}
+
+FATP_TEST_CASE(with_data_try_emplace_exception_safety)
+{
+    SparseSetWithData<uint32_t, ThrowOnCopy> set;
+
+    // tryEmplace with in-place construction should work (no copy)
+    auto* ptr = set.tryEmplace(1, 10);
+    FATP_ASSERT_TRUE(ptr != nullptr, "tryEmplace with direct construction should succeed");
+    FATP_ASSERT_EQ(ptr->mValue, 10, "Value should be correct");
+    FATP_ASSERT_EQ(set.size(), size_t(1), "Size should be 1");
+
+    return true;
+}
+
+FATP_TEST_CASE(with_data_emplace_delegates_to_try_emplace)
+{
+    // Verify emplace() still works correctly after the refactor
+    SparseSetWithData<uint32_t, std::string> set;
+
+    FATP_ASSERT_TRUE(set.emplace(10, 3, 'x'), "emplace should return true on success");
+    FATP_ASSERT_FALSE(set.emplace(10, 3, 'y'), "emplace duplicate should return false");
+    FATP_ASSERT_EQ(set.get(10), std::string("xxx"), "emplace should construct correct value");
+    FATP_ASSERT_EQ(set.size(), size_t(1), "Size should be 1");
+
+    return true;
+}
+
+// ============================================================================
 // Edge Cases and Boundary Tests
 // ============================================================================
 
@@ -1086,6 +1201,15 @@ bool test_SparseSet()
     FATP_RUN_TEST_NS(runner, sparseset, with_data_erase_exception_safety);
     FATP_RUN_TEST_NS(runner, sparseset, with_data_find);
     FATP_RUN_TEST_NS(runner, sparseset, with_data_shrink_to_fit);
+
+    // SparseSetWithData::tryEmplace
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_success);
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_duplicate);
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_multiple);
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_returned_pointer_is_stable);
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_move_only);
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_exception_safety);
+    FATP_RUN_TEST_NS(runner, sparseset, with_data_emplace_delegates_to_try_emplace);
 
     // Edge Cases and Boundary Tests
     FATP_RUN_TEST_NS(runner, sparseset, edge_case_uint8_max);

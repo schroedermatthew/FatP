@@ -610,7 +610,52 @@ public:
     template <typename... Args>
     bool emplace(T value, Args&&... args)
     {
-        return emplaceImpl(value, std::forward<Args>(args)...);
+        return tryEmplace(value, std::forward<Args>(args)...) != nullptr;
+    }
+
+    /**
+     * @brief Constructs Data in-place if value is not present; returns pointer to data.
+     *
+     * Unlike emplace(), which returns bool, tryEmplace() returns a pointer to
+     * the newly inserted data on success, or nullptr if the value was already
+     * present. This avoids a redundant lookup when the caller needs a reference
+     * to the inserted data immediately after insertion.
+     *
+     * @tparam Args Constructor argument types for Data.
+     * @param value Value to insert.
+     * @param args  Arguments forwarded to Data constructor.
+     * @return Pointer to inserted data, or nullptr if value was already present.
+     * @throws std::length_error if value cannot be represented as an index.
+     *
+     * @note Complexity: O(1) amortized.
+     * @note Exception-safety: Strong guarantee.
+     */
+    template <typename... Args>
+    Data* tryEmplace(T value, Args&&... args)
+    {
+        const size_type sparseIndex = ensureSparseCapacity(value);
+
+        if (containsAtIndex(value, sparseIndex))
+        {
+            return nullptr;
+        }
+
+        const size_type denseIndex = mDense.size();
+        enforceDenseIndexFits(denseIndex, "SparseSetWithData::tryEmplace: dense index overflow");
+
+        mDense.push_back(value);
+        try
+        {
+            mData.emplace_back(std::forward<Args>(args)...);
+        }
+        catch (...)
+        {
+            mDense.pop_back();
+            throw;
+        }
+
+        mSparse[sparseIndex] = static_cast<T>(denseIndex);
+        return &mData.back();
     }
 
     /**
@@ -1106,34 +1151,6 @@ private:
         try
         {
             mData.push_back(std::forward<DataArg>(data));
-        }
-        catch (...)
-        {
-            mDense.pop_back();
-            throw;
-        }
-
-        mSparse[sparseIndex] = static_cast<T>(denseIndex);
-        return true;
-    }
-
-    template <typename... Args>
-    bool emplaceImpl(T value, Args&&... args)
-    {
-        const size_type sparseIndex = ensureSparseCapacity(value);
-
-        if (containsAtIndex(value, sparseIndex))
-        {
-            return false;
-        }
-
-        const size_type denseIndex = mDense.size();
-        enforceDenseIndexFits(denseIndex, "SparseSetWithData::emplace: dense index overflow");
-
-        mDense.push_back(value);
-        try
-        {
-            mData.emplace_back(std::forward<Args>(args)...);
         }
         catch (...)
         {
