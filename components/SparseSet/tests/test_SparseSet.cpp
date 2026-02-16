@@ -980,6 +980,265 @@ FATP_TEST_CASE(with_data_emplace_delegates_to_try_emplace)
 }
 
 // ============================================================================
+// Custom IndexPolicy Tests
+// ============================================================================
+
+// A composite key: packs a 16-bit index and a 16-bit generation into uint32_t.
+struct CompositeKey
+{
+    uint32_t raw;
+
+    bool operator==(const CompositeKey& other) const noexcept { return raw == other.raw; }
+    bool operator!=(const CompositeKey& other) const noexcept { return raw != other.raw; }
+
+    [[nodiscard]] static CompositeKey make(uint16_t index, uint16_t gen) noexcept
+    {
+        return {static_cast<uint32_t>(gen) << 16 | static_cast<uint32_t>(index)};
+    }
+
+    [[nodiscard]] uint16_t index() const noexcept
+    {
+        return static_cast<uint16_t>(raw & 0xFFFF);
+    }
+
+    [[nodiscard]] uint16_t generation() const noexcept
+    {
+        return static_cast<uint16_t>(raw >> 16);
+    }
+};
+
+struct CompositeKeyIndex
+{
+    using sparse_index_type = uint16_t;
+
+    [[nodiscard]] static constexpr uint16_t index(const CompositeKey& key) noexcept
+    {
+        return static_cast<uint16_t>(key.raw & 0xFFFF);
+    }
+};
+
+using CompositeSet = SparseSet<CompositeKey, CompositeKeyIndex>;
+using CompositeSetWithData = SparseSetWithData<CompositeKey, std::string, CompositeKeyIndex>;
+
+FATP_TEST_CASE(custom_policy_basic_insert_contains_erase)
+{
+    CompositeSet set;
+
+    auto k1 = CompositeKey::make(5, 1);
+    auto k2 = CompositeKey::make(10, 1);
+    auto k3 = CompositeKey::make(20, 1);
+
+    FATP_ASSERT_TRUE(set.insert(k1), "Insert k1 should succeed");
+    FATP_ASSERT_TRUE(set.insert(k2), "Insert k2 should succeed");
+    FATP_ASSERT_TRUE(set.insert(k3), "Insert k3 should succeed");
+    FATP_ASSERT_EQ(set.size(), size_t(3), "Size should be 3");
+
+    FATP_ASSERT_TRUE(set.contains(k1), "Contains k1");
+    FATP_ASSERT_TRUE(set.contains(k2), "Contains k2");
+    FATP_ASSERT_TRUE(set.contains(k3), "Contains k3");
+
+    FATP_ASSERT_TRUE(set.erase(k2), "Erase k2 should succeed");
+    FATP_ASSERT_FALSE(set.contains(k2), "k2 should be gone");
+    FATP_ASSERT_EQ(set.size(), size_t(2), "Size should be 2");
+
+    // Remaining elements intact
+    FATP_ASSERT_TRUE(set.contains(k1), "k1 still present");
+    FATP_ASSERT_TRUE(set.contains(k3), "k3 still present");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_identity_is_extracted_index)
+{
+    // Two keys with the same extracted index but different generation
+    // should be treated as the same element.
+    CompositeSet set;
+
+    auto gen1 = CompositeKey::make(7, 1);
+    auto gen2 = CompositeKey::make(7, 2);
+
+    FATP_ASSERT_TRUE(set.insert(gen1), "Insert gen1 should succeed");
+    FATP_ASSERT_FALSE(set.insert(gen2), "Insert gen2 (same index) should return false");
+    FATP_ASSERT_EQ(set.size(), size_t(1), "Size should be 1");
+
+    // The dense array stores the original key (gen1), not gen2
+    FATP_ASSERT_EQ(set.dense()[0].raw, gen1.raw, "Dense stores original key");
+
+    // Both generations are "contained" because identity is the extracted index
+    FATP_ASSERT_TRUE(set.contains(gen1), "Contains gen1");
+    FATP_ASSERT_TRUE(set.contains(gen2), "Contains gen2 (same index)");
+
+    // Erase by either generation works
+    FATP_ASSERT_TRUE(set.erase(gen2), "Erase by gen2 should succeed");
+    FATP_ASSERT_TRUE(set.empty(), "Set should be empty");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_dense_stores_full_keys)
+{
+    CompositeSet set;
+
+    auto k1 = CompositeKey::make(0, 100);
+    auto k2 = CompositeKey::make(1, 200);
+    auto k3 = CompositeKey::make(2, 300);
+
+    set.insert(k1);
+    set.insert(k2);
+    set.insert(k3);
+
+    // Dense array should store the full keys with generation bits intact
+    bool foundK1 = false;
+    bool foundK2 = false;
+    bool foundK3 = false;
+    for (const auto& key : set)
+    {
+        if (key.raw == k1.raw) foundK1 = true;
+        if (key.raw == k2.raw) foundK2 = true;
+        if (key.raw == k3.raw) foundK3 = true;
+    }
+
+    FATP_ASSERT_TRUE(foundK1, "Dense should contain full k1");
+    FATP_ASSERT_TRUE(foundK2, "Dense should contain full k2");
+    FATP_ASSERT_TRUE(foundK3, "Dense should contain full k3");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_erase_swap_preserves_keys)
+{
+    CompositeSet set;
+
+    auto k0 = CompositeKey::make(0, 10);
+    auto k1 = CompositeKey::make(1, 20);
+    auto k2 = CompositeKey::make(2, 30);
+
+    set.insert(k0);
+    set.insert(k1);
+    set.insert(k2);
+
+    // Erase k0 (dense index 0) — k2 should swap into position 0
+    set.erase(k0);
+
+    FATP_ASSERT_EQ(set.size(), size_t(2), "Size should be 2");
+    FATP_ASSERT_FALSE(set.contains(k0), "k0 should be gone");
+    FATP_ASSERT_TRUE(set.contains(k1), "k1 still present");
+    FATP_ASSERT_TRUE(set.contains(k2), "k2 still present");
+
+    // Verify generation bits survived the swap
+    for (size_t i = 0; i < set.size(); ++i)
+    {
+        CompositeKey key = set.at(i);
+        if (key.index() == 1)
+        {
+            FATP_ASSERT_EQ(key.generation(), uint16_t(20), "k1 generation intact");
+        }
+        else if (key.index() == 2)
+        {
+            FATP_ASSERT_EQ(key.generation(), uint16_t(30), "k2 generation intact");
+        }
+    }
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_with_data_basic)
+{
+    CompositeSetWithData set;
+
+    auto k1 = CompositeKey::make(5, 1);
+    auto k2 = CompositeKey::make(10, 2);
+
+    FATP_ASSERT_TRUE(set.insert(k1, "hello"), "Insert k1");
+    FATP_ASSERT_TRUE(set.insert(k2, "world"), "Insert k2");
+
+    FATP_ASSERT_EQ(set.get(k1), std::string("hello"), "k1 data correct");
+    FATP_ASSERT_EQ(set.get(k2), std::string("world"), "k2 data correct");
+
+    // tryGet works
+    auto* p = set.tryGet(k1);
+    FATP_ASSERT_TRUE(p != nullptr, "tryGet k1 non-null");
+    FATP_ASSERT_EQ(*p, std::string("hello"), "tryGet k1 data correct");
+
+    // Missing key
+    auto kMissing = CompositeKey::make(99, 1);
+    FATP_ASSERT_TRUE(set.tryGet(kMissing) == nullptr, "tryGet missing is null");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_with_data_erase_and_data_integrity)
+{
+    CompositeSetWithData set;
+
+    auto k0 = CompositeKey::make(0, 10);
+    auto k1 = CompositeKey::make(1, 20);
+    auto k2 = CompositeKey::make(2, 30);
+
+    set.insert(k0, "zero");
+    set.insert(k1, "one");
+    set.insert(k2, "two");
+
+    set.erase(k0);
+
+    FATP_ASSERT_EQ(set.size(), size_t(2), "Size should be 2");
+    FATP_ASSERT_EQ(set.get(k1), std::string("one"), "k1 data intact");
+    FATP_ASSERT_EQ(set.get(k2), std::string("two"), "k2 data intact");
+
+    // dense() stores full keys
+    for (size_t i = 0; i < set.size(); ++i)
+    {
+        CompositeKey key = set.dense()[i];
+        if (key.index() == 1)
+        {
+            FATP_ASSERT_EQ(key.generation(), uint16_t(20), "gen intact after erase");
+            FATP_ASSERT_EQ(set.dataAt(i), std::string("one"), "data at correct position");
+        }
+    }
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_with_data_try_emplace)
+{
+    CompositeSetWithData set;
+
+    auto k = CompositeKey::make(42, 7);
+
+    auto* ptr = set.tryEmplace(k, "emplaced");
+    FATP_ASSERT_TRUE(ptr != nullptr, "tryEmplace should succeed");
+    FATP_ASSERT_EQ(*ptr, std::string("emplaced"), "Data correct");
+
+    // Duplicate returns nullptr
+    auto kSameIdx = CompositeKey::make(42, 99);
+    auto* ptr2 = set.tryEmplace(kSameIdx, "should not insert");
+    FATP_ASSERT_TRUE(ptr2 == nullptr, "Duplicate index returns nullptr");
+    FATP_ASSERT_EQ(set.size(), size_t(1), "Size still 1");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_policy_shrink_to_fit)
+{
+    CompositeSet set;
+
+    set.insert(CompositeKey::make(100, 1));
+    set.insert(CompositeKey::make(5, 1));
+
+    // Sparse should be at least 101
+    FATP_ASSERT_TRUE(set.capacity() >= 101, "Capacity covers max index");
+
+    set.erase(CompositeKey::make(100, 1));
+    set.shrink_to_fit();
+
+    // After shrink, only need to cover index 5
+    FATP_ASSERT_TRUE(set.capacity() <= 6, "Capacity shrunk to max remaining index + 1");
+    FATP_ASSERT_TRUE(set.contains(CompositeKey::make(5, 1)), "Remaining element still present");
+
+    return true;
+}
+
+// ============================================================================
 // Edge Cases and Boundary Tests
 // ============================================================================
 
@@ -1210,6 +1469,16 @@ bool test_SparseSet()
     FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_move_only);
     FATP_RUN_TEST_NS(runner, sparseset, with_data_try_emplace_exception_safety);
     FATP_RUN_TEST_NS(runner, sparseset, with_data_emplace_delegates_to_try_emplace);
+
+    // Custom IndexPolicy tests
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_basic_insert_contains_erase);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_identity_is_extracted_index);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_dense_stores_full_keys);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_erase_swap_preserves_keys);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_with_data_basic);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_with_data_erase_and_data_integrity);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_with_data_try_emplace);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_policy_shrink_to_fit);
 
     // Edge Cases and Boundary Tests
     FATP_RUN_TEST_NS(runner, sparseset, edge_case_uint8_max);

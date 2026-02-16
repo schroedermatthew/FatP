@@ -30,9 +30,15 @@ FATP_META:
  * @file SparseSet.h
  * @brief Sparse set with dense iteration.
  *
- * SparseSet stores a set of integer indices with O(1) average-case insert,
- * erase, and contains operations. Active indices are stored densely for
+ * SparseSet stores a set of keys with O(1) average-case insert, erase,
+ * and contains operations. Active keys are stored densely for
  * cache-friendly iteration.
+ *
+ * An IndexPolicy template parameter controls how keys are mapped to
+ * sparse-array indices. The default IdentityIndex requires unsigned
+ * integer keys and uses them directly as indices. Custom policies
+ * enable composite key types (e.g., entity handles that pack an index
+ * and a generation counter) by extracting the sparse index from the key.
  *
  * Erase uses swap-with-back. Dense iteration order is not stable.
  */
@@ -50,24 +56,63 @@ namespace fat_p
 {
 
 // ============================================================================
+// Index Policies
+// ============================================================================
+
+/**
+ * @brief Default index policy: the key is its own sparse-array index.
+ *
+ * @tparam T Unsigned integral key type.
+ *
+ * This is the identity mapping. The key type must be an unsigned integer.
+ * The sparse array is indexed directly by the key value.
+ */
+template <typename T>
+struct IdentityIndex
+{
+    static_assert(std::is_unsigned_v<T>,
+                  "IdentityIndex requires an unsigned integral key type");
+
+    using sparse_index_type = T;
+
+    [[nodiscard]] static constexpr T index(const T& key) noexcept
+    {
+        return key;
+    }
+};
+
+// ============================================================================
 // SparseSet
 // ============================================================================
 
 /**
- * @brief Sparse set for integer indices with dense iteration.
+ * @brief Sparse set for keys with dense iteration.
  *
- * @tparam T Unsigned index type.
+ * @tparam T           Key type stored in the dense array.
+ * @tparam IndexPolicy Policy that extracts a sparse-array index from a key.
+ *                     Must provide:
+ *                     - `using sparse_index_type = <unsigned integral type>`
+ *                     - `static constexpr sparse_index_type index(const T&) noexcept`
+ *
+ * With the default IdentityIndex, the key type must be an unsigned integer
+ * and is used directly as the sparse-array index. A custom IndexPolicy
+ * enables composite key types whose sparse index is a subset of the key.
+ * Identity is determined by the extracted index: two keys with the same
+ * extracted index are considered the same element.
  *
  * @note Thread-safety: NOT thread-safe for concurrent writes. Caller must
  *       synchronize. Concurrent reads are safe.
  */
-template <typename T = uint32_t>
+template <typename T = uint32_t, typename IndexPolicy = IdentityIndex<T>>
 class SparseSet
 {
-    static_assert(std::is_unsigned_v<T>, "T must be an unsigned integral type");
+    using sparse_type = typename IndexPolicy::sparse_index_type;
+    static_assert(std::is_unsigned_v<sparse_type>,
+                  "IndexPolicy::sparse_index_type must be unsigned");
 
 public:
     using value_type = T;
+    using index_policy = IndexPolicy;
     using size_type = size_t;
     using iterator = typename std::vector<T>::iterator;
     using const_iterator = typename std::vector<T>::const_iterator;
@@ -75,8 +120,8 @@ public:
     /**
      * @brief Constructs an empty set.
      *
-     * @param maxValue Optional maximum supported value (inclusive). This
-     *                 pre-sizes the sparse mapping.
+     * @param maxValue Optional maximum supported sparse index (inclusive).
+     *                 This pre-sizes the sparse mapping.
      *
      * @note Complexity: O(maxValue) when growth is required; otherwise O(1).
      */
@@ -89,11 +134,11 @@ public:
     }
 
     /**
-     * @brief Inserts value if it is not present.
+     * @brief Inserts key if it is not present.
      *
-     * @param value Value to insert.
-     * @return true if insertion occurred; false if value was already present.
-     * @throws std::length_error if value cannot be represented as an index.
+     * @param value Key to insert.
+     * @return true if insertion occurred; false if key was already present.
+     * @throws std::length_error if the extracted index cannot be represented.
      *
      * @note Complexity: O(1) amortized.
      * @note Exception-safety: Strong guarantee.
@@ -111,15 +156,15 @@ public:
         enforceDenseIndexFits(denseIndex, "SparseSet::insert: dense index overflow");
 
         mDense.push_back(value);
-        mSparse[sparseIndex] = static_cast<T>(denseIndex);
+        mSparse[sparseIndex] = static_cast<sparse_type>(denseIndex);
         return true;
     }
 
     /**
-     * @brief Erases value if it is present.
+     * @brief Erases key if it is present.
      *
-     * @param value Value to erase.
-     * @return true if value was erased; false if it was not present.
+     * @param value Key to erase.
+     * @return true if key was erased; false if it was not present.
      *
      * @note Complexity: O(1).
      */
@@ -142,7 +187,8 @@ public:
         {
             const T lastValue = mDense[lastIndex];
             mDense[denseIndex] = lastValue;
-            mSparse[static_cast<size_type>(lastValue)] = static_cast<T>(denseIndex);
+            mSparse[static_cast<size_type>(IndexPolicy::index(lastValue))] =
+                static_cast<sparse_type>(denseIndex);
         }
 
         mDense.pop_back();
@@ -150,9 +196,9 @@ public:
     }
 
     /**
-     * @brief Returns true if value is present.
+     * @brief Returns true if key is present.
      *
-     * @param value Value to check.
+     * @param value Key to check.
      * @return true if present; false otherwise.
      *
      * @note Complexity: O(1).
@@ -171,7 +217,7 @@ public:
     /**
      * @brief Finds an element in the set.
      *
-     * @param value Value to find.
+     * @param value Key to find.
      * @return Iterator to the element if found; end() otherwise.
      *
      * @note Complexity: O(1).
@@ -195,7 +241,7 @@ public:
     /**
      * @brief Finds an element in the set (const).
      *
-     * @param value Value to find.
+     * @param value Key to find.
      * @return Const iterator to the element if found; end() otherwise.
      *
      * @note Complexity: O(1).
@@ -217,17 +263,10 @@ public:
     }
 
     /**
-     * @brief Returns the dense-array index for a given sparse value.
+     * @brief Returns the dense-array index for a given key.
      *
-     * @param value Sparse value to look up.
-     * @return Dense index, or size() if value is not present.
-     *
-     * @details
-     * This is useful when the caller maintains parallel arrays that must
-     * stay synchronized with the dense array (e.g., an ECS component store
-     * that keeps a side-vector of full entity IDs alongside the sparse-key
-     * dense array). Knowing the dense index allows the caller to mirror
-     * swap-with-back erasure in its own parallel storage.
+     * @param value Key to look up.
+     * @return Dense index, or size() if key is not present.
      *
      * @note Complexity: O(1).
      * @note Thread-safety: Thread-safe for concurrent reads.
@@ -270,9 +309,9 @@ public:
     }
 
     /**
-     * @brief Ensures the sparse mapping supports values up to maxValue.
+     * @brief Ensures the sparse mapping supports indices up to maxValue.
      *
-     * @param maxValue Maximum supported value (inclusive).
+     * @param maxValue Maximum supported sparse index (inclusive).
      * @throws std::length_error if maxValue is too large.
      *
      * @note Complexity: O(maxValue) when growth is required.
@@ -294,10 +333,7 @@ public:
     /**
      * @brief Shrinks sparse mapping to minimum required size.
      *
-     * Reduces memory usage by shrinking the sparse mapping to fit only the
-     * maximum value currently in the set. Also shrinks dense storage.
-     *
-     * @note Complexity: O(n) where n is number of elements (to find max value).
+     * @note Complexity: O(n) where n is number of elements (to find max index).
      * @note If the set is empty, both sparse and dense storage are fully released.
      */
     void shrink_to_fit()
@@ -309,8 +345,16 @@ public:
         }
         else
         {
-            const T maxVal = *std::max_element(mDense.begin(), mDense.end());
-            const size_type required = static_cast<size_type>(maxVal) + 1;
+            size_type maxIdx = 0;
+            for (const T& val : mDense)
+            {
+                const size_type idx = static_cast<size_type>(IndexPolicy::index(val));
+                if (idx > maxIdx)
+                {
+                    maxIdx = idx;
+                }
+            }
+            const size_type required = maxIdx + 1;
             if (required < mSparse.size())
             {
                 mSparse.resize(required);
@@ -323,9 +367,6 @@ public:
     /**
      * @brief Returns the sparse mapping size.
      *
-     * This is the smallest value X such that all values < X can be inserted
-     * without resizing the sparse mapping.
-     *
      * @note Complexity: O(1).
      * @note Thread-safety: Thread-safe for concurrent reads.
      */
@@ -335,10 +376,7 @@ public:
     }
 
     /**
-     * @brief Returns the value stored at dense index.
-     *
-     * @param index Dense index.
-     * @return Value at index.
+     * @brief Returns the key stored at dense index.
      *
      * @note Complexity: O(1).
      * @note Thread-safety: Thread-safe for concurrent reads.
@@ -349,12 +387,9 @@ public:
     }
 
     /**
-     * @brief Returns the value stored at dense index with bounds checking.
+     * @brief Returns the key stored at dense index with bounds checking.
      *
-     * @param index Dense index.
-     * @return Value at index.
      * @throws std::out_of_range if index is out of range.
-     *
      * @note Complexity: O(1).
      * @note Thread-safety: Thread-safe for concurrent reads.
      */
@@ -371,39 +406,17 @@ public:
     // Iterators
     // -------------------------------------------------------------------------
 
-    iterator begin() noexcept
-    {
-        return mDense.begin();
-    }
-
-    iterator end() noexcept
-    {
-        return mDense.end();
-    }
+    iterator begin() noexcept { return mDense.begin(); }
+    iterator end() noexcept { return mDense.end(); }
 
     /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator begin() const noexcept
-    {
-        return mDense.begin();
-    }
-
+    [[nodiscard]] const_iterator begin() const noexcept { return mDense.begin(); }
     /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator end() const noexcept
-    {
-        return mDense.end();
-    }
-
+    [[nodiscard]] const_iterator end() const noexcept { return mDense.end(); }
     /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator cbegin() const noexcept
-    {
-        return mDense.cbegin();
-    }
-
+    [[nodiscard]] const_iterator cbegin() const noexcept { return mDense.cbegin(); }
     /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator cend() const noexcept
-    {
-        return mDense.cend();
-    }
+    [[nodiscard]] const_iterator cend() const noexcept { return mDense.cend(); }
 
     // -------------------------------------------------------------------------
     // Accessors
@@ -411,28 +424,21 @@ public:
 
     /// @brief Returns the underlying dense storage.
     /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const std::vector<T>& dense() const noexcept
-    {
-        return mDense;
-    }
+    [[nodiscard]] const std::vector<T>& dense() const noexcept { return mDense; }
 
     /// @brief Returns the underlying sparse mapping.
     /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const std::vector<T>& sparse() const noexcept
-    {
-        return mSparse;
-    }
+    [[nodiscard]] const std::vector<sparse_type>& sparse() const noexcept { return mSparse; }
 
     // -------------------------------------------------------------------------
     // Swap
     // -------------------------------------------------------------------------
 
-    /**
-     * @brief Swaps contents with another SparseSet.
-     * @param other SparseSet to swap with.
-     * @note Complexity: O(1).
-     */
-    void swap(SparseSet& other) noexcept(std::is_nothrow_swappable_v<std::vector<T>>)
+    /// @brief Swaps contents with another SparseSet.
+    /// @note Complexity: O(1).
+    void swap(SparseSet& other) noexcept(
+        std::is_nothrow_swappable_v<std::vector<T>> &&
+        std::is_nothrow_swappable_v<std::vector<sparse_type>>)
     {
         using std::swap;
         swap(mDense, other.mDense);
@@ -450,56 +456,55 @@ private:
     // Private Helpers
     // -------------------------------------------------------------------------
 
-    /// @brief Checks if dense index fits in T without truncation.
     static void enforceDenseIndexFits(size_type denseIndex, const char* context)
     {
-        const size_type maxIndex = static_cast<size_type>(std::numeric_limits<T>::max());
+        const size_type maxIndex = static_cast<size_type>(
+            std::numeric_limits<sparse_type>::max());
         if (denseIndex > maxIndex)
         {
             throw std::length_error(context);
         }
     }
 
-    /// @brief Converts value to sparse index without throwing. Returns false if out of range.
-    static bool tryToSparseIndex(T value, size_type& sparseIndex) noexcept
+    static bool tryToSparseIndex(const T& value, size_type& sparseIndex) noexcept
     {
-        if constexpr (sizeof(T) > sizeof(size_type))
+        const sparse_type idx = IndexPolicy::index(value);
+        if constexpr (sizeof(sparse_type) > sizeof(size_type))
         {
-            if (value > static_cast<T>(std::numeric_limits<size_type>::max()))
+            if (idx > static_cast<sparse_type>(std::numeric_limits<size_type>::max()))
             {
                 return false;
             }
         }
-        sparseIndex = static_cast<size_type>(value);
+        sparseIndex = static_cast<size_type>(idx);
         return true;
     }
 
-    /// @brief Converts value to sparse index, throwing on overflow.
-    static size_type toSparseIndexOrThrow(T value, const char* context)
+    static size_type toSparseIndexOrThrow(const T& value, const char* context)
     {
-        if constexpr (sizeof(T) > sizeof(size_type))
+        const sparse_type idx = IndexPolicy::index(value);
+        if constexpr (sizeof(sparse_type) > sizeof(size_type))
         {
-            if (value > static_cast<T>(std::numeric_limits<size_type>::max()))
+            if (idx > static_cast<sparse_type>(std::numeric_limits<size_type>::max()))
             {
                 throw std::length_error(context);
             }
         }
-        return static_cast<size_type>(value);
+        return static_cast<size_type>(idx);
     }
 
-    /// @brief Checks containment given pre-validated sparse index.
-    bool containsAtIndex(T value, size_type sparseIndex) const noexcept
+    bool containsAtIndex(const T& /*value*/, size_type sparseIndex) const noexcept
     {
         if (sparseIndex >= mSparse.size())
         {
             return false;
         }
         const size_type denseIndex = static_cast<size_type>(mSparse[sparseIndex]);
-        return (denseIndex < mDense.size()) && (mDense[denseIndex] == value);
+        return (denseIndex < mDense.size()) &&
+               (static_cast<size_type>(IndexPolicy::index(mDense[denseIndex])) == sparseIndex);
     }
 
-    /// @brief Ensures sparse array can hold value, returns sparse index.
-    size_type ensureSparseCapacity(T value)
+    size_type ensureSparseCapacity(const T& value)
     {
         const size_type sparseIndex = toSparseIndexOrThrow(
             value, "SparseSet::insert: value must fit in size_type");
@@ -519,7 +524,7 @@ private:
     }
 
     std::vector<T> mDense;
-    std::vector<T> mSparse;
+    std::vector<sparse_type> mSparse;
 };
 
 // ============================================================================
@@ -527,22 +532,35 @@ private:
 // ============================================================================
 
 /**
- * @brief Sparse set for indices with dense associated data.
+ * @brief Sparse set for keys with dense associated data.
  *
- * @tparam T    Unsigned index type.
- * @tparam Data Associated data stored for each active index.
+ * @tparam T           Key type stored in the dense array.
+ * @tparam Data        Associated data stored for each active key.
+ * @tparam IndexPolicy Policy that extracts a sparse-array index from a key.
+ *                     Must provide:
+ *                     - `using sparse_index_type = <unsigned integral type>`
+ *                     - `static constexpr sparse_index_type index(const T&) noexcept`
+ *
+ * With the default IdentityIndex, the key type must be an unsigned integer
+ * and is used directly as the sparse-array index. A custom IndexPolicy
+ * enables composite key types whose sparse index is a subset of the key.
+ * Identity is determined by the extracted index: two keys with the same
+ * extracted index are considered the same element.
  *
  * @note Thread-safety: NOT thread-safe for concurrent writes. Caller must
  *       synchronize. Concurrent reads are safe.
  */
-template <typename T, typename Data>
+template <typename T, typename Data, typename IndexPolicy = IdentityIndex<T>>
 class SparseSetWithData
 {
-    static_assert(std::is_unsigned_v<T>, "T must be an unsigned integral type");
+    using sparse_type = typename IndexPolicy::sparse_index_type;
+    static_assert(std::is_unsigned_v<sparse_type>,
+                  "IndexPolicy::sparse_index_type must be unsigned");
 
 public:
     using value_type = T;
     using data_type = Data;
+    using index_policy = IndexPolicy;
     using size_type = size_t;
     using iterator = typename std::vector<T>::iterator;
     using const_iterator = typename std::vector<T>::const_iterator;
@@ -550,8 +568,8 @@ public:
     /**
      * @brief Constructs an empty set.
      *
-     * @param maxValue Optional maximum supported value (inclusive). This
-     *                 pre-sizes the sparse mapping.
+     * @param maxValue Optional maximum supported sparse index (inclusive).
+     *                 This pre-sizes the sparse mapping.
      *
      * @note Complexity: O(maxValue) when growth is required; otherwise O(1).
      */
@@ -564,12 +582,12 @@ public:
     }
 
     /**
-     * @brief Inserts value with associated data if not present.
+     * @brief Inserts key with associated data if not present.
      *
-     * @param value Value to insert.
+     * @param value Key to insert.
      * @param data  Data to associate.
-     * @return true if insertion occurred; false if value was already present.
-     * @throws std::length_error if value cannot be represented as an index.
+     * @return true if insertion occurred; false if key was already present.
+     * @throws std::length_error if the extracted index cannot be represented.
      *
      * @note Complexity: O(1) amortized.
      * @note Exception-safety: Strong guarantee.
@@ -580,12 +598,12 @@ public:
     }
 
     /**
-     * @brief Inserts value with associated data if not present (move).
+     * @brief Inserts key with associated data if not present (move).
      *
-     * @param value Value to insert.
+     * @param value Key to insert.
      * @param data  Data to associate (moved).
-     * @return true if insertion occurred; false if value was already present.
-     * @throws std::length_error if value cannot be represented as an index.
+     * @return true if insertion occurred; false if key was already present.
+     * @throws std::length_error if the extracted index cannot be represented.
      *
      * @note Complexity: O(1) amortized.
      * @note Exception-safety: Strong guarantee.
@@ -596,13 +614,13 @@ public:
     }
 
     /**
-     * @brief Constructs Data in-place and inserts if value is not present.
+     * @brief Constructs Data in-place and inserts if key is not present.
      *
      * @tparam Args Constructor argument types for Data.
-     * @param value Value to insert.
+     * @param value Key to insert.
      * @param args  Arguments forwarded to Data constructor.
-     * @return true if insertion occurred; false if value was already present.
-     * @throws std::length_error if value cannot be represented as an index.
+     * @return true if insertion occurred; false if key was already present.
+     * @throws std::length_error if the extracted index cannot be represented.
      *
      * @note Complexity: O(1) amortized.
      * @note Exception-safety: Strong guarantee.
@@ -614,18 +632,18 @@ public:
     }
 
     /**
-     * @brief Constructs Data in-place if value is not present; returns pointer to data.
+     * @brief Constructs Data in-place if key is not present; returns pointer to data.
      *
      * Unlike emplace(), which returns bool, tryEmplace() returns a pointer to
-     * the newly inserted data on success, or nullptr if the value was already
+     * the newly inserted data on success, or nullptr if the key was already
      * present. This avoids a redundant lookup when the caller needs a reference
      * to the inserted data immediately after insertion.
      *
      * @tparam Args Constructor argument types for Data.
-     * @param value Value to insert.
+     * @param value Key to insert.
      * @param args  Arguments forwarded to Data constructor.
-     * @return Pointer to inserted data, or nullptr if value was already present.
-     * @throws std::length_error if value cannot be represented as an index.
+     * @return Pointer to inserted data, or nullptr if key was already present.
+     * @throws std::length_error if the extracted index cannot be represented.
      *
      * @note Complexity: O(1) amortized.
      * @note Exception-safety: Strong guarantee.
@@ -641,7 +659,8 @@ public:
         }
 
         const size_type denseIndex = mDense.size();
-        enforceDenseIndexFits(denseIndex, "SparseSetWithData::tryEmplace: dense index overflow");
+        enforceDenseIndexFits(denseIndex,
+                              "SparseSetWithData::tryEmplace: dense index overflow");
 
         mDense.push_back(value);
         try
@@ -654,15 +673,15 @@ public:
             throw;
         }
 
-        mSparse[sparseIndex] = static_cast<T>(denseIndex);
+        mSparse[sparseIndex] = static_cast<sparse_type>(denseIndex);
         return &mData.back();
     }
 
     /**
-     * @brief Erases value if present.
+     * @brief Erases key if present.
      *
-     * @param value Value to erase.
-     * @return true if value was erased; false if it was not present.
+     * @param value Key to erase.
+     * @return true if key was erased; false if it was not present.
      *
      * @note Complexity: O(1).
      * @note Exception-safety: Basic guarantee if Data move-assignment can throw.
@@ -690,7 +709,8 @@ public:
             mData[denseIndex] = std::move(mData[lastIndex]);
 
             mDense[denseIndex] = lastValue;
-            mSparse[static_cast<size_type>(lastValue)] = static_cast<T>(denseIndex);
+            mSparse[static_cast<size_type>(IndexPolicy::index(lastValue))] =
+                static_cast<sparse_type>(denseIndex);
         }
 
         mDense.pop_back();
@@ -699,9 +719,9 @@ public:
     }
 
     /**
-     * @brief Returns true if value is present.
+     * @brief Returns true if key is present.
      *
-     * @param value Value to check.
+     * @param value Key to check.
      * @return true if present; false otherwise.
      *
      * @note Complexity: O(1).
@@ -717,15 +737,6 @@ public:
         return containsAtIndex(value, sparseIndex);
     }
 
-    /**
-     * @brief Finds an element in the set.
-     *
-     * @param value Value to find.
-     * @return Iterator to the element if found; end() otherwise.
-     *
-     * @note Complexity: O(1).
-     * @note Thread-safety: Thread-safe for concurrent reads.
-     */
     [[nodiscard]] iterator find(T value) noexcept
     {
         size_type sparseIndex = 0;
@@ -741,15 +752,6 @@ public:
         return mDense.begin() + static_cast<typename iterator::difference_type>(denseIndex);
     }
 
-    /**
-     * @brief Finds an element in the set (const).
-     *
-     * @param value Value to find.
-     * @return Const iterator to the element if found; end() otherwise.
-     *
-     * @note Complexity: O(1).
-     * @note Thread-safety: Thread-safe for concurrent reads.
-     */
     [[nodiscard]] const_iterator find(T value) const noexcept
     {
         size_type sparseIndex = 0;
@@ -765,22 +767,6 @@ public:
         return mDense.begin() + static_cast<typename const_iterator::difference_type>(denseIndex);
     }
 
-    /**
-     * @brief Returns the dense-array index for a given sparse value.
-     *
-     * @param value Sparse value to look up.
-     * @return Dense index, or size() if value is not present.
-     *
-     * @details
-     * This is useful when the caller maintains parallel arrays that must
-     * stay synchronized with the dense array (e.g., an ECS component store
-     * that keeps a side-vector of full entity IDs alongside the sparse-key
-     * dense array). Knowing the dense index allows the caller to mirror
-     * swap-with-back erasure in its own parallel storage.
-     *
-     * @note Complexity: O(1).
-     * @note Thread-safety: Thread-safe for concurrent reads.
-     */
     [[nodiscard]] size_type indexOf(T value) const noexcept
     {
         size_type sparseIndex = 0;
@@ -795,14 +781,6 @@ public:
         return static_cast<size_type>(mSparse[sparseIndex]);
     }
 
-    /**
-     * @brief Returns a pointer to data for value, or nullptr if absent.
-     *
-     * @param value Value to look up.
-     * @return Pointer to associated data, or nullptr.
-     *
-     * @note Complexity: O(1).
-     */
     [[nodiscard]] Data* tryGet(T value) noexcept
     {
         size_type sparseIndex = 0;
@@ -814,18 +792,10 @@ public:
         {
             return nullptr;
         }
-        return &mData[static_cast<size_type>(mSparse[sparseIndex])];
+        const size_type denseIndex = static_cast<size_type>(mSparse[sparseIndex]);
+        return &mData[denseIndex];
     }
 
-    /**
-     * @brief Returns a const pointer to data for value, or nullptr if absent.
-     *
-     * @param value Value to look up.
-     * @return Const pointer to associated data, or nullptr.
-     *
-     * @note Complexity: O(1).
-     * @note Thread-safety: Thread-safe for concurrent reads.
-     */
     [[nodiscard]] const Data* tryGet(T value) const noexcept
     {
         size_type sparseIndex = 0;
@@ -837,107 +807,49 @@ public:
         {
             return nullptr;
         }
-        return &mData[static_cast<size_type>(mSparse[sparseIndex])];
+        const size_type denseIndex = static_cast<size_type>(mSparse[sparseIndex]);
+        return &mData[denseIndex];
     }
 
-    /**
-     * @brief Returns a reference to data for value.
-     *
-     * @param value Value to look up.
-     * @return Reference to associated data.
-     * @throws std::out_of_range if value is not present.
-     *
-     * @note Complexity: O(1).
-     */
     [[nodiscard]] Data& get(T value)
     {
-        Data* dataPtr = tryGet(value);
-        if (dataPtr == nullptr)
+        Data* ptr = tryGet(value);
+        if (ptr == nullptr)
         {
-            throw std::out_of_range("SparseSetWithData::get: element not present");
+            throw std::out_of_range("SparseSetWithData::get: value not found");
         }
-        return *dataPtr;
+        return *ptr;
     }
 
-    /**
-     * @brief Returns a const reference to data for value.
-     *
-     * @param value Value to look up.
-     * @return Const reference to associated data.
-     * @throws std::out_of_range if value is not present.
-     *
-     * @note Complexity: O(1).
-     * @note Thread-safety: Thread-safe for concurrent reads.
-     */
     [[nodiscard]] const Data& get(T value) const
     {
-        const Data* dataPtr = tryGet(value);
-        if (dataPtr == nullptr)
+        const Data* ptr = tryGet(value);
+        if (ptr == nullptr)
         {
-            throw std::out_of_range("SparseSetWithData::get: element not present");
+            throw std::out_of_range("SparseSetWithData::get: value not found");
         }
-        return *dataPtr;
+        return *ptr;
     }
 
-    /**
-     * @brief Returns a reference to data at dense index.
-     *
-     * @param index Dense index.
-     * @return Reference to data.
-     * @throws std::out_of_range if index is out of range.
-     *
-     * @note Complexity: O(1).
-     */
     [[nodiscard]] Data& dataAt(size_type index)
     {
         return mData.at(index);
     }
 
-    /**
-     * @brief Returns a const reference to data at dense index.
-     *
-     * @param index Dense index.
-     * @return Const reference to data.
-     * @throws std::out_of_range if index is out of range.
-     *
-     * @note Complexity: O(1).
-     * @note Thread-safety: Thread-safe for concurrent reads.
-     */
     [[nodiscard]] const Data& dataAt(size_type index) const
     {
         return mData.at(index);
     }
 
-    /// @brief Returns the number of elements.
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] size_type size() const noexcept
-    {
-        return mDense.size();
-    }
+    [[nodiscard]] size_type size() const noexcept { return mDense.size(); }
+    [[nodiscard]] bool empty() const noexcept { return mDense.empty(); }
 
-    /// @brief Returns true if the set is empty.
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] bool empty() const noexcept
-    {
-        return mDense.empty();
-    }
-
-    /// @brief Removes all elements.
-    /// @note Complexity: O(n) where n is number of elements (destructor calls).
     void clear() noexcept
     {
         mDense.clear();
         mData.clear();
     }
 
-    /**
-     * @brief Ensures the sparse mapping supports values up to maxValue.
-     *
-     * @param maxValue Maximum supported value (inclusive).
-     * @throws std::length_error if maxValue is too large.
-     *
-     * @note Complexity: O(maxValue) when growth is required.
-     */
     void reserve(size_type maxValue)
     {
         if (maxValue == std::numeric_limits<size_type>::max())
@@ -952,15 +864,6 @@ public:
         }
     }
 
-    /**
-     * @brief Shrinks sparse mapping to minimum required size.
-     *
-     * Reduces memory usage by shrinking the sparse mapping to fit only the
-     * maximum value currently in the set. Also shrinks dense and data storage.
-     *
-     * @note Complexity: O(n) where n is number of elements (to find max value).
-     * @note If the set is empty, all storage is fully released.
-     */
     void shrink_to_fit()
     {
         if (mDense.empty())
@@ -970,8 +873,16 @@ public:
         }
         else
         {
-            const T maxVal = *std::max_element(mDense.begin(), mDense.end());
-            const size_type required = static_cast<size_type>(maxVal) + 1;
+            size_type maxIdx = 0;
+            for (const T& val : mDense)
+            {
+                const size_type idx = static_cast<size_type>(IndexPolicy::index(val));
+                if (idx > maxIdx)
+                {
+                    maxIdx = idx;
+                }
+            }
+            const size_type required = maxIdx + 1;
             if (required < mSparse.size())
             {
                 mSparse.resize(required);
@@ -982,77 +893,29 @@ public:
         mData.shrink_to_fit();
     }
 
-    /// @brief Returns the sparse mapping size.
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] size_type capacity() const noexcept
-    {
-        return mSparse.size();
-    }
-
-    /// @brief Returns the underlying dense index storage.
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const std::vector<T>& dense() const noexcept
-    {
-        return mDense;
-    }
-
-    /// @brief Returns the underlying dense data storage.
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const std::vector<Data>& data() const noexcept
-    {
-        return mData;
-    }
+    [[nodiscard]] size_type capacity() const noexcept { return mSparse.size(); }
+    [[nodiscard]] const std::vector<T>& dense() const noexcept { return mDense; }
+    [[nodiscard]] const std::vector<Data>& data() const noexcept { return mData; }
 
     // -------------------------------------------------------------------------
     // Iterators
     // -------------------------------------------------------------------------
 
-    iterator begin() noexcept
-    {
-        return mDense.begin();
-    }
-
-    iterator end() noexcept
-    {
-        return mDense.end();
-    }
-
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator begin() const noexcept
-    {
-        return mDense.begin();
-    }
-
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator end() const noexcept
-    {
-        return mDense.end();
-    }
-
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator cbegin() const noexcept
-    {
-        return mDense.cbegin();
-    }
-
-    /// @note Thread-safety: Thread-safe for concurrent reads.
-    [[nodiscard]] const_iterator cend() const noexcept
-    {
-        return mDense.cend();
-    }
+    iterator begin() noexcept { return mDense.begin(); }
+    iterator end() noexcept { return mDense.end(); }
+    [[nodiscard]] const_iterator begin() const noexcept { return mDense.begin(); }
+    [[nodiscard]] const_iterator end() const noexcept { return mDense.end(); }
+    [[nodiscard]] const_iterator cbegin() const noexcept { return mDense.cbegin(); }
+    [[nodiscard]] const_iterator cend() const noexcept { return mDense.cend(); }
 
     // -------------------------------------------------------------------------
     // Swap
     // -------------------------------------------------------------------------
 
-    /**
-     * @brief Swaps contents with another SparseSetWithData.
-     * @param other SparseSetWithData to swap with.
-     * @note Complexity: O(1).
-     */
     void swap(SparseSetWithData& other) noexcept(
         std::is_nothrow_swappable_v<std::vector<T>> &&
-        std::is_nothrow_swappable_v<std::vector<Data>>)
+        std::is_nothrow_swappable_v<std::vector<Data>> &&
+        std::is_nothrow_swappable_v<std::vector<sparse_type>>)
     {
         using std::swap;
         swap(mDense, other.mDense);
@@ -1060,7 +923,6 @@ public:
         swap(mSparse, other.mSparse);
     }
 
-    /// @brief ADL-enabled swap.
     friend void swap(SparseSetWithData& a, SparseSetWithData& b) noexcept(noexcept(a.swap(b)))
     {
         a.swap(b);
@@ -1073,49 +935,53 @@ private:
 
     static void enforceDenseIndexFits(size_type denseIndex, const char* context)
     {
-        const size_type maxIndex = static_cast<size_type>(std::numeric_limits<T>::max());
+        const size_type maxIndex = static_cast<size_type>(
+            std::numeric_limits<sparse_type>::max());
         if (denseIndex > maxIndex)
         {
             throw std::length_error(context);
         }
     }
 
-    static bool tryToSparseIndex(T value, size_type& sparseIndex) noexcept
+    static bool tryToSparseIndex(const T& value, size_type& sparseIndex) noexcept
     {
-        if constexpr (sizeof(T) > sizeof(size_type))
+        const sparse_type idx = IndexPolicy::index(value);
+        if constexpr (sizeof(sparse_type) > sizeof(size_type))
         {
-            if (value > static_cast<T>(std::numeric_limits<size_type>::max()))
+            if (idx > static_cast<sparse_type>(std::numeric_limits<size_type>::max()))
             {
                 return false;
             }
         }
-        sparseIndex = static_cast<size_type>(value);
+        sparseIndex = static_cast<size_type>(idx);
         return true;
     }
 
-    static size_type toSparseIndexOrThrow(T value, const char* context)
+    static size_type toSparseIndexOrThrow(const T& value, const char* context)
     {
-        if constexpr (sizeof(T) > sizeof(size_type))
+        const sparse_type idx = IndexPolicy::index(value);
+        if constexpr (sizeof(sparse_type) > sizeof(size_type))
         {
-            if (value > static_cast<T>(std::numeric_limits<size_type>::max()))
+            if (idx > static_cast<sparse_type>(std::numeric_limits<size_type>::max()))
             {
                 throw std::length_error(context);
             }
         }
-        return static_cast<size_type>(value);
+        return static_cast<size_type>(idx);
     }
 
-    bool containsAtIndex(T value, size_type sparseIndex) const noexcept
+    bool containsAtIndex(const T& /*value*/, size_type sparseIndex) const noexcept
     {
         if (sparseIndex >= mSparse.size())
         {
             return false;
         }
         const size_type denseIndex = static_cast<size_type>(mSparse[sparseIndex]);
-        return (denseIndex < mDense.size()) && (mDense[denseIndex] == value);
+        return (denseIndex < mDense.size()) &&
+               (static_cast<size_type>(IndexPolicy::index(mDense[denseIndex])) == sparseIndex);
     }
 
-    size_type ensureSparseCapacity(T value)
+    size_type ensureSparseCapacity(const T& value)
     {
         const size_type sparseIndex = toSparseIndexOrThrow(
             value, "SparseSetWithData: value must fit in size_type");
@@ -1145,7 +1011,8 @@ private:
         }
 
         const size_type denseIndex = mDense.size();
-        enforceDenseIndexFits(denseIndex, "SparseSetWithData::insert: dense index overflow");
+        enforceDenseIndexFits(denseIndex,
+                              "SparseSetWithData::insert: dense index overflow");
 
         mDense.push_back(value);
         try
@@ -1158,13 +1025,13 @@ private:
             throw;
         }
 
-        mSparse[sparseIndex] = static_cast<T>(denseIndex);
+        mSparse[sparseIndex] = static_cast<sparse_type>(denseIndex);
         return true;
     }
 
     std::vector<T> mDense;
     std::vector<Data> mData;
-    std::vector<T> mSparse;
+    std::vector<sparse_type> mSparse;
 };
 
 } // namespace fat_p
