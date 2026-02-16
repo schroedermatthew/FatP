@@ -65,7 +65,7 @@ The library reflects decades of experience with C++ in production—experience t
 
 ## Why This Matters
 
-The human's actual contribution is accept, reject, and "don't do that again." The initial input was: "I want to learn HPC, make me some code. C++20, header-only, no dependencies." Everything else—the six-layer architecture, the FATP_META compliance system, the 107-header library, the seven governance documents, the 87 CI workflows, the teaching materials—is AI output. The human's intervention frequency decreased over time as the governance system accumulated enough rules to prevent repeat mistakes. The role never changed; it just needed to be exercised less often.
+The human's actual contribution is accept, reject, and "don't do that again." The initial input was: "I want to learn HPC, make me some code. C++20, header-only, no dependencies." Everything else—the six-layer architecture, the FATP_META compliance system, every header, every governance document, every CI workflow, the teaching materials—is AI output. The human's intervention frequency decreased over time as the governance system accumulated enough rules to prevent repeat mistakes. The role never changed; it just needed to be exercised less often.
 
 The collaboration is genuine. Both parties keep each other on track:
 

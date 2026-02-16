@@ -2,9 +2,9 @@
 
 ## A Proven Framework for Human-AI Partnership in Production Software Engineering
 
-**Version 1.3**  
+**Version 1.4**  
 **February 2026**  
-**Status:** Battle-tested on 325,000+ lines of output
+**Status:** Battle-tested on 449,000+ lines of output
 
 ---
 
@@ -16,9 +16,9 @@ The numbers tell the story:
 
 | Category | Output |
 |----------|--------|
-| C++ Code | 231,632 lines |
-| Documentation | 209,300 lines |
-| **Total** | **440,932 lines** |
+| C++ Code | 235,989 lines |
+| Documentation | 213,635 lines |
+| **Total** | **449,624 lines** |
 | Components | 107 headers |
 | Components benchmarked | 20 (against 50+ competitor implementations) |
 | External dependencies | Zero |
@@ -230,7 +230,7 @@ Grok also tends to propose ideas beyond the stated requirementsâ€”novel alg
 
 ### Why Guidelines Are Everything
 
-In a single-session project, you can hold everything in your head. In a 325,000-line project developed across hundreds of sessions with multiple AI participants, you cannot. Guidelines are the solution to this coordination problem.
+In a single-session project, you can hold everything in your head. In a 449,000-line project developed across hundreds of sessions with multiple AI participants, you cannot. Guidelines are the solution to this coordination problem.
 
 A crucial fact about the Fat-P guidelines: **the human has never read them.** The governance documents are AI-to-AI communication. AI writes the rules, AI follows the rules, AI reviews other AIs against the rules. The human evaluates the final product, not the process documents. When the human says "don't do that again," the AI determines what rule to write, how to word it, where it belongs in the document hierarchy, and writes it. The AI has also added rules on its own initiative—things it recognized as potential failure modes without the human having to experience the problem first.
 
@@ -764,7 +764,7 @@ The Fat-P codebase follows a consistent structure:
 
 ```mermaid
 flowchart TD
-    subgraph Headers["Headers (107 files, 102,492 LOC)"]
+    subgraph Headers["Headers (107 files, 102,479 LOC)"]
         H1[Containers<br/>SmallVector, SlotMap, IntrusiveList...]
         H2[Hash Maps<br/>FastHashMap, StableHashMap]
         H3[Concurrency<br/>LockFreeQueue, ThreadPool, WorkQueue...]
@@ -773,13 +773,13 @@ flowchart TD
         H6[Utilities<br/>Expected, ScopeGuard, StrongId...]
     end
     
-    subgraph Tests["Tests (89 files, 94,597 LOC)"]
+    subgraph Tests["Tests (91 files, 88,935 LOC)"]
         T1[One test file per component]
         T2[Edge cases and stress tests]
         T3[Exception safety verification]
     end
     
-    subgraph Benchmarks["Benchmarks (17 files, 30,845 LOC)"]
+    subgraph Benchmarks["Benchmarks (22 files, 43,029 LOC)"]
         B1[Competitor comparisons]
         B2[Round-robin methodology]
         B3[Statistical reporting]
@@ -980,7 +980,7 @@ Multiple AIs can **collaborate productively**, with different systems contributi
 
 **The performance holds up.** Across 20 benchmarked components and 50+ competitor implementations, nothing measured so far pays a performance tax for the zero-dependency design. The library is incomplete and the benchmarks cover only a subset—full results are in the repository.
 
-The result is a library developed by one person who wrote none of the code, never read the governance documents, and whose involvement decreased over time—containing 107 components across 325,000 lines, with competitive performance where measured and green CI across all workflows. The repository is public. Clone it, compile it, run the benchmarks, read the commit history. The evidence is the code.
+The result is a library developed by one person who wrote none of the code, never read the governance documents, and whose involvement decreased over time—containing 107 components across 449,000 lines, with competitive performance where measured and green CI across all workflows. The repository is public. Clone it, compile it, run the benchmarks, read the commit history. The evidence is the code.
 
 This methodology—the pipeline, the guidelines system, the context reset technique, the multi-AI collaboration model—is documented here so others can reproduce it. It was not derived from academic literature on multi-agent systems. It emerged organically from solving real problems during development. Every element exists because a specific problem was encountered.
 
@@ -1007,14 +1007,15 @@ This methodology—the pipeline, the guidelines system, the context reset techni
 
 | Category | Count | Lines |
 |----------|-------|-------|
-| Header files | 107 | 102,492 |
-| Test files | 89 | 88,785 |
-| Benchmark files | 20 | 38,645 |
-| **Total C++** | **234** | **231,632** |
-| Documentation (markdown) | 233 | 209,300 |
+| Header files | 107 | 102,479 |
+| Test files | 91 | 88,935 |
+| Benchmark files | 22 | 43,029 |
+| Other C++ | 16 | 1,546 |
+| **Total C++** | **236** | **235,989** |
+| Documentation (markdown) | 264 | 213,635 |
 | Presentations (pptx) | 3 | — |
-| **Total documentation** | **236** | **209,300** |
-| **Grand total** | **470 files** | **440,932 lines** |
+| **Total documentation** | **267** | **213,635** |
+| **Grand total** | **503 files** | **449,624 lines** |
 
 ---
 
@@ -1023,8 +1024,8 @@ This methodology—the pipeline, the guidelines system, the context reset techni
 | Field | Value |
 |-------|-------|
 | Title | Fat-P AI-Collaborative Development Methodology |
-| Version | 1.3 |
-| Date | February 13, 2026 |
+| Version | 1.4 |
+| Date | February 15, 2026 |
 | Authors | Claude (Anthropic), with Human direction |
 | Status | Active, continuously evolving |
 

@@ -10,7 +10,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Layer & Dependency Verification](https://github.com/schroedermatthew/FatP/actions/workflows/ci_verify.yml/badge.svg)
 
 <details>
-<summary><strong>All 109 CI Workflows</strong></summary>
+<summary><strong>All CI Workflows</strong></summary>
 
 #### Core Infrastructure
 ![FatP CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-test-core.yml/badge.svg)
@@ -274,11 +274,11 @@ target_link_libraries(your_target PRIVATE fatp)
 
 ```
 FatP/
-├── include/fat_p/       # Library headers (107 files)
+├── include/fat_p/       # Library headers
 ├── components/          # Per-component tests, benchmarks, and docs
 ├── Teaching/            # Guides, case studies, and reference material
 ├── Read_Me/             # Development guidelines and style guides
-└── .github/workflows/   # CI workflows (109 workflows)
+└── .github/workflows/   # CI workflows
 ```
 
 ## Building Tests
