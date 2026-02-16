@@ -90,7 +90,7 @@ The numbers are nanoseconds per operation unless otherwise labeled. Lower is bet
 
 ## Coverage
 
-22 of 62 components have competitive benchmarks against external libraries. The remaining 40 were analyzed in [fatp-benchmark-gap-analysis.docx](fatp-benchmark-gap-analysis.docx) and fall into four categories:
+22 of 62 components have competitive benchmarks against external libraries. The remaining 40 were analyzed in [FAT-P_Benchmark_Gap_Analysis.md](FAT-P_Benchmark_Gap_Analysis.md) and fall into four categories:
 
 **High priority (pending):** CSRMatrix, Tensor, SimdVector, Signal, StringPool — the HPC core and most commonly benchmarked utility patterns. These are the components most likely to drive adoption decisions and will be benchmarked next.
 

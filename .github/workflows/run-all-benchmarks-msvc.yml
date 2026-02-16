@@ -175,6 +175,13 @@ jobs:
             extra_defines: ""
             extra_link: "fmt.lib"
             exe_name: bench_stringify
+          - name: StringPool
+            src: components\StringPool\benchmarks\benchmark_StringPool.cpp
+            vcpkg_deps: "boost-flyweight:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_stringpool
           - name: StrongId
             src: components\StrongId\benchmarks\benchmark_StrongId.cpp
             vcpkg_deps: "boost-serialization:x64-windows-release"
