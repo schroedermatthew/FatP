@@ -1,0 +1,336 @@
+# =============================================================================
+# .github/workflows/run-all-benchmarks-msvc.yml
+# =============================================================================
+# One-click trigger: runs every component benchmark on Windows MSVC.
+# Manual-only (workflow_dispatch).
+#
+# Prerequisites:
+#   Shared caches built by build-benchmark-deps.yml (run it first).
+#
+# Structure:
+#   1. Standard benchmarks — matrix job with vcpkg cache deps
+#   2. Summary job — aggregates all artifacts
+#
+# All benchmarks compile against MSVC (latest) C++20 on windows-latest with
+# /O2 /DNDEBUG. Competitors are loaded from the shared vcpkg cache and
+# vendored ThirdParty/ headers.
+#
+# Notes:
+#   - LLVM competitors are Linux-only and skipped on Windows (via __has_include)
+#   - Roaring is Linux-only and skipped on Windows
+#   - foonathan-memory is Linux-only and skipped on Windows
+#   - Stacktrace benchmark requires GCC's -lstdc++exp and is excluded
+# =============================================================================
+
+name: Run All Benchmarks (MSVC)
+
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+jobs:
+  # ===========================================================================
+  # All Benchmarks (vcpkg cache + vendored deps)
+  # ===========================================================================
+  benchmarks:
+    name: ${{ matrix.name }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: AlignedVector
+            src: components\AlignedVector\benchmarks\benchmark_AlignedVector.cpp
+            vcpkg_deps: "boost-align:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_alignedvector
+          - name: AllocationStrategies
+            src: components\AllocationStrategies\benchmarks\benchmark_AllocationStrategies.cpp
+            vcpkg_deps: "boost-pool:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_allocationstrategies
+          - name: BitSet
+            src: components\BitSet\benchmarks\benchmark_BitSet.cpp
+            vcpkg_deps: "boost-dynamic-bitset:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: "ws2_32.lib"
+            exe_name: bench_bitset
+          - name: CircularBuffer
+            src: components\CircularBuffer\benchmarks\benchmark_CircularBuffer.cpp
+            vcpkg_deps: "boost-lockfree:x64-windows-release readerwriterqueue:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_circularbuffer
+          - name: FatPHashMap
+            src: components\FatPHashMap\benchmarks\benchmark_FatPHashMap.cpp
+            vcpkg_deps: "abseil:x64-windows-release boost-unordered:x64-windows-release folly:x64-windows-release fmt:x64-windows-release"
+            extra_includes: '/I.\\ThirdParty'
+            extra_defines: "/DUSE_FOLLY=1"
+            extra_link: "abseil_dll.lib folly.lib fmt.lib glog.lib"
+            exe_name: bench_hashmap
+          - name: FeatureManager
+            src: components\FeatureManager\benchmarks\benchmark_FeatureManager.cpp
+            vcpkg_deps: ""
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_featuremanager
+          - name: FlatMapSet
+            src: components\FlatMapSet\benchmarks\benchmark_FlatMapSet.cpp
+            vcpkg_deps: "abseil:x64-windows-release boost-container:x64-windows-release folly:x64-windows-release fmt:x64-windows-release"
+            extra_includes: ""
+            extra_defines: "/DUSE_FOLLY=1"
+            extra_link: "abseil_dll.lib folly.lib fmt.lib glog.lib"
+            exe_name: bench_flatmapset
+          - name: FloatingPointComparison
+            src: components\FloatingPointComparison\benchmarks\benchmark_FloatingPointComparison.cpp
+            vcpkg_deps: ""
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_floatingpoint
+          - name: IntrusiveList
+            src: components\IntrusiveList\benchmarks\benchmark_IntrusiveList.cpp
+            vcpkg_deps: "boost-intrusive:x64-windows-release eastl:x64-windows-release"
+            extra_includes: '/I.\\ThirdParty'
+            extra_defines: ""
+            extra_link: "ws2_32.lib"
+            exe_name: bench_intrusivelist
+          - name: LockFreeQueue
+            src: components\LockFreeContainers\benchmarks\benchmark_LockFreeQueue.cpp
+            vcpkg_deps: "boost-lockfree:x64-windows-release concurrentqueue:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_lockfreequeue
+          - name: ObjectPool
+            src: components\ObjectPool\benchmarks\benchmark_ObjectPool.cpp
+            vcpkg_deps: "boost-pool:x64-windows-release eastl:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_objectpool
+          - name: PolicyIterator
+            src: components\PolicyIterator\benchmarks\benchmark_PolicyIterator.cpp
+            vcpkg_deps: "boost-iterator:x64-windows-release boost-multi-array:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_policyiterator
+          - name: ServiceLocator
+            src: components\ServiceLocator\benchmarks\benchmark_ServiceLocator.cpp
+            vcpkg_deps: "entt:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_servicelocator
+          - name: SlotMap
+            src: components\SlotMap\benchmarks\benchmark_SlotMap.cpp
+            vcpkg_deps: "boost-container:x64-windows-release entt:x64-windows-release"
+            extra_includes: '/I.\\ThirdParty'
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_slotmap
+          - name: SmallVector
+            src: components\SmallVector\benchmarks\benchmark_SmallVector.cpp
+            vcpkg_deps: "abseil:x64-windows-release boost-container:x64-windows-release folly:x64-windows-release eastl:x64-windows-release fmt:x64-windows-release"
+            extra_includes: '/I.\\ThirdParty'
+            extra_defines: "/DUSE_FOLLY=1"
+            extra_link: "abseil_dll.lib folly.lib fmt.lib glog.lib"
+            exe_name: bench_smallvector
+          - name: SparseSet
+            src: components\SparseSet\benchmarks\benchmark_SparseSet.cpp
+            vcpkg_deps: "abseil:x64-windows-release entt:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: "ws2_32.lib abseil_dll.lib"
+            exe_name: bench_sparseset
+          - name: StateMachine
+            src: components\StateMachine\benchmarks\benchmark_StateMachine.cpp
+            vcpkg_deps: "boost-msm:x64-windows-release boost-mpl:x64-windows-release"
+            extra_includes: '/I.\\ThirdParty'
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_statemachine
+          - name: Stringify
+            src: components\Stringify\benchmarks\benchmark_Stringify.cpp
+            vcpkg_deps: "fmt:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: "fmt.lib"
+            exe_name: bench_stringify
+          - name: StrongId
+            src: components\StrongId\benchmarks\benchmark_StrongId.cpp
+            vcpkg_deps: "boost-serialization:x64-windows-release"
+            extra_includes: '/I.\\ThirdParty'
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_strongid
+          - name: ThreadPool
+            src: components\ThreadPool\benchmarks\benchmark_ThreadPool.cpp
+            vcpkg_deps: "boost-asio:x64-windows-release tbb:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: "tbb12.lib"
+            exe_name: bench_threadpool
+          - name: WorkQueue
+            src: components\WorkQueue\benchmarks\benchmark_WorkQueue.cpp
+            vcpkg_deps: "boost-lockfree:x64-windows-release concurrentqueue:x64-windows-release"
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_workqueue
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Restore vcpkg cache
+        if: matrix.vcpkg_deps != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\vcpkg_cache
+          key: fatp-bench-deps-vcpkg-v1
+          restore-keys: fatp-bench-deps-vcpkg-v1-
+
+      - name: Verify cache restored
+        if: matrix.vcpkg_deps != ''
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
+            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            exit 1
+          }
+
+      - name: Install competitors via vcpkg (from cache)
+        if: matrix.vcpkg_deps != ''
+        shell: cmd
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-windows-release
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
+        run: |
+          vcpkg install ${{ matrix.vcpkg_deps }}
+
+      - name: Build benchmark
+        shell: pwsh
+        run: |
+          $vcpkgInc = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\include"
+          $vcpkgLib = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\lib"
+
+          cl /nologo /std:c++20 /O2 /DNDEBUG /EHsc /permissive- `
+            /Zc:preprocessor /wd4324 /wd4244 /wd4267 `
+            /D_CRT_SECURE_NO_WARNINGS `
+            ${{ matrix.extra_defines }} `
+            /I.\include\fat_p `
+            ${{ matrix.extra_includes }} `
+            /I"$vcpkgInc" `
+            ${{ matrix.src }} `
+            /Fe:${{ matrix.exe_name }}.exe `
+            /link advapi32.lib /LIBPATH:"$vcpkgLib" `
+            ${{ matrix.extra_link }}
+
+      - name: Run benchmark
+        shell: pwsh
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results.csv
+        run: |
+          $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
+          .\${{ matrix.exe_name }}.exe 2>&1 | Tee-Object -FilePath benchmark.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-msvc-${{ matrix.name }}
+          path: |
+            results.csv
+            benchmark.log
+
+  # ===========================================================================
+  # Summary
+  # ===========================================================================
+  summary:
+    name: Benchmark Summary (MSVC)
+    needs: [benchmarks]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-msvc-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary — All Components (MSVC)" > summary.md
+          echo "" >> summary.md
+          echo "Batches: ${{ inputs.batches }} | Target work: ${{ inputs.target_work }}" >> summary.md
+          echo "" >> summary.md
+          echo "| Component | Status |" >> summary.md
+          echo "|-----------|--------|" >> summary.md
+
+          passed=0
+          failed=0
+          for dir in all-benchmarks/bench-msvc-*/; do
+            name=$(basename "$dir" | sed 's/^bench-msvc-//')
+            if [ -f "$dir/benchmark.log" ] && grep -q 'Benchmarks completed' "$dir/benchmark.log"; then
+              echo "| $name | PASS |" >> summary.md
+              passed=$((passed + 1))
+            else
+              echo "| $name | FAIL |" >> summary.md
+              failed=$((failed + 1))
+            fi
+          done
+
+          echo "" >> summary.md
+          echo "**$passed passed, $failed failed out of $((passed + failed)) benchmarks**" >> summary.md
+          echo "" >> summary.md
+
+          echo "## Individual Results" >> summary.md
+          for dir in all-benchmarks/bench-msvc-*/; do
+            name=$(basename "$dir" | sed 's/^bench-msvc-//')
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            if [ -f "$dir/benchmark.log" ]; then
+              echo '```' >> summary.md
+              tail -80 "$dir/benchmark.log" >> summary.md
+              echo '```' >> summary.md
+            else
+              echo "_No log produced._" >> summary.md
+            fi
+          done
+
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary-all-msvc
+          path: |
+            all-benchmarks/
+            summary.md

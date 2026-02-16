@@ -1,0 +1,344 @@
+# =============================================================================
+# .github/workflows/run-all-benchmarks-clang.yml
+# =============================================================================
+# One-click trigger: runs every component benchmark on Linux Clang-17.
+# Manual-only (workflow_dispatch).
+#
+# Prerequisites:
+#   Shared caches built by build-benchmark-deps.yml (run it first).
+#
+# Structure:
+#   1. Standard benchmarks — matrix job with shared cache deps
+#   2. Summary job — aggregates all artifacts
+#
+# All benchmarks compile against Clang-17 C++20 on ubuntu-24.04 with
+# -O3 -DNDEBUG -march=native. Competitors are loaded from the shared
+# Clang cache and vendored ThirdParty/ headers.
+# =============================================================================
+
+name: Run All Benchmarks (Clang)
+
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+jobs:
+  # ===========================================================================
+  # All Benchmarks (shared Clang cache + vendored deps)
+  # ===========================================================================
+  benchmarks:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: AlignedVector
+            src: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/eigen"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: AllocationStrategies
+            src: components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+          - name: BitSet
+            src: components/BitSet/benchmarks/benchmark_BitSet.cpp
+            extra_includes: "-I$HOME/thirdparty-headers"
+            extra_defines: ""
+            compiled_libs: "boost llvm roaring"
+            system_deps: ""
+            needs_headers: "true"
+          - name: CircularBuffer
+            src: components/CircularBuffer/benchmarks/benchmark_CircularBuffer.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/readerwriterqueue"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: FatPHashMap
+            src: components/FatPHashMap/benchmarks/benchmark_FatPHashMap.cpp
+            extra_includes: "-I./ThirdParty"
+            extra_defines: "-DUSE_FOLLY=1"
+            compiled_libs: "boost abseil folly llvm"
+            system_deps: "libfmt-dev libgoogle-glog-dev libgflags-dev libdouble-conversion-dev libevent-dev libssl-dev"
+          - name: FeatureManager
+            src: components/FeatureManager/benchmarks/benchmark_FeatureManager.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
+          - name: FlatMapSet
+            src: components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp
+            extra_includes: ""
+            extra_defines: "-DUSE_FOLLY=1"
+            compiled_libs: "boost abseil folly"
+            system_deps: "libfmt-dev libgoogle-glog-dev libgflags-dev libdouble-conversion-dev libevent-dev libssl-dev"
+          - name: FloatingPointComparison
+            src: components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
+          - name: IntrusiveList
+            src: components/IntrusiveList/benchmarks/benchmark_IntrusiveList.cpp
+            extra_includes: "-I./ThirdParty"
+            extra_defines: ""
+            compiled_libs: "boost llvm eastl"
+            system_deps: ""
+          - name: LockFreeQueue
+            src: components/LockFreeContainers/benchmarks/benchmark_LockFreeQueue.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/concurrentqueue"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: ObjectPool
+            src: components/ObjectPool/benchmarks/benchmark_ObjectPool.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost eastl foonathan-memory"
+            system_deps: ""
+          - name: PolicyIterator
+            src: components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/eigen -I$HOME/thirdparty-headers/range-v3 -I$HOME/thirdparty-headers/xtensor"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: ServiceLocator
+            src: components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/entt/single_include -I$HOME/thirdparty-headers/entt/src"
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
+            needs_headers: "true"
+          - name: SlotMap
+            src: components/SlotMap/benchmarks/benchmark_SlotMap.cpp
+            extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/entt/single_include -I$HOME/thirdparty-headers/plf_hive"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: SmallVector
+            src: components/SmallVector/benchmarks/benchmark_SmallVector.cpp
+            extra_includes: "-I./ThirdParty"
+            extra_defines: "-DUSE_FOLLY=1"
+            compiled_libs: "boost abseil folly llvm eastl"
+            system_deps: "libfmt-dev libgoogle-glog-dev libgflags-dev libdouble-conversion-dev libevent-dev libssl-dev"
+          - name: SparseSet
+            src: components/SparseSet/benchmarks/benchmark_SparseSet.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/entt/single_include"
+            extra_defines: ""
+            compiled_libs: "abseil llvm"
+            system_deps: ""
+            needs_headers: "true"
+          - name: Stacktrace
+            src: components/Stacktrace/benchmarks/benchmark_Stacktrace.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
+            extra_link: "-lstdc++exp"
+          - name: StateMachine
+            src: components/StateMachine/benchmarks/benchmark_StateMachine.cpp
+            extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/type_safe"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: Stringify
+            src: components/Stringify/benchmarks/benchmark_Stringify.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: "libfmt-dev"
+            extra_link: "-lfmt"
+          - name: StrongId
+            src: components/StrongId/benchmarks/benchmark_StrongId.cpp
+            extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/type_safe"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+          - name: ThreadPool
+            src: components/ThreadPool/benchmarks/benchmark_ThreadPool.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: "libtbb-dev"
+            extra_link: "-ltbb"
+          - name: WorkQueue
+            src: components/WorkQueue/benchmarks/benchmark_WorkQueue.cpp
+            extra_includes: "-I$HOME/thirdparty-headers/concurrentqueue"
+            extra_defines: ""
+            compiled_libs: "boost"
+            system_deps: ""
+            needs_headers: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang and system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-17
+          if [ -n "${{ matrix.system_deps }}" ]; then
+            sudo apt-get install -y ${{ matrix.system_deps }}
+          fi
+
+      - name: Restore header-only deps
+        if: matrix.needs_headers == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
+
+      - name: Restore compiled deps
+        if: matrix.compiled_libs != ''
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-compiled
+          key: fatp-bench-deps-clang-v1
+          restore-keys: fatp-bench-deps-clang-v1-
+
+      - name: Build benchmark
+        run: |
+          # Collect library archives from compiled deps
+          LIBS=""
+          for dep in ${{ matrix.compiled_libs }}; do
+            DEP_LIBS=$(find $HOME/thirdparty-compiled/$dep/lib -name '*.a' 2>/dev/null | sort)
+            LIBS="$LIBS $DEP_LIBS"
+          done
+
+          # Build include paths for compiled deps
+          COMP_INCLUDES=""
+          for dep in ${{ matrix.compiled_libs }}; do
+            if [ -d "$HOME/thirdparty-compiled/$dep/include" ]; then
+              COMP_INCLUDES="$COMP_INCLUDES -I$HOME/thirdparty-compiled/$dep/include"
+            fi
+          done
+
+          # System link libs (fmt, glog, etc. for Folly)
+          SYS_LINK=""
+          if echo "${{ matrix.compiled_libs }}" | grep -q "folly"; then
+            SYS_LINK="-lfmt -lglog -lgflags -ldouble-conversion -levent -lssl -lcrypto"
+          fi
+
+          echo "DEBUG: COMP_INCLUDES=$COMP_INCLUDES"
+          echo "DEBUG: LIBS count=$(echo $LIBS | wc -w)"
+          echo "DEBUG: SYS_LINK=$SYS_LINK"
+          ls $HOME/thirdparty-compiled/*/include/ 2>/dev/null | head -20
+
+          clang++-17 -std=c++20 \
+            -O3 -DNDEBUG -march=native \
+            ${{ matrix.extra_defines }} \
+            -I./include/fat_p \
+            ${{ matrix.extra_includes }} \
+            $COMP_INCLUDES \
+            ${{ matrix.src }} \
+            -o bench_bin -pthread \
+            -Wl,--start-group \
+            $LIBS \
+            $SYS_LINK \
+            ${{ matrix.extra_link }} \
+            -Wl,--end-group \
+            -ltinfo -lstdc++
+
+      - name: Run benchmark
+        env:
+          FATP_BENCH_WARMUP_RUNS: "3"
+          FATP_BENCH_BATCHES: ${{ inputs.batches }}
+          FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_NO_STABILIZE: "1"
+          FATP_BENCH_OUTPUT_CSV: results.csv
+        run: ./bench_bin 2>&1 | tee benchmark.log
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-clang-${{ matrix.name }}
+          path: |
+            results.csv
+            benchmark.log
+
+  # ===========================================================================
+  # Summary
+  # ===========================================================================
+  summary:
+    name: Benchmark Summary (Clang)
+    needs: [benchmarks]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bench-clang-*
+          path: all-benchmarks
+          merge-multiple: false
+
+      - name: Aggregate results
+        run: |
+          echo "# Benchmark Summary — All Components (Clang-17)" > summary.md
+          echo "" >> summary.md
+          echo "Batches: ${{ inputs.batches }} | Target work: ${{ inputs.target_work }}" >> summary.md
+          echo "" >> summary.md
+          echo "| Component | Status |" >> summary.md
+          echo "|-----------|--------|" >> summary.md
+
+          passed=0
+          failed=0
+          for dir in all-benchmarks/bench-clang-*/; do
+            name=$(basename "$dir" | sed 's/^bench-clang-//')
+            if [ -f "$dir/benchmark.log" ] && grep -q 'Benchmarks completed' "$dir/benchmark.log"; then
+              echo "| $name | PASS |" >> summary.md
+              passed=$((passed + 1))
+            else
+              echo "| $name | FAIL |" >> summary.md
+              failed=$((failed + 1))
+            fi
+          done
+
+          echo "" >> summary.md
+          echo "**$passed passed, $failed failed out of $((passed + failed)) benchmarks**" >> summary.md
+          echo "" >> summary.md
+
+          echo "## Individual Results" >> summary.md
+          for dir in all-benchmarks/bench-clang-*/; do
+            name=$(basename "$dir" | sed 's/^bench-clang-//')
+            echo "" >> summary.md
+            echo "### $name" >> summary.md
+            if [ -f "$dir/benchmark.log" ]; then
+              echo '```' >> summary.md
+              tail -80 "$dir/benchmark.log" >> summary.md
+              echo '```' >> summary.md
+            else
+              echo "_No log produced._" >> summary.md
+            fi
+          done
+
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload combined results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-summary-all-clang
+          path: |
+            all-benchmarks/
+            summary.md
