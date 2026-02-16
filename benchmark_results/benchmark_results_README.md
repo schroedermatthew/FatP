@@ -2,7 +2,7 @@
 
 ## Start Here
 
-**[FAT-P_Benchmark_Analysis.md](FAT-P_Benchmark_Analysis.md)** — Competitive analysis of 22 FAT-P components against 50+ implementations from Boost, Abseil, LLVM, EASTL, moodycamel, folly, entt, and the C++ standard library. Tiered rankings, cross-platform observations, honest about where FAT-P loses.
+**[FAT-P_Benchmark_Analysis.md](FAT-P_Benchmark_Analysis.md)** — Competitive analysis of 23 FAT-P components against 50+ implementations from Boost, Abseil, LLVM, EASTL, moodycamel, folly, entt, and the C++ standard library. Tiered rankings, cross-platform observations, honest about where FAT-P loses.
 
 **Per-component results** are in the `Benchmark Results - {Component}.md` files. Each contains structured data from all four test platforms with competitor detection, methodology, and caveats.
 
@@ -11,19 +11,15 @@
 ```
 benchmark_results/
 ├── FAT-P_Benchmark_Analysis.md          # Start here — competitive analysis
-├── Benchmark Results - SmallVector.md   # Per-component results (22 files)
+├── Benchmark Results - SmallVector.md   # Per-component results (23 files)
 ├── Benchmark Results - FatPHashMap.md   #   All 4 platforms, all competitors,
 ├── Benchmark Results - ....md           #   all sizes and operations
-├── 20260215_MSVC_PC/                    # Raw output from local Windows PC
-│   ├── benchmark_FastHashMap.txt        #   Per-component output with all
-│   ├── benchmark_SmallVector.txt        #   competitors, sizes, and statistics
-│   └── ...                              #   24 files total
-├── benchmark_logs_msvc.zip              # Full CI logs (MSVC 19.44, Windows)
-├── benchmark_logs_GCC.zip               # Full CI logs (GCC 14.2, Ubuntu)
-└── benchmark_logs_clang.zip             # Full CI logs (Clang 17.0, Ubuntu)
+└── logs/                                # Raw benchmark output (zips)
+    ├── *.zip                            #   CI logs and local PC output
+    └── ...                              #   Per-component and per-platform
 ```
 
-The `20260215_MSVC_PC/` directory contains raw benchmark output from the local development machine (Intel Core Ultra 9 285K, 64 GB DDR5, Windows 11, MSVC 19.50). The zip files contain full CI logs from GitHub Actions runners. The per-component markdown files synthesize all four sources.
+The `logs/` directory contains raw benchmark output: local development machine captures (Intel Core Ultra 9 285K, 64 GB DDR5, Windows 11, MSVC 19.50) and full CI logs from GitHub Actions runners (GCC, Clang, MSVC). Contents change as benchmarks are re-run or new components are added.
 
 ## Test Platforms
 
@@ -90,9 +86,9 @@ The numbers are nanoseconds per operation unless otherwise labeled. Lower is bet
 
 ## Coverage
 
-22 of 62 components have competitive benchmarks against external libraries. The remaining 40 were analyzed in [FAT-P_Benchmark_Gap_Analysis.md](FAT-P_Benchmark_Gap_Analysis.md) and fall into four categories:
+23 of 62 components have competitive benchmarks against external libraries. The remaining 39 were analyzed in [FAT-P_Benchmark_Gap_Analysis.md](../Plans/FAT-P_Benchmark_Gap_Analysis.md) and fall into four categories:
 
-**High priority (pending):** CSRMatrix, Tensor, SimdVector, Signal, StringPool — the HPC core and most commonly benchmarked utility patterns. These are the components most likely to drive adoption decisions and will be benchmarked next.
+**High priority (pending):** CSRMatrix, Tensor, SimdVector, Signal — the HPC core and most commonly benchmarked utility patterns. These are the components most likely to drive adoption decisions and will be benchmarked next.
 
 **Medium priority (pending):** CheckedArithmetic, IdGenerator, RateLimiter, Factory, HpcVector — worth benchmarking to validate design decisions but less likely to be the deciding factor for adoption.
 
