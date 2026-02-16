@@ -73,17 +73,20 @@ jobs:
         run: |
           BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
           EASTL_LIBS=$(find $HOME/thirdparty-compiled/eastl/lib -name '*.a' 2>/dev/null | sort)
+          FOONATHAN_LIBS=$(find $HOME/thirdparty-compiled/foonathan-memory/lib -name '*.a' 2>/dev/null | sort)
 
           g++-${{ matrix.version }} -std=c++20 \
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-compiled/boost/include \
             -I$HOME/thirdparty-compiled/eastl/include \
+            -I$HOME/thirdparty-compiled/foonathan-memory/include \
             ${{ env.BENCH_SRC }} \
             -o bench_objectpool -pthread \
             -Wl,--start-group \
             $BOOST_LIBS \
             $EASTL_LIBS \
+            $FOONATHAN_LIBS \
             -Wl,--end-group
 
       - name: Run benchmark
@@ -149,6 +152,7 @@ jobs:
             -Wl,--start-group \
             $BOOST_LIBS \
             $EASTL_LIBS \
+            $FOONATHAN_LIBS \
             -Wl,--end-group \
             -lstdc++
 

@@ -26,6 +26,11 @@
 #     concurrentqueue/              cameron314/concurrentqueue
 #     readerwriterqueue/            cameron314/readerwriterqueue
 #     plf_hive/                     mattreecebentley/plf_hive
+#     eigen/                        libeigen/eigen (Eigen/Dense)
+#     range-v3/                     ericniebler/range-v3
+#     xtensor/                      xtensor-stack/xtensor + xtl
+#     bitmagic/                     tlk00/BitMagic (bm/bm.h)
+#     type_safe/                    foonathan/type_safe + debug_assert
 #
 #   ~/thirdparty-compiled/          Compiled deps (per toolset)
 #     boost/                        boostorg/boost
@@ -41,6 +46,12 @@
 #       include/
 #       lib/
 #     llvm/                         distro llvm-dev
+#       include/
+#       lib/
+#     roaring/                      RoaringBitmap/CRoaring
+#       include/
+#       lib/
+#     foonathan-memory/             foonathan/memory
 #       include/
 #       lib/
 #
@@ -144,6 +155,50 @@ jobs:
           echo "::group::plf_hive"
           git clone --depth 1 https://github.com/mattreecebentley/plf_hive.git \
             $HOME/thirdparty-headers/plf_hive
+          echo "::endgroup::"
+
+          echo "::group::eigen"
+          git clone --depth 1 https://gitlab.com/libeigen/eigen.git \
+            /tmp/eigen-src
+          mkdir -p $HOME/thirdparty-headers/eigen
+          cp -r /tmp/eigen-src/Eigen $HOME/thirdparty-headers/eigen/
+          cp -r /tmp/eigen-src/unsupported $HOME/thirdparty-headers/eigen/ 2>/dev/null || true
+          echo "::endgroup::"
+
+          echo "::group::range-v3"
+          git clone --depth 1 https://github.com/ericniebler/range-v3.git \
+            /tmp/range-v3-src
+          mkdir -p $HOME/thirdparty-headers/range-v3
+          cp -r /tmp/range-v3-src/include/* $HOME/thirdparty-headers/range-v3/
+          echo "::endgroup::"
+
+          echo "::group::xtl"
+          git clone --depth 1 https://github.com/xtensor-stack/xtl.git \
+            /tmp/xtl-src
+          mkdir -p $HOME/thirdparty-headers/xtensor
+          cp -r /tmp/xtl-src/include/* $HOME/thirdparty-headers/xtensor/
+          echo "::endgroup::"
+
+          echo "::group::xtensor"
+          git clone --depth 1 https://github.com/xtensor-stack/xtensor.git \
+            /tmp/xtensor-src
+          cp -r /tmp/xtensor-src/include/* $HOME/thirdparty-headers/xtensor/
+          echo "::endgroup::"
+
+          echo "::group::bitmagic"
+          git clone --depth 1 https://github.com/tlk00/BitMagic.git \
+            /tmp/bitmagic-src
+          mkdir -p $HOME/thirdparty-headers/bitmagic
+          cp -r /tmp/bitmagic-src/src/* $HOME/thirdparty-headers/bitmagic/
+          echo "::endgroup::"
+
+          echo "::group::type_safe"
+          git clone --depth 1 https://github.com/foonathan/type_safe.git \
+            /tmp/type_safe-src
+          mkdir -p $HOME/thirdparty-headers/type_safe
+          cp -r /tmp/type_safe-src/include/* $HOME/thirdparty-headers/type_safe/
+          cp -r /tmp/type_safe-src/external/debug_assert/debug_assert.hpp \
+            $HOME/thirdparty-headers/type_safe/ 2>/dev/null || true
           echo "::endgroup::"
 
       - name: Verify contents
@@ -356,6 +411,40 @@ jobs:
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
 
+      - name: Build CRoaring from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::CRoaring"
+          git clone --depth 1 https://github.com/RoaringBitmap/CRoaring.git /tmp/croaring-src
+          cmake -S /tmp/croaring-src -B /tmp/croaring-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_COMPILER=g++-14 \
+                -DCMAKE_C_COMPILER=gcc-14 \
+                -DCMAKE_CXX_FLAGS="-march=native" \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/roaring \
+                -DENABLE_ROARING_TESTS=OFF \
+                -DROARING_BUILD_LTO=OFF
+          cmake --build /tmp/croaring-build --parallel $(nproc)
+          cmake --install /tmp/croaring-build
+          echo "::endgroup::"
+
+      - name: Build foonathan-memory from source
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::foonathan-memory"
+          git clone --depth 1 https://github.com/foonathan/memory.git /tmp/foonathan-memory-src
+          cmake -S /tmp/foonathan-memory-src -B /tmp/foonathan-memory-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_COMPILER=g++-14 \
+                -DCMAKE_CXX_FLAGS="-march=native" \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/foonathan-memory \
+                -DFOONATHAN_MEMORY_BUILD_EXAMPLES=OFF \
+                -DFOONATHAN_MEMORY_BUILD_TESTS=OFF \
+                -DFOONATHAN_MEMORY_BUILD_TOOLS=OFF
+          cmake --build /tmp/foonathan-memory-build --parallel $(nproc)
+          cmake --install /tmp/foonathan-memory-build
+          echo "::endgroup::"
+
       - name: Verify contents
         if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
         run: |
@@ -567,6 +656,40 @@ jobs:
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
           cp /usr/lib/llvm-*/lib/libLLVMDemangle.a \
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
+
+      - name: Build CRoaring from source (Clang)
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::CRoaring"
+          git clone --depth 1 https://github.com/RoaringBitmap/CRoaring.git /tmp/croaring-src
+          cmake -S /tmp/croaring-src -B /tmp/croaring-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_COMPILER=clang++-17 \
+                -DCMAKE_C_COMPILER=clang-17 \
+                -DCMAKE_CXX_FLAGS="-march=native" \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/roaring \
+                -DENABLE_ROARING_TESTS=OFF \
+                -DROARING_BUILD_LTO=OFF
+          cmake --build /tmp/croaring-build --parallel $(nproc)
+          cmake --install /tmp/croaring-build
+          echo "::endgroup::"
+
+      - name: Build foonathan-memory from source (Clang)
+        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        run: |
+          echo "::group::foonathan-memory"
+          git clone --depth 1 https://github.com/foonathan/memory.git /tmp/foonathan-memory-src
+          cmake -S /tmp/foonathan-memory-src -B /tmp/foonathan-memory-build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_CXX_COMPILER=clang++-17 \
+                -DCMAKE_CXX_FLAGS="-march=native" \
+                -DCMAKE_INSTALL_PREFIX=$HOME/thirdparty-compiled/foonathan-memory \
+                -DFOONATHAN_MEMORY_BUILD_EXAMPLES=OFF \
+                -DFOONATHAN_MEMORY_BUILD_TESTS=OFF \
+                -DFOONATHAN_MEMORY_BUILD_TOOLS=OFF
+          cmake --build /tmp/foonathan-memory-build --parallel $(nproc)
+          cmake --install /tmp/foonathan-memory-build
+          echo "::endgroup::"
 
       - name: Verify contents
         if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'

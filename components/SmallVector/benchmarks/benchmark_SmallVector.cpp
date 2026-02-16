@@ -2492,32 +2492,32 @@ int main(int argc, char* argv[])
     // Competitors
     hdr.competitors.push_back({"fat_p::SmallVector", true, "primary"});
     hdr.competitors.push_back({"std::vector", true, "baseline"});
-#if HAS_BOOST_SMALL_VECTOR
+#if HAS_BOOST
     hdr.competitors.push_back({"boost::container::small_vector", true, ""});
 #else
     hdr.competitors.push_back({"boost::container::small_vector", false, "vcpkg install boost-container"});
 #endif
-#if HAS_LLVM_SMALL_VECTOR
+#if HAS_LLVM
     hdr.competitors.push_back({"llvm::SmallVector", true, ""});
 #else
     hdr.competitors.push_back({"llvm::SmallVector", false, "apt install llvm-dev"});
 #endif
-#if HAS_ABSL_INLINED_VECTOR
+#if HAS_ABSL
     hdr.competitors.push_back({"absl::InlinedVector", true, ""});
 #else
     hdr.competitors.push_back({"absl::InlinedVector", false, "vcpkg install abseil"});
 #endif
-#if HAS_FOLLY_SMALL_VECTOR
+#if HAS_FOLLY
     hdr.competitors.push_back({"folly::small_vector", true, ""});
 #else
     hdr.competitors.push_back({"folly::small_vector", false, "not detected"});
 #endif
-#if HAS_ANKERL_SVECTOR
+#if HAS_ANKERL
     hdr.competitors.push_back({"ankerl::svector", true, ""});
 #else
     hdr.competitors.push_back({"ankerl::svector", false, "not detected"});
 #endif
-#if HAS_EASTL_FIXED_VECTOR
+#if HAS_EASTL
     hdr.competitors.push_back({"eastl::fixed_vector", true, ""});
 #else
     hdr.competitors.push_back({"eastl::fixed_vector", false, "vcpkg install eastl"});
@@ -2550,3 +2550,11 @@ int main(int argc, char* argv[])
 
     return 0;
 }
+
+// Clean up competitor-detection macros
+#undef HAS_BOOST
+#undef HAS_FOLLY
+#undef HAS_LLVM
+#undef HAS_ABSL
+#undef HAS_ANKERL
+#undef HAS_EASTL

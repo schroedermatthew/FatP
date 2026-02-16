@@ -48,6 +48,13 @@ jobs:
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
+          restore-keys: fatp-bench-deps-gcc-v1-
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
       - name: Verify caches restored
         run: |
           if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
@@ -60,6 +67,7 @@ jobs:
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-headers/eigen \
             ${{ env.BENCH_SRC }} \
             -o bench_alignedvector -pthread
       - name: Run benchmark
@@ -94,6 +102,13 @@ jobs:
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1
+          restore-keys: fatp-bench-deps-clang-v1-
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
       - name: Verify caches restored
         run: |
           if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
@@ -106,6 +121,7 @@ jobs:
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-compiled/boost/include \
+            -I$HOME/thirdparty-headers/eigen \
             ${{ env.BENCH_SRC }} \
             -o bench_alignedvector -pthread \
             -lstdc++

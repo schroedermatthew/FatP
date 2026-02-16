@@ -64,6 +64,13 @@ jobs:
           key: fatp-bench-deps-gcc-v1
           restore-keys: fatp-bench-deps-gcc-v1-
 
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
+
       - name: Verify caches restored
         run: |
           if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
@@ -75,17 +82,21 @@ jobs:
         run: |
           BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
           LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
+          ROARING_LIBS=$(find $HOME/thirdparty-compiled/roaring/lib -name '*.a' 2>/dev/null | sort)
 
           g++-${{ matrix.version }} -std=c++20 \
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-compiled/boost/include \
             -I$HOME/thirdparty-compiled/llvm/include \
+            -I$HOME/thirdparty-compiled/roaring/include \
+            -I$HOME/thirdparty-headers \
             ${{ env.BENCH_SRC }} \
             -o bench_bitset -pthread \
             -Wl,--start-group \
             $BOOST_LIBS \
             $LLVM_LIBS \
+            $ROARING_LIBS \
             -Wl,--end-group \
             -ltinfo
 
@@ -131,6 +142,13 @@ jobs:
           key: fatp-bench-deps-clang-v1
           restore-keys: fatp-bench-deps-clang-v1-
 
+      - name: Restore header-only deps
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/thirdparty-headers
+          key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
+
       - name: Verify caches restored
         run: |
           if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
@@ -142,17 +160,21 @@ jobs:
         run: |
           BOOST_LIBS=$(find $HOME/thirdparty-compiled/boost/lib -name '*.a' | sort)
           LLVM_LIBS=$(find $HOME/thirdparty-compiled/llvm/lib -name '*.a' | sort)
+          ROARING_LIBS=$(find $HOME/thirdparty-compiled/roaring/lib -name '*.a' 2>/dev/null | sort)
 
           clang++-${{ matrix.version }} -std=c++20 \
             -O3 -DNDEBUG -march=native \
             -I./include/fat_p \
             -I$HOME/thirdparty-compiled/boost/include \
             -I$HOME/thirdparty-compiled/llvm/include \
+            -I$HOME/thirdparty-compiled/roaring/include \
+            -I$HOME/thirdparty-headers \
             ${{ env.BENCH_SRC }} \
             -o bench_bitset -pthread \
             -Wl,--start-group \
             $BOOST_LIBS \
             $LLVM_LIBS \
+            $ROARING_LIBS \
             -Wl,--end-group \
             -ltinfo \
             -lstdc++

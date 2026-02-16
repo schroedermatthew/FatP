@@ -45,10 +45,11 @@ jobs:
         include:
           - name: AlignedVector
             src: components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
-            extra_includes: ""
+            extra_includes: "-I$HOME/thirdparty-headers/eigen"
             extra_defines: ""
             compiled_libs: "boost"
             system_deps: ""
+            needs_headers: "true"
           - name: AllocationStrategies
             src: components/AllocationStrategies/benchmarks/benchmark_AllocationStrategies.cpp
             extra_includes: ""
@@ -57,10 +58,11 @@ jobs:
             system_deps: ""
           - name: BitSet
             src: components/BitSet/benchmarks/benchmark_BitSet.cpp
-            extra_includes: ""
+            extra_includes: "-I$HOME/thirdparty-headers"
             extra_defines: ""
-            compiled_libs: "boost llvm"
+            compiled_libs: "boost llvm roaring"
             system_deps: ""
+            needs_headers: "true"
           - name: CircularBuffer
             src: components/CircularBuffer/benchmarks/benchmark_CircularBuffer.cpp
             extra_includes: "-I$HOME/thirdparty-headers/readerwriterqueue"
@@ -109,14 +111,15 @@ jobs:
             src: components/ObjectPool/benchmarks/benchmark_ObjectPool.cpp
             extra_includes: ""
             extra_defines: ""
-            compiled_libs: "boost eastl"
+            compiled_libs: "boost eastl foonathan-memory"
             system_deps: ""
           - name: PolicyIterator
             src: components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
-            extra_includes: ""
+            extra_includes: "-I$HOME/thirdparty-headers/eigen -I$HOME/thirdparty-headers/range-v3 -I$HOME/thirdparty-headers/xtensor"
             extra_defines: ""
             compiled_libs: "boost"
             system_deps: ""
+            needs_headers: "true"
           - name: ServiceLocator
             src: components/ServiceLocator/benchmarks/benchmark_ServiceLocator.cpp
             extra_includes: "-I$HOME/thirdparty-headers/entt/single_include"
@@ -153,22 +156,24 @@ jobs:
             extra_link: "-lstdc++exp"
           - name: StateMachine
             src: components/StateMachine/benchmarks/benchmark_StateMachine.cpp
-            extra_includes: "-I./ThirdParty"
+            extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/type_safe"
             extra_defines: ""
             compiled_libs: "boost"
             system_deps: ""
+            needs_headers: "true"
           - name: Stringify
             src: components/Stringify/benchmarks/benchmark_Stringify.cpp
             extra_includes: ""
             extra_defines: ""
             compiled_libs: ""
-            system_deps: ""
+            system_deps: "libfmt-dev"
           - name: StrongId
             src: components/StrongId/benchmarks/benchmark_StrongId.cpp
-            extra_includes: "-I./ThirdParty"
+            extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/type_safe"
             extra_defines: ""
             compiled_libs: "boost"
             system_deps: ""
+            needs_headers: "true"
           - name: ThreadPool
             src: components/ThreadPool/benchmarks/benchmark_ThreadPool.cpp
             extra_includes: ""
