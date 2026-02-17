@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Fat-P is a production-quality C++ utility library created through a novel multi-AI collaborative development methodology. This document describes the complete process that produced a library of 107 headers across 62 componentsâ€”with zero external dependencies and entirely AI-authored codeâ€”where 23 components have been benchmarked against 50+ competitor implementations with competitive results on most operations.
+Fat-P is a production-quality C++ utility library created through a novel multi-AI collaborative development methodology. This document describes the complete process that produced a library of 107 headers across 62 components with zero external dependencies and entirely AI-authored code anf where 23 components have been benchmarked against 50+ competitor implementations with competitive results on most operations.
 
 The numbers tell the story:
 
