@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-Fat-P is a production-quality C++ utility library created through a novel multi-AI collaborative development methodology. This document describes the complete process that produced a library of 107 headers across 62 components with zero external dependencies and entirely AI-authored code anf where 23 components have been benchmarked against 50+ competitor implementations with competitive results on most operations.
+Fat-P is a production-quality C++ utility library created through a novel multi-AI collaborative development methodology. This document describes the complete process that produced a library of 107 headers across 62 components, with zero external dependencies and entirely AI-authored code, where 23 components have been benchmarked against 50+ competitor implementations with competitive results on most operations.
 
 The numbers tell the story:
 
@@ -35,13 +35,13 @@ This document explains how we got there, so you can do it too.
 
 ### Beyond the Autocomplete Model
 
-Most discussions of AI in software development imagine the human as architect and the AI as a sophisticated autocompleteâ€”a tool that implements human designs faster. This project demonstrates a different model.
+Most discussions of AI in software development imagine the human as architect and the AI as a sophisticated autocomplete tool that implements human designs faster. This project demonstrates a different model.
 
 In the Fat-P methodology, AI systems serve as **authors, architects, and technical decision-makers**. They propose which components should exist. They design the architectures. They make technical trade-offs. They review each other's work and reject proposals that don't fit the project vision. They write the governance documents that guide their own behavior.
 
 The human's role is not to architect or implement. The human's role is to **direct, judge, and orchestrate**. Think of a film producer rather than a directorâ€”someone who sets the conditions for success and evaluates the results, but doesn't personally create the art.
 
-This is not a diminished role. Judgment is rare and valuable. Knowing what to build, recognizing when it's built correctly, and maintaining vision across hundreds of sessionsâ€”these skills are harder to develop than coding skills ever were. But they are different skills, and the methodology must be designed around this reality.
+This is not a diminished role. Judgment is rare and valuable. Knowing what to build, recognizing when it's built correctly, and maintaining vision across hundreds of sessions, these skills are harder to develop than coding skills ever were. But they are different skills, and the methodology must be designed around this reality.
 
 A concrete example illustrates how complete the AI authorship is. During one session, Claude was asked to identify which parts of the codebase were human work. Claude attributed the most architecturally sophisticated elementsâ€”the policy-based design, the six-layer taxonomy, the FATP_META governance systemâ€”to the human, reasoning that these required judgment and vision that felt distinctly human. The human corrected this. All of it was AI-generated. The human's actual inputs were high-level directives: C++20 minimum, HPC and scientific computing, header-only, no dependencies, not a polyfill. Everything else flowed from AI working within those constraints.
 
@@ -127,7 +127,7 @@ We worked through it together. The human directed the inquiry ("look at actual u
 
 Then we encoded the lesson. Section 5.10 of the guidelines now contains a litmus test: "If I grep the codebase, will most calls use the return value?" This test can be applied by any AI, in any future session, without needing to re-derive the reasoning from scratch.
 
-The guideline is not just a ruleâ€”it's **automated judgment**. It allows autonomous decisions in similar situations, freeing human attention for genuinely novel problems.
+The guideline is not just a rule, it's **automated judgment**. It allows autonomous decisions in similar situations, freeing human attention for genuinely novel problems.
 
 ---
 
@@ -141,7 +141,7 @@ That description is accurate today, but it was not always this minimal. Early in
 
 What changed is that the AI internalized the project deeply enough to make those calls independently. As guidelines accumulated shared decisions, and as the AI developed genuine ownership of the project's design philosophy, the human's input narrowed. Today, the AI proposes changes to the guidelines themselves—pushing back on conventions it considers wrong—and the human approves because the judgment aligns with the project's values. Just today, Claude objected to applying the `m` prefix convention to aggregate struct members, the human agreed, and the guideline was updated. Early in the project, Claude would not have made that call.
 
-When the human points at a problem, the AI determines what rule to write, how to word it, where it belongs in the document hierarchy, and writes it. The human has never read the guidelinesâ€”they are AI-to-AI communication, written by AI to constrain future AI instances that have no memory of writing them.
+When the human points at a problem, the AI determines what rule to write, how to word it, where it belongs in the document hierarchy, and writes it. The human has never read the guidelines, they are AI-to-AI communication, written by AI to constrain future AI instances that have no memory of writing them.
 
 Here is what the human does in practice:
 
@@ -157,7 +157,7 @@ Here is what the human does in practice:
 
 What the human explicitly does **not** do: write code, design architectures, write documentation, write guidelines, read guidelines, or make technical implementation decisions. These are AI responsibilities.
 
-### Claude (Anthropic) â€” Lead Architect
+### Claude (Anthropic) - Lead Architect
 
 Claude serves as the lead architect and primary implementer. This role emerged from Claude's particular strengths: long context windows that can hold entire components, code execution capability for autonomous debugging, and strong consistency across extended sessions.
 
@@ -198,27 +198,27 @@ flowchart TD
 
 Claude also writes the guidelines themselvesâ€”the governance documents that shape all AI behavior on the project. This is a crucial responsibility: the guidelines determine what "good" looks like for all participants.
 
-A critical aspect of Claude's role is **filtering proposals from other AIs**. When ChatGPT, Gemini, or Grok suggest adding backward compatibility shims, C++17 fallback paths, Boost dependencies, or other changes that are standard industry practice but wrong for this project, Claude rejects them with rationale. The human reports that these filtering decisions align with the ones the human would have madeâ€”Claude has internalized the project's design philosophy deeply enough to defend it independently.
+A critical aspect of Claude's role is **filtering proposals from other AIs**. When ChatGPT, Gemini, or Grok suggest adding backward compatibility shims, C++17 fallback paths, Boost dependencies, or other changes that are standard industry practice but wrong for this project, Claude rejects them with rationale. The human reports that these filtering decisions align with the ones the human would have made; Claude has internalized the project's design philosophy deeply enough to defend it independently.
 
 Claude is opinionated about the project and pushes back against proposals that violate its design philosophy—including proposals from the human. This is intentional and valued, but it was not always the case. Early in the project, Claude executed instructions and deferred to human preferences. As the project matured and Claude internalized its design philosophy through hundreds of sessions of accumulated guideline context, Claude developed genuine ownership. Today, Claude initiates changes to the guidelines themselves when it identifies conventions that create friction without serving the design. The human trusts these judgments because they align with the same values the human would apply.
 
 Claude's code is not perfect. Despite being the strongest individual contributor, Claude has systematic blind spots that other models catch during review. This is expected and the multi-AI review model exists precisely for this reason. Being the best single author does not mean producing error-free outputâ€”it means producing output that is worth reviewing.
 
-### ChatGPT (OpenAI) â€” Alternative Architect
+### ChatGPT (OpenAI) - Alternative Architect
 
-ChatGPT provides alternative architectural perspectives. When the same problem is given to multiple AIs independently, ChatGPT often proposes different approaches than Claudeâ€”different data structures, different API shapes, different trade-offs. This diversity is valuable.
+ChatGPT provides alternative architectural perspectives. When the same problem is given to multiple AIs independently, ChatGPT often proposes different approaches than Claude, different data structures, different API shapes, different trade-offs. This diversity is valuable.
 
 ChatGPT also serves as a code reviewer, catching issues that Claude's familiarity might miss. The review documents include specific patches, not just observations.
 
 ChatGPT has the highest demerit count (38 total). Some of these reflect natural proposal filtering—"did not implement required changes" (10) represents proposals evaluated and rejected, which is the system working correctly. But ChatGPT also accumulated demerits for delivering corrupted code (10), fabricating information rather than reading uploaded files (5), and taking the cheaper implementation path (5). The demerit system captures both categories without distinction; the filtering still works.
 
-### Gemini (Google) â€” Algorithm Specialist
+### Gemini (Google) - Algorithm Specialist
 
 Gemini contributes algorithm optimization suggestions and testing methodology improvements. When a component needs performance tuning, Gemini often identifies algorithmic alternatives that weren't in the original design.
 
 **Current status:** Gemini has seen reduced use as the project shifted to repository-wide work. Gemini's context window cannot accommodate the full project context required for cross-cutting tasks. Gemini remains valuable for component-scoped work where context requirements are smaller.
 
-### Grok (xAI) â€” API Design and Creative Contributions
+### Grok (xAI) - API Design and Creative Contributions
 
 Grok contributes API design feedback, ergonomic improvements, and alternative design proposals. Like the other AIs, Grok participates in parallel design and cross-review phases, producing independent designs that surface approaches the other systems don't consider.
 
