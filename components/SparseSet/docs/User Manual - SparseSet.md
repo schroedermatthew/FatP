@@ -3,13 +3,13 @@ doc_id: UM-SPARSESET-001
 doc_type: "User Manual"
 title: "SparseSet"
 fatp_components: ["SparseSet", "SparseSetWithData"]
-topics: ["sparse set", "dense iteration", "ECS", "entity tracking", "O(1) operations", "swap-with-back", "integer set", "dual-array indirection", "component storage"]
-constraints: ["unsigned integers only", "memory proportional to max value", "unstable erase order", "not thread-safe for writes", "cache-line sequential iteration"]
+topics: ["sparse set", "dense iteration", "ECS", "entity tracking", "O(1) operations", "swap-with-back", "integer set", "dual-array indirection", "component storage", "IndexPolicy", "composite key", "tryEmplace"]
+constraints: ["unsigned integers only (or custom IndexPolicy)", "memory proportional to max value", "unstable erase order", "not thread-safe for writes", "cache-line sequential iteration"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: null
 build_modes: ["Debug", "Release"]
-last_verified: "2026-02-14"
+last_verified: "2026-02-16"
 audience: ["C++ developers", "game engine developers", "ECS architects", "AI assistants"]
 status: "reviewed"
 ---
@@ -20,13 +20,13 @@ status: "reviewed"
 
 ---
 
-**Scope:** Complete usage guide for `fat_p::SparseSet` and `fat_p::SparseSetWithData`, including the dual-array architecture, O(1) operations, swap-with-back erasure, iterator invalidation, ECS integration patterns, memory management strategies, migration from `std::unordered_set`, and production troubleshooting.
+**Scope:** Complete usage guide for `fat_p::SparseSet` and `fat_p::SparseSetWithData`, including the dual-array architecture, O(1) operations, swap-with-back erasure, iterator invalidation, `IndexPolicy` for composite key types, ECS integration patterns, memory management strategies, migration from `std::unordered_set`, and production troubleshooting.
 
 **Not covered:**
 - Generational handles / slot maps (use `fat_p::SlotMap` for ABA-safe handle reuse)
 - Thread-safe concurrent sparse sets (SparseSet is not thread-safe for writes)
 - Sorted iteration (SparseSet does not maintain sorted order; sort externally if needed)
-- Sparse arrays for non-integer keys (use a hash map for string/struct keys)
+- Sparse arrays for string keys (use a hash map for string-keyed lookups; however, composite struct keys with an extractable unsigned index are supported via `IndexPolicy`)
 
 **Prerequisites:**
 - C++20 (concepts, ranges, if constexpr, structured bindings)
@@ -41,10 +41,10 @@ status: "reviewed"
 **Component:** SparseSet / SparseSetWithData
 **Primary use case:** O(1) insert, erase, lookup, and cache-friendly dense iteration over integer sets — the canonical ECS component storage
 **Integration pattern:** One SparseSet per component type; entity IDs as keys; iterate the dense array for system updates
-**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dense()`, `data()`
+**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dense()`, `data()`, `IndexPolicy`
 **std equivalent:** None
-**Migration from std:** Replace `std::unordered_set<uint32_t>` with `SparseSet<uint32_t>`; replace `std::unordered_map<uint32_t, Data>` with `SparseSetWithData<uint32_t, Data>`
-**Common mistakes:** Erasing during forward iteration (UB); using huge key spaces with few active elements (memory waste); relying on iteration order across erases (order is unstable)
+**Migration from std:** Replace `std::unordered_set<uint32_t>` with `SparseSet<uint32_t>`; replace `std::unordered_map<uint32_t, Data>` with `SparseSetWithData<uint32_t, Data>`; for composite key types (e.g., ECS entity handles), use `SparseSetWithData<Key, Data, CustomIndexPolicy>`
+**Common mistakes:** Erasing during forward iteration (UB); using huge key spaces with few active elements (memory waste); relying on iteration order across erases (order is unstable); forgetting that IndexPolicy::index() must extract a unique sparse index from the key type
 **Performance notes:** O(1) insert, find, and erase via direct array indexing — no hashing, no pointer chasing. See `components/SparseSet/results/` for current data
 
 ---
@@ -62,18 +62,19 @@ status: "reviewed"
 9. [SparseSetWithData: Associating Payloads](#sparsesetwithdata-associating-payloads)
 10. [Memory Management: The Sparse Array Tradeoff](#memory-management-the-sparse-array-tradeoff)
 11. [Index Types: Sizing the Key Space](#index-types-sizing-the-key-space)
-12. [ECS Integration: The Pattern SparseSet Was Built For](#ecs-integration-the-pattern-sparseset-was-built-for)
-13. [Thread Safety](#thread-safety)
-14. [Error Handling and Exception Safety](#error-handling-and-exception-safety)
-15. [Debug vs Release Behavior](#debug-vs-release-behavior)
-16. [Performance Characteristics](#performance-characteristics)
-17. [When to Use SparseSet (and When Not To)](#when-to-use-sparseset-and-when-not-to)
-18. [Migration from std::unordered_set](#migration-from-stdunordered_set)
-19. [Alternatives](#alternatives)
-20. [Troubleshooting](#troubleshooting)
-21. [Known Limitations](#known-limitations)
-22. [API Reference](#api-reference)
-23. [FAQ](#faq)
+12. [IndexPolicy: Composite Key Types](#indexpolicy-composite-key-types)
+13. [ECS Integration: The Pattern SparseSet Was Built For](#ecs-integration-the-pattern-sparseset-was-built-for)
+14. [Thread Safety](#thread-safety)
+15. [Error Handling and Exception Safety](#error-handling-and-exception-safety)
+16. [Debug vs Release Behavior](#debug-vs-release-behavior)
+17. [Performance Characteristics](#performance-characteristics)
+18. [When to Use SparseSet (and When Not To)](#when-to-use-sparseset-and-when-not-to)
+19. [Migration from std::unordered_set](#migration-from-stdunordered_set)
+20. [Alternatives](#alternatives)
+21. [Troubleshooting](#troubleshooting)
+22. [Known Limitations](#known-limitations)
+23. [API Reference](#api-reference)
+24. [FAQ](#faq)
 
 ---
 
@@ -209,7 +210,7 @@ The two invariants are the heart of the data structure. They ensure that the spa
 
 ### SparseSetWithData: Adding a Parallel Data Array
 
-`SparseSetWithData<T, Data>` extends the layout with a third array that stores payloads in parallel with the dense keys:
+`SparseSetWithData<T, Data, IndexPolicy>` extends the layout with a third array that stores payloads in parallel with the dense keys. The optional `IndexPolicy` (defaulting to `IdentityIndex<T>`) controls how `T` values map to sparse-array indices — see [IndexPolicy: Composite Key Types](#indexpolicy-composite-key-types) for details.
 
 ```mermaid
 flowchart TB
@@ -708,6 +709,98 @@ Be cautious with `uint64_t`. Inserting value 1,000,000,000 into a `SparseSet<uin
 
 ---
 
+## IndexPolicy: Composite Key Types
+
+### The Problem
+
+The default `SparseSet<T>` and `SparseSetWithData<T, Data>` use `T` directly as a sparse-array index. This requires `T` to be an unsigned integer — `uint8_t`, `uint16_t`, `uint32_t`, or `uint64_t`. But many real systems key on composite types that *contain* an integer index alongside other fields.
+
+The canonical example is an ECS entity handle. A 64-bit Entity packs a 32-bit slot index and a 32-bit generation counter into one value. The slot index identifies the entity; the generation counter detects use-after-destroy (ABA safety). The SparseSet should index by the 32-bit slot index but store the full 64-bit Entity in the dense array, so callers get back generational handles for safe downstream use.
+
+Without `IndexPolicy`, the ECS would either strip the generation before inserting (losing generational safety in the dense array) or maintain a separate parallel `std::vector<Entity>` alongside the SparseSet — extra memory, extra bookkeeping, and a fragile mirror of the swap-with-back logic.
+
+### The Solution: IndexPolicy
+
+`SparseSetWithData` accepts an optional third template parameter — an `IndexPolicy` — that tells the sparse set how to extract a sparse-array index from the key type:
+
+```cpp
+template <typename T, typename Data, typename IndexPolicy = IdentityIndex<T>>
+class SparseSetWithData;
+```
+
+The default `IdentityIndex<T>` returns the key as-is (the traditional behavior). A custom policy extracts the sparse index from a composite key. The policy is a struct with two requirements:
+
+1. A `sparse_index_type` type alias — the unsigned integer type used to index the sparse array.
+2. A `static constexpr index(const T&)` function — extracts the sparse index from a key.
+
+### Writing a Custom IndexPolicy
+
+Here is the pattern used by the fatp-ecs ECS framework:
+
+```cpp
+// The composite key: 64-bit entity handle with index + generation
+struct Entity {
+    uint64_t value;
+
+    uint32_t index() const      { return static_cast<uint32_t>(value & 0xFFFFFFFF); }
+    uint32_t generation() const { return static_cast<uint32_t>(value >> 32); }
+};
+
+// The policy: extracts the 32-bit slot index for sparse-array addressing
+struct EntityIndex {
+    using sparse_index_type = uint32_t;
+
+    static constexpr sparse_index_type index(const Entity& e) noexcept {
+        return e.index();
+    }
+};
+
+// Usage: keys on full Entity, indexes by 32-bit slot
+fat_p::SparseSetWithData<Entity, Transform, EntityIndex> transforms;
+```
+
+With this policy:
+- `insert(entity, transform)` stores the full 64-bit Entity in the dense array and the Transform in the data array, but indexes the sparse array by the 32-bit slot.
+- `dense()` returns `const std::vector<Entity>&` — full generational handles, not stripped indices.
+- `contains(entity)`, `tryGet(entity)`, `erase(entity)` all accept the full Entity and extract the index internally.
+- Two entities with the same slot index but different generations map to the same sparse slot. This is correct: a slot is occupied by at most one live entity at a time.
+
+### Performance: Zero Overhead
+
+The `IndexPolicy::index()` function is `constexpr` and typically a single bitwise operation. The compiler inlines it completely. Benchmarks confirm that a custom `IndexPolicy` has the same per-operation cost as `IdentityIndex` — the abstraction adds no runtime overhead.
+
+### When to Use a Custom IndexPolicy
+
+Use a custom `IndexPolicy` when your key type contains an unsigned integer index alongside metadata that should be preserved in the dense array:
+
+- **ECS entity handles:** 64-bit composite of slot index + generation counter. The dense array stores full handles; views yield generational Entity values for safe destroy/isAlive checks.
+- **Versioned resource handles:** A handle type combining a pool slot index with a version stamp. The sparse set indexes by slot; the dense array preserves versioning for ABA detection.
+- **Tagged identifiers:** An ID type that packs a type tag and an index into one integer. The sparse set indexes by the index portion; the tag survives round-trips through dense/data access.
+
+Do not use `IndexPolicy` when:
+- Your key is already a plain unsigned integer — `IdentityIndex` (the default) is correct and simpler.
+- Your key has no extractable integer index — use a hash map instead.
+- Multiple live keys can share the same extracted index — the sparse set allows at most one entry per sparse index.
+
+### IdentityIndex (Default)
+
+For reference, the built-in `IdentityIndex<T>` is defined as:
+
+```cpp
+template <typename T>
+struct IdentityIndex {
+    using sparse_index_type = T;
+
+    static constexpr T index(const T& value) noexcept {
+        return value;
+    }
+};
+```
+
+This is what `SparseSet<uint32_t>` and `SparseSetWithData<uint32_t, Data>` use when no policy is specified. It returns the key unchanged — the behavior that all pre-IndexPolicy code relied on.
+
+---
+
 ## ECS Integration: The Pattern SparseSet Was Built For
 
 ### Why SparseSet Dominates ECS Storage
@@ -720,7 +813,9 @@ This is why most modern ECS implementations — EnTT, flecs, and many custom eng
 
 ### Component Storage
 
-Each component type gets its own storage:
+Each component type gets its own storage. There are two patterns, depending on whether entity handles are plain integers or composite types:
+
+**Pattern A: Plain integer entity IDs (traditional)**
 
 ```cpp
 struct Position { float x, y, z; };
@@ -731,6 +826,19 @@ fat_p::SparseSetWithData<uint32_t, Position> positions;
 fat_p::SparseSetWithData<uint32_t, Velocity> velocities;
 fat_p::SparseSetWithData<uint32_t, Health>   healths;
 ```
+
+**Pattern B: Composite entity handles with IndexPolicy (fatp-ecs pattern)**
+
+When entity handles carry generation counters for ABA safety, a custom `IndexPolicy` lets the SparseSet key on the full handle while indexing by the slot:
+
+```cpp
+// Entity and EntityIndex defined as in the IndexPolicy section above
+fat_p::SparseSetWithData<Entity, Position, EntityIndex> positions;
+fat_p::SparseSetWithData<Entity, Velocity, EntityIndex> velocities;
+fat_p::SparseSetWithData<Entity, Health,   EntityIndex> healths;
+```
+
+With Pattern B, `positions.dense()` returns `const std::vector<Entity>&` — full generational handles. Views can yield Entity values directly for safe `destroy()` and `isAlive()` checks, with no parallel entity vector needed.
 
 ### System Iteration: Two-Component Join
 
@@ -998,7 +1106,7 @@ You can tolerate **unstable iteration order** across erases.
 
 ## Known Limitations
 
-**Unsigned integer keys only.** No support for strings, negative integers, floating-point keys, or user-defined types. The data structure fundamentally requires direct array indexing.
+**Unsigned integer keys only (by default).** Without a custom `IndexPolicy`, only unsigned integer types are supported. With a custom `IndexPolicy`, any key type that contains an extractable unsigned integer index can be used. String keys, floating-point keys, and keys with no integer component require a hash map.
 
 **Memory proportional to max value.** Inserting value N allocates a sparse array of size N+1. There is no way to avoid this — it's the mechanism that enables O(1) lookup.
 
@@ -1010,7 +1118,7 @@ You can tolerate **unstable iteration order** across erases.
 
 | Limitation | Impact | Workaround |
 |------------|--------|-----------|
-| Integer keys only | Cannot use string/struct keys | Hash set for non-integer keys |
+| Integer index required | Cannot use string/float keys without integer component | Hash set for non-integer keys; `IndexPolicy` for composite keys with integer index |
 | Memory ∝ max value | High memory for sparse ranges | `reserve()` + `shrink_to_fit()`; hash set for very sparse ranges |
 | Unstable order | Erase changes iteration order | Sort before iterating; or accept the tradeoff |
 | No concurrent writes | Data races under concurrent mutation | `std::shared_mutex` wrapper |
@@ -1039,7 +1147,9 @@ You can tolerate **unstable iteration order** across erases.
 | `swap` | `void swap(SparseSet& other)` | O(1) | No |
 | `begin`/`end` | Standard iterators | O(1) | No |
 
-### SparseSetWithData\<T, Data\>
+### SparseSetWithData\<T, Data, IndexPolicy\>
+
+`IndexPolicy` defaults to `IdentityIndex<T>` (returns key as-is). A custom policy extracts a `sparse_index_type` from `T` for sparse-array addressing. The dense array stores full `T` values regardless of policy.
 
 All of the above, plus:
 
@@ -1065,7 +1175,11 @@ A bitset provides O(1) insert/erase/lookup and minimal memory (1 bit per possibl
 
 **Q: Can I use SparseSet with entity IDs from a SlotMap?**
 
-Yes, but use only the index portion of the SlotMap handle, not the generation counter. The SparseSet treats the value as a direct array index — it must be a small unsigned integer, not a 64-bit handle with embedded generation bits. Strip the generation before inserting.
+Yes. If your SlotMap handles are composite (index + generation), write a custom `IndexPolicy` that extracts the index portion. The dense array will store full handles with generation, and the sparse array will index by slot. This is the recommended approach for ECS entity storage — it preserves generational safety in the dense array without a parallel vector. See the [IndexPolicy section](#indexpolicy-composite-key-types) for the complete pattern.
+
+**Q: Does IndexPolicy add runtime overhead?**
+
+No. The `IndexPolicy::index()` function is `static constexpr` and the compiler inlines it completely. Benchmarks (Section 5 in the benchmark suite) confirm that composite-key operations have the same per-operation cost as identity-index operations within measurement noise.
 
 **Q: What happens if I insert the same value twice?**
 

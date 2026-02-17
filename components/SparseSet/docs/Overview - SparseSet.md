@@ -32,7 +32,7 @@ SparseSet is an integer set with O(1) insert, erase, contains, and cache-friendl
 **Component:** SparseSet  
 **Problem solved:** O(1) integer set operations with cache-friendly dense iteration  
 **When to use:** Entity-component systems; integer ID tracking with frequent iteration; any set of bounded unsigned integers where iteration speed matters  
-**When NOT to use:** String or composite keys (need hash map); sparse key space with huge maximum (memory waste); need stable iteration order across erasures  
+**When NOT to use:** String or float keys (need hash map); sparse key space with huge maximum (memory waste); need stable iteration order across erasures. Composite struct keys that contain an extractable integer index *are* supported via `IndexPolicy`  
 **Key guarantee:** Insert, erase, contains are O(1). Iteration is contiguous-memory O(N) where N = active elements, not universe size.  
 **std equivalent:** None. `std::unordered_set` is hash-based with O(1) amortized but poor cache behavior.  
 **Boost equivalent:** None  
@@ -177,7 +177,7 @@ See `components/SparseSet/results/` and `benchmark_results/` for current platfor
 
 **Large sparse universes.** If max_value is 10^9 but active count is 100, the sparse array wastes gigabytes. Use a hash set.
 
-**Non-integer keys.** SparseSet requires unsigned integer keys that serve as array indices. Strings, floats, composite keys need hashing.
+**Non-integer keys (without IndexPolicy).** SparseSet requires an unsigned integer for sparse-array addressing. Plain strings and floats need hashing. However, composite struct keys that contain an extractable unsigned integer index are supported via a custom `IndexPolicy` (see the User Manual).
 
 **Stable iteration order.** Swap-with-back erase changes iteration order. If you need insertion-order iteration, use a different container.
 

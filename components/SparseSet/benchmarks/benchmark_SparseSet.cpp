@@ -1765,6 +1765,447 @@ static void print_feature_comparison()
 }
 
 // ============================================================================
+// Benchmark: tryEmplace vs emplace + tryGet (Double-Lookup Elimination)
+// ============================================================================
+// Measures the cost of the old double-lookup pattern (emplace returns bool,
+// then tryGet re-probes for a reference) against the new tryEmplace that
+// returns Data* directly. This is the pattern that ComponentStore::emplace
+// and Registry::add used before the Item 1 / Item 2b remediation.
+
+static void benchmark_try_emplace(const std::vector<size_t>& sizes)
+{
+    print_header("SECTION 4: tryEmplace vs emplace + tryGet (SparseSetWithData)");
+    print_cpu_context("Section start");
+
+    std::cout << "Contract Note: Measures per-element insertion cost with associated data.\n";
+    std::cout << "              'emplace+tryGet' is the old double-lookup pattern.\n";
+    std::cout << "              'tryEmplace' returns Data* directly, one probe.\n";
+    std::cout << "              Setup: empty set with reserve(N*10). No allocation in timed region.\n\n";
+
+    std::mt19937 rng(static_cast<unsigned>(g_config.seed));
+
+    for (size_t N : sizes)
+    {
+        std::cout << "\n--- N = " << N << " ---\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        BenchInputs inputs = BenchInputs::make(N, g_config.seed);
+
+        // Correctness check (outside timed region)
+        {
+            fat_p::SparseSetWithData<uint32_t, double> check;
+            check.reserve(N * 10);
+            for (uint32_t key : inputs.insertKeys)
+            {
+                double* ptr = check.tryEmplace(key, static_cast<double>(key));
+                if (ptr == nullptr || *ptr != static_cast<double>(key))
+                {
+                    std::cerr << "CORRECTNESS FAILURE: tryEmplace returned bad pointer\n";
+                    return;
+                }
+            }
+            if (check.size() != inputs.insertKeys.size())
+            {
+                std::cerr << "CORRECTNESS FAILURE: size mismatch after tryEmplace\n";
+                return;
+            }
+            std::cout << "  [PASS] tryEmplace correctness (N=" << N << ")\n";
+        }
+
+        // --- Pattern A: emplace (bool) + tryGet (re-probe) ---
+        std::vector<double> samplesOld;
+
+        for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+        {
+            fat_p::SparseSetWithData<uint32_t, double> s;
+            s.reserve(N * 10);
+            for (uint32_t key : inputs.insertKeys)
+            {
+                s.emplace(key, static_cast<double>(key));
+                DoNotOptimize(s.tryGet(key));
+            }
+        }
+
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            fat_p::SparseSetWithData<uint32_t, double> s;
+            s.reserve(N * 10);
+
+            Timer t;
+            t.start();
+            for (uint32_t key : inputs.insertKeys)
+            {
+                s.emplace(key, static_cast<double>(key));
+                double* ptr = s.tryGet(key);
+                DoNotOptimize(ptr);
+            }
+            double elapsed = t.elapsed_ns();
+
+            prevent_opt(static_cast<int64_t>(s.size()));
+            samplesOld.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+        }
+
+        // --- Pattern B: tryEmplace (single probe) ---
+        std::vector<double> samplesNew;
+
+        for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+        {
+            fat_p::SparseSetWithData<uint32_t, double> s;
+            s.reserve(N * 10);
+            for (uint32_t key : inputs.insertKeys)
+            {
+                DoNotOptimize(s.tryEmplace(key, static_cast<double>(key)));
+            }
+        }
+
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            fat_p::SparseSetWithData<uint32_t, double> s;
+            s.reserve(N * 10);
+
+            Timer t;
+            t.start();
+            for (uint32_t key : inputs.insertKeys)
+            {
+                double* ptr = s.tryEmplace(key, static_cast<double>(key));
+                DoNotOptimize(ptr);
+            }
+            double elapsed = t.elapsed_ns();
+
+            prevent_opt(static_cast<int64_t>(s.size()));
+            samplesNew.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+        }
+
+        // Print results
+        std::cout << "\n  Insert + get reference:\n";
+        auto statsOld = Statistics::compute(samplesOld);
+        auto statsNew = Statistics::compute(samplesNew);
+        print_result_row("emplace + tryGet", statsOld);
+        print_result_row("tryEmplace", statsNew);
+
+        if (statsOld.median > 0 && statsNew.median > 0)
+        {
+            double speedup = statsOld.median / statsNew.median;
+            std::cout << "    tryEmplace speedup: " << std::fixed << std::setprecision(2)
+                      << speedup << "x\n";
+        }
+    }
+}
+
+// ============================================================================
+// Benchmark: Custom IndexPolicy Zero-Overhead Verification
+// ============================================================================
+// Verifies that using a custom IndexPolicy (composite key with extracted index)
+// has zero overhead vs IdentityIndex. This is the pattern used by the ECS:
+// SparseSetWithData<Entity, T, EntityIndex> where Entity is a 64-bit composite
+// (index + generation) and EntityIndex extracts the 32-bit slot index.
+//
+// We simulate the ECS pattern with a CompositeKey struct that packs
+// (index, generation) into a 64-bit value, with a policy that extracts
+// the lower 32 bits.
+
+struct CompositeKey
+{
+    uint64_t value;
+
+    CompositeKey() : value(0) {}
+    explicit CompositeKey(uint64_t v) : value(v) {}
+
+    static CompositeKey make(uint32_t index, uint32_t generation)
+    {
+        return CompositeKey(static_cast<uint64_t>(generation) << 32 |
+                            static_cast<uint64_t>(index));
+    }
+
+    uint32_t index() const { return static_cast<uint32_t>(value & 0xFFFFFFFF); }
+    uint32_t generation() const { return static_cast<uint32_t>(value >> 32); }
+};
+
+struct CompositeKeyIndex
+{
+    using sparse_index_type = uint32_t;
+
+    static constexpr sparse_index_type index(const CompositeKey& key) noexcept
+    {
+        return key.index();
+    }
+};
+
+static void benchmark_index_policy(const std::vector<size_t>& sizes)
+{
+    print_header("SECTION 5: IndexPolicy Zero-Overhead (IdentityIndex vs Custom)");
+    print_cpu_context("Section start");
+
+    std::cout << "Contract Note: Measures insert/contains/erase with associated data.\n";
+    std::cout << "              'IdentityIndex' uses uint32_t keys directly (baseline).\n";
+    std::cout << "              'CompositeKeyIndex' uses 64-bit composite keys with\n";
+    std::cout << "              extracted 32-bit index (ECS Entity pattern).\n";
+    std::cout << "              Zero overhead expected: the policy is constexpr and inlined.\n";
+    std::cout << "              Setup: reserve(N*10). No allocation in timed region.\n\n";
+
+    std::mt19937 rng(static_cast<unsigned>(g_config.seed));
+
+    for (size_t N : sizes)
+    {
+        std::cout << "\n--- N = " << N << " ---\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        BenchInputs inputs = BenchInputs::make(N, g_config.seed);
+
+        // Build composite keys from the same uint32_t keys (generation = 1)
+        std::vector<CompositeKey> compositeKeys;
+        compositeKeys.reserve(inputs.insertKeys.size());
+        for (uint32_t key : inputs.insertKeys)
+        {
+            compositeKeys.push_back(CompositeKey::make(key, 1));
+        }
+
+        std::vector<CompositeKey> compositeLookups;
+        compositeLookups.reserve(inputs.lookupKeys.size());
+        for (uint32_t key : inputs.lookupKeys)
+        {
+            compositeLookups.push_back(CompositeKey::make(key, 1));
+        }
+
+        std::vector<CompositeKey> compositeEraseKeys;
+        compositeEraseKeys.reserve(inputs.eraseKeys.size());
+        for (uint32_t key : inputs.eraseKeys)
+        {
+            compositeEraseKeys.push_back(CompositeKey::make(key, 1));
+        }
+
+        // Correctness check (outside timed region)
+        {
+            fat_p::SparseSetWithData<CompositeKey, double, CompositeKeyIndex> check;
+            check.reserve(N * 10);
+            for (const auto& ck : compositeKeys)
+            {
+                check.tryEmplace(ck, static_cast<double>(ck.index()));
+            }
+            if (check.size() != compositeKeys.size())
+            {
+                std::cerr << "CORRECTNESS FAILURE: CompositeKey size mismatch\n";
+                return;
+            }
+            for (size_t i = 0; i < std::min(size_t(100), compositeKeys.size()); ++i)
+            {
+                if (!check.contains(compositeKeys[i]))
+                {
+                    std::cerr << "CORRECTNESS FAILURE: CompositeKey not found\n";
+                    return;
+                }
+            }
+            std::cout << "  [PASS] CompositeKeyIndex correctness (N=" << N << ")\n";
+        }
+
+        // Benchmark three operations: Insert, Contains, Erase
+        struct OpConfig
+        {
+            const char* label;
+            int id; // 0=insert, 1=contains, 2=erase
+        };
+
+        std::vector<OpConfig> ops = {{"Insert + data", 0}, {"Contains (50% hit)", 1}, {"Erase", 2}};
+
+        for (const auto& op : ops)
+        {
+            std::cout << "\n  " << op.label << ":\n";
+
+            std::vector<double> samplesIdentity;
+            std::vector<double> samplesComposite;
+
+            // --- IdentityIndex (baseline) ---
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<uint32_t, double> s;
+                s.reserve(N * 10);
+                if (op.id != 0)
+                {
+                    for (uint32_t key : inputs.insertKeys)
+                    {
+                        s.tryEmplace(key, static_cast<double>(key));
+                    }
+                }
+                // run whichever op
+                if (op.id == 0)
+                {
+                    for (uint32_t key : inputs.insertKeys)
+                    {
+                        DoNotOptimize(s.tryEmplace(key, static_cast<double>(key)));
+                    }
+                }
+                else if (op.id == 1)
+                {
+                    for (uint32_t key : inputs.lookupKeys)
+                    {
+                        DoNotOptimize(s.contains(key));
+                    }
+                }
+                else
+                {
+                    for (uint32_t key : inputs.eraseKeys)
+                    {
+                        DoNotOptimize(s.erase(key));
+                    }
+                }
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<uint32_t, double> s;
+                s.reserve(N * 10);
+                if (op.id != 0)
+                {
+                    for (uint32_t key : inputs.insertKeys)
+                    {
+                        s.tryEmplace(key, static_cast<double>(key));
+                    }
+                }
+
+                Timer t;
+                size_t opCount = 0;
+                t.start();
+                if (op.id == 0)
+                {
+                    for (uint32_t key : inputs.insertKeys)
+                    {
+                        DoNotOptimize(s.tryEmplace(key, static_cast<double>(key)));
+                    }
+                    opCount = inputs.insertKeys.size();
+                }
+                else if (op.id == 1)
+                {
+                    size_t hits = 0;
+                    for (uint32_t key : inputs.lookupKeys)
+                    {
+                        if (s.contains(key))
+                        {
+                            ++hits;
+                        }
+                    }
+                    prevent_opt(static_cast<int64_t>(hits));
+                    opCount = inputs.lookupKeys.size();
+                }
+                else
+                {
+                    for (uint32_t key : inputs.eraseKeys)
+                    {
+                        s.erase(key);
+                    }
+                    opCount = inputs.eraseKeys.size();
+                }
+                double elapsed = t.elapsed_ns();
+                prevent_opt(static_cast<int64_t>(s.size()));
+                samplesIdentity.push_back(ns_per_op(elapsed, opCount));
+            }
+
+            // --- CompositeKeyIndex ---
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<CompositeKey, double, CompositeKeyIndex> s;
+                s.reserve(N * 10);
+                if (op.id != 0)
+                {
+                    for (const auto& ck : compositeKeys)
+                    {
+                        s.tryEmplace(ck, static_cast<double>(ck.index()));
+                    }
+                }
+                if (op.id == 0)
+                {
+                    for (const auto& ck : compositeKeys)
+                    {
+                        DoNotOptimize(s.tryEmplace(ck, static_cast<double>(ck.index())));
+                    }
+                }
+                else if (op.id == 1)
+                {
+                    for (const auto& ck : compositeLookups)
+                    {
+                        DoNotOptimize(s.contains(ck));
+                    }
+                }
+                else
+                {
+                    for (const auto& ck : compositeEraseKeys)
+                    {
+                        DoNotOptimize(s.erase(ck));
+                    }
+                }
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<CompositeKey, double, CompositeKeyIndex> s;
+                s.reserve(N * 10);
+                if (op.id != 0)
+                {
+                    for (const auto& ck : compositeKeys)
+                    {
+                        s.tryEmplace(ck, static_cast<double>(ck.index()));
+                    }
+                }
+
+                Timer t;
+                size_t opCount = 0;
+                t.start();
+                if (op.id == 0)
+                {
+                    for (const auto& ck : compositeKeys)
+                    {
+                        DoNotOptimize(s.tryEmplace(ck, static_cast<double>(ck.index())));
+                    }
+                    opCount = compositeKeys.size();
+                }
+                else if (op.id == 1)
+                {
+                    size_t hits = 0;
+                    for (const auto& ck : compositeLookups)
+                    {
+                        if (s.contains(ck))
+                        {
+                            ++hits;
+                        }
+                    }
+                    prevent_opt(static_cast<int64_t>(hits));
+                    opCount = compositeLookups.size();
+                }
+                else
+                {
+                    for (const auto& ck : compositeEraseKeys)
+                    {
+                        s.erase(ck);
+                    }
+                    opCount = compositeEraseKeys.size();
+                }
+                double elapsed = t.elapsed_ns();
+                prevent_opt(static_cast<int64_t>(s.size()));
+                samplesComposite.push_back(ns_per_op(elapsed, opCount));
+            }
+
+            auto statsId = Statistics::compute(samplesIdentity);
+            auto statsCk = Statistics::compute(samplesComposite);
+            print_result_row("IdentityIndex<u32>", statsId);
+            print_result_row("CompositeKeyIndex", statsCk);
+
+            if (statsId.median > 0 && statsCk.median > 0)
+            {
+                double ratio = statsCk.median / statsId.median;
+                std::cout << "    Composite/Identity ratio: " << std::fixed
+                          << std::setprecision(3) << ratio << "x";
+                if (ratio <= 1.05)
+                {
+                    std::cout << " (zero overhead)";
+                }
+                std::cout << "\n";
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -1840,6 +2281,12 @@ int main(int argc, char* argv[])
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before mixed workload");
     benchmark_mixed_workload();
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "before tryEmplace benchmark");
+    benchmark_try_emplace(core_sizes);
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "before IndexPolicy benchmark");
+    benchmark_index_policy(core_sizes);
 
     print_feature_comparison();
 
