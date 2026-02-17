@@ -897,6 +897,15 @@ public:
     [[nodiscard]] const std::vector<T>& dense() const noexcept { return mDense; }
     [[nodiscard]] const std::vector<Data>& data() const noexcept { return mData; }
 
+    /// @brief Mutable access to dense data array (for unchecked hot-path access).
+    /// @warning Caller must not change the size or order of the vector.
+    [[nodiscard]] std::vector<Data>& data() noexcept { return mData; }
+
+    /// @brief Mutable access to sparse index array (for unchecked hot-path access).
+    /// @warning Caller must not change the size or order of the vector.
+    [[nodiscard]] std::vector<sparse_type>& sparse() noexcept { return mSparse; }
+    [[nodiscard]] const std::vector<sparse_type>& sparse() const noexcept { return mSparse; }
+
     // -------------------------------------------------------------------------
     // Iterators
     // -------------------------------------------------------------------------
