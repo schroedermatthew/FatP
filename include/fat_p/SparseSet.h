@@ -550,7 +550,8 @@ private:
  * @note Thread-safety: NOT thread-safe for concurrent writes. Caller must
  *       synchronize. Concurrent reads are safe.
  */
-template <typename T, typename Data, typename IndexPolicy = IdentityIndex<T>>
+template <typename T, typename Data, typename IndexPolicy = IdentityIndex<T>,
+          template <typename> class DataContainer = std::vector>
 class SparseSetWithData
 {
     using sparse_type = typename IndexPolicy::sparse_index_type;
@@ -715,6 +716,12 @@ public:
 
         mDense.pop_back();
         mData.pop_back();
+
+        // Mark the erased slot as absent so raw reads don't see a stale dense
+        // index. containsAtIndex() uses the round-trip check and remains
+        // correct, but callers can now fast-path on the sentinel.
+        mSparse[sparseIndex] = std::numeric_limits<sparse_type>::max();
+
         return true;
     }
 
@@ -841,6 +848,19 @@ public:
         return mData.at(index);
     }
 
+    /// @brief Unchecked access to data by dense index. Use only when the
+    ///        index is known to be valid (e.g. during iteration over the
+    ///        dense array). No bounds check is performed.
+    [[nodiscard]] Data& dataAtUnchecked(size_type index) noexcept
+    {
+        return mData[index];
+    }
+
+    [[nodiscard]] const Data& dataAtUnchecked(size_type index) const noexcept
+    {
+        return mData[index];
+    }
+
     [[nodiscard]] size_type size() const noexcept { return mDense.size(); }
     [[nodiscard]] bool empty() const noexcept { return mDense.empty(); }
 
@@ -890,16 +910,22 @@ public:
             mSparse.shrink_to_fit();
         }
         mDense.shrink_to_fit();
-        mData.shrink_to_fit();
+        if constexpr (requires { mData.shrink_to_fit(); })
+            mData.shrink_to_fit();
     }
 
     [[nodiscard]] size_type capacity() const noexcept { return mSparse.size(); }
     [[nodiscard]] const std::vector<T>& dense() const noexcept { return mDense; }
-    [[nodiscard]] const std::vector<Data>& data() const noexcept { return mData; }
+
+    /// @brief Mutable access to dense key array (for in-place reordering).
+    /// @warning Caller must not change the size or order of the vector.
+    [[nodiscard]] std::vector<T>& dense() noexcept { return mDense; }
+
+    [[nodiscard]] const DataContainer<Data>& data() const noexcept { return mData; }
 
     /// @brief Mutable access to dense data array (for unchecked hot-path access).
     /// @warning Caller must not change the size or order of the vector.
-    [[nodiscard]] std::vector<Data>& data() noexcept { return mData; }
+    [[nodiscard]] DataContainer<Data>& data() noexcept { return mData; }
 
     /// @brief Mutable access to sparse index array (for unchecked hot-path access).
     /// @warning Caller must not change the size or order of the vector.
@@ -923,7 +949,7 @@ public:
 
     void swap(SparseSetWithData& other) noexcept(
         std::is_nothrow_swappable_v<std::vector<T>> &&
-        std::is_nothrow_swappable_v<std::vector<Data>> &&
+        std::is_nothrow_swappable_v<DataContainer<Data>> &&
         std::is_nothrow_swappable_v<std::vector<sparse_type>>)
     {
         using std::swap;
@@ -1039,7 +1065,7 @@ private:
     }
 
     std::vector<T> mDense;
-    std::vector<Data> mData;
+    DataContainer<Data> mData;
     std::vector<sparse_type> mSparse;
 };
 
