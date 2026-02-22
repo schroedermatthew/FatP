@@ -1918,8 +1918,8 @@ struct CompositeKey
                             static_cast<uint64_t>(index));
     }
 
-    uint32_t index() const { return static_cast<uint32_t>(value & 0xFFFFFFFF); }
-    uint32_t generation() const { return static_cast<uint32_t>(value >> 32); }
+    constexpr uint32_t index() const noexcept { return static_cast<uint32_t>(value & 0xFFFFFFFF); }
+    constexpr uint32_t generation() const noexcept { return static_cast<uint32_t>(value >> 32); }
 };
 
 struct CompositeKeyIndex
