@@ -41,6 +41,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - version: 12
+            std: 20
           - version: 13
             std: 20
           - version: 14
