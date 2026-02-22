@@ -916,21 +916,43 @@ public:
 
     [[nodiscard]] size_type capacity() const noexcept { return mSparse.size(); }
     [[nodiscard]] const std::vector<T>& dense() const noexcept { return mDense; }
-
-    /// @brief Mutable access to dense key array (for in-place reordering).
-    /// @warning Caller must not change the size or order of the vector.
-    [[nodiscard]] std::vector<T>& dense() noexcept { return mDense; }
-
     [[nodiscard]] const DataContainer<Data>& data() const noexcept { return mData; }
-
-    /// @brief Mutable access to dense data array (for unchecked hot-path access).
-    /// @warning Caller must not change the size or order of the vector.
-    [[nodiscard]] DataContainer<Data>& data() noexcept { return mData; }
-
-    /// @brief Mutable access to sparse index array (for unchecked hot-path access).
-    /// @warning Caller must not change the size or order of the vector.
-    [[nodiscard]] std::vector<sparse_type>& sparse() noexcept { return mSparse; }
     [[nodiscard]] const std::vector<sparse_type>& sparse() const noexcept { return mSparse; }
+
+    /**
+     * @brief Swap two elements by dense index, maintaining all invariants.
+     *
+     * Exchanges the keys, data, and sparse back-pointers for the elements at
+     * dense positions @p i and @p j. Both indices must be less than size().
+     * No-op when i == j.
+     *
+     * Use this instead of writing to the dense/data/sparse arrays directly.
+     * It is the only correct way to reorder elements in place — for example,
+     * when sorting components by entity index or maintaining a contiguous
+     * group prefix.
+     *
+     * @param i Dense index of the first element.
+     * @param j Dense index of the second element.
+     *
+     * @note Complexity: O(1).
+     * @note noexcept when Data is nothrow-swappable.
+     * @note Precondition: i < size() && j < size() (asserted in debug builds).
+     */
+    void swapDenseEntries(size_type i, size_type j) noexcept(
+        std::is_nothrow_swappable_v<T> &&
+        std::is_nothrow_swappable_v<Data>)
+    {
+        if (i == j)
+            return;
+
+        using std::swap;
+        swap(mDense[i], mDense[j]);
+        swap(mData[i],  mData[j]);
+        mSparse[static_cast<size_type>(IndexPolicy::index(mDense[i]))] =
+            static_cast<sparse_type>(i);
+        mSparse[static_cast<size_type>(IndexPolicy::index(mDense[j]))] =
+            static_cast<sparse_type>(j);
+    }
 
     // -------------------------------------------------------------------------
     // Iterators
