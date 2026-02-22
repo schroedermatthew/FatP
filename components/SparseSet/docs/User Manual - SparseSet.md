@@ -41,7 +41,7 @@ status: "reviewed"
 **Component:** SparseSet / SparseSetWithData
 **Primary use case:** O(1) insert, erase, lookup, and cache-friendly dense iteration over integer sets — the canonical ECS component storage
 **Integration pattern:** One SparseSet per component type; entity IDs as keys; iterate the dense array for system updates
-**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dataAtUnchecked()`, `dense()`, `data()`, `sparse()`, `IndexPolicy`, `DataContainer`
+**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dataAtUnchecked()`, `swapDenseEntries()`, `dense()`, `data()`, `sparse()`, `IndexPolicy`, `DataContainer`
 **std equivalent:** None
 **Migration from std:** Replace `std::unordered_set<uint32_t>` with `SparseSet<uint32_t>`; replace `std::unordered_map<uint32_t, Data>` with `SparseSetWithData<uint32_t, Data>`; for composite key types (e.g., ECS entity handles), use `SparseSetWithData<Key, Data, CustomIndexPolicy>`
 **Common mistakes:** Erasing during forward iteration (UB); using huge key spaces with few active elements (memory waste); relying on iteration order across erases (order is unstable); forgetting that IndexPolicy::index() must extract a unique sparse index from the key type
@@ -641,22 +641,24 @@ const std::vector<Transform>& values = transforms.data();
 renderer.submit(values.data(), values.size());
 ```
 
-`SparseSetWithData` also exposes mutable overloads of `dense()`, `data()`, and `sparse()`. These are intended for ECS infrastructure code — such as component-store swap operations — that must directly rewrite the internal arrays to perform bulk rearrangements (e.g., sorting components by archetype, or swapping two dense entries without triggering the normal erase/re-insert path):
+### swapDenseEntries(): In-Place Reordering
+
+Some higher-level operations — sorting components by entity index, maintaining a contiguous group prefix in an ECS owning group — need to reorder the dense array without erasing and re-inserting elements. `swapDenseEntries(i, j)` performs this in O(1):
 
 ```cpp
-// ECS infrastructure: swap two dense entries in-place
-// (three-way update: dense keys, data payloads, sparse back-pointers)
-auto& d = transforms.dense();
-auto& v = transforms.data();
-auto& s = transforms.sparse();
+// Move key at dense position 2 to position 0, and vice versa.
+// All three arrays (dense keys, data payloads, sparse back-pointers) are
+// updated atomically. The invariants hold immediately after the call.
+transforms.swapDenseEntries(0, 2);
 
-std::swap(d[i], d[j]);
-std::swap(v[i], v[j]);
-s[transforms.dense()[i].index()] = static_cast<uint32_t>(i);
-s[transforms.dense()[j].index()] = static_cast<uint32_t>(j);
+// indexOf and get still work correctly for all keys.
+uint32_t key = transforms.dense()[0];  // now holds what was at [2]
+Transform& t = transforms.dataAtUnchecked(0);  // paired with that key
 ```
 
-After any manual write through these mutable overloads, the caller is responsible for maintaining the dual-array invariants: `sparse[dense[i].index()] == i` for every `i < size()`. Violating this invariant produces undefined behavior on any subsequent call to `contains()`, `tryGet()`, `get()`, or `erase()`.
+The swap is a no-op when `i == j`. Both indices must be less than `size()` — violating this precondition is undefined behaviour (no bounds check is performed in any build mode, consistent with `dataAtUnchecked`).
+
+This is the only correct way to reorder elements in place. Do not attempt to achieve the same result by writing directly to the const `dense()`, `data()`, or `sparse()` references — the three updates must happen atomically with respect to the invariant, and `swapDenseEntries` is the method that owns that logic.
 
 ### dataAtUnchecked(): Bounds-Check-Free Dense Access
 
@@ -1242,12 +1244,10 @@ All of the above, plus:
 | `tryGet` | `Data* tryGet(T value) noexcept` | O(1) | No |
 | `dataAt` | `Data& dataAt(size_type index)` | O(1) | `out_of_range` |
 | `dataAtUnchecked` | `Data& dataAtUnchecked(size_type index) noexcept` | O(1) | No — UB if index >= size() |
+| `swapDenseEntries` | `void swapDenseEntries(size_type i, size_type j) noexcept` | O(1) | No — UB if i or j >= size() |
 | `dense` | `const vector<T>& dense() const noexcept` | O(1) | No |
-| `dense` | `vector<T>& dense() noexcept` | O(1) | No — caller must maintain invariants |
 | `data` | `const DataContainer<Data>& data() const noexcept` | O(1) | No |
-| `data` | `DataContainer<Data>& data() noexcept` | O(1) | No — caller must maintain invariants |
 | `sparse` | `const vector<sparse_type>& sparse() const noexcept` | O(1) | No |
-| `sparse` | `vector<sparse_type>& sparse() noexcept` | O(1) | No — caller must maintain invariants |
 
 ---
 

@@ -1487,61 +1487,76 @@ FATP_TEST_CASE(custom_data_container_shrink_to_fit)
 }
 
 // ============================================================================
-// Mutable dense() Overload (Change 2)
+// swapDenseEntries() (Change 2)
 // ============================================================================
 
-FATP_TEST_CASE(mutable_dense_overload_exists)
+FATP_TEST_CASE(swap_dense_entries_basic)
 {
-    // Verify the mutable overload is accessible and returns a writable reference.
-    SparseSetWithData<uint32_t, int> set;
-
-    set.tryEmplace(10, 100);
-    set.tryEmplace(20, 200);
-
-    // Non-const path: mutableDense ref must compile and refer to the same data.
-    std::vector<uint32_t>& mutableRef = set.dense();
-    const std::vector<uint32_t>& constRef = std::as_const(set).dense();
-
-    FATP_ASSERT_EQ(mutableRef.size(), size_t(2), "Mutable dense size matches");
-    FATP_ASSERT_EQ(constRef.size(), size_t(2), "Const dense size matches");
-    FATP_ASSERT_TRUE(mutableRef.data() == constRef.data(), "Both refs point to same storage");
-
-    return true;
-}
-
-FATP_TEST_CASE(mutable_dense_write_back)
-{
-    // Simulate the swap-dense-entries pattern used by ComponentStore:
-    // read via mutable dense(), write back the updated sparse index.
-    // After a manual key swap, lookup must still return the correct data.
+    // swapDenseEntries(i, j) must exchange keys, data, and sparse back-pointers
+    // in a single call, maintaining all invariants.
     SparseSetWithData<uint32_t, int> set;
 
     set.tryEmplace(5, 50);
     set.tryEmplace(9, 90);
 
-    // Positions in the dense array at insertion time.
-    std::size_t idx5 = set.indexOf(5);
-    std::size_t idx9 = set.indexOf(9);
-    FATP_ASSERT_EQ(idx5, size_t(0), "Key 5 is at dense[0]");
-    FATP_ASSERT_EQ(idx9, size_t(1), "Key 9 is at dense[1]");
+    FATP_ASSERT_EQ(set.indexOf(5), size_t(0), "Key 5 at dense[0] before swap");
+    FATP_ASSERT_EQ(set.indexOf(9), size_t(1), "Key 9 at dense[1] before swap");
 
-    // Perform the same three-way swap ComponentStore::swapDenseEntries does.
-    auto& denseArr  = set.dense();
-    auto& dataArr   = set.data();
-    auto& sparseArr = set.sparse();
+    set.swapDenseEntries(0, 1);
 
-    std::swap(denseArr[0],  denseArr[1]);
-    std::swap(dataArr[0],   dataArr[1]);
-    sparseArr[5] = static_cast<uint32_t>(1);
-    sparseArr[9] = static_cast<uint32_t>(0);
+    FATP_ASSERT_EQ(set.indexOf(5), size_t(1), "Key 5 at dense[1] after swap");
+    FATP_ASSERT_EQ(set.indexOf(9), size_t(0), "Key 9 at dense[0] after swap");
 
-    // After the swap, indexOf must reflect the new positions.
-    FATP_ASSERT_EQ(set.indexOf(5), size_t(1), "Key 5 now at dense[1]");
-    FATP_ASSERT_EQ(set.indexOf(9), size_t(0), "Key 9 now at dense[0]");
-
-    // Data must follow the keys.
     FATP_ASSERT_EQ(set.get(5), 50, "Data for key 5 intact after swap");
     FATP_ASSERT_EQ(set.get(9), 90, "Data for key 9 intact after swap");
+
+    return true;
+}
+
+FATP_TEST_CASE(swap_dense_entries_noop)
+{
+    // swapDenseEntries(i, i) must be a no-op — state unchanged, no crash.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(7, 70);
+    set.tryEmplace(3, 30);
+    set.tryEmplace(1, 10);
+
+    set.swapDenseEntries(1, 1);
+
+    FATP_ASSERT_EQ(set.get(7), 70, "Key 7 unchanged after self-swap");
+    FATP_ASSERT_EQ(set.get(3), 30, "Key 3 unchanged after self-swap");
+    FATP_ASSERT_EQ(set.get(1), 10, "Key 1 unchanged after self-swap");
+    FATP_ASSERT_EQ(set.size(), size_t(3), "Size unchanged after self-swap");
+
+    return true;
+}
+
+FATP_TEST_CASE(swap_dense_entries_invariant_after_erase)
+{
+    // After swapDenseEntries followed by erase, contains/get must remain correct
+    // for all surviving keys — the invariant must hold through both operations.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(10, 100);
+    set.tryEmplace(20, 200);
+    set.tryEmplace(30, 300);
+
+    // Bring key 30 to the front.
+    set.swapDenseEntries(0, 2);
+
+    FATP_ASSERT_EQ(set.indexOf(30), size_t(0), "Key 30 at dense[0] after swap");
+    FATP_ASSERT_EQ(set.indexOf(10), size_t(2), "Key 10 at dense[2] after swap");
+
+    // Erase the element now at index 0 (key 30) via swap-with-back.
+    set.erase(30);
+
+    FATP_ASSERT_TRUE(!set.contains(30), "Key 30 absent after erase");
+    FATP_ASSERT_TRUE(set.contains(10), "Key 10 still present");
+    FATP_ASSERT_TRUE(set.contains(20), "Key 20 still present");
+    FATP_ASSERT_EQ(set.get(10), 100, "Data for key 10 correct after erase");
+    FATP_ASSERT_EQ(set.get(20), 200, "Data for key 20 correct after erase");
+    FATP_ASSERT_EQ(set.size(), size_t(2), "Size is 2 after erase");
 
     return true;
 }
@@ -1854,9 +1869,10 @@ bool test_SparseSet()
     FATP_RUN_TEST_NS(runner, sparseset, custom_data_container_erase);
     FATP_RUN_TEST_NS(runner, sparseset, custom_data_container_shrink_to_fit);
 
-    // Mutable dense() Overload
-    FATP_RUN_TEST_NS(runner, sparseset, mutable_dense_overload_exists);
-    FATP_RUN_TEST_NS(runner, sparseset, mutable_dense_write_back);
+    // swapDenseEntries()
+    FATP_RUN_TEST_NS(runner, sparseset, swap_dense_entries_basic);
+    FATP_RUN_TEST_NS(runner, sparseset, swap_dense_entries_noop);
+    FATP_RUN_TEST_NS(runner, sparseset, swap_dense_entries_invariant_after_erase);
 
     // dataAtUnchecked()
     FATP_RUN_TEST_NS(runner, sparseset, data_at_unchecked_matches_get);
