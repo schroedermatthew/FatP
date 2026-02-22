@@ -3,13 +3,13 @@ doc_id: UM-SPARSESET-001
 doc_type: "User Manual"
 title: "SparseSet"
 fatp_components: ["SparseSet", "SparseSetWithData"]
-topics: ["sparse set", "dense iteration", "ECS", "entity tracking", "O(1) operations", "swap-with-back", "integer set", "dual-array indirection", "component storage", "IndexPolicy", "composite key", "tryEmplace"]
+topics: ["sparse set", "dense iteration", "ECS", "entity tracking", "O(1) operations", "swap-with-back", "integer set", "dual-array indirection", "component storage", "IndexPolicy", "composite key", "tryEmplace", "DataContainer", "dataAtUnchecked", "tombstone sentinel", "mutable dense"]
 constraints: ["unsigned integers only (or custom IndexPolicy)", "memory proportional to max value", "unstable erase order", "not thread-safe for writes", "cache-line sequential iteration"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: null
 build_modes: ["Debug", "Release"]
-last_verified: "2026-02-16"
+last_verified: "2026-02-22"
 audience: ["C++ developers", "game engine developers", "ECS architects", "AI assistants"]
 status: "reviewed"
 ---
@@ -41,7 +41,7 @@ status: "reviewed"
 **Component:** SparseSet / SparseSetWithData
 **Primary use case:** O(1) insert, erase, lookup, and cache-friendly dense iteration over integer sets — the canonical ECS component storage
 **Integration pattern:** One SparseSet per component type; entity IDs as keys; iterate the dense array for system updates
-**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dense()`, `data()`, `IndexPolicy`
+**Key API:** `insert()`, `erase()`, `contains()`, `find()`, `tryGet()`, `tryEmplace()`, `dataAtUnchecked()`, `dense()`, `data()`, `sparse()`, `IndexPolicy`, `DataContainer`
 **std equivalent:** None
 **Migration from std:** Replace `std::unordered_set<uint32_t>` with `SparseSet<uint32_t>`; replace `std::unordered_map<uint32_t, Data>` with `SparseSetWithData<uint32_t, Data>`; for composite key types (e.g., ECS entity handles), use `SparseSetWithData<Key, Data, CustomIndexPolicy>`
 **Common mistakes:** Erasing during forward iteration (UB); using huge key spaces with few active elements (memory waste); relying on iteration order across erases (order is unstable); forgetting that IndexPolicy::index() must extract a unique sparse index from the key type
@@ -63,18 +63,19 @@ status: "reviewed"
 10. [Memory Management: The Sparse Array Tradeoff](#memory-management-the-sparse-array-tradeoff)
 11. [Index Types: Sizing the Key Space](#index-types-sizing-the-key-space)
 12. [IndexPolicy: Composite Key Types](#indexpolicy-composite-key-types)
-13. [ECS Integration: The Pattern SparseSet Was Built For](#ecs-integration-the-pattern-sparseset-was-built-for)
-14. [Thread Safety](#thread-safety)
-15. [Error Handling and Exception Safety](#error-handling-and-exception-safety)
-16. [Debug vs Release Behavior](#debug-vs-release-behavior)
-17. [Performance Characteristics](#performance-characteristics)
-18. [When to Use SparseSet (and When Not To)](#when-to-use-sparseset-and-when-not-to)
-19. [Migration from std::unordered_set](#migration-from-stdunordered_set)
-20. [Alternatives](#alternatives)
-21. [Troubleshooting](#troubleshooting)
-22. [Known Limitations](#known-limitations)
-23. [API Reference](#api-reference)
-24. [FAQ](#faq)
+13. [DataContainer: Replacing the Data Storage Backend](#datacontainer-replacing-the-data-storage-backend)
+14. [ECS Integration: The Pattern SparseSet Was Built For](#ecs-integration-the-pattern-sparseset-was-built-for)
+15. [Thread Safety](#thread-safety)
+16. [Error Handling and Exception Safety](#error-handling-and-exception-safety)
+17. [Debug vs Release Behavior](#debug-vs-release-behavior)
+18. [Performance Characteristics](#performance-characteristics)
+19. [When to Use SparseSet (and When Not To)](#when-to-use-sparseset-and-when-not-to)
+20. [Migration from std::unordered_set](#migration-from-stdunordered_set)
+21. [Alternatives](#alternatives)
+22. [Troubleshooting](#troubleshooting)
+23. [Known Limitations](#known-limitations)
+24. [API Reference](#api-reference)
+25. [FAQ](#faq)
 
 ---
 
@@ -374,7 +375,9 @@ The return value tells you whether insertion actually occurred. This is importan
 
 `contains(value)` checks membership without modifying the set. The implementation reads `sparse_[value]` to get a candidate dense index, then verifies that `dense_[candidate] == value`. Both lookups are O(1) array accesses.
 
-The verification step is essential. The sparse array may contain stale entries — indices that were valid before an erase but haven't been cleared (clearing them would cost O(max_value) on erase, destroying the O(1) guarantee). The `dense_[candidate] == value` check catches stale entries because the dense array is always authoritative.
+The verification step is essential, and its correctness depends on how erased slots are managed. When an element is erased, `SparseSetWithData` writes the sentinel value — `std::numeric_limits<sparse_type>::max()` — into the erased sparse slot. This means `sparse_[erased_value]` does not hold a stale dense index; it holds a guaranteed-invalid value that is larger than any possible dense index (which is bounded by `size()`, a value far below `max`). The sentinel approach means `contains()` does not need to guard against stale indices from old insertions.
+
+`SparseSet` (the key-only variant) does **not** write the sentinel on erase — it leaves the stale index in place, relying on the `dense_[candidate] == value` round-trip check to detect staleness. Both mechanisms produce correct `contains()` results; the sentinel in `SparseSetWithData` is there because `data()` access bypasses the round-trip check, and an incorrect dense index would produce a wrong data lookup.
 
 ```cpp
 if (s.contains(42)) {
@@ -638,6 +641,37 @@ const std::vector<Transform>& values = transforms.data();
 renderer.submit(values.data(), values.size());
 ```
 
+`SparseSetWithData` also exposes mutable overloads of `dense()`, `data()`, and `sparse()`. These are intended for ECS infrastructure code — such as component-store swap operations — that must directly rewrite the internal arrays to perform bulk rearrangements (e.g., sorting components by archetype, or swapping two dense entries without triggering the normal erase/re-insert path):
+
+```cpp
+// ECS infrastructure: swap two dense entries in-place
+// (three-way update: dense keys, data payloads, sparse back-pointers)
+auto& d = transforms.dense();
+auto& v = transforms.data();
+auto& s = transforms.sparse();
+
+std::swap(d[i], d[j]);
+std::swap(v[i], v[j]);
+s[transforms.dense()[i].index()] = static_cast<uint32_t>(i);
+s[transforms.dense()[j].index()] = static_cast<uint32_t>(j);
+```
+
+After any manual write through these mutable overloads, the caller is responsible for maintaining the dual-array invariants: `sparse[dense[i].index()] == i` for every `i < size()`. Violating this invariant produces undefined behavior on any subsequent call to `contains()`, `tryGet()`, `get()`, or `erase()`.
+
+### dataAtUnchecked(): Bounds-Check-Free Dense Access
+
+`dataAt(index)` is bounds-checked and throws `std::out_of_range` for invalid indices. For inner loops where the index is already known to be valid — because it came from iterating `dense()` or from `indexOf()` — the overhead of a redundant bounds check is avoidable:
+
+```cpp
+// Hot loop: index comes from iterating dense, so it is always in range
+for (size_t i = 0; i < transforms.size(); ++i) {
+    Transform& t = transforms.dataAtUnchecked(i);  // no bounds check
+    t.x += velocities.dataAtUnchecked(i).dx * dt;
+}
+```
+
+`dataAtUnchecked(index)` returns a reference to `data()[index]` with no bounds check in any build. If `index >= size()`, the behavior is undefined. Use `dataAt(index)` wherever the index may be out of range.
+
 ---
 
 ## Memory Management: The Sparse Array Tradeoff
@@ -798,6 +832,51 @@ struct IdentityIndex {
 ```
 
 This is what `SparseSet<uint32_t>` and `SparseSetWithData<uint32_t, Data>` use when no policy is specified. It returns the key unchanged — the behavior that all pre-IndexPolicy code relied on.
+
+---
+
+## DataContainer: Replacing the Data Storage Backend
+
+### The Default
+
+By default, `SparseSetWithData` stores payload data in `std::vector<Data>`. This is correct for the vast majority of uses: `std::vector` provides contiguous storage, O(1) amortized append, and a well-understood memory model.
+
+### When to Replace It
+
+Two situations justify a custom `DataContainer`:
+
+**Aligned storage.** Physics engines and SIMD-heavy code often require data arrays aligned to cache-line or SIMD-register boundaries (16, 32, or 64 bytes). `std::vector` does not guarantee alignment beyond `alignof(Data)`. `fat_p::AlignedVector<Data, 64>` or a similar aligned allocator wrapper can replace the default storage.
+
+**Custom allocators or memory arenas.** Systems with fixed memory pools — embedded targets, game consoles, real-time audio — may need data to be allocated from a specific arena rather than the global heap. A custom container backed by a pool allocator can be substituted.
+
+### The Template Parameter
+
+`DataContainer` is the fourth template parameter of `SparseSetWithData`:
+
+```cpp
+template <typename T,
+          typename Data,
+          typename IndexPolicy  = IdentityIndex<T>,
+          template <typename, typename...> class DataContainer = std::vector>
+class SparseSetWithData;
+```
+
+The custom container must satisfy the `StorageContainer` concept (defined in `StoragePolicy.h`), which requires: `push_back`, `emplace_back`, `back`, `pop_back`, `operator[]`, `data`, `size`, `begin`, `end`, and a `value_type` alias. Optionally, `shrink_to_fit()` is called if present (detected at compile time via `if constexpr`).
+
+### Usage Pattern
+
+```cpp
+// Use SIMD-aligned storage for Transform data
+fat_p::SparseSetWithData<uint32_t, Transform, fat_p::IdentityIndex<uint32_t>,
+                         fat_p::AlignedVector<Transform, 64>>
+    transforms;
+
+// All insert/erase/get/tryGet operations are identical to the default
+transforms.insert(entity, Transform{...});
+Transform* t = transforms.tryGet(entity);
+```
+
+The `IndexPolicy` parameter must be spelled out explicitly when also specifying `DataContainer`, because template parameters are positional.
 
 ---
 
@@ -1147,9 +1226,9 @@ You can tolerate **unstable iteration order** across erases.
 | `swap` | `void swap(SparseSet& other)` | O(1) | No |
 | `begin`/`end` | Standard iterators | O(1) | No |
 
-### SparseSetWithData\<T, Data, IndexPolicy\>
+### SparseSetWithData\<T, Data, IndexPolicy, DataContainer\>
 
-`IndexPolicy` defaults to `IdentityIndex<T>` (returns key as-is). A custom policy extracts a `sparse_index_type` from `T` for sparse-array addressing. The dense array stores full `T` values regardless of policy.
+`IndexPolicy` defaults to `IdentityIndex<T>` (returns key as-is). A custom policy extracts a `sparse_index_type` from `T` for sparse-array addressing. The dense array stores full `T` values regardless of policy. `DataContainer` defaults to `std::vector` and must satisfy the `StorageContainer` concept.
 
 All of the above, plus:
 
@@ -1162,8 +1241,13 @@ All of the above, plus:
 | `get` | `Data& get(T value)` | O(1) | `out_of_range` |
 | `tryGet` | `Data* tryGet(T value) noexcept` | O(1) | No |
 | `dataAt` | `Data& dataAt(size_type index)` | O(1) | `out_of_range` |
+| `dataAtUnchecked` | `Data& dataAtUnchecked(size_type index) noexcept` | O(1) | No — UB if index >= size() |
 | `dense` | `const vector<T>& dense() const noexcept` | O(1) | No |
-| `data` | `const vector<Data>& data() const noexcept` | O(1) | No |
+| `dense` | `vector<T>& dense() noexcept` | O(1) | No — caller must maintain invariants |
+| `data` | `const DataContainer<Data>& data() const noexcept` | O(1) | No |
+| `data` | `DataContainer<Data>& data() noexcept` | O(1) | No — caller must maintain invariants |
+| `sparse` | `const vector<sparse_type>& sparse() const noexcept` | O(1) | No |
+| `sparse` | `vector<sparse_type>& sparse() noexcept` | O(1) | No — caller must maintain invariants |
 
 ---
 

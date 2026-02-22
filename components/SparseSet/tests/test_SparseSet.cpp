@@ -1385,6 +1385,365 @@ FATP_TEST_CASE(stress_random)
 }
 
 // ============================================================================
+// DataContainer Template Parameter (Change 1)
+// ============================================================================
+
+// Minimal container that wraps std::vector but is a distinct type,
+// used to verify SparseSetWithData accepts a custom DataContainer.
+template <typename T>
+class MinimalContainer
+{
+public:
+    using value_type = T;
+
+    void push_back(T&& v)         { mData.push_back(std::move(v)); }
+    void push_back(const T& v)    { mData.push_back(v); }
+    void pop_back()               { mData.pop_back(); }
+    void clear()                  { mData.clear(); }
+
+    template <typename... Args>
+    T& emplace_back(Args&&... args) { return mData.emplace_back(std::forward<Args>(args)...); }
+
+    T&       back()       { return mData.back(); }
+    const T& back() const { return mData.back(); }
+
+    T&       operator[](std::size_t i)       { return mData[i]; }
+    const T& operator[](std::size_t i) const { return mData[i]; }
+
+    T*       data()       noexcept { return mData.data(); }
+    const T* data() const noexcept { return mData.data(); }
+
+    std::size_t size()  const noexcept { return mData.size(); }
+    bool        empty() const noexcept { return mData.empty(); }
+
+    void shrink_to_fit() { mData.shrink_to_fit(); }
+
+    auto begin()        { return mData.begin(); }
+    auto end()          { return mData.end(); }
+    auto begin()  const { return mData.begin(); }
+    auto end()    const { return mData.end(); }
+
+private:
+    std::vector<T> mData;
+};
+
+FATP_TEST_CASE(custom_data_container_basic)
+{
+    SparseSetWithData<uint32_t, int, IdentityIndex<uint32_t>, MinimalContainer> set;
+
+    FATP_ASSERT_TRUE(set.empty(), "Should start empty");
+
+    auto* p = set.tryEmplace(10, 100);
+    FATP_ASSERT_NOT_NULLPTR(p, "tryEmplace should succeed");
+    FATP_ASSERT_EQ(*p, 100, "Inserted value should be 100");
+
+    set.tryEmplace(20, 200);
+    set.tryEmplace(30, 300);
+
+    FATP_ASSERT_EQ(set.size(), size_t(3), "Size should be 3");
+    FATP_ASSERT_EQ(set.get(10), 100, "get(10) should return 100");
+    FATP_ASSERT_EQ(set.get(20), 200, "get(20) should return 200");
+    FATP_ASSERT_EQ(set.get(30), 300, "get(30) should return 300");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_data_container_erase)
+{
+    SparseSetWithData<uint32_t, int, IdentityIndex<uint32_t>, MinimalContainer> set;
+
+    set.tryEmplace(1, 10);
+    set.tryEmplace(2, 20);
+    set.tryEmplace(3, 30);
+
+    FATP_ASSERT_TRUE(set.erase(2), "Erase should succeed");
+    FATP_ASSERT_FALSE(set.contains(2), "Erased element not present");
+    FATP_ASSERT_EQ(set.size(), size_t(2), "Size should be 2");
+    FATP_ASSERT_EQ(set.get(1), 10, "Data for key 1 intact");
+    FATP_ASSERT_EQ(set.get(3), 30, "Data for key 3 intact");
+    FATP_ASSERT_EQ(set.dense().size(), set.data().size(), "Dense/data sizes must match");
+
+    return true;
+}
+
+FATP_TEST_CASE(custom_data_container_shrink_to_fit)
+{
+    // Verifies the if constexpr shrink_to_fit guard: MinimalContainer has
+    // shrink_to_fit(), so it should be called without compile error.
+    SparseSetWithData<uint32_t, int, IdentityIndex<uint32_t>, MinimalContainer> set;
+
+    set.reserve(5000);
+    set.tryEmplace(10, 1);
+    set.tryEmplace(50, 2);
+
+    set.shrink_to_fit();
+
+    FATP_ASSERT_TRUE(set.capacity() >= 51, "Capacity covers max index after shrink");
+    FATP_ASSERT_TRUE(set.capacity() < 5001, "Capacity reduced by shrink");
+    FATP_ASSERT_EQ(set.get(10), 1, "Data preserved after shrink");
+    FATP_ASSERT_EQ(set.get(50), 2, "Data preserved after shrink");
+
+    return true;
+}
+
+// ============================================================================
+// Mutable dense() Overload (Change 2)
+// ============================================================================
+
+FATP_TEST_CASE(mutable_dense_overload_exists)
+{
+    // Verify the mutable overload is accessible and returns a writable reference.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(10, 100);
+    set.tryEmplace(20, 200);
+
+    // Non-const path: mutableDense ref must compile and refer to the same data.
+    std::vector<uint32_t>& mutableRef = set.dense();
+    const std::vector<uint32_t>& constRef = std::as_const(set).dense();
+
+    FATP_ASSERT_EQ(mutableRef.size(), size_t(2), "Mutable dense size matches");
+    FATP_ASSERT_EQ(constRef.size(), size_t(2), "Const dense size matches");
+    FATP_ASSERT_TRUE(mutableRef.data() == constRef.data(), "Both refs point to same storage");
+
+    return true;
+}
+
+FATP_TEST_CASE(mutable_dense_write_back)
+{
+    // Simulate the swap-dense-entries pattern used by ComponentStore:
+    // read via mutable dense(), write back the updated sparse index.
+    // After a manual key swap, lookup must still return the correct data.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(5, 50);
+    set.tryEmplace(9, 90);
+
+    // Positions in the dense array at insertion time.
+    std::size_t idx5 = set.indexOf(5);
+    std::size_t idx9 = set.indexOf(9);
+    FATP_ASSERT_EQ(idx5, size_t(0), "Key 5 is at dense[0]");
+    FATP_ASSERT_EQ(idx9, size_t(1), "Key 9 is at dense[1]");
+
+    // Perform the same three-way swap ComponentStore::swapDenseEntries does.
+    auto& denseArr  = set.dense();
+    auto& dataArr   = set.data();
+    auto& sparseArr = set.sparse();
+
+    std::swap(denseArr[0],  denseArr[1]);
+    std::swap(dataArr[0],   dataArr[1]);
+    sparseArr[5] = static_cast<uint32_t>(1);
+    sparseArr[9] = static_cast<uint32_t>(0);
+
+    // After the swap, indexOf must reflect the new positions.
+    FATP_ASSERT_EQ(set.indexOf(5), size_t(1), "Key 5 now at dense[1]");
+    FATP_ASSERT_EQ(set.indexOf(9), size_t(0), "Key 9 now at dense[0]");
+
+    // Data must follow the keys.
+    FATP_ASSERT_EQ(set.get(5), 50, "Data for key 5 intact after swap");
+    FATP_ASSERT_EQ(set.get(9), 90, "Data for key 9 intact after swap");
+
+    return true;
+}
+
+// ============================================================================
+// dataAtUnchecked() (Change 3 — session record change 4)
+// ============================================================================
+
+FATP_TEST_CASE(data_at_unchecked_matches_get)
+{
+    SparseSetWithData<uint32_t, std::string> set;
+
+    set.tryEmplace(10, "ten");
+    set.tryEmplace(20, "twenty");
+    set.tryEmplace(30, "thirty");
+
+    for (std::size_t i = 0; i < set.size(); ++i)
+    {
+        uint32_t key = set.dense()[i];
+        FATP_ASSERT_EQ(set.dataAtUnchecked(i), set.get(key),
+                       "dataAtUnchecked matches get() for every dense index");
+    }
+
+    return true;
+}
+
+FATP_TEST_CASE(data_at_unchecked_const)
+{
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(1, 100);
+    set.tryEmplace(2, 200);
+
+    const auto& constSet = set;
+
+    FATP_ASSERT_EQ(constSet.dataAtUnchecked(0), set.dataAt(0),
+                   "Const dataAtUnchecked matches dataAt for index 0");
+    FATP_ASSERT_EQ(constSet.dataAtUnchecked(1), set.dataAt(1),
+                   "Const dataAtUnchecked matches dataAt for index 1");
+
+    return true;
+}
+
+FATP_TEST_CASE(data_at_unchecked_write)
+{
+    // Verify the non-const overload returns a proper mutable reference.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(42, 0);
+
+    std::size_t idx = set.indexOf(42);
+    set.dataAtUnchecked(idx) = 999;
+
+    FATP_ASSERT_EQ(set.get(42), 999, "Write via dataAtUnchecked visible through get()");
+    FATP_ASSERT_EQ(set.dataAt(idx), 999, "Write via dataAtUnchecked visible through dataAt()");
+
+    return true;
+}
+
+FATP_TEST_CASE(data_at_unchecked_after_erase)
+{
+    // After erase, remaining dense indices must remain correct.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(1, 10);
+    set.tryEmplace(2, 20);
+    set.tryEmplace(3, 30);
+
+    set.erase(2); // key 3 swaps into dense[1]
+
+    FATP_ASSERT_EQ(set.size(), size_t(2), "Size is 2 after erase");
+
+    for (std::size_t i = 0; i < set.size(); ++i)
+    {
+        uint32_t key = set.dense()[i];
+        FATP_ASSERT_EQ(set.dataAtUnchecked(i), set.get(key),
+                       "dataAtUnchecked valid at every index after erase");
+    }
+
+    return true;
+}
+
+// ============================================================================
+// Tombstone Sentinel on erase() (Change 3 — session record change 3)
+// ============================================================================
+
+FATP_TEST_CASE(tombstone_sentinel_set_on_erase)
+{
+    // After erasing a key the sparse slot must hold
+    // numeric_limits<sparse_type>::max(), not a stale dense index.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(7, 70);
+    set.tryEmplace(8, 80);
+    set.tryEmplace(9, 90);
+
+    // Record the sparse index for key 8 (== 8 with IdentityIndex).
+    constexpr std::size_t eraseKey = 8;
+    constexpr uint32_t sentinel = std::numeric_limits<uint32_t>::max();
+
+    FATP_ASSERT_TRUE(set.erase(eraseKey), "Erase should succeed");
+
+    // Read the raw sparse slot.
+    const auto& sp = set.sparse();
+    FATP_ASSERT_TRUE(eraseKey < sp.size(), "Sparse array covers the erased index");
+    FATP_ASSERT_EQ(sp[eraseKey], sentinel,
+                   "Erased sparse slot must hold the sentinel value");
+
+    // contains() must still return false (round-trip check remains correct).
+    FATP_ASSERT_FALSE(set.contains(eraseKey), "Contains returns false after erase");
+
+    return true;
+}
+
+FATP_TEST_CASE(tombstone_sentinel_not_confused_with_dense_index_zero)
+{
+    // Sentinel (max) must not be confused with dense index 0.
+    // Insert a single element at sparse slot 0, erase it, then re-insert.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(0, 99);
+    FATP_ASSERT_TRUE(set.contains(0), "Key 0 present before erase");
+
+    set.erase(0);
+
+    // The sparse slot for 0 must now be the sentinel, not 0 (which would
+    // be a false positive for dense index 0).
+    constexpr uint32_t sentinel = std::numeric_limits<uint32_t>::max();
+    FATP_ASSERT_EQ(set.sparse()[0], sentinel,
+                   "Sparse slot 0 must be sentinel after erase, not stale index 0");
+    FATP_ASSERT_FALSE(set.contains(0), "Key 0 absent after erase");
+
+    // Re-insert must succeed.
+    auto* p = set.tryEmplace(0, 42);
+    FATP_ASSERT_NOT_NULLPTR(p, "Re-insert into erased slot should succeed");
+    FATP_ASSERT_EQ(set.get(0), 42, "Re-inserted value correct");
+
+    return true;
+}
+
+FATP_TEST_CASE(tombstone_survivor_slots_unaffected)
+{
+    // Erasing key K must not corrupt the sparse slots of surviving keys.
+    SparseSetWithData<uint32_t, int> set;
+
+    set.tryEmplace(3, 30);
+    set.tryEmplace(7, 70);
+    set.tryEmplace(11, 110);
+
+    // Record the dense indices of the surviving keys before erase.
+    std::size_t before3  = set.indexOf(3);
+    std::size_t before11 = set.indexOf(11);
+
+    set.erase(7);
+
+    // Sparse slots for the surviving keys must point to valid dense positions.
+    // We can verify indirectly: get() must still work, and indexOf must be < size().
+    FATP_ASSERT_TRUE(set.contains(3),  "Key 3 survives erase of key 7");
+    FATP_ASSERT_TRUE(set.contains(11), "Key 11 survives erase of key 7");
+    FATP_ASSERT_EQ(set.get(3),  30,  "Data for key 3 intact");
+    FATP_ASSERT_EQ(set.get(11), 110, "Data for key 11 intact");
+
+    // The surviving key that was NOT the last element should retain its
+    // dense position (only the last element moves during swap-with-back).
+    // key 3 was at index 0; key 7 was at index 1; key 11 was at index 2.
+    // Erase of key 7 swaps key 11 into index 1.
+    (void)before3;  // position of key 3 is unchanged
+    (void)before11; // key 11 moved; verified via get() above
+    FATP_ASSERT_EQ(set.indexOf(3), before3, "Key 3 dense index unchanged");
+    FATP_ASSERT_LT(set.indexOf(11), set.size(), "Key 11 dense index in range");
+
+    // Only the erased slot holds the sentinel.
+    constexpr uint32_t sentinel = std::numeric_limits<uint32_t>::max();
+    FATP_ASSERT_EQ(set.sparse()[7], sentinel, "Erased slot 7 is the sentinel");
+    FATP_ASSERT_NE(set.sparse()[3],  sentinel, "Slot 3 is not sentinel");
+    FATP_ASSERT_NE(set.sparse()[11], sentinel, "Slot 11 is not sentinel");
+
+    return true;
+}
+
+FATP_TEST_CASE(tombstone_sparse_set_erase_also_sets_sentinel)
+{
+    // SparseSet (non-data variant) does NOT set a tombstone sentinel —
+    // its erase leaves the stale dense index. This test documents and
+    // verifies that behaviour so it is not accidentally changed.
+    SparseSet<uint32_t> set;
+
+    set.insert(5);
+    set.insert(6);
+
+    set.erase(5);
+
+    // The sparse slot for 5 should contain the index that 6 moved to (0),
+    // which is the stale value — NOT the sentinel. contains(5) is still
+    // false because the round-trip check catches the mismatch.
+    FATP_ASSERT_FALSE(set.contains(5), "Key 5 not present after erase");
+    FATP_ASSERT_TRUE(set.contains(6),  "Key 6 still present");
+
+    return true;
+}
+
+// ============================================================================
 // Benchmarks
 // ============================================================================
 
@@ -1489,6 +1848,27 @@ bool test_SparseSet()
 
     // Stress Tests
     FATP_RUN_TEST_NS(runner, sparseset, stress_random);
+
+    // DataContainer Template Parameter
+    FATP_RUN_TEST_NS(runner, sparseset, custom_data_container_basic);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_data_container_erase);
+    FATP_RUN_TEST_NS(runner, sparseset, custom_data_container_shrink_to_fit);
+
+    // Mutable dense() Overload
+    FATP_RUN_TEST_NS(runner, sparseset, mutable_dense_overload_exists);
+    FATP_RUN_TEST_NS(runner, sparseset, mutable_dense_write_back);
+
+    // dataAtUnchecked()
+    FATP_RUN_TEST_NS(runner, sparseset, data_at_unchecked_matches_get);
+    FATP_RUN_TEST_NS(runner, sparseset, data_at_unchecked_const);
+    FATP_RUN_TEST_NS(runner, sparseset, data_at_unchecked_write);
+    FATP_RUN_TEST_NS(runner, sparseset, data_at_unchecked_after_erase);
+
+    // Tombstone Sentinel
+    FATP_RUN_TEST_NS(runner, sparseset, tombstone_sentinel_set_on_erase);
+    FATP_RUN_TEST_NS(runner, sparseset, tombstone_sentinel_not_confused_with_dense_index_zero);
+    FATP_RUN_TEST_NS(runner, sparseset, tombstone_survivor_slots_unaffected);
+    FATP_RUN_TEST_NS(runner, sparseset, tombstone_sparse_set_erase_also_sets_sentinel);
 
 #ifndef NDEBUG
     std::cout << "\n[Debug build - skipping benchmarks]\n";

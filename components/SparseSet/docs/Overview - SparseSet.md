@@ -5,12 +5,12 @@ title: "SparseSet"
 fatp_components: ["SparseSet", "SparseSetWithData"]
 topics: ["sparse set", "dense iteration", "swap-with-back erasure", "ECS pattern", "integer set", "O(1) operations"]
 constraints: ["memory proportional to max value", "unsigned integers only", "unstable iteration order on erase", "no thread safety for writes"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 std_since: null
 boost_equivalent: null
 build_modes: ["Debug", "Release"]
-last_verified: "2026-02-14"
+last_verified: "2026-02-22"
 audience: ["C++ developers", "game engine developers", "ECS architects", "AI assistants"]
 status: "reviewed"
 ---
