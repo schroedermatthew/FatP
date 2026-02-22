@@ -551,7 +551,7 @@ private:
  *       synchronize. Concurrent reads are safe.
  */
 template <typename T, typename Data, typename IndexPolicy = IdentityIndex<T>,
-          template <typename> class DataContainer = std::vector>
+          template <typename, typename...> class DataContainer = std::vector>
 class SparseSetWithData
 {
     using sparse_type = typename IndexPolicy::sparse_index_type;
