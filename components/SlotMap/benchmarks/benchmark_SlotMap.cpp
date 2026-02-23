@@ -493,7 +493,8 @@ enum class Case
     Erase25Percent,    // Erase 25% of elements
     EraseAll,          // Erase all elements one by one
     MixedWorkload,     // Interleaved insert/erase/access
-    SlotReuse          // Insert, erase, insert again (tests slot reuse)
+    SlotReuse,         // Insert, erase, insert again (tests slot reuse)
+    InsertAt           // Hint-based insertion at specific indices (snapshot restore pattern)
 };
 
 static inline const char* case_name(Case c)
@@ -516,6 +517,8 @@ static inline const char* case_name(Case c)
             return "Mixed Workload";
         case Case::SlotReuse:
             return "Slot Reuse";
+        case Case::InsertAt:
+            return "Insert At (hint-based)";
     }
     return "Unknown";
 }
@@ -793,11 +796,27 @@ public:
                 }
                 break;
             }
-        }
-        return ops;
-    }
-};
-#endif // HAS_FATP_SLOTMAP
+
+            case Case::InsertAt:
+            {
+                // Simulate snapshot-restore: insert_at specific indices to
+                // reconstruct a prior session's handle layout deterministically.
+                // Phase 1: build a "serialised" layout (sequential indices 0..N-1).
+                // Phase 2: restore into fresh map using insert_at.
+                mHandles.clear();
+                mMap->clear();
+                for (size_t i = 0; i < in.N && i < in.values.size(); ++i)
+                {
+                    // Each element inserted at its natural index; when the slot
+                    // is free this is O(1) amortized and places the element exactly
+                    // at hint_index.
+                    auto h = mMap->insert_at(static_cast<uint32_t>(i),
+                                             TestValue(in.values[i]));
+                    mHandles.push_back(h);
+                    ++ops;
+                }
+                break;
+            }
 
 // ============================================================================
 // EnTT Adapter (ECS sparse_set/storage pattern)
@@ -2388,6 +2407,98 @@ void benchmark_mixed_workload()
 }
 
 // ============================================================================
+// insert_at (Hint-Based Insertion) Benchmark
+// ============================================================================
+
+void benchmark_insert_at()
+{
+    std::cout << "\n";
+    std::cout << "================================================================================\n";
+    std::cout << "  SECTION 5: insert_at() — Hint-Based Insertion (Snapshot Restore)\n";
+    std::cout << "================================================================================\n";
+    std::cout << "\n  Compares insert_at() vs regular insert() to show the overhead of hint\n"
+              << "  processing. Primary use case: deterministic index reconstruction.\n\n";
+
+    print_cpu_context("Section start");
+
+#if HAS_FATP_SLOTMAP
+    std::mt19937_64 rng(55);
+    std::vector<size_t> sizes = {1000, 10000, 100000};
+
+    for (size_t N : sizes)
+    {
+        std::cout << "\n--- N = " << N << " ---\n";
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        Inputs in = Inputs::make(N);
+
+        // Two adapters, same type: one uses SequentialInsert, one uses InsertAt
+        FatPSlotMapAdapter adp_insert;
+        FatPSlotMapAdapter adp_insert_at;
+
+        std::vector<double> samples_insert;
+        std::vector<double> samples_insert_at;
+        samples_insert.reserve(MEASURED_RUNS());
+        samples_insert_at.reserve(MEASURED_RUNS());
+
+        // Warmup
+        for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+        {
+            adp_insert.setup(N);
+            adp_insert.run_operation(Case::SequentialInsert, in);
+            adp_insert.teardown();
+
+            adp_insert_at.setup(N);
+            adp_insert_at.run_operation(Case::InsertAt, in);
+            adp_insert_at.teardown();
+        }
+
+        // Measured runs (interleaved to share machine state fairly)
+        for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+        {
+            // Randomise order between the two variants each run
+            bool insert_first = (rng() & 1) == 0;
+
+            auto measure = [&](FatPSlotMapAdapter& adp, Case c, std::vector<double>& out) {
+                adp.setup(N);
+                Timer t;
+                t.start();
+                size_t ops = adp.run_operation(c, in);
+                double elapsed = t.elapsed_ns();
+                adp.teardown();
+                out.push_back(ns_per_op(elapsed, ops));
+            };
+
+            if (insert_first)
+            {
+                measure(adp_insert,    Case::SequentialInsert, samples_insert);
+                measure(adp_insert_at, Case::InsertAt,         samples_insert_at);
+            }
+            else
+            {
+                measure(adp_insert_at, Case::InsertAt,         samples_insert_at);
+                measure(adp_insert,    Case::SequentialInsert, samples_insert);
+            }
+        }
+
+        auto s_ins    = Statistics::compute(samples_insert);
+        auto s_ins_at = Statistics::compute(samples_insert_at);
+
+        std::cout << std::fixed << std::setprecision(2);
+        std::cout << "  insert()    median: " << std::setw(8) << s_ins.median
+                  << " ns/op (+/-" << std::setw(6) << s_ins.stddev << ")\n";
+        std::cout << "  insert_at() median: " << std::setw(8) << s_ins_at.median
+                  << " ns/op (+/-" << std::setw(6) << s_ins_at.stddev << ")\n";
+
+        double ratio = (s_ins.median > 0.0) ? (s_ins_at.median / s_ins.median) : 0.0;
+        std::cout << "  insert_at overhead: " << std::setprecision(2) << ratio << "x vs insert()\n";
+    }
+#else
+    std::cout << "\n  (fat_p::SlotMap not available — skipping insert_at benchmark)\n";
+#endif
+}
+
+// ============================================================================
 // Memory Comparison
 // ============================================================================
 
@@ -2542,6 +2653,9 @@ int main(int argc, char* argv[])
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before mixed workload");
     benchmark_mixed_workload();
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "before insert_at benchmark");
+    benchmark_insert_at();
 
     print_memory_comparison();
 

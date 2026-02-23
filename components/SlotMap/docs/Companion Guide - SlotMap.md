@@ -40,12 +40,13 @@ status: "reviewed"
 9. [The Free List](#chapter-9--the-free-list)
 10. [Dense vs. Entry Iteration](#chapter-10--dense-vs-entry-iteration)
 11. [Checked vs. Unchecked Access](#chapter-11--checked-vs-unchecked-access)
+12. [Hint-Based Insertion: insert_at](#chapter-11b--hint-based-insertion-insert_at)
 
 ## Part III — Putting It Together
 
-12. [Case Study: Game Entity Management](#chapter-12--case-study-game-entity-management)
-13. [Case Study: Resource Pool with Handles](#chapter-13--case-study-resource-pool-with-handles)
-14. [Case Study: Event Listener Registry](#chapter-14--case-study-event-listener-registry)
+13. [Case Study: Game Entity Management](#chapter-12--case-study-game-entity-management)
+14. [Case Study: Resource Pool with Handles](#chapter-13--case-study-resource-pool-with-handles)
+15. [Case Study: Event Listener Registry](#chapter-14--case-study-event-listener-registry)
 15. [Choosing the Right Container](#chapter-15--choosing-the-right-container)
 16. [Migration from Pointers and Indices](#chapter-16--migration-from-pointers-and-indices)
 
@@ -703,6 +704,133 @@ for (auto h : valid_handles) {
 If you've already validated handles (by iterating entries, for example), re-validating in a tight loop is pure overhead. `get_unchecked` eliminates this.
 
 **The contract:** Using `get_unchecked` with an invalid handle is undefined behavior. The caller is responsible for ensuring validity.
+
+---
+
+# **CHAPTER 11B — Hint-Based Insertion: insert_at**
+
+## The Problem: Deterministic Handle Reconstruction
+
+The standard `insert()` assigns slot indices from a free list — the exact index is an implementation detail, not a contract. This is intentional for normal usage, but creates a problem when you need to **reproduce a prior handle layout** exactly:
+
+```cpp
+// Session A:
+auto h = map.insert(entity);   // might get index 7 this run, 12 next run
+save_to_disk(h.index, entity); // serialise the index
+
+// Session B (naïve restore attempt):
+auto h2 = map.insert(entity);  // gets some OTHER index — h.index != h2.index!
+// External systems holding the saved index are now wrong.
+```
+
+Without `insert_at`, restoring a saved session requires a full ID-translation pass — mapping old indices to new ones and patching every reference. This is O(n) extra work and a common source of bugs.
+
+## The Solution: insert_at
+
+```cpp
+template <typename... Args>
+[[nodiscard]] Handle insert_at(size_type hint_index, Args&&... args);
+```
+
+`insert_at` places the element at `hint_index` **if that slot is free**. If occupied, it transparently falls back to normal insertion.
+
+```cpp
+// Session B (correct restore):
+for (auto& [saved_index, data] : snapshot) {
+    auto h = map.insert_at(saved_index, data);
+    assert(h.index == saved_index); // guaranteed when slot was free
+}
+// No translation table needed. External handle-index references stay valid.
+```
+
+## How It Works Internally
+
+Three slot states at `hint_index`:
+
+**1. Never used (`generation == 0`):** The slot is free. `insert_at` occupies it directly, incrementing generation to 1. Fast path.
+
+**2. Previously erased (`data_index == UINT32_MAX`):** The slot is in the free list. `insert_at` removes it from the free list (linear scan, acceptable for restore paths) and occupies it. ABA-safe: generation is already > 0 and increments again.
+
+**3. Currently occupied:** The slot holds a live element. `insert_at` falls back to `insert()`. The hint is silently ignored and the returned handle will have a different index.
+
+**4. Beyond `slot_count()`:** The slot array is extended to `hint_index + 1`. Every intermediate slot is initialised and pushed onto the free list, so subsequent normal `insert()` calls can reclaim them.
+
+## Complexity
+
+| Path | Complexity | Trigger |
+|------|-----------|---------|
+| Hint in range, slot free | O(1) amortised | Normal snapshot restore |
+| Hint in range, in free list | O(free_list.size()) | Rare; only during out-of-order restore |
+| Hint beyond slot_count | O(hint - slot_count) | First restore of a sparse session |
+| Slot occupied (fallback) | O(1) amortised | insert() behaviour |
+
+## ABA Safety
+
+`insert_at` increments the generation counter identically to `insert()`. Stale handles from a previous occupant remain invalid after an `insert_at`:
+
+```cpp
+auto old = map.insert(42);       // index 0, gen 1
+map.erase(old);                  // index 0 freed, internal gen = 2
+auto fresh = map.insert_at(0, 99); // index 0, gen 3 (skips 0, never wraps to 0)
+assert(!map.is_valid(old));      // true — old generation != current
+assert( map.is_valid(fresh));    // true
+```
+
+## Primary Use Cases
+
+### Snapshot / Save-Game Restore
+
+The canonical case. Record `(handle.index, value)` when saving; replay with `insert_at` when loading. Cross-system references to the saved indices remain valid without a fixup pass.
+
+```cpp
+// Save
+for (auto entry : world.entities.entries()) {
+    file << entry.handle.index << " " << entry.value;
+}
+
+// Load
+SlotMap<Entity> fresh;
+uint32_t idx; Entity e;
+while (file >> idx >> e) {
+    fresh.insert_at(idx, e);
+}
+```
+
+### Deterministic Network Replication
+
+Server assigns entity IDs using `insert_at`; clients replicate with the same indices:
+
+```cpp
+// Server: authoritative insert
+auto h = server_entities.insert_at(server_next_id++, entity);
+broadcast(h.index, entity); // send index, not the full handle
+
+// Client: mirror the server's layout
+client_entities.insert_at(received_index, entity);
+// client handle.index == server handle.index — no translation table needed
+```
+
+### Pitfalls
+
+**Gap slots waste memory if hints are sparse:**
+
+```cpp
+SlotMap<Entity> map;
+map.insert_at(999999, e); // Creates 999,999 free slots to fill the gap!
+// Prefer reserve() and sequential inserts when possible, or use insert_at
+// only for indices close to the current slot_count.
+```
+
+**Hint is not a guarantee for occupied slots:**
+
+```cpp
+// If slot 5 is already live, insert_at(5, ...) silently uses a different slot.
+// Always check h.index == hint_index if exact placement is required.
+auto h = map.insert_at(5, data);
+if (h.index != 5) {
+    // Slot was occupied — handle this case explicitly
+}
+```
 
 ---
 

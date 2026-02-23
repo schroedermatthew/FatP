@@ -624,6 +624,123 @@ public:
     }
 
     /**
+     * @brief Insert element at a preferred slot index (hint-based insertion).
+     *
+     * Tries to place the new element at @p hint_index. If the slot is free
+     * (never used or previously erased), that exact slot is used and the
+     * returned handle will have @p hint_index as its index. If the slot is
+     * occupied, falls back to normal insert() and the hint is ignored.
+     *
+     * Primary use cases:
+     * - Snapshot restore: replay serialized entity IDs without a fixup pass.
+     * - Network sync: two peers create entities in the same order, same IDs.
+     * - Deterministic simulation: known ID assignment without coordination.
+     *
+     * @param hint_index Preferred slot index. Out-of-range values fall back to
+     *                   normal insertion (new slots are allocated as needed).
+     * @param args       Arguments forwarded to T's constructor.
+     * @return Handle to the inserted element. Check handle.index == hint_index
+     *         to determine if the hint was honoured.
+     *
+     * @note Complexity: O(n) worst case if hint_index requires growing mSlots
+     *       past its current size (rare; happens only when hint > slot_count).
+     *       O(1) amortized for typical snapshot-restore usage.
+     *
+     * @note Free-list slots that are not the hinted index are preserved; this
+     *       method removes only the hinted index from the free list (or extends
+     *       the slot array) rather than using mFreeList.back().
+     *
+     * @example
+     * @code
+     *   // Restore a saved entity with its original ID:
+     *   auto handle = slotmap.insert_at(saved_index, saved_value);
+     *   assert(handle.index == saved_index); // guaranteed when slot was free
+     * @endcode
+     */
+    template <typename... Args>
+    [[nodiscard]] Handle insert_at(size_type hint_index, Args&&... args)
+    {
+        // --- fast path: hint is out of range or slot is occupied ---
+        // Occupied: within range AND generation != 0 AND data_index != UINT32_MAX.
+        const bool in_range = hint_index < static_cast<size_type>(mSlots.size());
+        if (in_range)
+        {
+            const Slot& s = mSlots[hint_index];
+            const bool never_used = (s.generation == 0);
+            const bool was_erased = (s.data_index == std::numeric_limits<size_type>::max());
+            const bool slot_is_free = never_used || was_erased;
+            if (!slot_is_free)
+            {
+                // Slot occupied — fall back to normal insert.
+                return insert(std::forward<Args>(args)...);
+            }
+        }
+
+        // --- slow path: grow slot array up to hint_index if needed ---
+        if (!in_range)
+        {
+            // Extend mSlots to include hint_index, pushing newly created slots
+            // (other than hint_index) onto the free list.
+            const size_type old_size = static_cast<size_type>(mSlots.size());
+            mSlots.resize(hint_index + 1); // default-initialises new slots
+            for (size_type i = old_size; i < hint_index; ++i)
+            {
+                // Mark as free so subsequent insert() can reuse them.
+                mSlots[i].data_index = std::numeric_limits<size_type>::max();
+                mFreeList.push_back(i);
+            }
+            // hint_index slot is left with default (generation=0, data_index=0);
+            // we'll use it below.
+        }
+        else
+        {
+            // Slot was in the free list — remove it. Linear scan, but this is
+            // only hit during snapshot restore, not the hot path.
+            auto it = std::find(mFreeList.begin(), mFreeList.end(), hint_index);
+            if (it != mFreeList.end())
+            {
+                mFreeList.erase(it);
+            }
+        }
+
+        // --- occupy hint_index ---
+        Slot& slot = mSlots[hint_index];
+
+        if (++slot.generation == 0)
+        {
+            slot.generation = 1;
+        }
+
+        // Insert data with exception safety.
+        try
+        {
+            mData.emplace_back(std::forward<Args>(args)...);
+        }
+        catch (...)
+        {
+            // Rollback: return slot to free list.
+            --slot.generation;
+            mFreeList.push_back(hint_index);
+            throw;
+        }
+
+        try
+        {
+            mEraseMap.push_back(hint_index);
+        }
+        catch (...)
+        {
+            mData.pop_back();
+            --slot.generation;
+            mFreeList.push_back(hint_index);
+            throw;
+        }
+
+        slot.data_index = static_cast<size_type>(mData.size() - 1);
+        return Handle{hint_index, slot.generation};
+    }
+
+    /**
      * @brief Erase element by handle.
      *
      * @param handle The handle to the element to erase.

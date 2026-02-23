@@ -982,6 +982,196 @@ FATP_TEST_CASE(swap_member)
     return true;
 }
 
+// =============================================================================
+// insert_at() Tests
+// =============================================================================
+
+// Test: insert_at honours hint when slot is free
+FATP_TEST_CASE(insert_at_honours_hint_free_slot)
+{
+    SlotMap<int> map;
+
+    // Insert at a slot that has never been used
+    auto h = map.insert_at(5, 42);
+
+    FATP_ASSERT_EQ(h.index, 5u, "Hint should be honoured for an unused slot");
+    FATP_ASSERT_TRUE(map.is_valid(h), "Returned handle should be valid");
+    FATP_ASSERT_EQ(*map.get(h), 42, "Value should be correct");
+
+    return true;
+}
+
+// Test: insert_at honours hint when slot was previously erased
+FATP_TEST_CASE(insert_at_honours_hint_erased_slot)
+{
+    SlotMap<int> map;
+
+    // Build up a slot at index 2, then erase it
+    (void)map.insert(10); // index 0
+    (void)map.insert(20); // index 1
+    auto h2 = map.insert(30); // index 2
+    FATP_ASSERT_EQ(h2.index, 2u, "Precondition: h2 at index 2");
+
+    map.erase(h2);
+
+    // Now insert_at(2, ...) should land on the free slot
+    auto h_new = map.insert_at(2, 99);
+
+    FATP_ASSERT_EQ(h_new.index, 2u, "Hint should be honoured for an erased slot");
+    FATP_ASSERT_TRUE(map.is_valid(h_new), "New handle should be valid");
+    FATP_ASSERT_FALSE(map.is_valid(h2), "Old handle must remain invalid (new generation)");
+    FATP_ASSERT_EQ(*map.get(h_new), 99, "Value should be correct");
+
+    return true;
+}
+
+// Test: insert_at falls back to normal insert when slot is occupied
+FATP_TEST_CASE(insert_at_fallback_when_occupied)
+{
+    SlotMap<int> map;
+
+    auto h0 = map.insert(100); // index 0
+    FATP_ASSERT_EQ(h0.index, 0u, "Precondition: h0 at index 0");
+
+    // Attempt to insert at the already-occupied index 0
+    auto h_new = map.insert_at(0, 200);
+
+    // Fallback: result goes somewhere else
+    FATP_ASSERT_NE(h_new.index, 0u, "Should not use the occupied slot");
+    FATP_ASSERT_TRUE(map.is_valid(h_new), "Fallback handle should be valid");
+    FATP_ASSERT_EQ(*map.get(h_new), 200, "Value should be correct");
+
+    // Original element must be untouched
+    FATP_ASSERT_TRUE(map.is_valid(h0), "Original handle should remain valid");
+    FATP_ASSERT_EQ(*map.get(h0), 100, "Original value should be unchanged");
+
+    return true;
+}
+
+// Test: insert_at grows the slot array when hint is beyond current range
+FATP_TEST_CASE(insert_at_extends_slot_array)
+{
+    SlotMap<int> map;
+
+    // Map is empty; hint index 10 is well beyond slot_count() == 0
+    auto h = map.insert_at(10, 77);
+
+    FATP_ASSERT_EQ(h.index, 10u, "Hint beyond range should allocate new slots");
+    FATP_ASSERT_TRUE(map.is_valid(h), "Handle should be valid");
+    FATP_ASSERT_EQ(*map.get(h), 77, "Value should be correct");
+
+    // Slots 0–9 should be in the free list (allocated but unused)
+    FATP_ASSERT_EQ(map.slot_count(), 11u, "slot_count should be hint+1");
+    FATP_ASSERT_EQ(map.free_slot_count(), 10u, "Slots 0-9 should be free");
+
+    return true;
+}
+
+// Test: intermediate free slots from insert_at extension are reusable
+FATP_TEST_CASE(insert_at_intermediate_slots_reusable)
+{
+    SlotMap<int> map;
+
+    // Create gap slots 0-4 by hinting at index 5
+    (void)map.insert_at(5, 500);
+
+    // Normal inserts should reclaim the free slots 0-4
+    std::vector<SlotMap<int>::Handle> handles;
+    for (int i = 0; i < 5; ++i)
+    {
+        handles.push_back(map.insert(i * 10));
+    }
+
+    // No new slots should have been allocated beyond 6
+    FATP_ASSERT_EQ(map.slot_count(), 6u, "All 6 slots should be in use now");
+    FATP_ASSERT_EQ(map.free_slot_count(), 0u, "No free slots should remain");
+
+    // All handles should be valid with correct values
+    for (int i = 0; i < 5; ++i)
+    {
+        FATP_ASSERT_TRUE(map.is_valid(handles[i]), "Handle should be valid");
+        FATP_ASSERT_EQ(*map.get(handles[i]), i * 10, "Value should match");
+    }
+
+    return true;
+}
+
+// Test: insert_at preserves ABA safety (new generation after erase + insert_at)
+FATP_TEST_CASE(insert_at_aba_safety)
+{
+    SlotMap<int> map;
+
+    auto h_orig = map.insert(1); // index 0, gen 1
+    map.erase(h_orig);           // index 0 freed, gen incremented
+
+    auto h_new = map.insert_at(0, 2); // should land at index 0, new gen
+
+    FATP_ASSERT_EQ(h_new.index, 0u, "Should reuse slot 0");
+    FATP_ASSERT_NE(h_new.generation, h_orig.generation, "Generations must differ");
+    FATP_ASSERT_FALSE(map.is_valid(h_orig), "Old handle must be invalid");
+    FATP_ASSERT_TRUE(map.is_valid(h_new), "New handle must be valid");
+
+    return true;
+}
+
+// Test: insert_at with in-place construction (variadic args)
+FATP_TEST_CASE(insert_at_variadic_args)
+{
+    SlotMap<Entity> map;
+
+    auto h = map.insert_at(3, 42, "Hinted", 75.0f);
+
+    FATP_ASSERT_EQ(h.index, 3u, "Hint should be honoured");
+    FATP_ASSERT_TRUE(map.is_valid(h), "Handle should be valid");
+    FATP_ASSERT_EQ(map.get(h)->id, 42, "ID should match");
+    FATP_ASSERT_EQ(map.get(h)->name, "Hinted", "Name should match");
+
+    return true;
+}
+
+// Test: insert_at snapshot-restore round-trip
+FATP_TEST_CASE(insert_at_snapshot_restore)
+{
+    SlotMap<int> map;
+
+    // Simulate a serialised session: insert some items, record handles
+    auto h0 = map.insert(10);
+    auto h1 = map.insert(20);
+    auto h2 = map.insert(30);
+    (void)map.erase(h1); // leave a gap
+
+    // Save (index, value) pairs as "snapshot"
+    struct Snap { uint32_t index; int value; };
+    std::vector<Snap> snapshot;
+    for (auto entry : map.entries())
+    {
+        snapshot.push_back({entry.handle.index, entry.value});
+    }
+
+    // Restore into a fresh map
+    SlotMap<int> restored;
+    std::vector<SlotMap<int>::Handle> restored_handles;
+    for (auto& s : snapshot)
+    {
+        restored_handles.push_back(restored.insert_at(s.index, s.value));
+    }
+
+    // Every restored handle must sit at its original index
+    for (size_t i = 0; i < snapshot.size(); ++i)
+    {
+        FATP_ASSERT_EQ(restored_handles[i].index, snapshot[i].index,
+                       "Restored handle index must match snapshot");
+        FATP_ASSERT_EQ(*restored.get(restored_handles[i]), snapshot[i].value,
+                       "Restored value must match snapshot");
+    }
+
+    // h0 and h2's indices should still be valid in restored map
+    FATP_ASSERT_TRUE(restored.is_valid(restored_handles[0]), "First restored handle should be valid");
+    (void)h0; (void)h2;
+
+    return true;
+}
+
 // Test: shrink_to_fit() reduces memory
 FATP_TEST_CASE(shrink_to_fit)
 {
@@ -1075,6 +1265,16 @@ bool test_SlotMap()
     // Critical bug fix tests
     FATP_RUN_TEST_NS(runner, slotmap, clear_aba_fix);
     FATP_RUN_TEST_NS(runner, slotmap, generation_wrap_skips_zero);
+
+    // insert_at tests
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_honours_hint_free_slot);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_honours_hint_erased_slot);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_fallback_when_occupied);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_extends_slot_array);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_intermediate_slots_reusable);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_aba_safety);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_variadic_args);
+    FATP_RUN_TEST_NS(runner, slotmap, insert_at_snapshot_restore);
 
     // New API tests
     FATP_RUN_TEST_NS(runner, slotmap, at_throws_on_invalid);

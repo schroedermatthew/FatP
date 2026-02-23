@@ -986,6 +986,7 @@ struct SlotMapHandle
 |--------|-------------|
 | `Handle insert(Args&&...)` | Insert element, returns handle |
 | `Handle emplace(Args&&...)` | Alias for insert |
+| `Handle insert_at(size_type hint, Args&&...)` | Insert at preferred slot index (see §[insert_at](#insert_at--hint-based-insertion)) |
 | `bool erase(Handle)` | Erase element, returns success |
 | `void clear()` | Remove all elements |
 | `void reserve(size_type)` | Reserve capacity |
@@ -1018,6 +1019,77 @@ struct SlotMapHandle
 | `begin()` / `end()` | Value iteration |
 | `cbegin()` / `cend()` | Const value iteration |
 | `entries()` | (Handle, value) pair iteration |
+
+---
+
+## insert_at — Hint-Based Insertion
+
+`insert_at(hint_index, args...)` attempts to place the new element at a specific slot index. It is designed for scenarios where you need the returned handle to carry a particular index value — most commonly when reconstructing a prior session's handle layout from a snapshot.
+
+```cpp
+template <typename... Args>
+[[nodiscard]] Handle insert_at(size_type hint_index, Args&&... args);
+```
+
+### Behaviour
+
+| Slot state at `hint_index` | Result |
+|----------------------------|--------|
+| Never used or previously erased | Element placed at `hint_index`; `handle.index == hint_index` |
+| Currently occupied | Falls back to normal `insert()`; `handle.index != hint_index` |
+| Beyond current `slot_count()` | Slot array extended; gap indices added to the free list |
+
+Check `handle.index == hint_index` after the call to confirm whether the hint was honoured.
+
+### Complexity
+
+- **O(1) amortised** when `hint_index` is within the current slot array and the slot is free.
+- **O(n)** worst case when `hint_index` extends the slot array far beyond its current size (each new gap slot is pushed onto the free list).
+
+### Use Cases
+
+**Snapshot / save-game restore** — replay handle indices from a serialised session without a post-load fixup pass:
+
+```cpp
+// Save: record (index, value) for every live entry
+std::vector<std::pair<uint32_t, MyData>> snapshot;
+for (auto entry : map.entries()) {
+    snapshot.push_back({entry.handle.index, entry.value});
+}
+
+// Restore: reconstruct identical indices in a fresh map
+fat_p::SlotMap<MyData> restored;
+for (auto& [idx, data] : snapshot) {
+    auto h = restored.insert_at(idx, data);
+    assert(h.index == idx);  // guaranteed when slot was free
+}
+```
+
+**Deterministic network replication** — two peers create entities in the same order and end up with identical handle indices:
+
+```cpp
+// Server and client both call:
+auto h = entities.insert_at(server_assigned_id, entity_data);
+// Both now hold handles with matching indices — no ID-translation table needed
+```
+
+### ABA Safety
+
+`insert_at` increments the slot's generation counter just like regular `insert()`. Stale handles from a previous occupant of that slot remain invalid after `insert_at`.
+
+```cpp
+auto old = map.insert(42);          // slot 0, gen 1
+map.erase(old);                     // slot 0 freed, gen 2 internally
+auto fresh = map.insert_at(0, 99); // slot 0, gen 3 (or next odd value)
+assert(!map.is_valid(old));         // true — old handle still dead
+assert(map.is_valid(fresh));        // true
+```
+
+### Pitfalls
+
+- **Hint not guaranteed:** If the hinted slot is occupied, the element goes elsewhere. Always check `handle.index` if exact placement matters.
+- **Gap slots cost memory:** `insert_at(1000)` on an empty map creates 1000 free slots. Use `reserve()` first if large indices are expected.
+- **Not a general-purpose API:** For normal insertion patterns, prefer `insert()`. `insert_at` is specifically for snapshot-restore and replication use cases.
 
 ---
 
@@ -1056,6 +1128,10 @@ fat_p::SlotMap<MyType> map;
 
 // Insert
 auto handle = map.insert(args...);
+
+// Insert at a preferred slot index (snapshot restore / deterministic sync)
+auto h = map.insert_at(saved_index, args...);
+if (h.index == saved_index) { /* hint was honoured */ }
 
 // Access (validated)
 if (MyType* ptr = map.get(handle)) { ... }

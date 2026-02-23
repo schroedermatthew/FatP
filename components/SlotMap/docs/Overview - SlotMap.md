@@ -219,6 +219,26 @@ size_t cap = entities.capacity();  // Current slot capacity
 size_t sz = entities.size();       // Number of alive elements
 ```
 
+### 7. Hint-Based Insertion (`insert_at`)
+
+For snapshot restore, network replication, and deterministic simulation, `insert_at` places an element at a preferred slot index so the returned handle carries a pre-known index value:
+
+```cpp
+// Restore a saved session: replay entity IDs without a post-load fixup pass
+for (auto& [saved_index, data] : snapshot) {
+    auto h = entities.insert_at(saved_index, data);
+    // h.index == saved_index when that slot was free (typical restore path)
+}
+```
+
+| Slot state | Outcome |
+|------------|---------|
+| Free (never used or erased) | Element placed at `hint_index`; hint honoured |
+| Occupied | Falls back to normal `insert()`; hint ignored |
+| Beyond `slot_count()` | Slot array extended; gap slots added to free list |
+
+Complexity is O(1) amortised for the normal snapshot-restore path. ABA safety is preserved: the generation counter increments on every `insert_at` just as with `insert()`.
+
 ---
 
 ## Why Not Alternatives?
