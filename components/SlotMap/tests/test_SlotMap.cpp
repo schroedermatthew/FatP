@@ -1087,10 +1087,10 @@ FATP_TEST_CASE(insert_at_intermediate_slots_reusable)
     FATP_ASSERT_EQ(map.free_slot_count(), 0u, "No free slots should remain");
 
     // All handles should be valid with correct values
-    for (int i = 0; i < 5; ++i)
+    for (size_t i = 0; i < 5; ++i)
     {
         FATP_ASSERT_TRUE(map.is_valid(handles[i]), "Handle should be valid");
-        FATP_ASSERT_EQ(*map.get(handles[i]), i * 10, "Value should match");
+        FATP_ASSERT_EQ(*map.get(handles[i]), static_cast<int>(i) * 10, "Value should match");
     }
 
     return true;
