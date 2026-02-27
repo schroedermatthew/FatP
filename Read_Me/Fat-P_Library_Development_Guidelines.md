@@ -2069,6 +2069,7 @@ AI assistants have a systemic tendency to identify the correct structural fix, d
 | AI identifies masked-index ABA as root cause of `size()` bug, knows monotonic counters eliminate it | Ship retry loop, offer monotonic rewrite as "optional second patch" | Implement monotonic counter rewrite |
 | Test has measurement flaw (timing skew), AI knows bracketed observation fixes it | Only fix the test, leave the header bug | Fix the header bug; fix the test measurement independently |
 | AI finds off-by-one in loop bound, also notices the loop's algorithm is O(n²) when O(n) exists | Fix the off-by-one only | Fix the off-by-one AND flag the algorithmic issue as a separate finding (the off-by-one is the assigned task; the algorithm is a discovery that must be surfaced, not silently deferred) |
+| Benchmark shows component-add regression vs. competitor; AI attributes it to a known overhead source (virtual dispatch) without verifying that attribution covers the observed magnitude | Report "virtual dispatch is the cost" as the conclusion; implement the virtual-bypass optimization; declare the regression explained | Verify the attributed cause accounts for the full observed delta before closing the investigation; when it does not, keep investigating — in this case, `SparseSetWithData::ensureSparseCapacity` called `mSparse.resize(sparseIndex + 1)` with no growth factor, causing O(N) reallocations across N insertions. The virtual dispatch fix recovered ~0.10x; the exact-resize pattern was the structural root cause and was left undetected because the first plausible explanation was accepted without magnitude verification |
 
 **Why this is load-bearing:** AI systems optimize for perceived helpfulness and completion speed. Shipping a band-aid feels like progress -- the tests go green, the user sees a diff, the conversation moves forward. But the product carries a known defect that will resurface. Two independent AI systems (Claude and ChatGPT) exhibited this identical pattern on the same bug, confirming it is a systemic tendency, not a one-off mistake.
 
@@ -2400,6 +2401,10 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ## Changelog
 
+### v3.8 (February 2026)
+- Added fourth example row to §11.3.12 Band-Aid Rule table: benchmark regression attributed to virtual dispatch without magnitude verification; structural root cause (`SparseSetWithData::ensureSparseCapacity` exact-resize with no growth factor) went undetected because the first plausible explanation was accepted
+- Principle added: when attributing a performance regression to a cause, verify the attributed cause accounts for the full observed magnitude before closing the investigation
+
 ### v3.7 (February 2026)
 - Added §8.6: Performance Claims in Headers and Documentation — no specific benchmark numbers (multipliers, absolute timings, percentages) in headers or user-facing documentation prose
 - Companion Guides and Case Studies exempt (historical narratives about development process)
@@ -2547,5 +2552,5 @@ Before changing any rule, ask: *"Does this make AI output more constrained or le
 
 ---
 
-*Fat-P Library Development Guidelines v3.7 -- February 2026*
-*v3.7: Narrowed §8.2 vocabulary ban scope — banned terms apply to component Overviews, User Manuals, and Companion Guides; teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, etc.) are exempt*
+*Fat-P Library Development Guidelines v3.8 -- February 2026*
+*v3.8: Added magnitude-verification principle to §11.3.12 Band-Aid Rule; v3.7: Narrowed §8.2 vocabulary ban scope — banned terms apply to component Overviews, User Manuals, and Companion Guides; teaching documents (Case Studies, Handbooks, Foundations, Migration Guides, etc.) are exempt*
