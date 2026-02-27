@@ -517,7 +517,13 @@ private:
         const size_type required = sparseIndex + 1;
         if (required > mSparse.size())
         {
-            mSparse.resize(required);
+            // Geometric growth: double from current capacity until sufficient.
+            // Avoids O(N^2) reallocation cost when inserting N sequential keys.
+            // reserve() (public API) retains exact sizing for known-bound pre-allocation.
+            size_type newCapacity = mSparse.size() < 64 ? 64 : mSparse.size();
+            while (newCapacity < required)
+                newCapacity *= 2;
+            mSparse.resize(newCapacity);
         }
 
         return sparseIndex;
@@ -1051,7 +1057,13 @@ private:
         const size_type required = sparseIndex + 1;
         if (required > mSparse.size())
         {
-            mSparse.resize(required);
+            // Geometric growth: double from current capacity until sufficient.
+            // Avoids O(N^2) reallocation cost when inserting N sequential keys.
+            // reserve() (public API) retains exact sizing for known-bound pre-allocation.
+            size_type newCapacity = mSparse.size() < 64 ? 64 : mSparse.size();
+            while (newCapacity < required)
+                newCapacity *= 2;
+            mSparse.resize(newCapacity);
         }
 
         return sparseIndex;
