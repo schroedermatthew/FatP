@@ -1451,7 +1451,8 @@ static void benchmark_core_operations(const std::vector<size_t>& sizes)
     print_cpu_context("Section start");
 
     std::cout << "Contract Note: O(1) insert/erase/contains; dense iteration; unstable erase order\n";
-    std::cout << "              Insert excludes allocation (reserve performed in setup)\n\n";
+    std::cout << "              Insert excludes allocation (reserve performed in setup).\n";
+    std::cout << "              See Section 6 (Cold Insert) for growth-path measurements.\n\n";
 
     std::mt19937 rng(static_cast<unsigned>(g_config.seed));
 
@@ -2206,6 +2207,313 @@ static void benchmark_index_policy(const std::vector<size_t>& sizes)
 }
 
 // ============================================================================
+// Benchmark: Cold Insert (No Pre-Reserve)
+// ============================================================================
+// Measures insert-from-empty with no prior reserve() call.
+//
+// ALL other benchmarks in this file call reserve(N*10) before the timed region,
+// which pre-sizes the sparse array to cover the entire key range.
+// ensureSparseCapacity() then finds capacity already sufficient on every call
+// and returns immediately — the growth path is never exercised.
+//
+// This section constructs a fresh set inside each timed run so that
+// ensureSparseCapacity() must actually grow the sparse array as inserts arrive.
+// Keys are drawn from [0, N*10] (same distribution as BenchInputs), so the
+// sparse array must grow from 0 to ~N*10 entries across N insertions.
+//
+// This is the access pattern that exposes an exact-resize bug:
+//   mSparse.resize(sparseIndex + 1)   -- O(N^2) total allocation work
+// vs the correct geometric growth:
+//   double capacity until sufficient   -- O(N) total allocation work
+//
+// It also matches the real ECS workload: ComponentStore starts empty and
+// entities are added one at a time with no advance knowledge of the key range.
+//
+// Competitors included for comparison. Note: entt::sparse_set uses a page-table
+// sparse structure that never linearly resizes, so its cold-insert cost is
+// fundamentally different from a flat sparse array.
+
+static void benchmark_cold_insert(const std::vector<size_t>& sizes)
+{
+    print_header("SECTION 6: Cold Insert (No Pre-Reserve, Growth Path Active)");
+    print_cpu_context("Section start");
+
+    std::cout << "Contract Note: Constructs a fresh set per timed run with no prior reserve().\n";
+    std::cout << "              ensureSparseCapacity() must grow the sparse array on each insert.\n";
+    std::cout << "              This is the access pattern that exposes exact-resize vs geometric-\n";
+    std::cout << "              growth bugs. Keys drawn from [0, N*10] (same as other sections).\n\n";
+
+    std::mt19937 rng(static_cast<unsigned>(g_config.seed));
+
+    for (size_t N : sizes)
+    {
+        std::cout << "\n--- N = " << N << " ---\n";
+        print_cpu_context();
+        cooling_delay(COOLING_DELAY_SIZE_MS, "size transition");
+
+        BenchInputs inputs = BenchInputs::make(N, g_config.seed);
+
+        struct ColdResult
+        {
+            std::string label;
+            std::vector<double> samples;
+        };
+
+        std::vector<ColdResult> results;
+
+        // ---- fat_p::SparseSet<uint32_t> cold insert ----
+        {
+            ColdResult r;
+            r.label = "fat_p::SparseSet<32> (cold)";
+
+            // Warmup
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                fat_p::SparseSet<uint32_t> s; // fresh, no reserve
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.insert(key);
+                }
+                DoNotOptimize(s.size());
+            }
+
+            // Measured: construct fresh set inside timed region
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::SparseSet<uint32_t> s; // fresh, no reserve
+
+                Timer t;
+                t.start();
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.insert(key);
+                }
+                double elapsed = t.elapsed_ns();
+
+                prevent_opt(static_cast<int64_t>(s.size()));
+                r.samples.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+            }
+
+            results.push_back(std::move(r));
+        }
+
+        // ---- fat_p::SparseSet<uint32_t> warm insert (reserve pre-done) ----
+        // Included as a reference point: shows how much faster warm insert is.
+        // The gap between warm and cold is the cost of sparse array growth.
+        {
+            ColdResult r;
+            r.label = "fat_p::SparseSet<32> (warm, reserve)";
+
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                fat_p::SparseSet<uint32_t> s;
+                s.reserve(N * 10);
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.insert(key);
+                }
+                DoNotOptimize(s.size());
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::SparseSet<uint32_t> s;
+                s.reserve(N * 10); // pre-sized — growth path bypassed
+
+                Timer t;
+                t.start();
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.insert(key);
+                }
+                double elapsed = t.elapsed_ns();
+
+                prevent_opt(static_cast<int64_t>(s.size()));
+                r.samples.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+            }
+
+            results.push_back(std::move(r));
+        }
+
+        // ---- fat_p::SparseSetWithData<uint32_t, double> cold insert ----
+        // ComponentStore uses SparseSetWithData, so this is the direct ECS path.
+        {
+            ColdResult r;
+            r.label = "fat_p::SparseSetWithData<32> (cold)";
+
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<uint32_t, double> s;
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    DoNotOptimize(s.tryEmplace(key, static_cast<double>(key)));
+                }
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<uint32_t, double> s;
+
+                Timer t;
+                t.start();
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    double* ptr = s.tryEmplace(key, static_cast<double>(key));
+                    DoNotOptimize(ptr);
+                }
+                double elapsed = t.elapsed_ns();
+
+                prevent_opt(static_cast<int64_t>(s.size()));
+                r.samples.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+            }
+
+            results.push_back(std::move(r));
+        }
+
+        // ---- fat_p::SparseSetWithData<uint32_t, double> warm insert ----
+        {
+            ColdResult r;
+            r.label = "fat_p::SparseSetWithData<32> (warm, reserve)";
+
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<uint32_t, double> s;
+                s.reserve(N * 10);
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    DoNotOptimize(s.tryEmplace(key, static_cast<double>(key)));
+                }
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                fat_p::SparseSetWithData<uint32_t, double> s;
+                s.reserve(N * 10);
+
+                Timer t;
+                t.start();
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    double* ptr = s.tryEmplace(key, static_cast<double>(key));
+                    DoNotOptimize(ptr);
+                }
+                double elapsed = t.elapsed_ns();
+
+                prevent_opt(static_cast<int64_t>(s.size()));
+                r.samples.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+            }
+
+            results.push_back(std::move(r));
+        }
+
+#if HAS_ENTT
+        // ---- entt::sparse_set cold insert ----
+        // EnTT's page-table sparse structure never linearly resizes, so its
+        // cold-insert cost is structurally different. Included as the direct
+        // competitor that triggered the ECS regression investigation.
+        {
+            ColdResult r;
+            r.label = "entt::sparse_set (cold)";
+
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                entt::sparse_set s;
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.push(static_cast<entt::entity>(key));
+                }
+                DoNotOptimize(s.size());
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                entt::sparse_set s;
+
+                Timer t;
+                t.start();
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.push(static_cast<entt::entity>(key));
+                }
+                double elapsed = t.elapsed_ns();
+
+                prevent_opt(static_cast<int64_t>(s.size()));
+                r.samples.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+            }
+
+            results.push_back(std::move(r));
+        }
+#endif
+
+        // ---- std::unordered_set cold insert (no reserve) ----
+        // Hash set baseline: internal bucket growth is always geometric,
+        // so this shows what cold insert looks like with a correct growth policy.
+        {
+            ColdResult r;
+            r.label = "std::unordered_set (cold)";
+
+            for (size_t run = 0; run < WARMUP_RUNS(); ++run)
+            {
+                std::unordered_set<uint32_t> s;
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.insert(key);
+                }
+                DoNotOptimize(s.size());
+            }
+
+            for (size_t run = 0; run < MEASURED_RUNS(); ++run)
+            {
+                std::unordered_set<uint32_t> s;
+
+                Timer t;
+                t.start();
+                for (uint32_t key : inputs.insertKeys)
+                {
+                    s.insert(key);
+                }
+                double elapsed = t.elapsed_ns();
+
+                prevent_opt(static_cast<int64_t>(s.size()));
+                r.samples.push_back(ns_per_op(elapsed, inputs.insertKeys.size()));
+            }
+
+            results.push_back(std::move(r));
+        }
+
+        // Print results
+        std::cout << "\n  Cold insert (ns/op):\n";
+        for (const auto& r : results)
+        {
+            auto stats = Statistics::compute(r.samples);
+            print_result_row(r.label, stats);
+        }
+
+        // Print cold/warm ratio for SparseSet to make the growth cost visible
+        if (results.size() >= 2)
+        {
+            auto coldStats = Statistics::compute(results[0].samples);
+            auto warmStats = Statistics::compute(results[1].samples);
+            if (warmStats.median > 0)
+            {
+                double ratio = coldStats.median / warmStats.median;
+                std::cout << "\n    SparseSet cold/warm ratio: " << std::fixed
+                          << std::setprecision(2) << ratio << "x";
+                if (ratio > 2.0)
+                {
+                    std::cout << "  <-- growth overhead present";
+                }
+                else if (ratio <= 1.10)
+                {
+                    std::cout << "  (geometric growth working correctly)";
+                }
+                std::cout << "\n";
+            }
+        }
+    }
+}
+
+// ============================================================================
 // Main
 // ============================================================================
 
@@ -2287,6 +2595,9 @@ int main(int argc, char* argv[])
 
     cooling_delay(COOLING_DELAY_SECTION_MS, "before IndexPolicy benchmark");
     benchmark_index_policy(core_sizes);
+
+    cooling_delay(COOLING_DELAY_SECTION_MS, "before cold insert benchmark");
+    benchmark_cold_insert(core_sizes);
 
     print_feature_comparison();
 
