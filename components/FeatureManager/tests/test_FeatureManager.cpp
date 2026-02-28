@@ -913,14 +913,12 @@ FATP_TEST_CASE(batch_observer)
         (void)manager.addRelationship("Module2", FeatureRelationship::Requires, "Core");
 
         std::string requested;
-        std::vector<std::string> allChanged;
-        bool wasEnabled = false;
+        std::vector<FeatureChange> changes;
         bool was_success = false;
 
-        (void)manager.addBatchObserver([&](auto req, auto changed, auto en, auto ok) {
+        (void)manager.addBatchObserver([&](auto req, auto ch, auto ok) {
             requested = req;
-            allChanged = changed;
-            wasEnabled = en;
+            changes = ch;
             was_success = ok;
         });
 
@@ -928,13 +926,14 @@ FATP_TEST_CASE(batch_observer)
         (void)manager.enable("Module1");
 
         FATP_ASSERT_EQ(requested, "Module1", "Requested feature should be Module1");
-        FATP_ASSERT_TRUE(wasEnabled, "Should be enable operation");
         FATP_ASSERT_TRUE(was_success, "Should succeed");
-        FATP_ASSERT_TRUE(allChanged.size() >= 2, "Should have at least 2 changed features");
+        FATP_ASSERT_TRUE(changes.size() >= 2, "Should have at least 2 changed features");
 
-        // Check that both Core and Module1 are in the changed list
-        bool has_core = std::find(allChanged.begin(), allChanged.end(), "Core") != allChanged.end();
-        bool has_module1 = std::find(allChanged.begin(), allChanged.end(), "Module1") != allChanged.end();
+        // Check that both Core and Module1 are in the changed list (all enabled=true)
+        bool has_core = std::any_of(changes.begin(), changes.end(),
+                                    [](const FeatureChange& c) { return c.name == "Core" && c.newState; });
+        bool has_module1 = std::any_of(changes.begin(), changes.end(),
+                                       [](const FeatureChange& c) { return c.name == "Module1" && c.newState; });
         FATP_ASSERT_TRUE(has_core, "Core should be in changed list");
         FATP_ASSERT_TRUE(has_module1, "Module1 should be in changed list");
     }
@@ -946,7 +945,7 @@ FATP_TEST_CASE(batch_observer)
 
         int call_count = 0;
         {
-            FeatureManager<>::ScopedBatchObserver scoped(manager, [&](auto, auto, auto, auto) {
+            FeatureManager<>::ScopedBatchObserver scoped(manager, [&](auto, auto, auto) {
                 ++call_count;
             });
 
@@ -1219,6 +1218,387 @@ FATP_TEST_CASE(scoped_feature_change)
     return true;
 }
 
+
+// ============================================================================
+// SECTION 1b: Preempts Relationship Tests
+// ============================================================================
+
+FATP_TEST_CASE(preempts_disables_active_target)
+{
+    // Enabling a preemptor while the target is enabled must disable the target.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("Manual");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "Manual");
+
+    FATP_ASSERT_TRUE(fm.enable("Manual").has_value(), "Manual should enable");
+    FATP_ASSERT_TRUE(fm.isEnabled("Manual"), "Manual is enabled");
+
+    auto res = fm.enable("EmergencyStop");
+    FATP_ASSERT_TRUE(res.has_value(), "EmergencyStop should enable successfully");
+    FATP_ASSERT_TRUE(fm.isEnabled("EmergencyStop"), "EmergencyStop is enabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("Manual"), "Manual must be preempted (disabled)");
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_target_already_off)
+{
+    // Preempting a target that is already disabled succeeds with no state change to target.
+    FeatureManager<> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+
+    FATP_ASSERT_FALSE(fm.isEnabled("B"), "B starts disabled");
+    auto res = fm.enable("A");
+    FATP_ASSERT_TRUE(res.has_value(), "Enabling A succeeds (B already off)");
+    FATP_ASSERT_TRUE(fm.isEnabled("A"), "A is enabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("B"), "B remains disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_disables_reverse_dependents)
+{
+    // Cascade: preempting ESC must also disable MotorMix (which Requires ESC),
+    // and FlightControl (which Requires MotorMix). The entire reverse-dependency
+    // closure is disabled, leaving the graph consistent.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("ESC");
+    (void)fm.addFeature("MotorMix");
+    (void)fm.addFeature("FlightControl");
+    (void)fm.addRelationship("MotorMix",      FeatureRelationship::Requires, "ESC");
+    (void)fm.addRelationship("FlightControl", FeatureRelationship::Requires, "MotorMix");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "ESC");
+
+    // Bring up the full actuation chain.
+    FATP_ASSERT_TRUE(fm.enable("FlightControl").has_value(), "FlightControl enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("ESC"), "ESC auto-enabled via chain");
+    FATP_ASSERT_TRUE(fm.isEnabled("MotorMix"), "MotorMix auto-enabled via chain");
+    FATP_ASSERT_TRUE(fm.isEnabled("FlightControl"), "FlightControl is enabled");
+
+    // Assert e-stop.
+    FATP_ASSERT_TRUE(fm.enable("EmergencyStop").has_value(), "EmergencyStop enables (cascade must succeed)");
+
+    FATP_ASSERT_TRUE(fm.isEnabled("EmergencyStop"), "EmergencyStop is enabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("ESC"), "ESC disabled (direct preempt)");
+    FATP_ASSERT_FALSE(fm.isEnabled("MotorMix"), "MotorMix cascade-disabled (Requires ESC)");
+    FATP_ASSERT_FALSE(fm.isEnabled("FlightControl"), "FlightControl cascade-disabled (Requires MotorMix)");
+
+    // Graph must validate cleanly after e-stop.
+    FATP_ASSERT_TRUE(fm.validate().has_value(), "Graph is consistent after preemption cascade");
+
+    return true;
+}
+
+FATP_TEST_CASE(active_preemptor_blocks_reenable)
+{
+    // While EmergencyStop is enabled, re-enabling ESC must fail.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("ESC");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "ESC");
+
+    (void)fm.enable("ESC");
+    (void)fm.enable("EmergencyStop");
+    FATP_ASSERT_FALSE(fm.isEnabled("ESC"), "ESC preempted");
+
+    auto reEnable = fm.enable("ESC");
+    FATP_ASSERT_FALSE(reEnable.has_value(), "Re-enabling ESC while EmergencyStop is on must fail");
+    FATP_ASSERT_FALSE(fm.isEnabled("ESC"), "ESC remains disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(active_preemptor_blocks_dependency_enable)
+{
+    // While EmergencyStop is active (preempting ESC), attempting to enable
+    // MotorMix (which Requires ESC) must also fail — ESC cannot be brought
+    // back on transitively.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("ESC");
+    (void)fm.addFeature("MotorMix");
+    (void)fm.addRelationship("MotorMix",      FeatureRelationship::Requires, "ESC");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "ESC");
+
+    (void)fm.enable("EmergencyStop");
+
+    auto res = fm.enable("MotorMix");
+    FATP_ASSERT_FALSE(res.has_value(), "Enabling MotorMix must fail (ESC is preempted)");
+    FATP_ASSERT_FALSE(fm.isEnabled("MotorMix"), "MotorMix remains disabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("ESC"), "ESC remains disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(batch_enable_contradictory_roots_fails)
+{
+    // batchEnable({EmergencyStop, Manual}) where EmergencyStop Preempts Manual
+    // must fail: the batch is contradictory because both roots cannot be enabled
+    // simultaneously.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("Manual");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "Manual");
+
+    auto res = fm.batchEnable({"EmergencyStop", "Manual"});
+    FATP_ASSERT_FALSE(res.has_value(), "Contradictory batch must fail");
+
+    // Neither feature should be enabled (no partial state).
+    FATP_ASSERT_FALSE(fm.isEnabled("EmergencyStop"), "EmergencyStop not enabled after failed batch");
+    FATP_ASSERT_FALSE(fm.isEnabled("Manual"), "Manual not enabled after failed batch");
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_round_trip_json)
+{
+    // Preempts edges survive a JSON serialization round-trip.
+    FeatureManager<> original;
+    (void)original.addFeature("A");
+    (void)original.addFeature("B");
+    (void)original.addRelationship("A", FeatureRelationship::Preempts, "B");
+
+    const std::string json = original.toJson();
+    auto restoredRes = FeatureManager<>::fromJson(json);
+    FATP_ASSERT_TRUE(restoredRes.has_value(), "fromJson should succeed");
+
+    FeatureManager<>& restored = *restoredRes;
+
+    // The restored manager must enforce the Preempts relationship.
+    (void)restored.enable("B");
+    FATP_ASSERT_TRUE(restored.isEnabled("B"), "B enabled in restored graph");
+
+    auto enableA = restored.enable("A");
+    FATP_ASSERT_TRUE(enableA.has_value(), "A enables after round-trip");
+    FATP_ASSERT_TRUE(restored.isEnabled("A"), "A is enabled");
+    FATP_ASSERT_FALSE(restored.isEnabled("B"), "B is preempted after round-trip");
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_validates_loaded_state)
+{
+    // A JSON graph with A enabled + A Preempts B + B enabled must fail validate().
+    const std::string badJson = R"({"features": {"A": {"enabled": true, "Preempts": ["B"]}, "B": {"enabled": true}}})";
+    auto fmRes = FeatureManager<>::fromJson(badJson);
+
+    // fromJson itself may reject this (running validateUnlocked at the end),
+    // or it may load and validate() must catch it. Either is correct.
+    if (fmRes.has_value())
+    {
+        auto validateRes = fmRes->validate();
+        FATP_ASSERT_FALSE(validateRes.has_value(),
+                          "validate() must detect A preempts B but both enabled");
+    }
+    // If fromJson rejected it, that is also correct — the test passes either way.
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_in_dot_export)
+{
+    // Preempts edges must appear in DOT output.
+    FeatureManager<> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+
+    const std::string dot = fm.toDot();
+    FATP_ASSERT_TRUE(dot.find("Preempts") != std::string::npos,
+                     "DOT output must contain Preempts edge label");
+    // Preempts edges are red bold with tee arrowhead.
+    FATP_ASSERT_TRUE(dot.find("bold") != std::string::npos,
+                     "Preempts edge must be bold");
+    FATP_ASSERT_TRUE(dot.find("tee") != std::string::npos,
+                     "Preempts edge must use tee arrowhead");
+    FATP_ASSERT_TRUE(dot.find("red") != std::string::npos,
+                     "Preempts edge must be red");
+
+    return true;
+}
+
+FATP_TEST_CASE(scoped_feature_change_restores_preempted_features)
+{
+    // ScopedFeatureChange must restore preempted features to their prior state on scope exit.
+    // This validates the per-feature FeatureChange rollback: B was true before the guard,
+    // the guard enabled A (preempting B, setting B false), on scope exit A returns to false
+    // and B returns to true — regardless of direction.
+    FeatureManager<> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+
+    (void)fm.enable("B");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B starts enabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("A"), "A starts disabled");
+
+    {
+        FeatureManager<>::ScopedFeatureChange guard(fm, "A", true);
+        FATP_ASSERT_TRUE(guard.valid(), "Scoped enable of A should succeed");
+        FATP_ASSERT_TRUE(fm.isEnabled("A"), "A enabled inside scope");
+        FATP_ASSERT_FALSE(fm.isEnabled("B"), "B preempted inside scope");
+    }
+
+    FATP_ASSERT_FALSE(fm.isEnabled("A"), "A restored to disabled after scope");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B restored to enabled after scope");
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_contradiction_rejected_at_add_time)
+{
+    // Adding Preempts when Implies exists (same direction) must fail.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Implies, "B");
+        auto res = fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+        FATP_ASSERT_FALSE(res.has_value(), "Must reject Preempts when Implies exists (contradictory)");
+    }
+
+    // Adding Preempts when Requires exists (same direction) must fail.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Requires, "B");
+        auto res = fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+        FATP_ASSERT_FALSE(res.has_value(), "Must reject Preempts when Requires exists (contradictory)");
+    }
+
+    // Adding Implies when Preempts already exists must fail.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+        auto res = fm.addRelationship("A", FeatureRelationship::Implies, "B");
+        FATP_ASSERT_FALSE(res.has_value(), "Must reject Implies when Preempts exists (contradictory)");
+    }
+
+    // Adding Requires when Preempts already exists must fail.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+        auto res = fm.addRelationship("A", FeatureRelationship::Requires, "B");
+        FATP_ASSERT_FALSE(res.has_value(), "Must reject Requires when Preempts exists (contradictory)");
+    }
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_cycle_rejected_at_add_time)
+{
+    // A Preempts cycle (A Preempts B Preempts A) must be rejected.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+        auto res = fm.addRelationship("B", FeatureRelationship::Preempts, "A");
+        FATP_ASSERT_FALSE(res.has_value(), "Must reject Preempts cycle A->B->A");
+    }
+
+    // Three-node Preempts cycle.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("X");
+        (void)fm.addFeature("Y");
+        (void)fm.addFeature("Z");
+        (void)fm.addRelationship("X", FeatureRelationship::Preempts, "Y");
+        (void)fm.addRelationship("Y", FeatureRelationship::Preempts, "Z");
+        auto res = fm.addRelationship("Z", FeatureRelationship::Preempts, "X");
+        FATP_ASSERT_FALSE(res.has_value(), "Must reject three-node Preempts cycle X->Y->Z->X");
+    }
+
+    // A->B->C chain (no cycle) must be accepted.
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addFeature("C");
+        (void)fm.addRelationship("A", FeatureRelationship::Preempts, "B");
+        auto res = fm.addRelationship("B", FeatureRelationship::Preempts, "C");
+        FATP_ASSERT_TRUE(res.has_value(), "Non-cyclic A->B->C Preempts chain must be accepted");
+    }
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_release_does_not_auto_restore)
+{
+    // Disabling the preemptor does not automatically re-enable the preempted features.
+    // The system must be explicitly brought back up by the operator.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("ESC");
+    (void)fm.addFeature("MotorMix");
+    (void)fm.addRelationship("MotorMix",      FeatureRelationship::Requires, "ESC");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "ESC");
+
+    (void)fm.enable("MotorMix"); // brings up ESC and MotorMix
+    (void)fm.enable("EmergencyStop"); // preempts ESC, cascades to MotorMix
+
+    FATP_ASSERT_FALSE(fm.isEnabled("ESC"), "ESC disabled by preemption");
+    FATP_ASSERT_FALSE(fm.isEnabled("MotorMix"), "MotorMix cascade-disabled");
+
+    // Release e-stop.
+    (void)fm.disable("EmergencyStop");
+    FATP_ASSERT_FALSE(fm.isEnabled("EmergencyStop"), "EmergencyStop released");
+
+    // ESC and MotorMix must remain off — no auto-restore.
+    FATP_ASSERT_FALSE(fm.isEnabled("ESC"), "ESC stays disabled after e-stop release (no auto-restore)");
+    FATP_ASSERT_FALSE(fm.isEnabled("MotorMix"), "MotorMix stays disabled after e-stop release (no auto-restore)");
+
+    // But now re-enable should be possible.
+    auto reEnable = fm.enable("MotorMix");
+    FATP_ASSERT_TRUE(reEnable.has_value(), "MotorMix can be re-enabled after e-stop is released");
+    FATP_ASSERT_TRUE(fm.isEnabled("ESC"), "ESC brought back via chain");
+    FATP_ASSERT_TRUE(fm.isEnabled("MotorMix"), "MotorMix re-enabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(preempts_batch_observer_reports_mixed_changes)
+{
+    // A batch observer must receive both the enable change (EmergencyStop: false->true)
+    // and the disable change (Manual: true->false) in the same callback.
+    FeatureManager<> fm;
+    (void)fm.addFeature("EmergencyStop");
+    (void)fm.addFeature("Manual");
+    (void)fm.addRelationship("EmergencyStop", FeatureRelationship::Preempts, "Manual");
+
+    (void)fm.enable("Manual");
+
+    std::vector<FeatureChange> observedChanges;
+    (void)fm.addBatchObserver([&](auto /*req*/, auto changes, auto /*ok*/) {
+        observedChanges = changes;
+    });
+
+    (void)fm.enable("EmergencyStop");
+
+    // Must have received changes for both features.
+    bool sawEmergencyEnable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) {
+            return c.name == "EmergencyStop" && !c.oldState && c.newState;
+        });
+    bool sawManualDisable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) {
+            return c.name == "Manual" && c.oldState && !c.newState;
+        });
+
+    FATP_ASSERT_TRUE(sawEmergencyEnable, "Batch observer must report EmergencyStop enabled");
+    FATP_ASSERT_TRUE(sawManualDisable, "Batch observer must report Manual disabled (preempted)");
+
+    return true;
+}
 
 } // namespace fat_p::testing::logic
 
@@ -1726,6 +2106,21 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, implicit_notifications);
     FATP_RUN_TEST_NS(runner, logic, batch_disable_implies);
     FATP_RUN_TEST_NS(runner, logic, scoped_feature_change);
+    // Preempts relationship tests
+    FATP_RUN_TEST_NS(runner, logic, preempts_disables_active_target);
+    FATP_RUN_TEST_NS(runner, logic, preempts_target_already_off);
+    FATP_RUN_TEST_NS(runner, logic, preempts_disables_reverse_dependents);
+    FATP_RUN_TEST_NS(runner, logic, active_preemptor_blocks_reenable);
+    FATP_RUN_TEST_NS(runner, logic, active_preemptor_blocks_dependency_enable);
+    FATP_RUN_TEST_NS(runner, logic, batch_enable_contradictory_roots_fails);
+    FATP_RUN_TEST_NS(runner, logic, preempts_round_trip_json);
+    FATP_RUN_TEST_NS(runner, logic, preempts_validates_loaded_state);
+    FATP_RUN_TEST_NS(runner, logic, preempts_in_dot_export);
+    FATP_RUN_TEST_NS(runner, logic, scoped_feature_change_restores_preempted_features);
+    FATP_RUN_TEST_NS(runner, logic, preempts_contradiction_rejected_at_add_time);
+    FATP_RUN_TEST_NS(runner, logic, preempts_cycle_rejected_at_add_time);
+    FATP_RUN_TEST_NS(runner, logic, preempts_release_does_not_auto_restore);
+    FATP_RUN_TEST_NS(runner, logic, preempts_batch_observer_reports_mixed_changes);
 
     if (runner.print_summary() > 0)
     {

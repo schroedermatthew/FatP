@@ -35,7 +35,7 @@ FATP_META:
  * @details
  * A modern C++20 header-only library for managing feature flags with complex dependencies,
  * relationships, and validation. Designed for scenarios where features have interdependencies
- * (Requires, Implies, Conflicts, MutuallyExclusive) and need automatic resolution.
+ * (Requires, Implies, Conflicts, MutuallyExclusive, Preempts) and need automatic resolution.
  * Key features:
  * - Cycle detection with detailed error messages showing full dependency path
  * - Pluggable thread-safety policies (single-threaded, mutex, spinlock, shared_mutex)
@@ -44,11 +44,12 @@ FATP_META:
  * - JSON serialization and GraphViz DOT export
  * - RAII helpers for scoped state changes
  * - Optimized with FlatSet for relationship storage (cache-friendly sorted vectors)
+ * - Preempts relationship: authoritative shutdown + cascade + latched inhibit
  * Performance characteristics:
  * - Add feature: O(log n)
  * - Enable/disable: O(d x log n) where d = dependency depth (limited to kMaxValidationDepth)
  * - Validate: O(n x d x log n)
- * - Memory: ~550 bytes per feature with 5 relationships (using FlatSet)
+ * - Memory: ~574 bytes per feature with 5 relationships (using FlatSet)
  */
 
 #include <algorithm>
@@ -91,17 +92,32 @@ enum class FeatureRelationship
     Requires,         ///< Source feature requires target to be enabled.
     Conflicts,        ///< Source and target cannot both be enabled (symmetric).
     Implies,          ///< Enabling source automatically enables target.
-    MutuallyExclusive ///< Group constraint: all members conflict with each other.
+    MutuallyExclusive,///< Group constraint: all members conflict with each other.
+    Preempts          ///< Enabling source forcibly disables target and its reverse-dependency
+                      ///< closure; blocks re-enable while source remains enabled. Directional.
 };
 
 /// @brief Number of FeatureRelationship enumerators; used for array-based storage.
-inline constexpr size_t kRelationshipCount = 4;
+inline constexpr size_t kRelationshipCount = 5;
 
-/// @brief Converts FeatureRelationship enum to array index (0–3).
+/// @brief Converts FeatureRelationship enum to array index (0–4).
 constexpr size_t relIdx(FeatureRelationship r) noexcept
 {
     return static_cast<size_t>(r);
 }
+
+/**
+ * @brief Records a single feature state transition.
+ *
+ * Used for observer notifications and rollback in mixed-direction transactions
+ * (e.g. an enable that also disables preempted features and their dependents).
+ */
+struct FeatureChange
+{
+    std::string name;
+    bool oldState = false;
+    bool newState = false;
+};
 
 /// @brief Default group state computed by FeatureGroupStatePolicy.
 enum class FeatureGroupState
@@ -127,7 +143,8 @@ struct EnableOverloadedOperators<feature::FeatureRelationship>
 template <>
 struct EnumStringPolicy<feature::FeatureRelationship>
 {
-    static constexpr std::array<std::string_view, 4> names = {"Requires", "Conflicts", "Implies", "MutuallyExclusive"};
+    static constexpr std::array<std::string_view, 5> names = {
+        "Requires", "Conflicts", "Implies", "MutuallyExclusive", "Preempts"};
 
     static std::string_view to_string(feature::FeatureRelationship e)
     {
@@ -197,14 +214,17 @@ using ObserverId = std::uint64_t;
 /**
  * @brief Observer callback invoked once per enable/disable operation with all changed features.
  *
+ * Receives a per-feature change record for every feature whose state changed during the
+ * operation, including implicit dependencies (Requires/Implies) and preempted features.
+ * The `changes` vector accurately represents mixed-direction transactions where some features
+ * are enabled and others disabled within the same operation (e.g. Preempts).
+ *
  * @param requestedFeature The feature the caller explicitly enabled/disabled.
- * @param allChanged       All features that changed state (includes implicit dependencies).
- * @param enabled          true if features were enabled, false if disabled.
+ * @param changes          All feature state changes (name, oldState, newState).
  * @param success          true if the operation succeeded.
  */
 using BatchObserver = std::function<void(const std::string& requestedFeature,
-                                         const std::vector<std::string>& allChanged,
-                                         bool enabled,
+                                         const std::vector<FeatureChange>& changes,
                                          bool success)>;
 
 /**
@@ -341,9 +361,9 @@ struct FeatureNode
     FeatureCheck check;
     std::string checkKey; // For serialization: the factory key to restore check on load
 
-    // Relationship storage: fixed-size array indexed by FeatureRelationship (0–3).
+    // Relationship storage: fixed-size array indexed by FeatureRelationship (0–4).
     // Each slot holds a FlatSet of target feature names. Empty slots indicate no
-    // relationships of that type. Eliminates map overhead for a fixed 4-key domain.
+    // relationships of that type. Eliminates map overhead for a fixed 5-key domain.
     std::array<FlatSet<std::string>, kRelationshipCount> relationships;
 
     JsonValue toJson() const
@@ -417,10 +437,12 @@ struct FeatureNode
             }
         }
 
-        std::array<std::string_view, 4> types = {"Requires", "Conflicts", "Implies", "MutuallyExclusive"};
-        for (const auto& typeStr : types)
+        // Drive relationship parsing off the canonical enum name list so the
+        // parser cannot drift from the enum. Adding a new FeatureRelationship
+        // only requires updating EnumStringPolicy::names — not this function.
+        for (std::string_view typeName : EnumStringPolicy<FeatureRelationship>::names)
         {
-            std::string ts(typeStr);
+            std::string ts(typeName);
             it = obj.find(ts);
             if (it != obj.end())
             {
@@ -429,7 +451,7 @@ struct FeatureNode
                     return unexpected(ts + " must be array");
                 }
                 const auto& arr = std::get<JsonArray>(it->second);
-                FeatureRelationship type = EnumStringPolicy<FeatureRelationship>::from_string(typeStr);
+                FeatureRelationship type = EnumStringPolicy<FeatureRelationship>::from_string(typeName);
                 for (const auto& elem : arr)
                 {
                     if (!elem.is_string())
@@ -614,9 +636,79 @@ private:
         }
 
         FeatureNode* fromNode = *fromRes;
+
+        // -----------------------------------------------------------------------
+        // Contradiction guards for Preempts
+        // -----------------------------------------------------------------------
+        // Preempts and Requires/Implies on the same directed edge are logically
+        // contradictory: enabling the source would simultaneously force the target
+        // ON (via Requires/Implies) and OFF (via Preempts).
+        if (type == FeatureRelationship::Preempts)
+        {
+            if (fromNode->relationships[relIdx(FeatureRelationship::Requires)].count(to))
+            {
+                return unexpected("Cannot add Preempts from '" + from + "' to '" + to +
+                                  "': '" + from + "' already Requires '" + to + "' (contradictory).");
+            }
+            if (fromNode->relationships[relIdx(FeatureRelationship::Implies)].count(to))
+            {
+                return unexpected("Cannot add Preempts from '" + from + "' to '" + to +
+                                  "': '" + from + "' already Implies '" + to + "' (contradictory).");
+            }
+        }
+        // Guard the reverse: adding Requires/Implies when Preempts already exists.
+        if (type == FeatureRelationship::Requires || type == FeatureRelationship::Implies)
+        {
+            if (fromNode->relationships[relIdx(FeatureRelationship::Preempts)].count(to))
+            {
+                return unexpected("Cannot add " +
+                                  std::string(EnumStringPolicy<FeatureRelationship>::to_string(type)) +
+                                  " from '" + from + "' to '" + to +
+                                  "': '" + from + "' already Preempts '" + to + "' (contradictory).");
+            }
+        }
+
+        // -----------------------------------------------------------------------
+        // Preempts cycle guard
+        // -----------------------------------------------------------------------
+        // Cycles in the Preempts subgraph (A Preempts B Preempts ... Preempts A)
+        // are ambiguous without a priority lattice and are rejected at construction
+        // time. Walk the Preempts forward edges from 'to' and fail if we reach 'from'.
+        if (type == FeatureRelationship::Preempts)
+        {
+            // DFS over the existing Preempts edges starting at 'to'.
+            std::unordered_set<std::string> visited;
+            std::vector<std::string> stack;
+            stack.push_back(to);
+            while (!stack.empty())
+            {
+                std::string cur = std::move(stack.back());
+                stack.pop_back();
+                if (cur == from)
+                {
+                    return unexpected("Cannot add Preempts from '" + from + "' to '" + to +
+                                      "': would create a Preempts cycle.");
+                }
+                if (!visited.insert(cur).second)
+                {
+                    continue;
+                }
+                auto* curNode = mFeatures.find(cur);
+                if (!curNode)
+                {
+                    continue;
+                }
+                for (const auto& next : curNode->relationships[relIdx(FeatureRelationship::Preempts)])
+                {
+                    stack.push_back(next);
+                }
+            }
+        }
+
         fromNode->relationships[relIdx(type)].insert(to);
 
-        // Bidirectional for conflicts and mutually exclusive
+        // Bidirectional for Conflicts and MutuallyExclusive only.
+        // Requires, Implies, and Preempts are strictly directional (source → target only).
         if (type == FeatureRelationship::Conflicts || type == FeatureRelationship::MutuallyExclusive)
         {
             FeatureNode* toNode = *toRes;
@@ -843,6 +935,25 @@ private:
                 }
             }
 
+            // Preempts: if source is enabled, all preempt targets must be disabled
+            const auto& preemptsTargets = node.relationships[relIdx(FeatureRelationship::Preempts)];
+            if (!preemptsTargets.empty())
+            {
+                for (const auto& preempted : preemptsTargets)
+                {
+                    auto* preemptedPtr = mFeatures.find(preempted);
+                    if (!preemptedPtr)
+                    {
+                        return unexpected("Preempts target not found: " + preempted);
+                    }
+                    if (preemptedPtr->enabled)
+                    {
+                        return unexpected("'" + name + "' preempts '" + preempted +
+                                          "' but both are enabled (invariant violation).");
+                    }
+                }
+            }
+
             // Conflicts and MutuallyExclusive
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
             {
@@ -888,26 +999,69 @@ private:
         return {};
     }
 
-    Expected<void, std::string> enableFeature(const std::string& name,
-                                               std::vector<std::string>& enablingChain,
-                                               std::unordered_set<std::string>& chainSet,
-                                               std::vector<std::string>* changedFeatures,
-                                               int depth = 0)
+    // =========================================================================
+    // Transaction Plan/Commit Infrastructure
+    // =========================================================================
+    //
+    // Preempts introduces mixed-direction transactions: a single enable() call
+    // can turn some features ON (the requested feature and its Requires/Implies
+    // dependencies) and some features OFF (Preempts targets and their reverse
+    // dependency closures). The old live-mutate/rollback model cannot represent
+    // this cleanly. The plan/commit model solves it:
+    //
+    //   1. Snapshot live state into originalStates
+    //   2. Compute desiredStates without touching live nodes (planning phase)
+    //   3. Validate desiredStates completely before committing
+    //   4. Apply desiredStates to live nodes (commit phase)
+    //   5. Build FeatureChange list and notify observers
+    //
+    // No live state is mutated until step 4, so there are no partial commits
+    // and no rollback logic needed.
+
+    /// @brief Internal plan computed before any live state is mutated.
+    struct TransactionPlan
+    {
+        FastHashMap<std::string, bool> originalStates; ///< Snapshot at transaction start.
+        FastHashMap<std::string, bool> desiredStates;  ///< Target state being planned.
+        std::vector<std::string> disableOrder;         ///< Features to disable (in closure order).
+        std::vector<std::string> enableOrder;          ///< Features to enable (in dep order).
+    };
+
+    /// @brief Returns the name of any currently-desired-enabled feature that Preempts @p name,
+    ///        or empty string if none. Used to enforce the latched-inhibit property.
+    [[nodiscard]] std::string
+    findEnabledPreemptorUnlocked(const std::string& name,
+                                  const FastHashMap<std::string, bool>& desiredStates) const
+    {
+        for (const auto& [featureName, node] : mFeatures)
+        {
+            // Is this feature desired-enabled?
+            auto* desired = desiredStates.find(featureName);
+            if (!desired || !*desired)
+            {
+                continue;
+            }
+            // Does it Preempt the target?
+            if (node.relationships[relIdx(FeatureRelationship::Preempts)].count(name))
+            {
+                return featureName;
+            }
+        }
+        return {};
+    }
+
+    /// @brief Plans enabling @p name (and its Requires/Implies closure) into @p plan.
+    ///        Recursively calls planDisableClosure() for each Preempts target.
+    [[nodiscard]] Expected<void, std::string>
+    planEnableRecursive(const std::string& name,
+                        TransactionPlan& plan,
+                        std::vector<std::string>& enablingChain,
+                        std::unordered_set<std::string>& chainSet,
+                        int depth = 0)
     {
         if (static_cast<size_t>(depth) > kMaxValidationDepth)
         {
             return unexpected("Maximum dependency depth exceeded at feature: " + name);
-        }
-
-        // O(1) membership test via hash set; vector is kept for path reconstruction only
-        auto inChain = [&chainSet](const std::string& n) {
-            return chainSet.count(n) != 0;
-        };
-
-        // Check for circular dependencies first
-        if (inChain(name))
-        {
-            return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, name));
         }
 
         auto nodeRes = getNode(name);
@@ -915,162 +1069,254 @@ private:
         {
             return unexpected(nodeRes.error());
         }
-        FeatureNode* node = *nodeRes;
+        const FeatureNode* node = *nodeRes;
 
-        if (node->enabled)
+        // Already planned to enable — nothing to do.
+        auto* desired = plan.desiredStates.find(name);
+        if (desired && *desired)
         {
-            return {}; // Already enabled - nothing to do
+            return {};
         }
 
-        // Track that we're in the process of enabling this feature
+        // Latched-inhibit check: fail if any desired-enabled feature Preempts this one.
+        std::string blocker = findEnabledPreemptorUnlocked(name, plan.desiredStates);
+        if (!blocker.empty())
+        {
+            return unexpected("Cannot enable '" + name + "': preempted by enabled feature '" +
+                              blocker + "'.");
+        }
+
+        // Cycle detection in the Requires/Implies enable chain.
+        if (chainSet.count(name))
+        {
+            return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, name));
+        }
+
         enablingChain.push_back(name);
         chainSet.insert(name);
 
-        // RAII guard to ensure enablingChain and chainSet stay consistent on scope exit.
         struct ChainGuard
         {
             std::vector<std::string>& chain;
             std::unordered_set<std::string>& set;
-            bool dismissed = false;
-            ChainGuard(std::vector<std::string>& c, std::unordered_set<std::string>& s)
-                : chain(c)
-                , set(s)
-            {
-            }
             ~ChainGuard()
             {
-                if (!dismissed)
-                {
-                    set.erase(chain.back());
-                    chain.pop_back();
-                }
+                set.erase(chain.back());
+                chain.pop_back();
             }
-            void dismiss()
-            {
-                dismissed = true;
-            }
-        } chainGuard(enablingChain, chainSet);
+        } guard{enablingChain, chainSet};
 
-        // Enable this feature first (may be rolled back on error)
-        bool wasEnabled = node->enabled;
-        node->enabled = true;
-
-        // Process Required relationships (recursively enable dependencies)
+        // Plan Requires dependencies first.
+        for (const auto& required : node->relationships[relIdx(FeatureRelationship::Requires)])
         {
-            const auto& targets = node->relationships[relIdx(FeatureRelationship::Requires)];
-            for (const auto& required : targets)
+            auto res = planEnableRecursive(required, plan, enablingChain, chainSet, depth + 1);
+            if (!res)
             {
-                // Check for circular dependency before recursing
-                if (inChain(required))
-                {
-                    node->enabled = wasEnabled;
-                    return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, required));
-                }
+                return res;
+            }
+        }
 
-                auto reqNodeRes = getNode(required);
-                if (!reqNodeRes)
+        // Plan Implies targets.
+        for (const auto& implied : node->relationships[relIdx(FeatureRelationship::Implies)])
+        {
+            auto res = planEnableRecursive(implied, plan, enablingChain, chainSet, depth + 1);
+            if (!res)
+            {
+                return res;
+            }
+        }
+
+        // Plan Preempts targets: disable them and their entire reverse-dependency closure.
+        for (const auto& preempted : node->relationships[relIdx(FeatureRelationship::Preempts)])
+        {
+            auto res = planDisableClosure(preempted, plan, depth + 1);
+            if (!res)
+            {
+                return res;
+            }
+        }
+
+        // Check Conflicts and MutuallyExclusive against desired state.
+        for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
+        {
+            for (const auto& conflicting : node->relationships[relIdx(rel)])
+            {
+                auto* conflictDesired = plan.desiredStates.find(conflicting);
+                if (conflictDesired && *conflictDesired)
                 {
-                    node->enabled = false;
-                    return unexpected("Required feature not found: " + required);
-                }
-                FeatureNode* reqNode = *reqNodeRes;
-                if (!reqNode->enabled)
-                {
-                    auto enableRes = enableFeature(required, enablingChain, chainSet, changedFeatures, depth + 1);
-                    if (!enableRes)
+                    if (rel == FeatureRelationship::Conflicts)
                     {
-                        node->enabled = false;
-                        return enableRes;
+                        return unexpected(name + " conflicts with " + conflicting);
                     }
+                    return unexpected(name + " is mutually exclusive with " + conflicting);
                 }
             }
         }
 
-        // Process Implies relationships
-        {
-            const auto& targets = node->relationships[relIdx(FeatureRelationship::Implies)];
-            for (const auto& implied : targets)
-            {
-                // Check for circular dependency before checking if already enabled
-                if (inChain(implied))
-                {
-                    node->enabled = false;
-                    return unexpected("Circular dependency detected: " + buildCyclePath(enablingChain, implied));
-                }
-
-                auto implNodeRes = getNode(implied);
-                if (!implNodeRes)
-                {
-                    node->enabled = false;
-                    return unexpected("Implied feature not found: " + implied);
-                }
-
-                FeatureNode* implNode = *implNodeRes;
-                if (!implNode->enabled)
-                {
-                    auto enableRes = enableFeature(implied, enablingChain, chainSet, changedFeatures, depth + 1);
-                    if (!enableRes)
-                    {
-                        node->enabled = false;
-                        return enableRes;
-                    }
-                }
-            }
-        }
-
-        // Check for conflicts
-        for (auto type : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
-        {
-            {
-                const auto& targets = node->relationships[relIdx(type)];
-                for (const auto& conflicting : targets)
-                {
-                    auto confNodeRes = getNode(conflicting);
-                    if (!confNodeRes)
-                    {
-                        node->enabled = false;
-                        if (type == FeatureRelationship::Conflicts)
-                        {
-                            return unexpected("Conflicting feature not found: " + conflicting);
-                        }
-                        return unexpected("Mutually exclusive feature not found: " + conflicting);
-                    }
-
-                    FeatureNode* confNode = *confNodeRes;
-                    if (confNode->enabled)
-                    {
-                        node->enabled = false;
-                        if (type == FeatureRelationship::Conflicts)
-                        {
-                            return unexpected(name + " conflicts with " + conflicting);
-                        }
-                        return unexpected(name + " is mutually exclusive with " + conflicting);
-                    }
-                }
-            }
-        }
-
-        // Run validation check
+        // Run per-feature check in the planning phase.
         if (node->check)
         {
             auto checkResult = node->check();
             if (!checkResult)
             {
-                node->enabled = false;
                 return unexpected("Check failed for " + name + ": " + checkResult.error());
             }
         }
 
-        // Success - chainGuard destructor will pop_back()
-        // (we don't dismiss it because we want the pop to happen)
+        plan.desiredStates[name] = true;
+        plan.enableOrder.push_back(name);
+        return {};
+    }
 
-        // Track this feature as changed (for observer notification)
-        if (changedFeatures && !wasEnabled)
+    /// @brief Plans disabling @p name and recursively disables everything that
+    ///        Requires or Implies it (the reverse-dependency closure).
+    ///        This is the cascade that makes Preempts safe for e-stop use.
+    [[nodiscard]] Expected<void, std::string>
+    planDisableClosure(const std::string& name, TransactionPlan& plan, int depth = 0)
+    {
+        if (static_cast<size_t>(depth) > kMaxValidationDepth)
         {
-            changedFeatures->push_back(name);
+            return unexpected("Maximum dependency depth exceeded at feature: " + name);
         }
 
+        // Already planned to disable — nothing to do.
+        auto* desired = plan.desiredStates.find(name);
+        if (!desired || !*desired)
+        {
+            return {};
+        }
+
+        // Walk all features currently desired-enabled and recursively disable any
+        // that Require or Imply this one (reverse-dependency closure).
+        for (const auto& [otherName, otherNode] : mFeatures)
+        {
+            auto* otherDesired = plan.desiredStates.find(otherName);
+            if (!otherDesired || !*otherDesired || otherName == name)
+            {
+                continue;
+            }
+
+            const bool requiresTarget =
+                otherNode.relationships[relIdx(FeatureRelationship::Requires)].count(name) != 0;
+            const bool impliesTarget =
+                otherNode.relationships[relIdx(FeatureRelationship::Implies)].count(name) != 0;
+
+            if (requiresTarget || impliesTarget)
+            {
+                auto res = planDisableClosure(otherName, plan, depth + 1);
+                if (!res)
+                {
+                    return res;
+                }
+            }
+        }
+
+        plan.desiredStates[name] = false;
+        plan.disableOrder.push_back(name);
         return {};
+    }
+
+    /// @brief Builds the ordered list of FeatureChange records from a committed plan.
+    [[nodiscard]] std::vector<FeatureChange>
+    buildTransactionChanges(const TransactionPlan& plan) const
+    {
+        std::vector<FeatureChange> changes;
+        changes.reserve(plan.disableOrder.size() + plan.enableOrder.size());
+
+        auto appendIfChanged = [&](const std::string& name) {
+            auto* orig = plan.originalStates.find(name);
+            auto* desired = plan.desiredStates.find(name);
+            if (!orig || !desired)
+            {
+                return;
+            }
+            if (*orig != *desired)
+            {
+                changes.push_back({name, *orig, *desired});
+            }
+        };
+
+        for (const auto& n : plan.disableOrder)
+        {
+            appendIfChanged(n);
+        }
+        for (const auto& n : plan.enableOrder)
+        {
+            appendIfChanged(n);
+        }
+        return changes;
+    }
+
+    /// @brief Validates a desired state snapshot (used by batchEnable before commit).
+    ///        Checks all invariants: Requires, Implies, Preempts, Conflicts, MutuallyExclusive.
+    [[nodiscard]] Expected<void, std::string>
+    validateDesiredState(const FastHashMap<std::string, bool>& desiredStates) const
+    {
+        for (const auto& [name, node] : mFeatures)
+        {
+            auto* desired = desiredStates.find(name);
+            if (!desired || !*desired)
+            {
+                continue;
+            }
+
+            for (const auto& required : node.relationships[relIdx(FeatureRelationship::Requires)])
+            {
+                auto* reqDesired = desiredStates.find(required);
+                if (!reqDesired || !*reqDesired)
+                {
+                    return unexpected("'" + name + "' requires '" + required + "' but it's disabled");
+                }
+            }
+
+            for (const auto& implied : node.relationships[relIdx(FeatureRelationship::Implies)])
+            {
+                auto* implDesired = desiredStates.find(implied);
+                if (!implDesired || !*implDesired)
+                {
+                    return unexpected("'" + name + "' implies '" + implied + "' but it's disabled");
+                }
+            }
+
+            for (const auto& preempted : node.relationships[relIdx(FeatureRelationship::Preempts)])
+            {
+                auto* preemptDesired = desiredStates.find(preempted);
+                if (preemptDesired && *preemptDesired)
+                {
+                    return unexpected("'" + name + "' preempts '" + preempted +
+                                      "' but both are desired enabled.");
+                }
+            }
+
+            for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
+            {
+                for (const auto& other : node.relationships[relIdx(rel)])
+                {
+                    auto* otherDesired = desiredStates.find(other);
+                    if (otherDesired && *otherDesired)
+                    {
+                        if (rel == FeatureRelationship::Conflicts)
+                        {
+                            return unexpected(name + " conflicts with " + other);
+                        }
+                        return unexpected(name + " is mutually exclusive with " + other);
+                    }
+                }
+            }
+        }
+        return {};
+    }
+
+    // Legacy single-feature enable path — dead code, retained only because the explicit
+    // template instantiation in the header self-contained test triggers its instantiation.
+    // batchEnable uses planEnableRecursive directly.
+    Expected<void, std::string> enableFeature(const std::string& /*name*/,
+                                               std::vector<std::string>& /*enablingChain*/,
+                                               std::unordered_set<std::string>& /*chainSet*/,
+                                               std::vector<std::string>* /*changedFeatures*/,
+                                               int /*depth*/ = 0)
+    {
+        return unexpected("Internal: enableFeature() must not be called directly; use batchEnable().");
     }
 
     static void sortObserversByPriority(std::vector<ObserverEntry>& entries)
@@ -1101,13 +1347,12 @@ private:
 
     static void notifyBatchObserversSorted(const std::vector<BatchObserverEntry>& sorted,
                                               const std::string& requestedFeature,
-                                              const std::vector<std::string>& allChanged,
-                                              bool enabled,
+                                              const std::vector<FeatureChange>& changes,
                                               bool success)
     {
         for (const auto& entry : sorted)
         {
-            entry.callback(requestedFeature, allChanged, enabled, success);
+            entry.callback(requestedFeature, changes, success);
         }
     }
 
@@ -1207,49 +1452,51 @@ public:
      * @brief RAII guard for temporary feature state changes.
      *
      * Construction routes through the validated enable/disable path (conflict
-     * checking, dependency resolution, implies propagation). If validation fails,
-     * the object is constructed but marked invalid — check via valid() or operator bool().
+     * checking, dependency resolution, Preempts cascade, implies propagation).
+     * If validation fails, the object is constructed but marked invalid — check
+     * via valid() or operator bool().
      *
-     * Destruction restores only the features this guard actually changed, and only
-     * if they are still in the state the guard set them to. This prevents concurrent
-     * legitimate state changes from being silently reverted.
+     * Destruction restores each feature to its individual pre-operation state
+     * using per-feature FeatureChange records. This correctly handles
+     * mixed-direction operations: if enabling A preempted B (setting B false),
+     * the destructor restores A to false and B to true independently.
      *
-     * Observer notifications fire on rollback (outside the lock) with the inverse
-     * direction of the original operation.
+     * Rollback only restores features that are still in the state this guard
+     * set them to. If another party changed a feature after this guard set it,
+     * that feature is left alone (its new state is respected).
      *
-     * @note Non-copyable, moveable.
+     * Observer notifications fire on rollback (outside the lock) with the correct
+     * per-feature direction for each restored feature.
+     *
+     * @note Non-copyable, non-moveable.
      */
     class ScopedFeatureChange
     {
     private:
         FeatureManager* mManager;
-        std::string mRequestedFeature;          // the feature the caller asked to toggle
-        std::vector<std::string> mChangedFeatures; // features this guard actually toggled
-        bool mNewState;                         // direction: true = enabled, false = disabled
+        std::string mRequestedFeature;
+        std::vector<FeatureChange> mAppliedChanges; // per-feature: {name, oldState, newState}
         bool mValid;
 
     public:
-        ScopedFeatureChange(FeatureManager& manager, const std::string& featureName, bool newState)
+        ScopedFeatureChange(FeatureManager& manager, const std::string& featureName, bool enable)
             : mManager(&manager)
             , mRequestedFeature(featureName)
-            , mNewState(newState)
             , mValid(false)
         {
-            // Snapshot feature states before the operation to detect what changed.
+            // Snapshot all states before the operation.
             FastHashMap<std::string, bool> preStates;
             {
-                [[maybe_unused]] auto guard = mManager->mSync.lock();
+                [[maybe_unused]] auto lockGuard = mManager->mSync.lock();
                 for (const auto& [name, node] : mManager->mFeatures)
                 {
                     preStates[name] = node.enabled;
                 }
             }
 
-            // Use the validated enable/disable path: conflict checking, dependency
-            // resolution, and implies propagation all apply. batchEnable/batchDisable
-            // handles its own locking internally.
+            // Run the validated enable/disable path (handles locking internally).
             Expected<void, std::string> result;
-            if (newState)
+            if (enable)
             {
                 result = mManager->enable(featureName);
             }
@@ -1262,15 +1509,14 @@ public:
 
             if (mValid)
             {
-                // Determine which features actually changed state by diffing
-                // pre-operation snapshot against current state.
-                [[maybe_unused]] auto guard = mManager->mSync.lock();
+                // Diff pre-op snapshot against current state to build change records.
+                [[maybe_unused]] auto lockGuard = mManager->mSync.lock();
                 for (const auto& [name, node] : mManager->mFeatures)
                 {
                     auto* pre = preStates.find(name);
                     if (pre && *pre != node.enabled)
                     {
-                        mChangedFeatures.push_back(name);
+                        mAppliedChanges.push_back({name, *pre, node.enabled});
                     }
                 }
             }
@@ -1278,65 +1524,63 @@ public:
 
         ~ScopedFeatureChange()
         {
-            if (!mValid || mChangedFeatures.empty())
+            if (!mValid || mAppliedChanges.empty())
             {
                 return;
             }
 
-            std::vector<std::string> restoredFeatures;
+            std::vector<FeatureChange> restoredChanges;
             std::vector<ObserverEntry> observersSnapshot;
             std::vector<BatchObserverEntry> batchObserversSnapshot;
 
             {
-                [[maybe_unused]] auto guard = mManager->mSync.lock();
-                for (const auto& name : mChangedFeatures)
+                [[maybe_unused]] auto lockGuard = mManager->mSync.lock();
+
+                // Restore each feature to its individual old state.
+                // Only restore if the feature is still in the state we set it to
+                // (respect changes made by other parties after us).
+                for (const auto& change : mAppliedChanges)
                 {
-                    auto nodeRes = mManager->getNode(name);
+                    auto nodeRes = mManager->getNode(change.name);
                     if (!nodeRes)
                     {
                         continue;
                     }
                     FeatureNode* node = *nodeRes;
-
-                    // Restore only if still in the state we set it to.
-                    // If another thread changed it, respect their change.
-                    if (node->enabled == mNewState)
+                    if (node->enabled == change.newState)
                     {
-                        node->enabled = !mNewState;
-                        restoredFeatures.push_back(name);
+                        node->enabled = change.oldState;
+                        restoredChanges.push_back({change.name, change.newState, change.oldState});
                     }
                 }
 
-                if (!restoredFeatures.empty())
+                if (!restoredChanges.empty())
                 {
-                    observersSnapshot = mManager->mObservers;
+                    observersSnapshot      = mManager->mObservers;
                     batchObserversSnapshot = mManager->mBatchObservers;
                 }
-            } // Lock released before observer notification
+            } // Lock released before observer notification.
 
-            if (!restoredFeatures.empty())
+            if (!restoredChanges.empty())
             {
                 sortObserversByPriority(observersSnapshot);
-                for (const auto& feature : restoredFeatures)
+                for (const auto& change : restoredChanges)
                 {
-                    notifyObserversSorted(observersSnapshot, feature, !mNewState, true);
+                    notifyObserversSorted(observersSnapshot, change.name, change.newState, true);
                 }
 
                 if (!batchObserversSnapshot.empty())
                 {
                     sortBatchObserversByPriority(batchObserversSnapshot);
                     notifyBatchObserversSorted(batchObserversSnapshot,
-                                                  mRequestedFeature,
-                                                  restoredFeatures,
-                                                  !mNewState,
-                                                  true);
+                                               mRequestedFeature,
+                                               restoredChanges,
+                                               true);
                 }
             }
         }
 
-        /// Returns true if the scoped change was applied successfully.
-        /// A false return means enable/disable failed validation (conflict, missing
-        /// dependency, etc.) and the feature state is unchanged.
+        /// @brief Returns true if the scoped change was applied successfully.
         bool valid() const
         {
             return mValid;
@@ -1550,11 +1794,16 @@ public:
      * @brief Adds a directed relationship between two features.
      *
      * Conflicts and MutuallyExclusive relationships are automatically symmetrized.
+     * Requires, Implies, and Preempts are strictly directional.
+     *
+     * Adding Preempts is rejected if the source already Requires or Implies the
+     * target (contradictory), or if the addition would form a Preempts cycle.
      *
      * @param from Source feature name.
-     * @param type Relationship kind (Requires, Implies, Conflicts, MutuallyExclusive).
+     * @param type Relationship kind (Requires, Implies, Conflicts, MutuallyExclusive, Preempts).
      * @param to   Target feature name.
-     * @return Expected<void> on success, or error if either feature does not exist.
+     * @return Expected<void> on success, or error if either feature does not exist
+     *         or a contradiction/cycle would result.
      *
      * @note Thread-safety: Acquires internal lock.
      */
@@ -1727,26 +1976,30 @@ public:
     /**
      * @brief Enables multiple features atomically with dependency resolution.
      *
-     * All features and their transitive Requires/Implies dependencies succeed
-     * together, or all changes are rolled back. Observer notifications are
-     * deferred until after the internal lock is released.
+     * Uses a plan/commit model: the full desired state (including Preempts cascade
+     * disables and Requires/Implies enables) is computed without touching live state,
+     * validated completely, then committed atomically. If planning or validation fails,
+     * live state is never modified and no rollback is needed.
+     *
+     * A contradictory batch (e.g. {A, B} where A Preempts B) fails with an error:
+     * no API silently leaves a requested root disabled.
      *
      * @param names Features to enable.
-     * @return Expected<void> on success, or error (with full rollback) on failure.
+     * @return Expected<void> on success, or error on failure (no state change).
      *
      * @note Complexity: O(n * d * log n) where d = dependency depth.
      * @note Thread-safety: Acquires internal lock; observers called outside lock.
      */
     [[nodiscard]] Expected<void, std::string> batchEnable(const std::vector<std::string>& names)
     {
-        std::vector<std::string> allChanged;
+        std::vector<FeatureChange> allChanges;
         std::vector<ObserverEntry> observersSnapshot;
         std::vector<BatchObserverEntry> batchObserversSnapshot;
 
-        { // Scope for LockGuard - Lock held only during state modification
+        {
             [[maybe_unused]] auto guard = mSync.lock();
 
-            // Validate all features exist first
+            // Validate all root features exist before touching the plan.
             for (const auto& name : names)
             {
                 auto nodeRes = getNode(name);
@@ -1756,58 +2009,82 @@ public:
                 }
             }
 
-            // Snapshot ALL feature states before any modifications
-            FastHashMap<std::string, bool> originalStates;
+            // Initialize plan: snapshot live state into both originalStates and desiredStates.
+            TransactionPlan plan;
             for (const auto& [name, node] : mFeatures)
             {
-                originalStates[name] = node.enabled;
+                plan.originalStates[name] = node.enabled;
+                plan.desiredStates[name]  = node.enabled;
             }
 
-            // Attempt to enable each feature
+            // Plan each requested root (planning is pure: no live mutation).
             for (const auto& name : names)
             {
                 std::vector<std::string> chain;
                 std::unordered_set<std::string> chainSet;
-                auto res = enableFeature(name, chain, chainSet, &allChanged);
+                auto res = planEnableRecursive(name, plan, chain, chainSet);
                 if (!res)
                 {
-                    // Rollback ALL features to original states
-                    for (auto&& [featureName, node] : mFeatures)
-                    {
-                        node.enabled = originalStates[featureName];
-                    }
                     return res;
                 }
             }
 
-            // Snapshot observers while holding the lock, then invoke callbacks after unlock.
-            // This prevents data races and makes it safe for observers to add/remove observers
-            // or call FeatureManager methods (reentrant use).
-            if (!allChanged.empty())
+            // Batch root policy: every explicitly requested feature must be enabled in
+            // the final desired state. If a root ended up disabled (e.g. it was preempted
+            // by another root in the same batch), the request is contradictory and fails.
+            for (const auto& name : names)
             {
-                observersSnapshot = mObservers;
+                auto* desired = plan.desiredStates.find(name);
+                if (!desired || !*desired)
+                {
+                    return unexpected("Contradictory batch: '" + name +
+                                      "' was requested but is disabled in the planned state "
+                                      "(preempted by another root in the same batch).");
+                }
+            }
+
+            // Validate the full desired state before committing anything.
+            auto validRes = validateDesiredState(plan.desiredStates);
+            if (!validRes)
+            {
+                return validRes;
+            }
+
+            // Commit: apply desiredStates to live nodes.
+            for (auto&& [name, node] : mFeatures)
+            {
+                auto* desired = plan.desiredStates.find(name);
+                if (desired)
+                {
+                    node.enabled = *desired;
+                }
+            }
+
+            allChanges = buildTransactionChanges(plan);
+
+            if (!allChanges.empty())
+            {
+                observersSnapshot      = mObservers;
                 batchObserversSnapshot = mBatchObservers;
             }
-        } // Lock released here
+        } // Lock released.
 
-        if (!allChanged.empty())
+        // Notify observers outside the lock.
+        if (!allChanges.empty())
         {
-            // Notify observers safely outside the lock
             sortObserversByPriority(observersSnapshot);
-            for (const auto& feature : allChanged)
+            for (const auto& change : allChanges)
             {
-                notifyObserversSorted(observersSnapshot, feature, true, true);
+                notifyObserversSorted(observersSnapshot, change.name, change.newState, true);
             }
 
-            // Notify batch observers
             if (!batchObserversSnapshot.empty())
             {
                 sortBatchObserversByPriority(batchObserversSnapshot);
                 notifyBatchObserversSorted(batchObserversSnapshot,
-                                              names.empty() ? "" : names[0],
-                                              allChanged,
-                                              true,
-                                              true);
+                                           names.empty() ? "" : names[0],
+                                           allChanges,
+                                           true);
             }
         }
 
@@ -1818,38 +2095,40 @@ public:
      * @brief Disables multiple features atomically with constraint checking.
      *
      * Validates that no remaining enabled feature Requires or Implies any of the
-     * features being disabled. All succeed or all changes are rolled back.
-     * Observer notifications are deferred until after lock release.
+     * features being disabled. Uses a plan/commit model consistent with batchEnable:
+     * desired state is computed, validated, then committed. No partial state is
+     * ever visible to observers.
      * Duplicate names in the input are automatically deduplicated.
      *
      * @param names Features to disable.
-     * @return Expected<void> on success, or error (with full rollback) on failure.
+     * @return Expected<void> on success, or error (no state change) on failure.
      *
      * @note Thread-safety: Acquires internal lock; observers called outside lock.
      */
     [[nodiscard]] Expected<void, std::string> batchDisable(const std::vector<std::string>& names)
     {
-        std::vector<std::string> actuallyChanged;
-        std::vector<ObserverEntry> observersSnapshot;
-        std::vector<BatchObserverEntry> batchObserversSnapshot;
-
         // Deduplicate requested names while preserving first-seen order.
-        // This prevents incorrect rollback when the same feature appears multiple times.
         std::vector<std::string> uniqueNames;
         uniqueNames.reserve(names.size());
-        std::unordered_set<std::string> disabledSet;
-        for (const auto& n : names)
         {
-            if (disabledSet.insert(n).second)
+            std::unordered_set<std::string> seen;
+            for (const auto& n : names)
             {
-                uniqueNames.push_back(n);
+                if (seen.insert(n).second)
+                {
+                    uniqueNames.push_back(n);
+                }
             }
         }
 
-        { // Scope for LockGuard - Lock held only during state modification
+        std::vector<FeatureChange> allChanges;
+        std::vector<ObserverEntry> observersSnapshot;
+        std::vector<BatchObserverEntry> batchObserversSnapshot;
+
+        {
             [[maybe_unused]] auto guard = mSync.lock();
 
-            // Validate all features exist first
+            // Validate all features exist.
             for (const auto& name : uniqueNames)
             {
                 auto nodeRes = getNode(name);
@@ -1859,96 +2138,103 @@ public:
                 }
             }
 
-            // Record original states for rollback and track which actually changed
-            std::vector<bool> originalStates;
-            originalStates.reserve(uniqueNames.size());
-
-            for (const auto& name : uniqueNames)
+            // Initialize plan.
+            TransactionPlan plan;
+            for (const auto& [name, node] : mFeatures)
             {
-                auto nodeRes = getNode(name);
-                originalStates.push_back((*nodeRes)->enabled);
-                if ((*nodeRes)->enabled)
-                {
-                    actuallyChanged.push_back(name);
-                }
-                (*nodeRes)->enabled = false;
+                plan.originalStates[name] = node.enabled;
+                plan.desiredStates[name]  = node.enabled;
             }
 
-            // Rollback helper lambda
-            auto rollback = [&]() {
-                for (size_t i = 0; i < uniqueNames.size(); ++i)
+            // Mark each requested feature disabled in the desired state.
+            for (const auto& name : uniqueNames)
+            {
+                auto* desired = plan.desiredStates.find(name);
+                if (desired && *desired)
                 {
-                    auto n = getNode(uniqueNames[i]);
-                    if (n)
-                    {
-                        (*n)->enabled = originalStates[i];
-                    }
+                    plan.desiredStates[name] = false;
+                    plan.disableOrder.push_back(name);
                 }
-            };
+            }
 
-            // Validate the resulting state
+            // Validate: no remaining desired-enabled feature may Require or Imply
+            // any of the features we are disabling.
             for (const auto& [featureName, node] : mFeatures)
             {
-                if (!node.enabled)
+                auto* featureDesired = plan.desiredStates.find(featureName);
+                if (!featureDesired || !*featureDesired)
                 {
                     continue;
                 }
 
-                // Check if this enabled feature requires any of the disabled features
                 for (const auto& required : node.relationships[relIdx(FeatureRelationship::Requires)])
                 {
-                    auto reqNode = getNode(required);
-                    if (!reqNode)
+                    auto* reqDesired = plan.desiredStates.find(required);
+                    if (reqDesired && !*reqDesired)
                     {
-                        rollback();
-                        return unexpected("Required feature not found: " + required);
-                    }
-                    if (!(*reqNode)->enabled)
-                    {
-                        rollback();
-                        return unexpected("Cannot disable '" + required + "': required by enabled feature '" +
-                                          featureName + "'");
+                        return unexpected("Cannot disable '" + required +
+                                          "': required by enabled feature '" + featureName + "'");
                     }
                 }
 
-                // Check if this enabled feature implies any of the disabled features
-                // If A implies B and A is enabled, then B cannot be disabled
                 for (const auto& implied : node.relationships[relIdx(FeatureRelationship::Implies)])
                 {
-                    if (disabledSet.count(implied))
+                    auto* implDesired = plan.desiredStates.find(implied);
+                    if (implDesired && !*implDesired)
                     {
-                        rollback();
-                        return unexpected("Cannot disable '" + implied + "': implied by enabled feature '" +
-                                          featureName + "'. Disable '" + featureName + "' first.");
+                        // Check if this implied feature was in our disable set.
+                        bool inDisableSet = false;
+                        for (const auto& n : uniqueNames)
+                        {
+                            if (n == implied)
+                            {
+                                inDisableSet = true;
+                                break;
+                            }
+                        }
+                        if (inDisableSet)
+                        {
+                            return unexpected("Cannot disable '" + implied + "': implied by enabled feature '" +
+                                              featureName + "'. Disable '" + featureName + "' first.");
+                        }
                     }
                 }
             }
 
-            if (!actuallyChanged.empty())
+            // Commit.
+            for (auto&& [name, node] : mFeatures)
             {
-                observersSnapshot = mObservers;
+                auto* desired = plan.desiredStates.find(name);
+                if (desired)
+                {
+                    node.enabled = *desired;
+                }
+            }
+
+            allChanges = buildTransactionChanges(plan);
+
+            if (!allChanges.empty())
+            {
+                observersSnapshot      = mObservers;
                 batchObserversSnapshot = mBatchObservers;
             }
-        } // Lock released here
+        } // Lock released.
 
-        if (!actuallyChanged.empty())
+        if (!allChanges.empty())
         {
-            // Notify observers safely outside the lock
             sortObserversByPriority(observersSnapshot);
-            for (const auto& feature : actuallyChanged)
+            for (const auto& change : allChanges)
             {
-                notifyObserversSorted(observersSnapshot, feature, false, true);
+                notifyObserversSorted(observersSnapshot, change.name, change.newState, true);
             }
 
-            // Notify batch observers
             if (!batchObserversSnapshot.empty())
             {
                 sortBatchObserversByPriority(batchObserversSnapshot);
                 notifyBatchObserversSorted(batchObserversSnapshot,
-                                              names.empty() ? "" : names[0],
-                                              actuallyChanged,
-                                              false,
-                                              true);
+                                           uniqueNames.empty() ? "" : uniqueNames[0],
+                                           allChanges,
+                                           true);
             }
         }
 
@@ -2225,6 +2511,8 @@ public:
 
         // Symmetrization: Ensure Conflicts and MutuallyExclusive relationships are bidirectional.
         // This handles hand-edited JSON where only one direction was specified.
+        // Requires, Implies, and Preempts are strictly directional and must NOT be symmetrized:
+        // "A Preempts B" must never imply "B Preempts A".
         for (auto&& [fromName, fromNode] : manager.mFeatures)
         {
             for (auto rel : {FeatureRelationship::Conflicts, FeatureRelationship::MutuallyExclusive})
@@ -2332,6 +2620,10 @@ public:
                         style = "dashed";
                         arrow = "open";
                         break;
+                    case FeatureRelationship::Preempts:
+                        style = "bold";
+                        arrow = "tee";
+                        break;
                     case FeatureRelationship::Conflicts:
                     case FeatureRelationship::MutuallyExclusive:
                         style = "dotted";
@@ -2341,8 +2633,13 @@ public:
                 for (const auto& target : targets)
                 {
                     std::string_view typeStr = EnumStringPolicy<FeatureRelationship>::to_string(type);
-                    ss << "    \"" << name << "\" -> \"" << target << "\" [style=" << style << ", arrowhead=" << arrow
-                       << ", label=\"" << typeStr << "\"];\n";
+                    ss << "    \"" << name << "\" -> \"" << target << "\" [style=" << style
+                       << ", arrowhead=" << arrow;
+                    if (type == FeatureRelationship::Preempts)
+                    {
+                        ss << ", color=red";
+                    }
+                    ss << ", label=\"" << typeStr << "\"];\n";
                 }
             }
         }
