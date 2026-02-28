@@ -33,7 +33,7 @@ status: "reviewed"
 **Component:** FeatureManager
 **Primary use case:** Manage feature flags with complex interdependencies, automatic conflict detection, and observer-based notification of state changes
 **Integration pattern:** Create `FeatureManager`, register features with dependencies via `addFeature()`, enable/disable features (auto-resolution handles dependencies), observe changes via callbacks
-**Key API:** `FeatureManager`, `.addFeature()`, `.enable()`, `.disable()`, `.isEnabled()`, `.addObserver()`, `.addDependency()`, `.addConflict()`, `.loadFromJson()`
+**Key API:** `FeatureManager`, `.addFeature()`, `.addRelationship()`, `.enable()`, `.disable()`, `.isEnabled()`, `.addObserver()`, `.addBatchObserver()`, `fromJson()`, `toJson()`
 **std equivalent:** None
 **Common mistakes:** Creating dependency cycles (detected at runtime, throws); enabling features without checking relationship constraints; modifying features from observer callbacks (reentrancy)
 **Performance notes:** Feature lookup is O(1) hash map access. Dependency resolution is O(V+E) graph traversal. Observer notification is O(N) per observer. See `components/FeatureManager/results/` for current data
@@ -60,45 +60,18 @@ status: "reviewed"
 
 ## Introduction
 
-FeatureManager is a modern C++17 header-only library for managing feature flags with complex dependencies, relationships, and validation rules. It provides a type-safe, high-performance solution for scenarios where features have interdependencies and need automatic resolution.
+FeatureManager is a C++20 header-only library for managing feature flags with complex dependencies, relationships, and validation rules. It provides a type-safe, high-performance solution for scenarios where features have interdependencies and need automatic resolution.
 
-**Version:** 3.1  
 **License:** Header-only, zero external dependencies  
-**C++ Standard:** C++17 or later  
+**C++ Standard:** C++20  
 **Last Updated:** December 2025  
 **Dependencies:** Expected.h, ConcurrencyPolicies.h, JsonLite.h, ValueGuard.h, Stringify.h, EnumPlus.h, FlatSet.h, Factory.h
-
-### What's New in Version 3.1
-
-Version 3.1 adds enhanced observer management and relationship validation:
-
-✨ **ID-Based Observer Removal** - `addObserver()` now returns `ObserverId` for reliable removal  
-✨ **RAII Observer Helpers** - `ScopedObserver` and `ScopedBatchObserver` for automatic cleanup  
-✨ **Batch Observers** - Receive all changed features in a single callback  
-✨ **Implicit Dependency Notifications** - Observers notified for all features that change, not just the requested one  
-✨ **Implies Validation in batchDisable** - Cannot disable features implied by enabled features  
-✨ **clearObservers()** - Remove all observers at once
-
-### What's New in Version 3.0
-
-As this is the initial public release of FeatureManager, version 3.0 includes all features with no legacy constraints:
-
-✨ **Automatic Dependency Resolution** - Transitive closure with cycle detection  
-✨ **Callback Factory System** - Full serialization support for validation callbacks  
-✨ **Type-Safe Relationships** - Requires, Implies, Conflicts, MutuallyExclusive  
-✨ **Transactional Batch Operations** - All-or-nothing semantics with automatic rollback  
-✨ **Custom Group States** - User-defined enums for domain-specific state tracking  
-✨ **Observer Pattern** - Priority-ordered notifications with reentry protection  
-✨ **Module Independence** - Each module can register callbacks independently  
-✨ **High Performance** - O(log n) lookups, optimized graph traversal  
-
----
 
 ## The Problem Domain
 
 ### Feature Flag Complexity in Real-World Systems
 
-Feature flags (also called feature toggles) are a powerful technique for controlling functionality in software systems. However, as systems grow, feature flags become increasingly complex. Understanding these challenges helps explain why FeatureManager's architecture is necessary.
+Feature flags (also called feature toggles) are an established technique for controlling functionality in software systems. However, as systems grow, feature flags become increasingly complex. Understanding these challenges helps explain why FeatureManager's architecture is necessary.
 
 #### Problem 1: Interdependencies
 ```
@@ -108,11 +81,11 @@ Feature "RayTracing" requires both "Graphics_High" AND "DX12_Support"
 
 **Impact:** Without automatic dependency tracking, developers must manually enable required features in the correct order. In large codebases with 50+ features, this leads to:
 - Integration bugs where features break because dependencies weren't enabled
-- 20-30% increase in QA time tracking down "works on my machine" issues where local configurations differ
+- significant increases in QA time tracking down "works on my machine" issues where local configurations differ
 - Production incidents when deployment scripts miss steps
 - Developer frustration and context-switching overhead
 
-**Real-world consequence:** A mobile game studio reported that 40% of their crash reports stemmed from features being enabled without their dependencies, particularly after configuration changes during A/B testing.
+**Real-world consequence:** A mobile game studio reported that a large fraction of their crash reports stemmed from features being enabled without their dependencies, particularly after configuration changes during A/B testing.
 
 #### Problem 2: Conflicts
 ```
@@ -126,7 +99,7 @@ Feature "BatteryOptimization" conflicts with "MaxPerformance"
 - User complaints about inconsistent performance
 - Difficult-to-reproduce bugs that only appear in specific feature combinations
 
-**Real-world consequence:** In embedded systems, conflicting power management modes can cause devices to oscillate between states, draining batteries 3-4x faster than expected. Enterprise software often sees conflicts between "HighSecurity" and "FastMode" features that create security vulnerabilities.
+**Real-world consequence:** In embedded systems, conflicting power management modes can cause devices to oscillate between states, draining batteries substantially faster than expected. Enterprise software often sees conflicts between "HighSecurity" and "FastMode" features that create security vulnerabilities.
 
 #### Problem 3: Cascading Changes
 ```
@@ -143,7 +116,7 @@ Enabling "DeveloperMode" should automatically enable:
 - Documentation burden explaining the "correct" combination
 - Support tickets from users who enabled one flag but not others
 
-**Real-world consequence:** Debugging sessions take 2-3x longer when developers must remember to enable all related diagnostic features. In production, partial debug modes can leak sensitive information (e.g., verbose logging enabled but audit trails disabled).
+**Real-world consequence:** Debugging sessions take substantially longer when developers must remember to enable all related diagnostic features. In production, partial debug modes can leak sensitive information (e.g., verbose logging enabled but audit trails disabled).
 
 #### Problem 4: Circular Dependencies
 ```
@@ -172,7 +145,7 @@ If any fail (validation, conflicts, cycles), what happens?
 - Rollback is manual and error-prone
 - Race conditions in multi-threaded environments
 
-**Real-world consequence:** During A/B test deployments, partial feature enable failures resulted in 15% of users receiving broken configurations that were hard to detect (some features on, others off). The fix required manually auditing and correcting thousands of user profiles.
+**Real-world consequence:** During A/B test deployments, partial feature enable failures resulted in a measurable fraction of users receiving broken configurations that were hard to detect (some features on, others off). The fix required manually auditing and correcting thousands of user profiles.
 
 #### Problem 6: Serialization of Validation Logic
 ```
@@ -187,7 +160,7 @@ Load from JSON... callbacks are LOST!
 - Cannot distribute configurations across systems
 - Separation between config (serializable) and logic (code) is brittle
 
-**Real-world consequence:** Medical device software had to maintain separate configuration files and validation rule engines, increasing complexity 3x and causing synchronization bugs where configs allowed invalid states. A factory-based approach with string keys solves this by making validation logic reconstructible.
+**Real-world consequence:** Medical device software had to maintain separate configuration files and validation rule engines, compounding complexity and causing synchronization bugs where configs allowed invalid states. A factory-based approach with string keys solves this by making validation logic reconstructible.
 
 ---
 
@@ -256,7 +229,7 @@ auto restored = FeatureManager<>::fromJson(json);
 **How:** FeatureCheckFactory singleton maps string keys to callback creator functions. Serialization stores keys, deserialization reconstructs callbacks via factory lookup. See [Callback Factory System](#callback-factory-system) for details.
 
 ### 7. **Performance Optimizations**
-- O(log n) feature lookup using std::map with string keys
+- O(1) average feature lookup using FastHashMap with string keys
 - Cache-friendly iteration with FlatSet for relationships
 - Lock-free fast paths where possible (configurable concurrency policies)
 - Optimized rollback (only modified features, not full snapshots)
@@ -429,7 +402,7 @@ Success ←── Check Conflicts ←──── Notify Observers
 Configurable via template parameter:
 - **NoSynchronizationPolicy** (default): Single-threaded, no locks
 - **MutexSynchronizationPolicy**: std::mutex, exclusive access
-- **SharedMutexSynchronizationPolicy**: std::shared_mutex, concurrent reads
+- **SharedMutexPolicy**: std::shared_mutex, concurrent reads
 
 **Observer Safety:** Observers are called while holding the lock. Do not call FeatureManager methods from within observers (causes deadlock). Use flags or Implies/Requires relationships for cascading changes.
 
@@ -2317,7 +2290,7 @@ FeatureManager<> manager;
 FeatureManager<MutexSynchronizationPolicy> ts_manager;
 
 // 3. Shared mutex - concurrent reads, exclusive writes
-FeatureManager<SharedMutexSynchronizationPolicy> concurrent_manager;
+FeatureManager<SharedMutexPolicy> concurrent_manager;
 ```
 
 ### Policy Details
@@ -2332,8 +2305,8 @@ FeatureManager<SharedMutexSynchronizationPolicy> concurrent_manager;
 - All operations exclusive
 - **Use:** Multi-threaded with low contention
 
-**SharedMutexSynchronizationPolicy**:
-- Uses `std::shared_mutex` (C++17)
+**SharedMutexPolicy**:
+- Uses `std::shared_mutex` (C++20)
 - Reads concurrent, writes exclusive
 - **Use:** Many readers, few writers (e.g., query-heavy workloads)
 
@@ -2394,7 +2367,7 @@ if (needs_update) {
 
 **2. Concurrent Policies Require Thread-Safe Observers:**
 
-If using `MutexSynchronizationPolicy` or `SharedMutexSynchronizationPolicy`, multiple threads may trigger observers. Protect shared state accessed in observers:
+If using `MutexSynchronizationPolicy` or `SharedMutexPolicy`, multiple threads may trigger observers. Protect shared state accessed in observers:
 
 ```cpp
 std::mutex log_mutex;

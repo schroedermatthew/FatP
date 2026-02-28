@@ -54,7 +54,6 @@ FATP_META:
 #include <functional>
 #include <mutex>
 #include <random>
-#include <set>
 #include <string>
 #include <thread>
 #include <utility>
@@ -126,7 +125,8 @@ fat_p::feature::FeatureManager<SyncPolicy> makeConflictGraph(std::size_t n)
 
 /// Creates a dense graph with random relationships.
 template <typename SyncPolicy = fat_p::SingleThreadedPolicy>
-fat_p::feature::FeatureManager<SyncPolicy> makeDenseGraph(std::size_t nodes, std::size_t edgesPerNode, std::uint64_t seed)
+fat_p::feature::FeatureManager<SyncPolicy>
+makeDenseGraph(std::size_t nodes, std::size_t edgesPerNode, std::uint64_t seed)
 {
     fat_p::feature::FeatureManager<SyncPolicy> fm;
     for (std::size_t i = 0; i < nodes; ++i)
@@ -149,7 +149,9 @@ fat_p::feature::FeatureManager<SyncPolicy> makeDenseGraph(std::size_t nodes, std
             }
 
             auto rel =
-                (typeDist(rng) == 0) ? fat_p::feature::FeatureRelationship::Requires : fat_p::feature::FeatureRelationship::Conflicts;
+            auto rel = (typeDist(rng) == 0)
+                           ? fat_p::feature::FeatureRelationship::Requires
+                           : fat_p::feature::FeatureRelationship::Conflicts;
             (void)fm.addRelationship("D" + std::to_string(i), rel, "D" + std::to_string(target));
         }
     }

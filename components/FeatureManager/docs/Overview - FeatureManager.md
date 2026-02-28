@@ -56,74 +56,56 @@ C++ has no feature flag facility:
 ### The Mechanism: Relationship-Based Resolution
 
 ```cpp
+// Four relationship types drive all resolution logic
 enum class FeatureRelationship {
-    Requires,          // A requires B → enabling A requires B enabled first
-    Implies,           // A implies B → enabling A automatically enables B
-    Conflicts,         // A conflicts B → A and B cannot both be enabled
+    Requires,          // A requires B: enabling A enables B first
+    Implies,           // A implies B: enabling A automatically enables B
+    Conflicts,         // A conflicts B: A and B cannot both be enabled
     MutuallyExclusive  // Group: only one of {A, B, C} can be enabled
 };
 
-template<typename ConcurrencyPolicy = SingleThreadedPolicy>
-class FeatureManager {
-    struct Feature {
-        std::string name;
-        bool enabled = false;
-        FlatSet<Relationship> relationships;
-    };
-    
-    std::map<std::string, Feature> features_;
-    
+// SyncPolicy controls concurrency: SingleThreadedPolicy, MutexSynchronizationPolicy,
+// SharedMutexPolicy, or any policy from ConcurrencyPolicies.h
+template <typename SyncPolicy = fat_p::SingleThreadedPolicy>
+class FeatureManager
+{
 public:
-    void addFeature(const std::string& name);
-    void addRelationship(const std::string& from, 
-                         FeatureRelationship rel,
-                         const std::string& to);
-    
-    Expected<void, FeatureError> enable(const std::string& name);
-    Expected<void, FeatureError> disable(const std::string& name);
-    
-    bool validate() const;  // Check for conflicts/missing deps
+    // Feature registration
+    [[nodiscard]] Expected<void, std::string>
+    addFeature(const std::string& name, FeatureCheck check = nullptr);
+
+    // Relationship declaration
+    [[nodiscard]] Expected<void, std::string>
+    addRelationship(const std::string& from, FeatureRelationship rel, const std::string& to);
+
+    [[nodiscard]] Expected<void, std::string>
+    addMutuallyExclusiveGroup(std::initializer_list<std::string> names);
+
+    // State transitions (plan/commit: validates then applies atomically)
+    [[nodiscard]] Expected<void, std::string> enable(const std::string& name);
+    [[nodiscard]] Expected<void, std::string> disable(const std::string& name);
+
+    // Query
+    [[nodiscard]] bool isEnabled(const std::string& name) const;
+
+    // Validation
+    [[nodiscard]] Expected<void, std::string> validate() const;
+
+    // Observation
+    [[nodiscard]] ObserverId addObserver(FeatureObserver callback, int priority = 0);
+    [[nodiscard]] ObserverId addBatchObserver(BatchObserver callback, int priority = 0);
+    void removeObserver(ObserverId id);
+
+    // Serialization
+    [[nodiscard]] Expected<std::string, std::string> toJson() const;
+    [[nodiscard]] static Expected<FeatureManager, std::string>
+    fromJson(std::string_view jsonStr);
 };
 ```
 
-### Dependency Resolution Algorithm
+### Plan/Commit Resolution
 
-```cpp
-Expected<void, FeatureError> enable(const std::string& name) {
-    // 1. Check if feature exists
-    auto it = features_.find(name);
-    if (it == features_.end()) {
-        return {unexpect, FeatureError::NotFound};
-    }
-    
-    // 2. Check for conflicts
-    for (const auto& rel : it->second.relationships) {
-        if (rel.type == Conflicts && features_[rel.target].enabled) {
-            return {unexpect, FeatureError::Conflict};
-        }
-    }
-    
-    // 3. Enable required dependencies first (recursive)
-    for (const auto& rel : it->second.relationships) {
-        if (rel.type == Requires) {
-            auto result = enable(rel.target);  // Recursive
-            if (!result) return result;
-        }
-    }
-    
-    // 4. Enable this feature
-    it->second.enabled = true;
-    
-    // 5. Enable implied features
-    for (const auto& rel : it->second.relationships) {
-        if (rel.type == Implies) {
-            enable(rel.target);  // Best-effort
-        }
-    }
-    
-    return {};
-}
-```
+`enable()` and `disable()` use a two-phase approach: a *plan* phase computes the full set of features that must change (following Requires, Implies, Conflicts, and MutuallyExclusive relationships transitively and checking for cycles), then a *commit* phase applies all changes atomically under the sync policy's lock. If the plan phase finds a conflict, cycle, or missing dependency, the call returns an error and no state changes.
 
 ---
 
@@ -155,28 +137,19 @@ fm.addRelationship("rendering", Implies, "graphics_context");
 fm.addRelationship("vulkan", Conflicts, "opengl");
 
 // MutuallyExclusive: only one renderer at a time
-fm.addMutuallyExclusive({"vulkan", "opengl", "software"});
+fm.addMutuallyExclusiveGroup({"vulkan", "opengl", "software"});
 ```
 
-### 3. Safe Enable/Disable
+### 3. Validated Enable/Disable
 
 ```cpp
 auto result = fm.enable("vulkan");
 if (!result) {
-    switch (result.error()) {
-        case FeatureError::NotFound:
-            log("Feature not registered");
-            break;
-        case FeatureError::Conflict:
-            log("Conflicts with enabled feature");
-            break;
-        case FeatureError::CyclicDependency:
-            log("Circular dependency detected");
-            break;
-        case FeatureError::MissingDependency:
-            log("Required feature cannot be enabled");
-            break;
-    }
+    log("Enable failed: ", result.error());
+    // result.error() is a std::string describing the failure,
+    // e.g. "Conflict: vulkan conflicts with opengl (currently enabled)"
+    //      "Cycle detected: vulkan → rendering → vulkan"
+    //      "Feature 'shader_compiler' not found"
 }
 
 // After enable("vulkan"):
@@ -194,50 +167,46 @@ fm.addRelationship("B", Requires, "C");
 fm.addRelationship("C", Requires, "A");  // Cycle!
 
 auto result = fm.enable("A");
-// result.error() == FeatureError::CyclicDependency
-// Error message: "Cycle detected: A → B → C → A"
+// result.error() == "Cycle detected: A → B → C → A"
 ```
 
 ### 5. Validation
 
 ```cpp
-// Check configuration validity
-bool valid = fm.validate();
-
-// Get detailed validation report
-auto report = fm.getValidationReport();
-for (const auto& issue : report.issues) {
-    log(issue.severity, ": ", issue.message);
+// Check configuration validity; returns Expected<void, std::string>
+auto valid = fm.validate();
+if (!valid) {
+    log("Validation failed: ", valid.error());
 }
 ```
 
 ### 6. Observer Pattern
 
 ```cpp
-fm.addObserver([](const std::string& feature, bool enabled) {
+ObserverId id = fm.addObserver([](const std::string& feature,
+                                            bool enabled,
+                                            bool success) {
     log("Feature ", feature, " ", enabled ? "enabled" : "disabled");
 });
 
-// Scoped observation with RAII
-{
-    auto subscription = fm.observe([](auto...) { /* ... */ });
-    // Observer removed when subscription destroyed
-}
+// Store id and call removeObserver(id) to unregister
+fm.removeObserver(id);
 ```
 
 ### 7. Serialization (JSON/GraphViz)
 
 ```cpp
 // Export to JSON
-std::string json = fm.toJson();
-// {"features":[{"name":"vulkan","enabled":true,...}],"relationships":[...]}
+auto jsonResult = fm.toJson();
+if (jsonResult) {
+    log(*jsonResult);
+}
 
-// Import from JSON
-fm.loadFromJson(config_json);
-
-// Export to GraphViz DOT for visualization
-std::string dot = fm.toDot();
-// digraph { vulkan -> rendering [label="requires"]; ... }
+// Import from JSON (static factory)
+auto fmResult = FeatureManager<>::fromJson(config_json);
+if (!fmResult) {
+    log("Parse error: ", fmResult.error());
+}
 ```
 
 ### 8. Thread-Safe Mode
@@ -247,7 +216,7 @@ std::string dot = fm.toDot();
 FeatureManager<SingleThreadedPolicy> fm1;
 
 // Mutex-protected
-FeatureManager<MutexPolicy> fm2;
+FeatureManager<fat_p::MutexSynchronizationPolicy> fm2;
 
 // Reader-writer lock (many readers, exclusive writers)
 FeatureManager<SharedMutexPolicy> fm3;
@@ -284,19 +253,19 @@ FeatureManager provides dependency-aware feature flags permanently—essential f
 
 | Operation | Complexity | Notes |
 |-----------|------------|-------|
-| Add feature | O(log n) | Map insertion |
+| Add feature | O(1) average | Hash insertion |
 | Add relationship | O(log r) | FlatSet insertion |
-| Enable (simple) | O(log n) | Map lookup + update |
+| Enable (simple) | O(1) average | Hash lookup + update |
 | Enable (with deps) | O(d × log n) | d = dependency depth |
 | Validate | O(n × d × log n) | Full graph traversal |
-| Memory per feature | ~550 bytes | With 5 relationships |
+| Memory per feature | Platform/compiler-dependent | See `results/` for measurements |
 
 ### Where Fat-P Wins
 - Game engines with feature dependencies
 - Plugin systems with compatibility requirements
 - Configuration systems needing validation
 
-### Where Fat-P Loses (Honesty Builds Trust)
+### Where Fat-P Loses
 - Simple boolean flags → `std::map<string, bool>` suffices
 - Runtime flag changes from server → LaunchDarkly etc.
 - Very large feature sets (1000+) → custom graph DB

@@ -46,10 +46,10 @@ FATP_META:
  * - Optimized with FlatSet for relationship storage (cache-friendly sorted vectors)
  * - Preempts relationship: authoritative shutdown + cascade + latched inhibit
  * Performance characteristics:
- * - Add feature: O(log n)
+ * - Add feature: O(1) average, O(n) worst case
  * - Enable/disable: O(d x log n) where d = dependency depth (limited to kMaxValidationDepth)
  * - Validate: O(n x d x log n)
- * - Memory: ~574 bytes per feature with 5 relationships (using FlatSet)
+ * - Memory: Per-feature storage uses FlatSet for relationship sets; size is compiler- and platform-dependent
  */
 
 #include <algorithm>
@@ -58,7 +58,6 @@ FATP_META:
 #include <cstdint>
 #include <functional>
 #include <memory>
-
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -71,10 +70,12 @@ FATP_META:
 #include "EnumPlus.h"
 #include "Expected.h"
 #include "Factory.h"
+#include "Stringify.h"
+
 #include "FastHashMap.h"
 #include "FlatSet.h"
+
 #include "JsonLite.h"
-#include "Stringify.h"
 #include "ValueGuard.h"
 
 namespace fat_p
@@ -1307,18 +1308,6 @@ private:
         return {};
     }
 
-    // Legacy single-feature enable path — dead code, retained only because the explicit
-    // template instantiation in the header self-contained test triggers its instantiation.
-    // batchEnable uses planEnableRecursive directly.
-    Expected<void, std::string> enableFeature(const std::string& /*name*/,
-                                               std::vector<std::string>& /*enablingChain*/,
-                                               std::unordered_set<std::string>& /*chainSet*/,
-                                               std::vector<std::string>* /*changedFeatures*/,
-                                               int /*depth*/ = 0)
-    {
-        return unexpected("Internal: enableFeature() must not be called directly; use batchEnable().");
-    }
-
     static void sortObserversByPriority(std::vector<ObserverEntry>& entries)
     {
         // Stable sort preserves insertion order for observers with equal priority.
@@ -1735,7 +1724,7 @@ public:
      * @param check Optional callback invoked during validation; nullptr for unconditional.
      * @return Expected<void> on success, or error if name already exists.
      *
-     * @note Complexity: O(log n) for insertion into the feature map.
+     * @note Complexity: O(1) average, O(n) worst case.
      * @note Thread-safety: Acquires internal lock.
      */
     [[nodiscard]] Expected<void, std::string> addFeature(const std::string& name, FeatureCheck check = nullptr)
@@ -1763,7 +1752,7 @@ public:
      * @param checkKey Key previously registered with getFeatureCheckFactory().
      * @return Expected<void> on success, or error if name exists or key is not in factory.
      *
-     * @note Complexity: O(log n).
+     * @note Complexity: O(1) average, O(n) worst case.
      * @note Thread-safety: Acquires internal lock.
      * @see getFeatureCheckFactory(), FeatureCheckRegistration
      */
@@ -2296,7 +2285,7 @@ public:
      * @note Thread-safety: Acquires internal lock; callbacks called outside lock.
      * @see removeObserver(), ScopedObserver
      */
-    ObserverId addObserver(FeatureObserver callback, int priority = 0)
+    [[nodiscard]] ObserverId addObserver(FeatureObserver callback, int priority = 0)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         ObserverId id = mNextObserverId++;
@@ -2310,14 +2299,14 @@ public:
      * Batch observers receive the complete set of features that changed,
      * including implicit dependencies resolved via Requires/Implies.
      *
-     * @param callback Function receiving (requestedFeature, allChanged, enabled, success).
+     * @param callback Function receiving (requestedFeature, changes, success).
      * @param priority Ordering priority (higher = called first, default 0).
      * @return ObserverId for later removal via removeObserver().
      *
      * @note Thread-safety: Acquires internal lock; callbacks called outside lock.
      * @see removeObserver(), ScopedBatchObserver
      */
-    ObserverId addBatchObserver(BatchObserver callback, int priority = 0)
+    [[nodiscard]] ObserverId addBatchObserver(BatchObserver callback, int priority = 0)
     {
         [[maybe_unused]] auto guard = mSync.lock();
         ObserverId id = mNextObserverId++;

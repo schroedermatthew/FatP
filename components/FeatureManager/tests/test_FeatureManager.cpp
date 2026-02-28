@@ -50,6 +50,10 @@ FATP_META:
 #include "FatPTest.h"
 #include "FeatureManager.h"
 
+#ifndef ENABLE_TEST_APPLICATION
+#include "test_FeatureManager.h"
+#endif
+
 // ============================================================================
 // SECTION 0: Global Enums & Policies (Required for Type-Safe Tests)
 // ============================================================================
@@ -2054,9 +2058,6 @@ FATP_TEST_CASE(json_deserialize_validates_enabled_state_invariants)
 // SECTION 3: Benchmarks
 // ============================================================================
 
-namespace fat_p::testing::bench
-{
-} // namespace fat_p::testing::bench
 
 // ============================================================================
 // MAIN: Unified Test Runner
@@ -2160,11 +2161,8 @@ bool test_FeatureManager()
         FATP_PRINT_HEADER(PERFORMANCE BENCHMARKS);
         std::cout << fat_p::testing::colors::yellow() << "Note: Benchmarks include outliers and P99 stats."
                   << fat_p::testing::colors::reset() << "\n\n";
-
-                std::cout << "\n";
-                std::cout << "\n";
-                std::cout << "\n";
-            }
+        run_benchmarks();
+    }
     else
     {
         std::cout << fat_p::testing::colors::red() << "\nSkipping benchmarks due to test failures."
