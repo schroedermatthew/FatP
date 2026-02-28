@@ -1406,25 +1406,10 @@ Within each group, headers are sorted alphabetically (case-insensitive).
 ### 6.2 Testing Pattern (Reference Files)
 
 Study these files for the canonical pattern:
-- `test_BitSet.h` -- Header pattern
 - `test_BitSet.cpp` -- Implementation pattern  
 - `FatPTest.h` -- Framework and assertions
 
 ### 6.3 Test File Structure
-
-**Header file (`test_Component.h`):**
-```cpp
-#pragma once
-
-#ifndef ENABLE_TEST_APPLICATION
-namespace fat_p::testing
-{
-
-bool test_Component();
-
-} // namespace fat_p::testing
-#endif // #ifndef ENABLE_TEST_APPLICATION
-```
 
 **Implementation file (`test_Component.cpp`):**
 
@@ -1435,10 +1420,6 @@ Uses nested namespace to avoid linker collisions when multiple test files are li
 
 #include "Component.h"
 #include "FatPTest.h"
-
-#ifndef ENABLE_TEST_APPLICATION
-#include "test_Component.h"
-#endif
 
 namespace fat_p::testing::component
 {
