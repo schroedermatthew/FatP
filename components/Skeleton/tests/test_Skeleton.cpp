@@ -2174,7 +2174,6 @@ FATP_TEST_CASE(visit_subtree_sibling_not_visited)
 
     // Visit only the Sensors subtree -- Actuators branch must not appear.
     constexpr BoneId sensorsRoot = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
-    constexpr BoneId actuatorsId = Bone<TestSchema, Sys::Root, Sub::Actuators>::id();
 
     std::vector<BoneId> visited;
     sk.visitSubtree(sensorsRoot, [&](SkeletonItem& item)
