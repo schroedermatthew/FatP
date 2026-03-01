@@ -396,7 +396,7 @@ FATP_TEST_CASE(boneid_to_string_multi_level)
     FATP_ASSERT_STARTS_WITH(s, std::string("["), "toString must start with '['");
     FATP_ASSERT_ENDS_WITH(s, std::string("]"), "toString must end with ']'");
     // 3-level path should contain exactly 2 slashes
-    std::size_t slashes = std::count(s.begin(), s.end(), '/');
+    std::size_t slashes = static_cast<std::size_t>(std::count(s.begin(), s.end(), '/'));
     FATP_ASSERT_EQ(slashes, std::size_t(2), "Depth-3 toString must contain exactly 2 '/' separators");
     return true;
 }
@@ -1155,13 +1155,13 @@ FATP_TEST_CASE(signal_on_published_fires_after_insert)
     int callCount = 0;
     BoneId capturedId;
 
+    bool foundInsideCallback = false;
     auto conn = sk.onPublished([&](SkeletonItem& item)
     {
         ++callCount;
         capturedId = item.boneId();
-        // Item must be findable inside the callback
-        SkeletonItem* found = sk.find(item.boneId());
-        FATP_SIMPLE_ASSERT(found != nullptr, "Item must be in registry inside onPublished callback");
+        // Item must be findable inside the callback -- capture result for assertion outside lambda
+        foundInsideCallback = (sk.find(item.boneId()) != nullptr);
     });
 
     {
@@ -1170,6 +1170,8 @@ FATP_TEST_CASE(signal_on_published_fires_after_insert)
         constexpr BoneId expectedId = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
         FATP_ASSERT_EQ(capturedId, expectedId,
             "onPublished must deliver the correct BoneId");
+        FATP_ASSERT_TRUE(foundInsideCallback,
+            "Item must be findable in registry inside onPublished callback");
     }
     return true;
 }
@@ -1355,11 +1357,11 @@ FATP_TEST_CASE(stress_many_items_publish_and_query)
 
     FATP_ASSERT_EQ(sk.size(), std::size_t(6), "Stress: all 6 items must be registered");
 
-    // All Sensor items
+    // All Sensor items: sys, sensor, load, temp = 4
     SkeletonMask sensorReq = makeMask(SkeletonCapability::Sensor);
     auto sensors = sk.query(sensorReq);
-    FATP_ASSERT_EQ(sensors.size(), std::size_t(3),
-        "Stress: query(Sensor) must return sys, sensor, load, temp = 3... wait 3 have Sensor but sys does too");
+    FATP_ASSERT_EQ(sensors.size(), std::size_t(4),
+        "Stress: query(Sensor) must return sys, sensor, load, and temp (4 items)");
 
     // Controller items
     SkeletonMask ctrlReq = makeMask(SkeletonCapability::Controller);
@@ -1439,12 +1441,6 @@ FATP_TEST_CASE(stress_signal_consistency)
 
     auto connP = sk.onPublished([&](SkeletonItem&) { ++published; });
     auto connU = sk.onUnpublishing([&](SkeletonItem&) { ++unpublished; });
-
-    const int kItems = 10;
-
-    // Publish all items (can't do this with identical BoneIds, so use ManualItem
-    // which has a unique BoneId -- but we only have one Sys::Aux slot).
-    // Instead, test with RAII items in a controlled scope.
     {
         SysItem      i1(sk);
         SensorItem   i2(sk);
