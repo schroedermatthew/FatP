@@ -1000,6 +1000,13 @@ private:
     template <typename ItemPtr>
     static void sortByBoneId(std::vector<ItemPtr>& v)
     {
+        // Benchmarks (benchmark_Skeleton.cpp) show that at N=4096 the sort
+        // dominates query cost entirely -- the linear scan is negligible.
+        // If query ever becomes a hot path at large N, this sort is the first
+        // thing to profile. Possible directions: radix sort on BoneId::value()
+        // (fixed-width 64-bit key, no comparison needed), or maintaining a
+        // sorted auxiliary structure at publish/unpublish time to avoid
+        // sorting at query time altogether.
         std::sort(
             v.begin(),
             v.end(),
