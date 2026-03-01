@@ -389,8 +389,11 @@ static void make_tree_ids(size_t branch_count,
         branch_roots.push_back(branch);
         for (size_t l = 0; l < leaves_per_branch; ++l)
         {
-            uint8_t li = static_cast<uint8_t>((l % 254) + 1);
-            leaf_ids.push_back(branch.child(li));
+            // Two-level addressing: sub-group avoids wrap at 254.
+            // Supports up to 254*254 = 64,516 leaves per branch.
+            uint8_t sub  = static_cast<uint8_t>(l / 254 + 1);
+            uint8_t leaf = static_cast<uint8_t>(l % 254 + 1);
+            leaf_ids.push_back(branch.child(sub).child(leaf));
         }
     }
 }
@@ -857,8 +860,10 @@ static void benchmark_visit_subtree(const std::vector<size_t>& sizes)
         leaf_ids.reserve(N);
         for (size_t i = 0; i < N; ++i)
         {
-            uint8_t leaf = static_cast<uint8_t>((i % 254) + 1);
-            leaf_ids.push_back(subtree.child(leaf));
+            // Two-level addressing: sub-group avoids wrap at 254.
+            uint8_t sub  = static_cast<uint8_t>(i / 254 + 1);
+            uint8_t leaf = static_cast<uint8_t>(i % 254 + 1);
+            leaf_ids.push_back(subtree.child(sub).child(leaf));
         }
 
         std::vector<std::unique_ptr<BenchItem>> items;
