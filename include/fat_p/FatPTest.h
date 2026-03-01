@@ -102,9 +102,9 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 36
-    defines_unprefixed: 35
-    undefs_total: 0
+    defines_total: 38
+    defines_unprefixed: 2
+    undefs_total: 2
     includes_windows_h: false
   generated:
     by: fatp-meta-tool
