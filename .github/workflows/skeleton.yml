@@ -7,6 +7,12 @@
 #   Headers:    include/fat_p/Skeleton.h
 #               include/fat_p/SkeletonFwd.h
 #   Tests:      components/Skeleton/tests/test_Skeleton.cpp
+#               components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
+#               components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp
+#   CompileFail: components/Skeleton/tests/compile_fail/
+#                  compile_fail_Skeleton_WrongEnumAtDepth1.cpp
+#                  compile_fail_Skeleton_DepthExceedsMaxDepth.cpp
+#                  compile_fail_Skeleton_EnumValueExceedsByte.cpp
 #   Benchmarks: components/Skeleton/benchmarks/benchmark_Skeleton.cpp
 #
 # Benchmarks are run separately via skeleton-benchmarks.yml
@@ -22,6 +28,11 @@ on:
       - 'include/fat_p/Skeleton.h'
       - 'include/fat_p/SkeletonFwd.h'
       - 'components/Skeleton/tests/test_Skeleton.cpp'
+      - 'components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp'
+      - 'components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp'
+      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_WrongEnumAtDepth1.cpp'
+      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp'
+      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp'
       - 'components/Skeleton/benchmarks/benchmark_Skeleton.cpp'
       - '.github/workflows/skeleton.yml'
   pull_request:
@@ -29,12 +40,20 @@ on:
       - 'include/fat_p/Skeleton.h'
       - 'include/fat_p/SkeletonFwd.h'
       - 'components/Skeleton/tests/test_Skeleton.cpp'
+      - 'components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp'
+      - 'components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp'
+      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_WrongEnumAtDepth1.cpp'
+      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp'
+      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp'
       - 'components/Skeleton/benchmarks/benchmark_Skeleton.cpp'
       - '.github/workflows/skeleton.yml'
 
 env:
-  TEST_SRC: components/Skeleton/tests/test_Skeleton.cpp
+  TEST_SRC:  components/Skeleton/tests/test_Skeleton.cpp
   BENCH_SRC: components/Skeleton/benchmarks/benchmark_Skeleton.cpp
+  HDR_SC_SRC: components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
+  FWD_SC_SRC: components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp
+  CF_DIR:     components/Skeleton/tests/compile_fail
 
 jobs:
   # ===========================================================================
@@ -181,7 +200,9 @@ jobs:
 
   # ===========================================================================
   # Header Self-Containment
-  # Both public headers (Skeleton.h and SkeletonFwd.h) are tested independently.
+  # Compiles the canonical test_*_HeaderSelfContained.cpp files from the repo
+  # (each includes its target header first, twice for idempotence, then runs
+  # a minimal instantiation). Include-order independence is verified inline.
   # ===========================================================================
   header-check:
     name: Header Self-Containment
@@ -189,21 +210,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Test Skeleton.h compiles standalone
+      - name: Compile test_Skeleton_HeaderSelfContained.cpp
         run: |
-          printf '#include "Skeleton.h"\nint main() { return 0; }\n' > test_include.cpp
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
-            -c test_include.cpp -o /dev/null
-          echo "Skeleton.h is self-contained"
+            ${{ env.HDR_SC_SRC }} -o /dev/null
+          echo "Skeleton.h: self-contained and idempotent"
 
-      - name: Test SkeletonFwd.h compiles standalone
+      - name: Compile test_SkeletonFwd_HeaderSelfContained.cpp
         run: |
-          printf '#include "SkeletonFwd.h"\nint main() { return 0; }\n' > test_fwd_include.cpp
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
-            -c test_fwd_include.cpp -o /dev/null
-          echo "SkeletonFwd.h is self-contained"
+            ${{ env.FWD_SC_SRC }} -o /dev/null
+          echo "SkeletonFwd.h: self-contained and idempotent"
 
       - name: Test Skeleton.h include order independence
         run: |
@@ -221,7 +240,7 @@ jobs:
           EOF
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_order1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_order2.cpp -o /dev/null
-          echo "Include order independent"
+          echo "Skeleton.h: include order independent"
 
       - name: Test SkeletonFwd.h include order independence
         run: |
@@ -239,15 +258,49 @@ jobs:
           EOF
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_order1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_order2.cpp -o /dev/null
-          echo "SkeletonFwd.h include order independent"
+          echo "SkeletonFwd.h: include order independent"
 
-      - name: Test double-include idempotence
+  # ===========================================================================
+  # Compile-Fail Contract Tests
+  # Each TU is expected to fail compilation. A step passes when the compiler
+  # rejects the file; a step fails when the compiler unexpectedly accepts it.
+  # stderr is captured to the log so the diagnostic is visible in CI output.
+  # ===========================================================================
+  compile-fail:
+    name: Compile-Fail Contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "Reject: wrong enum type at depth 1"
         run: |
-          printf '#include "Skeleton.h"\n#include "Skeleton.h"\nint main() { return 0; }\n' > test_double.cpp
-          printf '#include "SkeletonFwd.h"\n#include "SkeletonFwd.h"\nint main() { return 0; }\n' > test_fwd_double.cpp
-          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_double.cpp -o /dev/null
-          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_double.cpp -o /dev/null
-          echo "pragma once idempotence confirmed"
+          if g++-13 -std=c++20 -I./include/fat_p \
+               ${{ env.CF_DIR }}/compile_fail_Skeleton_WrongEnumAtDepth1.cpp \
+               -c -o /dev/null 2>&1; then
+            echo "FAIL: expected compile failure but compilation succeeded"
+            exit 1
+          fi
+          echo "PASS: correctly rejected wrong enum type at depth 1"
+
+      - name: "Reject: depth exceeds kMaxDepth"
+        run: |
+          if g++-13 -std=c++20 -I./include/fat_p \
+               ${{ env.CF_DIR }}/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp \
+               -c -o /dev/null 2>&1; then
+            echo "FAIL: expected compile failure but compilation succeeded"
+            exit 1
+          fi
+          echo "PASS: correctly rejected depth exceeding kMaxDepth"
+
+      - name: "Reject: enum value exceeds byte range (> 255)"
+        run: |
+          if g++-13 -std=c++20 -I./include/fat_p \
+               ${{ env.CF_DIR }}/compile_fail_Skeleton_EnumValueExceedsByte.cpp \
+               -c -o /dev/null 2>&1; then
+            echo "FAIL: expected compile failure but compilation succeeded"
+            exit 1
+          fi
+          echo "PASS: correctly rejected enum value exceeding 255"
 
   # ===========================================================================
   # Strict Warnings
@@ -281,6 +334,7 @@ jobs:
       - sanitizer-ubsan
       - sanitizer-tsan
       - header-check
+      - compile-fail
       - strict-warnings
     runs-on: ubuntu-latest
     if: always()
@@ -294,5 +348,6 @@ jobs:
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-tsan.result }}"  != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}"    != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.compile-fail.result }}"    != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
           echo "All checks passed"
