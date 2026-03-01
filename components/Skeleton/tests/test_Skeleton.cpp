@@ -1460,6 +1460,1254 @@ FATP_TEST_CASE(stress_signal_consistency)
     return true;
 }
 
+// =============================================================================
+// Suite 12: BoneId boundary and structural properties
+// =============================================================================
+
+FATP_TEST_CASE(boneid_max_depth_chain)
+{
+    // Build a depth-8 BoneId via child() starting from a depth-1 root.
+    // Each call to child() must increment depth by exactly 1.
+    constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
+
+    BoneId cur = d1;
+    for (uint8_t level = 1; level < 8; ++level)
+    {
+        cur = cur.child(level); // use level value as the index
+        FATP_ASSERT_EQ(cur.depth(), static_cast<uint8_t>(level + 1),
+            "Each child() must increment depth by exactly 1");
+        FATP_ASSERT_FALSE(cur.isNull(), "Intermediate BoneId must not be null");
+    }
+    FATP_ASSERT_EQ(cur.depth(), uint8_t(8), "Maximum depth must be exactly 8");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_max_depth_parent_chain)
+{
+    // Build depth-8 via child() then walk all the way back with parent().
+    constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
+    BoneId cur = d1;
+    for (uint8_t i = 0; i < 7; ++i)
+    {
+        cur = cur.child(static_cast<uint8_t>(i + 1));
+    }
+    FATP_ASSERT_EQ(cur.depth(), uint8_t(8), "Must have reached depth 8");
+
+    // Walk back to depth 1 via parent()
+    for (uint8_t expectedDepth = 7; expectedDepth >= 1; --expectedDepth)
+    {
+        cur = cur.parent();
+        FATP_ASSERT_EQ(cur.depth(), expectedDepth,
+            "parent() must decrement depth by exactly 1");
+    }
+    // cur must now equal d1
+    FATP_ASSERT_EQ(cur, d1, "Walking back via parent() must recover the original BoneId");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_child_with_zero_index)
+{
+    // Level value 0 is valid (Chan::Load has underlying value 0).
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+    BoneId child = root.child(0);
+    FATP_ASSERT_EQ(child.depth(), uint8_t(2), "child(0) must produce depth 2");
+    FATP_ASSERT_FALSE(child.isNull(), "child(0) must not be null");
+    // Round-trip
+    BoneId back = child.parent();
+    FATP_ASSERT_EQ(back, root, "parent() of child(0) must recover root");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_child_with_max_index)
+{
+    // Level value 255 is the maximum valid index.
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+    BoneId child = root.child(255);
+    FATP_ASSERT_EQ(child.depth(), uint8_t(2), "child(255) must produce depth 2");
+    FATP_ASSERT_FALSE(child.isNull(), "child(255) must not be null");
+    // Round-trip
+    BoneId back = child.parent();
+    FATP_ASSERT_EQ(back, root, "parent() of child(255) must recover root");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_child_zero_vs_child_one_are_distinct)
+{
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+    BoneId c0 = root.child(0);
+    BoneId c1 = root.child(1);
+    FATP_ASSERT_NE(c0, c1, "child(0) and child(1) must be distinct BoneIds");
+    FATP_ASSERT_EQ(c0.depth(), c1.depth(), "Siblings must have the same depth");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_child_255_vs_other_distinct)
+{
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+    BoneId c0   = root.child(0);
+    BoneId c255 = root.child(255);
+    FATP_ASSERT_NE(c0, c255, "child(0) and child(255) must be distinct");
+    bool ordered = (c0 < c255) || (c255 < c0);
+    FATP_ASSERT_TRUE(ordered, "child(0) and child(255) must be totally ordered");
+    // Both must be children of root
+    FATP_ASSERT_TRUE(root.isAncestorOf(c0),   "root must be ancestor of child(0)");
+    FATP_ASSERT_TRUE(root.isAncestorOf(c255), "root must be ancestor of child(255)");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_value_bit_layout)
+{
+    // Verify the packing: level 0 occupies bits [63:56], level 1 [55:48], etc.
+    // child(1) on a depth-1 bone with level value 1 places 1 at bits [55:48].
+    constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id(); // level 0 = Sys::Root = 1
+    BoneId d2 = d1.child(2); // level 1 = 2
+
+    // Level 0 value must be 1 in bits [63:56]
+    uint8_t level0 = static_cast<uint8_t>((d2.value() >> 56u) & 0xFFu);
+    uint8_t level1 = static_cast<uint8_t>((d2.value() >> 48u) & 0xFFu);
+    FATP_ASSERT_EQ(level0, uint8_t(1), "Level 0 must encode Sys::Root (value 1)");
+    FATP_ASSERT_EQ(level1, uint8_t(2), "Level 1 must encode the child index 2");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_inactive_bytes_are_zero)
+{
+    // After a child() call, bytes at inactive levels must be zero.
+    constexpr BoneId d2 = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+    uint64_t v = d2.value();
+    // Bytes at levels 2-7 (bits [47:0]) must all be zero.
+    FATP_ASSERT_EQ(v & uint64_t(0x0000FFFFFFFFFFFFull), uint64_t(0),
+        "Inactive level bytes (levels 2-7) must be zero for a depth-2 BoneId");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_ordering_strict_weak_order_reflexivity)
+{
+    // Irreflexivity: a BoneId must not be less than itself.
+    constexpr BoneId id = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+    FATP_ASSERT_FALSE(id < id, "A BoneId must not be less than itself");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_ordering_strict_weak_order_asymmetry)
+{
+    // Asymmetry: if a < b then !(b < a).
+    constexpr BoneId a = Bone<TestSchema, Sys::Root>::id();
+    constexpr BoneId b = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+    FATP_ASSERT_TRUE(a < b, "Parent must be less than child");
+    FATP_ASSERT_FALSE(b < a, "Child must not be less than parent (asymmetry)");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_ordering_strict_weak_order_transitivity)
+{
+    // Transitivity: if a < b and b < c then a < c.
+    constexpr BoneId a = Bone<TestSchema, Sys::Root>::id();
+    constexpr BoneId b = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+    constexpr BoneId c = Bone<TestSchema, Sys::Root, Sub::Sensors, Chan::Load>::id();
+    FATP_ASSERT_TRUE(a < b, "a < b");
+    FATP_ASSERT_TRUE(b < c, "b < c");
+    FATP_ASSERT_TRUE(a < c, "a < c (transitivity must hold)");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_serialize_all_depths)
+{
+    // Serialize and deserialize BoneIds at every valid depth (0-8).
+    // Build depth-N by chaining child() calls from a depth-1 root.
+    constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
+
+    // depth 0: null
+    {
+        BoneId null;
+        std::array<std::byte, 9> buf{};
+        null.serialize(buf);
+        BoneId restored = BoneId::deserialize(buf);
+        FATP_ASSERT_EQ(restored, null, "Depth-0 (null) roundtrip must survive");
+    }
+
+    // depths 1-8
+    BoneId cur = d1;
+    for (uint8_t depth = 1; depth <= 8; ++depth)
+    {
+        if (depth > 1)
+        {
+            cur = cur.child(static_cast<uint8_t>(depth)); // distinct per level
+        }
+        std::array<std::byte, 9> buf{};
+        cur.serialize(buf);
+        BoneId restored = BoneId::deserialize(buf);
+        FATP_ASSERT_EQ(restored, cur, "Serialize/deserialize roundtrip must hold at all depths");
+        FATP_ASSERT_EQ(restored.depth(), depth, "Depth must survive roundtrip");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(boneid_ancestor_chain_all_depths)
+{
+    // A depth-N BoneId must be an ancestor of every strictly deeper BoneId
+    // that shares its prefix.
+    constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
+    BoneId chain[8];
+    chain[0] = d1;
+    for (int i = 1; i < 8; ++i)
+    {
+        chain[i] = chain[i - 1].child(static_cast<uint8_t>(i + 1));
+    }
+
+    for (int i = 0; i < 7; ++i)
+    {
+        for (int j = i + 1; j < 8; ++j)
+        {
+            FATP_ASSERT_TRUE(chain[i].isAncestorOf(chain[j]),
+                "Each ancestor in the chain must be an ancestor of all deeper members");
+            FATP_ASSERT_FALSE(chain[j].isAncestorOf(chain[i]),
+                "Deeper member must not be ancestor of shallower member");
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(boneid_non_prefix_is_not_ancestor)
+{
+    // A BoneId at the same depth with different last byte is NOT an ancestor.
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+    BoneId branchA = root.child(10);
+    BoneId branchB = root.child(20);
+    BoneId deepA   = branchA.child(5);
+
+    FATP_ASSERT_FALSE(branchB.isAncestorOf(deepA),
+        "A sibling branch must not be an ancestor of the other branch's child");
+    FATP_ASSERT_FALSE(branchA.isAncestorOf(branchB),
+        "A sibling must not be an ancestor of its sibling");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_hash_null_is_stable)
+{
+    // The null BoneId must always hash to the same value.
+    std::hash<BoneId> h;
+    BoneId null1;
+    BoneId null2;
+    FATP_ASSERT_EQ(h(null1), h(null2), "Null BoneIds must hash equally");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_to_string_each_depth)
+{
+    // toString must produce the right number of slash separators for each depth.
+    constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
+    BoneId cur = d1;
+    for (uint8_t depth = 1; depth <= 8; ++depth)
+    {
+        if (depth > 1)
+        {
+            cur = cur.child(static_cast<uint8_t>(depth));
+        }
+        std::string s = cur.toString();
+        std::size_t slashes = static_cast<std::size_t>(std::count(s.begin(), s.end(), '/'));
+        FATP_ASSERT_EQ(slashes, static_cast<std::size_t>(depth - 1u),
+            "toString must have exactly depth-1 slash separators");
+        FATP_ASSERT_STARTS_WITH(s, std::string("["), "toString must start with '['");
+        FATP_ASSERT_ENDS_WITH(s, std::string("]"), "toString must end with ']'");
+    }
+    return true;
+}
+
+// =============================================================================
+// Suite 13: Mask edge cases
+// =============================================================================
+
+FATP_TEST_CASE(mask_all_32_bits_set)
+{
+    // Build a mask with all 32 capability bits set.
+    SkeletonMask full;
+    full.set(); // std::bitset::set() sets all bits
+    FATP_ASSERT_EQ(full.count(), std::size_t(32), "Full mask must have 32 bits set");
+    FATP_ASSERT_TRUE(full.all(), "Full mask must report all() == true");
+    return true;
+}
+
+FATP_TEST_CASE(mask_required_and_excluded_overlap_matches_nothing)
+{
+    // If a bit appears in both required and excluded, no item can satisfy both.
+    Skeleton sk;
+    SkeletonMask sensorMask = makeMask(SkeletonCapability::Sensor);
+
+    SensorItem sensor(sk, sensorMask, "sensor");
+
+    // Ask for Sensor required AND Sensor excluded simultaneously -- impossible to satisfy.
+    auto results = sk.query(sensorMask, sensorMask);
+    FATP_ASSERT_EQ(results.size(), std::size_t(0),
+        "Query with same bit in both required and excluded must match nothing");
+    return true;
+}
+
+FATP_TEST_CASE(mask_excluded_superset_of_item_mask_matches_nothing)
+{
+    Skeleton sk;
+    SkeletonMask m = makeMask(SkeletonCapability::Sensor, SkeletonCapability::Readable);
+    SensorItem sensor(sk, m, "sensor");
+
+    // Exclude more bits than the item has -- still excludes it.
+    SkeletonMask superExclude;
+    superExclude.set(); // all bits excluded
+    auto results = sk.query({}, superExclude);
+    FATP_ASSERT_EQ(results.size(), std::size_t(0),
+        "Full exclusion mask must match nothing");
+    return true;
+}
+
+FATP_TEST_CASE(mask_required_superset_of_any_item_matches_nothing)
+{
+    Skeleton sk;
+    SkeletonMask m = makeMask(SkeletonCapability::Sensor);
+    SensorItem sensor(sk, m, "sensor");
+
+    // Require all 32 bits -- item only has 1.
+    SkeletonMask fullRequired;
+    fullRequired.set();
+    auto results = sk.query(fullRequired);
+    FATP_ASSERT_EQ(results.size(), std::size_t(0),
+        "Query requiring all 32 bits must not match an item with only 1 bit set");
+    return true;
+}
+
+FATP_TEST_CASE(mask_item_with_all_bits_matches_any_required)
+{
+    Skeleton sk;
+    SkeletonMask fullMask;
+    fullMask.set();
+    SensorItem sensor(sk, fullMask, "omnipotent");
+
+    // Any non-empty required mask must match an item with all bits.
+    SkeletonMask someRequired = makeMask(SkeletonCapability::Sensor, SkeletonCapability::Controller);
+    auto results = sk.query(someRequired);
+    FATP_ASSERT_EQ(results.size(), std::size_t(1),
+        "An item with all 32 bits must match any required mask");
+    return true;
+}
+
+FATP_TEST_CASE(mask_set_same_value_fires_signal)
+{
+    // setMask unconditionally replaces; signal must fire even if the mask is identical.
+    Skeleton sk;
+    SkeletonMask m = makeMask(SkeletonCapability::Sensor);
+    int callCount = 0;
+    auto conn = sk.onMaskChanged([&](SkeletonItem&, SkeletonMask) { ++callCount; });
+
+    ManualItem item(m, "item");
+    item.doPublish(sk);
+    item.doSetMask(m); // same value -- must still fire
+    FATP_ASSERT_EQ(callCount, 1,
+        "setMask to same value must still fire onMaskChanged");
+    return true;
+}
+
+FATP_TEST_CASE(mask_rapid_repeated_changes)
+{
+    // Rapid setMask sequence: each call fires onMaskChanged exactly once.
+    Skeleton sk;
+    int callCount = 0;
+    std::vector<SkeletonMask> capturedOldMasks;
+    SkeletonMask capturedNewMaskInCallback;
+
+    auto conn = sk.onMaskChanged([&](SkeletonItem& item, SkeletonMask oldMask)
+    {
+        ++callCount;
+        capturedOldMasks.push_back(oldMask);
+        capturedNewMaskInCallback = item.mask();
+    });
+
+    SkeletonMask m0 = makeMask(SkeletonCapability::Sensor);
+    SkeletonMask m1 = makeMask(SkeletonCapability::Controller);
+    SkeletonMask m2 = makeMask(SkeletonCapability::Readable);
+    SkeletonMask m3 = makeMask(SkeletonCapability::Writable);
+
+    ManualItem item(m0, "item");
+    item.doPublish(sk);
+
+    item.doSetMask(m1);
+    item.doSetMask(m2);
+    item.doSetMask(m3);
+
+    FATP_ASSERT_EQ(callCount, 3, "Three setMask calls must fire signal exactly 3 times");
+    FATP_ASSERT_EQ(capturedOldMasks[0], m0, "First old mask must be m0");
+    FATP_ASSERT_EQ(capturedOldMasks[1], m1, "Second old mask must be m1");
+    FATP_ASSERT_EQ(capturedOldMasks[2], m2, "Third old mask must be m2");
+    FATP_ASSERT_EQ(item.mask(), m3, "Final mask must be m3");
+    return true;
+}
+
+FATP_TEST_CASE(mask_empty_required_and_empty_excluded_matches_all)
+{
+    Skeleton sk;
+    SysItem    sys(sk);
+    SensorItem sensor(sk);
+    LoadItem   load(sk);
+
+    // Empty required and empty excluded: everything matches
+    auto results = sk.query({}, {});
+    FATP_ASSERT_EQ(results.size(), std::size_t(3),
+        "Empty required + empty excluded must match all 3 items");
+    return true;
+}
+
+// =============================================================================
+// Suite 14: Multi-skeleton isolation
+// =============================================================================
+
+FATP_TEST_CASE(isolation_two_skeletons_independent)
+{
+    Skeleton sk1("sk1");
+    Skeleton sk2("sk2");
+
+    SysItem sys1(sk1, {}, "on_sk1");
+
+    // Item on sk1 must not appear in sk2
+    constexpr BoneId sysId = Bone<TestSchema, Sys::Root>::id();
+    FATP_ASSERT_NOT_NULLPTR(sk1.find(sysId), "Item must be findable on its own skeleton");
+    FATP_ASSERT_NULLPTR(sk2.find(sysId),    "Item must not appear on a different skeleton");
+    FATP_ASSERT_EQ(sk1.size(), std::size_t(1), "sk1 must have 1 item");
+    FATP_ASSERT_EQ(sk2.size(), std::size_t(0), "sk2 must be empty");
+    return true;
+}
+
+FATP_TEST_CASE(isolation_same_boneid_on_two_skeletons_allowed)
+{
+    Skeleton sk1("sk1");
+    Skeleton sk2("sk2");
+
+    // Same BoneId on two different skeletons is allowed (not a duplicate).
+    SysItem sys1(sk1, {}, "on_sk1");
+    FATP_ASSERT_NO_THROW(
+        [&]() { SysItem sys2(sk2, {}, "on_sk2"); (void)sys2; }(),
+        "Same BoneId on a different skeleton must not throw"
+    );
+    return true;
+}
+
+FATP_TEST_CASE(isolation_signals_do_not_cross_skeletons)
+{
+    Skeleton sk1("sk1");
+    Skeleton sk2("sk2");
+
+    int count1 = 0;
+    int count2 = 0;
+    auto conn1 = sk1.onPublished([&](SkeletonItem&) { ++count1; });
+    auto conn2 = sk2.onPublished([&](SkeletonItem&) { ++count2; });
+
+    SysItem sys1(sk1);
+    FATP_ASSERT_EQ(count1, 1, "sk1.onPublished must fire for item on sk1");
+    FATP_ASSERT_EQ(count2, 0, "sk2.onPublished must NOT fire for item on sk1");
+    return true;
+}
+
+FATP_TEST_CASE(isolation_query_scoped_to_own_skeleton)
+{
+    Skeleton sk1("sk1");
+    Skeleton sk2("sk2");
+    SkeletonMask m = makeMask(SkeletonCapability::Sensor);
+
+    SensorItem s1(sk1, m, "s1");
+    SensorItem s2(sk2, m, "s2"); // same BoneId, different skeleton
+
+    auto r1 = sk1.query(m);
+    auto r2 = sk2.query(m);
+    FATP_ASSERT_EQ(r1.size(), std::size_t(1), "sk1.query must return only sk1's item");
+    FATP_ASSERT_EQ(r2.size(), std::size_t(1), "sk2.query must return only sk2's item");
+    FATP_ASSERT_NE(r1[0], r2[0], "Results must point to different item instances");
+    return true;
+}
+
+// =============================================================================
+// Suite 15: Signal edge cases
+// =============================================================================
+
+FATP_TEST_CASE(signal_reentrant_publish_from_on_published)
+{
+    // The API docs explicitly permit reentrant publish() from an onPublished callback.
+    // Strategy: the outer item's onPublished callback publishes the ManualItem (Sys::Aux).
+    // ManualItem has a distinct BoneId from the outer item (SensorItem = Sys::Root/Sensors).
+    Skeleton sk;
+
+    ManualItem inner;
+    bool innerPublishedInsideCallback = false;
+
+    auto conn = sk.onPublished([&](SkeletonItem& item)
+    {
+        // Fire only on the outer item to avoid infinite recursion.
+        if (item.name() == std::string_view("outer") && !inner.isPublished())
+        {
+            try
+            {
+                inner.doPublish(sk);
+                innerPublishedInsideCallback = true;
+            }
+            catch (...)
+            {
+                innerPublishedInsideCallback = false;
+            }
+        }
+    });
+
+    {
+        SensorItem outer(sk, {}, "outer");
+        FATP_ASSERT_TRUE(innerPublishedInsideCallback,
+            "Reentrant publish from onPublished callback must succeed without throwing");
+        FATP_ASSERT_EQ(sk.size(), std::size_t(2),
+            "Both outer and inner must be in the registry after reentrant publish");
+
+        constexpr BoneId auxId = Bone<TestSchema, Sys::Aux>::id();
+        FATP_ASSERT_NOT_NULLPTR(sk.find(auxId),
+            "Inner item must be findable by BoneId after reentrant publish");
+    }
+    // outer destroyed and unpublished; inner is still published (ManualItem needs explicit unpublish)
+    FATP_ASSERT_EQ(sk.size(), std::size_t(1), "Only inner must remain after outer destruction");
+    inner.doUnpublish();
+    FATP_ASSERT_EQ(sk.size(), std::size_t(0), "Skeleton must be empty after cleanup");
+    return true;
+}
+
+FATP_TEST_CASE(signal_on_unpublishing_item_still_findable)
+{
+    // During onUnpublishing, the item must still be findable.
+    Skeleton sk;
+    bool foundDuringUnpublish = false;
+    BoneId capturedId;
+
+    auto conn = sk.onUnpublishing([&](SkeletonItem& item)
+    {
+        capturedId = item.boneId();
+        foundDuringUnpublish = (sk.find(item.boneId()) == &item);
+    });
+
+    {
+        SensorItem sensor(sk);
+    } // destroy triggers unpublish
+
+    FATP_ASSERT_TRUE(foundDuringUnpublish,
+        "Item must be findable in registry during onUnpublishing callback");
+    return true;
+}
+
+FATP_TEST_CASE(signal_on_unpublishing_item_gone_after_callback)
+{
+    Skeleton sk;
+    constexpr BoneId sensorId = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+
+    {
+        SensorItem sensor(sk);
+        FATP_ASSERT_NOT_NULLPTR(sk.find(sensorId), "Item must be found before destruction");
+    }
+    FATP_ASSERT_NULLPTR(sk.find(sensorId),
+        "Item must be gone from registry after onUnpublishing callbacks complete");
+    return true;
+}
+
+FATP_TEST_CASE(signal_connect_then_immediately_disconnect)
+{
+    Skeleton sk;
+    int callCount = 0;
+
+    {
+        auto conn = sk.onPublished([&](SkeletonItem&) { ++callCount; });
+        // conn immediately destroyed -- auto-disconnect
+    }
+
+    SensorItem sensor(sk);
+    FATP_ASSERT_EQ(callCount, 0,
+        "Immediately-disconnected callback must never fire");
+    return true;
+}
+
+FATP_TEST_CASE(signal_many_listeners_all_fire)
+{
+    Skeleton sk;
+    constexpr int kListeners = 20;
+    int counts[kListeners]{};
+    std::vector<ScopedConnection> conns;
+    conns.reserve(kListeners);
+
+    for (int i = 0; i < kListeners; ++i)
+    {
+        int* cptr = &counts[i];
+        conns.push_back(sk.onPublished([cptr](SkeletonItem&) { ++(*cptr); }));
+    }
+
+    SensorItem sensor(sk);
+
+    for (int i = 0; i < kListeners; ++i)
+    {
+        FATP_ASSERT_EQ(counts[i], 1, "Every listener must fire exactly once");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(signal_listener_removed_while_others_remain)
+{
+    Skeleton sk;
+    int countA = 0;
+    int countB = 0;
+    int countC = 0;
+
+    auto connA = sk.onPublished([&](SkeletonItem&) { ++countA; });
+    {
+        auto connB = sk.onPublished([&](SkeletonItem&) { ++countB; });
+        (void)connB;
+        // connB destroyed -- only A and C remain
+    }
+    auto connC = sk.onPublished([&](SkeletonItem&) { ++countC; });
+
+    SensorItem sensor(sk);
+
+    FATP_ASSERT_EQ(countA, 1, "Listener A must fire");
+    FATP_ASSERT_EQ(countB, 0, "Listener B (disconnected) must not fire");
+    FATP_ASSERT_EQ(countC, 1, "Listener C must fire");
+    return true;
+}
+
+FATP_TEST_CASE(signal_on_mask_changed_sequence_old_masks_correct)
+{
+    // Verify the old mask delivered to each callback is exactly the mask before that call.
+    Skeleton sk;
+    std::vector<std::pair<SkeletonMask, SkeletonMask>> changes; // {old, new}
+
+    auto conn = sk.onMaskChanged([&](SkeletonItem& item, SkeletonMask oldMask)
+    {
+        changes.emplace_back(oldMask, item.mask());
+    });
+
+    SkeletonMask masks[5];
+    masks[0] = makeMask(SkeletonCapability::Sensor);
+    masks[1] = makeMask(SkeletonCapability::Controller);
+    masks[2] = {};
+    masks[3] = makeMask(SkeletonCapability::Readable, SkeletonCapability::Writable);
+    masks[4] = makeMask(SkeletonCapability::ProvidesValue);
+
+    ManualItem item(masks[0], "item");
+    item.doPublish(sk);
+
+    for (int i = 1; i < 5; ++i)
+    {
+        item.doSetMask(masks[i]);
+    }
+
+    FATP_ASSERT_EQ(changes.size(), std::size_t(4), "Must have 4 mask change events");
+    for (int i = 0; i < 4; ++i)
+    {
+        FATP_ASSERT_EQ(changes[static_cast<std::size_t>(i)].first,  masks[i],
+            "Old mask must be the mask before this change");
+        FATP_ASSERT_EQ(changes[static_cast<std::size_t>(i)].second, masks[i + 1],
+            "New mask must be the mask after this change");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(signal_priority_high_fires_before_default)
+{
+    Skeleton sk;
+    std::vector<std::string> order;
+
+    auto connDefault = sk.onPublished([&](SkeletonItem&) { order.push_back("default"); }, 0);
+    auto connHigh    = sk.onPublished([&](SkeletonItem&) { order.push_back("high"); },    100);
+    auto connLow     = sk.onPublished([&](SkeletonItem&) { order.push_back("low"); },    -100);
+
+    SensorItem sensor(sk);
+
+    FATP_ASSERT_EQ(order.size(), std::size_t(3), "All 3 listeners must fire");
+    FATP_ASSERT_EQ(order[0], std::string("high"),    "High priority fires first");
+    FATP_ASSERT_EQ(order[1], std::string("default"), "Default fires second");
+    FATP_ASSERT_EQ(order[2], std::string("low"),     "Low fires last");
+    return true;
+}
+
+FATP_TEST_CASE(signal_publish_count_matches_items)
+{
+    // Total signal firings must equal total publish/unpublish calls.
+    // Use a single ManualItem cycled 30 times.
+    Skeleton sk;
+    int publishCount   = 0;
+    int unpublishCount = 0;
+    auto connP = sk.onPublished([&](SkeletonItem&) { ++publishCount; });
+    auto connU = sk.onUnpublishing([&](SkeletonItem&) { ++unpublishCount; });
+
+    const int kN = 30;
+    ManualItem item;
+    for (int i = 0; i < kN; ++i)
+    {
+        item.doPublish(sk);
+        item.doUnpublish();
+    }
+
+    FATP_ASSERT_EQ(publishCount,   kN, "onPublished must fire exactly once per publish");
+    FATP_ASSERT_EQ(unpublishCount, kN, "onUnpublishing must fire exactly once per unpublish");
+    FATP_ASSERT_EQ(sk.size(), std::size_t(0), "Skeleton must be empty after all cycles");
+    return true;
+}
+
+// =============================================================================
+// Suite 16: visitSubtree and query corner cases
+// =============================================================================
+
+FATP_TEST_CASE(visit_subtree_null_root_visits_nothing)
+{
+    // visitSubtree with a null BoneId should visit nothing:
+    // null.isAncestorOf(x) is false for all x, and null != any non-null id.
+    Skeleton sk;
+    SensorItem sensor(sk);
+    LoadItem   load(sk);
+
+    int count = 0;
+    sk.visitSubtree(BoneId{}, [&](SkeletonItem&) { ++count; });
+    FATP_ASSERT_EQ(count, 0, "visitSubtree with null root must visit 0 items");
+    return true;
+}
+
+FATP_TEST_CASE(visit_subtree_sibling_not_visited)
+{
+    Skeleton sk;
+    SysItem      sys(sk);
+    SensorItem   sensors(sk);
+    ActuatorItem actuators(sk);
+    LoadItem     load(sk);
+
+    // Visit only the Sensors subtree -- Actuators branch must not appear.
+    constexpr BoneId sensorsRoot = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+    constexpr BoneId actuatorsId = Bone<TestSchema, Sys::Root, Sub::Actuators>::id();
+
+    std::vector<BoneId> visited;
+    sk.visitSubtree(sensorsRoot, [&](SkeletonItem& item)
+    {
+        visited.push_back(item.boneId());
+    });
+
+    bool actuatorsVisited = std::any_of(visited.begin(), visited.end(),
+        [](const BoneId& id) { return id == Bone<TestSchema, Sys::Root, Sub::Actuators>::id(); });
+    FATP_ASSERT_FALSE(actuatorsVisited, "Sibling branch must not appear in subtree visit");
+    return true;
+}
+
+FATP_TEST_CASE(query_subtree_null_root_returns_nothing)
+{
+    Skeleton sk;
+    SensorItem sensor(sk);
+
+    auto results = sk.querySubtree(BoneId{}, {});
+    FATP_ASSERT_EQ(results.size(), std::size_t(0),
+        "querySubtree with null root must return empty result");
+    return true;
+}
+
+FATP_TEST_CASE(query_subtree_absent_root_still_returns_descendants_if_any)
+{
+    // If the subtree root itself is not published, descendants that exist must still be returned.
+    Skeleton sk;
+    // Publish Load but NOT Sensors (the parent).
+    LoadItem load(sk, {}, "load");
+    TempItem temp(sk, {}, "temp");
+
+    constexpr BoneId sensorsRoot = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+    auto results = sk.querySubtree(sensorsRoot, {});
+
+    // Should include load and temp (they are descendants of sensors root), but NOT sensors itself.
+    FATP_ASSERT_EQ(results.size(), std::size_t(2),
+        "querySubtree must return descendants even when root itself is not published");
+    for (auto* item : results)
+    {
+        FATP_ASSERT_TRUE(
+            item->boneId() == sensorsRoot || sensorsRoot.isAncestorOf(item->boneId()),
+            "All results must be within the queried subtree"
+        );
+    }
+    return true;
+}
+
+FATP_TEST_CASE(query_reverse_order_child_before_parent)
+{
+    // Callers needing child-before-parent order must iterate in reverse.
+    Skeleton sk;
+    SysItem    sys(sk);
+    SensorItem sensor(sk);
+    LoadItem   load(sk);
+
+    auto results = sk.query({});
+    // Forward: parent before child
+    FATP_ASSERT_TRUE(std::is_sorted(results.begin(), results.end(),
+        [](SkeletonItem* a, SkeletonItem* b) { return a->boneId() < b->boneId(); }),
+        "query() results must be in ascending BoneId order");
+
+    // Reverse: child before parent
+    bool reverseIsSorted = std::is_sorted(results.rbegin(), results.rend(),
+        [](SkeletonItem* a, SkeletonItem* b) { return a->boneId() < b->boneId(); });
+    FATP_ASSERT_FALSE(reverseIsSorted,
+        "Reversing must yield descending (child-before-parent) order when multiple items present");
+    return true;
+}
+
+FATP_TEST_CASE(query_mixed_required_and_excluded_precise)
+{
+    // Items: A has {Sensor, Readable}, B has {Sensor}, C has {Readable}, D has {}
+    Skeleton sk;
+    SkeletonMask sensorAndReadable = makeMask(SkeletonCapability::Sensor, SkeletonCapability::Readable);
+    SkeletonMask sensorOnly        = makeMask(SkeletonCapability::Sensor);
+    SkeletonMask readableOnly      = makeMask(SkeletonCapability::Readable);
+    SkeletonMask none              = {};
+
+    SysItem      a(sk, sensorAndReadable, "a");
+    SensorItem   b(sk, sensorOnly,        "b");
+    ActuatorItem c(sk, readableOnly,      "c");
+    LoadItem     d(sk, none,              "d");
+
+    // Required: Sensor. Excluded: Readable.
+    // A has Sensor but also Readable (excluded) -> no
+    // B has Sensor, no Readable -> yes
+    // C has no Sensor -> no
+    // D has nothing -> no
+    SkeletonMask reqSensor = makeMask(SkeletonCapability::Sensor);
+    SkeletonMask excReadable = makeMask(SkeletonCapability::Readable);
+    auto results = sk.query(reqSensor, excReadable);
+    FATP_ASSERT_EQ(results.size(), std::size_t(1),
+        "Only item B (Sensor only, no Readable) must match");
+    FATP_ASSERT_EQ(results[0]->name(), std::string_view("b"),
+        "The matching item must be item B");
+    return true;
+}
+
+// =============================================================================
+// Suite 17: Fuzz / stress
+// =============================================================================
+
+FATP_TEST_CASE(fuzz_boneid_child_parent_roundtrip_random)
+{
+    // For random depths and index values, child()->parent() must always recover the original.
+    std::mt19937 rng(0xDEADBEEFu);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 255);
+
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+
+    for (int iteration = 0; iteration < 500; ++iteration)
+    {
+        BoneId cur = root;
+        // Build up to depth 7 (max = 8, root is 1, so 7 more steps)
+        int steps = static_cast<int>(rng() % 7 + 1);
+        std::vector<uint8_t> indices;
+        indices.reserve(static_cast<std::size_t>(steps));
+
+        for (int s = 0; s < steps; ++s)
+        {
+            uint8_t idx = static_cast<uint8_t>(idxDist(rng));
+            indices.push_back(idx);
+            cur = cur.child(idx);
+        }
+
+        // Walk back
+        BoneId walking = cur;
+        for (int s = steps - 1; s >= 0; --s)
+        {
+            BoneId up = walking.parent();
+            // Verify child() in the forward direction from up gives walking
+            BoneId rebuilt = up.child(indices[static_cast<std::size_t>(s)]);
+            FATP_ASSERT_EQ(rebuilt, walking, "child(parent()->index) roundtrip must hold");
+            walking = up;
+        }
+        FATP_ASSERT_EQ(walking, root, "Full walk back must recover root BoneId");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_boneid_ancestor_structural_invariant)
+{
+    // For any chain A -> B -> C (A is parent of B, B is parent of C):
+    // - A.isAncestorOf(B) == true
+    // - A.isAncestorOf(C) == true
+    // - B.isAncestorOf(A) == false
+    // - C.isAncestorOf(A) == false
+    // - C.isAncestorOf(B) == false
+    std::mt19937 rng(0xCAFEBABEu);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 255);
+
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+
+    for (int i = 0; i < 300; ++i)
+    {
+        uint8_t idxB = static_cast<uint8_t>(idxDist(rng));
+        uint8_t idxC = static_cast<uint8_t>(idxDist(rng));
+
+        BoneId A = root;
+        BoneId B = A.child(idxB);
+        BoneId C = B.child(idxC);
+
+        FATP_ASSERT_TRUE(A.isAncestorOf(B),  "A must be ancestor of B");
+        FATP_ASSERT_TRUE(A.isAncestorOf(C),  "A must be ancestor of C");
+        FATP_ASSERT_FALSE(B.isAncestorOf(A), "B must not be ancestor of A");
+        FATP_ASSERT_FALSE(C.isAncestorOf(A), "C must not be ancestor of A");
+        FATP_ASSERT_FALSE(C.isAncestorOf(B), "C must not be ancestor of B");
+        FATP_ASSERT_FALSE(A.isAncestorOf(A), "A must not be ancestor of itself");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_boneid_sibling_never_ancestor)
+{
+    // Two children of the same parent with different indices are never ancestors of each other.
+    std::mt19937 rng(0xFACEFEEDu);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 254); // 0-254 so +1 is always distinct
+
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+
+    for (int i = 0; i < 300; ++i)
+    {
+        uint8_t idxA = static_cast<uint8_t>(idxDist(rng));
+        uint8_t idxB = static_cast<uint8_t>(idxA + 1u); // guaranteed distinct
+
+        BoneId sibA = root.child(idxA);
+        BoneId sibB = root.child(idxB);
+
+        FATP_ASSERT_FALSE(sibA.isAncestorOf(sibB), "Sibling A must not be ancestor of B");
+        FATP_ASSERT_FALSE(sibB.isAncestorOf(sibA), "Sibling B must not be ancestor of A");
+        FATP_ASSERT_NE(sibA, sibB, "Siblings with different indices must be unequal");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_serialize_deserialize_all_depths_random_values)
+{
+    // For each depth 0-8, for many random index combinations, serialize and deserialize
+    // must produce an equal BoneId.
+    std::mt19937 rng(0xBEEFC0DEu);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 255);
+
+    for (int depth = 0; depth <= 8; ++depth)
+    {
+        for (int trial = 0; trial < 100; ++trial)
+        {
+            // Build a BoneId of the target depth.
+            BoneId cur; // depth 0 = null
+            if (depth > 0)
+            {
+                constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+                cur = root;
+                for (int d = 1; d < depth; ++d)
+                {
+                    cur = cur.child(static_cast<uint8_t>(idxDist(rng)));
+                }
+            }
+
+            std::array<std::byte, 9> buf{};
+            cur.serialize(buf);
+            BoneId restored = BoneId::deserialize(buf);
+
+            FATP_ASSERT_EQ(restored, cur,
+                "Serialize/deserialize roundtrip must be lossless at every depth");
+            FATP_ASSERT_EQ(restored.depth(), cur.depth(),
+                "Depth must survive serialize/deserialize roundtrip");
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_query_matches_reference_oracle)
+{
+    // Publish N items with random masks. For random required/excluded pairs,
+    // verify that query() results match a brute-force reference implementation.
+    std::mt19937 rng(0xABCDEF01u);
+    std::uniform_int_distribution<uint32_t> maskDist(0, 0xFFFFFFFFu);
+
+    Skeleton sk;
+
+    // Build 6 items (max we have unique BoneIds for in this schema)
+    struct ItemDesc { SkeletonMask mask; std::string name; };
+    ItemDesc descs[6];
+    descs[0] = { SkeletonMask(static_cast<unsigned long long>(maskDist(rng))), "sys" };
+    descs[1] = { SkeletonMask(static_cast<unsigned long long>(maskDist(rng))), "sensor" };
+    descs[2] = { SkeletonMask(static_cast<unsigned long long>(maskDist(rng))), "actuator" };
+    descs[3] = { SkeletonMask(static_cast<unsigned long long>(maskDist(rng))), "load" };
+    descs[4] = { SkeletonMask(static_cast<unsigned long long>(maskDist(rng))), "temp" };
+    descs[5] = { SkeletonMask(static_cast<unsigned long long>(maskDist(rng))), "pressure" };
+
+    SysItem      i0(sk, descs[0].mask, descs[0].name);
+    SensorItem   i1(sk, descs[1].mask, descs[1].name);
+    ActuatorItem i2(sk, descs[2].mask, descs[2].name);
+    LoadItem     i3(sk, descs[3].mask, descs[3].name);
+    TempItem     i4(sk, descs[4].mask, descs[4].name);
+    PressureItem i5(sk, descs[5].mask, descs[5].name);
+
+    SkeletonItem* allItems[6] = { &i0, &i1, &i2, &i3, &i4, &i5 };
+
+    for (int trial = 0; trial < 200; ++trial)
+    {
+        SkeletonMask required(maskDist(rng));
+        SkeletonMask excluded(maskDist(rng));
+
+        // Reference: brute-force O(N) with same predicate
+        std::vector<SkeletonItem*> reference;
+        for (auto* item : allItems)
+        {
+            if ((item->mask() & required) == required &&
+                (item->mask() & excluded).none())
+            {
+                reference.push_back(item);
+            }
+        }
+        std::sort(reference.begin(), reference.end(),
+            [](SkeletonItem* a, SkeletonItem* b) { return a->boneId() < b->boneId(); });
+
+        auto results = sk.query(required, excluded);
+        FATP_ASSERT_EQ(results.size(), reference.size(),
+            "query() result count must match brute-force reference");
+        for (std::size_t i = 0; i < results.size(); ++i)
+        {
+            FATP_ASSERT_EQ(results[i], reference[i],
+                "query() result items must match brute-force reference in order");
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_publish_unpublish_size_invariant)
+{
+    // Interleave publish and unpublish of a single item randomly many times.
+    // At every step, sk.size() must be either 0 or 1, never anything else.
+    Skeleton sk;
+    std::mt19937 rng(0x12345678u);
+    std::uniform_int_distribution<int> coinFlip(0, 1);
+
+    ManualItem item;
+    bool published = false;
+
+    for (int i = 0; i < 500; ++i)
+    {
+        if (coinFlip(rng) == 0)
+        {
+            if (!published)
+            {
+                item.doPublish(sk);
+                published = true;
+            }
+        }
+        else
+        {
+            if (published)
+            {
+                item.doUnpublish();
+                published = false;
+            }
+        }
+
+        std::size_t expected = published ? 1u : 0u;
+        FATP_ASSERT_EQ(sk.size(), expected,
+            "Skeleton size must be 0 or 1 matching publish state");
+        FATP_ASSERT_EQ(item.isPublished(), published,
+            "isPublished() must match actual publish state");
+    }
+
+    // Clean up
+    if (published)
+    {
+        item.doUnpublish();
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_signal_counts_match_publish_unpublish_operations)
+{
+    // Random sequence of publish/unpublish operations on multiple items.
+    // Total onPublished fires must equal total publish calls;
+    // total onUnpublishing fires must equal total unpublish calls.
+    Skeleton sk;
+    int publishFires   = 0;
+    int unpublishFires = 0;
+    auto connP = sk.onPublished([&](SkeletonItem&) { ++publishFires; });
+    auto connU = sk.onUnpublishing([&](SkeletonItem&) { ++unpublishFires; });
+
+    std::mt19937 rng(0xDEADC0DEu);
+    std::uniform_int_distribution<int> coinFlip(0, 1);
+
+    // Use a single unique-BoneId item (ManualItem = Sys::Aux) to avoid duplicates
+    ManualItem item;
+    bool published = false;
+    int expectedPublish   = 0;
+    int expectedUnpublish = 0;
+
+    for (int i = 0; i < 300; ++i)
+    {
+        if (coinFlip(rng) == 0)
+        {
+            if (!published)
+            {
+                item.doPublish(sk);
+                published = true;
+                ++expectedPublish;
+            }
+        }
+        else
+        {
+            if (published)
+            {
+                item.doUnpublish();
+                published = false;
+                ++expectedUnpublish;
+            }
+        }
+    }
+    if (published) { item.doUnpublish(); ++expectedUnpublish; }
+
+    FATP_ASSERT_EQ(publishFires, expectedPublish,
+        "onPublished fire count must match total publish operations");
+    FATP_ASSERT_EQ(unpublishFires, expectedUnpublish,
+        "onUnpublishing fire count must match total unpublish operations");
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_query_subtree_subset_of_global_query)
+{
+    // Property: for any subtree root R and any mask (req, excl),
+    // querySubtree(R, req, excl) must be a subset of query(req, excl).
+    Skeleton sk;
+    std::mt19937 rng(0x0FACADE0u);
+    std::uniform_int_distribution<uint32_t> maskDist(0, 0xFFFFFFFFu);
+
+    SkeletonMask masks[6];
+    for (auto& m : masks) { m = SkeletonMask(static_cast<unsigned long long>(maskDist(rng))); }
+
+    SysItem      i0(sk, masks[0]);
+    SensorItem   i1(sk, masks[1]);
+    ActuatorItem i2(sk, masks[2]);
+    LoadItem     i3(sk, masks[3]);
+    TempItem     i4(sk, masks[4]);
+    PressureItem i5(sk, masks[5]);
+
+    // Candidate subtree roots to test
+    BoneId roots[] = {
+        Bone<TestSchema, Sys::Root>::id(),
+        Bone<TestSchema, Sys::Root, Sub::Sensors>::id(),
+        Bone<TestSchema, Sys::Root, Sub::Actuators>::id(),
+        BoneId{}, // null
+    };
+
+    for (int trial = 0; trial < 100; ++trial)
+    {
+        SkeletonMask required(maskDist(rng));
+        SkeletonMask excluded(maskDist(rng));
+
+        auto global = sk.query(required, excluded);
+
+        for (auto root : roots)
+        {
+            auto subtree = sk.querySubtree(root, required, excluded);
+
+            // Every subtree result must appear in the global result.
+            for (auto* item : subtree)
+            {
+                bool inGlobal = std::any_of(global.begin(), global.end(),
+                    [item](SkeletonItem* g) { return g == item; });
+                FATP_ASSERT_TRUE(inGlobal,
+                    "Every querySubtree result must appear in query() result");
+            }
+
+            FATP_ASSERT_LE(subtree.size(), global.size(),
+                "querySubtree result must be no larger than global query");
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_hash_no_collision_for_distinct_simple_ids)
+{
+    // For every pair of distinct BoneIds constructible from a small value space,
+    // check that they are not equal (they could hash-collide, but they must not compare equal).
+    // This validates the canonical-form invariant used by Skeleton::publish().
+    std::hash<BoneId> h;
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+
+    // Build 50 BoneIds at depth 2 with indices 0-49
+    std::vector<BoneId> ids;
+    ids.reserve(50);
+    for (uint8_t i = 0; i < 50; ++i)
+    {
+        ids.push_back(root.child(i));
+    }
+
+    for (std::size_t i = 0; i < ids.size(); ++i)
+    {
+        for (std::size_t j = i + 1; j < ids.size(); ++j)
+        {
+            FATP_ASSERT_NE(ids[i], ids[j],
+                "Distinct child BoneIds must not compare equal");
+            // Also verify they don't produce the same hash (if they did, the hash function
+            // would be catastrophically broken for this small value space).
+            FATP_ASSERT_NE(h(ids[i]), h(ids[j]),
+                "Distinct simple BoneIds must have distinct hashes");
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(fuzz_mask_query_all_combinations_exhaustive)
+{
+    // Exhaustively test all (required, excluded) combinations for a small 4-bit mask space.
+    // Use only the first 4 SkeletonCapability bits to keep the space manageable.
+    // 4 items, each with a distinct combination of the 4 bits -> 16 items needed,
+    // but we only have 6 unique BoneIds. Use 4.
+
+    Skeleton sk;
+    // 4 items with all 4-bit combinations: 0b0000=0, 0b0001=1, 0b0011=3, 0b1111=15
+    // Using SkeletonCapability bits 0-3 (Sensor=0, Controller=1, Readable=2, Writable=3)
+    auto bit = [](SkeletonCapability c) { return static_cast<std::size_t>(c); };
+
+    SkeletonMask m0; // 0b0000
+    SkeletonMask m1; m1.set(bit(SkeletonCapability::Sensor));
+    SkeletonMask m2; m2.set(bit(SkeletonCapability::Sensor)); m2.set(bit(SkeletonCapability::Controller));
+    SkeletonMask m3; m3.set(bit(SkeletonCapability::Sensor)); m3.set(bit(SkeletonCapability::Controller));
+                     m3.set(bit(SkeletonCapability::Readable)); m3.set(bit(SkeletonCapability::Writable));
+
+    SysItem      i0(sk, m0, "i0");
+    SensorItem   i1(sk, m1, "i1");
+    ActuatorItem i2(sk, m2, "i2");
+    LoadItem     i3(sk, m3, "i3");
+
+    SkeletonItem* items[4] = { &i0, &i1, &i2, &i3 };
+    SkeletonMask  masks[4] = { m0, m1, m2, m3 };
+
+    // Test all 16 required x 16 excluded combinations (using only 4-bit variants)
+    for (uint32_t reqBits = 0; reqBits < 16u; ++reqBits)
+    {
+        for (uint32_t exclBits = 0; exclBits < 16u; ++exclBits)
+        {
+            SkeletonMask required;
+            SkeletonMask excluded;
+            for (uint32_t b = 0; b < 4; ++b)
+            {
+                if ((reqBits  >> b) & 1u) { required.set(b); }
+                if ((exclBits >> b) & 1u) { excluded.set(b); }
+            }
+
+            // Reference: brute-force
+            std::vector<SkeletonItem*> reference;
+            for (int k = 0; k < 4; ++k)
+            {
+                if ((masks[k] & required) == required && (masks[k] & excluded).none())
+                {
+                    reference.push_back(items[k]);
+                }
+            }
+            std::sort(reference.begin(), reference.end(),
+                [](SkeletonItem* a, SkeletonItem* b) { return a->boneId() < b->boneId(); });
+
+            auto results = sk.query(required, excluded);
+            FATP_ASSERT_EQ(results.size(), reference.size(),
+                "Exhaustive mask test: result count must match reference");
+            for (std::size_t idx = 0; idx < results.size(); ++idx)
+            {
+                FATP_ASSERT_EQ(results[idx], reference[idx],
+                    "Exhaustive mask test: items must match reference in order");
+            }
+        }
+    }
+    return true;
+}
+
 } // namespace fat_p::testing::skeleton
 
 // =============================================================================
@@ -1599,6 +2847,77 @@ bool test_Skeleton()
     FATP_RUN_TEST_NS(runner, skeleton, stress_repeated_publish_unpublish);
     FATP_RUN_TEST_NS(runner, skeleton, stress_query_consistency);
     FATP_RUN_TEST_NS(runner, skeleton, stress_signal_consistency);
+
+    // BoneId boundary and structural properties
+    out << "\n--- BoneId boundary ---\n";
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_max_depth_chain);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_max_depth_parent_chain);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_child_with_zero_index);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_child_with_max_index);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_child_zero_vs_child_one_are_distinct);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_child_255_vs_other_distinct);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_value_bit_layout);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_inactive_bytes_are_zero);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_ordering_strict_weak_order_reflexivity);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_ordering_strict_weak_order_asymmetry);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_ordering_strict_weak_order_transitivity);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_serialize_all_depths);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_ancestor_chain_all_depths);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_non_prefix_is_not_ancestor);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_hash_null_is_stable);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_to_string_each_depth);
+
+    // Mask edge cases
+    out << "\n--- Mask edge cases ---\n";
+    FATP_RUN_TEST_NS(runner, skeleton, mask_all_32_bits_set);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_required_and_excluded_overlap_matches_nothing);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_excluded_superset_of_item_mask_matches_nothing);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_required_superset_of_any_item_matches_nothing);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_item_with_all_bits_matches_any_required);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_set_same_value_fires_signal);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_rapid_repeated_changes);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_empty_required_and_empty_excluded_matches_all);
+
+    // Multi-skeleton isolation
+    out << "\n--- Multi-skeleton isolation ---\n";
+    FATP_RUN_TEST_NS(runner, skeleton, isolation_two_skeletons_independent);
+    FATP_RUN_TEST_NS(runner, skeleton, isolation_same_boneid_on_two_skeletons_allowed);
+    FATP_RUN_TEST_NS(runner, skeleton, isolation_signals_do_not_cross_skeletons);
+    FATP_RUN_TEST_NS(runner, skeleton, isolation_query_scoped_to_own_skeleton);
+
+    // Signal edge cases
+    out << "\n--- Signal edge cases ---\n";
+    FATP_RUN_TEST_NS(runner, skeleton, signal_reentrant_publish_from_on_published);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_on_unpublishing_item_still_findable);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_on_unpublishing_item_gone_after_callback);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_connect_then_immediately_disconnect);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_many_listeners_all_fire);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_listener_removed_while_others_remain);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_on_mask_changed_sequence_old_masks_correct);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_priority_high_fires_before_default);
+    FATP_RUN_TEST_NS(runner, skeleton, signal_publish_count_matches_items);
+
+    // visitSubtree / query corner cases
+    out << "\n--- Traversal / query corner cases ---\n";
+    FATP_RUN_TEST_NS(runner, skeleton, visit_subtree_null_root_visits_nothing);
+    FATP_RUN_TEST_NS(runner, skeleton, visit_subtree_sibling_not_visited);
+    FATP_RUN_TEST_NS(runner, skeleton, query_subtree_null_root_returns_nothing);
+    FATP_RUN_TEST_NS(runner, skeleton, query_subtree_absent_root_still_returns_descendants_if_any);
+    FATP_RUN_TEST_NS(runner, skeleton, query_reverse_order_child_before_parent);
+    FATP_RUN_TEST_NS(runner, skeleton, query_mixed_required_and_excluded_precise);
+
+    // Fuzz / stress
+    out << "\n--- Fuzz / stress ---\n";
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_boneid_child_parent_roundtrip_random);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_boneid_ancestor_structural_invariant);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_boneid_sibling_never_ancestor);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_serialize_deserialize_all_depths_random_values);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_query_matches_reference_oracle);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_publish_unpublish_size_invariant);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_signal_counts_match_publish_unpublish_operations);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_query_subtree_subset_of_global_query);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_hash_no_collision_for_distinct_simple_ids);
+    FATP_RUN_TEST_NS(runner, skeleton, fuzz_mask_query_all_combinations_exhaustive);
 
     return 0 == runner.print_summary();
 }
