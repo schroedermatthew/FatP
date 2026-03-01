@@ -21,7 +21,10 @@
 | Took the cheaper path and delivered it as if it were the fix | 5 | 5 | | |
 | Wrote new file from scratch instead of requesting/using existing one | | 1 | | |
 | Drew conclusions about dependencies without reading available dependency files | | 1 | | |
+| Reported non-violations as violations (fabricated rule breaches from available guidelines) | 1 | | | |
 
 ---
+
+**Totals: ChatGPT 39 | Claude 24 | Gemini 0 | GROK 1**
 
 *Last updated: 2026-02-28*
