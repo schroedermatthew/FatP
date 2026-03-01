@@ -53,6 +53,15 @@ namespace fat_p::testing::skeleton
 using namespace fat_p::skeleton;
 
 // =============================================================================
+// BoneId stream operator (required by FATP_ASSERT_EQ for failure diagnostics)
+// =============================================================================
+
+inline std::ostream& operator<<(std::ostream& os, const BoneId& id)
+{
+    return os << id.toString();
+}
+
+// =============================================================================
 // Test Schema and Enumerations
 // =============================================================================
 
@@ -683,7 +692,7 @@ FATP_TEST_CASE(item_publish_duplicate_boneid_throws_duplicate_error)
     // Manually construct a second item with the SAME BoneId via a second SysItem
     // (different object, same address) -- must throw DuplicateBoneError
     FATP_ASSERT_THROWS(
-        { SysItem b(sk, {}, "b"); (void)b; },
+        [&sk]() { SysItem b(sk, {}, "b"); (void)b; }(),
         DuplicateBoneError,
         "Publishing a second item at the same BoneId must throw DuplicateBoneError"
     );
@@ -1158,7 +1167,8 @@ FATP_TEST_CASE(signal_on_published_fires_after_insert)
     {
         SensorItem sensor(sk, {}, "sensor");
         FATP_ASSERT_EQ(callCount, 1, "onPublished must fire exactly once after publish");
-        FATP_ASSERT_EQ(capturedId, Bone<TestSchema, Sys::Root, Sub::Sensors>::id(),
+        constexpr BoneId expectedId = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
+        FATP_ASSERT_EQ(capturedId, expectedId,
             "onPublished must deliver the correct BoneId");
     }
     return true;
