@@ -162,7 +162,7 @@ jobs:
           echo "" >> summary.md
           echo "## Individual Results" >> summary.md
           for dir in all-benchmarks/bench-Skeleton-*/; do
-            name=$(basename "$dir" | sed 's/^bench-Skeleton-//"); echo "" >> summary.md; echo "### $name" >> summary.md
+            name=$(basename "$dir" | sed 's/^bench-Skeleton-//'); echo "" >> summary.md; echo "### $name" >> summary.md
             for log in "$dir"/*.log; do [ -f "$log" ] && echo '```' >> summary.md && tail -80 "$log" >> summary.md && echo '```' >> summary.md; done
           done
           cat summary.md >> $GITHUB_STEP_SUMMARY
