@@ -98,6 +98,7 @@ FATP_META:
 
 #include <algorithm>
 #include <atomic>
+#include <cstdio>
 #include <functional>
 #include <memory>
 #include <type_traits>
@@ -172,13 +173,26 @@ struct PropagateExceptionPolicy
 
 /**
  * @brief Policy that terminates on slot exceptions (for noexcept emission)
+ *
+ * Catches any exception thrown by a slot, emits a diagnostic to stderr,
+ * and calls std::terminate. The explicit catch makes termination intentional
+ * and auditable rather than a silent side-effect of noexcept unwinding.
  */
 struct TerminateOnExceptionPolicy
 {
     template <typename F, typename... Args>
     static void invoke(F&& f, Args&&... args) noexcept
     {
-        std::forward<F>(f)(std::forward<Args>(args)...);
+        try
+        {
+            std::forward<F>(f)(std::forward<Args>(args)...);
+        }
+        catch (...)
+        {
+            std::fprintf(stderr,
+                "[Signal] FATAL: slot threw with TerminateOnExceptionPolicy. Terminating.\n");
+            std::terminate();
+        }
     }
 };
 
