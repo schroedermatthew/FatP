@@ -59,6 +59,7 @@ FATP_META:
     headers:
       - include/fat_p/Skeleton.h
       - include/fat_p/SkeletonFwd.h
+      - include/fat_p/SkeletonUtilities.h
       - include/fat_p/FatPBenchmarkRunner.h
   hygiene:
     pragma_once: false
@@ -90,6 +91,7 @@ FATP_META:
 #include <vector>
 
 #include "Skeleton.h"
+#include "SkeletonUtilities.h"
 #include "FatPBenchmarkRunner.h"
 #include "FatPBenchmarkHeader.h"
 
@@ -338,63 +340,47 @@ static const SkeletonMask MASK_WRITABLE = makeMask(SkeletonCapability{3});
 static const SkeletonMask MASK_SENSOR_READABLE   = MASK_SENSOR   | MASK_READABLE;
 static const SkeletonMask MASK_ACTUATOR_WRITABLE = MASK_ACTUATOR | MASK_WRITABLE;
 
-// Build N flat BoneIds at depth 2: root.child(sub).child(leaf_index).
-// BoneId stores values as uint8_t per level so we wrap indices > 254.
-static std::vector<BoneId> make_flat_ids(size_t n, uint8_t sub_index = 1)
+// Build N unique BoneIds descended from root.child(1).
+// Root value 1 is reserved for the flat/find sections.
+static std::vector<BoneId> make_flat_ids(size_t n)
 {
+    BoneId prefix = BoneId{}.child(1);
     std::vector<BoneId> ids;
     ids.reserve(n);
-    BoneId root = BoneId{}.child(1);
-    BoneId sub  = root.child(sub_index);
     for (size_t i = 0; i < n; ++i)
-    {
-        // Leaf index: 1..254 cycle (value 0 and 255 avoided; 0 is null sentinel).
-        uint8_t leaf = static_cast<uint8_t>((i % 254) + 1);
-        // When leaf cycles back to 1, bump sub to next sub-group.
-        uint8_t actual_sub = static_cast<uint8_t>(sub_index + static_cast<uint8_t>(i / 254));
-        ids.push_back(root.child(actual_sub).child(leaf));
-    }
+        ids.push_back(index2BoneId(prefix, i));
     return ids;
 }
 
-// Build IDs that do NOT appear in a known set -- used as miss-lookup keys.
-// We use a different root (root value 2 vs 1 used for published items).
+// Build N unique BoneIds that are guaranteed not to appear in make_flat_ids.
+// Root value 2 is reserved for miss keys.
 static std::vector<BoneId> make_miss_ids(size_t n)
 {
+    BoneId prefix = BoneId{}.child(2);
     std::vector<BoneId> ids;
     ids.reserve(n);
-    BoneId miss_root = BoneId{}.child(2);
     for (size_t i = 0; i < n; ++i)
-    {
-        uint8_t leaf = static_cast<uint8_t>((i % 254) + 1);
-        ids.push_back(miss_root.child(1).child(leaf));
-    }
+        ids.push_back(index2BoneId(prefix, i));
     return ids;
 }
 
-// Build a tree: `branch_count` sub-roots, each with leaves_per_branch children.
-// Returns the sub-root BoneIds in branch_roots and all leaf BoneIds in leaf_ids.
+// Build a tree: `branch_count` sub-roots under root.child(3), each with
+// `leaves_per_branch` unique descendants. Root value 3 is reserved for tree sections.
+// Returns branch roots (for subtree queries) and all leaf IDs (for publishing).
 static void make_tree_ids(size_t branch_count,
                           size_t leaves_per_branch,
                           std::vector<BoneId>& branch_roots,
                           std::vector<BoneId>& leaf_ids)
 {
-    BoneId root = BoneId{}.child(3);  // distinct from flat section (root 1) and miss (root 2)
+    BoneId root = BoneId{}.child(3);
     branch_roots.clear();
     leaf_ids.clear();
     for (size_t b = 0; b < branch_count; ++b)
     {
-        uint8_t bi = static_cast<uint8_t>(b + 1);
-        BoneId branch = root.child(bi);
+        BoneId branch = root.child(static_cast<uint8_t>(b + 1));
         branch_roots.push_back(branch);
         for (size_t l = 0; l < leaves_per_branch; ++l)
-        {
-            // Two-level addressing: sub-group avoids wrap at 254.
-            // Supports up to 254*254 = 64,516 leaves per branch.
-            uint8_t sub  = static_cast<uint8_t>(l / 254 + 1);
-            uint8_t leaf = static_cast<uint8_t>(l % 254 + 1);
-            leaf_ids.push_back(branch.child(sub).child(leaf));
-        }
+            leaf_ids.push_back(index2BoneId(branch, l));
     }
 }
 
@@ -859,12 +845,7 @@ static void benchmark_visit_subtree(const std::vector<size_t>& sizes)
         std::vector<BoneId> leaf_ids;
         leaf_ids.reserve(N);
         for (size_t i = 0; i < N; ++i)
-        {
-            // Two-level addressing: sub-group avoids wrap at 254.
-            uint8_t sub  = static_cast<uint8_t>(i / 254 + 1);
-            uint8_t leaf = static_cast<uint8_t>(i % 254 + 1);
-            leaf_ids.push_back(subtree.child(sub).child(leaf));
-        }
+            leaf_ids.push_back(index2BoneId(subtree, i));
 
         std::vector<std::unique_ptr<BenchItem>> items;
         items.reserve(N);
