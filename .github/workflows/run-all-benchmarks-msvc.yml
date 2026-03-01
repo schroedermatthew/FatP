@@ -140,6 +140,13 @@ jobs:
             extra_defines: ""
             extra_link: ""
             exe_name: bench_servicelocator
+          - name: Skeleton
+            src: components\Skeleton\benchmarks\benchmark_Skeleton.cpp
+            vcpkg_deps: ""
+            extra_includes: ""
+            extra_defines: ""
+            extra_link: ""
+            exe_name: bench_skeleton
           - name: SlotMap
             src: components\SlotMap\benchmarks\benchmark_SlotMap.cpp
             vcpkg_deps: "boost-container:x64-windows-release entt:x64-windows-release"

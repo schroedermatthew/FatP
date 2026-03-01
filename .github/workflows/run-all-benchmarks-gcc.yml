@@ -127,6 +127,12 @@ jobs:
             compiled_libs: ""
             system_deps: ""
             needs_headers: "true"
+          - name: Skeleton
+            src: components/Skeleton/benchmarks/benchmark_Skeleton.cpp
+            extra_includes: ""
+            extra_defines: ""
+            compiled_libs: ""
+            system_deps: ""
           - name: SlotMap
             src: components/SlotMap/benchmarks/benchmark_SlotMap.cpp
             extra_includes: "-I./ThirdParty -I$HOME/thirdparty-headers/entt/single_include -I$HOME/thirdparty-headers/plf_hive"
