@@ -149,7 +149,8 @@ public:
      * destructor.
      *
      * @throws DuplicateBoneError if another item at the same BoneId is already
-     *         published on this OwnerSkeleton.
+     *         owned by this OwnerSkeleton. Thrown before any insertion occurs,
+     *         so the existing item is not disturbed.
      * @throws Any exception thrown by T's constructor.
      */
     template <typename T, typename... Args>
@@ -353,12 +354,22 @@ T* OwnerSkeleton::emplace(Args&&... args)
         "Use OwnedBoneItem<> base or remove the publish() call.");
 
     // Ownership before publication: onPublished observers see a consistent view.
-    mOwnership.insert(id, std::move(up));
+    // insert() returns nullptr when the key is already present (no insertion
+    // occurred). Throwing here avoids arming the rollback guard on a key we do
+    // not own, which would otherwise erase the existing item from mOwnership
+    // while the inner Skeleton still holds a pointer to it.
+    auto* inserted = mOwnership.insert(id, std::move(up));
+    if (inserted == nullptr)
+    {
+        throw DuplicateBoneError(
+            "OwnerSkeleton::emplace(): item at " + id.toString() +
+            " is already owned by this OwnerSkeleton.");
+    }
 
-    // Rollback on any exception escaping publish(). Skeleton::publish() already
-    // rolls back its own registry entry and clears item.mSkeleton, so erasing
-    // from mOwnership leaves the item in a clean unpublished state for the
-    // unique_ptr destructor.
+    // Rollback on any exception escaping publish(). insert() succeeded above,
+    // so erasing id here is safe. Skeleton::publish() already rolls back its
+    // own registry entry and clears item.mSkeleton, so the unique_ptr destructor
+    // fires with mSkeleton == nullptr; no terminate.
     auto rollback = makeScopeGuardOnFail([&]() noexcept {
         mOwnership.erase(id);
     });
