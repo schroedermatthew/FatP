@@ -16,7 +16,7 @@ FATP_META:
   meta_version: 1
   component: OwnerSkeleton
   file_role: test
-  path: components/OwnerSkeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp
+  path: components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp
   namespace:
   layer: Testing
   summary: Compile-only self-contained and idempotence test for OwnerSkeleton.h.

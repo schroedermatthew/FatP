@@ -6,9 +6,12 @@
 # Directory structure:
 #   Headers:    include/fat_p/Skeleton.h
 #               include/fat_p/SkeletonFwd.h
+#               include/fat_p/OwnerSkeleton.h
 #   Tests:      components/Skeleton/tests/test_Skeleton.cpp
 #               components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
 #               components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp
+#               components/Skeleton/tests/test_OwnerSkeleton.cpp
+#               components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp
 #   CompileFail: components/Skeleton/tests/compile_fail/
 #                  compile_fail_Skeleton_WrongEnumAtDepth1.cpp
 #                  compile_fail_Skeleton_DepthExceedsMaxDepth.cpp
@@ -27,9 +30,12 @@ on:
     paths:
       - 'include/fat_p/Skeleton.h'
       - 'include/fat_p/SkeletonFwd.h'
+      - 'include/fat_p/OwnerSkeleton.h'
       - 'components/Skeleton/tests/test_Skeleton.cpp'
       - 'components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp'
       - 'components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp'
+      - 'components/Skeleton/tests/test_OwnerSkeleton.cpp'
+      - 'components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp'
       - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_WrongEnumAtDepth1.cpp'
       - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp'
       - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp'
@@ -39,9 +45,12 @@ on:
     paths:
       - 'include/fat_p/Skeleton.h'
       - 'include/fat_p/SkeletonFwd.h'
+      - 'include/fat_p/OwnerSkeleton.h'
       - 'components/Skeleton/tests/test_Skeleton.cpp'
       - 'components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp'
       - 'components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp'
+      - 'components/Skeleton/tests/test_OwnerSkeleton.cpp'
+      - 'components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp'
       - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_WrongEnumAtDepth1.cpp'
       - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp'
       - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp'
@@ -49,11 +58,13 @@ on:
       - '.github/workflows/skeleton.yml'
 
 env:
-  TEST_SRC:  components/Skeleton/tests/test_Skeleton.cpp
-  BENCH_SRC: components/Skeleton/benchmarks/benchmark_Skeleton.cpp
-  HDR_SC_SRC: components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
-  FWD_SC_SRC: components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp
-  CF_DIR:     components/Skeleton/tests/compile_fail
+  TEST_SRC:          components/Skeleton/tests/test_Skeleton.cpp
+  OWNER_TEST_SRC:    components/Skeleton/tests/test_OwnerSkeleton.cpp
+  BENCH_SRC:         components/Skeleton/benchmarks/benchmark_Skeleton.cpp
+  HDR_SC_SRC:        components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
+  FWD_SC_SRC:        components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp
+  OWNER_HDR_SC_SRC:  components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp
+  CF_DIR:            components/Skeleton/tests/compile_fail
 
 jobs:
   # ===========================================================================
@@ -76,16 +87,24 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
-      - name: Build tests
+      - name: Build and run test_Skeleton
         run: |
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
-      - name: Run tests
-        run: ./test_bin
+            ${{ env.TEST_SRC }} -o test_skeleton_bin
+          ./test_skeleton_bin
+      - name: Build and run test_OwnerSkeleton
+        run: |
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.OWNER_TEST_SRC }} -o test_owner_bin
+          ./test_owner_bin
 
   # ===========================================================================
   # Linux Clang Builds (C++20 / C++23)
@@ -108,7 +127,7 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh ${{ matrix.version }}
-      - name: Build tests
+      - name: Build and run test_Skeleton
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
@@ -116,9 +135,18 @@ jobs:
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
-      - name: Run tests
-        run: ./test_bin
+            ${{ env.TEST_SRC }} -o test_skeleton_bin
+          ./test_skeleton_bin
+      - name: Build and run test_OwnerSkeleton
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.OWNER_TEST_SRC }} -o test_owner_bin
+          ./test_owner_bin
 
   # ===========================================================================
   # Windows MSVC Builds (C++20 / C++23)
@@ -138,11 +166,16 @@ jobs:
       - uses: actions/checkout@v4
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
-      - name: Build tests
+      - name: Build and run test_Skeleton
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_Skeleton.cpp /Fe:test_bin.exe /link advapi32.lib
-      - name: Run tests
-        run: .\test_bin.exe
+        run: |
+          cl ${{ matrix.flag }} /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_Skeleton.cpp /Fe:test_skeleton_bin.exe /link advapi32.lib
+          .\test_skeleton_bin.exe
+      - name: Build and run test_OwnerSkeleton
+        shell: cmd
+        run: |
+          cl ${{ matrix.flag }} /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_OwnerSkeleton.cpp /Fe:test_owner_bin.exe /link advapi32.lib
+          .\test_owner_bin.exe
 
   # ===========================================================================
   # Sanitizers (C++20)
@@ -152,51 +185,66 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Build with ASan
+      - name: Build and run test_Skeleton with ASan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
-      - name: Run with ASan
-        env:
-          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_bin
+            ${{ env.TEST_SRC }} -o test_skeleton_bin
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 ./test_skeleton_bin
+      - name: Build and run test_OwnerSkeleton with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.OWNER_TEST_SRC }} -o test_owner_bin
+          ASAN_OPTIONS=detect_leaks=1:abort_on_error=1 ./test_owner_bin
 
   sanitizer-ubsan:
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Build with UBSan
+      - name: Build and run test_Skeleton with UBSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
-      - name: Run with UBSan
-        env:
-          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_bin
+            ${{ env.TEST_SRC }} -o test_skeleton_bin
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 ./test_skeleton_bin
+      - name: Build and run test_OwnerSkeleton with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.OWNER_TEST_SRC }} -o test_owner_bin
+          UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1 ./test_owner_bin
 
   sanitizer-tsan:
     name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Build with TSan
+      - name: Build and run test_Skeleton with TSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
-      - name: Run with TSan
-        env:
-          TSAN_OPTIONS: halt_on_error=1
-        run: ./test_bin
+            ${{ env.TEST_SRC }} -o test_skeleton_bin
+          TSAN_OPTIONS=halt_on_error=1 ./test_skeleton_bin
+      - name: Build and run test_OwnerSkeleton with TSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.OWNER_TEST_SRC }} -o test_owner_bin
+          TSAN_OPTIONS=halt_on_error=1 ./test_owner_bin
 
   # ===========================================================================
   # Header Self-Containment
@@ -223,6 +271,13 @@ jobs:
             -I./include/fat_p \
             ${{ env.FWD_SC_SRC }} -o /dev/null
           echo "SkeletonFwd.h: self-contained and idempotent"
+
+      - name: Compile test_OwnerSkeleton_HeaderSelfContained.cpp
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            ${{ env.OWNER_HDR_SC_SRC }} -o /dev/null
+          echo "OwnerSkeleton.h: self-contained and idempotent"
 
       - name: Test Skeleton.h include order independence
         run: |
@@ -259,6 +314,24 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_order1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_order2.cpp -o /dev/null
           echo "SkeletonFwd.h: include order independent"
+
+      - name: Test OwnerSkeleton.h include order independence
+        run: |
+          cat > test_owner_order1.cpp << 'EOF'
+          #include "OwnerSkeleton.h"
+          #include <vector>
+          #include <algorithm>
+          int main() { return 0; }
+          EOF
+          cat > test_owner_order2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "OwnerSkeleton.h"
+          int main() { return 0; }
+          EOF
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_owner_order1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_owner_order2.cpp -o /dev/null
+          echo "OwnerSkeleton.h: include order independent"
 
   # ===========================================================================
   # Compile-Fail Contract Tests
@@ -310,7 +383,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Compile with strict warnings
+      - name: Compile test_Skeleton with strict warnings
         run: |
           g++-13 -std=c++20 \
             -Wall -Wextra -Wpedantic \
@@ -319,6 +392,16 @@ jobs:
             -Werror \
             -DENABLE_TEST_APPLICATION -I./include/fat_p \
             -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
+      - name: Compile test_OwnerSkeleton with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+            -Wall -Wextra -Wpedantic \
+            -Wconversion -Wsign-conversion \
+            -Wshadow -Wformat=2 \
+            -Werror \
+            -DENABLE_TEST_APPLICATION -I./include/fat_p \
+            -o test_owner_strict ${{ env.OWNER_TEST_SRC }}
           echo "No warnings"
 
   # ===========================================================================

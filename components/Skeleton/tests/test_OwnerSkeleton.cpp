@@ -8,7 +8,7 @@ FATP_META:
   meta_version: 1
   component: OwnerSkeleton
   file_role: test
-  path: components/OwnerSkeleton/tests/test_OwnerSkeleton.cpp
+  path: components/Skeleton/tests/test_OwnerSkeleton.cpp
   namespace: fat_p::testing::ownerskeleton
   layer: Testing
   summary: Unit tests for OwnerSkeleton -- emplace, remove, removeSubtree,
