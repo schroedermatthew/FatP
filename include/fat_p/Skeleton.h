@@ -304,6 +304,13 @@ struct DefaultMaskPolicy
 // SkeletonItem -- non-owning base for all items
 // =============================================================================
 
+// Forward declarations for serialization support (OwnerSkeleton / Phase 0).
+// Full types are defined in SkeletonSerializer.h (fat_p Phase 1 deliverable).
+// The default no-op virtual bodies on SkeletonItem do not call any methods on
+// these types, so forward declarations are sufficient in this header.
+class SerializeWriter;
+class SerializeReader;
+
 /**
  * @brief Base class for all items that can be published onto a Skeleton.
  *
@@ -418,6 +425,25 @@ protected:
      * @param newMask The capability mask to assign. Replaces the previous mask entirely.
      */
     void setMask(SkeletonMask newMask) noexcept;
+
+    // ── Serialization hooks ───────────────────────────────────────────────────
+    //
+    // Default implementations are no-ops. Override in derived classes to
+    // participate in OwnerSkeleton-driven save/load.
+    //
+    // serializationVersion() is written by save() before calling serialize(),
+    // and passed back to deserialize() before calling it. Inspect the version
+    // parameter in deserialize() to apply schema migration logic for older files.
+    //
+    // SerializeWriter and SerializeReader are thin wrappers over a binary stream
+    // (see SkeletonSerializer.h, fat_p Phase 1 deliverable). Forward declarations
+    // allow these default no-op bodies to compile without the full type.
+
+    [[nodiscard]] virtual uint32_t serializationVersion() const noexcept { return 1u; }
+
+    virtual void serialize(SerializeWriter&) const {}
+
+    virtual void deserialize(SerializeReader&, uint32_t /*version*/) {}
 
 private:
     BoneId mBoneId;
