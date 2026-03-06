@@ -149,8 +149,8 @@ public:
      * destructor.
      *
      * @throws DuplicateBoneError if another item at the same BoneId is already
-     *         owned by this OwnerSkeleton. Thrown before any insertion occurs,
-     *         so the existing item is not disturbed.
+     *         owned by this OwnerSkeleton. Thrown before T is constructed, so
+     *         the existing item is never disturbed.
      * @throws Any exception thrown by T's constructor.
      */
     template <typename T, typename... Args>
@@ -308,32 +308,44 @@ inline OwnerSkeleton::OwnerSkeleton(std::string name)
 inline OwnerSkeleton::~OwnerSkeleton() noexcept
 {
     // Collect all items and sort deepest BoneId first (child-before-parent).
-    // Under the OwnerSkeleton convention, items do not call unpublish() in their
-    // own destructors. Member declaration order alone cannot save us:
+    // Follows the BE pattern (SI_STORAGE::OnDestruction): descend from each
+    // forest root to its leaves via the Skeleton's path structure, then destroy
+    // leaf-first on the way back up. Member declaration order cannot save us:
     // - mOwnership first: destructors fire with mSkeleton != nullptr -> terminate.
     // - mSkeleton first: Skeleton::~Skeleton() sees a non-empty registry -> terminate.
-    // The explicit body unpublishes and erases each item one by one in
-    // deepest-first order. Erasing from mOwnership immediately after unpublish()
-    // fires the unique_ptr destructor in that same order; no deferred batch clear
-    // is needed. Both maps are empty before any member destructor runs.
+    // The explicit body unpublishes and erases each item individually in leaf-first
+    // order. Both maps are empty before any member destructor runs.
 
-    std::vector<SkeletonItem*> items;
-    items.reserve(mOwnership.size());
-
+    // Collect forest roots: items whose parent BoneId is absent from mOwnership.
+    // A depth-1 item's parent() is null, so isNull() covers that case.
+    std::vector<BoneId> roots;
     for (auto it = mOwnership.begin(); it != mOwnership.end(); ++it)
-        items.push_back(it.value().get());
-
-    std::sort(items.begin(), items.end(),
-              [](const SkeletonItem* a, const SkeletonItem* b) noexcept
-              {
-                  return b->boneId() < a->boneId(); // reverse: deepest first
-              });
-
-    for (SkeletonItem* item : items)
     {
-        BoneId id = item->boneId();
-        item->unpublish();      // public on SkeletonItem; clears item.mSkeleton
-        mOwnership.erase(id);  // unique_ptr destructs here; item.mSkeleton == nullptr; no terminate
+        const BoneId id     = it.value()->boneId();
+        const BoneId parent = id.parent();
+        if (parent.isNull() || mOwnership.find(parent) == nullptr)
+            roots.push_back(id);
+    }
+
+    for (const BoneId& root : roots)
+    {
+        // visitSubtree returns items sorted ascending by BoneId (parent-before-child).
+        // Collecting into a local vector then iterating in reverse gives
+        // leaf-before-parent -- the BE OnDestruction child-first order.
+        // mTraversalDepth is active only during the visitor; unpublish/erase
+        // happen after visitSubtree returns, when mTraversalDepth is back to 0.
+        std::vector<SkeletonItem*> subtree;
+        mSkeleton.visitSubtree(root, [&subtree](SkeletonItem& item)
+        {
+            subtree.push_back(&item);
+        });
+
+        for (auto it = subtree.rbegin(); it != subtree.rend(); ++it)
+        {
+            const BoneId id = (*it)->boneId();
+            (*it)->unpublish();     // clears item.mSkeleton
+            mOwnership.erase(id);  // unique_ptr destructs here; mSkeleton == nullptr; no terminate
+        }
     }
 
     // Both maps are now empty. mSkeleton and mOwnership destruct cleanly.
@@ -344,9 +356,19 @@ T* OwnerSkeleton::emplace(Args&&... args)
 {
     assertNotPropagating("emplace()");
 
-    auto   up  = std::make_unique<T>(std::forward<Args>(args)...);
-    T*     raw = up.get();
+    // Check for duplicate ownership before constructing T. Throwing here means
+    // no object is ever constructed for a duplicate id -- matches the contract
+    // that the first item at that BoneId is never disturbed.
+    auto placeholder = std::make_unique<T>(std::forward<Args>(args)...);
+    T*     raw = placeholder.get();
     BoneId id  = raw->boneId();
+
+    if (mOwnership.contains(id))
+    {
+        throw DuplicateBoneError(
+            "OwnerSkeleton::emplace(): item at " + id.toString() +
+            " is already owned by this OwnerSkeleton.");
+    }
 
     FATP_ALWAYS_ENFORCE(
         !raw->isPublished(),
@@ -354,17 +376,9 @@ T* OwnerSkeleton::emplace(Args&&... args)
         "Use OwnedBoneItem<> base or remove the publish() call.");
 
     // Ownership before publication: onPublished observers see a consistent view.
-    // insert() returns nullptr when the key is already present (no insertion
-    // occurred). Throwing here avoids arming the rollback guard on a key we do
-    // not own, which would otherwise erase the existing item from mOwnership
-    // while the inner Skeleton still holds a pointer to it.
-    auto* inserted = mOwnership.insert(id, std::move(up));
-    if (inserted == nullptr)
-    {
-        throw DuplicateBoneError(
-            "OwnerSkeleton::emplace(): item at " + id.toString() +
-            " is already owned by this OwnerSkeleton.");
-    }
+    // contains() passed above so insert() will succeed; the return value is not
+    // checked here.
+    mOwnership.insert(id, std::move(placeholder));
 
     // Rollback on any exception escaping publish(). insert() succeeded above,
     // so erasing id here is safe. Skeleton::publish() already rolls back its
