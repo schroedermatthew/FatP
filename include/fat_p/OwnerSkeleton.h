@@ -38,6 +38,24 @@ FATP_META:
  * via skeleton(). Only the component responsible for the full object graph holds
  * the OwnerSkeleton.
  *
+ * Message passing:
+ * - BoneId encodes the full path from the tree root to any node. This makes
+ *   the hierarchy itself the message routing mechanism -- no separate event bus,
+ *   no manual parent pointers, and no observer registration are required.
+ * - propagateUp() is the standard pattern for child-to-parent notification:
+ *   a child that changes (e.g. a windowless control whose size changes) calls
+ *   propagateUp() and each ancestor receives the visitor in child-to-root order.
+ *   The first ancestor that owns the response (e.g. a panel that triggers a
+ *   redraw) handles it; deeper ancestors ignore it or accumulate it.
+ * - propagateDown() is the standard pattern for parent-to-child broadcast:
+ *   a state change at a parent node (e.g. a lock or visibility change) fans out
+ *   to all descendants in parent-before-child order.
+ * - visitSubtree() supports read-only queries over a subtree (e.g. collecting
+ *   all dirty controls under a panel before a redraw pass).
+ * - The ordering guarantee comes from BoneId::operator<: ascending sort always
+ *   places every parent before its children, across the entire registry.
+ *   Reverse iteration gives leaf-first order. No auxiliary structures needed.
+ *
  * Lifecycle contract:
  * - Items emplaced into OwnerSkeleton must NOT call publish() in their
  *   constructors. OwnerSkeleton calls publish() after construction completes.
@@ -308,44 +326,33 @@ inline OwnerSkeleton::OwnerSkeleton(std::string name)
 inline OwnerSkeleton::~OwnerSkeleton() noexcept
 {
     // Collect all items and sort deepest BoneId first (child-before-parent).
-    // Follows the BE pattern (SI_STORAGE::OnDestruction): descend from each
-    // forest root to its leaves via the Skeleton's path structure, then destroy
-    // leaf-first on the way back up. Member declaration order cannot save us:
+    // BoneId::operator< is the Skeleton's own ordering: ascending sort places
+    // every parent before its children. Iterating in reverse gives leaf-first
+    // destruction -- the same invariant BE enforces via SI_STORAGE::OnDestruction.
+    // Member declaration order alone cannot save us:
     // - mOwnership first: destructors fire with mSkeleton != nullptr -> terminate.
     // - mSkeleton first: Skeleton::~Skeleton() sees a non-empty registry -> terminate.
-    // The explicit body unpublishes and erases each item individually in leaf-first
-    // order. Both maps are empty before any member destructor runs.
+    // The explicit body uses the Skeleton's ordering to unpublish and erase each
+    // item individually in leaf-first order. Both maps are empty before any
+    // member destructor runs.
 
-    // Collect forest roots: items whose parent BoneId is absent from mOwnership.
-    // A depth-1 item's parent() is null, so isNull() covers that case.
-    std::vector<BoneId> roots;
+    std::vector<SkeletonItem*> items;
+    items.reserve(mOwnership.size());
+
     for (auto it = mOwnership.begin(); it != mOwnership.end(); ++it)
-    {
-        const BoneId id     = it.value()->boneId();
-        const BoneId parent = id.parent();
-        if (parent.isNull() || mOwnership.find(parent) == nullptr)
-            roots.push_back(id);
-    }
+        items.push_back(it.value().get());
 
-    for (const BoneId& root : roots)
-    {
-        // visitSubtree returns items sorted ascending by BoneId (parent-before-child).
-        // Collecting into a local vector then iterating in reverse gives
-        // leaf-before-parent -- the BE OnDestruction child-first order.
-        // mTraversalDepth is active only during the visitor; unpublish/erase
-        // happen after visitSubtree returns, when mTraversalDepth is back to 0.
-        std::vector<SkeletonItem*> subtree;
-        mSkeleton.visitSubtree(root, [&subtree](SkeletonItem& item)
-        {
-            subtree.push_back(&item);
-        });
+    std::sort(items.begin(), items.end(),
+              [](const SkeletonItem* a, const SkeletonItem* b) noexcept
+              {
+                  return a->boneId() < b->boneId(); // ascending: parent before child
+              });
 
-        for (auto it = subtree.rbegin(); it != subtree.rend(); ++it)
-        {
-            const BoneId id = (*it)->boneId();
-            (*it)->unpublish();     // clears item.mSkeleton
-            mOwnership.erase(id);  // unique_ptr destructs here; mSkeleton == nullptr; no terminate
-        }
+    for (auto it = items.rbegin(); it != items.rend(); ++it)
+    {
+        const BoneId id = (*it)->boneId();
+        (*it)->unpublish();     // clears item.mSkeleton
+        mOwnership.erase(id);  // unique_ptr destructs here; mSkeleton == nullptr; no terminate
     }
 
     // Both maps are now empty. mSkeleton and mOwnership destruct cleanly.
