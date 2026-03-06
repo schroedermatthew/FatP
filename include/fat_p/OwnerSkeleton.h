@@ -311,8 +311,10 @@ inline OwnerSkeleton::~OwnerSkeleton() noexcept
     // own destructors. Member declaration order alone cannot save us:
     // - mOwnership first: destructors fire with mSkeleton != nullptr -> terminate.
     // - mSkeleton first: Skeleton::~Skeleton() sees a non-empty registry -> terminate.
-    // The explicit body unpublishes all items in the correct order, then clears
-    // mOwnership, leaving both maps empty before any member destructor runs.
+    // The explicit body unpublishes and erases each item one by one in
+    // deepest-first order. Erasing from mOwnership immediately after unpublish()
+    // fires the unique_ptr destructor in that same order; no deferred batch clear
+    // is needed. Both maps are empty before any member destructor runs.
 
     std::vector<SkeletonItem*> items;
     items.reserve(mOwnership.size());
@@ -327,9 +329,11 @@ inline OwnerSkeleton::~OwnerSkeleton() noexcept
               });
 
     for (SkeletonItem* item : items)
-        item->unpublish();  // public on SkeletonItem; clears item.mSkeleton
-
-    mOwnership.clear();     // unique_ptrs destruct; item.mSkeleton == nullptr
+    {
+        BoneId id = item->boneId();
+        item->unpublish();      // public on SkeletonItem; clears item.mSkeleton
+        mOwnership.erase(id);  // unique_ptr destructs here; item.mSkeleton == nullptr; no terminate
+    }
 
     // Both maps are now empty. mSkeleton and mOwnership destruct cleanly.
 }
