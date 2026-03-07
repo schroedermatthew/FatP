@@ -33,10 +33,11 @@ status: "reviewed"
 **Component:** FeatureManager
 **Primary use case:** Manage feature flags with complex interdependencies, automatic conflict detection, and observer-based notification of state changes
 **Integration pattern:** Create `FeatureManager`, register features with dependencies via `addFeature()`, enable/disable features (auto-resolution handles dependencies), observe changes via callbacks
-**Key API:** `FeatureManager`, `.addFeature()`, `.addRelationship()`, `.enable()`, `.disable()`, `.isEnabled()`, `.addObserver()`, `.addBatchObserver()`, `fromJson()`, `toJson()`
-**std equivalent:** None
-**Common mistakes:** Creating dependency cycles (detected at runtime, throws); enabling features without checking relationship constraints; modifying features from observer callbacks (reentrancy)
-**Performance notes:** Feature lookup is O(1) hash map access. Dependency resolution is O(V+E) graph traversal. Observer notification is O(N) per observer. See `components/FeatureManager/results/` for current data
+**Key API:** `FeatureManager`, `.addFeature()`, `.addRelationship()`, `.enable()`, `.disable()`, `.isEnabled()`, `.addObserver()`, `.addBatchObserver()`, `.replace()`, `.forceExclusive()`, `fromJson()`, `toJson()`
+**std equivalent:** None. No standard equivalent exists or is planned.
+**Migration from std:** None. No standard equivalent exists.
+**Common mistakes:** Creating dependency cycles (detected at plan time, returns error); enabling features without checking the `Expected` return value; calling `replace()` when `from` is not currently enabled; modifying features from observer callbacks (reentrancy)
+**Performance notes:** Feature lookup is O(1) hash map access. Dependency resolution is O(d × log n) where d = dependency depth. See `components/FeatureManager/results/` for current data.
 
 ---
 ## Table of Contents
@@ -47,120 +48,69 @@ status: "reviewed"
 4. [Core Concepts](#core-concepts)
 5. [Architecture Overview](#architecture-overview)
 6. [Quick Start](#quick-start)
-7. [API Reference](#api-reference)
-8. [Callback Factory System](#callback-factory-system)
-9. [Detailed Examples](#detailed-examples)
-10. [Thread Safety](#thread-safety)
-11. [Performance Characteristics](#performance-characteristics)
-12. [Best Practices](#best-practices)
-13. [Troubleshooting](#troubleshooting)
-14. [Comparison with Other Libraries](#comparison-with-other-libraries)
+7. [Callback Factory System](#callback-factory-system)
+8. [Detailed Examples](#detailed-examples)
+9. [Thread Safety](#thread-safety)
+10. [Performance Characteristics](#performance-characteristics)
+11. [Best Practices](#best-practices)
+12. [Troubleshooting](#troubleshooting)
+13. [Comparison with Other Libraries](#comparison-with-other-libraries)
+14. [API Reference](#api-reference)
 
 ---
 
 ## Introduction
 
-FeatureManager is a C++20 header-only library for managing feature flags with complex dependencies, relationships, and validation rules. It provides a type-safe, high-performance solution for scenarios where features have interdependencies and need automatic resolution.
+### The Configuration Problem
 
-**License:** Header-only, zero external dependencies  
-**C++ Standard:** C++20  
-**Last Updated:** December 2025  
+Every non-trivial software system eventually faces the same question: which features are active right now, and what does activating one feature require of the others?
+
+At small scale the answer is a `std::map<string, bool>`. Someone enables `"vulkan"`, and somewhere in initialization code, another developer remembers to also enable `"rendering"`, `"shader_compiler"`, and `"graphics_context"` — because Vulkan needs them. The code works. Then another developer adds a new code path, forgets one of those prerequisites, and a crash surfaces in production two weeks later with no clear cause.
+
+The map knows what is enabled. It has no idea what enabling something *means*.
+
+At medium scale the problem compounds. Features conflict: `"low_memory_mode"` and `"high_quality_textures"` cannot both be active. Features imply: enabling `"developer_mode"` should automatically bring up `"verbose_logging"`, `"debug_symbols"`, and `"stack_trace_capture"`. Features form exclusive groups: exactly one renderer — Vulkan, OpenGL, or software — may be active at a time. And now there is a new problem: how do you swap one exclusive feature for another without the system passing through a state where neither is active?
+
+FeatureManager is the answer to all of these questions. It models feature dependencies as a directed graph with four relationship types — Requires, Implies, Conflicts, MutuallyExclusive — and resolves every state change through a plan/commit protocol that either succeeds completely or changes nothing. The caller does not manage prerequisites manually. The caller does not check for conflicts manually. The system does it, and when something is wrong, it says exactly what went wrong and where.
+
+**C++ Standard:** C++20
 **Dependencies:** Expected.h, ConcurrencyPolicies.h, JsonLite.h, ValueGuard.h, Stringify.h, EnumPlus.h, FlatSet.h, Factory.h
 
 ## The Problem Domain
 
 ### Feature Flag Complexity in Real-World Systems
 
-Feature flags (also called feature toggles) are an established technique for controlling functionality in software systems. However, as systems grow, feature flags become increasingly complex. Understanding these challenges helps explain why FeatureManager's architecture is necessary.
+Feature flags (also called feature toggles) are an established technique for controlling functionality in software systems. As systems grow, the flags themselves acquire relationships to each other, and managing those relationships manually is where the problems begin.
 
 #### Problem 1: Interdependencies
-```
-Feature "Graphics_High" requires "GPU_Acceleration"
-Feature "RayTracing" requires both "Graphics_High" AND "DX12_Support"
-```
 
-**Impact:** Without automatic dependency tracking, developers must manually enable required features in the correct order. In large codebases with 50+ features, this leads to:
-- Integration bugs where features break because dependencies weren't enabled
-- significant increases in QA time tracking down "works on my machine" issues where local configurations differ
-- Production incidents when deployment scripts miss steps
-- Developer frustration and context-switching overhead
-
-**Real-world consequence:** A mobile game studio reported that a large fraction of their crash reports stemmed from features being enabled without their dependencies, particularly after configuration changes during A/B testing.
+A feature often cannot function without others. `"RayTracing"` requires `"Graphics_High"`, which in turn requires `"GPU_Acceleration"`. When enable order is managed manually, any callsite that forgets a step puts the system in an invalid state — one that may not surface as an obvious crash, but as subtly wrong behavior under specific conditions.
 
 #### Problem 2: Conflicts
-```
-Feature "LowMemoryMode" conflicts with "HighQualityTextures"
-Feature "BatteryOptimization" conflicts with "MaxPerformance"
-```
 
-**Impact:** Accidentally enabling conflicting features causes:
-- Unpredictable behavior as features fight for resources
-- Silent failures where one feature disables another's effects
-- User complaints about inconsistent performance
-- Difficult-to-reproduce bugs that only appear in specific feature combinations
-
-**Real-world consequence:** In embedded systems, conflicting power management modes can cause devices to oscillate between states, draining batteries substantially faster than expected. Enterprise software often sees conflicts between "HighSecurity" and "FastMode" features that create security vulnerabilities.
+Some features are mutually incompatible. `"LowMemoryMode"` and `"HighQualityTextures"` cannot both be active; `"BatteryOptimization"` and `"MaxPerformance"` contradict each other. Without automated detection, the constraint must be encoded in every callsite that could enable either feature — a maintenance burden that grows with the number of conflicting pairs.
 
 #### Problem 3: Cascading Changes
-```
-Enabling "DeveloperMode" should automatically enable:
-- "VerboseLogging"
-- "DebugSymbols"
-- "StackTraceCapture"
-- "PerformanceCounters"
-```
 
-**Impact:** Without automatic propagation:
-- System ends up in inconsistent states where some debug features are on, others off
-- Developers waste time manually toggling 5-10 related features
-- Documentation burden explaining the "correct" combination
-- Support tickets from users who enabled one flag but not others
-
-**Real-world consequence:** Debugging sessions take substantially longer when developers must remember to enable all related diagnostic features. In production, partial debug modes can leak sensitive information (e.g., verbose logging enabled but audit trails disabled).
+Enabling `"DeveloperMode"` should automatically enable `"VerboseLogging"`, `"DebugSymbols"`, `"StackTraceCapture"`, and `"PerformanceCounters"`. Without automatic propagation, the system can reach inconsistent states where some of those diagnostic features are on and others are off — a partial debug mode that is harder to reason about than either fully on or fully off.
 
 #### Problem 4: Circular Dependencies
+
 ```
 Feature A requires Feature B
 Feature B requires Feature C
-Feature C requires Feature A  ← CYCLE!
+Feature C requires Feature A  ← CYCLE
 ```
 
-**Impact:** Circular dependencies are catastrophic:
-- Stack overflow crashes in naive implementations
-- Infinite loops consuming CPU
-- System hangs during initialization
-- Impossible-to-resolve configuration states
-
-**Real-world consequence:** A graphics engine hit this when "OpenGL" required "ContextManager", which required "WindowSystem", which required "OpenGL" for initialization. The application crashed at startup with no clear diagnostic. Finding the cycle manually took 3 days.
+Circular prerequisites have no valid resolution order. Naive implementations that follow dependency edges without cycle detection produce stack overflows or infinite loops at initialization time. The diagnostic — if any — is a crash, not a description of the cycle.
 
 #### Problem 5: Transactional Semantics
-```
-Try to enable ["FeatureA", "FeatureB", "FeatureC"]
-If any fail (validation, conflicts, cycles), what happens?
-```
 
-**Impact:** Without transaction semantics:
-- Partial failures leave the system in undefined states
-- FeatureA and FeatureB might be enabled while FeatureC failed
-- Rollback is manual and error-prone
-- Race conditions in multi-threaded environments
-
-**Real-world consequence:** During A/B test deployments, partial feature enable failures resulted in a measurable fraction of users receiving broken configurations that were hard to detect (some features on, others off). The fix required manually auditing and correcting thousands of user profiles.
+When enabling a batch of features, some may fail. Without transactional semantics, partial success leaves the system in an intermediate state: some features enabled, others not. That state may be inconsistent, and recovering from it requires manually inspecting and correcting each feature's status.
 
 #### Problem 6: Serialization of Validation Logic
-```
-Feature "GPU_Feature" has validation callback checking hardware
-Save feature graph to JSON for persistence
-Load from JSON... callbacks are LOST!
-```
 
-**Impact:** Traditional systems cannot serialize function pointers or lambdas:
-- Feature configurations can be saved but validation logic is lost
-- After restart, features are enabled without checking preconditions
-- Cannot distribute configurations across systems
-- Separation between config (serializable) and logic (code) is brittle
-
-**Real-world consequence:** Medical device software had to maintain separate configuration files and validation rule engines, compounding complexity and causing synchronization bugs where configs allowed invalid states. A factory-based approach with string keys solves this by making validation logic reconstructible.
+Validation callbacks — functions that check hardware availability, license state, or configuration preconditions at enable time — cannot be serialized as function pointers or lambdas. Saving the feature graph to JSON preserves registered features and relationships, but loses validation logic. On reload, features become enabled without their preconditions being checked.
 
 ---
 
@@ -282,129 +232,90 @@ The **FeatureCheckFactory** is a global singleton that maps string keys to callb
 
 ## Architecture Overview
 
-FeatureManager models features as a **directed graph**:
-- **Nodes** = Features (with state, callback, metadata)
-- **Edges** = Relationships (Requires, Implies, Conflicts, MutuallyExclusive)
+FeatureManager models features as nodes in a directed graph. The node stores state (enabled/disabled), an optional validation callback, and the serialization key for that callback. The edges are relationship records of four types. All state transitions operate on this graph through a two-phase plan/commit protocol.
 
-### Graph Representation
+### Graph Structure
 
+The dependency graph makes the enable/disable semantics visual. Consider a graphics system with a Vulkan and a software renderer in a MutuallyExclusive group:
+
+```mermaid
+graph LR
+    vulkan -->|Requires| rendering
+    vulkan -->|Requires| shader_compiler
+    rendering -->|Implies| graphics_context
+    vulkan <-.->|MutuallyExclusive| software_renderer
+    vulkan -.->|Conflicts| opengl
+
+    style vulkan fill:#4a9eff,color:#fff
+    style rendering fill:#4a9eff,color:#fff
+    style shader_compiler fill:#4a9eff,color:#fff
+    style graphics_context fill:#4a9eff,color:#fff
+    style software_renderer fill:#888,color:#fff
+    style opengl fill:#888,color:#fff
 ```
-Internally: std::map<std::string, FeatureNode>
 
-FeatureNode {
+Internally, each node is stored as a `FeatureNode` in a hash map keyed by name:
+
+```cpp
+// Internal node structure (simplified)
+struct FeatureNode {
     bool enabled;
-    FeatureCheck check;
-    std::string check_key;  // For serialization
-    std::map<FeatureRelationship, std::set<std::string>> relationships;
-}
+    FeatureCheck check;                                       // validation callback
+    std::string check_key;                                    // serialization key
+    FlatSet<std::string> relationships[num_relationship_types]; // edges per type
+};
+// Stored in: std::unordered_map<std::string, FeatureNode>
 ```
 
-### Core Algorithms
+### The Plan/Commit Protocol
 
-#### 1. Dependency Resolution (enable)
-```
-Pseudocode:
-  visited = empty set
-  path = empty stack (for cycle detection)
-  
-  enable_recursive(feature):
-    if feature in path: REPORT CYCLE
-    path.push(feature)
-    visited.add(feature)
-    
-    for dependency in feature.requires:
-      if not visited.has(dependency):
-        enable_recursive(dependency)
-    
-    for implied in feature.implies:
-      enable_recursive(implied)
-    
-    check_conflicts(feature)
-    run_validation(feature)
-    feature.enabled = true
-    path.pop()
-```
+Every state-changing method — `enable()`, `disable()`, `batchEnable()`, `batchDisable()`, `replace()`, `forceExclusive()` — executes the same two-phase protocol. This is the most important concept in FeatureManager: understanding it makes every other behavior predictable.
 
-**Complexity:** O(d × log n) where d = max dependency depth (capped at 100 to prevent stack overflow)
+```mermaid
+flowchart TD
+    subgraph PLAN["PLAN PHASE (inside lock)"]
+        direction TB
+        P1["1. Seed desiredStates from live state"]
+        P2["2. Follow Requires edges recursively"]
+        P3["3. Follow Implies edges"]
+        P4["4. Check Conflicts against desiredStates"]
+        P5["5. Check MutuallyExclusive against desiredStates"]
+        P6["6. Detect cycles — insertion-ordered path tracking"]
+        P7["7. Run validation callbacks"]
+        P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
+    end
 
-#### 2. Conflict Detection
-```
-For each enabled feature:
-  For each conflict edge:
-    If target is also enabled: FAIL
-```
+    subgraph COMMIT["COMMIT PHASE (inside lock)"]
+        direction TB
+        C1["8. Apply desiredStates → live state atomically"]
+        C2["9. Release lock"]
+        C3["10. Notify observers (outside lock — fully consistent state)"]
+        C1 --> C2 --> C3
+    end
 
-**Complexity:** O(c) where c = number of conflict edges (typically small)
+    ERR["Return error — no live mutation"]
 
-#### 3. Cycle Detection
-Uses **insertion-order path tracking**. When a node is re-encountered during traversal, the path from initial visit to re-encounter is the cycle.
+    PLAN -->|success| COMMIT
+    PLAN -->|any step fails| ERR
 
-**Why insertion-order matters:** Ensures the reported cycle matches the actual dependency chain, not a random permutation.
-
-#### 4. Transactional Batch Operations
-```
-batchEnable(features):
-  snapshot = record current state
-  try:
-    for each feature:
-      enable(feature)  // May enable dependencies
-    commit
-  catch error:
-    rollback to snapshot
-    rethrow
+    style ERR fill:#c0392b,color:#fff
+    style PLAN fill:#2c3e50,color:#fff
+    style COMMIT fill:#27ae60,color:#fff
 ```
 
-**Optimization:** Instead of full snapshots, tracks only modified features using FlatSet for O(log m) rollback where m = changes.
+The critical design decision is that constraint checking (steps 4–6) runs against `desiredStates` — not live state. This means the plan phase can reason about a future state that doesn't yet exist. `replace(from, to)` exploits this by marking `from` as disabled in `desiredStates` before running step 5, so the MutuallyExclusive check sees the correct end-state and the substitution succeeds atomically.
 
-#### 5. Serialization with Factory
-```
-Serialization:
-  For each feature:
-    JSON["features"][name] = {
-      "enabled": bool,
-      "check_key": string (if present),
-      "relationships": {...}
-    }
+### Transactional Batch Operations
 
-Deserialization:
-  For each JSON feature:
-    node.enabled = JSON.enabled
-    if JSON has check_key:
-      node.check = factory.make(check_key)  // Reconstruct callback
-    parse relationships
-```
+`batchEnable()` and `batchDisable()` extend the plan/commit protocol to multiple features: the plan phase resolves the full closure for all requested features before any live mutation occurs. On success, all changes commit together. On failure, `desiredStates` is discarded and live state is unchanged — there is no partial commit.
 
-**Key insight:** Function pointers can't be serialized, but string keys can. Factory acts as a registry mapping keys → callbacks.
-
-### Data Flow Diagram (ASCII)
-
-```
-User Code
-    |
-    v
-[addFeature] ──→ Factory.make(key) ──→ FeatureCheck callback
-    |                                        |
-    v                                        v
-FeatureManager.features                 Stored in node
-    |
-    v
-[enable] ──→ Graph Traversal ──→ Dependency Resolution
-    |            |                       |
-    |            v                       v
-    |      Cycle Detect           Run Validations
-    |            |                       |
-    v            v                       v
-Success ←── Check Conflicts ←──── Notify Observers
-```
+The rollback mechanism uses `ValueGuard` to track only modified features rather than snapshotting the entire graph, giving O(log m) rollback cost where m = the number of changed features.
 
 ### Thread Safety Model
 
-Configurable via template parameter:
-- **NoSynchronizationPolicy** (default): Single-threaded, no locks
-- **MutexSynchronizationPolicy**: std::mutex, exclusive access
-- **SharedMutexPolicy**: std::shared_mutex, concurrent reads
+The SyncPolicy template parameter selects the lock strategy at compile time. `SingleThreadedPolicy` compiles to zero overhead — no atomics, no lock operations. `MutexSynchronizationPolicy` acquires an exclusive lock for the full plan/commit phase. `SharedMutexPolicy` acquires a shared lock for read-only queries (`isEnabled`, `validate`) and an exclusive lock for writes.
 
-**Observer Safety:** Observers are called while holding the lock. Do not call FeatureManager methods from within observers (causes deadlock). Use flags or Implies/Requires relationships for cascading changes.
+Observers are called outside the lock, after the commit phase completes. The state they observe is fully consistent. Observers must not call back into FeatureManager — the lock is not held during notification, but re-entrant enable/disable from an observer creates a logical ordering problem that no lock strategy resolves cleanly.
 
 ---
 
@@ -494,1032 +405,6 @@ if (restored) {
 
 ---
 
-## API Reference
-
-### Feature Management
-
-#### `addFeature()` - Direct Callback
-
-Add a feature with a direct validation callback (not serializable).
-
-**Signature:**
-```cpp
-Expected<void, std::string> addFeature(
-    const std::string& name, 
-    FeatureCheck check = nullptr
-);
-```
-
-**Parameters:**
-- `name`: Unique feature identifier
-- `check`: Optional validation function
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected(error_message)` if feature already exists
-
-**Example:**
-```cpp
-// Simple feature
-manager.addFeature("BasicFeature");
-
-// With direct callback (NOT serializable)
-manager.addFeature("GPUFeature", []() -> Expected<void, std::string> {
-    if (!check_gpu_available()) {
-        return unexpected("GPU not available");
-    }
-    return {};
-});
-```
-
-**Warning:** Direct callbacks cannot be serialized. For persistence, use the factory-based version below.
-
----
-
-#### `addFeature()` - Factory Key (Recommended)
-
-Add a feature using a registered callback key (fully serializable).
-
-**Signature:**
-```cpp
-Expected<void, std::string> addFeature(
-    const std::string& name, 
-    const std::string& check_key
-);
-```
-
-**Parameters:**
-- `name`: Unique feature identifier
-- `check_key`: Key to look up callback in factory
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected("Check key 'X' not found in factory")` if key not registered
-- `unexpected("Feature already exists")` if feature exists
-
-**Example:**
-```cpp
-// First, register the callback
-auto& factory = getFeatureCheckFactory();
-factory.registerType("hardware.gpu", []() -> FeatureCheck {
-    return []() { return check_gpu(); };
-});
-
-// Then add feature with key
-auto result = manager.addFeature("GPUFeature", "hardware.gpu");
-if (!result) {
-    std::cerr << result.error() << "\n";
-}
-```
-
-**Benefits:**
-- ✅ Full serialization support
-- ✅ Callbacks automatically restored on load
-- ✅ Module independence
-- ✅ Type-safe validation
-
----
-
-#### `addRelationship()`
-
-Add a relationship between two features.
-
-**Signature:**
-```cpp
-Expected<void, std::string> addRelationship(
-    const std::string& from, 
-    FeatureRelationship type, 
-    const std::string& to
-);
-```
-
-**Parameters:**
-- `from`: Source feature name
-- `type`: One of `Requires`, `Conflicts`, `Implies`, `MutuallyExclusive`
-- `to`: Target feature name
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected(error_message)` if features don't exist or relationship would create cycles
-
-**Bidirectional Relationships:**
-- `Conflicts` and `MutuallyExclusive` automatically add the reverse relationship
-- `Requires` and `Implies` are directional only
-
-**Example:**
-```cpp
-// A requires B (directional)
-manager.addRelationship("FeatureA", FeatureRelationship::Requires, "FeatureB");
-
-// A conflicts with B (bidirectional)
-manager.addRelationship("FeatureA", FeatureRelationship::Conflicts, "FeatureB");
-// Automatically adds: FeatureB conflicts with FeatureA
-```
-
----
-
-#### `enable()`
-
-Enable a feature and all its dependencies.
-
-**Signature:**
-```cpp
-Expected<void, std::string> enable(const std::string& name);
-```
-
-**Behavior:**
-1. Checks for circular dependencies
-2. Recursively enables all `Requires` dependencies
-3. Recursively enables all `Implies` targets
-4. Checks for conflicts with already-enabled features
-5. Runs validation check if present
-6. Notifies observers on success
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected(error_message)` with detailed diagnostics including:
-  - Cycle paths if circular dependency detected
-  - Validation failure messages
-  - Conflict descriptions
-
-**Performance:** O(d × log n) where d = dependency depth (max 100), n = total features
-
-**Example:**
-```cpp
-auto result = manager.enable("AdvancedFeature");
-if (!result) {
-    std::cerr << "Failed to enable: " << result.error() << "\n";
-    // Error might be:
-    // "Circular dependency detected: A -> B -> C -> A"
-    // "Validation failed for 'GPU': No GPU available"
-    // "Conflict: 'HighPerf' conflicts with already enabled 'PowerSave'"
-}
-```
-
----
-
-#### `disable()`
-
-Disable a feature.
-
-**Signature:**
-```cpp
-Expected<void, std::string> disable(const std::string& name);
-```
-
-**Behavior:**
-- Sets feature's enabled state to false
-- Notifies observers
-- Does **not** check if other features depend on this one
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected("Feature not found")` if feature doesn't exist
-
-**Note:** After disabling features, use `validate()` to check if the graph is still consistent.
-
-**Example:**
-```cpp
-manager.disable("OptionalFeature");
-
-// Ensure consistency
-auto validation = manager.validate();
-if (!validation) {
-    std::cerr << "Warning: " << validation.error() << "\n";
-}
-```
-
----
-
-#### `isEnabled()`
-
-Check if a feature is enabled.
-
-**Signature:**
-```cpp
-bool isEnabled(const std::string& name) const;
-```
-
-**Returns:** `true` if feature exists and is enabled, `false` otherwise
-
-**Performance:** O(log n)
-
-**Example:**
-```cpp
-if (manager.isEnabled("GPUAcceleration")) {
-    use_gpu_path();
-} else {
-    use_cpu_path();
-}
-```
-
----
-
-#### `validate()`
-
-Validate the entire feature set for consistency.
-
-**Signature:**
-```cpp
-Expected<void, std::string> validate();
-```
-
-**Checks:**
-- All `Requires` relationships satisfied (if A requires B and A is enabled, B must be enabled)
-- No conflicts between enabled features
-- All `Implies` relationships satisfied (if A implies B and A is enabled, B must be enabled)
-- All validation checks pass for enabled features
-- No cycles in the dependency graph
-
-**Returns:**
-- `Expected<void>` if entire graph is consistent
-- `unexpected(error_message)` with first inconsistency found
-
-**Performance:** O(n × d × log n) where n = features, d = avg dependency depth
-
-**Example:**
-```cpp
-// After manual modifications
-manager.disable("CoreFeature");
-
-auto result = manager.validate();
-if (!result) {
-    std::cerr << "Graph inconsistent: " << result.error() << "\n";
-    // Might report: "'AdvancedFeature' requires 'CoreFeature' but it's disabled"
-}
-```
-
----
-
-#### `batchEnable()`
-
-Enable multiple features with transactional semantics.
-
-**Signature:**
-```cpp
-Expected<void, std::string> batchEnable(
-    const std::vector<std::string>& names
-);
-```
-
-**Guarantees:**
-1. **Atomicity:** All features (including dependencies) succeed or all fail
-2. **Rollback:** Complete rollback on any failure
-3. **Consistency:** Graph remains in valid state even if transaction fails
-
-**Behavior:**
-- Enables each feature in order
-- Tracks all state changes (including implicit dependency enables)
-- On failure, rolls back **all** changes, even dependencies enabled earlier
-- Notifies observers only once per feature at end if successful
-
-**Returns:**
-- `Expected<void>` if all features and dependencies enabled
-- `unexpected(error)` with detailed failure reason, graph unchanged
-
-**Performance:** O(k × d × log n) where k = batch size
-
-**Example:**
-```cpp
-std::vector<std::string> features = {"GPU", "HighQuality", "Shadows"};
-auto result = manager.batchEnable(features);
-if (!result) {
-    std::cerr << "Batch failed: " << result.error() << "\n";
-    // NO features are enabled, even if some succeeded initially
-}
-```
-
----
-
-#### `batchDisable()`
-
-Disable multiple features atomically with relationship validation.
-
-**Signature:**
-```cpp
-Expected<void, std::string> batchDisable(
-    const std::vector<std::string>& names
-);
-```
-
-**Guarantees:**
-1. **Atomicity:** All features disable successfully or none do
-2. **Rollback:** Complete rollback on any validation failure
-3. **Requires Validation:** Cannot disable a feature required by an enabled feature
-4. **Implies Validation:** Cannot disable a feature implied by an enabled feature
-
-**Behavior:**
-- Validates all features exist first
-- Tentatively disables all requested features
-- Checks that no enabled feature requires any disabled feature
-- Checks that no enabled feature implies any disabled feature
-- On any failure, rolls back all changes
-- Notifies observers for each feature that actually changed state
-
-**Implies Relationship Semantics:**
-
-If feature A implies feature B (meaning "when A is enabled, B must also be enabled"), then B cannot be disabled while A remains enabled. You must disable A first.
-
-```cpp
-manager.addRelationship("Premium", FeatureRelationship::Implies, "AllFeatures");
-manager.enable("Premium");  // Both Premium and AllFeatures are now ON
-
-// This FAILS - Premium implies AllFeatures
-auto r1 = manager.batchDisable({"AllFeatures"});
-// Error: "Cannot disable 'AllFeatures': implied by enabled feature 'Premium'. 
-//         Disable 'Premium' first."
-
-// This succeeds - disable the implier first
-manager.disable("Premium");
-auto r2 = manager.batchDisable({"AllFeatures"});  // OK
-```
-
-**Returns:**
-- `Expected<void>` if all features successfully disabled
-- `unexpected(error)` with detailed failure reason, graph unchanged
-
-**Example:**
-```cpp
-// Scenario: Clean shutdown sequence
-std::vector<std::string> to_disable = {"Networking", "Database", "Logging"};
-auto result = manager.batchDisable(to_disable);
-if (!result) {
-    // Some feature depends on one we tried to disable
-    std::cerr << "Cannot disable: " << result.error() << "\n";
-}
-```
-
----
-
-#### `replace()`
-
-Atomically disable one feature and enable another in a single plan/commit transaction.
-
-**Signature:**
-```cpp
-[[nodiscard]] Expected<void, std::string>
-replace(const std::string& from, const std::string& to);
-```
-
-**Why this exists:** `MutuallyExclusive` features cannot be swapped with two sequential calls. If `A` is enabled and `A` is `MutuallyExclusive` with `B`, calling `enable("B")` fails immediately — because `A` is still visible as enabled when the constraint check runs. Two sequential `batchDisable` + `batchEnable` calls are also not a solution: an observer fires between them, and any code polling `isEnabled()` between the calls sees neither mode active.
-
-`replace()` solves this by marking `from` as disabled in the plan before `planEnableRecursive` runs its constraint check. The check sees the correct end-state.
-
-**What it does:**
-1. Validates both features exist.
-2. Requires `from` to be currently enabled — returns an error if it is not (silent no-op would hide caller bugs).
-3. Rejects `from == to` with an explicit error.
-4. Seeds the transaction plan from live state.
-5. `planDisableClosure(from)` — marks `from` and its reverse-dependency closure (features that Require or Imply `from`) as disabled in the plan. No live mutation yet.
-6. `planEnableRecursive(to)` — `from` is now false in `desiredStates`, so the `MutuallyExclusive` check succeeds.
-7. `validateDesiredState` — final consistency check.
-8. Commit + notify: one observer notification, `requestedFeature = to`.
-
-**Error conditions:**
-
-| Condition | Behaviour |
-|-----------|-----------|
-| `from` not found | Returns error, no state change |
-| `to` not found | Returns error, no state change |
-| `from` is not currently enabled | Returns error — check `isEnabled(from)` before calling if conditional behaviour is needed |
-| `from == to` | Returns error |
-| `to`'s Requires closure has a Conflicts violation | Planning error, no state change |
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected(error)` on failure, graph unchanged
-
-**Example: MutuallyExclusive mode switch**
-```cpp
-FeatureManager<> fm;
-(void)fm.addFeature("normal_mode");
-(void)fm.addFeature("safe_mode");
-(void)fm.addRelationship("normal_mode", FeatureRelationship::MutuallyExclusive, "safe_mode");
-
-(void)fm.enable("normal_mode");
-
-// Atomic: normal_mode goes off, safe_mode comes on, one observer notification.
-auto res = fm.replace("normal_mode", "safe_mode");
-if (!res)
-{
-    // normal_mode was not enabled, or another constraint was violated
-    std::cerr << "Transition failed: " << res.error() << "\n";
-}
-```
-
-**Example: Reverse-dependency closure**
-
-`replace()` disables not just `from` but anything that Requires or Implies it — the same reverse-dependency closure that `planDisableClosure` always computes. Features `to` Requires are brought up automatically.
-
-```cpp
-// motor_mix --Requires--> esc
-// normal_mode --Requires--> motor_mix
-// normal_mode <MutuallyExclusive> safe_mode
-// safe_mode --Requires--> network_stub
-
-(void)fm.enable("normal_mode");
-// enabled: normal_mode, motor_mix, esc
-
-(void)fm.replace("normal_mode", "safe_mode");
-// enabled: safe_mode, network_stub
-// disabled: normal_mode, motor_mix, esc
-//           (motor_mix and esc are in normal_mode's reverse-dep closure)
-```
-
-**Example: Observer receives both changes**
-```cpp
-(void)fm.addBatchObserver([](const std::string& requested,
-                              const std::vector<FeatureChange>& changes,
-                              bool) {
-    // requested == "safe_mode"
-    // changes contains disable records for normal_mode/motor_mix/esc
-    // and enable records for safe_mode/network_stub — all in one callback.
-});
-(void)fm.replace("normal_mode", "safe_mode");
-```
-
-**Note: non-MutuallyExclusive pairs work too.** `replace()` does not require `from` and `to` to share a `MutuallyExclusive` relationship. For non-ME pairs it is equivalent to disabling `from` then enabling `to`, but in a single atomic operation.
-
----
-
-#### `forceExclusive()`
-
-Disable every feature not in `feature`'s Requires/Implies closure, atomically. E-stop semantics.
-
-**Signature:**
-```cpp
-[[nodiscard]] Expected<void, std::string>
-forceExclusive(const std::string& feature);
-```
-
-**Why this exists:** `replace()` requires the caller to know which feature is currently active. In an emergency — an e-stop, a watchdog trigger, a safety supervisor firing — the current state may be unknown or too complex to enumerate. `forceExclusive()` solves this by starting from a blank slate: all features are zeroed in `desiredStates` before planning `feature`. No `MutuallyExclusive` or `Conflicts` check can find a conflicting enabled feature because nothing is true yet.
-
-**What it does:**
-1. Validates `feature` exists.
-2. Snapshots live state into `originalStates`.
-3. Sets **all** entries in `desiredStates` to `false` and records all currently-enabled features in `disableOrder` (so `buildTransactionChanges` produces correct disable records for every feature that goes off).
-4. `planEnableRecursive(feature)` — from a blank slate, so constraint checks cannot fail against another enabled feature.
-5. `validateDesiredState` — final consistency check (can only fail if `feature`'s own Requires closure has an internal `Conflicts` edge, which would be a broken graph).
-6. Commit + notify: one observer notification, `requestedFeature = feature`.
-
-**No-op case:** If `feature` is already the only enabled feature, `buildTransactionChanges` produces an empty change vector and no observers fire.
-
-**Error conditions:**
-
-| Condition | Behaviour |
-|-----------|-----------|
-| `feature` not found | Returns error, no state change |
-| `feature`'s Requires closure has an internal `Conflicts` edge | Planning error, no state change — broken graph |
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected(error)` on failure, graph unchanged
-
-**Example: E-stop activation**
-```cpp
-// System has many active features; their current state is unknown.
-// Activate safe_mode unconditionally.
-auto res = fm.forceExclusive("safe_mode");
-
-// After this call:
-//   safe_mode: enabled
-//   network_stub: enabled  (Requires chain of safe_mode)
-//   everything else: disabled
-```
-
-**Example: Recovery with replace**
-```cpp
-// E-stop
-fm.forceExclusive("safe_mode");
-
-// ... operator confirms system is ready ...
-
-// Recovery: atomic transition back
-fm.replace("safe_mode", "normal_mode");
-```
-
-**Example: Observer receives all disabled features**
-```cpp
-(void)fm.addBatchObserver([](const std::string& requested,
-                              const std::vector<FeatureChange>& changes,
-                              bool) {
-    // requested == "safe_mode"
-    // changes contains a disable record for every feature that was active
-    // plus enable records for safe_mode and its Requires chain.
-    // All in one callback.
-});
-fm.forceExclusive("safe_mode");
-```
-
-**Choosing between replace() and forceExclusive():**
-
-| Question | Answer |
-|----------|--------|
-| Do I know which specific feature is currently active? | Use `replace()` |
-| Is this a controlled transition between known modes? | Use `replace()` |
-| Is this an emergency or e-stop where current state is unknown? | Use `forceExclusive()` |
-| Do I want to clear an unbounded set of active features unconditionally? | Use `forceExclusive()` |
-
----
-
-#### `addObserver()`
-
-Add an observer to be notified of feature state changes. Returns an ID for later removal.
-
-**Signature:**
-```cpp
-ObserverId addObserver(
-    FeatureObserver callback,
-    int priority = 0
-);
-```
-
-**Type Aliases:**
-```cpp
-using ObserverId = std::uint64_t;
-using FeatureObserver = std::function<void(const std::string& featureName,
-                                            bool newState,
-                                            bool success)>;
-```
-
-**Parameters:**
-- `callback`: Function called with (featureName, newState, success)
-  - `featureName`: Name of feature that changed
-  - `newState`: true if enabled, false if disabled
-  - `success`: true if operation succeeded, false if rolled back
-- `priority`: Higher values = called first (default 0)
-
-**Returns:** `ObserverId` that can be used with `removeObserver()`
-
-**Implicit Dependency Notifications:**
-
-Observers are notified for **all** features that change state, not just the explicitly requested one. When enabling a feature that has dependencies via Requires or Implies relationships, observers receive separate notifications for each implicitly enabled feature.
-
-```cpp
-manager.addFeature("Core");
-manager.addFeature("Module");
-manager.addRelationship("Module", FeatureRelationship::Requires, "Core");
-
-std::vector<std::string> notifications;
-manager.addObserver([&](const std::string& name, bool enabled, bool) {
-    if (enabled) notifications.push_back(name);
-});
-
-manager.enable("Module");  // Implicitly enables Core first
-
-// notifications now contains: {"Core", "Module"}
-// Observer was called twice - once for each changed feature
-```
-
-**Observer Contract:**
-- **DO NOT** call FeatureManager methods inside observers (will deadlock)
-- **DO NOT** perform long-running operations (blocks other observers)
-- Observers are called **after** transaction completes
-- Order determined by priority (highest first), then insertion order
-
-**Example:**
-```cpp
-// Store the ID for later removal
-ObserverId logObserver = manager.addObserver(
-    [](const std::string& name, bool state, bool success) {
-        if (success) {
-            std::cout << "Feature " << name << (state ? " enabled" : " disabled") << "\n";
-        }
-    }, 
-    /* priority */ 10
-);
-
-// Higher priority observer called first
-ObserverId auditObserver = manager.addObserver(
-    [](const std::string& name, bool state, bool success) {
-        log_to_file(name, state);
-    }, 
-    /* priority */ 20
-);
-
-// Later, remove specific observers
-manager.removeObserver(logObserver);
-```
-
-**Thread Safety:** Observer callbacks must be thread-safe if using concurrent policies.
-
----
-
-#### `addBatchObserver()`
-
-Add a batch observer that receives all changed features in a single callback.
-
-**Signature:**
-```cpp
-ObserverId addBatchObserver(
-    BatchObserver callback,
-    int priority = 0
-);
-```
-
-**Type Alias:**
-```cpp
-using BatchObserver = std::function<void(
-    const std::string& requestedFeature,
-    const std::vector<std::string>& allChanged,
-    bool enabled,
-    bool success
-)>;
-```
-
-**Parameters:**
-- `callback`: Function receiving:
-  - `requestedFeature`: The feature explicitly requested by the user
-  - `allChanged`: All features that changed state (includes implicit dependencies)
-  - `enabled`: true if this was an enable operation, false for disable
-  - `success`: true if operation succeeded
-- `priority`: Higher values = called first (default 0)
-
-**Returns:** `ObserverId` for later removal
-
-**Use Cases:**
-- Asset loading systems that need to know all features that changed
-- UI updates that should refresh once after all changes
-- Logging/analytics that need the complete picture
-- Debugging dependency resolution
-
-**Example:**
-```cpp
-manager.addBatchObserver([](const std::string& requested,
-                               const std::vector<std::string>& allChanged,
-                               bool enabled,
-                               bool success) {
-    if (!success) return;
-    
-    std::cout << "User requested: " << requested << "\n";
-    std::cout << "Features that changed: ";
-    for (const auto& f : allChanged) {
-        std::cout << f << " ";
-    }
-    std::cout << "\n";
-    
-    // Load assets for all newly enabled features
-    if (enabled) {
-        for (const auto& feature : allChanged) {
-            load_feature_assets(feature);
-        }
-    }
-});
-
-manager.enable("AdvancedMode");
-// Output:
-// User requested: AdvancedMode
-// Features that changed: BasicMode CoreModule AdvancedMode
-```
-
----
-
-#### `removeObserver()`
-
-Remove an observer by its ID.
-
-**Signature:**
-```cpp
-bool removeObserver(ObserverId id);
-```
-
-**Parameters:**
-- `id`: The `ObserverId` returned by `addObserver()` or `addBatchObserver()`
-
-**Returns:** `true` if an observer with that ID was found and removed, `false` otherwise
-
-**Note:** Works for both regular observers and batch observers. The ID uniquely identifies the observer regardless of type.
-
-**Example:**
-```cpp
-// Add and later remove
-ObserverId id = manager.addObserver([](auto...) { /* ... */ });
-
-// ... later ...
-bool removed = manager.removeObserver(id);
-if (removed) {
-    std::cout << "Observer successfully removed\n";
-}
-
-// Removing again returns false
-bool removed_again = manager.removeObserver(id);  // false
-```
-
----
-
-#### `clearObservers()`
-
-Remove all observers (both regular and batch).
-
-**Signature:**
-```cpp
-void clearObservers();
-```
-
-**Use Cases:**
-- Resetting feature manager to clean state
-- Test teardown
-- Transitioning between application phases
-
-**Example:**
-```cpp
-// Add several observers during initialization
-manager.addObserver(logging_observer);
-manager.addObserver(metrics_observer);
-manager.addBatchObserver(ui_update_observer);
-
-// Later, during shutdown or reset
-manager.clearObservers();  // All observers removed
-```
-
----
-
-#### `ScopedObserver`
-
-RAII helper for automatic observer registration/unregistration.
-
-**Declaration:**
-```cpp
-class FeatureManager::ScopedObserver {
-public:
-    ScopedObserver(FeatureManager& manager, FeatureObserver callback, int priority = 0);
-    ~ScopedObserver();  // Automatically calls removeObserver()
-    
-    // Move-only (not copyable)
-    ScopedObserver(ScopedObserver&& other) noexcept;
-    ScopedObserver& operator=(ScopedObserver&& other) noexcept;
-    
-    ObserverId id() const;      // Get the observer ID
-    ObserverId release();       // Release ownership without unregistering
-};
-```
-
-**Purpose:**
-
-Ensures observers are automatically unregistered when the scope ends, preventing:
-- Memory leaks from accumulated observers
-- Dangling references if the observer captures `this` from a destroyed object
-- Manual cleanup bookkeeping
-
-**Example - Basic RAII:**
-```cpp
-{
-    FeatureManager<>::ScopedObserver observer(manager,
-        [](const std::string& name, bool enabled, bool) {
-            std::cout << name << " changed to " << enabled << "\n";
-        });
-    
-    manager.enable("Feature1");  // Observer is called
-    manager.enable("Feature2");  // Observer is called
-    
-}  // Observer automatically removed here
-
-manager.enable("Feature3");  // Observer is NOT called
-```
-
-**Example - Member Observer Pattern:**
-```cpp
-class FeatureController {
-    FeatureManager<>& manager_;
-    FeatureManager<>::ScopedObserver observer_;
-    
-public:
-    FeatureController(FeatureManager<>& m)
-        : manager_(m)
-        , observer_(m, [this](auto name, auto enabled, auto) {
-            this->on_feature_change(name, enabled);  // Safe - observer removed in dtor
-          })
-    {}
-    
-    ~FeatureController() = default;  // observer_ automatically cleaned up
-    
-private:
-    void on_feature_change(const std::string& name, bool enabled) {
-        // Handle change...
-    }
-};
-```
-
-**Example - Conditional Observation:**
-```cpp
-std::optional<FeatureManager<>::ScopedObserver> observer;
-
-if (debug_mode) {
-    observer.emplace(manager, [](auto...) { /* debug logging */ });
-}
-
-// ... observer active only if debug_mode was true ...
-
-observer.reset();  // Explicitly remove early if needed
-```
-
-**Example - Transfer Ownership:**
-```cpp
-FeatureManager<>::ScopedObserver createObserver(FeatureManager<>& m) {
-    return FeatureManager<>::ScopedObserver(m, [](auto...) { /* ... */ });
-}
-
-auto obs = createObserver(manager);  // Ownership transferred via move
-```
-
----
-
-#### `ScopedBatchObserver`
-
-RAII helper for batch observers. Same semantics as `ScopedObserver`.
-
-**Declaration:**
-```cpp
-class FeatureManager::ScopedBatchObserver {
-public:
-    ScopedBatchObserver(FeatureManager& manager, BatchObserver callback, int priority = 0);
-    ~ScopedBatchObserver();
-    
-    ScopedBatchObserver(ScopedBatchObserver&& other) noexcept;
-    ScopedBatchObserver& operator=(ScopedBatchObserver&& other) noexcept;
-    
-    ObserverId id() const;
-    ObserverId release();
-};
-```
-
-**Example:**
-```cpp
-{
-    FeatureManager<>::ScopedBatchObserver batch_obs(manager,
-        [](auto requested, auto allChanged, auto enabled, auto success) {
-            if (success && enabled) {
-                reload_ui_for_features(allChanged);
-            }
-        });
-    
-    manager.enable("AdvancedMode");  // Batch observer called once with all changes
-    
-}  // Batch observer automatically removed
-```
-
----
-
-#### `addGroup()`
-
-Add a feature group with custom state computation.
-
-**Signature:**
-```cpp
-template<typename StateType>
-Expected<void, std::string> addGroup(
-    const std::string& name,
-    const std::vector<std::string>& featureNames,
-    std::function<StateType(const std::set<std::string>&)> stateComputer
-);
-```
-
-**Parameters:**
-- `name`: Unique group identifier
-- `featureNames`: Features belonging to this group
-- `stateComputer`: Function that computes group state from set of enabled features
-
-**Returns:**
-- `Expected<void>` on success
-- `unexpected(error)` if group exists or features don't exist
-
-**Example:**
-```cpp
-enum class GraphicsQuality { Low, Medium, High, Ultra };
-
-manager.addGroup<GraphicsQuality>(
-    "Graphics",
-    {"BasicGraphics", "Textures", "Shadows", "RayTracing"},
-    [](const std::set<std::string>& enabled) -> GraphicsQuality {
-        if (enabled.count("RayTracing")) return GraphicsQuality::Ultra;
-        if (enabled.count("Shadows")) return GraphicsQuality::High;
-        if (enabled.count("Textures")) return GraphicsQuality::Medium;
-        return GraphicsQuality::Low;
-    }
-);
-
-// Query group state
-auto state = manager.getGroupState<GraphicsQuality>("Graphics");
-```
-
----
-
-#### `getGroupState()`
-
-Get the current computed state of a group.
-
-**Signature:**
-```cpp
-template<typename StateType>
-Expected<StateType, std::string> getGroupState(
-    const std::string& groupName
-);
-```
-
-**Returns:**
-- `Expected<StateType>` with computed state
-- `unexpected(error)` if group doesn't exist or type mismatch
-
----
-
-#### `toDot()`
-
-Export graph to GraphViz DOT format for visualization.
-
-**Signature:**
-```cpp
-std::string toDot() const;
-```
-
-**Returns:** String containing DOT graph description
-
-**Example:**
-```cpp
-std::string dot = manager.toDot();
-std::ofstream out("features.dot");
-out << dot;
-// Convert to image: dot -Tpng features.dot -o features.png
-```
-
-**Output Format:**
-- Nodes: Features (green=enabled, red=disabled)
-- Edges: Relationships (black=Requires, blue=Implies, red=Conflicts)
-
----
-
-### Serialization
-
-#### `toJson()`
-
-Export state to JSON (includes callback keys).
-
-**Signature:**
-```cpp
-std::string toJson() const;
-```
-
-**Returns:** JSON string representing entire feature graph
-
-**Format:**
-```json
-{
-  "features": {
-    "GPUFeature": {
-      "enabled": true,
-      "check_key": "hardware.gpu",
-      "relationships": {
-        "Requires": ["BasicFeature"],
-        "Conflicts": ["SoftwareRenderer"]
-      }
-    },
-    "BasicFeature": {
-      "enabled": true
-    }
-  }
-}
-```
-
-**Example:**
-```cpp
-std::string json = manager.toJson();
-save_to_file("config.json", json);
-```
-
-**Note:** Only callback **keys** are serialized, not the callbacks themselves. See [Callback Factory System](#callback-factory-system).
-
----
-
-#### `fromJson()`
-
-Import state from JSON (restores callbacks from factory).
-
-**Signature:**
-```cpp
-static Expected<FeatureManager, std::string> fromJson(
-    const std::string& jsonStr
-);
-```
-
-**Returns:**
-- `Expected<FeatureManager>` with restored state
-- `unexpected(error)` if JSON invalid or callback keys not found
-
-**Example:**
-```cpp
-std::string json = load_from_file("config.json");
-auto result = FeatureManager<>::fromJson(json);
-if (result) {
-    FeatureManager<> manager = std::move(*result);
-    // Callbacks automatically restored via factory lookups
-} else {
-    std::cerr << "Failed to load: " << result.error() << "\n";
-}
-```
-
-**Prerequisites:** Callback factory must be initialized with all keys referenced in JSON **before** calling `fromJson`.
-
----
-
 ## Callback Factory System
 
 The callback factory system is the mechanism that enables full serialization of feature graphs including validation logic. This section is the definitive reference for the factory system.
@@ -1544,13 +429,18 @@ auto restored = FeatureManager<>::fromJson(json);
 
 **Approach:** Register callbacks with string keys. Serialize keys instead of callbacks. Reconstruct callbacks via factory lookup.
 
-```
-Runtime:    Key String ──→ Factory ──→ Callback Function
-            "gpu.check"      │           check_gpu()
-                             │
-Serialize:  JSON["check_key"] = "gpu.check"
-                             │
-Load:       "gpu.check" ──→ Factory ──→ Callback Reconstructed!
+```mermaid
+flowchart LR
+    subgraph RUNTIME["Runtime"]
+        K1["Key: 'gpu.check'"] --> FAC["Factory"] --> CB["check_gpu() callback"]
+    end
+    subgraph SERIALIZE["Serialize"]
+        FAC2["JSON: check_key = 'gpu.check'"]
+    end
+    subgraph LOAD["Load"]
+        K2["'gpu.check'"] --> FAC3["Factory"] --> CB2["Callback reconstructed"]
+    end
+    RUNTIME --> SERIALIZE --> LOAD
 ```
 
 ### Global Factory
@@ -2951,47 +1841,1107 @@ if (!result) {
 
 ## Comparison with Other Libraries
 
-| Library | Description & Use Case | FeatureManager Advantage |
-|---------|------------------------|--------------------------|
-| **gflags** | Google's command-line flag parser (e.g., `--feature=true`). Designed for static configuration at program launch - flags are simple boolean/string values without runtime relationships or dynamic state. Best for CLI tools and batch processing. | **Runtime Dependency Resolution:** FeatureManager handles complex interdependencies automatically (Requires/Implies/Conflicts). **Dynamic State:** Features can change at runtime with full validation. **No Server Needed:** Fully local, header-only library. **Serialization:** Complete graph persistence including validation logic. |
-| **feature_flag** | Common pattern/basic implementations in C++ (e.g., simple toggle classes on GitHub, or compile-time `#ifdef` macros). Usually minimal or no support for relationships - developers manage conflicts/dependencies manually. Suited for small-scale projects or build-time flags. | **Automatic Conflict Detection:** FeatureManager prevents invalid combinations automatically. **Cycle Detection:** Reports circular dependencies with exact paths. **Transactional Semantics:** Batch operations with rollback. **Type-Safe Groups:** Custom enum states for domain logic. |
-| **Unleash** | Open-source feature toggle *platform* with server infrastructure and client SDKs (including C++). Provides remote management, A/B testing, user segmentation, and gradual rollouts. Requires server setup, network calls, and dependency on HTTP libraries. Ideal for distributed teams managing features across many services. | **Zero Infrastructure:** FeatureManager is header-only with no servers or network. **Offline Use:** Works completely offline/embedded. **Local Validation:** Callbacks execute locally with full control. **Lower Latency:** No network round-trips for feature checks. **Embedded Systems:** Suitable for devices with no network. |
+Three other options are most commonly considered alongside FeatureManager. Understanding what each one is actually for — and where it stops — makes the choice clear.
 
-### When to Use Each
+**gflags** is Google's command-line flag parser. It is designed for static configuration at program launch: flags are boolean, integer, or string values set by command-line arguments and read-only after initialization. There is no concept of runtime relationships, dependency resolution, or conflict detection. If your use case is CLI tool configuration — logging verbosity, file paths, behavior switches — gflags is the right tool and FeatureManager is overkill. If your use case involves features that have prerequisites, conflict with each other, or need to change at runtime, gflags provides no mechanism for it.
 
-- **Use gflags:** Simple CLI flags for one-time configuration (e.g., logging levels, file paths)
-- **Use feature_flag (pattern):** Small projects with 5-10 independent toggles, no dependencies
-- **Use Unleash:** Distributed systems needing centralized control, A/B testing, remote management
-- **Use FeatureManager:** Complex feature graphs with dependencies, local validation, embedded systems, games, desktop apps, or any scenario needing sophisticated dependency resolution without infrastructure overhead
+**Hand-rolled feature flag patterns** (simple toggle classes, `std::map<string,bool>`, compile-time `#ifdef` macros) cover projects with a small number of independent toggles. They have no dependency model, no conflict detection, and no transactional semantics. The maintenance burden grows linearly with the number of relationships, because every constraint must be encoded at every callsite. At five or fewer features with no dependencies, this is often the correct choice. At twenty features with complex interdependencies, it becomes a source of subtle bugs.
+
+**Unleash** (and similar platforms: LaunchDarkly, ConfigCat) is a feature toggle *platform* with server infrastructure, client SDKs, A/B testing, user segmentation, and gradual rollout. It requires server setup, network calls, and HTTP library dependencies. It is the right tool for distributed systems that need centralized control and remote deployment of flag changes across many services. It is not designed for local dependency resolution, offline operation, or embedded systems.
+
+| | gflags | Hand-rolled | Unleash | FeatureManager |
+|---|---|---|---|---|
+| Runtime relationships | ❌ | Manual | ❌ | ✅ |
+| Conflict detection | ❌ | Manual | ❌ | ✅ |
+| Transactional semantics | ❌ | Manual | ❌ | ✅ |
+| Zero infrastructure | ✅ | ✅ | ❌ | ✅ |
+| Remote / server-based flags | ❌ | ❌ | ✅ | ❌ |
+| Offline / embedded | ✅ | ✅ | ❌ | ✅ |
 
 ---
 
 ## Conclusion
 
-FeatureManager v3.0 provides a comprehensive solution for feature flag management with:
+FeatureManager is a dependency-aware, transactional feature flag system. Its core value — the plan/commit protocol that resolves the full dependency closure before making any live change — is what makes every other property possible: cycle detection with path reporting, atomic MutuallyExclusive transitions, and complete rollback on partial failure.
 
-✅ **Automatic dependency resolution** with cycle detection  
-✅ **Validation callbacks with full serialization** via factory system  
-✅ **Type-safe group states** for domain-specific logic  
-✅ **Transactional semantics** with automatic rollback  
-✅ **Observer pattern** with reentry protection  
-✅ **Module independence** via hierarchical callback registration  
-✅ **High performance** with optimized graph algorithms  
-✅ **Zero dependencies** - header-only library  
+The callback factory system solves the serialization problem that has no general solution otherwise: validation logic is registered by key at startup and restored from JSON automatically, so the feature graph persists correctly across process restarts.
 
-The callback factory system is a key innovation, solving the long-standing problem of serializing validation logic and making FeatureManager suitable for production systems that require persistence and reliable state restoration.
-
-**Getting Started:**
-1. Register callbacks with the factory using hierarchical keys
-2. Add features using factory keys (not direct callbacks)
-3. Define relationships between features
-4. Enable features (dependencies auto-resolve)
-5. Save/load complete graphs including validation logic
-
-For questions, issues, or contributions, please contact the fat_p library maintainers.
+For systems where incorrect configurations have real consequences — games, plugin architectures, embedded systems, safety-critical control flow — FeatureManager provides the validation layer that boolean maps cannot.
 
 ---
 
-**Document Version:** 3.0  
-**Last Updated:** November 2025  
-**FeatureManager Version:** 3.0
+## API Reference
+
+### Feature Management
+
+#### `addFeature()` - Direct Callback
+
+Add a feature with a direct validation callback (not serializable).
+
+**Signature:**
+```cpp
+Expected<void, std::string> addFeature(
+    const std::string& name, 
+    FeatureCheck check = nullptr
+);
+```
+
+**Parameters:**
+- `name`: Unique feature identifier
+- `check`: Optional validation function
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error_message)` if feature already exists
+
+**Example:**
+```cpp
+// Simple feature
+manager.addFeature("BasicFeature");
+
+// With direct callback (NOT serializable)
+manager.addFeature("GPUFeature", []() -> Expected<void, std::string> {
+    if (!check_gpu_available()) {
+        return unexpected("GPU not available");
+    }
+    return {};
+});
+```
+
+**Warning:** Direct callbacks cannot be serialized. For persistence, use the factory-based version below.
+
+---
+
+#### `addFeature()` - Factory Key (Recommended)
+
+Add a feature using a registered callback key (fully serializable).
+
+**Signature:**
+```cpp
+Expected<void, std::string> addFeature(
+    const std::string& name, 
+    const std::string& check_key
+);
+```
+
+**Parameters:**
+- `name`: Unique feature identifier
+- `check_key`: Key to look up callback in factory
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected("Check key 'X' not found in factory")` if key not registered
+- `unexpected("Feature already exists")` if feature exists
+
+**Example:**
+```cpp
+// First, register the callback
+auto& factory = getFeatureCheckFactory();
+factory.registerType("hardware.gpu", []() -> FeatureCheck {
+    return []() { return check_gpu(); };
+});
+
+// Then add feature with key
+auto result = manager.addFeature("GPUFeature", "hardware.gpu");
+if (!result) {
+    std::cerr << result.error() << "\n";
+}
+```
+
+**Benefits:**
+- ✅ Full serialization support
+- ✅ Callbacks automatically restored on load
+- ✅ Module independence
+- ✅ Type-safe validation
+
+---
+
+#### `addRelationship()`
+
+Add a relationship between two features.
+
+**Signature:**
+```cpp
+Expected<void, std::string> addRelationship(
+    const std::string& from, 
+    FeatureRelationship type, 
+    const std::string& to
+);
+```
+
+**Parameters:**
+- `from`: Source feature name
+- `type`: One of `Requires`, `Conflicts`, `Implies`, `MutuallyExclusive`
+- `to`: Target feature name
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error_message)` if features don't exist or relationship would create cycles
+
+**Bidirectional Relationships:**
+- `Conflicts` and `MutuallyExclusive` automatically add the reverse relationship
+- `Requires` and `Implies` are directional only
+
+**Example:**
+```cpp
+// A requires B (directional)
+manager.addRelationship("FeatureA", FeatureRelationship::Requires, "FeatureB");
+
+// A conflicts with B (bidirectional)
+manager.addRelationship("FeatureA", FeatureRelationship::Conflicts, "FeatureB");
+// Automatically adds: FeatureB conflicts with FeatureA
+```
+
+---
+
+#### `enable()`
+
+Enable a feature and all its dependencies.
+
+**Signature:**
+```cpp
+Expected<void, std::string> enable(const std::string& name);
+```
+
+**Behavior:**
+1. Checks for circular dependencies
+2. Recursively enables all `Requires` dependencies
+3. Recursively enables all `Implies` targets
+4. Checks for conflicts with already-enabled features
+5. Runs validation check if present
+6. Notifies observers on success
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error_message)` with detailed diagnostics including:
+  - Cycle paths if circular dependency detected
+  - Validation failure messages
+  - Conflict descriptions
+
+**Performance:** O(d × log n) where d = dependency depth (max 100), n = total features
+
+**Example:**
+```cpp
+auto result = manager.enable("AdvancedFeature");
+if (!result) {
+    std::cerr << "Failed to enable: " << result.error() << "\n";
+    // Error might be:
+    // "Circular dependency detected: A -> B -> C -> A"
+    // "Validation failed for 'GPU': No GPU available"
+    // "Conflict: 'HighPerf' conflicts with already enabled 'PowerSave'"
+}
+```
+
+---
+
+#### `disable()`
+
+Disable a feature.
+
+**Signature:**
+```cpp
+Expected<void, std::string> disable(const std::string& name);
+```
+
+**Behavior:**
+- Sets feature's enabled state to false
+- Notifies observers
+- Does **not** check if other features depend on this one
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected("Feature not found")` if feature doesn't exist
+
+**Note:** After disabling features, use `validate()` to check if the graph is still consistent.
+
+**Example:**
+```cpp
+manager.disable("OptionalFeature");
+
+// Ensure consistency
+auto validation = manager.validate();
+if (!validation) {
+    std::cerr << "Warning: " << validation.error() << "\n";
+}
+```
+
+---
+
+#### `isEnabled()`
+
+Check if a feature is enabled.
+
+**Signature:**
+```cpp
+bool isEnabled(const std::string& name) const;
+```
+
+**Returns:** `true` if feature exists and is enabled, `false` otherwise
+
+**Performance:** O(log n)
+
+**Example:**
+```cpp
+if (manager.isEnabled("GPUAcceleration")) {
+    use_gpu_path();
+} else {
+    use_cpu_path();
+}
+```
+
+---
+
+#### `validate()`
+
+Validate the entire feature set for consistency.
+
+**Signature:**
+```cpp
+Expected<void, std::string> validate();
+```
+
+**Checks:**
+- All `Requires` relationships satisfied (if A requires B and A is enabled, B must be enabled)
+- No conflicts between enabled features
+- All `Implies` relationships satisfied (if A implies B and A is enabled, B must be enabled)
+- All validation checks pass for enabled features
+- No cycles in the dependency graph
+
+**Returns:**
+- `Expected<void>` if entire graph is consistent
+- `unexpected(error_message)` with first inconsistency found
+
+**Performance:** O(n × d × log n) where n = features, d = avg dependency depth
+
+**Example:**
+```cpp
+// After manual modifications
+manager.disable("CoreFeature");
+
+auto result = manager.validate();
+if (!result) {
+    std::cerr << "Graph inconsistent: " << result.error() << "\n";
+    // Might report: "'AdvancedFeature' requires 'CoreFeature' but it's disabled"
+}
+```
+
+---
+
+#### `batchEnable()`
+
+Enable multiple features with transactional semantics.
+
+**Signature:**
+```cpp
+Expected<void, std::string> batchEnable(
+    const std::vector<std::string>& names
+);
+```
+
+**Guarantees:**
+1. **Atomicity:** All features (including dependencies) succeed or all fail
+2. **Rollback:** Complete rollback on any failure
+3. **Consistency:** Graph remains in valid state even if transaction fails
+
+**Behavior:**
+- Enables each feature in order
+- Tracks all state changes (including implicit dependency enables)
+- On failure, rolls back **all** changes, even dependencies enabled earlier
+- Notifies observers only once per feature at end if successful
+
+**Returns:**
+- `Expected<void>` if all features and dependencies enabled
+- `unexpected(error)` with detailed failure reason, graph unchanged
+
+**Performance:** O(k × d × log n) where k = batch size
+
+**Example:**
+```cpp
+std::vector<std::string> features = {"GPU", "HighQuality", "Shadows"};
+auto result = manager.batchEnable(features);
+if (!result) {
+    std::cerr << "Batch failed: " << result.error() << "\n";
+    // NO features are enabled, even if some succeeded initially
+}
+```
+
+---
+
+#### `batchDisable()`
+
+Disable multiple features atomically with relationship validation.
+
+**Signature:**
+```cpp
+Expected<void, std::string> batchDisable(
+    const std::vector<std::string>& names
+);
+```
+
+**Guarantees:**
+1. **Atomicity:** All features disable successfully or none do
+2. **Rollback:** Complete rollback on any validation failure
+3. **Requires Validation:** Cannot disable a feature required by an enabled feature
+4. **Implies Validation:** Cannot disable a feature implied by an enabled feature
+
+**Behavior:**
+- Validates all features exist first
+- Tentatively disables all requested features
+- Checks that no enabled feature requires any disabled feature
+- Checks that no enabled feature implies any disabled feature
+- On any failure, rolls back all changes
+- Notifies observers for each feature that actually changed state
+
+**Implies Relationship Semantics:**
+
+If feature A implies feature B (meaning "when A is enabled, B must also be enabled"), then B cannot be disabled while A remains enabled. You must disable A first.
+
+```cpp
+manager.addRelationship("Premium", FeatureRelationship::Implies, "AllFeatures");
+manager.enable("Premium");  // Both Premium and AllFeatures are now ON
+
+// This FAILS - Premium implies AllFeatures
+auto r1 = manager.batchDisable({"AllFeatures"});
+// Error: "Cannot disable 'AllFeatures': implied by enabled feature 'Premium'. 
+//         Disable 'Premium' first."
+
+// This succeeds - disable the implier first
+manager.disable("Premium");
+auto r2 = manager.batchDisable({"AllFeatures"});  // OK
+```
+
+**Returns:**
+- `Expected<void>` if all features successfully disabled
+- `unexpected(error)` with detailed failure reason, graph unchanged
+
+**Example:**
+```cpp
+// Scenario: Clean shutdown sequence
+std::vector<std::string> to_disable = {"Networking", "Database", "Logging"};
+auto result = manager.batchDisable(to_disable);
+if (!result) {
+    // Some feature depends on one we tried to disable
+    std::cerr << "Cannot disable: " << result.error() << "\n";
+}
+```
+
+---
+
+#### `replace()`
+
+Atomically disable one feature and enable another in a single plan/commit transaction.
+
+**Signature:**
+```cpp
+[[nodiscard]] Expected<void, std::string>
+replace(const std::string& from, const std::string& to);
+```
+
+**Why this exists:** `MutuallyExclusive` features cannot be swapped with two sequential calls. If `A` is enabled and `A` is `MutuallyExclusive` with `B`, calling `enable("B")` fails immediately — because `A` is still visible as enabled when the constraint check runs. Two sequential `batchDisable` + `batchEnable` calls are also not a solution: an observer fires between them, and any code polling `isEnabled()` between the calls sees neither mode active.
+
+`replace()` solves this by marking `from` as disabled in the plan before `planEnableRecursive` runs its constraint check. The check sees the correct end-state.
+
+**What it does:**
+1. Validates both features exist.
+2. Requires `from` to be currently enabled — returns an error if it is not (silent no-op would hide caller bugs).
+3. Rejects `from == to` with an explicit error.
+4. Seeds the transaction plan from live state.
+5. `planDisableClosure(from)` — marks `from` and its reverse-dependency closure (features that Require or Imply `from`) as disabled in the plan. No live mutation yet.
+6. `planEnableRecursive(to)` — `from` is now false in `desiredStates`, so the `MutuallyExclusive` check succeeds.
+7. `validateDesiredState` — final consistency check.
+8. Commit + notify: one observer notification, `requestedFeature = to`.
+
+**Error conditions:**
+
+| Condition | Behaviour |
+|-----------|-----------|
+| `from` not found | Returns error, no state change |
+| `to` not found | Returns error, no state change |
+| `from` is not currently enabled | Returns error — check `isEnabled(from)` before calling if conditional behaviour is needed |
+| `from == to` | Returns error |
+| `to`'s Requires closure has a Conflicts violation | Planning error, no state change |
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error)` on failure, graph unchanged
+
+**Example: MutuallyExclusive mode switch**
+```cpp
+FeatureManager<> fm;
+(void)fm.addFeature("normal_mode");
+(void)fm.addFeature("safe_mode");
+(void)fm.addRelationship("normal_mode", FeatureRelationship::MutuallyExclusive, "safe_mode");
+
+(void)fm.enable("normal_mode");
+
+// Atomic: normal_mode goes off, safe_mode comes on, one observer notification.
+auto res = fm.replace("normal_mode", "safe_mode");
+if (!res)
+{
+    // normal_mode was not enabled, or another constraint was violated
+    std::cerr << "Transition failed: " << res.error() << "\n";
+}
+```
+
+**Example: Reverse-dependency closure**
+
+`replace()` disables not just `from` but anything that Requires or Implies it — the same reverse-dependency closure that `planDisableClosure` always computes. Features `to` Requires are brought up automatically.
+
+The graph for this example:
+
+```mermaid
+graph LR
+    normal_mode -->|Requires| motor_mix
+    motor_mix -->|Requires| esc
+    normal_mode <-.->|MutuallyExclusive| safe_mode
+    safe_mode -->|Requires| network_stub
+
+    style normal_mode fill:#4a9eff,color:#fff
+    style motor_mix fill:#4a9eff,color:#fff
+    style esc fill:#4a9eff,color:#fff
+    style safe_mode fill:#888,color:#fff
+    style network_stub fill:#888,color:#fff
+```
+
+After `replace("normal_mode", "safe_mode")`, the active set inverts:
+
+```mermaid
+graph LR
+    normal_mode -->|Requires| motor_mix
+    motor_mix -->|Requires| esc
+    normal_mode <-.->|MutuallyExclusive| safe_mode
+    safe_mode -->|Requires| network_stub
+
+    style normal_mode fill:#888,color:#fff
+    style motor_mix fill:#888,color:#fff
+    style esc fill:#888,color:#fff
+    style safe_mode fill:#4a9eff,color:#fff
+    style network_stub fill:#4a9eff,color:#fff
+```
+
+```cpp
+// motor_mix --Requires--> esc
+// normal_mode --Requires--> motor_mix
+// normal_mode <MutuallyExclusive> safe_mode
+// safe_mode --Requires--> network_stub
+
+(void)fm.enable("normal_mode");
+// enabled: normal_mode, motor_mix, esc
+
+(void)fm.replace("normal_mode", "safe_mode");
+// enabled: safe_mode, network_stub
+// disabled: normal_mode, motor_mix, esc
+//           (motor_mix and esc are in normal_mode's reverse-dep closure)
+```
+
+**Example: Observer receives both changes**
+```cpp
+(void)fm.addBatchObserver([](const std::string& requested,
+                              const std::vector<FeatureChange>& changes,
+                              bool) {
+    // requested == "safe_mode"
+    // changes contains disable records for normal_mode/motor_mix/esc
+    // and enable records for safe_mode/network_stub — all in one callback.
+});
+(void)fm.replace("normal_mode", "safe_mode");
+```
+
+**Note: non-MutuallyExclusive pairs work too.** `replace()` does not require `from` and `to` to share a `MutuallyExclusive` relationship. For non-ME pairs it is equivalent to disabling `from` then enabling `to`, but in a single atomic operation.
+
+---
+
+#### `forceExclusive()`
+
+Disable every feature not in `feature`'s Requires/Implies closure, atomically. E-stop semantics.
+
+**Signature:**
+```cpp
+[[nodiscard]] Expected<void, std::string>
+forceExclusive(const std::string& feature);
+```
+
+**Why this exists:** `replace()` requires the caller to know which feature is currently active. In an emergency — an e-stop, a watchdog trigger, a safety supervisor firing — the current state may be unknown or too complex to enumerate. `forceExclusive()` solves this by starting from a blank slate: all features are zeroed in `desiredStates` before planning `feature`. No `MutuallyExclusive` or `Conflicts` check can find a conflicting enabled feature because nothing is true yet.
+
+**What it does:**
+1. Validates `feature` exists.
+2. Snapshots live state into `originalStates`.
+3. Sets **all** entries in `desiredStates` to `false` and records all currently-enabled features in `disableOrder` (so `buildTransactionChanges` produces correct disable records for every feature that goes off).
+4. `planEnableRecursive(feature)` — from a blank slate, so constraint checks cannot fail against another enabled feature.
+5. `validateDesiredState` — final consistency check (can only fail if `feature`'s own Requires closure has an internal `Conflicts` edge, which would be a broken graph).
+6. Commit + notify: one observer notification, `requestedFeature = feature`.
+
+**No-op case:** If `feature` is already the only enabled feature, `buildTransactionChanges` produces an empty change vector and no observers fire.
+
+**Error conditions:**
+
+| Condition | Behaviour |
+|-----------|-----------|
+| `feature` not found | Returns error, no state change |
+| `feature`'s Requires closure has an internal `Conflicts` edge | Planning error, no state change — broken graph |
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error)` on failure, graph unchanged
+
+**Example: E-stop activation**
+```cpp
+// System has many active features; their current state is unknown.
+// Activate safe_mode unconditionally.
+auto res = fm.forceExclusive("safe_mode");
+
+// After this call:
+//   safe_mode: enabled
+//   network_stub: enabled  (Requires chain of safe_mode)
+//   everything else: disabled
+```
+
+**Example: Recovery with replace**
+```cpp
+// E-stop
+fm.forceExclusive("safe_mode");
+
+// ... operator confirms system is ready ...
+
+// Recovery: atomic transition back
+fm.replace("safe_mode", "normal_mode");
+```
+
+**Example: Observer receives all disabled features**
+```cpp
+(void)fm.addBatchObserver([](const std::string& requested,
+                              const std::vector<FeatureChange>& changes,
+                              bool) {
+    // requested == "safe_mode"
+    // changes contains a disable record for every feature that was active
+    // plus enable records for safe_mode and its Requires chain.
+    // All in one callback.
+});
+fm.forceExclusive("safe_mode");
+```
+
+**Choosing between replace() and forceExclusive():**
+
+| Question | Answer |
+|----------|--------|
+| Do I know which specific feature is currently active? | Use `replace()` |
+| Is this a controlled transition between known modes? | Use `replace()` |
+| Is this an emergency or e-stop where current state is unknown? | Use `forceExclusive()` |
+| Do I want to clear an unbounded set of active features unconditionally? | Use `forceExclusive()` |
+
+**Relationship to batchEnable / batchDisable:**
+
+`replace` and `forceExclusive` are not wrappers around `batchEnable`/`batchDisable`. They are independent transactional methods that share the same private infrastructure and follow identical plan/commit/notify semantics. The structural difference is in how `desiredStates` is prepared:
+
+| Method | desiredStates seeded from | Pre-plan manipulation |
+|--------|--------------------------|----------------------|
+| `batchEnable` | live state | none |
+| `batchDisable` | live state | marks requested features `false` |
+| `replace` | live state | `planDisableClosure(from)` before `planEnableRecursive(to)` |
+| `forceExclusive` | live state (`originalStates` only) | zero all `desiredStates`, populate `disableOrder` |
+
+**Interaction with Preempts edges:**
+
+`replace()` and `forceExclusive()` do not interact with `Preempts` edges directly. They use `planDisableClosure` and `planEnableRecursive`, which handle `Preempts` exactly as `batchEnable` does. If the feature passed to `forceExclusive` has `Preempts` edges, the targets are disabled as part of `planEnableRecursive`'s Preempts cascade — which is redundant (they were already zeroed) but harmless.
+
+If `Preempts` relationships were used to approximate e-stop behavior, those edges can be removed after migrating to `forceExclusive` + `replace`. The intent is now explicit at each callsite and the permanent graph structure no longer encodes a one-time runtime policy.
+
+---
+
+#### `addObserver()`
+
+Add an observer to be notified of feature state changes. Returns an ID for later removal.
+
+**Signature:**
+```cpp
+ObserverId addObserver(
+    FeatureObserver callback,
+    int priority = 0
+);
+```
+
+**Type Aliases:**
+```cpp
+using ObserverId = std::uint64_t;
+using FeatureObserver = std::function<void(const std::string& featureName,
+                                            bool newState,
+                                            bool success)>;
+```
+
+**Parameters:**
+- `callback`: Function called with (featureName, newState, success)
+  - `featureName`: Name of feature that changed
+  - `newState`: true if enabled, false if disabled
+  - `success`: true if operation succeeded, false if rolled back
+- `priority`: Higher values = called first (default 0)
+
+**Returns:** `ObserverId` that can be used with `removeObserver()`
+
+**Implicit Dependency Notifications:**
+
+Observers are notified for **all** features that change state, not just the explicitly requested one. When enabling a feature that has dependencies via Requires or Implies relationships, observers receive separate notifications for each implicitly enabled feature.
+
+```cpp
+manager.addFeature("Core");
+manager.addFeature("Module");
+manager.addRelationship("Module", FeatureRelationship::Requires, "Core");
+
+std::vector<std::string> notifications;
+manager.addObserver([&](const std::string& name, bool enabled, bool) {
+    if (enabled) notifications.push_back(name);
+});
+
+manager.enable("Module");  // Implicitly enables Core first
+
+// notifications now contains: {"Core", "Module"}
+// Observer was called twice - once for each changed feature
+```
+
+**Observer Contract:**
+- **DO NOT** call FeatureManager methods inside observers (will deadlock)
+- **DO NOT** perform long-running operations (blocks other observers)
+- Observers are called **after** transaction completes
+- Order determined by priority (highest first), then insertion order
+
+**Example:**
+```cpp
+// Store the ID for later removal
+ObserverId logObserver = manager.addObserver(
+    [](const std::string& name, bool state, bool success) {
+        if (success) {
+            std::cout << "Feature " << name << (state ? " enabled" : " disabled") << "\n";
+        }
+    }, 
+    /* priority */ 10
+);
+
+// Higher priority observer called first
+ObserverId auditObserver = manager.addObserver(
+    [](const std::string& name, bool state, bool success) {
+        log_to_file(name, state);
+    }, 
+    /* priority */ 20
+);
+
+// Later, remove specific observers
+manager.removeObserver(logObserver);
+```
+
+**Thread Safety:** Observer callbacks must be thread-safe if using concurrent policies.
+
+---
+
+#### `addBatchObserver()`
+
+Add a batch observer that receives all changed features in a single callback.
+
+**Signature:**
+```cpp
+ObserverId addBatchObserver(
+    BatchObserver callback,
+    int priority = 0
+);
+```
+
+**Type Alias:**
+```cpp
+using BatchObserver = std::function<void(
+    const std::string& requestedFeature,
+    const std::vector<std::string>& allChanged,
+    bool enabled,
+    bool success
+)>;
+```
+
+**Parameters:**
+- `callback`: Function receiving:
+  - `requestedFeature`: The feature explicitly requested by the user
+  - `allChanged`: All features that changed state (includes implicit dependencies)
+  - `enabled`: true if this was an enable operation, false for disable
+  - `success`: true if operation succeeded
+- `priority`: Higher values = called first (default 0)
+
+**Returns:** `ObserverId` for later removal
+
+**Use Cases:**
+- Asset loading systems that need to know all features that changed
+- UI updates that should refresh once after all changes
+- Logging/analytics that need the complete picture
+- Debugging dependency resolution
+
+**Example:**
+```cpp
+manager.addBatchObserver([](const std::string& requested,
+                               const std::vector<std::string>& allChanged,
+                               bool enabled,
+                               bool success) {
+    if (!success) return;
+    
+    std::cout << "User requested: " << requested << "\n";
+    std::cout << "Features that changed: ";
+    for (const auto& f : allChanged) {
+        std::cout << f << " ";
+    }
+    std::cout << "\n";
+    
+    // Load assets for all newly enabled features
+    if (enabled) {
+        for (const auto& feature : allChanged) {
+            load_feature_assets(feature);
+        }
+    }
+});
+
+manager.enable("AdvancedMode");
+// Output:
+// User requested: AdvancedMode
+// Features that changed: BasicMode CoreModule AdvancedMode
+```
+
+---
+
+#### `removeObserver()`
+
+Remove an observer by its ID.
+
+**Signature:**
+```cpp
+bool removeObserver(ObserverId id);
+```
+
+**Parameters:**
+- `id`: The `ObserverId` returned by `addObserver()` or `addBatchObserver()`
+
+**Returns:** `true` if an observer with that ID was found and removed, `false` otherwise
+
+**Note:** Works for both regular observers and batch observers. The ID uniquely identifies the observer regardless of type.
+
+**Example:**
+```cpp
+// Add and later remove
+ObserverId id = manager.addObserver([](auto...) { /* ... */ });
+
+// ... later ...
+bool removed = manager.removeObserver(id);
+if (removed) {
+    std::cout << "Observer successfully removed\n";
+}
+
+// Removing again returns false
+bool removed_again = manager.removeObserver(id);  // false
+```
+
+---
+
+#### `clearObservers()`
+
+Remove all observers (both regular and batch).
+
+**Signature:**
+```cpp
+void clearObservers();
+```
+
+**Use Cases:**
+- Resetting feature manager to clean state
+- Test teardown
+- Transitioning between application phases
+
+**Example:**
+```cpp
+// Add several observers during initialization
+manager.addObserver(logging_observer);
+manager.addObserver(metrics_observer);
+manager.addBatchObserver(ui_update_observer);
+
+// Later, during shutdown or reset
+manager.clearObservers();  // All observers removed
+```
+
+---
+
+#### `ScopedObserver`
+
+RAII helper for automatic observer registration/unregistration.
+
+**Declaration:**
+```cpp
+class FeatureManager::ScopedObserver {
+public:
+    ScopedObserver(FeatureManager& manager, FeatureObserver callback, int priority = 0);
+    ~ScopedObserver();  // Automatically calls removeObserver()
+    
+    // Move-only (not copyable)
+    ScopedObserver(ScopedObserver&& other) noexcept;
+    ScopedObserver& operator=(ScopedObserver&& other) noexcept;
+    
+    ObserverId id() const;      // Get the observer ID
+    ObserverId release();       // Release ownership without unregistering
+};
+```
+
+**Purpose:**
+
+Ensures observers are automatically unregistered when the scope ends, preventing:
+- Memory leaks from accumulated observers
+- Dangling references if the observer captures `this` from a destroyed object
+- Manual cleanup bookkeeping
+
+**Example - Basic RAII:**
+```cpp
+{
+    FeatureManager<>::ScopedObserver observer(manager,
+        [](const std::string& name, bool enabled, bool) {
+            std::cout << name << " changed to " << enabled << "\n";
+        });
+    
+    manager.enable("Feature1");  // Observer is called
+    manager.enable("Feature2");  // Observer is called
+    
+}  // Observer automatically removed here
+
+manager.enable("Feature3");  // Observer is NOT called
+```
+
+**Example - Member Observer Pattern:**
+```cpp
+class FeatureController {
+    FeatureManager<>& manager_;
+    FeatureManager<>::ScopedObserver observer_;
+    
+public:
+    FeatureController(FeatureManager<>& m)
+        : manager_(m)
+        , observer_(m, [this](auto name, auto enabled, auto) {
+            this->on_feature_change(name, enabled);  // Safe - observer removed in dtor
+          })
+    {}
+    
+    ~FeatureController() = default;  // observer_ automatically cleaned up
+    
+private:
+    void on_feature_change(const std::string& name, bool enabled) {
+        // Handle change...
+    }
+};
+```
+
+**Example - Conditional Observation:**
+```cpp
+std::optional<FeatureManager<>::ScopedObserver> observer;
+
+if (debug_mode) {
+    observer.emplace(manager, [](auto...) { /* debug logging */ });
+}
+
+// ... observer active only if debug_mode was true ...
+
+observer.reset();  // Explicitly remove early if needed
+```
+
+**Example - Transfer Ownership:**
+```cpp
+FeatureManager<>::ScopedObserver createObserver(FeatureManager<>& m) {
+    return FeatureManager<>::ScopedObserver(m, [](auto...) { /* ... */ });
+}
+
+auto obs = createObserver(manager);  // Ownership transferred via move
+```
+
+---
+
+#### `ScopedBatchObserver`
+
+RAII helper for batch observers. Same semantics as `ScopedObserver`.
+
+**Declaration:**
+```cpp
+class FeatureManager::ScopedBatchObserver {
+public:
+    ScopedBatchObserver(FeatureManager& manager, BatchObserver callback, int priority = 0);
+    ~ScopedBatchObserver();
+    
+    ScopedBatchObserver(ScopedBatchObserver&& other) noexcept;
+    ScopedBatchObserver& operator=(ScopedBatchObserver&& other) noexcept;
+    
+    ObserverId id() const;
+    ObserverId release();
+};
+```
+
+**Example:**
+```cpp
+{
+    FeatureManager<>::ScopedBatchObserver batch_obs(manager,
+        [](auto requested, auto allChanged, auto enabled, auto success) {
+            if (success && enabled) {
+                reload_ui_for_features(allChanged);
+            }
+        });
+    
+    manager.enable("AdvancedMode");  // Batch observer called once with all changes
+    
+}  // Batch observer automatically removed
+```
+
+---
+
+#### `addGroup()`
+
+Add a feature group with custom state computation.
+
+**Signature:**
+```cpp
+template<typename StateType>
+Expected<void, std::string> addGroup(
+    const std::string& name,
+    const std::vector<std::string>& featureNames,
+    std::function<StateType(const std::set<std::string>&)> stateComputer
+);
+```
+
+**Parameters:**
+- `name`: Unique group identifier
+- `featureNames`: Features belonging to this group
+- `stateComputer`: Function that computes group state from set of enabled features
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error)` if group exists or features don't exist
+
+**Example:**
+```cpp
+enum class GraphicsQuality { Low, Medium, High, Ultra };
+
+manager.addGroup<GraphicsQuality>(
+    "Graphics",
+    {"BasicGraphics", "Textures", "Shadows", "RayTracing"},
+    [](const std::set<std::string>& enabled) -> GraphicsQuality {
+        if (enabled.count("RayTracing")) return GraphicsQuality::Ultra;
+        if (enabled.count("Shadows")) return GraphicsQuality::High;
+        if (enabled.count("Textures")) return GraphicsQuality::Medium;
+        return GraphicsQuality::Low;
+    }
+);
+
+// Query group state
+auto state = manager.getGroupState<GraphicsQuality>("Graphics");
+```
+
+---
+
+#### `getGroupState()`
+
+Get the current computed state of a group.
+
+**Signature:**
+```cpp
+template<typename StateType>
+Expected<StateType, std::string> getGroupState(
+    const std::string& groupName
+);
+```
+
+**Returns:**
+- `Expected<StateType>` with computed state
+- `unexpected(error)` if group doesn't exist or type mismatch
+
+---
+
+#### `toDot()`
+
+Export graph to GraphViz DOT format for visualization.
+
+**Signature:**
+```cpp
+std::string toDot() const;
+```
+
+**Returns:** String containing DOT graph description
+
+**Example:**
+```cpp
+std::string dot = manager.toDot();
+std::ofstream out("features.dot");
+out << dot;
+// Convert to image: dot -Tpng features.dot -o features.png
+```
+
+**Output Format:**
+- Nodes: Features (green=enabled, red=disabled)
+- Edges: Relationships (black=Requires, blue=Implies, red=Conflicts)
+
+---
+
+### Serialization
+
+#### `toJson()`
+
+Export state to JSON (includes callback keys).
+
+**Signature:**
+```cpp
+std::string toJson() const;
+```
+
+**Returns:** JSON string representing entire feature graph
+
+**Format:**
+```json
+{
+  "features": {
+    "GPUFeature": {
+      "enabled": true,
+      "check_key": "hardware.gpu",
+      "relationships": {
+        "Requires": ["BasicFeature"],
+        "Conflicts": ["SoftwareRenderer"]
+      }
+    },
+    "BasicFeature": {
+      "enabled": true
+    }
+  }
+}
+```
+
+**Example:**
+```cpp
+std::string json = manager.toJson();
+save_to_file("config.json", json);
+```
+
+**Note:** Only callback **keys** are serialized, not the callbacks themselves. See [Callback Factory System](#callback-factory-system).
+
+---
+
+#### `fromJson()`
+
+Import state from JSON (restores callbacks from factory).
+
+**Signature:**
+```cpp
+static Expected<FeatureManager, std::string> fromJson(
+    const std::string& jsonStr
+);
+```
+
+**Returns:**
+- `Expected<FeatureManager>` with restored state
+- `unexpected(error)` if JSON invalid or callback keys not found
+
+**Example:**
+```cpp
+std::string json = load_from_file("config.json");
+auto result = FeatureManager<>::fromJson(json);
+if (result) {
+    FeatureManager<> manager = std::move(*result);
+    // Callbacks automatically restored via factory lookups
+} else {
+    std::cerr << "Failed to load: " << result.error() << "\n";
+}
+```
+
+**Prerequisites:** Callback factory must be initialized with all keys referenced in JSON **before** calling `fromJson`.
+
+---
+

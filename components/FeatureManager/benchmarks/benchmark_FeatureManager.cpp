@@ -493,7 +493,7 @@ int main()
     // -------------------------------------------------------------------------
     // 4. Lookup Operations
     // -------------------------------------------------------------------------
-    runner.section("LOOKUP OPERATIONS").contract("isEnabled() is O(log n) lookup in std::map<string, FeatureNode>");
+    runner.section("LOOKUP OPERATIONS").contract("isEnabled() is O(1) average lookup in FastHashMap");
 
     runner.add("isEnabled: enabled hit (10k features)", [&]() {
         bool v = fmLookup.isEnabled(enabledName);
@@ -645,7 +645,7 @@ int main()
     // -------------------------------------------------------------------------
     // 9. Graph Construction
     // -------------------------------------------------------------------------
-    runner.section("GRAPH CONSTRUCTION").contract("addFeature() is O(log n) map insertion");
+    runner.section("GRAPH CONSTRUCTION").contract("addFeature() is O(1) average insertion into FastHashMap");
 
     runner.add("addFeature: build 100 features", [&]() {
         FeatureManager<> fm;
@@ -1288,7 +1288,96 @@ int main()
     });
 
     // -------------------------------------------------------------------------
-    // 21. Run All Benchmarks
+    // 21. Entails Relationship Benchmarks
+    // -------------------------------------------------------------------------
+    runner.section("ENTAILS OPERATIONS")
+          .contract("Entails enable path identical to Implies; disable path ref-counts entailers "
+                    "and cascades only when ref-count reaches zero.");
+
+    // Single entailer: enable + disable with cascade (no shared entailers)
+    {
+        FeatureManager<> fmEntailsSimple;
+        (void)fmEntailsSimple.addFeature("EA");
+        (void)fmEntailsSimple.addFeature("EB");
+        (void)fmEntailsSimple.addRelationship("EA", FeatureRelationship::Entails, "EB");
+
+        runner.add("enable + disable: single Entails edge (cascade both directions)", [&]() {
+            (void)fmEntailsSimple.enable("EA");
+            DoNotOptimize(fmEntailsSimple.isEnabled("EB"));
+            (void)fmEntailsSimple.disable("EA");
+            DoNotOptimize(fmEntailsSimple.isEnabled("EB"));
+        });
+    }
+
+    // Shared target: two entailers, disable one (ref-count > 0, no cascade)
+    {
+        FeatureManager<> fmShared;
+        (void)fmShared.addFeature("SA");
+        (void)fmShared.addFeature("SB");
+        (void)fmShared.addFeature("ST");
+        (void)fmShared.addRelationship("SA", FeatureRelationship::Entails, "ST");
+        (void)fmShared.addRelationship("SB", FeatureRelationship::Entails, "ST");
+        (void)fmShared.enable("SA");
+        (void)fmShared.enable("SB");
+
+        runner.add("disable: Entails target survives (second entailer still active)", [&]() {
+            // SA and SB both enabled. Disabling SA leaves ST enabled via SB.
+            (void)fmShared.disable("SA");
+            DoNotOptimize(fmShared.isEnabled("ST")); // must be true
+            (void)fmShared.enable("SA");
+        });
+    }
+
+    // Entails chain: A→B→C, enable A (cascades to B and C), disable A (cascades back)
+    {
+        FeatureManager<> fmChain;
+        (void)fmChain.addFeature("CA");
+        (void)fmChain.addFeature("CB");
+        (void)fmChain.addFeature("CC");
+        (void)fmChain.addRelationship("CA", FeatureRelationship::Entails, "CB");
+        (void)fmChain.addRelationship("CB", FeatureRelationship::Entails, "CC");
+
+        runner.add("enable + disable: Entails chain depth 3 (full cascade)", [&]() {
+            (void)fmChain.enable("CA");
+            DoNotOptimize(fmChain.isEnabled("CC"));
+            (void)fmChain.disable("CA");
+            DoNotOptimize(fmChain.isEnabled("CC"));
+        });
+    }
+
+    // replace() with Entails: swap alert type, shared Entails target stays enabled
+    {
+        FeatureManager<> fmRepl;
+        (void)fmRepl.addFeature("kAlertOverload");
+        (void)fmRepl.addFeature("kAlertLatency");
+        (void)fmRepl.addFeature("kPolicyWorkStealing");
+        (void)fmRepl.addFeature("kPolicyRoundRobin");
+        (void)fmRepl.addFeature("kAdmissionBulkShed");
+        (void)fmRepl.addRelationship("kAlertOverload", FeatureRelationship::MutuallyExclusive, "kAlertLatency");
+        (void)fmRepl.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kPolicyWorkStealing");
+        (void)fmRepl.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kAdmissionBulkShed");
+        (void)fmRepl.addRelationship("kAlertLatency",  FeatureRelationship::Entails, "kPolicyRoundRobin");
+        (void)fmRepl.addRelationship("kAlertLatency",  FeatureRelationship::Entails, "kAdmissionBulkShed");
+        (void)fmRepl.enable("kAlertOverload");
+
+        bool replDir = true;
+        runner.add("replace: alert swap with shared Entails target (steady-state)", [&]() {
+            if (replDir)
+            {
+                auto r = fmRepl.replace("kAlertOverload", "kAlertLatency");
+                DoNotOptimize(r);
+            }
+            else
+            {
+                auto r = fmRepl.replace("kAlertLatency", "kAlertOverload");
+                DoNotOptimize(r);
+            }
+            replDir = !replDir;
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // 22. Run All Benchmarks
     // -------------------------------------------------------------------------
     runner.section("RUNNING BENCHMARKS");
     print_cpu_context(std::cout, "Starting benchmark execution");
