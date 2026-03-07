@@ -2102,6 +2102,70 @@ FATP_TEST_CASE(force_exclusive_observer_reports_all_disabled_features)
 // Entails relationship tests
 // ============================================================================
 
+// Regression: Preempts+Entails on the same directed edge must be rejected.
+// Enabling the source would simultaneously force the target ON (Entails) and
+// OFF (Preempts) — contradictory by construction.
+FATP_TEST_CASE(entails_entails_preempts_contradiction_rejected)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+
+    // Entails then Preempts
+    {
+        FeatureManager<SingleThreadedPolicy> fm2;
+        (void)fm2.addFeature("A");
+        (void)fm2.addFeature("B");
+        (void)fm2.addRelationship("A", FeatureRelationship::Entails, "B");
+        auto res = fm2.addRelationship("A", FeatureRelationship::Preempts, "B");
+        FATP_ASSERT_FALSE(res.has_value(),
+            "Preempts must be rejected when Entails already exists on same edge");
+    }
+
+    // Preempts then Entails
+    {
+        FeatureManager<SingleThreadedPolicy> fm2;
+        (void)fm2.addFeature("A");
+        (void)fm2.addFeature("B");
+        (void)fm2.addRelationship("A", FeatureRelationship::Preempts, "B");
+        auto res = fm2.addRelationship("A", FeatureRelationship::Entails, "B");
+        FATP_ASSERT_FALSE(res.has_value(),
+            "Entails must be rejected when Preempts already exists on same edge");
+    }
+
+    return true;
+}
+
+// Regression: batchDisable must not cascade-disable Entails targets of features
+// that were ALREADY disabled before the transaction. Only newly-disabled features
+// should trigger the Entails ref-count cascade.
+FATP_TEST_CASE(entails_batchdisable_no_spurious_cascade)
+{
+    // Setup: A Entails B. A is disabled, B is independently enabled.
+    // Calling batchDisable on unrelated C must NOT cascade-disable B.
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addFeature("C");
+    (void)fm.addRelationship("A", FeatureRelationship::Entails, "B");
+
+    // Enable B directly (not via Entails cascade from A).
+    FATP_ASSERT_TRUE(fm.enable("B").has_value(), "B enables independently");
+    FATP_ASSERT_TRUE(fm.enable("C").has_value(), "C enables");
+    FATP_ASSERT_FALSE(fm.isEnabled("A"), "A is disabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B enabled independently");
+
+    // Disable unrelated C. B must survive.
+    auto res = fm.batchDisable({"C"});
+    FATP_ASSERT_TRUE(res.has_value(), "batchDisable C must succeed");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"),
+        "B must remain enabled: batchDisable of unrelated C must not cascade via pre-existing disabled A");
+
+    return true;
+}
+
+
+
 // Test: enable(A) where A Entails B → B is cascade-enabled
 FATP_TEST_CASE(entails_enable_cascades_to_target)
 {
@@ -2886,6 +2950,8 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, force_exclusive_requires_chain_preserved);
     FATP_RUN_TEST_NS(runner, logic, force_exclusive_observer_reports_all_disabled_features);
     // Entails relationship tests
+    FATP_RUN_TEST_NS(runner, logic, entails_entails_preempts_contradiction_rejected);
+    FATP_RUN_TEST_NS(runner, logic, entails_batchdisable_no_spurious_cascade);
     FATP_RUN_TEST_NS(runner, logic, entails_enable_cascades_to_target);
     FATP_RUN_TEST_NS(runner, logic, entails_disable_cascades_when_no_other_entailer);
     FATP_RUN_TEST_NS(runner, logic, entails_disable_does_not_cascade_when_second_entailer_active);

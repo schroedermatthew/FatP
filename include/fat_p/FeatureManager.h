@@ -660,9 +660,16 @@ private:
                 return unexpected("Cannot add Preempts from '" + from + "' to '" + to +
                                   "': '" + from + "' already Implies '" + to + "' (contradictory).");
             }
+            if (fromNode->relationships[relIdx(FeatureRelationship::Entails)].count(to))
+            {
+                return unexpected("Cannot add Preempts from '" + from + "' to '" + to +
+                                  "': '" + from + "' already Entails '" + to + "' (contradictory).");
+            }
         }
-        // Guard the reverse: adding Requires/Implies when Preempts already exists.
-        if (type == FeatureRelationship::Requires || type == FeatureRelationship::Implies)
+        // Guard the reverse: adding Requires/Implies/Entails when Preempts already exists.
+        if (type == FeatureRelationship::Requires ||
+            type == FeatureRelationship::Implies   ||
+            type == FeatureRelationship::Entails)
         {
             if (fromNode->relationships[relIdx(FeatureRelationship::Preempts)].count(to))
             {
@@ -2319,17 +2326,33 @@ public:
                 }
             }
 
-            // Entails cascade: for each just-disabled feature, ref-count-check its Entails
-            // targets and cascade-disable any whose ref-count drops to zero.
+            // Entails cascade: for each *newly*-disabled feature, ref-count-check its
+            // Entails targets and cascade-disable any whose ref-count drops to zero.
+            // Only features that changed from enabled→disabled in this transaction are
+            // considered; pre-existing disabled features are excluded. This prevents
+            // spurious cascade-disables of independently-enabled Entails targets when
+            // an unrelated batchDisable is called.
             // Process iteratively until no further cascades occur (handles chains).
+            std::unordered_set<std::string> newlyDisabled;
+            for (const auto& [fn, _] : mFeatures)
+            {
+                auto* fd = plan.desiredStates.find(fn);
+                auto* live = mFeatures.find(fn);
+                if (fd && !*fd && live && live->enabled)
+                {
+                    newlyDisabled.insert(fn);
+                }
+            }
+
             bool cascadeChanged = true;
             while (cascadeChanged)
             {
                 cascadeChanged = false;
-                for (const auto& [fn, fn_node] : mFeatures)
+                for (const auto& fn : newlyDisabled)
                 {
-                    auto* fnDesired = plan.desiredStates.find(fn);
-                    if (fnDesired && !*fnDesired)
+                    auto* fn_nodePtr = mFeatures.find(fn);
+                    if (!fn_nodePtr) { continue; }
+                    const auto& fn_node = *fn_nodePtr;
                     {
                         // fn is disabled — check if it has Entails targets to cascade
                         for (const auto& target : fn_node.relationships[relIdx(FeatureRelationship::Entails)])
@@ -2361,6 +2384,7 @@ public:
                             {
                                 plan.desiredStates[target] = false;
                                 plan.disableOrder.push_back(target);
+                                newlyDisabled.insert(target); // propagate cascade to next iteration
                                 cascadeChanged = true;
                             }
                         }
