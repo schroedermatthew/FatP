@@ -148,7 +148,6 @@ makeDenseGraph(std::size_t nodes, std::size_t edgesPerNode, std::uint64_t seed)
                 continue;
             }
 
-            auto rel =
             auto rel = (typeDist(rng) == 0)
                            ? fat_p::feature::FeatureRelationship::Requires
                            : fat_p::feature::FeatureRelationship::Conflicts;
