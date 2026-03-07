@@ -2385,6 +2385,9 @@ public:
      *                is preserved; everything else is disabled.
      * @return Expected<void> on success, or error on failure (no state change).
      *
+     * @note Complexity: O(n) in the number of registered features — every feature is
+     *       visited twice: once to zero desiredStates and once during commit. Callers
+     *       should avoid calling this in tight loops on large graphs.
      * @note Thread-safety: Acquires internal lock; observers called outside lock.
      * @see replace() for targeted A→B substitution within a MutuallyExclusive group.
      */
