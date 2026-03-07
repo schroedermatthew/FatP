@@ -1222,6 +1222,86 @@ FATP_TEST_CASE(scoped_feature_change)
     return true;
 }
 
+FATP_TEST_CASE(scoped_feature_change_graph_modified_while_alive)
+{
+    // Regression: ScopedFeatureChange destructor must not restore an invalid
+    // graph state when the graph was validly modified while the guard was alive.
+    //
+    // Bug: the old destructor restored feature bits one-by-one without
+    // validating invariants, producing a graph that failed validate().
+    //
+    // Repro sequence:
+    //   A Requires B — both initially enabled.
+    //   Guard disables A  (legal: A=false, B=true).
+    //   Caller disables B (legal while A is off).
+    //   Guard destructs:  old code restored A=true, left B=false => invalid.
+    //   Fixed code:       validates rollback first; skips it if invalid.
+
+    // Test 1: rollback skipped when it would violate Requires
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Requires, "B");
+
+        (void)fm.enable("B");
+        (void)fm.enable("A");
+        FATP_ASSERT_TRUE(fm.isEnabled("A"), "A starts enabled");
+        FATP_ASSERT_TRUE(fm.isEnabled("B"), "B starts enabled");
+
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "A", false);
+            FATP_ASSERT_TRUE(guard.valid(), "Disabling A should succeed");
+            FATP_ASSERT_FALSE(fm.isEnabled("A"), "A is disabled inside guard");
+            FATP_ASSERT_TRUE(fm.isEnabled("B"), "B still enabled inside guard");
+
+            // External code disables B while A is already off — valid on its own.
+            auto res = fm.disable("B");
+            FATP_ASSERT_TRUE(res.has_value(), "Disabling B while A is off must succeed");
+            FATP_ASSERT_FALSE(fm.isEnabled("B"), "B is now disabled");
+
+            // Guard destructs here: restoring A=true would require B=true,
+            // but B=false. The destructor must skip the rollback entirely.
+        }
+
+        // Graph must be valid after guard destruction.
+        auto v = fm.validate();
+        FATP_ASSERT_TRUE(v.has_value(),
+            "validate() must succeed after guard destruction (rollback was skipped)");
+
+        // A must NOT have been silently restored to true — that is the bug.
+        FATP_ASSERT_FALSE(fm.isEnabled("A"),
+            "A must remain false: restoring it with B=false would violate Requires");
+        FATP_ASSERT_FALSE(fm.isEnabled("B"), "B remains false");
+    }
+
+    // Test 2: normal rollback still works when graph was not modified externally
+    {
+        FeatureManager<> fm;
+        (void)fm.addFeature("A");
+        (void)fm.addFeature("B");
+        (void)fm.addRelationship("A", FeatureRelationship::Requires, "B");
+
+        (void)fm.enable("B");
+        (void)fm.enable("A");
+
+        {
+            FeatureManager<>::ScopedFeatureChange guard(fm, "A", false);
+            FATP_ASSERT_TRUE(guard.valid(), "Disabling A should succeed");
+            FATP_ASSERT_FALSE(fm.isEnabled("A"), "A disabled inside guard");
+            FATP_ASSERT_TRUE(fm.isEnabled("B"), "B still enabled inside guard");
+            // No external modifications — rollback should proceed normally.
+        }
+
+        // Rollback succeeded: both features restored to their prior state.
+        FATP_ASSERT_TRUE(fm.validate().has_value(), "Graph valid after normal rollback");
+        FATP_ASSERT_TRUE(fm.isEnabled("A"), "A restored to enabled");
+        FATP_ASSERT_TRUE(fm.isEnabled("B"), "B remains enabled");
+    }
+
+    return true;
+}
+
 
 // ============================================================================
 // SECTION 1b: Preempts Relationship Tests
@@ -2386,6 +2466,7 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, implicit_notifications);
     FATP_RUN_TEST_NS(runner, logic, batch_disable_implies);
     FATP_RUN_TEST_NS(runner, logic, scoped_feature_change);
+    FATP_RUN_TEST_NS(runner, logic, scoped_feature_change_graph_modified_while_alive);
     // Preempts relationship tests
     FATP_RUN_TEST_NS(runner, logic, preempts_disables_active_target);
     FATP_RUN_TEST_NS(runner, logic, preempts_target_already_off);

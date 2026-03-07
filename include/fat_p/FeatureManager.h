@@ -1445,14 +1445,21 @@ public:
      * If validation fails, the object is constructed but marked invalid — check
      * via valid() or operator bool().
      *
-     * Destruction restores each feature to its individual pre-operation state
-     * using per-feature FeatureChange records. This correctly handles
-     * mixed-direction operations: if enabling A preempted B (setting B false),
-     * the destructor restores A to false and B to true independently.
+     * Destruction attempts to restore each feature to its individual
+     * pre-operation state. The intended rollback state is first validated
+     * against all graph invariants (Requires, Implies, Conflicts,
+     * MutuallyExclusive, Preempts). Only if the full rollback is valid is
+     * it committed; otherwise the rollback is skipped entirely, leaving the
+     * graph in its current valid state.
      *
-     * Rollback only restores features that are still in the state this guard
-     * set them to. If another party changed a feature after this guard set it,
-     * that feature is left alone (its new state is respected).
+     * This means that if external code modifies the graph while the guard is
+     * alive in a way that makes the pre-operation state unreachable (e.g. a
+     * required dependency is disabled), the guard will not produce an invalid
+     * graph on destruction — it simply will not roll back.
+     *
+     * Rollback only considers features that are still in the state this guard
+     * set them to. Features changed by another party after this guard set them
+     * are left alone (their new state is respected in the desired-rollback map).
      *
      * Observer notifications fire on rollback (outside the lock) with the correct
      * per-feature direction for each restored feature.
@@ -1525,21 +1532,43 @@ public:
             {
                 [[maybe_unused]] auto lockGuard = mManager->mSync.lock();
 
-                // Restore each feature to its individual old state.
-                // Only restore if the feature is still in the state we set it to
-                // (respect changes made by other parties after us).
+                // Build the desired rollback state from the current live state.
+                // Start with every feature at its current (post-external-change) value,
+                // then apply rollback only for features that are still in the state this
+                // guard set them to (respect independent changes made by other parties).
+                FastHashMap<std::string, bool> desiredStates;
+                for (const auto& [name, node] : mManager->mFeatures)
+                {
+                    desiredStates[name] = node.enabled;
+                }
+
                 for (const auto& change : mAppliedChanges)
                 {
-                    auto nodeRes = mManager->getNode(change.name);
-                    if (!nodeRes)
+                    auto* current = desiredStates.find(change.name);
+                    if (current && *current == change.newState)
                     {
-                        continue;
+                        desiredStates[change.name] = change.oldState;
                     }
-                    FeatureNode* node = *nodeRes;
-                    if (node->enabled == change.newState)
+                }
+
+                // Validate the full desired rollback state before committing anything.
+                // If external modifications made the pre-operation state unreachable
+                // (e.g. a required dependency was disabled while this guard was alive),
+                // skip the rollback entirely to avoid producing an invalid graph.
+                auto validRes = mManager->validateDesiredState(desiredStates);
+                if (!validRes)
+                {
+                    return;
+                }
+
+                // Commit: apply desiredStates to live nodes and record what changed.
+                for (auto& [name, node] : mManager->mFeatures)
+                {
+                    auto* desired = desiredStates.find(name);
+                    if (desired && node.enabled != *desired)
                     {
-                        node->enabled = change.oldState;
-                        restoredChanges.push_back({change.name, change.newState, change.oldState});
+                        restoredChanges.push_back({name, node.enabled, *desired});
+                        node.enabled = *desired;
                     }
                 }
 
@@ -2385,9 +2414,6 @@ public:
      *                is preserved; everything else is disabled.
      * @return Expected<void> on success, or error on failure (no state change).
      *
-     * @note Complexity: O(n) in the number of registered features — every feature is
-     *       visited twice: once to zero desiredStates and once during commit. Callers
-     *       should avoid calling this in tight loops on large graphs.
      * @note Thread-safety: Acquires internal lock; observers called outside lock.
      * @see replace() for targeted A→B substitution within a MutuallyExclusive group.
      */
