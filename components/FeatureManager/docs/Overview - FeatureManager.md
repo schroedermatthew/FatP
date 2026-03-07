@@ -84,6 +84,12 @@ public:
     // State transitions (plan/commit: validates then applies atomically)
     [[nodiscard]] Expected<void, std::string> enable(const std::string& name);
     [[nodiscard]] Expected<void, std::string> disable(const std::string& name);
+    [[nodiscard]] Expected<void, std::string> batchEnable(const std::vector<std::string>& names);
+    [[nodiscard]] Expected<void, std::string> batchDisable(const std::vector<std::string>& names);
+
+    // Atomic substitution (single plan/commit, one observer notification each)
+    [[nodiscard]] Expected<void, std::string> replace(const std::string& from, const std::string& to);
+    [[nodiscard]] Expected<void, std::string> forceExclusive(const std::string& feature);
 
     // Query
     [[nodiscard]] bool isEnabled(const std::string& name) const;
@@ -106,6 +112,10 @@ public:
 ### Plan/Commit Resolution
 
 `enable()` and `disable()` use a two-phase approach: a *plan* phase computes the full set of features that must change (following Requires, Implies, Conflicts, and MutuallyExclusive relationships transitively and checking for cycles), then a *commit* phase applies all changes atomically under the sync policy's lock. If the plan phase finds a conflict, cycle, or missing dependency, the call returns an error and no state changes.
+
+`replace(from, to)` extends the plan/commit model for `MutuallyExclusive` substitution: it marks `from` as disabled in the plan before running `planEnableRecursive(to)`, so the constraint check sees the correct end-state and the substitution succeeds atomically.
+
+`forceExclusive(feature)` zeros `desiredStates` completely before planning `feature`, so no `MutuallyExclusive` or `Conflicts` check can find a conflicting enabled feature. This is the correct e-stop primitive when the current state is unknown.
 
 ---
 
@@ -257,6 +267,8 @@ FeatureManager provides dependency-aware feature flags permanently—essential f
 | Add relationship | O(log r) | FlatSet insertion |
 | Enable (simple) | O(1) average | Hash lookup + update |
 | Enable (with deps) | O(d × log n) | d = dependency depth |
+| replace(from, to) | O((d_from + d_to) × log n) | d_from = reverse-dep closure depth of from; d_to = enable closure depth of to |
+| forceExclusive(f) | O(n + d × log n) | n = total features (zeroing desiredStates); d = dep depth of f |
 | Validate | O(n × d × log n) | Full graph traversal |
 | Memory per feature | Platform/compiler-dependent | See `results/` for measurements |
 

@@ -525,7 +525,7 @@ FATP_TEST_CASE(observers)
         last_success = success;
     };
 
-    graph.addObserver(cb, 0);
+    (void)graph.addObserver(cb, 0);
 
     (void)graph.enable("Observed");
     FATP_ASSERT_EQ(call_count, 1, "Should call observer on enable");
@@ -1656,11 +1656,12 @@ FATP_TEST_CASE(replace_disables_reverse_dependency_closure_of_from)
     // ModeB must now be on.
     FATP_ASSERT_TRUE(fm.isEnabled("ModeB"), "ModeB enabled by replace");
 
-    // Sensor is not in ModeA's reverse-dep closure; it may stay enabled if ModeB or another
-    // feature keeps it, but should at minimum not be spuriously forced off.
-    // (In this graph Sensor is not required by ModeB, so it will be disabled because nothing
-    //  holds it anymore — verify that rather than assume it stays up.)
-    FATP_ASSERT_FALSE(fm.isEnabled("Sensor"), "Sensor has no remaining consumers, disabled");
+    // Sensor is a forward dependency of ModeA (ModeA Requires Sensor), not in ModeA's
+    // reverse-dep closure.  planDisableClosure only disables things that depend ON the
+    // named feature — it does not cascade downward to orphaned forward deps.
+    // Sensor has no remaining consumers in this graph, but nothing explicitly disabled it,
+    // so it remains enabled.
+    FATP_ASSERT_TRUE(fm.isEnabled("Sensor"), "Sensor is a forward dep of ModeA, stays enabled");
 
     return true;
 }

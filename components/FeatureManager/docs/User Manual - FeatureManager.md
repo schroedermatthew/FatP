@@ -851,6 +851,177 @@ if (!result) {
 
 ---
 
+#### `replace()`
+
+Atomically disable one feature and enable another in a single plan/commit transaction.
+
+**Signature:**
+```cpp
+[[nodiscard]] Expected<void, std::string>
+replace(const std::string& from, const std::string& to);
+```
+
+**Why this exists:** `MutuallyExclusive` features cannot be swapped with two sequential calls. If `A` is enabled and `A` is `MutuallyExclusive` with `B`, calling `enable("B")` fails immediately — because `A` is still visible as enabled when the constraint check runs. Two sequential `batchDisable` + `batchEnable` calls are also not a solution: an observer fires between them, and any code polling `isEnabled()` between the calls sees neither mode active.
+
+`replace()` solves this by marking `from` as disabled in the plan before `planEnableRecursive` runs its constraint check. The check sees the correct end-state.
+
+**What it does:**
+1. Validates both features exist.
+2. Requires `from` to be currently enabled — returns an error if it is not (silent no-op would hide caller bugs).
+3. Rejects `from == to` with an explicit error.
+4. Seeds the transaction plan from live state.
+5. `planDisableClosure(from)` — marks `from` and its reverse-dependency closure (features that Require or Imply `from`) as disabled in the plan. No live mutation yet.
+6. `planEnableRecursive(to)` — `from` is now false in `desiredStates`, so the `MutuallyExclusive` check succeeds.
+7. `validateDesiredState` — final consistency check.
+8. Commit + notify: one observer notification, `requestedFeature = to`.
+
+**Error conditions:**
+
+| Condition | Behaviour |
+|-----------|-----------|
+| `from` not found | Returns error, no state change |
+| `to` not found | Returns error, no state change |
+| `from` is not currently enabled | Returns error — check `isEnabled(from)` before calling if conditional behaviour is needed |
+| `from == to` | Returns error |
+| `to`'s Requires closure has a Conflicts violation | Planning error, no state change |
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error)` on failure, graph unchanged
+
+**Example: MutuallyExclusive mode switch**
+```cpp
+FeatureManager<> fm;
+(void)fm.addFeature("normal_mode");
+(void)fm.addFeature("safe_mode");
+(void)fm.addRelationship("normal_mode", FeatureRelationship::MutuallyExclusive, "safe_mode");
+
+(void)fm.enable("normal_mode");
+
+// Atomic: normal_mode goes off, safe_mode comes on, one observer notification.
+auto res = fm.replace("normal_mode", "safe_mode");
+if (!res)
+{
+    // normal_mode was not enabled, or another constraint was violated
+    std::cerr << "Transition failed: " << res.error() << "\n";
+}
+```
+
+**Example: Reverse-dependency closure**
+
+`replace()` disables not just `from` but anything that Requires or Implies it — the same reverse-dependency closure that `planDisableClosure` always computes. Features `to` Requires are brought up automatically.
+
+```cpp
+// motor_mix --Requires--> esc
+// normal_mode --Requires--> motor_mix
+// normal_mode <MutuallyExclusive> safe_mode
+// safe_mode --Requires--> network_stub
+
+(void)fm.enable("normal_mode");
+// enabled: normal_mode, motor_mix, esc
+
+(void)fm.replace("normal_mode", "safe_mode");
+// enabled: safe_mode, network_stub
+// disabled: normal_mode, motor_mix, esc
+//           (motor_mix and esc are in normal_mode's reverse-dep closure)
+```
+
+**Example: Observer receives both changes**
+```cpp
+(void)fm.addBatchObserver([](const std::string& requested,
+                              const std::vector<FeatureChange>& changes,
+                              bool) {
+    // requested == "safe_mode"
+    // changes contains disable records for normal_mode/motor_mix/esc
+    // and enable records for safe_mode/network_stub — all in one callback.
+});
+(void)fm.replace("normal_mode", "safe_mode");
+```
+
+**Note: non-MutuallyExclusive pairs work too.** `replace()` does not require `from` and `to` to share a `MutuallyExclusive` relationship. For non-ME pairs it is equivalent to disabling `from` then enabling `to`, but in a single atomic operation.
+
+---
+
+#### `forceExclusive()`
+
+Disable every feature not in `feature`'s Requires/Implies closure, atomically. E-stop semantics.
+
+**Signature:**
+```cpp
+[[nodiscard]] Expected<void, std::string>
+forceExclusive(const std::string& feature);
+```
+
+**Why this exists:** `replace()` requires the caller to know which feature is currently active. In an emergency — an e-stop, a watchdog trigger, a safety supervisor firing — the current state may be unknown or too complex to enumerate. `forceExclusive()` solves this by starting from a blank slate: all features are zeroed in `desiredStates` before planning `feature`. No `MutuallyExclusive` or `Conflicts` check can find a conflicting enabled feature because nothing is true yet.
+
+**What it does:**
+1. Validates `feature` exists.
+2. Snapshots live state into `originalStates`.
+3. Sets **all** entries in `desiredStates` to `false` and records all currently-enabled features in `disableOrder` (so `buildTransactionChanges` produces correct disable records for every feature that goes off).
+4. `planEnableRecursive(feature)` — from a blank slate, so constraint checks cannot fail against another enabled feature.
+5. `validateDesiredState` — final consistency check (can only fail if `feature`'s own Requires closure has an internal `Conflicts` edge, which would be a broken graph).
+6. Commit + notify: one observer notification, `requestedFeature = feature`.
+
+**No-op case:** If `feature` is already the only enabled feature, `buildTransactionChanges` produces an empty change vector and no observers fire.
+
+**Error conditions:**
+
+| Condition | Behaviour |
+|-----------|-----------|
+| `feature` not found | Returns error, no state change |
+| `feature`'s Requires closure has an internal `Conflicts` edge | Planning error, no state change — broken graph |
+
+**Returns:**
+- `Expected<void>` on success
+- `unexpected(error)` on failure, graph unchanged
+
+**Example: E-stop activation**
+```cpp
+// System has many active features; their current state is unknown.
+// Activate safe_mode unconditionally.
+auto res = fm.forceExclusive("safe_mode");
+
+// After this call:
+//   safe_mode: enabled
+//   network_stub: enabled  (Requires chain of safe_mode)
+//   everything else: disabled
+```
+
+**Example: Recovery with replace**
+```cpp
+// E-stop
+fm.forceExclusive("safe_mode");
+
+// ... operator confirms system is ready ...
+
+// Recovery: atomic transition back
+fm.replace("safe_mode", "normal_mode");
+```
+
+**Example: Observer receives all disabled features**
+```cpp
+(void)fm.addBatchObserver([](const std::string& requested,
+                              const std::vector<FeatureChange>& changes,
+                              bool) {
+    // requested == "safe_mode"
+    // changes contains a disable record for every feature that was active
+    // plus enable records for safe_mode and its Requires chain.
+    // All in one callback.
+});
+fm.forceExclusive("safe_mode");
+```
+
+**Choosing between replace() and forceExclusive():**
+
+| Question | Answer |
+|----------|--------|
+| Do I know which specific feature is currently active? | Use `replace()` |
+| Is this a controlled transition between known modes? | Use `replace()` |
+| Is this an emergency or e-stop where current state is unknown? | Use `forceExclusive()` |
+| Do I want to clear an unbounded set of active features unconditionally? | Use `forceExclusive()` |
+
+---
+
 #### `addObserver()`
 
 Add an observer to be notified of feature state changes. Returns an ID for later removal.
