@@ -1302,6 +1302,56 @@ FATP_TEST_CASE(scoped_feature_change_graph_modified_while_alive)
     return true;
 }
 
+FATP_TEST_CASE(scoped_feature_change_check_callback_blocks_rollback)
+{
+    // Regression: validateDesiredState() must run node.check() callbacks, not
+    // only structural (Requires/Conflicts/...) checks.
+    //
+    // If external state changes while a ScopedFeatureChange guard is alive so
+    // that a feature's check callback would now fail, the destructor must skip
+    // rollback rather than restore that feature to enabled and produce a graph
+    // that fails validate().
+
+    bool checkShouldPass = true; // external state controlled by the test
+
+    fat_p::feature::FeatureManager<> fm;
+    (void)fm.addFeature("A", [&checkShouldPass]() -> fat_p::Expected<void, std::string> {
+        if (!checkShouldPass)
+        {
+            return fat_p::unexpected(std::string("external condition failed"));
+        }
+        return {};
+    });
+
+    // Initially the check passes — enable A.
+    FATP_ASSERT_TRUE(fm.enable("A").has_value(), "A enables when check passes");
+    FATP_ASSERT_TRUE(fm.isEnabled("A"), "A is enabled");
+
+    {
+        // Guard disables A (check not run on disable path).
+        fat_p::feature::FeatureManager<>::ScopedFeatureChange guard(fm, "A", false);
+        FATP_ASSERT_TRUE(guard.valid(), "Disabling A should succeed");
+        FATP_ASSERT_FALSE(fm.isEnabled("A"), "A disabled inside guard");
+
+        // External state changes: A's check would now fail.
+        checkShouldPass = false;
+
+        // Guard destructs: rollback wants to restore A=true, but A's check
+        // now fails. validateDesiredState must catch this and skip rollback.
+    }
+
+    // Graph must be valid: rollback was skipped.
+    auto v = fm.validate();
+    FATP_ASSERT_TRUE(v.has_value(),
+        "validate() must succeed after guard destruction (check-blocked rollback)");
+
+    // A must NOT have been restored to true — its check would fail.
+    FATP_ASSERT_FALSE(fm.isEnabled("A"),
+        "A must remain false: its check callback now fails, rollback must be skipped");
+
+    return true;
+}
+
 
 // ============================================================================
 // SECTION 1b: Preempts Relationship Tests
@@ -1479,6 +1529,90 @@ FATP_TEST_CASE(preempts_validates_loaded_state)
                           "validate() must detect A preempts B but both enabled");
     }
     // If fromJson rejected it, that is also correct — the test passes either way.
+
+    return true;
+}
+
+FATP_TEST_CASE(fromjson_rejects_preempts_contradiction)
+{
+    // fromJson must reject a graph where a feature both Preempts and Requires
+    // the same target — a contradiction the live API refuses at addRelationship time.
+    {
+        const std::string json = R"({"features": {
+            "A": {"enabled": false, "Preempts": ["B"], "Requires": ["B"]},
+            "B": {"enabled": false}
+        }})";
+        auto res = FeatureManager<>::fromJson(json);
+        FATP_ASSERT_FALSE(res.has_value(),
+            "fromJson must reject Preempts+Requires on the same directed edge");
+    }
+
+    // Also reject Preempts + Implies contradiction.
+    {
+        const std::string json = R"({"features": {
+            "A": {"enabled": false, "Preempts": ["B"], "Implies": ["B"]},
+            "B": {"enabled": false}
+        }})";
+        auto res = FeatureManager<>::fromJson(json);
+        FATP_ASSERT_FALSE(res.has_value(),
+            "fromJson must reject Preempts+Implies on the same directed edge");
+    }
+
+    return true;
+}
+
+FATP_TEST_CASE(fromjson_rejects_preempts_cycle)
+{
+    // fromJson must reject a Preempts cycle (A Preempts B Preempts A) that the
+    // live addRelationship API would also refuse to construct.
+    {
+        const std::string json = R"({"features": {
+            "A": {"enabled": false, "Preempts": ["B"]},
+            "B": {"enabled": false, "Preempts": ["A"]}
+        }})";
+        auto res = FeatureManager<>::fromJson(json);
+        FATP_ASSERT_FALSE(res.has_value(),
+            "fromJson must reject a two-node Preempts cycle");
+    }
+
+    // Three-node cycle: A -> B -> C -> A.
+    {
+        const std::string json = R"({"features": {
+            "A": {"enabled": false, "Preempts": ["B"]},
+            "B": {"enabled": false, "Preempts": ["C"]},
+            "C": {"enabled": false, "Preempts": ["A"]}
+        }})";
+        auto res = FeatureManager<>::fromJson(json);
+        FATP_ASSERT_FALSE(res.has_value(),
+            "fromJson must reject a three-node Preempts cycle");
+    }
+
+    // Non-cycle (A -> B -> C, no back-edge) must still load successfully.
+    {
+        const std::string json = R"({"features": {
+            "A": {"enabled": false, "Preempts": ["B"]},
+            "B": {"enabled": false, "Preempts": ["C"]},
+            "C": {"enabled": false}
+        }})";
+        auto res = FeatureManager<>::fromJson(json);
+        FATP_ASSERT_TRUE(res.has_value(),
+            "fromJson must accept a valid Preempts chain with no cycle");
+    }
+
+    // Diamond DAG (A->B->D, A->C->D) must load successfully — shared descendant
+    // is not a cycle. The old iterative detector falsely rejected this because it
+    // treated "already visited D" as a back-edge.
+    {
+        const std::string json = R"({"features": {
+            "A": {"enabled": false, "Preempts": ["B", "C"]},
+            "B": {"enabled": false, "Preempts": ["D"]},
+            "C": {"enabled": false, "Preempts": ["D"]},
+            "D": {"enabled": false}
+        }})";
+        auto res = FeatureManager<>::fromJson(json);
+        FATP_ASSERT_TRUE(res.has_value(),
+            "fromJson must accept a diamond-shaped Preempts DAG (shared descendant is not a cycle)");
+    }
 
     return true;
 }
@@ -2467,6 +2601,7 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, batch_disable_implies);
     FATP_RUN_TEST_NS(runner, logic, scoped_feature_change);
     FATP_RUN_TEST_NS(runner, logic, scoped_feature_change_graph_modified_while_alive);
+    FATP_RUN_TEST_NS(runner, logic, scoped_feature_change_check_callback_blocks_rollback);
     // Preempts relationship tests
     FATP_RUN_TEST_NS(runner, logic, preempts_disables_active_target);
     FATP_RUN_TEST_NS(runner, logic, preempts_target_already_off);
@@ -2476,6 +2611,8 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, batch_enable_contradictory_roots_fails);
     FATP_RUN_TEST_NS(runner, logic, preempts_round_trip_json);
     FATP_RUN_TEST_NS(runner, logic, preempts_validates_loaded_state);
+    FATP_RUN_TEST_NS(runner, logic, fromjson_rejects_preempts_contradiction);
+    FATP_RUN_TEST_NS(runner, logic, fromjson_rejects_preempts_cycle);
     FATP_RUN_TEST_NS(runner, logic, preempts_in_dot_export);
     FATP_RUN_TEST_NS(runner, logic, scoped_feature_change_restores_preempted_features);
     FATP_RUN_TEST_NS(runner, logic, preempts_contradiction_rejected_at_add_time);

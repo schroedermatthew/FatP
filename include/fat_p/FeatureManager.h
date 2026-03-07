@@ -1248,10 +1248,18 @@ private:
         return changes;
     }
 
-    /// @brief Validates a desired state snapshot (used by batchEnable before commit).
-    ///        Checks all invariants: Requires, Implies, Preempts, Conflicts, MutuallyExclusive.
+    /// @brief Validates a desired state snapshot against all graph invariants.
+    ///
+    /// @param desiredStates  The proposed state to validate.
+    /// @param runChecks      When true, also invoke node.check() callbacks for
+    ///                       every desired-enabled feature. Pass false on normal
+    ///                       transaction paths (batchEnable / replace / forceExclusive)
+    ///                       because planEnableRecursive() already ran checks during
+    ///                       planning. Pass true on the ScopedFeatureChange rollback
+    ///                       path, which does not go through planning.
     [[nodiscard]] Expected<void, std::string>
-    validateDesiredState(const FastHashMap<std::string, bool>& desiredStates) const
+    validateDesiredState(const FastHashMap<std::string, bool>& desiredStates,
+                         bool runChecks = false) const
     {
         for (const auto& [name, node] : mFeatures)
         {
@@ -1302,6 +1310,20 @@ private:
                         }
                         return unexpected(name + " is mutually exclusive with " + other);
                     }
+                }
+            }
+
+            // Run per-feature check callbacks when requested.
+            // Skipped on normal transaction paths because planEnableRecursive()
+            // already ran checks during planning; running them again here would
+            // double-invoke checks per operation. Enabled on the ScopedFeatureChange
+            // rollback path, which bypasses planning entirely.
+            if (runChecks && node.check)
+            {
+                auto checkResult = node.check();
+                if (!checkResult)
+                {
+                    return unexpected("Check failed for " + name + ": " + checkResult.error());
                 }
             }
         }
@@ -1555,14 +1577,14 @@ public:
                 // If external modifications made the pre-operation state unreachable
                 // (e.g. a required dependency was disabled while this guard was alive),
                 // skip the rollback entirely to avoid producing an invalid graph.
-                auto validRes = mManager->validateDesiredState(desiredStates);
+                auto validRes = mManager->validateDesiredState(desiredStates, /*runChecks=*/true);
                 if (!validRes)
                 {
                     return;
                 }
 
                 // Commit: apply desiredStates to live nodes and record what changed.
-                for (auto& [name, node] : mManager->mFeatures)
+                for (auto&& [name, node] : mManager->mFeatures)
                 {
                     auto* desired = desiredStates.find(name);
                     if (desired && node.enabled != *desired)
@@ -2798,6 +2820,98 @@ public:
                     // toName is validated to exist by the relationship check above.
                     auto* toNodePtr = manager.mFeatures.find(toName);
                     (void)toNodePtr->relationships[relIdx(rel)].insert(fromName);
+                }
+            }
+        }
+
+        // Preempts structural guards: reject graphs the live API would refuse to construct.
+        // addRelationshipUnlocked() enforces these at edge-insertion time; fromJson() must
+        // enforce them here so that hand-edited or externally generated JSON cannot bypass them.
+        //
+        // Guard 1: Contradiction — a Preempts edge and a Requires or Implies edge on the
+        //          same directed pair (from → to) are logically contradictory. Enabling
+        //          the source would simultaneously force the target ON and OFF.
+        //
+        // Guard 2: Preempts cycle — A Preempts B Preempts … Preempts A is ambiguous
+        //          without a priority lattice and is always rejected.
+        for (const auto& [fromName, fromNode] : manager.mFeatures)
+        {
+            const auto& preemptsTargets = fromNode.relationships[relIdx(FeatureRelationship::Preempts)];
+            for (const auto& toName : preemptsTargets)
+            {
+                // Guard 1a: Preempts + Requires on the same directed edge.
+                if (fromNode.relationships[relIdx(FeatureRelationship::Requires)].count(toName))
+                {
+                    return unexpected("Feature '" + fromName + "' both Preempts and Requires '" +
+                                      toName + "' (contradictory).");
+                }
+                // Guard 1b: Preempts + Implies on the same directed edge.
+                if (fromNode.relationships[relIdx(FeatureRelationship::Implies)].count(toName))
+                {
+                    return unexpected("Feature '" + fromName + "' both Preempts and Implies '" +
+                                      toName + "' (contradictory).");
+                }
+            }
+        }
+        // Guard 2: Preempts cycle detection via recursive DFS over the Preempts subgraph.
+        //
+        // Uses two sets to distinguish "on the current recursion path" (inStack) from
+        // "fully explored in a prior traversal" (globalVisited). A back-edge is only a
+        // cycle if the target is currently on the recursion stack — not merely if it was
+        // visited during an earlier traversal of the same connected component. Without
+        // this distinction, valid DAGs with shared descendants (diamonds) are falsely
+        // rejected.
+        {
+            std::unordered_set<std::string> globalVisited;
+
+            std::function<Expected<void, std::string>(const std::string&,
+                                                      std::unordered_set<std::string>&)>
+                dfsPreempts = [&](const std::string& cur,
+                                  std::unordered_set<std::string>& inStack)
+                -> Expected<void, std::string>
+            {
+                if (inStack.count(cur))
+                {
+                    return unexpected("Loaded graph contains a Preempts cycle involving '" +
+                                      cur + "'.");
+                }
+                if (globalVisited.count(cur))
+                {
+                    return {}; // Already fully explored — no cycle through this node.
+                }
+
+                globalVisited.insert(cur);
+                inStack.insert(cur);
+
+                auto* curNode = manager.mFeatures.find(cur);
+                if (curNode)
+                {
+                    for (const auto& next :
+                         curNode->relationships[relIdx(FeatureRelationship::Preempts)])
+                    {
+                        auto res = dfsPreempts(next, inStack);
+                        if (!res)
+                        {
+                            return res;
+                        }
+                    }
+                }
+
+                inStack.erase(cur);
+                return {};
+            };
+
+            for (const auto& [startName, startNode] : manager.mFeatures)
+            {
+                if (globalVisited.count(startName))
+                {
+                    continue;
+                }
+                std::unordered_set<std::string> inStack;
+                auto res = dfsPreempts(startName, inStack);
+                if (!res)
+                {
+                    return unexpected(res.error());
                 }
             }
         }

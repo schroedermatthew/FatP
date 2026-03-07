@@ -50,7 +50,6 @@ FATP_META:
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include <cassert>
 #include <functional>
 #include <mutex>
 #include <random>
@@ -388,6 +387,16 @@ inline void concurrentWriter(fat_p::feature::FeatureManager<fat_p::MutexSynchron
 // Correctness Guardrails
 // ============================================================================
 
+[[noreturn]] inline void verifyFailure(const char* expr, const char* file, int line)
+{
+    std::cerr << "\n  [FIXTURE FAIL] " << expr
+              << " (" << file << ":" << line << ")\n";
+    std::abort();
+}
+
+// Always-on check — not affected by NDEBUG.
+#define BENCH_VERIFY(expr)     ((expr) ? (void)0 : verifyFailure(#expr, __FILE__, __LINE__))
+
 inline void verifyFixtures(const fat_p::feature::FeatureManager<>& fmLookup,
                            const fat_p::feature::FeatureManager<>& fmChain50,
                            const std::string& enabledName,
@@ -395,13 +404,13 @@ inline void verifyFixtures(const fat_p::feature::FeatureManager<>& fmLookup,
 {
     std::cout << "  Verifying fixtures...\n";
 
-    assert(fmLookup.getAllFeatures().size() == 10000);
-    assert(fmLookup.isEnabled(enabledName) == true);
-    assert(fmLookup.isEnabled(disabledName) == false);
+    BENCH_VERIFY(fmLookup.getAllFeatures().size() == 10000);
+    BENCH_VERIFY(fmLookup.isEnabled(enabledName) == true);
+    BENCH_VERIFY(fmLookup.isEnabled(disabledName) == false);
 
-    assert(fmChain50.getAllFeatures().size() == 51);
-    assert(fmChain50.isEnabled("N0") == true);
-    assert(fmChain50.isEnabled("N50") == true);
+    BENCH_VERIFY(fmChain50.getAllFeatures().size() == 51);
+    BENCH_VERIFY(fmChain50.isEnabled("N0") == true);
+    BENCH_VERIFY(fmChain50.isEnabled("N50") == true);
 
     std::cout << "    [OK] All fixture validations passed\n\n";
 }
