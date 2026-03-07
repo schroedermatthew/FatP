@@ -94,12 +94,16 @@ enum class FeatureRelationship
     Conflicts,        ///< Source and target cannot both be enabled (symmetric).
     Implies,          ///< Enabling source automatically enables target.
     MutuallyExclusive,///< Group constraint: all members conflict with each other.
-    Preempts          ///< Enabling source forcibly disables target and its reverse-dependency
+    Preempts,         ///< Enabling source forcibly disables target and its reverse-dependency
                       ///< closure; blocks re-enable while source remains enabled. Directional.
+    Entails           ///< Enabling source enables target (same as Implies on enable path).
+                      ///< Disabling source cascade-disables target only when no other currently
+                      ///< desired-enabled feature also Entails that target (ref-counted cascade).
+                      ///< Directional (source → target only).
 };
 
 /// @brief Number of FeatureRelationship enumerators; used for array-based storage.
-inline constexpr size_t kRelationshipCount = 5;
+inline constexpr size_t kRelationshipCount = 6;
 
 /// @brief Converts FeatureRelationship enum to array index (0–4).
 constexpr size_t relIdx(FeatureRelationship r) noexcept
@@ -144,8 +148,8 @@ struct EnableOverloadedOperators<feature::FeatureRelationship>
 template <>
 struct EnumStringPolicy<feature::FeatureRelationship>
 {
-    static constexpr std::array<std::string_view, 5> names = {
-        "Requires", "Conflicts", "Implies", "MutuallyExclusive", "Preempts"};
+    static constexpr std::array<std::string_view, 6> names = {
+        "Requires", "Conflicts", "Implies", "MutuallyExclusive", "Preempts", "Entails"};
 
     static std::string_view to_string(feature::FeatureRelationship e)
     {
@@ -706,10 +710,46 @@ private:
             }
         }
 
+        // -----------------------------------------------------------------------
+        // Entails cycle guard
+        // -----------------------------------------------------------------------
+        // Cycles in the Entails subgraph (A Entails B Entails ... Entails A) are
+        // rejected at construction time. Walk the Entails forward edges from 'to'
+        // and fail if we reach 'from'.
+        if (type == FeatureRelationship::Entails)
+        {
+            std::unordered_set<std::string> visited;
+            std::vector<std::string> stack;
+            stack.push_back(to);
+            while (!stack.empty())
+            {
+                std::string cur = std::move(stack.back());
+                stack.pop_back();
+                if (cur == from)
+                {
+                    return unexpected("Cannot add Entails from '" + from + "' to '" + to +
+                                      "': would create an Entails cycle.");
+                }
+                if (!visited.insert(cur).second)
+                {
+                    continue;
+                }
+                auto* curNode = mFeatures.find(cur);
+                if (!curNode)
+                {
+                    continue;
+                }
+                for (const auto& next : curNode->relationships[relIdx(FeatureRelationship::Entails)])
+                {
+                    stack.push_back(next);
+                }
+            }
+        }
+
         fromNode->relationships[relIdx(type)].insert(to);
 
         // Bidirectional for Conflicts and MutuallyExclusive only.
-        // Requires, Implies, and Preempts are strictly directional (source → target only).
+        // Requires, Implies, Preempts, and Entails are strictly directional (source → target only).
         if (type == FeatureRelationship::Conflicts || type == FeatureRelationship::MutuallyExclusive)
         {
             FeatureNode* toNode = *toRes;
@@ -835,6 +875,14 @@ private:
                 return implRes;
             }
 
+            auto entailRes = visitRelationship(FeatureRelationship::Entails);
+            if (!entailRes)
+            {
+                stack.pop_back();
+                state[name] = VisitState::Visited;
+                return entailRes;
+            }
+
             stack.pop_back();
             state[name] = VisitState::Visited;
             return {};
@@ -932,6 +980,24 @@ private:
                     if (!implPtr->enabled)
                     {
                         return unexpected("'" + name + "' implies '" + implied + "' but it's disabled");
+                    }
+                }
+            }
+
+            // Entails: enabled feature must have all entailed features enabled
+            const auto& entailsTargets = node.relationships[relIdx(FeatureRelationship::Entails)];
+            if (!entailsTargets.empty())
+            {
+                for (const auto& entailed : entailsTargets)
+                {
+                    auto* entailedPtr = mFeatures.find(entailed);
+                    if (!entailedPtr)
+                    {
+                        return unexpected("Entailed feature not found: " + entailed);
+                    }
+                    if (!entailedPtr->enabled)
+                    {
+                        return unexpected("'" + name + "' entails '" + entailed + "' but it's disabled");
                     }
                 }
             }
@@ -1127,6 +1193,16 @@ private:
             }
         }
 
+        // Plan Entails targets (identical enable path to Implies).
+        for (const auto& entailed : node->relationships[relIdx(FeatureRelationship::Entails)])
+        {
+            auto res = planEnableRecursive(entailed, plan, enablingChain, chainSet, depth + 1);
+            if (!res)
+            {
+                return res;
+            }
+        }
+
         // Plan Preempts targets: disable them and their entire reverse-dependency closure.
         for (const auto& preempted : node->relationships[relIdx(FeatureRelationship::Preempts)])
         {
@@ -1214,6 +1290,43 @@ private:
 
         plan.desiredStates[name] = false;
         plan.disableOrder.push_back(name);
+
+        // Ref-counted cascade for Entails targets.
+        // Disable T only if no other desired-enabled feature (other than `name`)
+        // also Entails T. This implements the shared-ownership semantics.
+        auto* disabledNodePtr = mFeatures.find(name);
+        if (disabledNodePtr)
+        {
+            for (const auto& target : disabledNodePtr->relationships[relIdx(FeatureRelationship::Entails)])
+            {
+                int refCount = 0;
+                for (const auto& [fn, fn_node] : mFeatures)
+                {
+                    if (fn == name)
+                    {
+                        continue;
+                    }
+                    auto* fd = plan.desiredStates.find(fn);
+                    if (!fd || !*fd)
+                    {
+                        continue;
+                    }
+                    if (fn_node.relationships[relIdx(FeatureRelationship::Entails)].count(target))
+                    {
+                        ++refCount;
+                    }
+                }
+                if (refCount == 0)
+                {
+                    auto res = planDisableClosure(target, plan, depth + 1);
+                    if (!res)
+                    {
+                        return res;
+                    }
+                }
+            }
+        }
+
         return {};
     }
 
@@ -1284,6 +1397,15 @@ private:
                 if (!implDesired || !*implDesired)
                 {
                     return unexpected("'" + name + "' implies '" + implied + "' but it's disabled");
+                }
+            }
+
+            for (const auto& entailed : node.relationships[relIdx(FeatureRelationship::Entails)])
+            {
+                auto* entailDesired = desiredStates.find(entailed);
+                if (!entailDesired || !*entailDesired)
+                {
+                    return unexpected("'" + name + "' entails '" + entailed + "' but it's disabled");
                 }
             }
 
@@ -2197,6 +2319,55 @@ public:
                 }
             }
 
+            // Entails cascade: for each just-disabled feature, ref-count-check its Entails
+            // targets and cascade-disable any whose ref-count drops to zero.
+            // Process iteratively until no further cascades occur (handles chains).
+            bool cascadeChanged = true;
+            while (cascadeChanged)
+            {
+                cascadeChanged = false;
+                for (const auto& [fn, fn_node] : mFeatures)
+                {
+                    auto* fnDesired = plan.desiredStates.find(fn);
+                    if (fnDesired && !*fnDesired)
+                    {
+                        // fn is disabled — check if it has Entails targets to cascade
+                        for (const auto& target : fn_node.relationships[relIdx(FeatureRelationship::Entails)])
+                        {
+                            auto* tgtDesired = plan.desiredStates.find(target);
+                            if (!tgtDesired || !*tgtDesired)
+                            {
+                                continue; // target already disabled
+                            }
+                            // Count other desired-enabled features that also Entail target
+                            int refCount = 0;
+                            for (const auto& [other, other_node] : mFeatures)
+                            {
+                                if (other == fn)
+                                {
+                                    continue;
+                                }
+                                auto* od = plan.desiredStates.find(other);
+                                if (!od || !*od)
+                                {
+                                    continue;
+                                }
+                                if (other_node.relationships[relIdx(FeatureRelationship::Entails)].count(target))
+                                {
+                                    ++refCount;
+                                }
+                            }
+                            if (refCount == 0)
+                            {
+                                plan.desiredStates[target] = false;
+                                plan.disableOrder.push_back(target);
+                                cascadeChanged = true;
+                            }
+                        }
+                    }
+                }
+            }
+
             // Validate: no remaining desired-enabled feature may Require or Imply
             // any of the features we are disabling.
             for (const auto& [featureName, node] : mFeatures)
@@ -3026,6 +3197,10 @@ public:
                         style = "dotted";
                         arrow = "none";
                         break;
+                    case FeatureRelationship::Entails:
+                        style = "dashed";
+                        arrow = "open";
+                        break;
                 }
                 for (const auto& target : targets)
                 {
@@ -3035,6 +3210,10 @@ public:
                     if (type == FeatureRelationship::Preempts)
                     {
                         ss << ", color=red";
+                    }
+                    else if (type == FeatureRelationship::Entails)
+                    {
+                        ss << ", color=orange";
                     }
                     ss << ", label=\"" << typeStr << "\"];\n";
                 }

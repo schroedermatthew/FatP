@@ -2098,6 +2098,258 @@ FATP_TEST_CASE(force_exclusive_observer_reports_all_disabled_features)
     return true;
 }
 
+// ============================================================================
+// Entails relationship tests
+// ============================================================================
+
+// Test: enable(A) where A Entails B → B is cascade-enabled
+FATP_TEST_CASE(entails_enable_cascades_to_target)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addRelationship("A", FeatureRelationship::Entails, "B");
+
+    auto res = fm.enable("A");
+    FATP_ASSERT_TRUE(res.has_value(), "enable(A) should succeed");
+    FATP_ASSERT_TRUE(fm.isEnabled("A"), "A should be enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B should be cascade-enabled via Entails");
+    return true;
+}
+
+// Test: disable(A) where A Entails B and no other enabled feature Entails B → B cascade-disabled
+FATP_TEST_CASE(entails_disable_cascades_when_no_other_entailer)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addRelationship("A", FeatureRelationship::Entails, "B");
+
+    (void)fm.enable("A");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B enabled via cascade");
+
+    auto res = fm.disable("A");
+    FATP_ASSERT_TRUE(res.has_value(), "disable(A) should succeed");
+    FATP_ASSERT_FALSE(fm.isEnabled("A"), "A should be disabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("B"), "B should be cascade-disabled (ref-count 0)");
+    return true;
+}
+
+// Test: A Entails B, C Entails B; disable(A) while C still enabled → B stays enabled
+FATP_TEST_CASE(entails_disable_does_not_cascade_when_second_entailer_active)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addFeature("C");
+    (void)fm.addRelationship("A", FeatureRelationship::Entails, "B");
+    (void)fm.addRelationship("C", FeatureRelationship::Entails, "B");
+
+    (void)fm.enable("A");
+    (void)fm.enable("C");
+
+    auto res = fm.disable("A");
+    FATP_ASSERT_TRUE(res.has_value(), "disable(A) should succeed");
+    FATP_ASSERT_FALSE(fm.isEnabled("A"), "A should be disabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"),  "B must remain enabled: C still entails it");
+    FATP_ASSERT_TRUE(fm.isEnabled("C"),  "C should remain enabled");
+    return true;
+}
+
+// Test: full lifecycle — A and C both Entail B; enable A, enable C, disable A (B stays), disable C (B disabled)
+FATP_TEST_CASE(entails_shared_target_full_cycle)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addFeature("C");
+    (void)fm.addRelationship("A", FeatureRelationship::Entails, "B");
+    (void)fm.addRelationship("C", FeatureRelationship::Entails, "B");
+
+    (void)fm.enable("A");
+    (void)fm.enable("C");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B enabled via A and C");
+
+    std::vector<std::string> disabledNames;
+    (void)fm.addBatchObserver([&](const std::string&, const std::vector<FeatureChange>& changes, bool) {
+        for (const auto& ch : changes) {
+            if (!ch.newState) disabledNames.push_back(ch.name);
+        }
+    });
+
+    (void)fm.disable("A");
+    FATP_ASSERT_TRUE(fm.isEnabled("B"), "B stays enabled after A disabled (C still entails)");
+
+    (void)fm.disable("C");
+    FATP_ASSERT_FALSE(fm.isEnabled("B"), "B cascade-disabled after C disabled (ref-count 0)");
+
+    bool bWasDisabled = std::find(disabledNames.begin(), disabledNames.end(), "B") != disabledNames.end();
+    FATP_ASSERT_TRUE(bWasDisabled, "BatchObserver must have fired for B's disable");
+    return true;
+}
+
+// Test: Entails with MutuallyExclusive policy group; replace fires correct cascades
+FATP_TEST_CASE(entails_with_mutually_exclusive_policy_group)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("kAlertNone");
+    (void)fm.addFeature("kAlertOverload");
+    (void)fm.addFeature("kPolicyRoundRobin");
+    (void)fm.addFeature("kPolicyWorkStealing");
+
+    (void)fm.addRelationship("kAlertNone",    FeatureRelationship::MutuallyExclusive, "kAlertOverload");
+    (void)fm.addRelationship("kPolicyRoundRobin", FeatureRelationship::MutuallyExclusive, "kPolicyWorkStealing");
+    (void)fm.addRelationship("kAlertNone",    FeatureRelationship::Entails, "kPolicyRoundRobin");
+    (void)fm.addRelationship("kAlertOverload",FeatureRelationship::Entails, "kPolicyWorkStealing");
+
+    (void)fm.enable("kAlertNone");
+    FATP_ASSERT_TRUE(fm.isEnabled("kAlertNone"),        "kAlertNone enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("kPolicyRoundRobin"), "RoundRobin cascade-enabled via Entails");
+
+    auto res = fm.replace("kAlertNone", "kAlertOverload");
+    FATP_ASSERT_TRUE(res.has_value(), "replace should succeed");
+    FATP_ASSERT_FALSE(fm.isEnabled("kAlertNone"),         "kAlertNone disabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("kAlertOverload"),      "kAlertOverload enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("kPolicyWorkStealing"), "WorkStealing enabled via Entails");
+    return true;
+}
+
+// Test: Entails cycle (A Entails B Entails A) rejected at addRelationship time
+FATP_TEST_CASE(entails_cycle_rejected_at_addRelationship)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("A");
+    (void)fm.addFeature("B");
+    (void)fm.addRelationship("A", FeatureRelationship::Entails, "B");
+
+    auto res = fm.addRelationship("B", FeatureRelationship::Entails, "A");
+    FATP_ASSERT_FALSE(res.has_value(), "Entails cycle must be rejected");
+    FATP_ASSERT_TRUE(res.error().find("cycle") != std::string::npos ||
+                     res.error().find("Cycle") != std::string::npos,
+                     "Error must mention cycle");
+    return true;
+}
+
+// Test: fromJson rejects graph where A is enabled, A Entails B, but B is disabled
+FATP_TEST_CASE(entails_fromjson_rejects_inconsistent_enabled_state)
+{
+    std::string json = R"({
+        "features": {
+            "A": { "enabled": true, "Entails": ["B"] },
+            "B": { "enabled": false }
+        }
+    })";
+
+    auto res = FeatureManager<SingleThreadedPolicy>::fromJson(json);
+    FATP_ASSERT_FALSE(res.has_value(), "fromJson must reject: A entails B but B is disabled");
+    return true;
+}
+
+// Test: JSON roundtrip preserves Entails edges and cascade behaviour
+FATP_TEST_CASE(entails_tojson_fromjson_roundtrip)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("Alert");
+    (void)fm.addFeature("Policy");
+    (void)fm.addFeature("Admission");
+    (void)fm.addRelationship("Alert", FeatureRelationship::Entails, "Policy");
+    (void)fm.addRelationship("Alert", FeatureRelationship::Entails, "Admission");
+    (void)fm.enable("Alert");
+
+    std::string json = fm.toJson();
+    FATP_ASSERT_TRUE(json.find("Entails") != std::string::npos, "toJson must include Entails key");
+
+    auto fm2res = FeatureManager<SingleThreadedPolicy>::fromJson(json);
+    FATP_ASSERT_TRUE(fm2res.has_value(), "fromJson must succeed on valid Entails JSON");
+    auto& fm2 = *fm2res;
+    FATP_ASSERT_TRUE(fm2.isEnabled("Alert"),     "Alert enabled after roundtrip");
+    FATP_ASSERT_TRUE(fm2.isEnabled("Policy"),    "Policy enabled after roundtrip");
+    FATP_ASSERT_TRUE(fm2.isEnabled("Admission"), "Admission enabled after roundtrip");
+
+    (void)fm2.disable("Alert");
+    FATP_ASSERT_FALSE(fm2.isEnabled("Policy"),    "Policy cascade-disabled after roundtrip");
+    FATP_ASSERT_FALSE(fm2.isEnabled("Admission"), "Admission cascade-disabled after roundtrip");
+    return true;
+}
+
+// Test: toDot() labels Entails edges with orange color
+FATP_TEST_CASE(entails_in_dot_export)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("Source");
+    (void)fm.addFeature("Target");
+    (void)fm.addRelationship("Source", FeatureRelationship::Entails, "Target");
+
+    std::string dot = fm.toDot();
+    FATP_ASSERT_TRUE(dot.find("Entails") != std::string::npos, "DOT output must contain 'Entails' label");
+    FATP_ASSERT_TRUE(dot.find("orange")  != std::string::npos, "DOT output must use orange color for Entails edges");
+    return true;
+}
+
+// Test: BatchObserver fires for both entailer and cascade-disabled target
+FATP_TEST_CASE(entails_observer_fires_on_cascade_disable)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("Alert");
+    (void)fm.addFeature("Policy");
+    (void)fm.addRelationship("Alert", FeatureRelationship::Entails, "Policy");
+    (void)fm.enable("Alert");
+
+    std::vector<FeatureChange> captured;
+    (void)fm.addBatchObserver([&](const std::string&, const std::vector<FeatureChange>& changes, bool) {
+        for (const auto& ch : changes) captured.push_back(ch);
+    });
+
+    (void)fm.disable("Alert");
+
+    bool alertFired  = false;
+    bool policyFired = false;
+    for (const auto& ch : captured)
+    {
+        if (ch.name == "Alert"  && ch.oldState && !ch.newState) alertFired  = true;
+        if (ch.name == "Policy" && ch.oldState && !ch.newState) policyFired = true;
+    }
+    FATP_ASSERT_TRUE(alertFired,  "Observer must fire for Alert disable");
+    FATP_ASSERT_TRUE(policyFired, "Observer must fire for Policy cascade-disable");
+    return true;
+}
+
+// Test: overload→latency transition; shared kAdmissionBulkShed stays enabled
+FATP_TEST_CASE(entails_replace_shared_target_stays_enabled)
+{
+    FeatureManager<SingleThreadedPolicy> fm;
+    (void)fm.addFeature("kAlertNone");
+    (void)fm.addFeature("kAlertOverload");
+    (void)fm.addFeature("kAlertLatency");
+    (void)fm.addFeature("kPolicyWorkStealing");
+    (void)fm.addFeature("kPolicyRoundRobin");
+    (void)fm.addFeature("kAdmissionBulkShed");
+
+    (void)fm.addRelationship("kAlertNone",    FeatureRelationship::MutuallyExclusive, "kAlertOverload");
+    (void)fm.addRelationship("kAlertNone",    FeatureRelationship::MutuallyExclusive, "kAlertLatency");
+    (void)fm.addRelationship("kAlertOverload",FeatureRelationship::MutuallyExclusive, "kAlertLatency");
+    (void)fm.addRelationship("kPolicyWorkStealing", FeatureRelationship::MutuallyExclusive, "kPolicyRoundRobin");
+
+    (void)fm.addRelationship("kAlertNone",     FeatureRelationship::Entails, "kPolicyRoundRobin");
+    (void)fm.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kPolicyWorkStealing");
+    (void)fm.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kAdmissionBulkShed");
+    (void)fm.addRelationship("kAlertLatency",  FeatureRelationship::Entails, "kPolicyRoundRobin");
+    (void)fm.addRelationship("kAlertLatency",  FeatureRelationship::Entails, "kAdmissionBulkShed");
+
+    (void)fm.enable("kAlertOverload");
+    FATP_ASSERT_TRUE(fm.isEnabled("kPolicyWorkStealing"), "WorkStealing active");
+    FATP_ASSERT_TRUE(fm.isEnabled("kAdmissionBulkShed"),  "BulkShed active");
+
+    auto res = fm.replace("kAlertOverload", "kAlertLatency");
+    FATP_ASSERT_TRUE(res.has_value(), "replace overload→latency should succeed");
+    FATP_ASSERT_FALSE(fm.isEnabled("kAlertOverload"),      "kAlertOverload disabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("kAlertLatency"),        "kAlertLatency enabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("kPolicyWorkStealing"), "WorkStealing disabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("kPolicyRoundRobin"),    "RoundRobin enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("kAdmissionBulkShed"),   "BulkShed stays enabled: latency still entails it");
+    return true;
+}
+
 } // namespace fat_p::testing::logic
 
 // ============================================================================
@@ -2633,6 +2885,18 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, force_exclusive_feature_not_found_returns_error);
     FATP_RUN_TEST_NS(runner, logic, force_exclusive_requires_chain_preserved);
     FATP_RUN_TEST_NS(runner, logic, force_exclusive_observer_reports_all_disabled_features);
+    // Entails relationship tests
+    FATP_RUN_TEST_NS(runner, logic, entails_enable_cascades_to_target);
+    FATP_RUN_TEST_NS(runner, logic, entails_disable_cascades_when_no_other_entailer);
+    FATP_RUN_TEST_NS(runner, logic, entails_disable_does_not_cascade_when_second_entailer_active);
+    FATP_RUN_TEST_NS(runner, logic, entails_shared_target_full_cycle);
+    FATP_RUN_TEST_NS(runner, logic, entails_with_mutually_exclusive_policy_group);
+    FATP_RUN_TEST_NS(runner, logic, entails_cycle_rejected_at_addRelationship);
+    FATP_RUN_TEST_NS(runner, logic, entails_fromjson_rejects_inconsistent_enabled_state);
+    FATP_RUN_TEST_NS(runner, logic, entails_tojson_fromjson_roundtrip);
+    FATP_RUN_TEST_NS(runner, logic, entails_in_dot_export);
+    FATP_RUN_TEST_NS(runner, logic, entails_observer_fires_on_cascade_disable);
+    FATP_RUN_TEST_NS(runner, logic, entails_replace_shared_target_stays_enabled);
 
     if (runner.print_summary() > 0)
     {
