@@ -2241,6 +2241,19 @@ public:
                 }
             }
 
+            // Validate: confirm the full desired state is consistent.
+            // batchDisable cannot introduce new Conflicts or MutuallyExclusive violations
+            // (disabling features only relaxes those constraints), but a pre-existing
+            // Preempts invariant violation in the live graph would otherwise go undetected.
+            // Running validateDesiredState here keeps batchDisable consistent with batchEnable.
+            {
+                auto validRes = validateDesiredState(plan.desiredStates);
+                if (!validRes)
+                {
+                    return unexpected(validRes.error());
+                }
+            }
+
             // Commit.
             for (auto&& [name, node] : mFeatures)
             {
