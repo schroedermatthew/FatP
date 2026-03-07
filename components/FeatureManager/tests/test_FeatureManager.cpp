@@ -1604,6 +1604,284 @@ FATP_TEST_CASE(preempts_batch_observer_reports_mixed_changes)
     return true;
 }
 
+// ============================================================================
+// replace() tests
+// ============================================================================
+
+FATP_TEST_CASE(replace_happy_path_mutually_exclusive)
+{
+    // Happy path: replace succeeds between two MutuallyExclusive features when 'from' is enabled.
+    FeatureManager<> fm;
+    (void)fm.addFeature("ModeA");
+    (void)fm.addFeature("ModeB");
+    (void)fm.addRelationship("ModeA", FeatureRelationship::MutuallyExclusive, "ModeB");
+
+    (void)fm.enable("ModeA");
+    FATP_ASSERT_TRUE(fm.isEnabled("ModeA"), "ModeA must be on before replace");
+    FATP_ASSERT_FALSE(fm.isEnabled("ModeB"), "ModeB must be off before replace");
+
+    auto res = fm.replace("ModeA", "ModeB");
+    FATP_ASSERT_TRUE(res.has_value(), "replace ModeA->ModeB must succeed");
+    FATP_ASSERT_FALSE(fm.isEnabled("ModeA"), "ModeA must be disabled after replace");
+    FATP_ASSERT_TRUE(fm.isEnabled("ModeB"), "ModeB must be enabled after replace");
+
+    return true;
+}
+
+FATP_TEST_CASE(replace_disables_reverse_dependency_closure_of_from)
+{
+    // replace correctly disables the reverse-dependency closure of 'from':
+    // features that Require or Imply 'from' are transitively disabled, not 'from's own deps.
+    FeatureManager<> fm;
+    (void)fm.addFeature("Sensor");
+    (void)fm.addFeature("ModeA");   // Requires Sensor
+    (void)fm.addFeature("ModeB");   // MutuallyExclusive with ModeA
+    (void)fm.addFeature("ModeADep"); // Requires ModeA (reverse-dependency of ModeA)
+    (void)fm.addRelationship("ModeA",    FeatureRelationship::Requires,         "Sensor");
+    (void)fm.addRelationship("ModeADep", FeatureRelationship::Requires,         "ModeA");
+    (void)fm.addRelationship("ModeA",    FeatureRelationship::MutuallyExclusive, "ModeB");
+
+    (void)fm.enable("ModeADep"); // pulls up ModeA and Sensor transitively
+    FATP_ASSERT_TRUE(fm.isEnabled("Sensor"),   "Sensor enabled via chain");
+    FATP_ASSERT_TRUE(fm.isEnabled("ModeA"),    "ModeA enabled via chain");
+    FATP_ASSERT_TRUE(fm.isEnabled("ModeADep"), "ModeADep enabled");
+
+    auto res = fm.replace("ModeA", "ModeB");
+    FATP_ASSERT_TRUE(res.has_value(), "replace must succeed");
+
+    // ModeADep depends on ModeA and must be cascade-disabled.
+    FATP_ASSERT_FALSE(fm.isEnabled("ModeA"),    "ModeA disabled by replace");
+    FATP_ASSERT_FALSE(fm.isEnabled("ModeADep"), "ModeADep disabled (reverse-dep closure of ModeA)");
+
+    // ModeB must now be on.
+    FATP_ASSERT_TRUE(fm.isEnabled("ModeB"), "ModeB enabled by replace");
+
+    // Sensor is not in ModeA's reverse-dep closure; it may stay enabled if ModeB or another
+    // feature keeps it, but should at minimum not be spuriously forced off.
+    // (In this graph Sensor is not required by ModeB, so it will be disabled because nothing
+    //  holds it anymore — verify that rather than assume it stays up.)
+    FATP_ASSERT_FALSE(fm.isEnabled("Sensor"), "Sensor has no remaining consumers, disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(replace_from_not_enabled_returns_error)
+{
+    // replace must return an error when 'from' is not currently enabled.
+    FeatureManager<> fm;
+    (void)fm.addFeature("ModeA");
+    (void)fm.addFeature("ModeB");
+    (void)fm.addRelationship("ModeA", FeatureRelationship::MutuallyExclusive, "ModeB");
+
+    // ModeA is NOT enabled.
+    auto res = fm.replace("ModeA", "ModeB");
+    FATP_ASSERT_FALSE(res.has_value(), "replace must fail when 'from' is not enabled");
+
+    // No state must have changed.
+    FATP_ASSERT_FALSE(fm.isEnabled("ModeA"), "ModeA still disabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("ModeB"), "ModeB still disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(replace_same_feature_returns_error)
+{
+    // replace(X, X) must return an error — not a silent no-op.
+    FeatureManager<> fm;
+    (void)fm.addFeature("ModeA");
+    (void)fm.enable("ModeA");
+
+    auto res = fm.replace("ModeA", "ModeA");
+    FATP_ASSERT_FALSE(res.has_value(), "replace(X, X) must return an error");
+    FATP_ASSERT_TRUE(fm.isEnabled("ModeA"), "ModeA state unchanged after rejected self-replace");
+
+    return true;
+}
+
+FATP_TEST_CASE(replace_non_me_pair_works)
+{
+    // replace works for a pair with no MutuallyExclusive relationship: plain disable-A then enable-B.
+    FeatureManager<> fm;
+    (void)fm.addFeature("Alpha");
+    (void)fm.addFeature("Beta");
+    // No relationship between them.
+
+    (void)fm.enable("Alpha");
+    FATP_ASSERT_TRUE(fm.isEnabled("Alpha"), "Alpha on before replace");
+
+    auto res = fm.replace("Alpha", "Beta");
+    FATP_ASSERT_TRUE(res.has_value(), "replace on non-ME pair must succeed");
+    FATP_ASSERT_FALSE(fm.isEnabled("Alpha"), "Alpha disabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("Beta"), "Beta enabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(replace_observer_fires_once_with_both_changes)
+{
+    // BatchObserver fires exactly once; requestedFeature == 'to'; changes contain both
+    // the from-disable and the to-enable records.
+    FeatureManager<> fm;
+    (void)fm.addFeature("ModeA");
+    (void)fm.addFeature("ModeB");
+    (void)fm.addRelationship("ModeA", FeatureRelationship::MutuallyExclusive, "ModeB");
+    (void)fm.enable("ModeA");
+
+    int callCount = 0;
+    std::string observedRequested;
+    std::vector<FeatureChange> observedChanges;
+
+    (void)fm.addBatchObserver([&](const std::string& req, const std::vector<FeatureChange>& changes, bool) {
+        ++callCount;
+        observedRequested = req;
+        observedChanges = changes;
+    });
+
+    auto res = fm.replace("ModeA", "ModeB");
+    FATP_ASSERT_TRUE(res.has_value(), "replace must succeed");
+
+    FATP_ASSERT_EQ(callCount, 1, "BatchObserver must fire exactly once");
+    FATP_ASSERT_EQ(observedRequested, std::string("ModeB"), "requestedFeature must be 'to'");
+
+    bool sawModeADisable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) { return c.name == "ModeA" && c.oldState && !c.newState; });
+    bool sawModeBEnable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) { return c.name == "ModeB" && !c.oldState && c.newState; });
+
+    FATP_ASSERT_TRUE(sawModeADisable, "changes must contain ModeA disable record");
+    FATP_ASSERT_TRUE(sawModeBEnable, "changes must contain ModeB enable record");
+
+    return true;
+}
+
+// ============================================================================
+// forceExclusive() tests
+// ============================================================================
+
+FATP_TEST_CASE(force_exclusive_estop_sequence)
+{
+    // Complex graph, multiple features active; forceExclusive(safe_mode) leaves only
+    // safe_mode and its Requires chain; all unrelated features are disabled.
+    FeatureManager<> fm;
+    (void)fm.addFeature("battery_monitor");
+    (void)fm.addFeature("motor_mix");
+    (void)fm.addFeature("normal_mode");
+    (void)fm.addFeature("network_stub");
+    (void)fm.addFeature("safe_mode");
+    (void)fm.addRelationship("motor_mix",   FeatureRelationship::Requires, "battery_monitor");
+    (void)fm.addRelationship("normal_mode", FeatureRelationship::Requires, "motor_mix");
+    (void)fm.addRelationship("safe_mode",   FeatureRelationship::Requires, "network_stub");
+
+    (void)fm.enable("normal_mode"); // pulls up motor_mix and battery_monitor
+    FATP_ASSERT_TRUE(fm.isEnabled("normal_mode"),    "normal_mode on");
+    FATP_ASSERT_TRUE(fm.isEnabled("motor_mix"),      "motor_mix on");
+    FATP_ASSERT_TRUE(fm.isEnabled("battery_monitor"),"battery_monitor on");
+
+    auto res = fm.forceExclusive("safe_mode");
+    FATP_ASSERT_TRUE(res.has_value(), "forceExclusive must succeed");
+
+    // safe_mode and its Requires chain must be on.
+    FATP_ASSERT_TRUE(fm.isEnabled("safe_mode"),    "safe_mode enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("network_stub"), "network_stub enabled (Requires chain of safe_mode)");
+
+    // Everything unrelated must be off.
+    FATP_ASSERT_FALSE(fm.isEnabled("normal_mode"),    "normal_mode disabled by forceExclusive");
+    FATP_ASSERT_FALSE(fm.isEnabled("motor_mix"),      "motor_mix disabled by forceExclusive");
+    FATP_ASSERT_FALSE(fm.isEnabled("battery_monitor"),"battery_monitor disabled by forceExclusive");
+
+    return true;
+}
+
+FATP_TEST_CASE(force_exclusive_already_only_feature_is_noop)
+{
+    // forceExclusive on a feature that is already the only enabled feature is a no-op;
+    // no observer fires.
+    FeatureManager<> fm;
+    (void)fm.addFeature("safe_mode");
+    (void)fm.addFeature("idle");
+    (void)fm.enable("safe_mode");
+
+    int callCount = 0;
+    (void)fm.addBatchObserver([&](auto, auto, auto) { ++callCount; });
+
+    auto res = fm.forceExclusive("safe_mode");
+    FATP_ASSERT_TRUE(res.has_value(), "forceExclusive on already-exclusive feature must succeed");
+    FATP_ASSERT_EQ(callCount, 0, "No observer must fire when state is unchanged");
+    FATP_ASSERT_TRUE(fm.isEnabled("safe_mode"), "safe_mode remains enabled");
+    FATP_ASSERT_FALSE(fm.isEnabled("idle"), "idle remains disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(force_exclusive_feature_not_found_returns_error)
+{
+    FeatureManager<> fm;
+    (void)fm.addFeature("safe_mode");
+
+    auto res = fm.forceExclusive("does_not_exist");
+    FATP_ASSERT_FALSE(res.has_value(), "forceExclusive with unknown feature must return error");
+
+    return true;
+}
+
+FATP_TEST_CASE(force_exclusive_requires_chain_preserved)
+{
+    // If safe_mode Requires network_stub, network_stub remains enabled after
+    // forceExclusive("safe_mode").
+    FeatureManager<> fm;
+    (void)fm.addFeature("network_stub");
+    (void)fm.addFeature("safe_mode");
+    (void)fm.addFeature("normal_mode");
+    (void)fm.addRelationship("safe_mode", FeatureRelationship::Requires, "network_stub");
+
+    (void)fm.enable("normal_mode");
+
+    auto res = fm.forceExclusive("safe_mode");
+    FATP_ASSERT_TRUE(res.has_value(), "forceExclusive must succeed");
+    FATP_ASSERT_TRUE(fm.isEnabled("safe_mode"),    "safe_mode enabled");
+    FATP_ASSERT_TRUE(fm.isEnabled("network_stub"), "network_stub enabled via Requires chain");
+    FATP_ASSERT_FALSE(fm.isEnabled("normal_mode"), "normal_mode disabled");
+
+    return true;
+}
+
+FATP_TEST_CASE(force_exclusive_observer_reports_all_disabled_features)
+{
+    // All disabled features must appear in the changes vector; requestedFeature == safe_mode.
+    FeatureManager<> fm;
+    (void)fm.addFeature("safe_mode");
+    (void)fm.addFeature("normal_mode");
+    (void)fm.addFeature("aux_feature");
+
+    (void)fm.enable("normal_mode");
+    (void)fm.enable("aux_feature");
+
+    std::string observedRequested;
+    std::vector<FeatureChange> observedChanges;
+    (void)fm.addBatchObserver([&](const std::string& req, const std::vector<FeatureChange>& changes, bool) {
+        observedRequested = req;
+        observedChanges = changes;
+    });
+
+    auto res = fm.forceExclusive("safe_mode");
+    FATP_ASSERT_TRUE(res.has_value(), "forceExclusive must succeed");
+
+    FATP_ASSERT_EQ(observedRequested, std::string("safe_mode"), "requestedFeature must be 'safe_mode'");
+
+    bool sawSafeModeEnable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) { return c.name == "safe_mode" && !c.oldState && c.newState; });
+    bool sawNormalDisable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) { return c.name == "normal_mode" && c.oldState && !c.newState; });
+    bool sawAuxDisable = std::any_of(observedChanges.begin(), observedChanges.end(),
+        [](const FeatureChange& c) { return c.name == "aux_feature" && c.oldState && !c.newState; });
+
+    FATP_ASSERT_TRUE(sawSafeModeEnable, "changes must contain safe_mode enable record");
+    FATP_ASSERT_TRUE(sawNormalDisable,  "changes must contain normal_mode disable record");
+    FATP_ASSERT_TRUE(sawAuxDisable,     "changes must contain aux_feature disable record");
+
+    return true;
+}
+
 } // namespace fat_p::testing::logic
 
 // ============================================================================
@@ -2122,6 +2400,19 @@ bool test_FeatureManager()
     FATP_RUN_TEST_NS(runner, logic, preempts_cycle_rejected_at_add_time);
     FATP_RUN_TEST_NS(runner, logic, preempts_release_does_not_auto_restore);
     FATP_RUN_TEST_NS(runner, logic, preempts_batch_observer_reports_mixed_changes);
+    // replace() tests
+    FATP_RUN_TEST_NS(runner, logic, replace_happy_path_mutually_exclusive);
+    FATP_RUN_TEST_NS(runner, logic, replace_disables_reverse_dependency_closure_of_from);
+    FATP_RUN_TEST_NS(runner, logic, replace_from_not_enabled_returns_error);
+    FATP_RUN_TEST_NS(runner, logic, replace_same_feature_returns_error);
+    FATP_RUN_TEST_NS(runner, logic, replace_non_me_pair_works);
+    FATP_RUN_TEST_NS(runner, logic, replace_observer_fires_once_with_both_changes);
+    // forceExclusive() tests
+    FATP_RUN_TEST_NS(runner, logic, force_exclusive_estop_sequence);
+    FATP_RUN_TEST_NS(runner, logic, force_exclusive_already_only_feature_is_noop);
+    FATP_RUN_TEST_NS(runner, logic, force_exclusive_feature_not_found_returns_error);
+    FATP_RUN_TEST_NS(runner, logic, force_exclusive_requires_chain_preserved);
+    FATP_RUN_TEST_NS(runner, logic, force_exclusive_observer_reports_all_disabled_features);
 
     if (runner.print_summary() > 0)
     {

@@ -8,7 +8,7 @@ FATP_META:
   path: include/fat_p/FeatureManager.h
   namespace: fat_p::feature
   layer: Domain
-  summary: "Runtime feature flag management with dependency resolution and conflict detection."
+  summary: "Runtime feature flag management with dependency resolution, conflict detection, and atomic feature substitution (replace, forceExclusive)."
   api_stability: in_work
   related:
     docs_search: "FeatureManager"
@@ -2224,6 +2224,258 @@ public:
                                            uniqueNames.empty() ? "" : uniqueNames[0],
                                            allChanges,
                                            true);
+            }
+        }
+
+        return {};
+    }
+
+    /**
+     * @brief Atomically swaps one enabled feature for another within a MutuallyExclusive group.
+     *
+     * Disables @p from (and its reverse-dependency closure) and enables @p to (and its
+     * Requires/Implies closure) in a single plan/commit transaction. Because @p from is
+     * marked disabled in the plan before the MutuallyExclusive constraint is evaluated,
+     * the constraint check sees the correct end-state and the substitution succeeds.
+     *
+     * @p from and @p to do not need to share a MutuallyExclusive relationship; the method
+     * works for any pair. The MutuallyExclusive constraint is the common motivation.
+     *
+     * @param from Feature that must currently be enabled. Returns an error if it is not.
+     * @param to   Feature to enable.
+     * @return Expected<void> on success, or error on failure (no state change).
+     *
+     * @note Error policy: returns an error if @p from is not currently enabled. Callers
+     *       should check isEnabled(from) before calling if conditional behaviour is needed.
+     *       Returns an error if @p from == @p to.
+     *
+     * @note Thread-safety: Acquires internal lock; observers called outside lock.
+     * @see forceExclusive() for e-stop / clear-everything semantics.
+     */
+    [[nodiscard]] Expected<void, std::string>
+    replace(const std::string& from, const std::string& to)
+    {
+        std::vector<FeatureChange> allChanges;
+        std::vector<ObserverEntry> observersSnapshot;
+        std::vector<BatchObserverEntry> batchObserversSnapshot;
+
+        {
+            [[maybe_unused]] auto guard = mSync.lock();
+
+            // Validate both features exist.
+            auto fromRes = getNode(from);
+            if (!fromRes)
+            {
+                return unexpected(fromRes.error());
+            }
+            auto toRes = getNode(to);
+            if (!toRes)
+            {
+                return unexpected(toRes.error());
+            }
+
+            // Reject self-replace: no observable effect, and likely a caller bug.
+            if (from == to)
+            {
+                return unexpected("replace: 'from' and 'to' are the same feature ('" + from + "').");
+            }
+
+            // Seed plan from live state (identical to every other transactional method).
+            TransactionPlan plan;
+            for (const auto& [name, node] : mFeatures)
+            {
+                plan.originalStates[name] = node.enabled;
+                plan.desiredStates[name]  = node.enabled;
+            }
+
+            // Require that 'from' is currently enabled. Silent no-op would hide caller bugs.
+            auto* fromState = plan.desiredStates.find(from);
+            if (!fromState || !*fromState)
+            {
+                return unexpected("replace: '" + from + "' is not currently enabled. "
+                                  "Check isEnabled(from) before calling replace() if conditional "
+                                  "behaviour is needed.");
+            }
+
+            // Step 1: Disable 'from' and its reverse-dependency closure in the plan.
+            // After this, from is false in desiredStates, so the MutuallyExclusive check
+            // in planEnableRecursive will not see it as a conflicting enabled feature.
+            auto disableRes = planDisableClosure(from, plan);
+            if (!disableRes)
+            {
+                return disableRes;
+            }
+
+            // Step 2: Enable 'to' and its Requires/Implies closure.
+            // The MutuallyExclusive check evaluates desiredStates, where 'from' is now false.
+            std::vector<std::string> chain;
+            std::unordered_set<std::string> chainSet;
+            auto enableRes = planEnableRecursive(to, plan, chain, chainSet);
+            if (!enableRes)
+            {
+                return enableRes;
+            }
+
+            // Guard: 'to' must be enabled in the final plan (same as batchEnable root policy).
+            auto* toDesired = plan.desiredStates.find(to);
+            if (!toDesired || !*toDesired)
+            {
+                return unexpected("replace: '" + to + "' is disabled in the planned state "
+                                  "(contradictory request).");
+            }
+
+            // Final consistency check across the full desired state.
+            auto validRes = validateDesiredState(plan.desiredStates);
+            if (!validRes)
+            {
+                return validRes;
+            }
+
+            // Commit.
+            for (auto&& [name, node] : mFeatures)
+            {
+                auto* desired = plan.desiredStates.find(name);
+                if (desired)
+                {
+                    node.enabled = *desired;
+                }
+            }
+
+            allChanges = buildTransactionChanges(plan);
+
+            if (!allChanges.empty())
+            {
+                observersSnapshot      = mObservers;
+                batchObserversSnapshot = mBatchObservers;
+            }
+        } // Lock released.
+
+        // Notify observers outside the lock. requestedFeature = 'to' per plan §4.
+        if (!allChanges.empty())
+        {
+            sortObserversByPriority(observersSnapshot);
+            for (const auto& change : allChanges)
+            {
+                notifyObserversSorted(observersSnapshot, change.name, change.newState, true);
+            }
+
+            if (!batchObserversSnapshot.empty())
+            {
+                sortBatchObserversByPriority(batchObserversSnapshot);
+                notifyBatchObserversSorted(batchObserversSnapshot, to, allChanges, true);
+            }
+        }
+
+        return {};
+    }
+
+    /**
+     * @brief Disables every feature not in @p feature's Requires/Implies closure, atomically.
+     *
+     * Implements "e-stop" or "exclusive activation" semantics: all currently enabled features
+     * are cleared from the plan before @p feature and its Requires/Implies closure are planned.
+     * Because desiredStates starts all-false, no MutuallyExclusive or Conflicts constraint can
+     * fire against another enabled feature — the only possible failure is an internal Conflicts
+     * edge within @p feature's own Requires closure, which would indicate a broken graph.
+     *
+     * If @p feature is already the only enabled feature (or is disabled with nothing else
+     * enabled), buildTransactionChanges produces an empty change vector and no observers fire.
+     *
+     * @param feature Feature to activate exclusively. Its full Requires/Implies closure
+     *                is preserved; everything else is disabled.
+     * @return Expected<void> on success, or error on failure (no state change).
+     *
+     * @note Thread-safety: Acquires internal lock; observers called outside lock.
+     * @see replace() for targeted A→B substitution within a MutuallyExclusive group.
+     */
+    [[nodiscard]] Expected<void, std::string>
+    forceExclusive(const std::string& feature)
+    {
+        std::vector<FeatureChange> allChanges;
+        std::vector<ObserverEntry> observersSnapshot;
+        std::vector<BatchObserverEntry> batchObserversSnapshot;
+
+        {
+            [[maybe_unused]] auto guard = mSync.lock();
+
+            // Validate the target feature exists.
+            auto nodeRes = getNode(feature);
+            if (!nodeRes)
+            {
+                return unexpected(nodeRes.error());
+            }
+
+            // Seed plan: snapshot live state into originalStates.
+            TransactionPlan plan;
+            for (const auto& [name, node] : mFeatures)
+            {
+                plan.originalStates[name] = node.enabled;
+            }
+
+            // Zero desiredStates completely: every feature starts as disabled.
+            // Simultaneously populate disableOrder with all currently live-enabled features
+            // so that buildTransactionChanges produces correct disable records.
+            // Features subsequently re-enabled by planEnableRecursive will be removed from
+            // net-change consideration by the originalStates diff in appendIfChanged.
+            for (const auto& [name, node] : mFeatures)
+            {
+                plan.desiredStates[name] = false;
+                if (node.enabled)
+                {
+                    plan.disableOrder.push_back(name);
+                }
+            }
+
+            // Plan the target feature from a blank slate.
+            // No MutuallyExclusive or Conflicts check can find a conflicting enabled feature
+            // because every entry in desiredStates is currently false.
+            std::vector<std::string> chain;
+            std::unordered_set<std::string> chainSet;
+            auto enableRes = planEnableRecursive(feature, plan, chain, chainSet);
+            if (!enableRes)
+            {
+                return enableRes;
+            }
+
+            // Final consistency check.
+            auto validRes = validateDesiredState(plan.desiredStates);
+            if (!validRes)
+            {
+                return validRes;
+            }
+
+            // Commit.
+            for (auto&& [name, node] : mFeatures)
+            {
+                auto* desired = plan.desiredStates.find(name);
+                if (desired)
+                {
+                    node.enabled = *desired;
+                }
+            }
+
+            allChanges = buildTransactionChanges(plan);
+
+            if (!allChanges.empty())
+            {
+                observersSnapshot      = mObservers;
+                batchObserversSnapshot = mBatchObservers;
+            }
+        } // Lock released.
+
+        // Notify observers outside the lock. requestedFeature = 'feature' per plan §4.
+        if (!allChanges.empty())
+        {
+            sortObserversByPriority(observersSnapshot);
+            for (const auto& change : allChanges)
+            {
+                notifyObserversSorted(observersSnapshot, change.name, change.newState, true);
+            }
+
+            if (!batchObserversSnapshot.empty())
+            {
+                sortBatchObserversByPriority(batchObserversSnapshot);
+                notifyBatchObserversSorted(batchObserversSnapshot, feature, allChanges, true);
             }
         }
 

@@ -1047,7 +1047,240 @@ int main()
     });
 
     // -------------------------------------------------------------------------
-    // 18. Run All Benchmarks
+    // 18. replace() — Atomic Feature Substitution
+    // -------------------------------------------------------------------------
+    runner.section("REPLACE: ATOMIC FEATURE SUBSTITUTION")
+        .contract("replace(from, to) = planDisableClosure(from) + planEnableRecursive(to) under one lock; "
+                  "O(d_from * log n + d_to * log n) where d = dependency depth of each closure");
+
+    // Pre-build ME fixtures outside the timed region.
+    FeatureManager<> fmReplaceSimple;
+    {
+        (void)fmReplaceSimple.addFeature("RA");
+        (void)fmReplaceSimple.addFeature("RB");
+        (void)fmReplaceSimple.addRelationship("RA", FeatureRelationship::MutuallyExclusive, "RB");
+        (void)fmReplaceSimple.enable("RA");
+    }
+
+    FeatureManager<> fmReplaceChain;
+    // ME pair where 'from' has a depth-10 Requires chain (reverse-dep closure work)
+    // and 'to' has a depth-10 Requires chain (enable work).
+    {
+        // from side: RC0 --Req--> RC1 --Req--> ... RC9
+        (void)fmReplaceChain.addFeature("RC_root");
+        for (int i = 0; i < 10; ++i)
+        {
+            (void)fmReplaceChain.addFeature("RC" + std::to_string(i));
+        }
+        for (int i = 0; i < 9; ++i)
+        {
+            (void)fmReplaceChain.addRelationship("RC" + std::to_string(i),
+                                                  FeatureRelationship::Requires,
+                                                  "RC" + std::to_string(i + 1));
+        }
+        (void)fmReplaceChain.addRelationship("RC_root",
+                                              FeatureRelationship::Requires,
+                                              "RC0");
+        // to side: RD0 --Req--> RD1 --Req--> ... RD9
+        (void)fmReplaceChain.addFeature("RD_root");
+        for (int i = 0; i < 10; ++i)
+        {
+            (void)fmReplaceChain.addFeature("RD" + std::to_string(i));
+        }
+        for (int i = 0; i < 9; ++i)
+        {
+            (void)fmReplaceChain.addRelationship("RD" + std::to_string(i),
+                                                  FeatureRelationship::Requires,
+                                                  "RD" + std::to_string(i + 1));
+        }
+        (void)fmReplaceChain.addRelationship("RD_root",
+                                              FeatureRelationship::Requires,
+                                              "RD0");
+        (void)fmReplaceChain.addRelationship("RC_root",
+                                              FeatureRelationship::MutuallyExclusive,
+                                              "RD_root");
+        (void)fmReplaceChain.enable("RC_root");
+    }
+
+    runner.add("replace: ME pair, no deps (steady-state toggle)", [&]() {
+        // Alternate between RA and RB each iteration to measure steady-state cost.
+        static bool toggle = false;
+        if (!toggle)
+        {
+            auto res = fmReplaceSimple.replace("RA", "RB");
+            DoNotOptimize(res);
+        }
+        else
+        {
+            auto res = fmReplaceSimple.replace("RB", "RA");
+            DoNotOptimize(res);
+        }
+        toggle = !toggle;
+    });
+
+    runner.add("replace: ME pair, depth-10 chains (from + to closures)", [&]() {
+        // Alternate between RC_root and RD_root each iteration.
+        static bool toggleChain = false;
+        if (!toggleChain)
+        {
+            auto res = fmReplaceChain.replace("RC_root", "RD_root");
+            DoNotOptimize(res);
+        }
+        else
+        {
+            auto res = fmReplaceChain.replace("RD_root", "RC_root");
+            DoNotOptimize(res);
+        }
+        toggleChain = !toggleChain;
+    });
+
+    runner.add("replace: 'from' not enabled (error path, no state change)", [&]() {
+        // Measure the fast rejection path: from is disabled, returns error immediately.
+        FeatureManager<> fm;
+        (void)fm.addFeature("X");
+        (void)fm.addFeature("Y");
+        (void)fm.addRelationship("X", FeatureRelationship::MutuallyExclusive, "Y");
+        // X is not enabled.
+        auto res = fm.replace("X", "Y");
+        DoNotOptimize(res);
+    });
+
+    // -------------------------------------------------------------------------
+    // 19. forceExclusive() — E-Stop / Exclusive Activation
+    // -------------------------------------------------------------------------
+    runner.section("FORCE_EXCLUSIVE: E-STOP SEMANTICS")
+        .contract("forceExclusive(f) zeros desiredStates, then planEnableRecursive(f); "
+                  "O(n + d * log n) where n = total features, d = dependency depth of f");
+
+    // Fixture: 20 independent features, all enabled, plus the target with a depth-5 chain.
+    FeatureManager<> fmForce20;
+    {
+        for (int i = 0; i < 20; ++i)
+        {
+            (void)fmForce20.addFeature("FX" + std::to_string(i));
+            (void)fmForce20.enable("FX" + std::to_string(i));
+        }
+        (void)fmForce20.addFeature("safe_mode");
+        for (int i = 0; i < 5; ++i)
+        {
+            (void)fmForce20.addFeature("SD" + std::to_string(i));
+        }
+        for (int i = 0; i < 4; ++i)
+        {
+            (void)fmForce20.addRelationship("SD" + std::to_string(i),
+                                             FeatureRelationship::Requires,
+                                             "SD" + std::to_string(i + 1));
+        }
+        (void)fmForce20.addRelationship("safe_mode",
+                                         FeatureRelationship::Requires,
+                                         "SD0");
+    }
+
+    // Fixture: 200 independent features, all enabled.
+    FeatureManager<> fmForce200;
+    {
+        for (int i = 0; i < 200; ++i)
+        {
+            (void)fmForce200.addFeature("FY" + std::to_string(i));
+            (void)fmForce200.enable("FY" + std::to_string(i));
+        }
+        (void)fmForce200.addFeature("safe_mode_200");
+    }
+
+    runner.add("forceExclusive: 20 active features cleared, depth-5 chain enabled", [&]() {
+        // Re-enable all FX features after each forceExclusive to keep the fixture live.
+        auto res = fmForce20.forceExclusive("safe_mode");
+        DoNotOptimize(res);
+        // Restore: re-enable all FX so next iteration has 20 active features to clear.
+        for (int i = 0; i < 20; ++i)
+        {
+            (void)fmForce20.enable("FX" + std::to_string(i));
+        }
+        (void)fmForce20.disable("safe_mode");
+        for (int i = 0; i < 5; ++i)
+        {
+            (void)fmForce20.disable("SD" + std::to_string(i));
+        }
+    });
+
+    runner.add("forceExclusive: 200 active features cleared, no deps on target (no-chain overhead)", [&]() {
+        auto res = fmForce200.forceExclusive("safe_mode_200");
+        DoNotOptimize(res);
+        // Restore.
+        for (int i = 0; i < 200; ++i)
+        {
+            (void)fmForce200.enable("FY" + std::to_string(i));
+        }
+        (void)fmForce200.disable("safe_mode_200");
+    });
+
+    runner.add("forceExclusive: already exclusive (no-op path)", [&]() {
+        // Feature is the only one enabled; should produce empty change vector.
+        FeatureManager<> fm;
+        (void)fm.addFeature("solo");
+        (void)fm.addFeature("other");
+        (void)fm.enable("solo");
+        auto res = fm.forceExclusive("solo");
+        DoNotOptimize(res);
+    });
+
+    // -------------------------------------------------------------------------
+    // 20. replace() vs batchDisable + batchEnable (not atomic baseline)
+    // -------------------------------------------------------------------------
+    runner.section("REPLACE VS SEQUENTIAL DISABLE-ENABLE (BASELINE)")
+        .contract("Sequential batchDisable + batchEnable fires two observer notifications; "
+                  "replace() fires one. Wall time expected similar; observer count differs.");
+
+    FeatureManager<> fmSeqBase;
+    {
+        (void)fmSeqBase.addFeature("SA");
+        (void)fmSeqBase.addFeature("SB");
+        // No MutuallyExclusive: sequential disable+enable works here (unlike ME pairs).
+    }
+    (void)fmSeqBase.enable("SA");
+
+    runner.add("sequential batchDisable + batchEnable: no-dep pair", [&]() {
+        static bool seqToggle = false;
+        if (!seqToggle)
+        {
+            (void)fmSeqBase.batchDisable({"SA"});
+            auto res = fmSeqBase.batchEnable({"SB"});
+            DoNotOptimize(res);
+        }
+        else
+        {
+            (void)fmSeqBase.batchDisable({"SB"});
+            auto res = fmSeqBase.batchEnable({"SA"});
+            DoNotOptimize(res);
+        }
+        seqToggle = !seqToggle;
+    });
+
+    FeatureManager<> fmReplBase;
+    {
+        (void)fmReplBase.addFeature("SA");
+        (void)fmReplBase.addFeature("SB");
+        // No MutuallyExclusive needed for replace on non-ME pair.
+    }
+    (void)fmReplBase.enable("SA");
+
+    runner.add("replace: no-dep pair (non-ME, single lock acquisition)", [&]() {
+        static bool replToggle = false;
+        if (!replToggle)
+        {
+            auto res = fmReplBase.replace("SA", "SB");
+            DoNotOptimize(res);
+        }
+        else
+        {
+            auto res = fmReplBase.replace("SB", "SA");
+            DoNotOptimize(res);
+        }
+        replToggle = !replToggle;
+    });
+
+    // -------------------------------------------------------------------------
+    // 21. Run All Benchmarks
     // -------------------------------------------------------------------------
     runner.section("RUNNING BENCHMARKS");
     print_cpu_context(std::cout, "Starting benchmark execution");
