@@ -8,14 +8,7 @@
 #               include/fat_p/SkeletonFwd.h
 #               include/fat_p/OwnerSkeleton.h
 #   Tests:      components/Skeleton/tests/test_Skeleton.cpp
-#               components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
-#               components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp
 #               components/Skeleton/tests/test_OwnerSkeleton.cpp
-#               components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp
-#   CompileFail: components/Skeleton/tests/compile_fail/
-#                  compile_fail_Skeleton_WrongEnumAtDepth1.cpp
-#                  compile_fail_Skeleton_DepthExceedsMaxDepth.cpp
-#                  compile_fail_Skeleton_EnumValueExceedsByte.cpp
 #   Benchmarks: components/Skeleton/benchmarks/benchmark_Skeleton.cpp
 #
 # Benchmarks are run separately via skeleton-benchmarks.yml
@@ -32,13 +25,7 @@ on:
       - 'include/fat_p/SkeletonFwd.h'
       - 'include/fat_p/OwnerSkeleton.h'
       - 'components/Skeleton/tests/test_Skeleton.cpp'
-      - 'components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp'
-      - 'components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp'
       - 'components/Skeleton/tests/test_OwnerSkeleton.cpp'
-      - 'components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp'
-      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_WrongEnumAtDepth1.cpp'
-      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp'
-      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp'
       - 'components/Skeleton/benchmarks/benchmark_Skeleton.cpp'
       - '.github/workflows/skeleton.yml'
   pull_request:
@@ -47,13 +34,7 @@ on:
       - 'include/fat_p/SkeletonFwd.h'
       - 'include/fat_p/OwnerSkeleton.h'
       - 'components/Skeleton/tests/test_Skeleton.cpp'
-      - 'components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp'
-      - 'components/Skeleton/tests/test_SkeletonFwd_HeaderSelfContained.cpp'
       - 'components/Skeleton/tests/test_OwnerSkeleton.cpp'
-      - 'components/Skeleton/tests/test_OwnerSkeleton_HeaderSelfContained.cpp'
-      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_WrongEnumAtDepth1.cpp'
-      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp'
-      - 'components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp'
       - 'components/Skeleton/benchmarks/benchmark_Skeleton.cpp'
       - '.github/workflows/skeleton.yml'
 
@@ -67,8 +48,9 @@ env:
   CF_DIR:            components/Skeleton/tests/compile_fail
 
 jobs:
+
   # ===========================================================================
-  # Linux GCC Builds (C++20 / C++23)
+  # Linux GCC Builds (C++20: GCC 12, GCC 13 | C++23: GCC 14)
   # ===========================================================================
   linux-gcc:
     name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
@@ -107,7 +89,7 @@ jobs:
           ./test_owner_bin
 
   # ===========================================================================
-  # Linux Clang Builds (C++20 / C++23)
+  # Linux Clang Builds (C++20: Clang 16 | C++23: Clang 17)
   # ===========================================================================
   linux-clang:
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
@@ -149,7 +131,7 @@ jobs:
           ./test_owner_bin
 
   # ===========================================================================
-  # Windows MSVC Builds (C++20 / C++23)
+  # Windows MSVC Builds (C++20 and C++23)
   # ===========================================================================
   windows-msvc:
     name: Windows MSVC C++${{ matrix.std }}
@@ -157,24 +139,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - std: 20
-            flag: "/std:c++20"
-          - std: 23
-            flag: "/std:c++latest"
+        std: [20, 23]
     steps:
       - uses: actions/checkout@v4
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
       - name: Build and run test_Skeleton
-        shell: cmd
         run: |
-          cl ${{ matrix.flag }} /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_Skeleton.cpp /Fe:test_skeleton_bin.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_Skeleton.cpp /Fe:test_skeleton_bin.exe /link advapi32.lib
           .\test_skeleton_bin.exe
       - name: Build and run test_OwnerSkeleton
-        shell: cmd
         run: |
-          cl ${{ matrix.flag }} /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_OwnerSkeleton.cpp /Fe:test_owner_bin.exe /link advapi32.lib
+          $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }
+          cl $stdFlag /W4 /WX /wd4324 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Skeleton\tests\test_OwnerSkeleton.cpp /Fe:test_owner_bin.exe /link advapi32.lib
           .\test_owner_bin.exe
 
   # ===========================================================================
@@ -248,37 +226,30 @@ jobs:
 
   # ===========================================================================
   # Header Self-Containment
-  # Compiles the canonical test_*_HeaderSelfContained.cpp files from the repo
-  # (each includes its target header first, twice for idempotence, then runs
-  # a minimal instantiation). Include-order independence is verified inline.
   # ===========================================================================
   header-check:
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-
       - name: Compile test_Skeleton_HeaderSelfContained.cpp
         run: |
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             ${{ env.HDR_SC_SRC }} -o /dev/null
           echo "Skeleton.h: self-contained and idempotent"
-
       - name: Compile test_SkeletonFwd_HeaderSelfContained.cpp
         run: |
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             ${{ env.FWD_SC_SRC }} -o /dev/null
           echo "SkeletonFwd.h: self-contained and idempotent"
-
       - name: Compile test_OwnerSkeleton_HeaderSelfContained.cpp
         run: |
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             ${{ env.OWNER_HDR_SC_SRC }} -o /dev/null
           echo "OwnerSkeleton.h: self-contained and idempotent"
-
       - name: Test Skeleton.h include order independence
         run: |
           cat > test_order1.cpp << 'EOF'
@@ -296,7 +267,6 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_order1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_order2.cpp -o /dev/null
           echo "Skeleton.h: include order independent"
-
       - name: Test SkeletonFwd.h include order independence
         run: |
           cat > test_fwd_order1.cpp << 'EOF'
@@ -314,7 +284,6 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_order1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_fwd_order2.cpp -o /dev/null
           echo "SkeletonFwd.h: include order independent"
-
       - name: Test OwnerSkeleton.h include order independence
         run: |
           cat > test_owner_order1.cpp << 'EOF'
@@ -332,48 +301,6 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_owner_order1.cpp -o /dev/null
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test_owner_order2.cpp -o /dev/null
           echo "OwnerSkeleton.h: include order independent"
-
-  # ===========================================================================
-  # Compile-Fail Contract Tests
-  # Each TU is expected to fail compilation. A step passes when the compiler
-  # rejects the file; a step fails when the compiler unexpectedly accepts it.
-  # stderr is captured to the log so the diagnostic is visible in CI output.
-  # ===========================================================================
-  compile-fail:
-    name: Compile-Fail Contracts
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: "Reject: wrong enum type at depth 1"
-        run: |
-          if g++-13 -std=c++20 -I./include/fat_p \
-               ${{ env.CF_DIR }}/compile_fail_Skeleton_WrongEnumAtDepth1.cpp \
-               -c -o /dev/null 2>&1; then
-            echo "FAIL: expected compile failure but compilation succeeded"
-            exit 1
-          fi
-          echo "PASS: correctly rejected wrong enum type at depth 1"
-
-      - name: "Reject: depth exceeds kMaxDepth"
-        run: |
-          if g++-13 -std=c++20 -I./include/fat_p \
-               ${{ env.CF_DIR }}/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp \
-               -c -o /dev/null 2>&1; then
-            echo "FAIL: expected compile failure but compilation succeeded"
-            exit 1
-          fi
-          echo "PASS: correctly rejected depth exceeding kMaxDepth"
-
-      - name: "Reject: enum value exceeds byte range (> 255)"
-        run: |
-          if g++-13 -std=c++20 -I./include/fat_p \
-               ${{ env.CF_DIR }}/compile_fail_Skeleton_EnumValueExceedsByte.cpp \
-               -c -o /dev/null 2>&1; then
-            echo "FAIL: expected compile failure but compilation succeeded"
-            exit 1
-          fi
-          echo "PASS: correctly rejected enum value exceeding 255"
 
   # ===========================================================================
   # Strict Warnings
@@ -405,6 +332,42 @@ jobs:
           echo "No warnings"
 
   # ===========================================================================
+  # Compile-Fail Contracts
+  # ===========================================================================
+  compile-fail:
+    name: Compile-Fail Contracts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject wrong enum type at depth 1
+        run: |
+          if g++-13 -std=c++20 -I./include/fat_p \
+               ${{ env.CF_DIR }}/compile_fail_Skeleton_WrongEnumAtDepth1.cpp \
+               -c -o /dev/null 2>&1; then
+            echo "FAIL: expected compile failure but compilation succeeded"
+            exit 1
+          fi
+          echo "PASS: correctly rejected wrong enum type at depth 1"
+      - name: Reject depth exceeds kMaxDepth
+        run: |
+          if g++-13 -std=c++20 -I./include/fat_p \
+               ${{ env.CF_DIR }}/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp \
+               -c -o /dev/null 2>&1; then
+            echo "FAIL: expected compile failure but compilation succeeded"
+            exit 1
+          fi
+          echo "PASS: correctly rejected depth exceeding kMaxDepth"
+      - name: Reject enum value exceeds byte range (> 255)
+        run: |
+          if g++-13 -std=c++20 -I./include/fat_p \
+               ${{ env.CF_DIR }}/compile_fail_Skeleton_EnumValueExceedsByte.cpp \
+               -c -o /dev/null 2>&1; then
+            echo "FAIL: expected compile failure but compilation succeeded"
+            exit 1
+          fi
+          echo "PASS: correctly rejected enum value exceeding 255"
+
+  # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
@@ -417,8 +380,8 @@ jobs:
       - sanitizer-ubsan
       - sanitizer-tsan
       - header-check
-      - compile-fail
       - strict-warnings
+      - compile-fail
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -431,6 +394,6 @@ jobs:
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-tsan.result }}"  != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}"    != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.compile-fail.result }}"    != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.compile-fail.result }}"    != "success" ]]; then exit 1; fi
           echo "All checks passed"
