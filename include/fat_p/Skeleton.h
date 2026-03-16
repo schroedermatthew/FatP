@@ -394,6 +394,30 @@ public:
      */
     void unpublish() noexcept;
 
+    // ── Serialization hooks ───────────────────────────────────────────────────
+    //
+    // Public so that application-layer save/load orchestration (e.g.
+    // ActiveDatabase) can call them on arbitrary SkeletonItem* pointers.
+    // Default implementations are no-ops. Override in derived classes to
+    // participate in save/load.
+    //
+    // Matches BE: ITEM_COMMON::BinaryIO, SaveItemData, LoadItemData were all
+    // public and called by external orchestration code through base pointers.
+    //
+    // serializationVersion() is written by save() before calling serialize(),
+    // and passed back to deserialize() before calling it. Inspect the version
+    // parameter in deserialize() to apply schema migration logic for older files.
+    //
+    // SerializeWriter and SerializeReader are thin wrappers over a binary stream
+    // (see SkeletonSerializer.h, fat_p Phase 1 deliverable). Forward declarations
+    // allow these default no-op bodies to compile without the full type.
+
+    [[nodiscard]] virtual uint32_t serializationVersion() const noexcept { return 1u; }
+
+    virtual void serialize(SerializeWriter&) const {}
+
+    virtual void deserialize(SerializeReader&, uint32_t /*version*/) {}
+
     // Non-copyable, non-movable.
     SkeletonItem(const SkeletonItem&) = delete;
     SkeletonItem& operator=(const SkeletonItem&) = delete;
@@ -425,25 +449,6 @@ protected:
      * @param newMask The capability mask to assign. Replaces the previous mask entirely.
      */
     void setMask(SkeletonMask newMask) noexcept;
-
-    // ── Serialization hooks ───────────────────────────────────────────────────
-    //
-    // Default implementations are no-ops. Override in derived classes to
-    // participate in OwnerSkeleton-driven save/load.
-    //
-    // serializationVersion() is written by save() before calling serialize(),
-    // and passed back to deserialize() before calling it. Inspect the version
-    // parameter in deserialize() to apply schema migration logic for older files.
-    //
-    // SerializeWriter and SerializeReader are thin wrappers over a binary stream
-    // (see SkeletonSerializer.h, fat_p Phase 1 deliverable). Forward declarations
-    // allow these default no-op bodies to compile without the full type.
-
-    [[nodiscard]] virtual uint32_t serializationVersion() const noexcept { return 1u; }
-
-    virtual void serialize(SerializeWriter&) const {}
-
-    virtual void deserialize(SerializeReader&, uint32_t /*version*/) {}
 
 private:
     BoneId mBoneId;

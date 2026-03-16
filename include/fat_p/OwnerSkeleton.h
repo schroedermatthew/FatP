@@ -238,6 +238,17 @@ public:
                                                     SkeletonMask required,
                                                     SkeletonMask excluded = {});
 
+    /**
+     * @brief Returns all owned items in ascending BoneId order (parent-before-child).
+     *
+     * Used by save orchestration (ActiveDatabase::save) to iterate items in
+     * hierarchy order. Same ordering used internally by the destructor.
+     */
+    [[nodiscard]] std::vector<SkeletonItem*> sortedItems();
+
+    /// @copydoc sortedItems()
+    [[nodiscard]] std::vector<const SkeletonItem*> sortedItems() const;
+
     // ── Traversal ─────────────────────────────────────────────────────────────
 
     /**
@@ -454,6 +465,49 @@ std::vector<SkeletonItem*> OwnerSkeleton::query(BoneId       root,
                                                  SkeletonMask excluded)
 {
     return mSkeleton.querySubtree(root, required, excluded);
+}
+
+// Same collect-and-sort pattern used by the destructor, but without
+// unpublish/erase — this is a read-only snapshot for save orchestration.
+
+[[nodiscard]] inline
+std::vector<SkeletonItem*> OwnerSkeleton::sortedItems()
+{
+    std::vector<SkeletonItem*> items;
+    items.reserve(mOwnership.size());
+
+    for (auto it = mOwnership.begin(); it != mOwnership.end(); ++it)
+    {
+        items.push_back(it.value().get());
+    }
+
+    std::sort(items.begin(), items.end(),
+              [](const SkeletonItem* a, const SkeletonItem* b) noexcept
+              {
+                  return a->boneId() < b->boneId();
+              });
+
+    return items;
+}
+
+[[nodiscard]] inline
+std::vector<const SkeletonItem*> OwnerSkeleton::sortedItems() const
+{
+    std::vector<const SkeletonItem*> items;
+    items.reserve(mOwnership.size());
+
+    for (auto it = mOwnership.cbegin(); it != mOwnership.cend(); ++it)
+    {
+        items.push_back(it.value().get());
+    }
+
+    std::sort(items.begin(), items.end(),
+              [](const SkeletonItem* a, const SkeletonItem* b) noexcept
+              {
+                  return a->boneId() < b->boneId();
+              });
+
+    return items;
 }
 
 inline void OwnerSkeleton::visitSubtree(BoneId root,

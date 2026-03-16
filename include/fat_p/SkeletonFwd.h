@@ -352,6 +352,36 @@ public:
         return BoneId{detail::BoneIdTag{}, v, d};
     }
 
+    /**
+     * @brief Reconstructs a canonical BoneId from a raw value and depth.
+     *
+     * Inactive bytes (index >= depth) are masked to zero, matching the
+     * canonicalisation in deserialize(). A depth > 8 returns the null BoneId.
+     *
+     * @param rawValue The packed 64-bit path value.
+     * @param depth    Number of active depth levels [0, 8].
+     * @return A canonical BoneId, or null if depth > 8.
+     * @note Complexity: O(1).
+     */
+    [[nodiscard]] static constexpr BoneId fromRaw(uint64_t rawValue, uint8_t depth) noexcept
+    {
+        if (depth > 8u)
+        {
+            return BoneId{};
+        }
+        if (depth == 0u)
+        {
+            return BoneId{};
+        }
+        if (depth < 8u)
+        {
+            const uint64_t shiftBits = static_cast<uint64_t>(8u * (8u - depth));
+            const uint64_t mask = (~uint64_t{0}) << shiftBits;
+            rawValue &= mask;
+        }
+        return BoneId{detail::BoneIdTag{}, rawValue, depth};
+    }
+
 private:
     uint64_t mValue; ///< Packed path. Level N in bits [63-8N : 56-8N]. Inactive bytes zero.
     uint8_t  mDepth; ///< Number of active levels [0, 8].
