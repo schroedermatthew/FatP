@@ -10,7 +10,7 @@ double matrix[64][64];
 fill_matrix(matrix);
 
 // Step 2: Wrap in an unmanaged host view (ArrayView does this)
-auto hostView = ArrayView(matrix).to_kokkos();
+auto hostView = ArrayView(matrix).toKokkos();
 
 // Step 3: Create a MATCHING device view (get the DataType right)
 Kokkos::View<double[64][64], Kokkos::CudaSpace> deviceView("matrix");
@@ -36,9 +36,9 @@ This project builds a `DeviceInOut` wrapper that reduces the ceremony to:
 double matrix[64][64];
 fill_matrix(matrix);
 
-auto device = make_device_inout(matrix, "matrix"); // Steps 2-4 in one line
+auto device = makeDeviceInout(matrix, "matrix"); // Steps 2-4 in one line
 run_kernel(device.view());                    // Step 5
-device.copy_back();                           // Step 6 — matrix is updated
+device.copyBack();                           // Step 6 — matrix is updated
 ```
 
 ## What You Will Build
@@ -49,7 +49,7 @@ A `DeviceInOut<ArrayType>` that:
 2. Computes the Kokkos DataType at compile time (reuses KokkosDataType)
 3. Constructs a device-resident owning `Kokkos::View` with the matching type
 4. Deep-copies host data to device on construction
-5. Provides `copy_back()` to transfer results back to the host array
+5. Provides `copyBack()` to transfer results back to the host array
 6. Cleans up device memory on destruction (RAII)
 
 All type computation happens at compile time. No runtime type introspection, no string-based lookups, no manual DataType specification.
@@ -157,11 +157,11 @@ The **class template parameters and member types**. From a C array type like `do
 
 ### Pattern
 
-CTAD + type composition. The constructor accepts a C array reference, Peeler deduces the ArrayView type, and DeviceViewType computes the Kokkos types. The class stores a device view and a pointer back to the host data (for copy_back).
+CTAD + type composition. The constructor accepts a C array reference, Peeler deduces the ArrayView type, and DeviceViewType computes the Kokkos types. The class stores a device view and a pointer back to the host data (for copyBack).
 
 ### Solution
 
-The class must be specialized on `ArrayView<T, Dims...>` so that it can access the dimension pack and forward dynamic extents to the Kokkos::View constructor. The label-only constructor `deviceView_(label)` works for all-static shapes — Kokkos reads the dimensions from the DataType template parameter. But for dynamic shapes, the Kokkos::View constructor needs the runtime extents as arguments. The host ArrayView already stores these extents in its `ExtentStorage`, and its `to_kokkos()` method already forwards them via `apply`. The device view needs the same forwarding.
+The class must be specialized on `ArrayView<T, Dims...>` so that it can access the dimension pack and forward dynamic extents to the Kokkos::View constructor. The label-only constructor `mDeviceView(label)` works for all-static shapes — Kokkos reads the dimensions from the DataType template parameter. But for dynamic shapes, the Kokkos::View constructor needs the runtime extents as arguments. The host ArrayView already stores these extents in its `ExtentStorage`, and its `toKokkos()` method already forwards them via `apply`. The device view needs the same forwarding.
 
 The fix uses a helper method that constructs the device view with the label and the dynamic extents extracted from the host view:
 
@@ -178,7 +178,7 @@ template<typename T, std::size_t... Dims, typename Layout, typename Space>
 class DeviceInOut<ulib::ArrayView<T, Dims...>, Layout, Space>
 {
     static_assert(!std::is_const_v<T>,
-        "DeviceInOut requires mutable host data (for copy_back). "
+        "DeviceInOut requires mutable host data (for copyBack). "
         "Use DeviceInput for const/read-only host data.");
 
     using ArrayViewT = ulib::ArrayView<T, Dims...>;
@@ -191,41 +191,41 @@ public:
 
     // Construct from an ArrayView — allocate device memory + copy
     explicit DeviceInOut(ArrayViewT hostView, const std::string& label = "DeviceInOut")
-        : hostView_(hostView)
-        , deviceView_(createDeviceView(hostView, label))
+        : mHostView(hostView)
+        , mDeviceView(createDeviceView(hostView, label))
     {
-        auto kokkosHost = hostView_.to_kokkos();
-        Kokkos::deep_copy(deviceView_, kokkosHost);
+        auto kokkosHost = mHostView.toKokkos();
+        Kokkos::deep_copy(mDeviceView, kokkosHost);
     }
 
     // Access the device view (for use in kernels)
-    device_view_type& view() noexcept { return deviceView_; }
-    const device_view_type& view() const noexcept { return deviceView_; }
+    device_view_type& view() noexcept { return mDeviceView; }
+    const device_view_type& view() const noexcept { return mDeviceView; }
 
     // Copy device data back to the original host array
-    void copy_back()
+    void copyBack()
     {
-        auto kokkosHost = hostView_.to_kokkos();
-        Kokkos::deep_copy(kokkosHost, deviceView_);
+        auto kokkosHost = mHostView.toKokkos();
+        Kokkos::deep_copy(kokkosHost, mDeviceView);
     }
 
     // Copy fresh host data to the device (re-upload)
-    void copy_to_device()
+    void copyToDevice()
     {
-        auto kokkosHost = hostView_.to_kokkos();
-        Kokkos::deep_copy(deviceView_, kokkosHost);
+        auto kokkosHost = mHostView.toKokkos();
+        Kokkos::deep_copy(mDeviceView, kokkosHost);
     }
 
 private:
-    ArrayViewT hostView_;             // Non-owning view of original host data
-    device_view_type deviceView_;     // Owning device allocation
+    ArrayViewT mHostView;             // Non-owning view of original host data
+    device_view_type mDeviceView;     // Owning device allocation
 
     // Construct the device view with the label and dynamic extents.
     // For all-static shapes, no dynamic extents are forwarded and the
     // Kokkos::View constructor receives only the label.
     // For mixed/dynamic shapes, the runtime extents from the host view
     // are forwarded via the same index_sequence expansion that
-    // ArrayView::to_kokkos() uses internally.
+    // ArrayView::toKokkos() uses internally.
     //
     // IMPORTANT: This relies on ArrayView's dynamic-before-static ordering
     // invariant. extent(0)...extent(rank_dynamic-1) returns the dynamic
@@ -245,13 +245,13 @@ private:
 
 ### What to Notice
 
-`DeviceInOut` stores the `ArrayView` (not a copy of the data — the view is non-owning). This means the original host array must outlive the `DeviceInOut` object. `copy_back()` writes directly into the original host array through the stored view.
+`DeviceInOut` stores the `ArrayView` (not a copy of the data — the view is non-owning). This means the original host array must outlive the `DeviceInOut` object. `copyBack()` writes directly into the original host array through the stored view.
 
-> **⚠️ Lifetime hazard.** `DeviceInOut` stores a non-owning view of the host buffer. If the host buffer is destroyed before `copy_back()` is called — because it was a temporary, a short-lived stack object, or a borrowed buffer whose owner deallocated it — the `copy_back()` writes through a dangling pointer. This is silent data corruption, not a crash. `DeviceInput` is safer in this regard: it copies host data into device memory on construction and does not retain a host reference, so the host buffer can go out of scope after construction without consequence.
+> **⚠️ Lifetime hazard.** `DeviceInOut` stores a non-owning view of the host buffer. If the host buffer is destroyed before `copyBack()` is called — because it was a temporary, a short-lived stack object, or a borrowed buffer whose owner deallocated it — the `copyBack()` writes through a dangling pointer. This is silent data corruption, not a crash. `DeviceInput` is safer in this regard: it copies host data into device memory on construction and does not retain a host reference, so the host buffer can go out of scope after construction without consequence.
 >
-> **Mitigation:** If the host ArrayView was constructed with a `LifetimeToken` (see `LifetimeToken.h`), the `to_kokkos()` call inside `copy_back()` will assert in debug builds when the source buffer has been destroyed. This turns silent corruption into a debuggable assertion failure.
+> **Mitigation:** If the host ArrayView was constructed with a `LifetimeToken` (see `LifetimeToken.h`), the `toKokkos()` call inside `copyBack()` will assert in debug builds when the source buffer has been destroyed. This turns silent corruption into a debuggable assertion failure.
 
-The `static_assert(!std::is_const_v<T>)` enforces a contract: `DeviceInOut` is for mutable host data only, because `copy_back()` must be able to write through the stored view. Const host data should go through `DeviceInput` (Phase 6), which has no `copy_back()` and presents a const device view. This mutability split aligns the type system with the data-flow direction: writable host buffer → bidirectional staging (`DeviceInOut`), read-only host buffer → one-way staging (`DeviceInput`).
+The `static_assert(!std::is_const_v<T>)` enforces a contract: `DeviceInOut` is for mutable host data only, because `copyBack()` must be able to write through the stored view. Const host data should go through `DeviceInput` (Phase 6), which has no `copyBack()` and presents a const device view. This mutability split aligns the type system with the data-flow direction: writable host buffer → bidirectional staging (`DeviceInOut`), read-only host buffer → one-way staging (`DeviceInput`).
 
 The `createDeviceView` helper uses the same `index_sequence` expansion pattern as `ExtentStorage::apply`: it generates an index sequence of length `rank_dynamic_v<Dims...>` and expands `hostView.extent(Is)...` to forward only the dynamic extents. For all-static views, the index sequence is empty and the Kokkos::View constructor receives only the label. For `ArrayView<double, dynamic_extent, 3>` with 5 rows, the expansion produces `device_view_type(label, 5)` — forwarding the one runtime extent.
 
@@ -263,7 +263,7 @@ This is why the class must be specialized on `ArrayView<T, Dims...>`: the `creat
 
 ### The Problem
 
-The user should be able to write `make_device_inout(matrix, "grid")` where `matrix` is a C array. The factory must deduce the ArrayView type from the array type, then construct the `DeviceInOut` with the correct template parameters.
+The user should be able to write `makeDeviceInout(matrix, "grid")` where `matrix` is a C array. The factory must deduce the ArrayView type from the array type, then construct the `DeviceInOut` with the correct template parameters.
 
 ### Pattern
 
@@ -274,13 +274,13 @@ A factory function that calls `makeArrayView` (which uses Peeler internally) to 
 ```cpp
 namespace bridge {
 
-// Factory: C array → DeviceInOut (mutable arrays only — use make_device_input for const)
+// Factory: C array → DeviceInOut (mutable arrays only — use makeDeviceInput for const)
 template<typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
          typename Array>
     requires (std::is_array_v<Array>
               && !std::is_const_v<std::remove_all_extents_t<Array>>)
-auto make_device_inout(Array& arr, const std::string& label = "DeviceInOut")
+auto makeDeviceInout(Array& arr, const std::string& label = "DeviceInOut")
 {
     auto view = ulib::makeArrayView(arr);
     using ViewType = decltype(view);
@@ -292,7 +292,7 @@ template<typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
          typename T, std::size_t... Dims>
     requires (!std::is_const_v<T>)
-auto make_device_inout(ulib::ArrayView<T, Dims...> view,
+auto makeDeviceInout(ulib::ArrayView<T, Dims...> view,
                       const std::string& label = "DeviceInOut")
 {
     return DeviceInOut<ulib::ArrayView<T, Dims...>, Layout, Space>(view, label);
@@ -311,7 +311,7 @@ void compute()
     initialize_grid(grid);
 
     // One line: wrap, allocate device, copy host→device
-    auto device = bridge::make_device_inout(grid, "grid");
+    auto device = bridge::makeDeviceInout(grid, "grid");
 
     // Run kernel on device data
     auto dv = device.view();
@@ -322,7 +322,7 @@ void compute()
     Kokkos::fence();
 
     // Copy results back to the original C array
-    device.copy_back();
+    device.copyBack();
     // grid[0][0] is now doubled
 }
 ```
@@ -331,7 +331,7 @@ Compare with the six-step ceremony from the introduction. Steps 2, 3, 4, and 6 a
 
 ### What to Notice
 
-`make_device_inout` calls `makeArrayView` (which uses Peeler internally) to produce the ArrayView, then constructs `DeviceInOut` with the deduced ArrayView type. The type chain is: C array type → Peeler → ArrayView type → KokkosDataType → Kokkos DataType → Kokkos::View type. Four TMP traits, chained at compile time, producing the correct device view type with zero runtime overhead.
+`makeDeviceInout` calls `makeArrayView` (which uses Peeler internally) to produce the ArrayView, then constructs `DeviceInOut` with the deduced ArrayView type. The type chain is: C array type → Peeler → ArrayView type → KokkosDataType → Kokkos DataType → Kokkos::View type. Four TMP traits, chained at compile time, producing the correct device view type with zero runtime overhead.
 
 The factory has two overloads: one for C arrays (calls `makeArrayView`), one for pre-existing ArrayViews. This lets users who already have an ArrayView skip the Peeler step.
 
@@ -353,16 +353,16 @@ double* buffer = allocate_grid(nx, ny);
 
 ### Solution
 
-The user constructs an ArrayView with dynamic extents, then passes it to `make_device_inout`:
+The user constructs an ArrayView with dynamic extents, then passes it to `makeDeviceInout`:
 
 ```cpp
 ulib::ArrayView<double, ulib::dynamic_extent, ulib::dynamic_extent> grid(buffer, nx, ny);
-auto device = bridge::make_device_inout(grid, "grid");
+auto device = bridge::makeDeviceInout(grid, "grid");
 ```
 
 This works because the `createDeviceView` helper in Phase 2 already handles the dynamic case. It uses `index_sequence` expansion over `rank_dynamic_v<Dims...>` to forward the runtime extents from the host ArrayView into the Kokkos::View constructor. For `ArrayView<double, dynamic_extent, dynamic_extent>` with extents `(nx, ny)`, the expansion produces `device_view_type(label, nx, ny)`. For all-static views, the expansion is empty and the constructor receives only the label.
 
-No new TMP pattern was needed — the `createDeviceView` helper uses the same `index_sequence` expansion that ArrayView's `to_kokkos()` already uses internally. The machinery existed; Phase 2 wired it into the device view constructor.
+No new TMP pattern was needed — the `createDeviceView` helper uses the same `index_sequence` expansion that ArrayView's `toKokkos()` already uses internally. The machinery existed; Phase 2 wired it into the device view constructor.
 
 ### What to Notice
 
@@ -443,23 +443,23 @@ class DeviceInput<ulib::ArrayView<T, Dims...>, Layout, Space>
 public:
     explicit DeviceInput(ulib::ArrayView<T, Dims...> hostView,
                          const std::string& label = "DeviceInput")
-        : deviceView_(createDeviceView(hostView, label))
+        : mDeviceView(createDeviceView(hostView, label))
     {
-        auto kokkosHost = hostView.to_kokkos();
-        Kokkos::deep_copy(deviceView_, kokkosHost);
+        auto kokkosHost = hostView.toKokkos();
+        Kokkos::deep_copy(mDeviceView, kokkosHost);
     }
 
     // Read-only access for kernels
     device_view_type view() const noexcept
     {
         // Implicit conversion from mutable to const view
-        return deviceView_;
+        return mDeviceView;
     }
 
-    // No copy_back — input data flows one direction only
+    // No copyBack — input data flows one direction only
 
 private:
-    mutable_device_type deviceView_;
+    mutable_device_type mDeviceView;
 
     // Same pattern as DeviceInOut::createDeviceView — forward dynamic extents
     static mutable_device_type createDeviceView(
@@ -476,7 +476,7 @@ template<typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
          typename Array>
     requires std::is_array_v<Array>
-auto make_device_input(Array& arr, const std::string& label = "DeviceInput")
+auto makeDeviceInput(Array& arr, const std::string& label = "DeviceInput")
 {
     auto view = ulib::makeArrayView(arr);
     return DeviceInput<decltype(view), Layout, Space>(view, label);
@@ -485,7 +485,7 @@ auto make_device_input(Array& arr, const std::string& label = "DeviceInput")
 template<typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
          typename T, std::size_t... Dims>
-auto make_device_input(ulib::ArrayView<T, Dims...> view,
+auto makeDeviceInput(ulib::ArrayView<T, Dims...> view,
                        const std::string& label = "DeviceInput")
 {
     return DeviceInput<ulib::ArrayView<T, Dims...>, Layout, Space>(view, label);
@@ -502,7 +502,7 @@ The `createDeviceView` helper uses the same `index_sequence` expansion as `Devic
 
 The partial specialization `DeviceInput<ulib::ArrayView<T, Dims...>, Layout, Space>` is necessary both for `KokkosDataType_t` (which needs the `Dims...` pack) and for `createDeviceView` (which needs `rank_dynamic_v<Dims...>`). The dimension pack is trapped inside the `ArrayViewT` type and must be pattern-matched out.
 
-There is no `copy_back()`. This is deliberate — `DeviceInput` is input staging only. If the user wants to modify data in place, they should use `DeviceInOut`. The absence of `copy_back()` is an API-level enforcement of directionality.
+There is no `copyBack()`. This is deliberate — `DeviceInput` is input staging only. If the user wants to modify data in place, they should use `DeviceInOut`. The absence of `copyBack()` is an API-level enforcement of directionality.
 
 ---
 
@@ -535,7 +535,7 @@ public:
     // All-static: no runtime extents needed
     explicit DeviceOutputImpl(const std::string& label = "DeviceOutput")
         requires (ulib::detail::all_static_v<Dims...>)
-        : deviceView_(label)
+        : mDeviceView(label)
     {}
 
     // Mixed/dynamic: runtime extents needed
@@ -547,35 +547,35 @@ public:
                   && (std::is_integral_v<Extents> && ...) 
                   && (!std::is_same_v<std::remove_cvref_t<Extents>, bool> && ...))
     explicit DeviceOutputImpl(const std::string& label, Extents... extents)
-        : deviceView_(label, static_cast<std::size_t>(extents)...)
+        : mDeviceView(label, static_cast<std::size_t>(extents)...)
     {
         assert(((extents > 0) && ...) && "All dynamic extents must be positive");
     }
 
     // Writable access for kernels
-    device_view_type& view() noexcept { return deviceView_; }
-    const device_view_type& view() const noexcept { return deviceView_; }
+    device_view_type& view() noexcept { return mDeviceView; }
+    const device_view_type& view() const noexcept { return mDeviceView; }
 
     // Copy results to a host C array — with shape validation
     template<typename Array>
         requires std::is_array_v<Array>
-    void copy_to(Array& dest)
+    void copyTo(Array& dest)
     {
         auto destView = ulib::makeArrayView(dest);
         validateShape(destView);
-        Kokkos::deep_copy(destView.to_kokkos(), deviceView_);
+        Kokkos::deep_copy(destView.toKokkos(), mDeviceView);
     }
 
     // Copy results to a host ArrayView — with shape validation
     template<typename U, std::size_t... DDims>
-    void copy_to(ulib::ArrayView<U, DDims...> dest)
+    void copyTo(ulib::ArrayView<U, DDims...> dest)
     {
         validateShape(dest);
-        Kokkos::deep_copy(dest.to_kokkos(), deviceView_);
+        Kokkos::deep_copy(dest.toKokkos(), mDeviceView);
     }
 
 private:
-    device_view_type deviceView_;
+    device_view_type mDeviceView;
 
     // Shape validation: compile-time check for all-static cases,
     // runtime check for dynamic cases.
@@ -602,7 +602,7 @@ private:
             {
                 // If both are static, they were already checked above.
                 // If either is dynamic, compare runtime extents.
-                assert(dest.extent(i) == deviceView_.extent(i)
+                assert(dest.extent(i) == mDeviceView.extent(i)
                        && "Destination extent does not match DeviceOutput extent");
             }
         }
@@ -620,7 +620,7 @@ using DeviceOutput = DeviceOutputImpl<
 // Factory for all-static output
 template<typename T, std::size_t... Dims>
     requires (ulib::detail::all_static_v<Dims...>)
-auto make_device_output(const std::string& label = "DeviceOutput")
+auto makeDeviceOutput(const std::string& label = "DeviceOutput")
 {
     return DeviceOutput<T, Dims...>(label);
 }
@@ -631,7 +631,7 @@ auto make_device_output(const std::string& label = "DeviceOutput")
 template<typename T, std::size_t... Dims, std::integral... Extents>
     requires (ulib::detail::rank_dynamic_v<Dims...> > 0
               && sizeof...(Extents) == ulib::detail::rank_dynamic_v<Dims...>)
-auto make_device_output(const std::string& label, Extents... extents)
+auto makeDeviceOutput(const std::string& label, Extents... extents)
 {
     return DeviceOutputImpl<
         T, Kokkos::LayoutRight,
@@ -655,11 +655,11 @@ void matmul()
     fill_matrix(B);
 
     // Input staging — read-only on device
-    auto devA = bridge::make_device_input(A, "A");
-    auto devB = bridge::make_device_input(B, "B");
+    auto devA = bridge::makeDeviceInput(A, "A");
+    auto devB = bridge::makeDeviceInput(B, "B");
 
     // Output staging — different shape, no host source
-    auto devC = bridge::make_device_output<double, 64, 32>("C");
+    auto devC = bridge::makeDeviceOutput<double, 64, 32>("C");
 
     // Kernel
     auto a = devA.view();
@@ -676,7 +676,7 @@ void matmul()
     Kokkos::fence();
 
     // Copy result to host — C is now filled
-    devC.copy_to(C);
+    devC.copyTo(C);
 }
 ```
 
@@ -686,29 +686,51 @@ void matmul()
 void histogram(const double* samples, std::size_t n, int num_bins)
 {
     ulib::ArrayView<const double, ulib::dynamic_extent> input(samples, n);
-    auto devInput = bridge::make_device_input(input, "samples");
+    auto devInput = bridge::makeDeviceInput(input, "samples");
 
     // Output shape determined at runtime
-    auto devHist = bridge::make_device_output<int, ulib::dynamic_extent>(
+    auto devHist = bridge::makeDeviceOutput<int, ulib::dynamic_extent>(
         "histogram", static_cast<std::size_t>(num_bins));
 
     // ... kernel fills devHist ...
 
     std::vector<int> result(num_bins);
     ulib::ArrayView<int, ulib::dynamic_extent> resultView(result.data(), num_bins);
-    devHist.copy_to(resultView);
+    devHist.copyTo(resultView);
 }
 ```
 
 ### What to Notice
 
-`DeviceOutput` does not store a host view — there is no host source to refer back to. `copy_to()` takes the destination as an argument rather than remembering one from construction. The destination can be any C array or ArrayView with compatible shape. This is the fundamental difference from `DeviceInOut`: the source and destination of the data are decoupled.
+`DeviceOutput` does not store a host view — there is no host source to refer back to. `copyTo()` takes the destination as an argument rather than remembering one from construction. The destination can be any C array or ArrayView with compatible shape. This is the fundamental difference from `DeviceInOut`: the source and destination of the data are decoupled.
 
 The constructor has two overloads selected by a `requires` clause: one for all-static shapes (no runtime arguments), one for shapes with dynamic extents (runtime arguments required). This mirrors ArrayView's own constructor design — the all-static path takes only a pointer, the dynamic path takes the pointer plus extents. The same `all_static_v` and `rank_dynamic_v` pack utilities that ArrayView uses for its constructor constraints are reused here.
 
-`copy_to()` now validates the destination shape before copying. The `validateShape` helper uses two levels of checking. First, a `static_assert` verifies that the rank (number of dimensions) matches — this is always a compile-time check. Second, for all-static shapes, a `static_assert` with a fold expression (`(Dims == DDims) && ...`) verifies that every dimension matches at compile time. For dynamic shapes, a runtime `assert` compares each extent before `deep_copy` runs. This catches the most likely real bug — copying a 64×32 result into a 32×64 destination — at the earliest possible point.
+`copyTo()` now validates the destination shape before copying. The `validateShape` helper uses two levels of checking. First, a `static_assert` verifies that the rank (number of dimensions) matches — this is always a compile-time check. Second, for all-static shapes, a `static_assert` with a fold expression (`(Dims == DDims) && ...`) verifies that every dimension matches at compile time. For dynamic shapes, a runtime `assert` compares each extent before `deep_copy` runs. This catches the most likely real bug — copying a 64×32 result into a 32×64 destination — at the earliest possible point.
 
-> **Production refinements.** The production `DeviceOutput` in `DeviceStaging.h` differs from the teaching version above in two ways. First, it takes `ArrayView<T, Dims...>` as the type parameter instead of `<T, Layout, Space, Dims...>`, matching the `<ArrayViewT, Layout, Space>` pattern used by `DeviceInput`, `DeviceInOut`, and `DeviceScope`. This avoids the awkward parameter order where `Layout` and `Space` sit between `T` and the dimensions. Second, the C-array `copy_to(Array&)` overload delegates to the `ArrayView` overload via `copy_to(makeArrayView(dest))` instead of duplicating the validation logic.
+> **Production refinements.** The production `DeviceOutput` in `DeviceStaging.h` differs from the teaching version above in two ways. First, it takes `ArrayView<T, Dims...>` as the type parameter instead of `<T, Layout, Space, Dims...>`, matching the `<ArrayViewT, Layout, Space>` pattern used by `DeviceInput`, `DeviceInOut`, and `DeviceScope`. This avoids the awkward parameter order where `Layout` and `Space` sit between `T` and the dimensions. Second, the C-array `copyTo(Array&)` overload delegates to the `ArrayView` overload via `copyTo(makeArrayView(dest))` instead of duplicating the validation logic.
+
+### makeDeviceOutputLike — Shape Cloning for Output Buffers
+
+The production `DeviceStaging.h` also provides `makeDeviceOutputLike`, which creates a `DeviceOutput` whose shape matches an existing ArrayView or C array. This eliminates the need to manually repeat type and extent template parameters when the output shape is the same as an input:
+
+```cpp
+double matrix[64][64];
+auto input = makeDeviceInput(ArrayView(matrix), "in");
+
+// Instead of:  makeDeviceOutput<double, 64, 64>("out")
+auto output = makeDeviceOutputLike(ArrayView(matrix), "out");
+```
+
+Three overloads handle all cases:
+
+| Overload | Source | Handling |
+|----------|--------|----------|
+| `makeDeviceOutputLike(ArrayView<T, Dims...>, label)` | All-static view | Strips `const` from T, constructs with label only |
+| `makeDeviceOutputLike(ArrayView<T, Dims...>, label)` | Dynamic/mixed view | Strips `const`, reads extents from view at runtime |
+| `makeDeviceOutputLike(Array&, label)` | C array | Delegates through `makeArrayView` |
+
+The key design decision: `makeDeviceOutputLike` accepts `ArrayView<const T, ...>` and produces `DeviceOutput<ArrayView<T, ...>>`. This supports the common pattern of reading shape from an input view (which may be const) to create a mutable output buffer. No new TMP is involved — the factory uses `std::remove_const_t<T>` and the same `all_static_v` / `rank_dynamic_v` pack utilities as the existing `makeDeviceOutput` factories.
 
 ---
 
@@ -716,18 +738,18 @@ The constructor has two overloads selected by a `requires` clause: one for all-s
 
 ### The Problem
 
-The most common mistake with `DeviceInOut` is forgetting to call `copy_back()`. The kernel runs, the device view has the results, and the function returns — but the host buffer is unchanged because nobody copied the data back. This is a silent correctness bug, not a crash.
+The most common mistake with `DeviceInOut` is forgetting to call `copyBack()`. The kernel runs, the device view has the results, and the function returns — but the host buffer is unchanged because nobody copied the data back. This is a silent correctness bug, not a crash.
 
 ### The Fix: Destructor-Driven Copy-Back
 
-`DeviceScope` wraps `DeviceInOut` and calls `fence()` + `copy_back()` in its destructor:
+`DeviceScope` wraps `DeviceInOut` and calls `fence()` + `copyBack()` in its destructor:
 
 ```cpp
 {
-    auto scope = device_scope(matrix, "matrix");
+    auto scope = deviceScope(matrix, "matrix");
     auto& dv = scope.view();
     // ... run kernel on dv ...
-} // destructor: fence, then copy_back — matrix is updated
+} // destructor: fence, then copyBack — matrix is updated
 ```
 
 The scope guard pattern is the same as `std::lock_guard`: acquire on construction, release on destruction, non-copyable and non-movable so ownership cannot leak.
@@ -740,7 +762,7 @@ Destructor-driven copy-back is convenient but not neutral. Every scope exit — 
 
 ```cpp
 {
-    auto scope = device_scope(matrix, "matrix");
+    auto scope = deviceScope(matrix, "matrix");
     run_kernel(scope.view());
 
     if (!validate(scope.view())) {
@@ -772,15 +794,15 @@ class DeviceScope<ArrayView<T, Dims...>, Layout, Space>
         InOut* inout;
         void operator()() const noexcept {
             Kokkos::fence("DeviceScope destructor fence");
-            inout->copy_back();
+            inout->copyBack();
         }
     };
 
 public:
     explicit DeviceScope(ArrayView<T, Dims...> hostView,
                          const std::string& label = "DeviceScope")
-        : inout_(hostView, label)
-        , guard_(Cleanup{&inout_})
+        : mInout(hostView, label)
+        , mGuard(Cleanup{&mInout})
     {}
 
     // Non-copyable, non-movable (RAII scope guard)
@@ -789,29 +811,29 @@ public:
     DeviceScope(DeviceScope&&) = delete;
     DeviceScope& operator=(DeviceScope&&) = delete;
 
-    auto&       view()       noexcept { return inout_.view(); }
-    const auto& view() const noexcept { return inout_.view(); }
+    auto&       view()       noexcept { return mInout.view(); }
+    const auto& view() const noexcept { return mInout.view(); }
 
-    void disarm() noexcept { guard_.dismiss(); }
+    void disarm() noexcept { mGuard.dismiss(); }
 
     void commit()
     {
         Kokkos::fence("DeviceScope commit fence");
-        inout_.copy_back();
-        guard_.dismiss();
+        mInout.copyBack();
+        mGuard.dismiss();
     }
 
-    bool is_armed() const noexcept { return guard_.is_active(); }
+    bool isArmed() const noexcept { return mGuard.isActive(); }
 
 private:
-    InOut inout_;
-    ScopeGuard<Cleanup> guard_;
+    InOut mInout;
+    ScopeGuard<Cleanup> mGuard;
 };
 ```
 
 ### What to Notice
 
-No TMP. No type traits. No recursive templates. `DeviceScope` is pure lifecycle management — it delegates the armed/dismiss/destructor pattern to `ulib::ScopeGuard` (from `ScopeGuard.hpp`) rather than reimplementing it with a raw `bool` flag. A named `Cleanup` functor holds a pointer to `inout_` and performs the fence + copy_back; it must be a named type (not a lambda) because `ScopeGuard` is templated on the callable type, and lambdas cannot be used as class data members. The `disarm()` method maps to `guard_.dismiss()`, `is_armed()` maps to `guard_.is_active()`, and the destructor is implicit — `guard_`'s own destructor fires the cleanup if it has not been dismissed. The teaching point is that the staging layer's value is not more metaprogramming. It is API contracts that prevent misuse: `DeviceInput` prevents accidental writes, `DeviceOutput` validates shapes, `DeviceInOut` enforces mutability, and `DeviceScope` prevents forgotten copy-backs. The TMP exists to compute the right types. The wrappers exist to enforce the right behavior.
+No TMP. No type traits. No recursive templates. `DeviceScope` is pure lifecycle management — it delegates the armed/dismiss/destructor pattern to `ulib::ScopeGuard` (from `ScopeGuard.h`) rather than reimplementing it with a raw `bool` flag. A named `Cleanup` functor holds a pointer to `mInout` and performs the fence + copyBack; it must be a named type (not a lambda) because `ScopeGuard` is templated on the callable type, and lambdas cannot be used as class data members. The `disarm()` method maps to `mGuard.dismiss()`, `isArmed()` maps to `mGuard.isActive()`, and the destructor is implicit — `mGuard`'s own destructor fires the cleanup if it has not been dismissed. The teaching point is that the staging layer's value is not more metaprogramming. It is API contracts that prevent misuse: `DeviceInput` prevents accidental writes, `DeviceOutput` validates shapes, `DeviceInOut` enforces mutability, and `DeviceScope` prevents forgotten copy-backs. The TMP exists to compute the right types. The wrappers exist to enforce the right behavior.
 
 ---
 
@@ -822,21 +844,21 @@ A complete Kokkos data staging library with four components, each for a differen
 | Wrapper | Data flow | Host buffer must outlive? | Copy direction |
 |---------|-----------|--------------------------|----------------|
 | `DeviceInput` | Host → Device (read-only) | No | host→device on construction |
-| `DeviceOutput` | Device → Host (write-only) | No (destination at copy time) | device→host on `copy_to()` |
+| `DeviceOutput` | Device → Host (write-only) | No (destination at copy time) | device→host on `copyTo()` |
 | `DeviceInOut` | Host ↔ Device (read-write) | Yes | Both directions, manually |
 | `DeviceScope` | Host ↔ Device (scoped) | Yes | host→device on construction, device→host on destruction (or `commit()`) |
 
-The TMP machinery is the same across all four — Peeler, KokkosDataType, DeviceViewType. The wrappers differ only in lifecycle semantics (which copies happen when) and API constraints (const views for input, no copy_back for input, no host source for output, armed/disarmed for scope).
+The TMP machinery is the same across all four — Peeler, KokkosDataType, DeviceViewType. The wrappers differ only in lifecycle semantics (which copies happen when) and API constraints (const views for input, no copyBack for input, no host source for output, armed/disarmed for scope). The `makeDeviceOutputLike` factory clones an existing view's shape for output allocation without requiring the user to repeat type and extent parameters.
 
 | Phase | What It Does | TMP Used | ArrayView Machinery Reused |
 |-------|-------------|----------|---------------------------|
 | 1. DeviceViewType | Compute Kokkos::View type | Type composition | KokkosDataType_t |
-| 2. DeviceInOut | RAII lifecycle wrapper | Template deduction | ArrayView::to_kokkos() |
+| 2. DeviceInOut | RAII lifecycle wrapper | Template deduction | ArrayView::toKokkos() |
 | 3. Factory | One-line construction | Peeler via makeArrayView | makeArrayView, Peeler |
 | 4. Dynamic extents | Runtime-sized data | No new TMP pattern — same `index_sequence` expansion | `createDeviceView` via `rank_dynamic_v`, `extent()` |
 | 5. Shape mismatch | Identify the design problem | — | — |
 | 6. DeviceInput | Read-only input staging | Const propagation in DataType | KokkosDataType_t with const T |
-| 7. DeviceOutput | Arbitrary-shape output | Explicit dims + constrained constructors | all_static_v, rank_dynamic_v |
+| 7. DeviceOutput | Arbitrary-shape output + `makeDeviceOutputLike` shape cloning | Explicit dims + constrained constructors | all_static_v, rank_dynamic_v |
 | 8. DeviceScope | Scoped copy-back with disarm | No TMP — pure lifecycle | DeviceInOut (composition), ScopeGuard |
 
 The final lesson: Phases 5 and 8 were not TMP problems — they were API design problems. The TMP machinery from Phases 1–4 was already correct and general. The fixes were separating responsibilities into wrappers with different lifecycle contracts and delegating scope-guard semantics to a reusable `ScopeGuard` utility rather than hand-rolling `bool` flags and destructors. Knowing when TMP is *not* the answer is as important as knowing how to write it.
@@ -847,7 +869,7 @@ These three wrappers are **staging helpers for discrete transfers**: take host d
 
 They are *not* a replacement for `Kokkos::DualView`. `DualView` manages persistent mirrored host/device state with explicit `modify()` and `sync()` tracking — it knows which side was last written and only copies when necessary. If your data lives across many kernel launches and bounces back and forth between host and device over the lifetime of a simulation, `DualView` is the right tool. The staging wrappers here are for the common case where host data enters the device pipeline once, gets transformed, and comes back.
 
-The most likely misuse is reaching for `DeviceInOut` everywhere because it feels "safe and general." It is not — it hides directionality, encourages unnecessary `copy_back()` calls, and prevents const-correctness from doing its job. Prefer `DeviceInput` for read-only staging, `DeviceOutput` for results with different shapes, and `DeviceScope` when you want guaranteed copy-back tied to a lexical scope. Use `DeviceInOut` only when you need manual control over when `copy_back()` and `copy_to_device()` happen.
+The most likely misuse is reaching for `DeviceInOut` everywhere because it feels "safe and general." It is not — it hides directionality, encourages unnecessary `copyBack()` calls, and prevents const-correctness from doing its job. Prefer `DeviceInput` for read-only staging, `DeviceOutput` for results with different shapes, and `DeviceScope` when you want guaranteed copy-back tied to a lexical scope. Use `DeviceInOut` only when you need manual control over when `copyBack()` and `copyToDevice()` happen.
 
 ---
 
