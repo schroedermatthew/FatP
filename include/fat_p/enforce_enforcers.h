@@ -49,6 +49,7 @@ FATP_META:
 #include <utility>
 
 #include "ContractException.h"
+#include "DiagnosticContext.h"
 #include "enforce_raisers.h"
 #include "Stringify.h"
 
@@ -187,6 +188,11 @@ private:
         {
             full_message += "\n\tMessage: ";
             full_message += mUserMessage;
+        }
+        if (DiagnosticContext::hasContext())
+        {
+            full_message += "\n\tContext: ";
+            full_message += DiagnosticContext::formatCurrent();
         }
 
         Raiser::fail(full_message);

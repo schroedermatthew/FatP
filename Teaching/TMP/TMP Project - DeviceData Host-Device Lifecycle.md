@@ -30,20 +30,20 @@ Kokkos::deep_copy(hostView, deviceView);
 
 Steps 2–4 and 6 are pure boilerplate. The DataType must match between host and device views. The deep_copy calls must be in the right order. The device view must be constructed with the right memory space. Every project repeats this pattern hundreds of times, and getting any piece wrong is a compile error at best, silent data corruption at worst.
 
-This project builds a `DeviceData` wrapper that reduces the ceremony to:
+This project builds a `DeviceInOut` wrapper that reduces the ceremony to:
 
 ```cpp
 double matrix[64][64];
 fill_matrix(matrix);
 
-auto device = make_device_data(matrix, "matrix"); // Steps 2-4 in one line
+auto device = make_device_inout(matrix, "matrix"); // Steps 2-4 in one line
 run_kernel(device.view());                    // Step 5
 device.copy_back();                           // Step 6 — matrix is updated
 ```
 
 ## What You Will Build
 
-A `DeviceData<ArrayType>` that:
+A `DeviceInOut<ArrayType>` that:
 
 1. Deduces the array dimensions from a C array (reuses Peeler)
 2. Computes the Kokkos DataType at compile time (reuses KokkosDataType)
@@ -145,7 +145,7 @@ The `host_mirror` type keeps `const` on the element type (if the source array wa
 
 ---
 
-## Phase 2: DeviceData — The RAII Wrapper
+## Phase 2: DeviceInOut — The RAII Wrapper
 
 ### The Problem
 
@@ -171,14 +171,14 @@ namespace bridge {
 template<typename ArrayViewT,
          typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space>
-class DeviceData;
+class DeviceInOut;
 
 // Partial specialization: extract T and Dims... from the ArrayView type
 template<typename T, std::size_t... Dims, typename Layout, typename Space>
-class DeviceData<ulib::ArrayView<T, Dims...>, Layout, Space>
+class DeviceInOut<ulib::ArrayView<T, Dims...>, Layout, Space>
 {
     static_assert(!std::is_const_v<T>,
-        "DeviceData requires mutable host data (for copy_back). "
+        "DeviceInOut requires mutable host data (for copy_back). "
         "Use DeviceInput for const/read-only host data.");
 
     using ArrayViewT = ulib::ArrayView<T, Dims...>;
@@ -190,7 +190,7 @@ public:
     using element_type     = T;
 
     // Construct from an ArrayView — allocate device memory + copy
-    explicit DeviceData(ArrayViewT hostView, const std::string& label = "DeviceData")
+    explicit DeviceInOut(ArrayViewT hostView, const std::string& label = "DeviceInOut")
         : hostView_(hostView)
         , deviceView_(createDeviceView(hostView, label))
     {
@@ -245,11 +245,11 @@ private:
 
 ### What to Notice
 
-`DeviceData` stores the `ArrayView` (not a copy of the data — the view is non-owning). This means the original host array must outlive the `DeviceData` object. `copy_back()` writes directly into the original host array through the stored view.
+`DeviceInOut` stores the `ArrayView` (not a copy of the data — the view is non-owning). This means the original host array must outlive the `DeviceInOut` object. `copy_back()` writes directly into the original host array through the stored view.
 
-> **⚠️ Lifetime hazard.** `DeviceData` stores a non-owning view of the host buffer. If the host buffer is destroyed before `copy_back()` is called — because it was a temporary, a short-lived stack object, or a borrowed buffer whose owner deallocated it — the `copy_back()` writes through a dangling pointer. This is silent data corruption, not a crash. The same hazard applies to `DeviceInOut`. `DeviceInput` is safer in this regard: it copies host data into device memory on construction and does not retain a host reference, so the host buffer can go out of scope after construction without consequence.
+> **⚠️ Lifetime hazard.** `DeviceInOut` stores a non-owning view of the host buffer. If the host buffer is destroyed before `copy_back()` is called — because it was a temporary, a short-lived stack object, or a borrowed buffer whose owner deallocated it — the `copy_back()` writes through a dangling pointer. This is silent data corruption, not a crash. `DeviceInput` is safer in this regard: it copies host data into device memory on construction and does not retain a host reference, so the host buffer can go out of scope after construction without consequence.
 
-The `static_assert(!std::is_const_v<T>)` enforces a contract: `DeviceData` is for mutable host data only, because `copy_back()` must be able to write through the stored view. Const host data should go through `DeviceInput` (Phase 6), which has no `copy_back()` and presents a const device view. This mutability split aligns the type system with the data-flow direction: writable host buffer → bidirectional staging (`DeviceData`), read-only host buffer → one-way staging (`DeviceInput`).
+The `static_assert(!std::is_const_v<T>)` enforces a contract: `DeviceInOut` is for mutable host data only, because `copy_back()` must be able to write through the stored view. Const host data should go through `DeviceInput` (Phase 6), which has no `copy_back()` and presents a const device view. This mutability split aligns the type system with the data-flow direction: writable host buffer → bidirectional staging (`DeviceInOut`), read-only host buffer → one-way staging (`DeviceInput`).
 
 The `createDeviceView` helper uses the same `index_sequence` expansion pattern as `ExtentStorage::apply`: it generates an index sequence of length `rank_dynamic_v<Dims...>` and expands `hostView.extent(Is)...` to forward only the dynamic extents. For all-static views, the index sequence is empty and the Kokkos::View constructor receives only the label. For `ArrayView<double, dynamic_extent, 3>` with 5 rows, the expansion produces `device_view_type(label, 5)` — forwarding the one runtime extent.
 
@@ -261,39 +261,39 @@ This is why the class must be specialized on `ArrayView<T, Dims...>`: the `creat
 
 ### The Problem
 
-The user should be able to write `make_device_data(matrix, "grid")` where `matrix` is a C array. The factory must deduce the ArrayView type from the array type, then construct the `DeviceData` with the correct template parameters.
+The user should be able to write `make_device_inout(matrix, "grid")` where `matrix` is a C array. The factory must deduce the ArrayView type from the array type, then construct the `DeviceInOut` with the correct template parameters.
 
 ### Pattern
 
-A factory function that calls `makeArrayView` (which uses Peeler internally) to produce the ArrayView, then forwards it to `DeviceData`. A CTAD guide on `DeviceData` itself would also work, but chaining Peeler into a deduction guide is verbose — the factory is clearer and gives us a natural place for the label parameter and the mutability constraint.
+A factory function that calls `makeArrayView` (which uses Peeler internally) to produce the ArrayView, then forwards it to `DeviceInOut`. A CTAD guide on `DeviceInOut` itself would also work, but chaining Peeler into a deduction guide is verbose — the factory is clearer and gives us a natural place for the label parameter and the mutability constraint.
 
 ### Solution
 
 ```cpp
 namespace bridge {
 
-// Factory: C array → DeviceData (mutable arrays only — use make_device_input for const)
+// Factory: C array → DeviceInOut (mutable arrays only — use make_device_input for const)
 template<typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
          typename Array>
     requires (std::is_array_v<Array>
               && !std::is_const_v<std::remove_all_extents_t<Array>>)
-auto make_device_data(Array& arr, const std::string& label = "DeviceData")
+auto make_device_inout(Array& arr, const std::string& label = "DeviceInOut")
 {
     auto view = ulib::makeArrayView(arr);
     using ViewType = decltype(view);
-    return DeviceData<ViewType, Layout, Space>(view, label);
+    return DeviceInOut<ViewType, Layout, Space>(view, label);
 }
 
-// Factory: ArrayView → DeviceData (mutable element type only)
+// Factory: ArrayView → DeviceInOut (mutable element type only)
 template<typename Layout = Kokkos::LayoutRight,
          typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
          typename T, std::size_t... Dims>
     requires (!std::is_const_v<T>)
-auto make_device_data(ulib::ArrayView<T, Dims...> view,
-                      const std::string& label = "DeviceData")
+auto make_device_inout(ulib::ArrayView<T, Dims...> view,
+                      const std::string& label = "DeviceInOut")
 {
-    return DeviceData<ulib::ArrayView<T, Dims...>, Layout, Space>(view, label);
+    return DeviceInOut<ulib::ArrayView<T, Dims...>, Layout, Space>(view, label);
 }
 
 } // namespace bridge
@@ -309,7 +309,7 @@ void compute()
     initialize_grid(grid);
 
     // One line: wrap, allocate device, copy host→device
-    auto device = bridge::make_device_data(grid, "grid");
+    auto device = bridge::make_device_inout(grid, "grid");
 
     // Run kernel on device data
     auto dv = device.view();
@@ -329,7 +329,7 @@ Compare with the six-step ceremony from the introduction. Steps 2, 3, 4, and 6 a
 
 ### What to Notice
 
-`make_device_data` calls `makeArrayView` (which uses Peeler internally) to produce the ArrayView, then constructs `DeviceData` with the deduced ArrayView type. The type chain is: C array type → Peeler → ArrayView type → KokkosDataType → Kokkos DataType → Kokkos::View type. Four TMP traits, chained at compile time, producing the correct device view type with zero runtime overhead.
+`make_device_inout` calls `makeArrayView` (which uses Peeler internally) to produce the ArrayView, then constructs `DeviceInOut` with the deduced ArrayView type. The type chain is: C array type → Peeler → ArrayView type → KokkosDataType → Kokkos DataType → Kokkos::View type. Four TMP traits, chained at compile time, producing the correct device view type with zero runtime overhead.
 
 The factory has two overloads: one for C arrays (calls `makeArrayView`), one for pre-existing ArrayViews. This lets users who already have an ArrayView skip the Peeler step.
 
@@ -346,16 +346,16 @@ size_t nx = config.get("nx");
 size_t ny = config.get("ny");
 double* buffer = allocate_grid(nx, ny);
 
-// How do we make DeviceData from this?
+// How do we make DeviceInOut from this?
 ```
 
 ### Solution
 
-The user constructs an ArrayView with dynamic extents, then passes it to `make_device_data`:
+The user constructs an ArrayView with dynamic extents, then passes it to `make_device_inout`:
 
 ```cpp
 ulib::ArrayView<double, ulib::dynamic_extent, ulib::dynamic_extent> grid(buffer, nx, ny);
-auto device = bridge::make_device_data(grid, "grid");
+auto device = bridge::make_device_inout(grid, "grid");
 ```
 
 This works because the `createDeviceView` helper in Phase 2 already handles the dynamic case. It uses `index_sequence` expansion over `rank_dynamic_v<Dims...>` to forward the runtime extents from the host ArrayView into the Kokkos::View constructor. For `ArrayView<double, dynamic_extent, dynamic_extent>` with extents `(nx, ny)`, the expansion produces `device_view_type(label, nx, ny)`. For all-static views, the expansion is empty and the constructor receives only the label.
@@ -364,17 +364,17 @@ No new TMP pattern was needed — the `createDeviceView` helper uses the same `i
 
 ### What to Notice
 
-The all-static and all-dynamic cases use the same `DeviceData` class, the same factory, and the same copy methods. The type system handles both: static extents are encoded in the DataType template parameter, dynamic extents are forwarded at runtime by `createDeviceView`. The user does not choose a "static mode" or "dynamic mode" — the template machinery selects the right behavior based on the ArrayView type.
+The all-static and all-dynamic cases use the same `DeviceInOut` class, the same factory, and the same copy methods. The type system handles both: static extents are encoded in the DataType template parameter, dynamic extents are forwarded at runtime by `createDeviceView`. The user does not choose a "static mode" or "dynamic mode" — the template machinery selects the right behavior based on the ArrayView type.
 
-This is the payoff of the mixed-extent design in ArrayView. If ArrayView only supported all-static extents (like CArrayView), `DeviceData` would need a separate code path for runtime-sized data. The mixed-extent machinery eliminates that bifurcation.
+This is the payoff of the mixed-extent design in ArrayView. If ArrayView only supported all-static extents (like CArrayView), `DeviceInOut` would need a separate code path for runtime-sized data. The mixed-extent machinery eliminates that bifurcation.
 
 ---
 
 ## Phase 5: The Shape Mismatch Problem
 
-### What Is Wrong With DeviceData
+### What Is Wrong With DeviceInOut
 
-`DeviceData` assumes in-place computation: the output has the same shape as the input, and results are copied back to the same buffer. This covers element-wise operations (scaling, normalization, thresholding) but fails for anything where the output shape differs from the input:
+`DeviceInOut` assumes in-place computation: the output has the same shape as the input, and results are copied back to the same buffer. This covers element-wise operations (scaling, normalization, thresholding) but fails for anything where the output shape differs from the input:
 
 - Matrix multiply: `[M×K]` × `[K×N]` → `[M×N]`
 - Reductions: `[N]` → scalar, or `[M×N]` → `[M]`
@@ -382,7 +382,7 @@ This is the payoff of the mixed-extent design in ArrayView. If ArrayView only su
 - Convolutions: `[H×W]` input → `[(H-K+1)×(W-K+1)]` output
 - Reshaping: `[M×N]` → `[N×M]` (same data, different view)
 
-The problem is that `DeviceData` conflates three roles: staging input data, providing device workspace, and staging output data. When input and output have different shapes, these roles must be separated.
+The problem is that `DeviceInOut` conflates three roles: staging input data, providing device workspace, and staging output data. When input and output have different shapes, these roles must be separated.
 
 ### The Fix: Three Separate Wrappers
 
@@ -392,7 +392,7 @@ The problem is that `DeviceData` conflates three roles: staging input data, prov
 | `DeviceOutput` | Write-only output staging | Yes | No | On request | Destination provided at copy time |
 | `DeviceInOut` | In-place read-write | Yes | On construction | On request | Yes (same buffer for both) |
 
-`DeviceInOut` is the renamed `DeviceData` from Phases 1–4. `DeviceInput` and `DeviceOutput` are the new pieces.
+`DeviceInOut` from Phases 1–4 continues unchanged. `DeviceInput` and `DeviceOutput` are the new pieces.
 
 ---
 
@@ -412,7 +412,7 @@ Without const, a kernel could accidentally write to the input view and the compi
 
 ### Solution
 
-The implementation needs access to the `Dims...` pack from the ArrayView type — both for `KokkosDataType_t` (which builds the DataType encoding) and for `createDeviceView` (which needs `rank_dynamic_v<Dims...>` to forward dynamic extents). The pack is trapped inside the `ArrayViewT` type parameter and cannot be accessed from the primary template. The fix is the same as `DeviceData` in Phase 2: declare a primary template as a forward declaration, then provide a partial specialization that pattern-matches `ArrayView<T, Dims...>` to extract the pack.
+The implementation needs access to the `Dims...` pack from the ArrayView type — both for `KokkosDataType_t` (which builds the DataType encoding) and for `createDeviceView` (which needs `rank_dynamic_v<Dims...>` to forward dynamic extents). The pack is trapped inside the `ArrayViewT` type parameter and cannot be accessed from the primary template. The fix is the same as `DeviceInOut` in Phase 2: declare a primary template as a forward declaration, then provide a partial specialization that pattern-matches `ArrayView<T, Dims...>` to extract the pack.
 
 ```cpp
 namespace bridge {
@@ -459,7 +459,7 @@ public:
 private:
     mutable_device_type deviceView_;
 
-    // Same pattern as DeviceData::createDeviceView — forward dynamic extents
+    // Same pattern as DeviceInOut::createDeviceView — forward dynamic extents
     static mutable_device_type createDeviceView(
         ulib::ArrayView<T, Dims...> hostView, const std::string& label)
     {
@@ -496,7 +496,7 @@ auto make_device_input(ulib::ArrayView<T, Dims...> view,
 
 The device view stores mutable data (Kokkos requires mutable views as deep_copy destinations), but `view()` returns a `const`-element view. The implicit conversion from `View<double[64][64]>` to `View<const double[64][64]>` is built into Kokkos — the same mutable-to-const promotion that ArrayView supports.
 
-The `createDeviceView` helper uses the same `index_sequence` expansion as `DeviceData::createDeviceView` — forwarding the dynamic extents from the host ArrayView to the device view constructor. This ensures `DeviceInput` works for dynamic shapes, not just all-static ones.
+The `createDeviceView` helper uses the same `index_sequence` expansion as `DeviceInOut::createDeviceView` — forwarding the dynamic extents from the host ArrayView to the device view constructor. This ensures `DeviceInput` works for dynamic shapes, not just all-static ones.
 
 The partial specialization `DeviceInput<ulib::ArrayView<T, Dims...>, Layout, Space>` is necessary both for `KokkosDataType_t` (which needs the `Dims...` pack) and for `createDeviceView` (which needs `rank_dynamic_v<Dims...>`). The dimension pack is trapped inside the `ArrayViewT` type and must be pattern-matched out.
 
@@ -708,57 +708,128 @@ The constructor has two overloads selected by a `requires` clause: one for all-s
 
 ---
 
-## Renaming DeviceData to DeviceInOut
+## Phase 8: DeviceScope — RAII and the Sharp Convenience
 
-The original `DeviceData` from Phases 1–4 is now `DeviceInOut` — same implementation, clearer name:
+### The Problem
+
+The most common mistake with `DeviceInOut` is forgetting to call `copy_back()`. The kernel runs, the device view has the results, and the function returns — but the host buffer is unchanged because nobody copied the data back. This is a silent correctness bug, not a crash.
+
+### The Fix: Destructor-Driven Copy-Back
+
+`DeviceScope` wraps `DeviceInOut` and calls `fence()` + `copy_back()` in its destructor:
 
 ```cpp
-namespace bridge {
-
-// DeviceInOut: same shape in and out, copies both directions
-template<typename ArrayViewT,
-         typename Layout = Kokkos::LayoutRight,
-         typename Space  = Kokkos::DefaultExecutionSpace::memory_space>
-using DeviceInOut = DeviceData<ArrayViewT, Layout, Space>;
-
-template<typename Layout = Kokkos::LayoutRight,
-         typename Space  = Kokkos::DefaultExecutionSpace::memory_space,
-         typename Array>
-    requires (std::is_array_v<Array>
-              && !std::is_const_v<std::remove_all_extents_t<Array>>)
-auto make_device_inout(Array& arr, const std::string& label = "DeviceInOut")
 {
-    return make_device_data<Layout, Space>(arr, label);
-}
-
-} // namespace bridge
+    auto scope = device_scope(matrix, "matrix");
+    auto& dv = scope.view();
+    // ... run kernel on dv ...
+} // destructor: fence, then copy_back — matrix is updated
 ```
+
+The scope guard pattern is the same as `std::lock_guard`: acquire on construction, release on destruction, non-copyable and non-movable so ownership cannot leak.
+
+### Why Disarm Exists
+
+Destructor-driven copy-back is convenient but not neutral. Every scope exit — normal return, early return, exception — triggers the copy. That is wrong in at least two cases. First, if the kernel produced garbage (validation failed, error detected), copying garbage back into the host buffer is worse than not copying at all. Second, if you need the results before the scope ends (e.g., to decide what to do next), waiting for the destructor is too late.
+
+`disarm()` prevents copy-back on destruction. `commit()` copies back immediately and then disarms so the destructor is a no-op:
+
+```cpp
+{
+    auto scope = device_scope(matrix, "matrix");
+    run_kernel(scope.view());
+
+    if (!validate(scope.view())) {
+        scope.disarm();     // Don't copy garbage back
+        return error;       // Destructor runs but does nothing
+    }
+
+    scope.commit();         // Copy back now — matrix is updated
+    // ... use matrix for further host-side work ...
+} // Destructor runs but scope is already disarmed
+```
+
+### Solution
+
+```cpp
+template<typename T, std::size_t... Dims, typename Layout, typename Space>
+class DeviceScope<ArrayView<T, Dims...>, Layout, Space>
+{
+    static_assert(!std::is_const_v<T>,
+        "DeviceScope requires mutable host data.");
+
+    using InOut = DeviceInOut<ArrayView<T, Dims...>, Layout, Space>;
+
+public:
+    explicit DeviceScope(ArrayView<T, Dims...> hostView,
+                         const std::string& label = "DeviceScope")
+        : inout_(hostView, label)
+    {}
+
+    ~DeviceScope()
+    {
+        if (armed_) {
+            Kokkos::fence("DeviceScope destructor fence");
+            inout_.copy_back();
+        }
+    }
+
+    DeviceScope(const DeviceScope&) = delete;
+    DeviceScope& operator=(const DeviceScope&) = delete;
+    DeviceScope(DeviceScope&&) = delete;
+    DeviceScope& operator=(DeviceScope&&) = delete;
+
+    auto&       view()       noexcept { return inout_.view(); }
+    const auto& view() const noexcept { return inout_.view(); }
+
+    void disarm() noexcept { armed_ = false; }
+
+    void commit()
+    {
+        Kokkos::fence("DeviceScope commit fence");
+        inout_.copy_back();
+        armed_ = false;
+    }
+
+    bool is_armed() const noexcept { return armed_; }
+
+private:
+    InOut inout_;
+    bool armed_ = true;
+};
+```
+
+### What to Notice
+
+No TMP. No type traits. No recursive templates. `DeviceScope` is pure lifecycle management — a `bool` flag and a destructor. The teaching point is that the staging layer's value is not more metaprogramming. It is API contracts that prevent misuse: `DeviceInput` prevents accidental writes, `DeviceOutput` validates shapes, `DeviceInOut` enforces mutability, and `DeviceScope` prevents forgotten copy-backs. The TMP exists to compute the right types. The wrappers exist to enforce the right behavior.
 
 ---
 
 ## What You Built
 
-A complete Kokkos data staging library with three wrappers, each for a different data-flow pattern:
+A complete Kokkos data staging library with four components, each for a different data-flow pattern:
 
-| Wrapper | Data flow | Host buffer needed at construction? | Copy direction |
-|---------|-----------|-------------------------------------|----------------|
-| `DeviceInput` | Host → Device (read-only) | Yes (source) | host→device on construction |
-| `DeviceOutput` | Device → Host (write-only) | No (shape specified explicitly) | device→host on `copy_to()` |
-| `DeviceInOut` | Host ↔ Device (read-write) | Yes (source and destination) | Both directions |
+| Wrapper | Data flow | Host buffer must outlive? | Copy direction |
+|---------|-----------|--------------------------|----------------|
+| `DeviceInput` | Host → Device (read-only) | No | host→device on construction |
+| `DeviceOutput` | Device → Host (write-only) | No (destination at copy time) | device→host on `copy_to()` |
+| `DeviceInOut` | Host ↔ Device (read-write) | Yes | Both directions, manually |
+| `DeviceScope` | Host ↔ Device (scoped) | Yes | host→device on construction, device→host on destruction (or `commit()`) |
 
-The TMP machinery is the same across all three — Peeler, KokkosDataType, DeviceViewType. The wrappers differ only in lifecycle semantics (which copies happen when) and API constraints (const views for input, no copy_back for input, no host source for output).
+The TMP machinery is the same across all four — Peeler, KokkosDataType, DeviceViewType. The wrappers differ only in lifecycle semantics (which copies happen when) and API constraints (const views for input, no copy_back for input, no host source for output, armed/disarmed for scope).
 
 | Phase | What It Does | TMP Used | ArrayView Machinery Reused |
 |-------|-------------|----------|---------------------------|
 | 1. DeviceViewType | Compute Kokkos::View type | Type composition | KokkosDataType_t |
-| 2. DeviceData | RAII lifecycle wrapper | Template deduction | ArrayView::to_kokkos() |
+| 2. DeviceInOut | RAII lifecycle wrapper | Template deduction | ArrayView::to_kokkos() |
 | 3. Factory | One-line construction | Peeler via makeArrayView | makeArrayView, Peeler |
 | 4. Dynamic extents | Runtime-sized data | No new TMP pattern — same `index_sequence` expansion | `createDeviceView` via `rank_dynamic_v`, `extent()` |
 | 5. Shape mismatch | Identify the design problem | — | — |
 | 6. DeviceInput | Read-only input staging | Const propagation in DataType | KokkosDataType_t with const T |
 | 7. DeviceOutput | Arbitrary-shape output | Explicit dims + constrained constructors | all_static_v, rank_dynamic_v |
+| 8. DeviceScope | Scoped copy-back with disarm | No TMP — pure lifecycle | DeviceInOut (composition) |
 
-The final lesson: the shape mismatch problem (Phase 5) was not a TMP problem — it was an API design problem. The TMP machinery from Phases 1–4 was already correct and general. The fix was separating responsibilities into three wrappers with different lifecycle contracts, not writing new template traits. Knowing when TMP is *not* the answer is as important as knowing how to write it.
+The final lesson: Phases 5 and 8 were not TMP problems — they were API design problems. The TMP machinery from Phases 1–4 was already correct and general. The fixes were separating responsibilities into wrappers with different lifecycle contracts and adding a scope guard with cancellation. Knowing when TMP is *not* the answer is as important as knowing how to write it.
 
 ### Where These Wrappers Belong — and Where They Don't
 
@@ -766,7 +837,7 @@ These three wrappers are **staging helpers for discrete transfers**: take host d
 
 They are *not* a replacement for `Kokkos::DualView`. `DualView` manages persistent mirrored host/device state with explicit `modify()` and `sync()` tracking — it knows which side was last written and only copies when necessary. If your data lives across many kernel launches and bounces back and forth between host and device over the lifetime of a simulation, `DualView` is the right tool. The staging wrappers here are for the common case where host data enters the device pipeline once, gets transformed, and comes back.
 
-The most likely misuse is reaching for `DeviceInOut` everywhere because it feels "safe and general." It is not — it hides directionality, encourages unnecessary `copy_back()` calls, and prevents const-correctness from doing its job. Prefer `DeviceInput` for read-only staging and `DeviceOutput` for results with different shapes. Use `DeviceInOut` only when the kernel genuinely modifies data in place and the results go back to the same host buffer.
+The most likely misuse is reaching for `DeviceInOut` everywhere because it feels "safe and general." It is not — it hides directionality, encourages unnecessary `copy_back()` calls, and prevents const-correctness from doing its job. Prefer `DeviceInput` for read-only staging, `DeviceOutput` for results with different shapes, and `DeviceScope` when you want guaranteed copy-back tied to a lexical scope. Use `DeviceInOut` only when you need manual control over when `copy_back()` and `copy_to_device()` happen.
 
 ---
 
