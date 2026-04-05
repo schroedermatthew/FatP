@@ -248,6 +248,8 @@ private:
 `DeviceInOut` stores the `ArrayView` (not a copy of the data — the view is non-owning). This means the original host array must outlive the `DeviceInOut` object. `copy_back()` writes directly into the original host array through the stored view.
 
 > **⚠️ Lifetime hazard.** `DeviceInOut` stores a non-owning view of the host buffer. If the host buffer is destroyed before `copy_back()` is called — because it was a temporary, a short-lived stack object, or a borrowed buffer whose owner deallocated it — the `copy_back()` writes through a dangling pointer. This is silent data corruption, not a crash. `DeviceInput` is safer in this regard: it copies host data into device memory on construction and does not retain a host reference, so the host buffer can go out of scope after construction without consequence.
+>
+> **Mitigation:** If the host ArrayView was constructed with a `LifetimeToken` (see `LifetimeToken.h`), the `to_kokkos()` call inside `copy_back()` will assert in debug builds when the source buffer has been destroyed. This turns silent corruption into a debuggable assertion failure.
 
 The `static_assert(!std::is_const_v<T>)` enforces a contract: `DeviceInOut` is for mutable host data only, because `copy_back()` must be able to write through the stored view. Const host data should go through `DeviceInput` (Phase 6), which has no `copy_back()` and presents a const device view. This mutability split aligns the type system with the data-flow direction: writable host buffer → bidirectional staging (`DeviceInOut`), read-only host buffer → one-way staging (`DeviceInput`).
 
@@ -706,6 +708,8 @@ The constructor has two overloads selected by a `requires` clause: one for all-s
 
 `copy_to()` now validates the destination shape before copying. The `validateShape` helper uses two levels of checking. First, a `static_assert` verifies that the rank (number of dimensions) matches — this is always a compile-time check. Second, for all-static shapes, a `static_assert` with a fold expression (`(Dims == DDims) && ...`) verifies that every dimension matches at compile time. For dynamic shapes, a runtime `assert` compares each extent before `deep_copy` runs. This catches the most likely real bug — copying a 64×32 result into a 32×64 destination — at the earliest possible point.
 
+> **Production refinements.** The production `DeviceOutput` in `DeviceStaging.h` differs from the teaching version above in two ways. First, it takes `ArrayView<T, Dims...>` as the type parameter instead of `<T, Layout, Space, Dims...>`, matching the `<ArrayViewT, Layout, Space>` pattern used by `DeviceInput`, `DeviceInOut`, and `DeviceScope`. This avoids the awkward parameter order where `Layout` and `Space` sit between `T` and the dimensions. Second, the C-array `copy_to(Array&)` overload delegates to the `ArrayView` overload via `copy_to(makeArrayView(dest))` instead of duplicating the validation logic.
+
 ---
 
 ## Phase 8: DeviceScope — RAII and the Sharp Convenience
@@ -760,20 +764,26 @@ class DeviceScope<ArrayView<T, Dims...>, Layout, Space>
 
     using InOut = DeviceInOut<ArrayView<T, Dims...>, Layout, Space>;
 
+    // Named functor so ScopeGuard has a concrete type for the member.
+    // noexcept: fence/deep_copy can in principle throw on backend
+    // errors, which would call std::terminate via the guard's default
+    // policy — same behaviour as the implicit noexcept destructor.
+    struct Cleanup {
+        InOut* inout;
+        void operator()() const noexcept {
+            Kokkos::fence("DeviceScope destructor fence");
+            inout->copy_back();
+        }
+    };
+
 public:
     explicit DeviceScope(ArrayView<T, Dims...> hostView,
                          const std::string& label = "DeviceScope")
         : inout_(hostView, label)
+        , guard_(Cleanup{&inout_})
     {}
 
-    ~DeviceScope()
-    {
-        if (armed_) {
-            Kokkos::fence("DeviceScope destructor fence");
-            inout_.copy_back();
-        }
-    }
-
+    // Non-copyable, non-movable (RAII scope guard)
     DeviceScope(const DeviceScope&) = delete;
     DeviceScope& operator=(const DeviceScope&) = delete;
     DeviceScope(DeviceScope&&) = delete;
@@ -782,26 +792,26 @@ public:
     auto&       view()       noexcept { return inout_.view(); }
     const auto& view() const noexcept { return inout_.view(); }
 
-    void disarm() noexcept { armed_ = false; }
+    void disarm() noexcept { guard_.dismiss(); }
 
     void commit()
     {
         Kokkos::fence("DeviceScope commit fence");
         inout_.copy_back();
-        armed_ = false;
+        guard_.dismiss();
     }
 
-    bool is_armed() const noexcept { return armed_; }
+    bool is_armed() const noexcept { return guard_.is_active(); }
 
 private:
     InOut inout_;
-    bool armed_ = true;
+    ScopeGuard<Cleanup> guard_;
 };
 ```
 
 ### What to Notice
 
-No TMP. No type traits. No recursive templates. `DeviceScope` is pure lifecycle management — a `bool` flag and a destructor. The teaching point is that the staging layer's value is not more metaprogramming. It is API contracts that prevent misuse: `DeviceInput` prevents accidental writes, `DeviceOutput` validates shapes, `DeviceInOut` enforces mutability, and `DeviceScope` prevents forgotten copy-backs. The TMP exists to compute the right types. The wrappers exist to enforce the right behavior.
+No TMP. No type traits. No recursive templates. `DeviceScope` is pure lifecycle management — it delegates the armed/dismiss/destructor pattern to `ulib::ScopeGuard` (from `ScopeGuard.hpp`) rather than reimplementing it with a raw `bool` flag. A named `Cleanup` functor holds a pointer to `inout_` and performs the fence + copy_back; it must be a named type (not a lambda) because `ScopeGuard` is templated on the callable type, and lambdas cannot be used as class data members. The `disarm()` method maps to `guard_.dismiss()`, `is_armed()` maps to `guard_.is_active()`, and the destructor is implicit — `guard_`'s own destructor fires the cleanup if it has not been dismissed. The teaching point is that the staging layer's value is not more metaprogramming. It is API contracts that prevent misuse: `DeviceInput` prevents accidental writes, `DeviceOutput` validates shapes, `DeviceInOut` enforces mutability, and `DeviceScope` prevents forgotten copy-backs. The TMP exists to compute the right types. The wrappers exist to enforce the right behavior.
 
 ---
 
@@ -827,9 +837,9 @@ The TMP machinery is the same across all four — Peeler, KokkosDataType, Device
 | 5. Shape mismatch | Identify the design problem | — | — |
 | 6. DeviceInput | Read-only input staging | Const propagation in DataType | KokkosDataType_t with const T |
 | 7. DeviceOutput | Arbitrary-shape output | Explicit dims + constrained constructors | all_static_v, rank_dynamic_v |
-| 8. DeviceScope | Scoped copy-back with disarm | No TMP — pure lifecycle | DeviceInOut (composition) |
+| 8. DeviceScope | Scoped copy-back with disarm | No TMP — pure lifecycle | DeviceInOut (composition), ScopeGuard |
 
-The final lesson: Phases 5 and 8 were not TMP problems — they were API design problems. The TMP machinery from Phases 1–4 was already correct and general. The fixes were separating responsibilities into wrappers with different lifecycle contracts and adding a scope guard with cancellation. Knowing when TMP is *not* the answer is as important as knowing how to write it.
+The final lesson: Phases 5 and 8 were not TMP problems — they were API design problems. The TMP machinery from Phases 1–4 was already correct and general. The fixes were separating responsibilities into wrappers with different lifecycle contracts and delegating scope-guard semantics to a reusable `ScopeGuard` utility rather than hand-rolling `bool` flags and destructors. Knowing when TMP is *not* the answer is as important as knowing how to write it.
 
 ### Where These Wrappers Belong — and Where They Don't
 
