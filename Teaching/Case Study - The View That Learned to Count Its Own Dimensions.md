@@ -7,14 +7,14 @@ topics: ["template metaprogramming", "CTAD deduction guides", "recursive type tr
 constraints: ["C++ type system limitations", "CTAD guide overload resolution", "void& hard error vs SFINAE", "cross-sub-array pointer arithmetic UB", "Kokkos DataType encoding"]
 cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-04-04"
+last_verified: "2026-04-05"
 audience: ["C++ developers", "template metaprogramming practitioners", "AI assistants"]
 status: "draft"
 ---
 
 # Case Study - The View That Learned to Count Its Own Dimensions
 
-## How a non-owning multidimensional array adapter forced every recursive TMP pattern into one header
+## How a non-owning multidimensional array adapter forced multiple compile-time patterns into one header
 
 ---
 
@@ -22,7 +22,7 @@ status: "draft"
 
 This case study follows the development of `ArrayView` from initial requirement through final design. It is organized as a development narrative: each stage presents a problem, shows the attempt that seemed reasonable, reveals the failure, and explains the mechanism behind the fix.
 
-The secondary purpose is to teach three recursive template metaprogramming patterns through the real engineering problems that demanded them. No prior TMP experience is assumed — each pattern is introduced when the problem that requires it first appears, and the recursion is unrolled step-by-step with concrete types.
+The secondary purpose is to teach three compile-time patterns — two recursive type-level techniques and one value-side mechanism — through the real engineering problems that demanded them. No prior TMP experience is assumed — each pattern is introduced when the problem that requires it first appears, and the recursion is unrolled step-by-step with concrete types.
 
 ## Not covered
 
@@ -126,7 +126,7 @@ This is what ArrayView provides. But building that compile-time trait required s
 
 Scientific and engineering code is full of multidimensional arrays. A CFD simulation has `double field[NX][NY][NZ]`. A sensor grid has `float readings[channels][samples]`. A rotation matrix is `double R[3][3]`. These arrays live on the stack, in static storage, or in heap buffers managed by legacy C code. They are contiguous in memory, their dimensions follow a regular pattern, and accessing them requires computing a linear offset from a multi-dimensional index.
 
-The requirement was a non-owning view — a lightweight object that wraps a pointer to existing data and provides type-safe, bounds-checked, multi-index access — with four specific capabilities.
+The requirement was a non-owning view — a lightweight object that wraps a pointer to existing data and provides type-safe, bounds-checked, multi-index access. ArrayView is fundamentally this ergonomic wrapper for contiguous C-array-style data; the Kokkos bridge is an important but secondary capability. The design needed four specific capabilities.
 
 First, it needed to support runtime-sized dimensions. A simulation grid whose dimensions come from a configuration file — `nx = config.get("nx")` — cannot have its dimensions baked into template parameters. The view must accept dimension values that are not known until the program runs.
 
@@ -497,7 +497,7 @@ When `First` is `3` (static), the compiler instantiates the dynamic branch `Kokk
 
 When `First` is `dynamic_extent` (= `SIZE_MAX`), the compiler instantiates the static branch `KokkosDataType<T, Rest...>::type[SIZE_MAX]`. This attempts to form an array of SIZE_MAX elements — approximately 18.4 quintillion entries. No compiler can represent this type. It is a hard error.
 
-The failure is insidious because it happens only when a dynamic dimension is present. A test with all-static dimensions works perfectly. The first time a user writes `ArrayView<double, dynamic_extent, 3>` and calls `to_kokkos()`, compilation fails with a wall of template instantiation errors.
+The failure is insidious because it happens only when a dynamic dimension is present. A test with all-static dimensions works perfectly. The first time a user writes `ArrayView<double, dynamic_extent, 3>` and calls `toKokkos()`, compilation fails with a wall of template instantiation errors.
 
 ### The Fix: Partial Specialization
 
@@ -847,7 +847,7 @@ The forthcoming P2590R0 (`std::start_lifetime_as`) will make cross-sub-array ari
 
 ## The Final State
 
-ArrayView ships as a single 594-line header with six TMP helpers in the `detail` namespace, eight CTAD deduction guides plus one fallback, one factory function, three element-access interfaces, and one Kokkos bridge.
+ArrayView ships as a single 874-line header with twelve `detail`-namespace helpers (five struct templates — `KokkosDataType`, `BuildArrayType`, `SafeArrayTypeImpl`, `ExtentStorage`, `Peeler` — plus `flatPtr`, `dropFirstExtent`, `checkedExtent`, `nth_pack_element`, `dynamic_slot`, `all_static_v`, and `rank_dynamic_v`), eight CTAD deduction guides plus one fallback, one factory function (`makeArrayView`, two overloads), three element-access interfaces (`operator()`, array-index `operator[]`, scalar `operator[]`), a Kokkos bridge (`toKokkos`), a rank-reducing `subview`, rank-1 iterators (`begin`/`end`), and rank-1 span convenience methods (`first`, `last`, `subspan`). The `toKokkos` bridge accepts a non-default `Layout` template parameter, but this does not make ArrayView itself layout-polymorphic — in those cases it acts purely as an export adapter for buffers that are already stored in the target layout (e.g. Fortran column-major data), and its own indexing, slicing, and stride operations should not be used as though they reflected the alternate layout.
 
 Every TMP pattern in the codebase exists because a specific requirement forced it. No pattern was chosen for elegance or generality — each was the minimum mechanism that solved the problem without the failures discovered in Stages 2–8.
 
