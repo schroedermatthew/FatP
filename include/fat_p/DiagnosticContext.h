@@ -62,9 +62,11 @@ FATP_META:
  * call sites are required.
  */
 
+#include <cstddef>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 // Self-contained formatting by default.  Define FATP_DIAG_USE_STRINGIFY
 // before including this header to use fat_p::toString from Stringify.h

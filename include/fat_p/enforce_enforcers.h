@@ -108,7 +108,7 @@ struct MessageBuilder
     }
 };
 
-/// @brief A Raiser whose fail() is noexcept Ã¢â‚¬â€ used to derive the Enforcer
+/// @brief A Raiser whose fail() is noexcept -- used to derive the Enforcer
 /// destructor's noexcept specification automatically. Any raiser that marks
 /// its fail() noexcept will produce a noexcept Enforcer destructor.
 template <typename R>
@@ -214,6 +214,15 @@ public:
      * @brief Set diagnostic message (variadic version for complex messages).
      *
      * Uses ostringstream to format multiple arguments. Only called on failure.
+     *
+     * @note The formatted message is stored in a thread_local buffer.
+     * mUserMessage points into this buffer and is read by fail_impl()
+     * in the destructor.  This is safe for the intended macro pattern
+     * (one Enforcer temporary per statement, destroyed at the semicolon).
+     * If two failing Enforcers on the same thread both call operator()
+     * before either destructs, the second call overwrites the buffer
+     * the first is pointing at.  Do not hold multiple failing Enforcers
+     * alive simultaneously.
      */
     template <typename... Msgs>
     void operator()(Msgs&&... msgs)
