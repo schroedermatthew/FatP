@@ -271,6 +271,10 @@ ARCHITECTURE
       Body text (p): 17px
       Note panel text: 14px
       No tiny text. If you can't read it at arm's length, it's too small.
+    EXCEPTIONS: structural UI chrome elements are below 14px by design:
+      .hero-tag (12px), .top-link (12px), .callout-label (13px),
+      .companion-link (13px), .status-badge (11px, temporary).
+      These are spaced-caps labels and navigation links, not body text.
 
 STRUCTURE (Sections):
   Section 1: The pixel problem — SGI, fixed-function hardware, triangles,
@@ -1120,11 +1124,11 @@ window.addEventListener('scroll', function()
 
 
 /* ══════════════════════════════════════════════════════════════
-   ANIMATION BUTTON BAR — state-machine controller
+   ANIMATION BUTTON BAR – state-machine controller
    ══════════════════════════════════════════════════════════════
-   mode: 'idle'     — nothing running
-         'stepping' — one step playing out
-         'playing'  — full auto-play
+   mode: 'idle'     – nothing running
+         'stepping' – one step playing out
+         'playing'  – full auto-play
 
    Transition table:
      idle    + play  → playing  (onPlay)
@@ -1681,27 +1685,109 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       body: '<h4>What Poincar&eacute; was actually doing</h4>' +
         '<p>Henri Poincar&eacute;&rsquo;s <em>Analysis Situs</em> (1895) asked a ' +
         'question that sounds simple: when are two shapes &ldquo;the same&rdquo;? Not ' +
-        'geometrically identical &ndash; topologically equivalent. A coffee mug and a ' +
-        'donut are the same (both have one hole). A sphere and a donut are not.</p>' +
-        '<p>To answer this rigorously, Poincar&eacute; needed a finite description of ' +
-        'a surface that captured its essential structure. His approach: decompose the ' +
-        'surface into simple pieces &ndash; points, line segments, triangles, ' +
-        'tetrahedra &ndash; glued together along shared boundaries. These are ' +
-        '<em>simplices</em>, and a collection of them glued consistently is a ' +
-        '<em>simplicial complex</em>.</p>' +
-        '<p>The number of simplices of each dimension, and how they connect, encode ' +
-        'topological invariants. The Euler characteristic &chi; = V &minus; E + F ' +
-        '(vertices minus edges plus faces) is the most famous: &chi; = 2 for a sphere, ' +
-        '&chi; = 0 for a torus, regardless of how you triangulate them.</p>' +
+        'geometrically identical but <em>topologically equivalent</em>, meaning one can be ' +
+        'continuously deformed into the other by stretching, bending, and compressing, ' +
+        'so long as no holes are torn, cut, or closed.&ensp; A coffee mug and a ' +
+        'donut are the same (both have one hole).&ensp; A sphere and a donut are not.&ensp; ' +
+        'The hole is preserved throughout the deformation:</p>' +
+        '<div id="mugPlayer" style="position:relative;width:100%;max-width:400px;margin:12px auto;border-radius:4px;overflow:hidden;border:1px solid var(--b1);background:#000;">' +
+        '<video id="mugVid" loop muted playsinline style="width:100%;display:block;">' +
+        '<source src="artifacts/Mug_and_Torus_morph.mp4" type="video/mp4">' +
+        '</video>' +
+        '<div id="mugPlayBtn" onclick="document.getElementById(\'mugVid\').play();this.style.display=\'none\';" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;background:rgba(0,0,0,0.6);border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;">' +
+        '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><polygon points="8,5 20,12 8,19"/></svg>' +
+        '</div>' +
+        '</div>' +
+        '<h4>Looking for invariants</h4>' +
+        '<p>Euler had already shown in the 1750s that for any convex polyhedron, ' +
+        'V&thinsp;&minus;&thinsp;E&thinsp;+&thinsp;F&thinsp;=&thinsp;2 &ndash; vertices ' +
+        'minus edges plus faces always equals two.&ensp; This was a topological invariant: ' +
+        'a number that depends on the shape, not on how it is measured.&ensp; But a single ' +
+        'number is not enough to classify every surface.</p>' +
+        '<p>Poincar&eacute; wanted deeper invariants.&ensp; In his <em>Analysis Situs</em> ' +
+        'papers (1895&ndash;1904), he developed a framework for computing them: decompose a ' +
+        'surface into simple pieces &ndash; points, edges, triangles, tetrahedra &ndash; ' +
+        'glued along shared boundaries.&ensp; These pieces are <em>simplices</em>, and a ' +
+        'collection glued consistently is a <em>simplicial complex</em>.&ensp; From this ' +
+        'decomposition he defined <em>homology groups</em>, which count the holes in each ' +
+        'dimension: the number of connected components, the number of independent loops, ' +
+        'the number of enclosed cavities.&ensp; Euler&rsquo;s formula turned out to be a ' +
+        'shadow of this richer structure &ndash; &chi; is the alternating sum of the ' +
+        'Betti numbers (the ranks of the homology groups).</p>' +
+
+        '<canvas id="cvSimplex" width="700" height="400" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
+
+        '<p>For closed orientable ' +
+        '2-dimensional surfaces, &chi; is a complete classifier &ndash; it distinguishes ' +
+        'every surface from every other.</p>' +
+        '<p>But when Poincar&eacute; extended this program to 3-dimensional manifolds, ' +
+        '&chi; was not enough.&ensp; He discovered a 3-manifold &ndash; now called the ' +
+        'Poincar&eacute; homology sphere &ndash; that has the same homology invariants as ' +
+        'the ordinary 3-sphere but is topologically different.&ensp; The distinguishing ' +
+        'feature: its <em>fundamental group</em> (the set of distinct loops on the surface) ' +
+        'is nontrivial.&ensp; The 3-sphere has no such loops &ndash; every closed curve on ' +
+        'it can be continuously shrunk to a point.</p>' +
+        '<p>This led Poincar&eacute; to his famous conjecture: a closed 3-manifold where ' +
+        'every loop can be shrunk to a point must be the 3-sphere.&ensp; He could not prove ' +
+        'it.&ensp; The conjecture stood open for a century until Grigori Perelman proved it ' +
+        'in 2003 using Ricci flow &ndash; a technique from differential geometry, not ' +
+        'combinatorial topology.&ensp; Perelman earned and famously declined both the ' +
+        'Fields Medal and the Clay Millennium Prize.</p>' +
         '<h4>Why this is not a footnote</h4>' +
-        '<p>The claim &ldquo;any surface can be approximated by triangles&rdquo; is ' +
-        'not obvious. It is a theorem. Poincar&eacute; proved it for surfaces, and ' +
-        'later work extended it to higher dimensions (with complications &ndash; not ' +
-        'every manifold admits a triangulation in dimension 4 and above). The fact ' +
-        'that GPU hardware can represent any scene as a triangle mesh is not an ' +
-        'engineering convenience. It is backed by a century of mathematical results ' +
-        'that guarantee the representation is sufficient.</p>'
+        '<p>For 2-dimensional surfaces, triangulation is straightforward &ndash; if you can ' +
+        'approximate a surface with simplices, you can triangulate it.&ensp; The surprise ' +
+        'comes in higher dimensions: not every 4-manifold admits a triangulation at all.&ensp; ' +
+        'The fact that GPU hardware represents every scene as a triangle mesh works because ' +
+        'the surfaces being rendered are 2-dimensional, exactly the case where the ' +
+        'mathematics guarantees the representation is sufficient.</p>'
     },
+    'scanline': {
+      title: 'Scanline rasterization',
+      body:
+        '<h4>From CRT beam to algorithm</h4>' +
+        '<p>The CRT electron beam sweeps left to right, top to bottom, one horizontal ' +
+        'line at a time.&ensp; Early rasterizers were designed to produce pixels in exactly ' +
+        'this order &ndash; the algorithm and the display hardware shared the same access ' +
+        'pattern.&ensp; The name <em>scanline</em> is literal.</p>' +
+
+        '<h4>Edge walking</h4>' +
+        '<p>A triangle has three edges.&ensp; At any given scanline height y, at most two ' +
+        'edges cross that scanline &ndash; one on the left (the entry point) and one on the ' +
+        'right (the exit point).&ensp; The rasterizer fills every pixel between entry and exit.</p>' +
+        '<p>For a triangle edge from vertex A to vertex B, the x-intersection at scanline y is:</p>' +
+        '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
+        'x = x<sub>A</sub> + (y &minus; y<sub>A</sub>) &middot; (x<sub>B</sub> &minus; x<sub>A</sub>) / (y<sub>B</sub> &minus; y<sub>A</sub>)</p>' +
+        '<p>The ratio (x<sub>B</sub>&thinsp;&minus;&thinsp;x<sub>A</sub>) / (y<sub>B</sub>&thinsp;&minus;&thinsp;y<sub>A</sub>) ' +
+        'is constant for a straight edge &ndash; it is the inverse slope, 1/m.&ensp; ' +
+        'So stepping one scanline down requires only one addition per active edge:</p>' +
+        '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
+        'entry<sub>i+1</sub> = entry<sub>i</sub> + 1/m<sub>left</sub></p>' +
+        '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
+        'exit<sub>i+1</sub> = exit<sub>i</sub> + 1/m<sub>right</sub></p>' +
+        '<p>One addition per edge per scanline.&ensp; That is the efficiency &ndash; you never ' +
+        'recompute intersections from scratch, you accumulate.</p>' +
+
+        '<h4>The dependency chain</h4>' +
+        '<p>But accumulation is also the constraint.&ensp; Each scanline&rsquo;s entry and exit ' +
+        'depend on the previous scanline&rsquo;s values.&ensp; You cannot jump to scanline 200 ' +
+        'without computing scanlines 1 through 199 first, or falling back to the full ' +
+        'intersection formula.&ensp; That sequential dependency is what makes scanline ' +
+        'rasterization fundamentally serial.</p>' +
+        '<p>This was fine when the algorithm fed a CRT beam that consumed pixels in exactly ' +
+        'the same order.&ensp; It became a bottleneck when hardware moved to parallel ' +
+        'architectures that could test many pixels simultaneously &ndash; but only if each ' +
+        'pixel&rsquo;s test was independent of its neighbors.</p>' +
+
+        '<h4>History</h4>' +
+        '<p>Scanline algorithms appeared in the earliest polygon renderers of the 1960s ' +
+        'and 1970s.&ensp; Bresenham&rsquo;s line algorithm (1965) used the same incremental ' +
+        'integer arithmetic for lines.&ensp; Watkins (1970) and Bouknight (1970) extended ' +
+        'scanline methods to hidden-surface removal.&ensp; By the time of the Evans &amp; ' +
+        'Sutherland systems and early SGI hardware, scanline rasterization was the standard ' +
+        'approach &ndash; efficient, well-understood, and matched to the display technology ' +
+        'of the era.</p>'
+    },
+
     'pineda': {
       title: 'Pineda&rsquo;s edge function algorithm',
       body: '<figure style="margin:0 0 16px 0;text-align:center">' +
@@ -1711,12 +1797,31 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'Juan Pineda</figcaption></figure>' +
 
         '<h4>The problem before Pineda</h4>' +
-        '<p>Before 1988, most rasterizers used <em>scanline</em> algorithms: walk along ' +
-        'the triangle&rsquo;s edges top to bottom, compute where each horizontal scanline ' +
-        'enters and exits the triangle, fill the span between.&ensp; This works, but it is ' +
-        'inherently sequential &ndash; you process one scanline at a time, and the entry/exit ' +
-        'points depend on the edges above.&ensp; Parallelizing it requires careful coordination ' +
-        'between scanlines.</p>' +
+        '<p>Before 1988, most rasterizers used <em>scanline</em> algorithms.' +
+        ' <button class="notes-btn" data-note="scanline" onclick="window._openNotes(\'scanline\',false)">N</button>' +
+        '&ensp; The name ' +
+        'is literal &ndash; a CRT electron beam sweeps left to right, top to bottom, one ' +
+        'horizontal line at a time.&ensp; Scanline rasterization was designed to produce ' +
+        'pixels in exactly that order: walk the triangle&rsquo;s edges top to bottom, compute ' +
+        'where each horizontal scanline enters and exits the triangle, fill the span between.&ensp; ' +
+        'The algorithm and the display hardware shared the same access pattern.</p>' +
+        '<p>This worked well for CRTs, but it is inherently sequential &ndash; each scanline&rsquo;s ' +
+        'entry and exit points depend on the edges above, so you process one line at a time.&ensp; ' +
+        'Parallelizing it requires careful coordination between scanlines.</p>' +
+
+        '<canvas id="cvScanCar" width="700" height="420" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border-top:1px solid var(--b1);align-items:center;">' +
+        '<button id="btnScanPlay" onclick="window._scanCarPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button onclick="window._scanCarReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="btnScanSpd0" onclick="window._scanCarSpeed(1,0)" class="anim-btn" style="border:2px solid var(--amber);background:var(--amber);color:#07070a;">1x</button>' +
+        '<button id="btnScanSpd1" onclick="window._scanCarSpeed(2,1)" class="anim-btn">2x</button>' +
+        '<button id="btnScanSpd2" onclick="window._scanCarSpeed(4,2)" class="anim-btn">4x</button>' +
+        '</div>' +
+        '<div style="padding:4px 10px 8px;background:var(--s2);border-radius:0 0 4px 4px;min-height:20px;">' +
+        '<span id="lblScanCar" style="font:600 12px var(--mono);color:var(--fg3);">&nbsp;</span>' +
+        '</div>' +
 
         '<h4>Left and right</h4>' +
         '<p>The geometric test itself is old &ndash; the signed area of a triangle goes back to ' +
@@ -1745,7 +1850,29 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<h4>What operation gives &ldquo;left = positive&rdquo;?</h4>' +
         '<p>The animation shows the test: drive along an edge, check which side the point ' +
         'is on, call left positive and right negative.&ensp; The question is what arithmetic ' +
-        'does this cheaply.</p>' +
+        'does this cheaply.</p>'+
+
+        '<p>The animation below repeats the edge traversal, but this time, after each edge, '+
+        'it reveals the two vectors that the cross product operates on: the edge direction '+
+        '<b style="color:var(--amber)">e</b> and the direction to the test point '+
+        '<b>d</b>.&ensp; Rotating from <b style="color:var(--amber)">e</b> toward <b>d</b> '+
+        'sweeps counter-clockwise when the point is to the left, clockwise when to the right.</p>'+
+
+        '<canvas id="cvCrossVec" width="700" height="520" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border-top:1px solid var(--b1);align-items:center;">'+
+        '<button id="btnCrossPlay" onclick="window._crossVecPlay()" class="anim-btn">&#9654; Play</button>'+
+        '<button id="btnCrossStep" onclick="window._crossVecStep()" class="anim-btn">Step</button>'+
+        '<button onclick="window._crossVecReset()" class="anim-btn">&#8634; Reset</button>'+
+        '<span style="width:12px"></span>'+
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>'+
+        '<button id="xSpd0" onclick="window._crossVecSpeed(1,0)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>'+
+        '<button id="xSpd1" onclick="window._crossVecSpeed(2,1)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>'+
+        '<button id="xSpd2" onclick="window._crossVecSpeed(4,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">4x</button>'+
+        '</div>'+
+        '<div style="padding:4px 10px 8px;background:var(--s2);border-radius:0 0 4px 4px;min-height:20px;">'+
+        '<span id="lblCrossVec" style="font:600 12px var(--mono);color:var(--fg3);">&nbsp;</span>'+
+        '</div>'+
+
         '<p>Take one edge from v<sub>0</sub> to v<sub>1</sub> and a test point p.&ensp; ' +
         'Form two vectors from v<sub>0</sub>: the edge direction ' +
         '<b>e</b>&thinsp;=&thinsp;v<sub>1</sub>&thinsp;&minus;&thinsp;v<sub>0</sub> and ' +
@@ -1991,6 +2118,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'rasterEtymology',
     'sgiHistory',
     'poincare',
+    'scanline',
     'pineda',
     'carpenter',
     'teapot'
@@ -2001,6 +2129,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'rasterEtymology': 'Section 1 &ndash; The pixel problem',
     'sgiHistory': 'Section 1 &ndash; The pixel problem',
     'poincare': 'Section 1 &ndash; The pixel problem',
+    'scanline': 'Section 1 &ndash; The pixel problem',
     'pineda': 'Section 1 &ndash; The pixel problem',
     'carpenter': 'Section 1 &ndash; The pixel problem',
     'teapot': 'Section 1 &ndash; The pixel problem'
@@ -2118,7 +2247,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
 
 /* ══════════════════════════════════════════════════════════════
-   BLUR ANIMATION — for whyIndependent note
+   BLUR ANIMATION – for whyIndependent note
    ══════════════════════════════════════════════════════════════ */
 (function()
 {
@@ -2222,7 +2351,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     var mathX = MATH_X;
     var outLeft = OUT_LEFT, outTop = OUT_TOP;
 
-    // Labels — centered above each grid
+    // Labels – centered above each grid
     ctx.font = '600 15px ' + getComputedStyle(document.body).getPropertyValue('--mono');
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
@@ -2639,7 +2768,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   function step()
   {
     if (!outputGrid.length || blurKY >= ROWS) return;
-    // Compute blur using padded input — always 9 pixels
+    // Compute blur using padded input – always 9 pixels
     var sum = 0;
     for (var dy = -1; dy <= 1; dy++)
     {
@@ -2815,7 +2944,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
 
 /* ══════════════════════════════════════════════════════════════
-   FILTER COMPARISON WIDGET — same Σ wᵢpᵢ, different weights
+   FILTER COMPARISON WIDGET – same Σ wᵢpᵢ, different weights
    ══════════════════════════════════════════════════════════════ */
 (function()
 {
@@ -2919,11 +3048,11 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     var wLeft = inLeft + gridW + gap;
     var outLeft = wLeft + wGridW + gap;
 
-    // Weights grid position — centered vertically on the image grids
+    // Weights grid position – centered vertically on the image grids
     var wGridH = wCellSz * 3;
     var wTop = inTop + Math.floor((ROWS * CH - wGridH) / 2);
 
-    // Labels — centered above each grid
+    // Labels – centered above each grid
     ctx.font = '600 15px ' + mono;
     ctx.textAlign = 'center';
     ctx.fillStyle = '#ffffff';
@@ -2996,7 +3125,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     var ef = 17;
     var eFont = '600 ' + ef + 'px ' + mono;
 
-    // Build term strings (absolute value — sign handled by separators)
+    // Build term strings (absolute value – sign handled by separators)
     var tStr = [], tNeg = [];
     for (var i = 0; i < 9; i++)
     {
@@ -3143,7 +3272,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
 
 /* ══════════════════════════════════════════════════════════════
-   PROJECTION DEMO — Standard camera + perspective projection
+   PROJECTION DEMO – Standard camera + perspective projection
    ══════════════════════════════════════════════════════════════ */
 (function()
 {
@@ -3397,7 +3526,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 })();
 
 /* ══════════════════════════════════════════════════════════════
-   TRIANGLE PROJECTION ANIMATION — project mesh onto ground
+   TRIANGLE PROJECTION ANIMATION – project mesh onto ground
    ══════════════════════════════════════════════════════════════ */
 (function()
 {
@@ -3689,7 +3818,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 })();
 
 /* ══════════════════════════════════════════════════════════════
-   PIXEL CHECK ANIMATION — project triangles + test pixel coverage
+   PIXEL CHECK ANIMATION – project triangles + test pixel coverage
    ══════════════════════════════════════════════════════════════ */
 (function()
 {
@@ -3895,7 +4024,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       clipLine({x:g,y:0,z:gMin},{x:g,y:0,z:gMax});
     }
 
-    // Pixel marker — projected quad on ground plane (matches cvInterp/cvShade)
+    // Pixel marker – projected quad on ground plane (matches cvInterp/cvShade)
     var pp = proj(PIXEL_POS, cx, cy);
     if (pp)
     {
@@ -4033,7 +4162,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 })();
 
 /* ══════════════════════════════════════════════════════════════
-   INTERPOLATION SCENE — vertex normal computation (3 vertices)
+   INTERPOLATION SCENE – vertex normal computation (3 vertices)
    ══════════════════════════════════════════════════════════════ */
 (function()
 {
@@ -4853,14 +4982,14 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
           lamSrc.push({x:lcx,y:lcy});
         }
 
-        // Target equation positions — computed from element widths + gap
+        // Target equation positions – computed from element widths + gap
         var eqBaseY = H - 55;
         var gap = 10; // consistent gap between element edges
         var lamHW = 22; // lambda text half-width ("0.309" at 14px mono)
         var opHW = 6;   // operator half-width (× or + or =)
         var brkHW = 32; // bracket half-width (center to outer stroke)
 
-        // Build positions left-to-right from cursor — centered on canvas
+        // Build positions left-to-right from cursor – centered on canvas
         var eqContentW = gap + 3*(2*lamHW + gap + 2*brkHW) + 2*(gap + 2*opHW) + (gap + 2*opHW) + (gap + 2*brkHW);
         var labelW = 80; // approximate "p normal =" text width
         var cur = Math.round((W - labelW - eqContentW) / 2 + labelW);
@@ -5346,7 +5475,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
           ctx.beginPath();ctx.moveTo(ppx11,ppy11);ctx.lineTo(sp11[0].x,sp11[0].y);ctx.lineTo(sp11[1].x,sp11[1].y);ctx.closePath();ctx.fill();
           ctx.globalAlpha=1;
 
-          // Color column vectors + lambdas — only during vtxIdx 12, hidden during equation
+          // Color column vectors + lambdas – only during vtxIdx 12, hidden during equation
           var vecA11=(vtxIdx===12&&phase>=1)?((phase===1)?animT:1):0;
           if(vecA11>0.01){
           ctx.globalAlpha=vecA11;
@@ -5604,9 +5733,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   }
 
   /* ── State machine ──────────────────────────────────────────
-     mode: 'idle'     — nothing running, buttons free
-           'stepping' — step sequence playing out
-           'playing'  — full play-through running
+     mode: 'idle'     – nothing running, buttons free
+           'stepping' – step sequence playing out
+           'playing'  – full play-through running
 
      Transitions:
        idle    + play  → playing
@@ -6522,7 +6651,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     var pixCol=computeShadedColor(cx,cy);
     ctx.clearRect(0,0,W,H);
 
-    // Depth label (top left) — dynamic
+    // Depth label (top left) – dynamic
     ctx.font='600 20px '+mono;ctx.textAlign='left';
     var dbLabelX=30, dbPrefixW=ctx.measureText('depth buffer: ').width;
     ctx.fillStyle='#ffffff';
@@ -6689,7 +6818,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       } // end ray5Alpha
     }
 
-    // ── Step 6: blue depth comparison — discard ──────────
+    // ── Step 6: blue depth comparison – discard ──────────
     if(depthIdx >= 6)
     {
       var t6=(depthIdx===6)?depthAnimT:1;
@@ -6759,7 +6888,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       }
     }
 
-    // ── Step 9: purple depth comparison — overwrite ──────
+    // ── Step 9: purple depth comparison – overwrite ──────
     if(depthIdx >= 9)
     {
       var t9=(depthIdx===9)?depthAnimT:1;
@@ -7008,7 +7137,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         ctx.beginPath();ctx.arc(mp.x,mp.y,6,0,2*Math.PI);ctx.fill();
       }
 
-      // Equation display — single line, fades out during motion
+      // Equation display – single line, fades out during motion
       if(activeEq>=0 && animPhase>=10){
         var m=mids[activeEq];
         var subI=['\u2080','\u2081','\u2082'];
@@ -7169,6 +7298,330 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   };
 })();
 
+// ============ SIMPLICIAL COMPLEX DEMO ============
+(function(){
+  var simpRAF=null;
+
+  // Icosahedron vertices (unit sphere)
+  var phi=(1+Math.sqrt(5))/2;
+  var icoVerts=[
+    [-1,phi,0],[1,phi,0],[-1,-phi,0],[1,-phi,0],
+    [0,-1,phi],[0,1,phi],[0,-1,-phi],[0,1,-phi],
+    [phi,0,-1],[phi,0,1],[-phi,0,-1],[-phi,0,1]
+  ];
+  // Normalize to unit sphere
+  for(var i=0;i<icoVerts.length;i++){
+    var v=icoVerts[i],l=Math.sqrt(v[0]*v[0]+v[1]*v[1]+v[2]*v[2]);
+    icoVerts[i]=[v[0]/l,v[1]/l,v[2]/l];
+  }
+  var icoFaces=[
+    [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+    [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+    [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+    [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]
+  ];
+
+  // Torus mesh
+  var TU=12,TV=8;
+  var torVerts=[],torFaces=[];
+  var TR=1.2,Tr=0.45;
+  for(var i=0;i<TU;i++){
+    var u=i/TU*Math.PI*2;
+    for(var j=0;j<TV;j++){
+      var v=j/TV*Math.PI*2;
+      torVerts.push([
+        (TR+Tr*Math.cos(v))*Math.cos(u),
+        (TR+Tr*Math.cos(v))*Math.sin(u),
+        Tr*Math.sin(v)
+      ]);
+    }
+  }
+  for(var i=0;i<TU;i++){
+    for(var j=0;j<TV;j++){
+      var a=i*TV+j, b=i*TV+(j+1)%TV;
+      var c=((i+1)%TU)*TV+j, d=((i+1)%TU)*TV+(j+1)%TV;
+      torFaces.push([a,b,d]);
+      torFaces.push([a,d,c]);
+    }
+  }
+
+  // Count unique edges
+  function countEdges(faces){
+    var set={};
+    for(var i=0;i<faces.length;i++){
+      var f=faces[i];
+      for(var k=0;k<3;k++){
+        var a=f[k],b=f[(k+1)%3];
+        var key=Math.min(a,b)+'-'+Math.max(a,b);
+        set[key]=1;
+      }
+    }
+    return Object.keys(set).length;
+  }
+
+  var icoE=countEdges(icoFaces);
+  var torE=countEdges(torFaces);
+
+  function rotY(v,a){
+    var c=Math.cos(a),s=Math.sin(a);
+    return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];
+  }
+  function rotX(v,a){
+    var c=Math.cos(a),s=Math.sin(a);
+    return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];
+  }
+
+  function drawMesh(ctx,verts,faces,ox,oy,scale,angle,label,V,E,F,chi){
+    var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
+    // Transform vertices
+    var proj=[];
+    for(var i=0;i<verts.length;i++){
+      var p=rotX(rotY(verts[i],angle),0.4);
+      proj.push({x:ox+p[0]*scale, y:oy-p[2]*scale, z:p[1]});
+    }
+
+    // Sort faces back-to-front
+    var sorted=[];
+    for(var i=0;i<faces.length;i++){
+      var f=faces[i];
+      var avgZ=(proj[f[0]].z+proj[f[1]].z+proj[f[2]].z)/3;
+      // Face normal for shading
+      var ax=proj[f[1]].x-proj[f[0]].x, ay=proj[f[1]].y-proj[f[0]].y;
+      var bx=proj[f[2]].x-proj[f[0]].x, by=proj[f[2]].y-proj[f[0]].y;
+      var nz=ax*by-ay*bx;
+      sorted.push({f:f,z:avgZ,nz:nz});
+    }
+    sorted.sort(function(a,b){return a.z-b.z;});
+
+    // Draw faces
+    for(var i=0;i<sorted.length;i++){
+      var f=sorted[i].f;
+      var shade=Math.max(0.08,sorted[i].nz>0?0.15:0.08);
+      ctx.fillStyle='rgba(100,160,255,'+shade+')';
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(proj[f[0]].x,proj[f[0]].y);
+      ctx.lineTo(proj[f[1]].x,proj[f[1]].y);
+      ctx.lineTo(proj[f[2]].x,proj[f[2]].y);
+      ctx.closePath();
+      ctx.fill();ctx.stroke();
+    }
+
+    // Vertices
+    ctx.fillStyle='#ffffff';
+    for(var i=0;i<proj.length;i++){
+      ctx.beginPath();ctx.arc(proj[i].x,proj[i].y,2.5,0,Math.PI*2);ctx.fill();
+    }
+
+    // Labels
+    ctx.font='600 15px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';
+    ctx.fillText(label,ox,oy+scale+30);
+    ctx.font='500 13px '+mono;ctx.fillStyle='var(--fg3)';
+    ctx.fillText('V='+V+'  E='+E+'  F='+F,ox,oy+scale+48);
+    ctx.font='600 14px '+mono;ctx.fillStyle='var(--amber)';
+    ctx.fillText('\u03c7 = '+V+' \u2212 '+E+' + '+F+' = '+chi,ox,oy+scale+66);
+  }
+
+  function draw(){
+    var cv=document.getElementById('cvSimplex');if(!cv)return;
+    var ctx=cv.getContext('2d');
+    var W=cv.width,H=cv.height;
+    ctx.clearRect(0,0,W,H);
+
+    var angle=performance.now()*0.0006;
+
+    drawMesh(ctx,icoVerts,icoFaces,W*0.28,H*0.4,85,angle,
+      'Sphere',icoVerts.length,icoE,icoFaces.length,
+      icoVerts.length-icoE+icoFaces.length);
+
+    drawMesh(ctx,torVerts,torFaces,W*0.72,H*0.4,85,angle,
+      'Torus',torVerts.length,torE,torFaces.length,
+      torVerts.length-torE+torFaces.length);
+
+    simpRAF=requestAnimationFrame(draw);
+  }
+
+  // Hook into poincare note open/close
+  var origOpenS=window._openNotes;
+  window._openNotes=function(id,scroll){
+    origOpenS(id,scroll);
+    if(id==='poincare' && !simpRAF){
+      simpRAF=requestAnimationFrame(draw);
+    }
+  };
+  var origCloseS=window._closeNotes;
+  window._closeNotes=function(){
+    if(simpRAF){cancelAnimationFrame(simpRAF);simpRAF=null;}
+    origCloseS();
+  };
+})();
+
+// ============ SCANLINE CAR DEMO ============
+(function(){
+  var cv0={x:350,y:60}, cv1={x:120,y:360}, cv2={x:580,y:360};
+  var scanStep=20; // pixel height of each scanline
+  var scanLines=[]; // precompute scanline spans
+  // Compute scanline enter/exit for each row
+  var yMin=Math.ceil(cv0.y/scanStep)*scanStep;
+  var yMax=Math.floor(cv2.y/scanStep)*scanStep;
+  function edgeX(a,b,y){return a.x+(b.x-a.x)*(y-a.y)/(b.y-a.y);}
+  for(var y=yMin;y<=yMax;y+=scanStep){
+    var xs=[];
+    // Check each edge for intersection at this y
+    var edges=[[cv0,cv1],[cv1,cv2],[cv2,cv0]];
+    for(var i=0;i<3;i++){
+      var a=edges[i][0],b=edges[i][1];
+      if((a.y<=y&&b.y>y)||(b.y<=y&&a.y>y)){
+        xs.push(edgeX(a,b,y));
+      }
+    }
+    if(xs.length>=2){
+      xs.sort(function(a,b){return a-b;});
+      scanLines.push({y:y,x0:xs[0],x1:xs[1]});
+    }
+  }
+
+  var S='idle'; // idle, running, done
+  var carRAF=null, speedMul=1;
+  var curScan=0, scanT=0; // current scanline index, progress 0-1
+  var filledScans=[]; // indices of completed scanlines
+
+  function draw(){
+    var el=document.getElementById('cvScanCar');if(!el)return;
+    var ctx=el.getContext('2d');
+    var W=el.width,H=el.height;
+    var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
+    ctx.clearRect(0,0,W,H);
+
+    // Pixel grid
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<=W;gx+=scanStep){
+      ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();
+    }
+    for(var gy=0;gy<=H;gy+=scanStep){
+      ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();
+    }
+
+    // Triangle outline
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(cv0.x,cv0.y);ctx.lineTo(cv1.x,cv1.y);
+    ctx.lineTo(cv2.x,cv2.y);ctx.closePath();ctx.stroke();
+
+    // All scanline guides (faint)
+    ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+    for(var i=0;i<scanLines.length;i++){
+      var sl=scanLines[i];
+      ctx.beginPath();ctx.moveTo(sl.x0,sl.y);ctx.lineTo(sl.x1,sl.y);ctx.stroke();
+    }
+
+    // Filled scanlines (discrete pixel cells)
+    for(var i=0;i<filledScans.length;i++){
+      var sl=scanLines[filledScans[i]];
+      var px0=Math.ceil(sl.x0/scanStep)*scanStep;
+      var px1=Math.floor(sl.x1/scanStep)*scanStep;
+      ctx.fillStyle='rgba(100,160,255,0.25)';
+      for(var px=px0;px<px1;px+=scanStep){
+        ctx.fillRect(px,sl.y-scanStep/2,scanStep,scanStep);
+      }
+    }
+
+    // Current scanline being filled
+    if(S==='running' && curScan<scanLines.length){
+      var sl=scanLines[curScan];
+      var t=scanT;
+      var px0=Math.ceil(sl.x0/scanStep)*scanStep;
+      var px1=Math.floor(sl.x1/scanStep)*scanStep;
+      var totalPx=Math.floor((px1-px0)/scanStep);
+      var filledPx=Math.floor(t*totalPx);
+
+      // Active scanline highlight
+      ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(0,sl.y);ctx.lineTo(W,sl.y);ctx.stroke();
+
+      // Filled pixels so far
+      ctx.fillStyle='rgba(100,160,255,0.25)';
+      for(var p=0;p<filledPx;p++){
+        ctx.fillRect(px0+p*scanStep,sl.y-scanStep/2,scanStep,scanStep);
+      }
+
+      // Entry/exit markers
+      ctx.fillStyle='#f87171';
+      ctx.beginPath();ctx.arc(sl.x0,sl.y,4,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(sl.x1,sl.y,4,0,Math.PI*2);ctx.fill();
+      ctx.font='600 12px '+mono;ctx.fillStyle='#f87171';ctx.textAlign='center';
+      ctx.fillText('enter',sl.x0,sl.y-12);
+      ctx.fillText('exit',sl.x1,sl.y-12);
+    }
+
+    // Vertex labels
+    ctx.font='600 19px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';
+    ctx.fillText('v\u2080',cv0.x,cv0.y-16);
+    ctx.fillText('v\u2081',cv1.x-20,cv1.y+22);
+    ctx.fillText('v\u2082',cv2.x+20,cv2.y+22);
+
+    // Arrow showing top-to-bottom direction
+    if(S==='idle'){
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=2;
+      var ax=640,ay1=80,ay2=340;
+      ctx.beginPath();ctx.moveTo(ax,ay1);ctx.lineTo(ax,ay2);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(ax-6,ay2-10);ctx.lineTo(ax,ay2);ctx.lineTo(ax+6,ay2-10);ctx.stroke();
+      ctx.font='600 14px '+mono;ctx.fillStyle='#ffffff';
+      ctx.save();ctx.translate(ax+16,(ay1+ay2)/2);ctx.rotate(Math.PI/2);
+      ctx.fillText('scanline order',0,0);ctx.restore();
+    }
+
+    // Status
+    var lbl=document.getElementById('lblScanCar');
+    if(lbl){
+      if(S==='idle') lbl.textContent='Each scanline depends on edge intersections above';
+      else if(S==='running' && curScan<scanLines.length)
+        lbl.textContent='Scanline '+(curScan+1)+' of '+scanLines.length+' \u2014 compute enter/exit, fill span';
+      else if(S==='done') lbl.textContent='Sequential: one scanline at a time, top to bottom';
+    }
+  }
+
+  function runScan(){
+    if(curScan>=scanLines.length){S='done';draw();return;}
+    scanT=0;
+    var start=performance.now();
+    var dur=600/speedMul;
+    function tick(now){
+      scanT=Math.min(1,(now-start)/dur);
+      draw();
+      if(scanT<1){carRAF=requestAnimationFrame(tick);}
+      else{
+        carRAF=null;
+        filledScans.push(curScan);
+        curScan++;
+        setTimeout(function(){runScan();},100/speedMul);
+      }
+    }
+    carRAF=requestAnimationFrame(tick);
+  }
+
+  window._scanCarPlay=function(){
+    if(S==='done'){window._scanCarReset();}
+    if(S==='idle'){S='running';runScan();}
+    var b=document.getElementById('btnScanPlay');
+    if(b) b.innerHTML='&#9654; Play';
+  };
+  window._scanCarReset=function(){
+    if(carRAF){cancelAnimationFrame(carRAF);carRAF=null;}
+    S='idle';curScan=0;scanT=0;filledScans=[];draw();
+  };
+  window._scanCarSpeed=function(s,idx){
+    speedMul=s;
+    for(var i=0;i<3;i++){
+      var b=document.getElementById('btnScanSpd'+i);
+      if(b){
+        if(i===idx){b.style.border='2px solid var(--amber)';b.style.background='var(--amber)';b.style.color='#07070a';}
+        else{b.style.border='2px solid var(--b1)';b.style.background='var(--s3)';b.style.color='var(--fg)';}
+      }
+    }
+  };
+  window._scanCarDraw=draw;
+})();
+
 // ============ PINEDA CAR DEMO ============
 (function(){
   var mono='';
@@ -7187,6 +7640,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   var carRAF=null, animT=0;
   var carStep=-1, carT=0, carStart=0;
   var playing=false, speedMul=1;
+  var pixelFade=0; // 0-1 fade for inside verdict
+  var filledPixels=[]; // grid cells that passed inside test
+  var cursorFade=1; // 1=visible, fades to 0 at end
 
   // Parking positions
   var parkPos={x:60,y:460};
@@ -7247,7 +7703,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     if(S==='fly2'||S==='cwFly2') return null;
     if(S==='swap') return null;
     if('ccw1 ccw1d cw1 cw1d'.indexOf(S)>=0) return pixelOut;
-    if('ccw2 cw2'.indexOf(S)>=0) return pixelOut2;
+    if('ccw2 driveOff parkedMid cw2 arcOff spinEnd parkedEnd'.indexOf(S)>=0) return pixelOut2;
+    if('swapped spinMid driveOnCW'.indexOf(S)>=0) return pixelIn;
     return pixelIn;
   }
 
@@ -7264,6 +7721,12 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     var W=cv.width,H=cv.height;
     var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
     ctx.clearRect(0,0,W,H);
+
+    // Pixel grid
+    var G=20;
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<=W;gx+=G){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<=H;gy+=G){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
 
     // Display vertices
     var sw=isSwapped();
@@ -7349,11 +7812,40 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     } else if(pp){
       pixelX=pp.x;pixelY=pp.y;
     }
+    // Filled pixels (passed inside test)
+    ctx.fillStyle='rgba(100,160,255,0.5)';
+    for(var fi=0;fi<filledPixels.length;fi++){
+      ctx.fillRect(filledPixels[fi].x,filledPixels[fi].y,G,G);
+    }
+
+    // Fading pixel (inside verdict in progress)
+    if('ccw0d cw0d'.indexOf(S)>=0 && pixelFade>0 && pixelX!==undefined){
+      var cellX=Math.floor(pixelX/G)*G, cellY=Math.floor(pixelY/G)*G;
+      var a=0.5*pixelFade;
+      ctx.fillStyle='rgba(100,160,255,'+a+')';
+      ctx.fillRect(cellX,cellY,G,G);
+    }
+
     if(pixelX!==undefined){
-      ctx.fillStyle='#ffffff';
-      ctx.beginPath();ctx.arc(pixelX,pixelY,6,0,Math.PI*2);ctx.fill();
-      ctx.font='600 16px '+mono;ctx.textAlign='left';
-      ctx.fillText('p',pixelX+10,pixelY+5);
+      // Active cursor: white outline square with p (skip if on a filled pixel)
+      var cellX=Math.floor(pixelX/G)*G, cellY=Math.floor(pixelY/G)*G;
+      var onFilled=false;
+      for(var fi2=0;fi2<filledPixels.length;fi2++){
+        if(filledPixels[fi2].x===cellX&&filledPixels[fi2].y===cellY){onFilled=true;break;}
+      }
+      if(!onFilled){
+        ctx.globalAlpha=cursorFade;
+        ctx.fillStyle='rgba(255,255,255,0.15)';
+        ctx.fillRect(cellX,cellY,G,G);
+        ctx.strokeStyle='#ffffff';ctx.lineWidth=1;
+        ctx.strokeRect(cellX,cellY,G,G);
+        ctx.globalAlpha=1;
+      }
+      ctx.globalAlpha=cursorFade;
+      ctx.font='600 16px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('p',cellX+G/2,cellY+G/2-1);
+      ctx.textBaseline='alphabetic';
+      ctx.globalAlpha=1;
     }
 
     // === CAR DRAWING ===
@@ -7371,8 +7863,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
       // Dashed line to pixel
       var curPixel=getTestPixel();
+      var cpCx=Math.floor(curPixel.x/G)*G+G/2, cpCy=Math.floor(curPixel.y/G)*G+G/2;
       ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(curPixel.x,curPixel.y);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(cpCx,cpCy);ctx.stroke();
       ctx.setLineDash([]);
 
       // Left/right label
@@ -7518,7 +8011,17 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         S='arcOn';
         runAnim(800,function(){
           S='ccw0';
-          setTimeout(function(){driveEdges(function(){S='ccw0d';drawCar();autoNext(800);});},400/speedMul);
+          setTimeout(function(){driveEdges(function(){
+            S='ccw0d';pixelFade=0;
+            var fs=performance.now();
+            function fadeTick(now){
+              pixelFade=Math.min(1,(now-fs)/600);
+              drawCar();
+              if(pixelFade<1) carRAF=requestAnimationFrame(fadeTick);
+              else{carRAF=null;filledPixels.push({x:Math.floor(pixelIn.x/20)*20,y:Math.floor(pixelIn.y/20)*20});autoNext(800);}
+            }
+            carRAF=requestAnimationFrame(fadeTick);
+          });},400/speedMul);
         });
         break;
       case 'ccw0d':
@@ -7539,7 +8042,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         });
         break;
       case 'parkedMid':
-        S='swap';
+        S='swap';pixelFade=0;filledPixels=[];
         runAnim(1500,function(){
           S='swapped';drawCar();autoNext(600);
         });
@@ -7551,7 +8054,17 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
           S='driveOnCW';
           runAnim(800,function(){
             S='cw0';
-            setTimeout(function(){driveEdges(function(){S='cw0d';drawCar();autoNext(800);});},300/speedMul);
+            setTimeout(function(){driveEdges(function(){
+              S='cw0d';pixelFade=0;
+              var fs2=performance.now();
+              function fadeTick2(now){
+                pixelFade=Math.min(1,(now-fs2)/600);
+                drawCar();
+                if(pixelFade<1) carRAF=requestAnimationFrame(fadeTick2);
+                else{carRAF=null;filledPixels.push({x:Math.floor(pixelIn.x/20)*20,y:Math.floor(pixelIn.y/20)*20});autoNext(800);}
+              }
+              carRAF=requestAnimationFrame(fadeTick2);
+            });},300/speedMul);
           });
         });
         break;
@@ -7571,7 +8084,18 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
             runAnim(1000,function(){
               S='spinEnd';
               setTimeout(function(){
-                runAnim(800,function(){S='parkedEnd';playing=false;updatePlayBtn();drawCar();});
+                runAnim(800,function(){
+                  S='parkedEnd';
+                  // Fade out cursor
+                  var cfs=performance.now();
+                  function cursorFadeTick(now){
+                    cursorFade=Math.max(0,1-(now-cfs)/600);
+                    drawCar();
+                    if(cursorFade>0) carRAF=requestAnimationFrame(cursorFadeTick);
+                    else{carRAF=null;playing=false;updatePlayBtn();drawCar();}
+                  }
+                  carRAF=requestAnimationFrame(cursorFadeTick);
+                });
               },300/speedMul);
             });
           });},600/speedMul);
@@ -7613,10 +8137,285 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
   window._pinCarReset=function(){
     if(carRAF){cancelAnimationFrame(carRAF);carRAF=null;}
-    S='parked0';carStep=-1;carT=0;animT=0;edges=ccwEdges;playing=false;updatePlayBtn();
+    S='parked0';carStep=-1;carT=0;animT=0;edges=ccwEdges;playing=false;pixelFade=0;filledPixels=[];cursorFade=1;updatePlayBtn();
     drawCar();
   };
   window._pinCarDraw=drawCar;
+})();
+
+
+// ============ CROSS PRODUCT VECTOR ROTATION DEMO ============
+(function(){
+  var tv0={x:120,y:420},tv1={x:540,y:420},tv2={x:330,y:60};
+  var pIn={x:320,y:280},pOut={x:100,y:200};
+  var G=20,AL=110,AR=50;
+  var edgeArr=[[tv0,tv1],[tv1,tv2],[tv2,tv0]];
+  var eName=['v\u2080\u2192v\u2081','v\u2081\u2192v\u2082','v\u2082\u2192v\u2080'];
+  var stepIdx=0,phase='idle',animT=0,carT=0;
+  var raf=null,playing=false,speedMul=1;
+  var results=[]; // true=left/CCW, false=right/CW
+
+  function sgn(a,b,p){return(p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x);}
+  function isEdge(s){return s<3||(s>3&&s<7);}
+  function eI(s){return s<3?s:s-4;}
+  function pxl(s){return s<4?pIn:pOut;}
+
+  function drawCarBody(ctx){
+    ctx.fillStyle='rgba(0,0,0,0.3)';ctx.beginPath();ctx.roundRect(-14,-10,52,28,6);ctx.fill();
+    ctx.fillStyle='#4a90d9';ctx.beginPath();ctx.roundRect(-18,-14,54,28,6);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.3)';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='#7bb8f0';ctx.beginPath();ctx.roundRect(-10,-11,26,22,3);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.25)';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.25)';ctx.beginPath();ctx.roundRect(-8,-10,22,6,2);ctx.fill();
+    ctx.fillStyle='rgba(180,230,255,0.7)';ctx.fillRect(14,-9,6,18);
+    ctx.strokeStyle='rgba(0,0,0,0.2)';ctx.lineWidth=0.5;ctx.strokeRect(14,-9,6,18);
+    ctx.fillStyle='rgba(180,230,255,0.5)';ctx.fillRect(-16,-9,5,18);
+    ctx.fillStyle='rgba(220,220,230,0.8)';
+    ctx.fillRect(-16,-18,9,6);ctx.fillRect(-16,12,9,6);ctx.fillRect(14,-18,9,6);ctx.fillRect(14,12,9,6);
+  }
+
+  function drawArrow(ctx,x1,y1,x2,y2,col,a){
+    var dx=x2-x1,dy=y2-y1,l=Math.sqrt(dx*dx+dy*dy);if(l<1)return;
+    var ux=dx/l,uy=dy/l;ctx.globalAlpha=a;
+    ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    ctx.fillStyle=col;ctx.beginPath();ctx.moveTo(x2,y2);
+    ctx.lineTo(x2-ux*12+uy*5,y2-uy*12-ux*5);ctx.lineTo(x2-ux*12-uy*5,y2-uy*12+ux*5);
+    ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  }
+
+  function draw(){
+    var cv=document.getElementById('cvCrossVec');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+    var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
+    ctx.clearRect(0,0,W,H);
+
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<=W;gx+=G){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<=H;gy+=G){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
+
+    // Triangle fill + edges
+    ctx.fillStyle='rgba(255,255,255,0.03)';
+    ctx.beginPath();ctx.moveTo(tv0.x,tv0.y);ctx.lineTo(tv1.x,tv1.y);ctx.lineTo(tv2.x,tv2.y);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(tv0.x,tv0.y);ctx.lineTo(tv1.x,tv1.y);ctx.lineTo(tv2.x,tv2.y);ctx.closePath();ctx.stroke();
+
+    // Vertex labels
+    ctx.font='600 19px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';
+    ctx.fillText('v\u2080',tv0.x-20,tv0.y+22);
+    ctx.fillText('v\u2081',tv1.x+20,tv1.y+22);
+    ctx.fillText('v\u2082',tv2.x,tv2.y-16);
+
+    // Test pixel
+    var cp=pxl(stepIdx);
+    var cx1=Math.floor(cp.x/G)*G,cy1=Math.floor(cp.y/G)*G;
+    ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(cx1,cy1,G,G);
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.strokeRect(cx1,cy1,G,G);
+    ctx.font='600 16px '+mono;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='#ffffff';ctx.fillText('p',cx1+G/2,cy1+G/2-1);ctx.textBaseline='alphabetic';
+
+    // === Edge-step drawing ===
+    if(isEdge(stepIdx)){
+      var ei=eI(stepIdx),ea=edgeArr[ei][0],eb=edgeArr[ei][1],tp=pxl(stepIdx);
+      var s=sgn(ea,eb,tp),isL=s>=0;
+
+      // Highlight current edge
+      ctx.strokeStyle='rgba(255,255,255,0.8)';ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(ea.x,ea.y);ctx.lineTo(eb.x,eb.y);ctx.stroke();
+
+      // Car during drive
+      if(phase==='drive'){
+        var t=carT,cx2=ea.x+(eb.x-ea.x)*t,cy2=ea.y+(eb.y-ea.y)*t;
+        var dx=eb.x-ea.x,dy=eb.y-ea.y,l=Math.sqrt(dx*dx+dy*dy);
+        var ux=dx/l,uy=dy/l;
+        ctx.save();ctx.translate(cx2,cy2);ctx.rotate(Math.atan2(dy,dx));drawCarBody(ctx);ctx.restore();
+        // Dashed line to pixel
+        ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(cx2,cy2);ctx.lineTo(cx1+G/2,cy1+G/2);ctx.stroke();ctx.setLineDash([]);
+        // Left/right label
+        if(isL){ctx.fillStyle='#34d399';ctx.font='600 17px '+mono;ctx.textAlign='center';ctx.fillText('left',cx2+uy*40,cy2-ux*40+5);}
+        else{ctx.fillStyle='#f87171';ctx.font='600 17px '+mono;ctx.textAlign='center';ctx.fillText('right',cx2-uy*40,cy2+ux*40+5);}
+      }
+
+      // Car fading at edge end during fadeVec
+      if(phase==='fadeVec'){
+        var dx2=eb.x-ea.x,dy2=eb.y-ea.y;
+        ctx.globalAlpha=Math.max(0,1-animT*2);
+        ctx.save();ctx.translate(eb.x,eb.y);ctx.rotate(Math.atan2(dy2,dx2));drawCarBody(ctx);ctx.restore();
+        ctx.globalAlpha=1;
+      }
+
+      // Vector arrows and rotation arc
+      if('fadeVec rotate hold fadeOut'.indexOf(phase)>=0){
+        var edx=eb.x-ea.x,edy=eb.y-ea.y,eAng=Math.atan2(edy,edx);
+        var pdx=tp.x-ea.x,pdy=tp.y-ea.y,dAng=Math.atan2(pdy,pdx);
+        var sweep=dAng-eAng;
+        if(isL){if(sweep>0)sweep-=2*Math.PI;}
+        else{if(sweep<0)sweep+=2*Math.PI;}
+
+        var va=(phase==='fadeOut')?(1-animT):1;
+        var eAlpha=(phase==='fadeVec')?Math.min(1,animT*2.5):va;
+        var dAlpha=(phase==='fadeVec')?Math.max(0,(animT-0.35)/0.65):va;
+        var offSgn=isL?1:-1;
+
+        // e arrow (amber)
+        var ex2=ea.x+Math.cos(eAng)*AL,ey2=ea.y+Math.sin(eAng)*AL;
+        drawArrow(ctx,ea.x,ea.y,ex2,ey2,'#e8a832',eAlpha);
+        if(eAlpha>0){
+          ctx.globalAlpha=eAlpha;ctx.font='700 18px '+mono;ctx.textAlign='center';ctx.fillStyle='#e8a832';
+          var elx=ea.x+Math.cos(eAng)*AL*0.45+Math.sin(eAng)*18*offSgn;
+          var ely=ea.y+Math.sin(eAng)*AL*0.45-Math.cos(eAng)*18*offSgn;
+          ctx.fillText('e',elx,ely+6);ctx.globalAlpha=1;
+        }
+
+        // d arrow (white)
+        if(dAlpha>0){
+          var dx3=ea.x+Math.cos(dAng)*AL,dy3=ea.y+Math.sin(dAng)*AL;
+          drawArrow(ctx,ea.x,ea.y,dx3,dy3,'#ffffff',dAlpha);
+          ctx.globalAlpha=dAlpha;ctx.font='700 18px '+mono;ctx.fillStyle='#ffffff';
+          var dlx=ea.x+Math.cos(dAng)*AL*0.45-Math.sin(dAng)*18*offSgn;
+          var dly=ea.y+Math.sin(dAng)*AL*0.45+Math.cos(dAng)*18*offSgn;
+          ctx.fillText('d',dlx,dly+6);ctx.globalAlpha=1;
+        }
+
+        // Arc
+        if(phase==='rotate'||phase==='hold'||phase==='fadeOut'){
+          var arcA=(phase==='fadeOut')?(1-animT):1;
+          var ease=animT*animT*(3-2*animT);
+          var cs=(phase==='rotate')?(sweep*ease):sweep;
+          var endAng=eAng+cs;
+          var arcCol=isL?'#34d399':'#f87171';
+          ctx.globalAlpha=arcA;ctx.strokeStyle=arcCol;ctx.lineWidth=3;
+          ctx.beginPath();ctx.arc(ea.x,ea.y,AR,eAng,endAng,isL);ctx.stroke();
+          // Arrowhead at arc end
+          var ax=ea.x+AR*Math.cos(endAng),ay=ea.y+AR*Math.sin(endAng);
+          var tx,ty;
+          if(isL){tx=Math.sin(endAng);ty=-Math.cos(endAng);}
+          else{tx=-Math.sin(endAng);ty=Math.cos(endAng);}
+          ctx.fillStyle=arcCol;ctx.beginPath();
+          ctx.moveTo(ax+tx*10,ay+ty*10);
+          ctx.lineTo(ax-tx*3-ty*5,ay-ty*3+tx*5);
+          ctx.lineTo(ax-tx*3+ty*5,ay-ty*3-tx*5);
+          ctx.closePath();ctx.fill();
+          // CCW/CW label at arc midpoint
+          var mid=eAng+cs/2;
+          ctx.font='600 15px '+mono;ctx.textAlign='center';ctx.fillStyle=arcCol;
+          ctx.fillText(isL?'CCW':'CW',ea.x+Math.cos(mid)*(AR+24),ea.y+Math.sin(mid)*(AR+24)+5);
+          ctx.globalAlpha=1;
+        }
+      }
+    }
+
+    // Results row at bottom
+    if(results.length>0){
+      var rx=60;
+      ctx.font='600 14px '+mono;
+      for(var ri=0;ri<results.length;ri++){
+        ctx.fillStyle='#ffffff';ctx.textAlign='left';
+        var txt=eName[ri]+' ';
+        ctx.fillText(txt,rx,H-16);var tw=ctx.measureText(txt).width;
+        ctx.fillStyle=results[ri]?'#34d399':'#f87171';
+        var rtxt=results[ri]?'CCW':'CW';
+        ctx.fillText(rtxt,rx+tw,H-16);tw+=ctx.measureText(rtxt).width;
+        rx+=tw+24;
+      }
+    }
+
+    // Verdict text
+    if(phase==='verdict'){
+      ctx.font='600 18px '+mono;ctx.textAlign='center';
+      if(stepIdx===3){ctx.fillStyle='#34d399';ctx.fillText('All CCW \u2192 p is inside',W/2,H-45);}
+      else{ctx.fillStyle='#f87171';ctx.fillText('Mixed rotations \u2192 p is outside',W/2,H-45);}
+    }
+
+    // Status label
+    var lbl=document.getElementById('lblCrossVec');
+    if(lbl){
+      if(phase==='idle'&&stepIdx===0) lbl.textContent='Step through each edge to see the cross product rotation';
+      else if(phase==='drive') lbl.textContent='Driving '+eName[eI(stepIdx)];
+      else if(phase==='fadeVec') lbl.textContent='Edge vector e and point vector d';
+      else if(phase==='rotate'||phase==='hold'){
+        var il=isEdge(stepIdx)&&sgn(edgeArr[eI(stepIdx)][0],edgeArr[eI(stepIdx)][1],pxl(stepIdx))>=0;
+        lbl.textContent='Rotating e toward d: '+(il?'counter-clockwise (left)':'clockwise (right)');
+      }
+      else if(phase==='verdict'&&stepIdx===3) lbl.textContent='All edges give counter-clockwise \u2192 inside';
+      else if(phase==='verdict'&&stepIdx===7) lbl.textContent='Mixed CCW/CW \u2192 outside';
+      else if(phase==='idle'&&stepIdx===4) lbl.textContent='Now testing a pixel outside the triangle';
+      else if(phase==='idle'&&stepIdx>7) lbl.textContent='Same sign = inside, mixed signs = outside';
+    }
+  }
+
+  function runPhase(dur,cb){
+    animT=0;var s=performance.now(),d=dur/speedMul;
+    function t(now){animT=Math.min(1,(now-s)/d);draw();if(animT<1)raf=requestAnimationFrame(t);else{raf=null;if(cb)cb();}}
+    raf=requestAnimationFrame(t);
+  }
+  function runDrive(cb){
+    carT=0;var s=performance.now(),d=1200/speedMul;
+    function t(now){carT=Math.min(1,(now-s)/d);draw();if(carT<1)raf=requestAnimationFrame(t);else{raf=null;if(cb)cb();}}
+    raf=requestAnimationFrame(t);
+  }
+  function doEdge(){
+    phase='drive';
+    runDrive(function(){
+      phase='fadeVec';
+      runPhase(700,function(){
+        phase='rotate';
+        runPhase(1000,function(){
+          phase='hold';
+          var ei2=eI(stepIdx),ea2=edgeArr[ei2][0],eb2=edgeArr[ei2][1],tp2=pxl(stepIdx);
+          results.push(sgn(ea2,eb2,tp2)>=0);
+          runPhase(600,function(){
+            phase='fadeOut';
+            runPhase(400,function(){
+              phase='idle';stepIdx++;
+              if(playing)autoN(200);
+              draw();
+            });
+          });
+        });
+      });
+    });
+  }
+  function doVerdict(){
+    phase='verdict';
+    runPhase(2000,function(){
+      phase='idle';stepIdx++;
+      if(stepIdx===4)results=[];
+      if(playing&&stepIdx<=7)autoN(400);
+      draw();
+    });
+  }
+  function autoN(d){if(playing)setTimeout(function(){if(playing)window._crossVecStep();},d/speedMul);}
+
+  window._crossVecStep=function(){
+    if(raf||stepIdx>7)return;
+    if(stepIdx===3||stepIdx===7)doVerdict();
+    else doEdge();
+  };
+  function updBtn(){
+    var b=document.getElementById('btnCrossPlay');
+    if(b)b.innerHTML=playing?'&#9724; Pause':'&#9654; Play';
+  }
+  window._crossVecPlay=function(){
+    if(stepIdx>7){window._crossVecReset();playing=true;updBtn();window._crossVecStep();return;}
+    playing=!playing;updBtn();if(playing&&!raf)window._crossVecStep();
+  };
+  window._crossVecReset=function(){
+    if(raf){cancelAnimationFrame(raf);raf=null;}
+    stepIdx=0;phase='idle';animT=0;carT=0;playing=false;results=[];updBtn();draw();
+  };
+  window._crossVecSpeed=function(s,idx){
+    speedMul=s;
+    for(var i=0;i<3;i++){
+      var b=document.getElementById('xSpd'+i);
+      if(b){
+        if(i===idx){b.style.border='2px solid var(--amber)';b.style.background='var(--amber)';b.style.color='#07070a';}
+        else{b.style.border='2px solid var(--b1)';b.style.background='var(--s3)';b.style.color='var(--fg)';}
+      }
+    }
+  };
+  window._crossVecDraw=draw;
 })();
 
 // ============ PINEDA MATH DEMO ============
@@ -8002,10 +8801,22 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._openNotes=function(id,scroll){
     origOpen3(id,scroll);
     if(id==='pineda') setTimeout(function(){
+      if(window._scanCarDraw)window._scanCarDraw();
       if(window._pinCarDraw)window._pinCarDraw();
-      if(window._pinMathDraw)window._pinMathDraw();
+      if(window._crossVecDraw)window._crossVecDraw();
+            if(window._pinMathDraw)window._pinMathDraw();
       if(window._pinedaDraw)window._pinedaDraw();
     },100);
+    if(id==='poincare') setTimeout(function(){
+      var vid=document.getElementById('mugVid');
+      var btn=document.getElementById('mugPlayBtn');
+      if(vid){
+        vid.addEventListener('click',function(){
+          if(vid.paused){vid.play();btn.style.display='none';}
+          else{vid.pause();btn.style.display='flex';}
+        });
+      }
+    },200);
   };
 })();
 
