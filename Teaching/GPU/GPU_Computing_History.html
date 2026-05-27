@@ -1853,10 +1853,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'does this cheaply.</p>'+
 
         '<p>The animation below repeats the edge traversal, but this time, after each edge, '+
-        'it reveals the two vectors that the cross product operates on: the edge direction '+
-        '<b style="color:var(--amber)">e</b> and the direction to the test point '+
-        '<b>d</b>.&ensp; Rotating from <b style="color:var(--amber)">e</b> toward <b>d</b> '+
-        'sweeps counter-clockwise when the point is to the left, clockwise when to the right.</p>'+
+        'it draws two vectors from the start vertex: one along the edge, and one toward the '+
+        'test point.&ensp; Watch which way you have to rotate the edge vector to reach the point vector.</p>'+
 
         '<canvas id="cvCrossVec" width="700" height="520" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>'+
         '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border-top:1px solid var(--b1);align-items:center;">'+
@@ -8148,7 +8146,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 (function(){
   var tv0={x:120,y:420},tv1={x:540,y:420},tv2={x:330,y:60};
   var pIn={x:320,y:280},pOut={x:100,y:200};
-  var G=20,AL=110,AR=50;
+  var G=20,AR=50;
   var edgeArr=[[tv0,tv1],[tv1,tv2],[tv2,tv0]];
   var eName=['v\u2080\u2192v\u2081','v\u2081\u2192v\u2082','v\u2082\u2192v\u2080'];
   var stepIdx=0,phase='idle',animT=0,carT=0;
@@ -8209,10 +8207,21 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     // Test pixel
     var cp=pxl(stepIdx);
     var cx1=Math.floor(cp.x/G)*G,cy1=Math.floor(cp.y/G)*G;
-    ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(cx1,cy1,G,G);
-    ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.strokeRect(cx1,cy1,G,G);
-    ctx.font='600 16px '+mono;ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle='#ffffff';ctx.fillText('p',cx1+G/2,cy1+G/2-1);ctx.textBaseline='alphabetic';
+    var pcx=cx1+G/2,pcy=cy1+G/2;
+    var pxA=1;
+    if(isEdge(stepIdx)){
+      if(phase==='fadeVec')pxA=1-animT;
+      else if(phase==='rotate'||phase==='hold')pxA=0;
+      else if(phase==='fadeOut')pxA=animT;
+    }
+    if(pxA>0){
+      ctx.globalAlpha=pxA;
+      ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fillRect(cx1,cy1,G,G);
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=1;ctx.strokeRect(cx1,cy1,G,G);
+      ctx.font='600 16px '+mono;ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillStyle='#ffffff';ctx.fillText('p',pcx,pcy-1);ctx.textBaseline='alphabetic';
+      ctx.globalAlpha=1;
+    }
 
     // === Edge-step drawing ===
     if(isEdge(stepIdx)){
@@ -8248,7 +8257,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       // Vector arrows and rotation arc
       if('fadeVec rotate hold fadeOut'.indexOf(phase)>=0){
         var edx=eb.x-ea.x,edy=eb.y-ea.y,eAng=Math.atan2(edy,edx);
-        var pdx=tp.x-ea.x,pdy=tp.y-ea.y,dAng=Math.atan2(pdy,pdx);
+        var pdx=pcx-ea.x,pdy=pcy-ea.y,dAng=Math.atan2(pdy,pdx);
         var sweep=dAng-eAng;
         if(isL){if(sweep>0)sweep-=2*Math.PI;}
         else{if(sweep<0)sweep+=2*Math.PI;}
@@ -8256,26 +8265,13 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         var va=(phase==='fadeOut')?(1-animT):1;
         var eAlpha=(phase==='fadeVec')?Math.min(1,animT*2.5):va;
         var dAlpha=(phase==='fadeVec')?Math.max(0,(animT-0.35)/0.65):va;
-        var offSgn=isL?1:-1;
 
-        // e arrow (amber)
-        var ex2=ea.x+Math.cos(eAng)*AL,ey2=ea.y+Math.sin(eAng)*AL;
-        drawArrow(ctx,ea.x,ea.y,ex2,ey2,'#e8a832',eAlpha);
-        if(eAlpha>0){
-          ctx.globalAlpha=eAlpha;ctx.font='700 18px '+mono;ctx.textAlign='center';ctx.fillStyle='#e8a832';
-          var elx=ea.x+Math.cos(eAng)*AL*0.45+Math.sin(eAng)*18*offSgn;
-          var ely=ea.y+Math.sin(eAng)*AL*0.45-Math.cos(eAng)*18*offSgn;
-          ctx.fillText('e',elx,ely+6);ctx.globalAlpha=1;
-        }
+        // e arrow (amber) -- full length to edge end vertex
+        drawArrow(ctx,ea.x,ea.y,eb.x,eb.y,'#e8a832',eAlpha);
 
-        // d arrow (white)
+        // d arrow (white) -- full length to pixel center
         if(dAlpha>0){
-          var dx3=ea.x+Math.cos(dAng)*AL,dy3=ea.y+Math.sin(dAng)*AL;
-          drawArrow(ctx,ea.x,ea.y,dx3,dy3,'#ffffff',dAlpha);
-          ctx.globalAlpha=dAlpha;ctx.font='700 18px '+mono;ctx.fillStyle='#ffffff';
-          var dlx=ea.x+Math.cos(dAng)*AL*0.45-Math.sin(dAng)*18*offSgn;
-          var dly=ea.y+Math.sin(dAng)*AL*0.45+Math.cos(dAng)*18*offSgn;
-          ctx.fillText('d',dlx,dly+6);ctx.globalAlpha=1;
+          drawArrow(ctx,ea.x,ea.y,pcx,pcy,'#ffffff',dAlpha);
         }
 
         // Arc
@@ -8286,16 +8282,23 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
           var endAng=eAng+cs;
           var arcCol=isL?'#34d399':'#f87171';
           ctx.globalAlpha=arcA;ctx.strokeStyle=arcCol;ctx.lineWidth=3;
-          ctx.beginPath();ctx.arc(ea.x,ea.y,AR,eAng,endAng,isL);ctx.stroke();
+          var headLen=13,headW=10,pullback=headLen/AR;
+          var absSweep=Math.abs(cs);
+          if(absSweep>pullback){
+            var drawSweep=absSweep-pullback;
+            var drawEnd=eAng+(cs>0?drawSweep:-drawSweep);
+            ctx.beginPath();ctx.arc(ea.x,ea.y,AR,eAng,drawEnd,isL);ctx.stroke();
+          }
           // Arrowhead at arc end
           var ax=ea.x+AR*Math.cos(endAng),ay=ea.y+AR*Math.sin(endAng);
           var tx,ty;
           if(isL){tx=Math.sin(endAng);ty=-Math.cos(endAng);}
           else{tx=-Math.sin(endAng);ty=Math.cos(endAng);}
+          var rx=Math.cos(endAng),ry=Math.sin(endAng);
           ctx.fillStyle=arcCol;ctx.beginPath();
-          ctx.moveTo(ax+tx*10,ay+ty*10);
-          ctx.lineTo(ax-tx*3-ty*5,ay-ty*3+tx*5);
-          ctx.lineTo(ax-tx*3+ty*5,ay-ty*3-tx*5);
+          ctx.moveTo(ax,ay);
+          ctx.lineTo(ax-tx*headLen+rx*headW/2,ay-ty*headLen+ry*headW/2);
+          ctx.lineTo(ax-tx*headLen-rx*headW/2,ay-ty*headLen-ry*headW/2);
           ctx.closePath();ctx.fill();
           // CCW/CW label at arc midpoint
           var mid=eAng+cs/2;
@@ -8331,12 +8334,12 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     // Status label
     var lbl=document.getElementById('lblCrossVec');
     if(lbl){
-      if(phase==='idle'&&stepIdx===0) lbl.textContent='Step through each edge to see the cross product rotation';
+      if(phase==='idle'&&stepIdx===0) lbl.textContent='Step through each edge to see the rotation direction';
       else if(phase==='drive') lbl.textContent='Driving '+eName[eI(stepIdx)];
-      else if(phase==='fadeVec') lbl.textContent='Edge vector e and point vector d';
+      else if(phase==='fadeVec') lbl.textContent='Two vectors from the start vertex';
       else if(phase==='rotate'||phase==='hold'){
         var il=isEdge(stepIdx)&&sgn(edgeArr[eI(stepIdx)][0],edgeArr[eI(stepIdx)][1],pxl(stepIdx))>=0;
-        lbl.textContent='Rotating e toward d: '+(il?'counter-clockwise (left)':'clockwise (right)');
+        lbl.textContent='Rotation to reach the point: '+(il?'counter-clockwise (left)':'clockwise (right)');
       }
       else if(phase==='verdict'&&stepIdx===3) lbl.textContent='All edges give counter-clockwise \u2192 inside';
       else if(phase==='verdict'&&stepIdx===7) lbl.textContent='Mixed CCW/CW \u2192 outside';
