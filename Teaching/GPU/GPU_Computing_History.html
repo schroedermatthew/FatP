@@ -1871,19 +1871,76 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<span id="lblCrossVec" style="font:600 12px var(--mono);color:var(--fg3);">&nbsp;</span>'+
         '</div>'+
 
+        '<p>That rotation has a name.&ensp; Given two vectors in the plane, their ' +
+        '<b>cross product</b> measures exactly this: how far, and in which direction, you ' +
+        'must rotate the first to reach the second.&ensp; The result is a vector perpendicular ' +
+        'to both &ndash; in 2D, that means it points straight out of the screen, along the ' +
+        'z&nbsp;axis.&ensp; The right-hand rule tells you the sign: curl the fingers of your ' +
+        'right hand from the first vector toward the second.&ensp; If you curl counter-clockwise, ' +
+        'your thumb points in the +z direction and the cross product is positive.&ensp; ' +
+        'Clockwise gives &minus;z, negative.&ensp; One number, one sign &ndash; left or right.</p>' +
+
+        '<figure style="margin:16px 0;text-align:center">' +
+        '<img src="artifacts/right_hand_rule.png" alt="Right-hand rule: thumbs down for negative cross product, thumbs up for positive" ' +
+        'style="width:100%;border-radius:6px;border:1px solid var(--b1)">' +
+        '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:6px">' +
+        'Same operation a&thinsp;&times;&thinsp;b.&ensp; Left: b is clockwise from a &rarr; negative (&minus;z, thumb down).&ensp; ' +
+        'Right: b is counter-clockwise from a &rarr; positive (+z, thumb up).</figcaption></figure>' +
+
         '<p>Take one edge from v<sub>0</sub> to v<sub>1</sub> and a test point p.&ensp; ' +
         'Form two vectors from v<sub>0</sub>: the edge direction ' +
         '<b>e</b>&thinsp;=&thinsp;v<sub>1</sub>&thinsp;&minus;&thinsp;v<sub>0</sub> and ' +
         'the point direction ' +
-        '<b>d</b>&thinsp;=&thinsp;p&thinsp;&minus;&thinsp;v<sub>0</sub>.&ensp; ' +
-        'The 2D cross product <b>e</b>&thinsp;&times;&thinsp;<b>d</b> is:</p>' +
+        '<b>d</b>&thinsp;=&thinsp;p&thinsp;&minus;&thinsp;v<sub>0</sub>.</p>' +
+
+        '<p>The cross product of two vectors is defined by a determinant.&ensp; ' +
+        'Treating <b>e</b> and <b>d</b> as 3D vectors with z&thinsp;=&thinsp;0:</p>' +
+
+        '<div style="text-align:center;margin:16px 0;font:600 16px var(--mono);color:var(--amber)">' +
+        '<span style="vertical-align:middle">e &times; d &ensp;=</span>' +
+        '<table style="display:inline-table;vertical-align:middle;border-left:2px solid var(--amber);border-right:2px solid var(--amber);border-collapse:collapse;margin:0 8px">' +
+        '<tr><td style="padding:4px 14px;text-align:center">&icirc;</td><td style="padding:4px 14px;text-align:center">&#309;</td><td style="padding:4px 14px;text-align:center">k&#770;</td></tr>' +
+        '<tr><td style="padding:4px 14px;text-align:center">e<sub>x</sub></td><td style="padding:4px 14px;text-align:center">e<sub>y</sub></td><td style="padding:4px 14px;text-align:center">0</td></tr>' +
+        '<tr><td style="padding:4px 14px;text-align:center">d<sub>x</sub></td><td style="padding:4px 14px;text-align:center">d<sub>y</sub></td><td style="padding:4px 14px;text-align:center">0</td></tr>' +
+        '</table></div>' +
+
+        '<p>Expand along the first row.&ensp; The &icirc; cofactor is ' +
+        'e<sub style="font:600 14px var(--mono)">y</sub>&thinsp;&middot;&thinsp;0 ' +
+        '&minus; 0&thinsp;&middot;&thinsp;d<sub style="font:600 14px var(--mono)">y</sub> ' +
+        '= 0.&ensp; The &#309; cofactor is ' +
+        'e<sub style="font:600 14px var(--mono)">x</sub>&thinsp;&middot;&thinsp;0 ' +
+        '&minus; 0&thinsp;&middot;&thinsp;d<sub style="font:600 14px var(--mono)">x</sub> ' +
+        '= 0.&ensp; Only the k&#770; term survives:</p>' +
+
+        '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
+        'e &times; d &ensp;= &ensp;(e<sub>x</sub>&thinsp;d<sub>y</sub> &minus; e<sub>y</sub>&thinsp;d<sub>x</sub>)&thinsp;k&#770;</p>' +
+
+        '<p>The scalar factor is the 2&times;2 determinant of the two row vectors:</p>' +
+
+        '<div style="text-align:center;margin:16px 0;font:600 16px var(--mono);color:var(--amber)">' +
+        '<span style="vertical-align:middle">det</span>' +
+        '<table style="display:inline-table;vertical-align:middle;border-left:2px solid var(--amber);border-right:2px solid var(--amber);border-collapse:collapse;margin:0 6px">' +
+        '<tr><td style="padding:4px 14px;text-align:center">e<sub>x</sub></td><td style="padding:4px 14px;text-align:center">e<sub>y</sub></td></tr>' +
+        '<tr><td style="padding:4px 14px;text-align:center">d<sub>x</sub></td><td style="padding:4px 14px;text-align:center">d<sub>y</sub></td></tr>' +
+        '</table>' +
+        '<span style="vertical-align:middle">&ensp;= &ensp;e<sub>x</sub>&thinsp;d<sub>y</sub> &minus; e<sub>y</sub>&thinsp;d<sub>x</sub></span>' +
+        '</div>' +
+
+        '<p>This single number &ndash; positive or negative, pointing in +z or &minus;z &ndash; is ' +
+        'the entire edge function:</p>' +
+
         '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
         'E(p) = e<sub>x</sub>&thinsp;d<sub>y</sub> &minus; e<sub>y</sub>&thinsp;d<sub>x</sub></p>' +
+
         '<p>By the right-hand rule, this is positive when <b>d</b> is to the left of ' +
-        '<b>e</b> &ndash; exactly what the car showed.&ensp; Expanding the vectors:</p>' +
+        '<b>e</b> &ndash; exactly what the animation showed.&ensp; Substituting ' +
+        '<b>e</b>&thinsp;=&thinsp;v<sub>1</sub>&thinsp;&minus;&thinsp;v<sub>0</sub> and ' +
+        '<b>d</b>&thinsp;=&thinsp;p&thinsp;&minus;&thinsp;v<sub>0</sub>:</p>' +
+
         '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
-        'E(p) = (v<sub>1</sub>.x &minus; v<sub>0</sub>.x)(p.y &minus; v<sub>0</sub>.y) ' +
-        '&minus; (v<sub>1</sub>.y &minus; v<sub>0</sub>.y)(p.x &minus; v<sub>0</sub>.x)</p>' +
+        'E(p) = (v<sub>1x</sub> &minus; v<sub>0x</sub>)(p<sub>y</sub> &minus; v<sub>0y</sub>) ' +
+        '&minus; (v<sub>1y</sub> &minus; v<sub>0y</sub>)(p<sub>x</sub> &minus; v<sub>0x</sub>)</p>' +
+
         '<p>Note the order: edge vector first, point vector second.&ensp; ' +
         'This follows the right-hand rule directly &ndash; positive means the point is to ' +
         'the left of the edge.&ensp; Some references write it the other way around, which ' +
@@ -1891,26 +1948,11 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'The sign is not a convention; it follows from orientation.</p>' +
         '<p>A point p is inside the triangle if and only if all ' +
         'three edge functions have the same sign.&ensp; That is the entire test.&ensp; No scanline tracking, no span ' +
-        'computation, no edge tables.&ensp; Just three multiplies, three subtracts, check ' +
-        'three signs.</p>' +
-
-        '<canvas id="cvPinMath" width="700" height="420" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
-        '<div style="display:flex;gap:8px;padding:8px 10px;background:var(--s2);border-radius:0 0 4px 4px;align-items:center;border:1px solid var(--b1);border-top:0">' +
-        '<button id="btnPinMathStep" onclick="window._pinMathStep()" class="anim-btn">Step</button>' +
-        '<button onclick="window._pinMathReset()" class="anim-btn">&#8634; Reset</button>' +
-        '<span id="lblPinMath" style="font:600 12px var(--mono);color:var(--fg3);margin-left:8px"></span>' +
-        '</div>' +
-
-        '<canvas id="cvPineda" width="700" height="380" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
-        '<div style="display:flex;gap:8px;padding:8px 10px;background:var(--s2);border-radius:0 0 4px 4px;align-items:center;border:1px solid var(--b1);border-top:0">' +
-        '<button id="btnPinStep" onclick="window._pinedaStep()" class="anim-btn">Test pixel</button>' +
-        '<button onclick="window._pinedaPlay()" class="anim-btn">&#9654; Play</button>' +
-        '<button onclick="window._pinedaReset()" class="anim-btn">&#8634; Reset</button>' +
-        '<span id="lblPineda" style="font:600 12px var(--mono);color:var(--fg3);margin-left:8px"></span>' +
-        '</div>' +
+        'computation, no edge tables.&ensp; Two multiplies and a subtract per edge, ' +
+        'three edges, check three signs.</p>' +
 
         '<h4>Why hardware loves this</h4>' +
-        '<p>The edge function is linear in (p.x, p.y).&ensp; Moving one pixel to the right ' +
+        '<p>The edge function is linear in (p<sub>x</sub>,&thinsp;p<sub>y</sub>).&ensp; Moving one pixel to the right ' +
         'adds a constant.&ensp; Moving one pixel down adds a different constant.&ensp; These ' +
         'constants are computed once per triangle during setup, and then the rasterizer just ' +
         'accumulates &ndash; add, add, check sign, next pixel.&ensp; No divisions, no square ' +
@@ -1926,6 +1968,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'means the same values you computed to test inside/outside also give you the interpolation ' +
         'weights for color, depth, texture coordinates &ndash; everything the fragment needs.&ensp; ' +
         'Coverage and interpolation collapse into a single computation.</p>' +
+
+        '<canvas id="cvBary" width="700" height="480" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>'+
 
         '<h4>From paper to silicon</h4>' +
         '<p>Gary Tarolli, the CTO of 3dfx, confirmed that the original Voodoo 1 and Voodoo 2 ' +
@@ -8421,381 +8465,159 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._crossVecDraw=draw;
 })();
 
-// ============ PINEDA MATH DEMO ============
+
+
+// ============ PARALLELOGRAM AREA / BARYCENTRIC DEMO ============
 (function(){
-  var mono='';
-  var tv0={x:90,y:70}, tv1={x:390,y:50}, tv2={x:260,y:350};
-  var pOut={x:70,y:240};
-  var pIn={x:230,y:190};
-
-  function edgeFn(va,vb,p){
-    return (p.x-va.x)*(vb.y-va.y) - (p.y-va.y)*(vb.x-va.x);
-  }
-
-  // Steps:
-  // 0: just triangle
-  // 1: show outside point p
-  // 2: edge v0->v1, vector v0->p, compute E01
-  // 3: edge v1->v2, vector v1->p, compute E12
-  // 4: edge v2->v0, vector v2->p, compute E20
-  // 5: verdict: mixed signs -> outside
-  // 6: show inside point p
-  // 7: edge v0->v1, vector v0->p, compute E01
-  // 8: edge v1->v2, vector v1->p, compute E12
-  // 9: edge v2->v0, vector v2->p, compute E20
-  // 10: verdict: all same sign -> inside
-
-  var pmStep=0, pmAnimT=0, pmStart=0, pmRAF=null;
-  var pmMaxStep=10;
-
-  var edgeData=[
-    {a:tv0,b:tv1,label:'E\u2080\u2081',sub:['0','1']},
-    {a:tv1,b:tv2,label:'E\u2081\u2082',sub:['1','2']},
-    {a:tv2,b:tv0,label:'E\u2082\u2080',sub:['2','0']}
-  ];
-
-  function drawArrow(ctx,x1,y1,x2,y2,color,lw){
-    var dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
-    if(len<1)return;
-    var ux=dx/len,uy=dy/len,ah=10,aw=4;
-    ctx.strokeStyle=color;ctx.lineWidth=lw||2;
-    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2-ux*ah,y2-uy*ah);ctx.stroke();
-    ctx.fillStyle=color;ctx.beginPath();
-    ctx.moveTo(x2,y2);
-    ctx.lineTo(x2-ah*ux+aw*uy,y2-ah*uy-aw*ux);
-    ctx.lineTo(x2-ah*ux-aw*uy,y2-ah*uy+aw*ux);
-    ctx.closePath();ctx.fill();
-  }
-
-  function drawPinMath(){
-    var cv=document.getElementById('cvPinMath');if(!cv)return;
-    var ctx=cv.getContext('2d');
-    var W=cv.width,H=cv.height;
-    mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
-    ctx.clearRect(0,0,W,H);
-
-    // Triangle fill
-    ctx.fillStyle='rgba(255,255,255,0.03)';
-    ctx.beginPath();ctx.moveTo(tv0.x,tv0.y);ctx.lineTo(tv1.x,tv1.y);ctx.lineTo(tv2.x,tv2.y);
-    ctx.closePath();ctx.fill();
-
-    // Triangle edges (dim)
-    ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(tv0.x,tv0.y);ctx.lineTo(tv1.x,tv1.y);
-    ctx.lineTo(tv2.x,tv2.y);ctx.closePath();ctx.stroke();
-
-    // Vertex labels
-    ctx.font='600 18px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';
-    ctx.fillText('v\u2080',tv0.x-18,tv0.y-10);
-    ctx.fillText('v\u2081',tv1.x+18,tv1.y-10);
-    ctx.fillText('v\u2082',tv2.x+16,tv2.y+22);
-
-    // Current test point
-    var cp=null;
-    if(pmStep>=1&&pmStep<=5) cp=pOut;
-    if(pmStep>=6) cp=pIn;
-
-    if(cp){
-      ctx.fillStyle=(pmStep<=5)?'#f87171':'#34d399';
-      ctx.beginPath();ctx.arc(cp.x,cp.y,7,0,2*Math.PI);ctx.fill();
-      ctx.font='600 16px '+mono;ctx.textAlign='left';
-      ctx.fillText('p',cp.x+12,cp.y+5);
-    }
-
-    // Active edge computation
-    var edgeIdx=-1;
-    if(pmStep>=2&&pmStep<=4) edgeIdx=pmStep-2;
-    if(pmStep>=7&&pmStep<=9) edgeIdx=pmStep-7;
-
-    // Draw completed edge results stacked on the right
-    var eqX=440, eqY=50;
-    var completedEdges=[];
-    if(pmStep<=5){
-      for(var ci=0;ci<Math.min(pmStep-2,3);ci++) if(ci>=0) completedEdges.push(ci);
-    } else {
-      for(var ci=0;ci<Math.min(pmStep-7,3);ci++) if(ci>=0) completedEdges.push(ci);
-    }
-
-    // Draw completed results
-    for(var ri=0;ri<completedEdges.length;ri++){
-      var rei=completedEdges[ri];
-      var red=edgeData[rei];
-      var val=edgeFn(red.a,red.b,cp);
-      var ry=eqY+ri*28;
-      ctx.font='600 16px '+mono;ctx.textAlign='left';
-      ctx.fillStyle='#ffffff';
-      ctx.fillText(red.label+' = '+Math.round(val),eqX,ry);
-      ctx.fillStyle=val>=0?'#34d399':'#f87171';
-      ctx.fillText(val>=0?'  (+)':'  (\u2212)',eqX+130,ry);
-    }
-
-    // Active edge: draw vectors and computation
-    if(edgeIdx>=0 && cp){
-      var ed=edgeData[edgeIdx];
-      var va2=ed.a, vb2=ed.b;
-      var alpha=pmAnimT;
-
-      // Highlight the active edge as a vector (amber arrow)
-      ctx.globalAlpha=alpha;
-      drawArrow(ctx,va2.x,va2.y,vb2.x,vb2.y,'#fbbf24',3);
-
-      // Vector from edge start to test point (white arrow)
-      drawArrow(ctx,va2.x,va2.y,cp.x,cp.y,'#ffffff',2);
-
-      // Edge function value
-      var val2=edgeFn(va2,vb2,cp);
-      var ry2=eqY+completedEdges.length*28;
-
-      // Show the computation
-      ctx.font='600 16px '+mono;ctx.textAlign='left';
-      ctx.fillStyle='#ffffff';
-      ctx.fillText(ed.label+' = (p \u2212 v'+ed.sub[0]+') \u00d7 (v'+ed.sub[1]+' \u2212 v'+ed.sub[0]+')',eqX,ry2);
-
-      // Show result below
-      ctx.fillText('   = '+Math.round(val2),eqX,ry2+22);
-      ctx.fillStyle=val2>=0?'#34d399':'#f87171';
-      ctx.fillText(val2>=0?'  (+)':'  (\u2212)',eqX+130,ry2+22);
-
-      ctx.globalAlpha=1;
-    }
-
-    // Verdict
-    if(pmStep===5||pmStep===10){
-      var verdictY=eqY+3*28+50;
-      ctx.globalAlpha=pmAnimT;
-      ctx.font='600 19px '+mono;ctx.textAlign='left';
-      if(pmStep===5){
-        ctx.fillStyle='#f87171';
-        ctx.fillText('mixed signs \u2192 outside',eqX,verdictY);
-      } else {
-        ctx.fillStyle='#34d399';
-        ctx.fillText('all same sign \u2192 inside',eqX,verdictY);
-      }
-      ctx.globalAlpha=1;
-    }
-
-    // Fill inside pixel on final step
-    if(pmStep>=10){
-      ctx.fillStyle='rgba(251,191,36,0.4)';
-      ctx.beginPath();ctx.arc(pIn.x,pIn.y,14,0,2*Math.PI);ctx.fill();
-    }
-
-    var lbl=document.getElementById('lblPinMath');
-    if(lbl){
-      if(pmStep===0) lbl.textContent='';
-      else if(pmStep<=5) lbl.textContent='Testing a pixel outside the triangle';
-      else lbl.textContent='Testing a pixel inside the triangle';
-    }
-  }
-
-  function pmAnimate(dur,onDone){
-    pmStart=performance.now();pmAnimT=0;
-    function tick(now){
-      var raw=Math.min(1,(now-pmStart)/(dur||600));
-      pmAnimT=raw*raw*(3-2*raw);
-      drawPinMath();
-      if(raw<1) pmRAF=requestAnimationFrame(tick);
-      else{pmRAF=null;if(onDone)onDone();}
-    }
-    pmRAF=requestAnimationFrame(tick);
-  }
-
-  window._pinMathStep=function(){
-    if(pmRAF||pmStep>=pmMaxStep)return;
-    pmStep++;
-    pmAnimate(700,function(){});
-  };
-  window._pinMathReset=function(){
-    if(pmRAF){cancelAnimationFrame(pmRAF);pmRAF=null;}
-    pmStep=0;pmAnimT=0;drawPinMath();
-  };
-  window._pinMathDraw=drawPinMath;
-})();
-
-// ============ PINEDA EDGE FUNCTION ============
-(function(){
-  // Triangle vertices in grid space
-  var v0={x:3, y:2}, v1={x:13, y:1}, v2={x:8, y:10};
-  var gridW=16, gridH=12;
-  var cellSize=28;
-  var ox=60, oy=20; // canvas offset
-
-  // Edge function
-  function edgeFn(va,vb,p){
-    return (p.x-va.x)*(vb.y-va.y) - (p.y-va.y)*(vb.x-va.x);
-  }
-
-  // Build list of pixels to test (bounding box of triangle)
-  var testPixels=[];
-  var minX=Math.min(v0.x,v1.x,v2.x)-1, maxX=Math.max(v0.x,v1.x,v2.x)+1;
-  var minY=Math.min(v0.y,v1.y,v2.y)-1, maxY=Math.max(v0.y,v1.y,v2.y)+1;
-  for(var py=Math.max(0,minY);py<=Math.min(gridH-1,maxY);py++){
-    for(var px=Math.max(0,minX);px<=Math.min(gridW-1,maxX);px++){
-      testPixels.push({x:px,y:py});
-    }
-  }
-
-  var testedPixels=[]; // {x,y,inside,e01,e12,e20}
-  var currentTest=null; // actively animating
-  var pinIdx=0;
-  var pinAnimT=0, pinAnimStart=0, pinRAF=null;
-  var pinPlaying=false;
-
-  function drawPineda(){
-    var cv=document.getElementById('cvPineda');if(!cv)return;
-    var ctx=cv.getContext('2d');
-    var W=cv.width,H=cv.height;
+  function draw(){
+    var cv=document.getElementById('cvBary');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
     var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
     ctx.clearRect(0,0,W,H);
 
-    // Draw grid
-    ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
-    for(var gx=0;gx<=gridW;gx++){
-      ctx.beginPath();ctx.moveTo(ox+gx*cellSize,oy);ctx.lineTo(ox+gx*cellSize,oy+gridH*cellSize);ctx.stroke();
-    }
-    for(var gy=0;gy<=gridH;gy++){
-      ctx.beginPath();ctx.moveTo(ox,oy+gy*cellSize);ctx.lineTo(ox+gridW*cellSize,oy+gy*cellSize);ctx.stroke();
-    }
+    // Grid
+    ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=0.5;
+    for(var gx=0;gx<=W;gx+=20){ctx.beginPath();ctx.moveTo(gx,0);ctx.lineTo(gx,H);ctx.stroke();}
+    for(var gy=0;gy<=H;gy+=20){ctx.beginPath();ctx.moveTo(0,gy);ctx.lineTo(W,gy);ctx.stroke();}
 
-    // Draw tested pixels
-    for(var i=0;i<testedPixels.length;i++){
-      var tp=testedPixels[i];
-      if(tp.inside){
-        ctx.fillStyle='rgba(251,191,36,0.35)';
-        ctx.fillRect(ox+tp.x*cellSize+1,oy+tp.y*cellSize+1,cellSize-2,cellSize-2);
-      }
-    }
+    // === LEFT PANEL: parallelogram area ===
+    var ox=100,oy=340;
+    var ex=180,ey=-40;  // edge vector e
+    var dx=60,dy=-200;  // point vector d
 
-    // Draw triangle edges
-    ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;
+    // Parallelogram fill
+    ctx.fillStyle='rgba(232,168,50,0.12)';
     ctx.beginPath();
-    ctx.moveTo(ox+v0.x*cellSize,oy+v0.y*cellSize);
-    ctx.lineTo(ox+v1.x*cellSize,oy+v1.y*cellSize);
-    ctx.lineTo(ox+v2.x*cellSize,oy+v2.y*cellSize);
-    ctx.closePath();ctx.stroke();
+    ctx.moveTo(ox,oy);
+    ctx.lineTo(ox+ex,oy+ey);
+    ctx.lineTo(ox+ex+dx,oy+ey+dy);
+    ctx.lineTo(ox+dx,oy+dy);
+    ctx.closePath();ctx.fill();
 
-    // Vertex labels
+    // Diagonal (triangle half)
+    ctx.setLineDash([4,4]);ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+ex+dx,oy+ey+dy);ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Triangle half shaded darker
+    ctx.fillStyle='rgba(232,168,50,0.08)';
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+ex,oy+ey);ctx.lineTo(ox+ex+dx,oy+ey+dy);ctx.closePath();ctx.fill();
+
+    // Parallelogram outline
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(ox+ex,oy+ey);ctx.lineTo(ox+ex+dx,oy+ey+dy);
+    ctx.lineTo(ox+dx,oy+dy);
+    ctx.stroke();
+
+    // Vector e (amber arrow)
+    ctx.strokeStyle='#e8a832';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+ex,oy+ey);ctx.stroke();
+    var el=Math.sqrt(ex*ex+ey*ey),eux=ex/el,euy=ey/el;
+    ctx.fillStyle='#e8a832';ctx.beginPath();
+    ctx.moveTo(ox+ex,oy+ey);
+    ctx.lineTo(ox+ex-eux*12+euy*5,oy+ey-euy*12-eux*5);
+    ctx.lineTo(ox+ex-eux*12-euy*5,oy+ey-euy*12+eux*5);
+    ctx.closePath();ctx.fill();
+
+    // Vector d (white arrow)
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+dx,oy+dy);ctx.stroke();
+    var dl=Math.sqrt(dx*dx+dy*dy),dux=dx/dl,duy=dy/dl;
+    ctx.fillStyle='#ffffff';ctx.beginPath();
+    ctx.moveTo(ox+dx,oy+dy);
+    ctx.lineTo(ox+dx-dux*12+duy*5,oy+dy-duy*12-dux*5);
+    ctx.lineTo(ox+dx-dux*12-duy*5,oy+dy-duy*12+dux*5);
+    ctx.closePath();ctx.fill();
+
+    // Labels
+    ctx.font='700 18px '+mono;ctx.textAlign='center';
+    ctx.fillStyle='#e8a832';ctx.fillText('e',ox+ex*0.55+15,oy+ey*0.55+20);
+    ctx.fillStyle='#ffffff';ctx.fillText('d',ox+dx*0.55-18,oy+dy*0.55);
+
+    // Area label
+    ctx.font='600 15px '+mono;ctx.fillStyle='#ffffff';
+    ctx.fillText('area = |e \u00d7 d|',ox+ex*0.5+dx*0.5,oy+ey*0.5+dy*0.5+8);
+
+    // Triangle label
     ctx.font='600 14px '+mono;ctx.fillStyle='#ffffff';
     ctx.textAlign='center';
-    ctx.fillText('v\u2080',ox+v0.x*cellSize,oy+v0.y*cellSize-8);
-    ctx.fillText('v\u2081',ox+v1.x*cellSize+12,oy+v1.y*cellSize-8);
-    ctx.fillText('v\u2082',ox+v2.x*cellSize+14,oy+v2.y*cellSize+6);
+    ctx.fillText('\u00bd parallelogram = triangle area',175,oy+36);
 
-    // Highlight current test pixel
-    if(currentTest){
-      var cp=currentTest;
-      var cx2=ox+cp.x*cellSize, cy2=oy+cp.y*cellSize;
+    // Origin dot
+    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(ox,oy,4,0,2*Math.PI);ctx.fill();
 
-      // Highlight square
-      ctx.strokeStyle='#fbbf24';ctx.lineWidth=2;
-      ctx.strokeRect(cx2+1,cy2+1,cellSize-2,cellSize-2);
+    // Panel title
+    ctx.font='600 15px '+mono;ctx.fillStyle='#ffffff';
+    ctx.textAlign='center';ctx.fillText('cross product = parallelogram area',175,30);
 
-      // Fill if inside
-      if(cp.inside){
-        ctx.fillStyle='rgba(251,191,36,'+(0.35*pinAnimT)+')';
-        ctx.fillRect(cx2+1,cy2+1,cellSize-2,cellSize-2);
-      }
+    // === RIGHT PANEL: barycentric coordinates ===
+    var tv0={x:440,y:400},tv1={x:650,y:380},tv2={x:530,y:100};
+    var pp={x:530,y:290};
 
-      // Show edge function values on the right
-      var eqX=ox+gridW*cellSize+16, eqY=H/2-50;
-      ctx.globalAlpha=Math.min(1,pinAnimT*3);
-      ctx.font='600 15px '+mono;ctx.textAlign='left';
+    // Sub-triangle colors
+    var colors=['rgba(52,211,153,','rgba(96,165,250,','rgba(251,191,36,'];
 
-      var signs=[cp.e01>=0?'+':'\u2212', cp.e12>=0?'+':'\u2212', cp.e20>=0?'+':'\u2212'];
-      var colors=[cp.e01>=0?'#34d399':'#f87171', cp.e12>=0?'#34d399':'#f87171', cp.e20>=0?'#34d399':'#f87171'];
-
-      ctx.fillStyle='#ffffff';
-      ctx.fillText('E\u2080\u2081 = '+cp.e01.toFixed(0),eqX,eqY);
-      ctx.fillStyle=colors[0];
-      ctx.fillText(signs[0],eqX+90,eqY);
-
-      ctx.fillStyle='#ffffff';
-      ctx.fillText('E\u2081\u2082 = '+cp.e12.toFixed(0),eqX,eqY+24);
-      ctx.fillStyle=colors[1];
-      ctx.fillText(signs[1],eqX+90,eqY+24);
-
-      ctx.fillStyle='#ffffff';
-      ctx.fillText('E\u2082\u2080 = '+cp.e20.toFixed(0),eqX,eqY+48);
-      ctx.fillStyle=colors[2];
-      ctx.fillText(signs[2],eqX+90,eqY+48);
-
-      // Verdict
-      ctx.font='600 17px '+mono;
-      if(cp.inside){
-        ctx.fillStyle='#34d399';
-        ctx.fillText('all same sign',eqX,eqY+80);
-        ctx.fillText('\u2192 inside',eqX,eqY+102);
-      } else {
-        ctx.fillStyle='#f87171';
-        ctx.fillText('mixed signs',eqX,eqY+80);
-        ctx.fillText('\u2192 outside',eqX,eqY+102);
-      }
-      ctx.globalAlpha=1;
+    // Three sub-triangles
+    var subtris=[
+      [tv1,tv2,pp],  // opposite v0 -> lambda0 (green)
+      [tv2,tv0,pp],  // opposite v1 -> lambda1 (blue)
+      [tv0,tv1,pp]   // opposite v2 -> lambda2 (amber)
+    ];
+    for(var i=0;i<3;i++){
+      var t=subtris[i];
+      ctx.fillStyle=colors[i]+'0.15)';
+      ctx.beginPath();ctx.moveTo(t[0].x,t[0].y);ctx.lineTo(t[1].x,t[1].y);ctx.lineTo(t[2].x,t[2].y);
+      ctx.closePath();ctx.fill();
+      ctx.strokeStyle=colors[i]+'0.4)';ctx.lineWidth=1;ctx.stroke();
     }
 
-    // Label
-    var lbl=document.getElementById('lblPineda');
-    if(lbl){
-      if(pinIdx>=testPixels.length) lbl.textContent='All pixels tested';
-      else lbl.textContent='Pixel '+pinIdx+' / '+testPixels.length;
+    // Full triangle outline
+    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=2;
+    ctx.beginPath();ctx.moveTo(tv0.x,tv0.y);ctx.lineTo(tv1.x,tv1.y);ctx.lineTo(tv2.x,tv2.y);ctx.closePath();ctx.stroke();
+
+    // Lines from p to each vertex (dashed)
+    ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(tv0.x,tv0.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(tv1.x,tv1.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(pp.x,pp.y);ctx.lineTo(tv2.x,tv2.y);ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Point p
+    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(pp.x,pp.y,5,0,2*Math.PI);ctx.fill();
+    ctx.font='600 16px '+mono;ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('p',pp.x+16,pp.y+5);
+
+    // Vertex labels
+    ctx.font='600 17px '+mono;ctx.fillStyle='#ffffff';
+    ctx.fillText('v\u2080',tv0.x-16,tv0.y+20);
+    ctx.fillText('v\u2081',tv1.x+16,tv1.y+20);
+    ctx.fillText('v\u2082',tv2.x,tv2.y-14);
+
+    // Sub-triangle area labels (lambda)
+    var centroids=[];
+    for(var i=0;i<3;i++){
+      var t=subtris[i];
+      centroids.push({x:(t[0].x+t[1].x+t[2].x)/3, y:(t[0].y+t[1].y+t[2].y)/3});
     }
+    ctx.font='700 16px '+mono;
+    var lnames=['\u03bb\u2080','\u03bb\u2081','\u03bb\u2082'];
+    var lcols=['#34d399','#60a5fa','#fbbf24'];
+    for(var i=0;i<3;i++){
+      ctx.fillStyle=lcols[i];
+      ctx.fillText(lnames[i],centroids[i].x,centroids[i].y+6);
+    }
+
+    // Panel title
+    ctx.font='600 15px '+mono;ctx.fillStyle='#ffffff';
+    ctx.fillText('edge functions = sub-triangle areas',540,30);
+
+    // Bottom label
+    ctx.font='600 14px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';
+    ctx.fillText('\u03bb\u2080 + \u03bb\u2081 + \u03bb\u2082 = 1     (barycentric coordinates)',W/2,H-16);
   }
 
-  function pinAnimate(dur,onDone){
-    pinAnimStart=performance.now();pinAnimT=0;
-    var d=dur||600;
-    function tick(now){
-      var raw=Math.min(1,(now-pinAnimStart)/d);
-      pinAnimT=raw*raw*(3-2*raw);
-      drawPineda();
-      if(raw<1) pinRAF=requestAnimationFrame(tick);
-      else{pinRAF=null;if(onDone)onDone();}
-    }
-    pinRAF=requestAnimationFrame(tick);
-  }
-
-  function doOnePixel(onDone){
-    if(pinIdx>=testPixels.length){if(onDone)onDone();return;}
-    var p=testPixels[pinIdx];
-    // Test at pixel center
-    var pc={x:p.x+0.5, y:p.y+0.5};
-    var e01=edgeFn(v0,v1,pc);
-    var e12=edgeFn(v1,v2,pc);
-    var e20=edgeFn(v2,v0,pc);
-    var inside=(e01>=0&&e12>=0&&e20>=0)||(e01<=0&&e12<=0&&e20<=0);
-    currentTest={x:p.x,y:p.y,e01:e01,e12:e12,e20:e20,inside:inside};
-    pinIdx++;
-
-    pinAnimate(500,function(){
-      if(inside) testedPixels.push({x:p.x,y:p.y,inside:true});
-      currentTest=null;
-      drawPineda();
-      if(onDone)onDone();
-    });
-  }
-
-  window._pinedaDraw=drawPineda;
-  window._pinedaStep=function(){
-    if(pinRAF)return;
-    doOnePixel(function(){drawPineda();});
-  };
-
-  window._pinedaPlay=function(){
-    if(pinRAF||pinPlaying)return;
-    pinPlaying=true;
-    function next(){
-      if(pinIdx>=testPixels.length||!pinPlaying){pinPlaying=false;return;}
-      doOnePixel(function(){setTimeout(next,80);});
-    }
-    next();
-  };
-
-  window._pinedaReset=function(){
-    if(pinRAF){cancelAnimationFrame(pinRAF);pinRAF=null;}
-    pinPlaying=false;
-    testedPixels=[];currentTest=null;pinIdx=0;pinAnimT=0;
-    drawPineda();
-  };
+  window._baryDraw=draw;
 })();
 
 // Hook pineda note open to init both animations
@@ -8807,8 +8629,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       if(window._scanCarDraw)window._scanCarDraw();
       if(window._pinCarDraw)window._pinCarDraw();
       if(window._crossVecDraw)window._crossVecDraw();
-            if(window._pinMathDraw)window._pinMathDraw();
-      if(window._pinedaDraw)window._pinedaDraw();
+      if(window._baryDraw)window._baryDraw();
     },100);
     if(id==='poincare') setTimeout(function(){
       var vid=document.getElementById('mugVid');
