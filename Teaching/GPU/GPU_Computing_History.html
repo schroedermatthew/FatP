@@ -1451,7 +1451,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'As the animation demonstrates with normals and then colors, the same barycentric ' +
         'mechanism interpolates every per-vertex attribute.&ensp; Texture coordinates, ' +
         'tangent vectors, and any custom data attached to the vertices all blend the same ' +
-        'way &ndash; three values in, one weighted result out.&ensp; The fragment shader then ' +
+        'way &ndash; three values in, one weighted result out.' +
+        ' <button class="notes-btn" data-note="interpHW" onclick="window._openNotes(\'interpHW\',false)">N</button>' +
+        '&ensp; The fragment shader then ' +
         'receives these interpolated values and never needs to know which triangle they came from.</p>' +
 
         '<p style="font:14px var(--mono);color:var(--fg3);margin-top:8px;">' +
@@ -1951,17 +1953,6 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'computation, no edge tables.&ensp; Two multiplies and a subtract per edge, ' +
         'three edges, check three signs.</p>' +
 
-        '<h4>Why hardware loves this</h4>' +
-        '<p>The edge function is linear in (p<sub>x</sub>,&thinsp;p<sub>y</sub>).&ensp; Moving one pixel to the right ' +
-        'adds a constant.&ensp; Moving one pixel down adds a different constant.&ensp; These ' +
-        'constants are computed once per triangle during setup, and then the rasterizer just ' +
-        'accumulates &ndash; add, add, check sign, next pixel.&ensp; No divisions, no square ' +
-        'roots, no transcendentals.</p>' +
-        '<p>And because each pixel&rsquo;s test depends only on its own coordinates and the ' +
-        'triangle&rsquo;s edge constants &ndash; not on any neighboring pixel &ndash; you can ' +
-        'evaluate as many pixels in parallel as you have hardware units.&ensp; This is the ' +
-        'per-pixel independence that the main text describes, expressed as an algorithm.</p>' +
-
         '<h4>Free interpolation</h4>' +
         '<p>There is a bonus.&ensp; The three edge function values at a point are proportional ' +
         'to the barycentric coordinates of that point with respect to the triangle.&ensp; That ' +
@@ -1970,6 +1961,64 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'Coverage and interpolation collapse into a single computation.</p>' +
 
         '<canvas id="cvBary" width="700" height="480" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>'+
+
+        '<h4>Why hardware loves this</h4>' +
+        '<p>The edge function is linear in (p<sub>x</sub>,&thinsp;p<sub>y</sub>).&ensp; Moving one pixel to the right ' +
+        'adds a constant.&ensp; Moving one pixel down adds a different constant.&ensp; These ' +
+        'constants are computed once per triangle during setup, and then the rasterizer just ' +
+        'accumulates &ndash; add, add, check sign, next pixel.&ensp; No divisions, no square ' +
+        'roots, no transcendentals.</p>' +
+        '<p>Write it out.&ensp; The edge function is linear in p: &ensp;' +
+        'E(p)&thinsp;=&thinsp;e<sub>x</sub>&thinsp;p<sub>y</sub>&thinsp;&minus;&thinsp;e<sub>y</sub>&thinsp;p<sub>x</sub>&thinsp;+&thinsp;C ' +
+        'where C depends only on the edge vertices.&ensp; Because it is linear, stepping ' +
+        'one pixel in any direction adds a constant:</p>' +
+        '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
+        'E(p<sub>x</sub>+1,&thinsp;p<sub>y</sub>) &ensp;= &ensp;E(p<sub>x</sub>,&thinsp;p<sub>y</sub>) + A</p>' +
+        '<p style="text-align:center;font:600 16px var(--mono);color:var(--amber)">' +
+        'E(p<sub>x</sub>,&thinsp;p<sub>y</sub>+1) &ensp;= &ensp;E(p<sub>x</sub>,&thinsp;p<sub>y</sub>) + B</p>' +
+        '<p>The setup unit computes A, B, and an initial value of E for each of the three edges ' +
+        '&ndash; that requires multiplies, but it happens once per triangle.&ensp; After that, ' +
+        'every pixel is one add per edge: a MUX selects A or B depending on the step direction, ' +
+        'an adder accumulates the running total, and the sign bit tells you inside or outside.&ensp; ' +
+        'The schematic below shows one edge evaluation unit; three of these plus a sign comparator ' +
+        'make a complete pixel lane.</p>' +
+        '<p>And because each pixel&rsquo;s test depends only on its own coordinates and the ' +
+        'triangle&rsquo;s edge constants &ndash; not on any neighboring pixel &ndash; you can ' +
+        'evaluate as many pixels in parallel as you have hardware units.&ensp; This is the ' +
+        'per-pixel independence that the main text describes, expressed as an algorithm.</p>' +
+
+        '<canvas id="cvRasterHW" width="700" height="640" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>'+
+
+        '<h4>Reading the schematic</h4>' +
+        '<p><b>Left side &ndash; one edge evaluation unit (replicated &times;3).</b>&ensp; ' +
+        'The inputs A and B are the precomputed deltas from triangle setup: ' +
+        'A is the change in E when you step one pixel horizontally, ' +
+        'B is the change when you step vertically.&ensp; ' +
+        'The <b>scan_dir</b> signal tells the rasterizer which direction it is stepping next ' +
+        '(horizontal or vertical scan across a tile).&ensp; ' +
+        'The <b>MUX</b> at the top selects the correct delta.&ensp; ' +
+        'The <b>adder</b> adds it to the current edge value fed back from the register.&ensp; ' +
+        'The <b>register</b> (D flip-flop, clocked) stores the new result and feeds it back ' +
+        'for the next pixel.&ensp; The register always holds the exact edge function value ' +
+        'for the current pixel.&ensp; Every new pixel costs one add.</p>' +
+
+        '<p>The <b>MSB</b> (most significant bit) of the register is the sign of the edge function ' +
+        '&ndash; positive means the pixel is on the inside of that edge.&ensp; ' +
+        'The full register value also feeds down to the interpolation unit, ' +
+        'since the same edge function values serve as barycentric weights.</p>' +
+
+        '<p><b>Right side &ndash; coverage test.</b>&ensp; ' +
+        'The three sign bits (one from each edge unit) enter two <b>XNOR</b> gates and ' +
+        'one <b>AND</b> gate.&ensp; This detects whether all three signs are equal: ' +
+        'if the triangle is wound consistently, all-positive or all-negative means the pixel ' +
+        'is inside.&ensp; The output is a single &ldquo;inside&rdquo; flag.</p>' +
+
+        '<p><b>Per pixel, per clock:</b> all three edge units run in parallel.&ensp; ' +
+        'Each updates its running value with one add (selected by scan_dir).&ensp; ' +
+        'The three new sign bits feed the coverage test.&ensp; ' +
+        'If inside = true, the pixel proceeds to shading and interpolation.&ensp; ' +
+        'Zero multiplies, zero data dependencies between pixels.&ensp; ' +
+        'Replicate as many lanes as your transistor budget allows.</p>' +
 
         '<h4>From paper to silicon</h4>' +
         '<p>Gary Tarolli, the CTO of 3dfx, confirmed that the original Voodoo 1 and Voodoo 2 ' +
@@ -1980,6 +2029,39 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'Pineda, J., &ldquo;A Parallel Algorithm for Polygon Rasterization,&rdquo; ' +
         '<em>Computer Graphics</em> (SIGGRAPH &rsquo;88 Proceedings), 22(4), pp.&thinsp;17&ndash;20, ' +
         'August 1988.</p>'
+    },
+    'interpHW': {
+      title: 'Interpolation hardware',
+      body: '<h4>Same circuit, more lanes</h4>' +
+        '<p>The Pineda note showed a single pixel lane: three MUX/adder/register units ' +
+        'evaluating edge functions, feeding a sign comparator.&ensp; That handles coverage ' +
+        '&ndash; is the pixel inside?&ensp; But the same accumulator circuit also handles ' +
+        'interpolation.&ensp; You just need more lanes.</p>' +
+
+        '<p>During triangle setup, the hardware computes not just the edge step constants ' +
+        '(A and B per edge) but also attribute gradients: &part;R/&part;x, &part;R/&part;y, ' +
+        '&part;G/&part;x, &part;G/&part;y, and so on for every attribute the fragment needs.&ensp; ' +
+        'Each attribute gets its own accumulator that steps in lockstep with the edge evaluators.</p>' +
+
+        '<canvas id="cvInterpHW" width="900" height="1000" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
+
+        '<h4>Perspective correction</h4>' +
+        '<p>For attributes that must be perspective-correct (texture coordinates, ' +
+        'any attribute that needs to look right under foreshortening), the hardware ' +
+        'interpolates u/w, v/w, and 1/w linearly &ndash; three more accumulator lanes.&ensp; ' +
+        'At the output, a reciprocal unit divides u/w and v/w by 1/w to recover the ' +
+        'true u and v.&ensp; That division is the one expensive operation per pixel, and ' +
+        'it is why early GPUs had dedicated reciprocal hardware.</p>' +
+
+        '<h4>The cost picture</h4>' +
+        '<p>Coverage: 3 accumulators + sign test.&ensp; ' +
+        'Color + depth: 4 accumulators (R, G, B, Z).&ensp; ' +
+        'Perspective-correct texture: 3 accumulators + 1 reciprocal.&ensp; ' +
+        'Total: 10 accumulators, 1 divider, and a sign check.&ensp; ' +
+        'Every accumulator is the same circuit: MUX, adder, register.&ensp; ' +
+        'The only unique piece is the reciprocal unit.&ensp; ' +
+        'This is why GPUs are built from arrays of identical compute lanes &ndash; ' +
+        'the rasterizer is almost entirely regular, repeating structure.</p>'
     },
     'carpenter': {
       title: 'Loren Carpenter and Vol Libre',
@@ -2162,6 +2244,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'poincare',
     'scanline',
     'pineda',
+    'interpHW',
     'carpenter',
     'teapot'
   ];
@@ -2172,6 +2255,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'sgiHistory': 'Section 1 &ndash; The pixel problem',
     'poincare': 'Section 1 &ndash; The pixel problem',
     'scanline': 'Section 1 &ndash; The pixel problem',
+    'interpHW': 'Section 1 \u2013 The pixel problem',
     'pineda': 'Section 1 &ndash; The pixel problem',
     'carpenter': 'Section 1 &ndash; The pixel problem',
     'teapot': 'Section 1 &ndash; The pixel problem'
@@ -8467,6 +8551,458 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
 
 
+
+// ============ RASTERIZER HARDWARE SCHEMATIC ============
+(function(){
+  function draw(){
+    var cv=document.getElementById('cvRasterHW');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+    var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle='#ffffff';ctx.fillStyle='#ffffff';
+
+    // Title
+    ctx.font='600 15px '+mono;ctx.textAlign='center';
+    ctx.fillText('single pixel lane \u2014 one edge evaluation unit (replicated \u00d73)',W/2,22);
+
+    // ============ MAIN UNIT (detailed, centered) ============
+    var cx=160,baseY=50;
+
+    // --- Input signals ---
+    ctx.font='600 13px '+mono;ctx.textAlign='right';
+    ctx.fillText('A',cx-70,baseY+60);
+    ctx.fillText('B',cx-70,baseY+90);
+    ctx.font='600 11px '+mono;
+    ctx.fillText('scan_dir',cx-70,baseY+120);
+
+    // Input lines to MUX
+    ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(cx-64,baseY+56);ctx.lineTo(cx-20,baseY+56);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx-64,baseY+86);ctx.lineTo(cx-20,baseY+86);ctx.stroke();
+    // Select line
+    ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx-64,baseY+116);ctx.lineTo(cx+20,baseY+116);
+    ctx.lineTo(cx+20,baseY+105);ctx.stroke();
+    // Small arrow on select
+    ctx.fillStyle='#ffffff';ctx.beginPath();
+    ctx.moveTo(cx+20,baseY+105);ctx.lineTo(cx+17,baseY+110);ctx.lineTo(cx+23,baseY+110);ctx.closePath();ctx.fill();
+
+    // --- MUX (trapezoid) ---
+    var mx=cx-20,my=baseY+42,mw=80,mh=60;
+    ctx.lineWidth=1.5;ctx.strokeStyle='#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(mx,my);ctx.lineTo(mx+mw,my);
+    ctx.lineTo(mx+mw-15,my+mh);ctx.lineTo(mx+15,my+mh);
+    ctx.closePath();ctx.stroke();
+    ctx.font='600 13px '+mono;ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('MUX',mx+mw/2,my+mh/2+5);
+    ctx.font='600 10px '+mono;ctx.fillStyle='rgba(255,255,255,0.6)';ctx.textAlign='left';
+    ctx.fillText('selects step',mx+mw+6,my+mh/2-2);
+    ctx.fillText('direction',mx+mw+6,my+mh/2+10);
+    // MUX inputs: dots
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();ctx.arc(mx,baseY+56,2.5,0,2*Math.PI);ctx.fill();
+    ctx.beginPath();ctx.arc(mx,baseY+86,2.5,0,2*Math.PI);ctx.fill();
+
+    // MUX output line down
+    var mOutX=mx+mw/2,mOutY=my+mh;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(mOutX,mOutY);ctx.lineTo(mOutX,mOutY+30);ctx.stroke();
+
+    // --- ADDER ---
+    var ax=mOutX-40,ay=mOutY+30,aw=80,ah=50;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(ax,ay,aw,ah,4);ctx.stroke();
+    ctx.font='700 22px '+mono;ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('+',ax+aw/2,ay+ah/2+8);
+    // MUX output enters adder top-left area
+    ctx.beginPath();ctx.arc(mOutX,ay,2.5,0,2*Math.PI);ctx.fill();
+
+    // Feedback line enters adder from right
+    var fbX=ax+aw+50;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(ax+aw,ay+ah/2);ctx.lineTo(fbX,ay+ah/2);ctx.stroke();
+    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(ax+aw,ay+ah/2,2.5,0,2*Math.PI);ctx.fill();
+
+    // Adder output line down
+    var aOutX=ax+aw/2,aOutY=ay+ah;
+    ctx.beginPath();ctx.moveTo(aOutX,aOutY);ctx.lineTo(aOutX,aOutY+40);ctx.stroke();
+
+    // --- REGISTER ---
+    var regX=aOutX-50,regY=aOutY+40,regW=100,regH=50;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.rect(regX,regY,regW,regH);ctx.stroke();
+    // Clock triangle
+    var triSize=8;
+    ctx.beginPath();
+    ctx.moveTo(regX,regY+regH-2);
+    ctx.lineTo(regX+triSize,regY+regH-triSize-2);
+    ctx.lineTo(regX,regY+regH-triSize*2-2);
+    ctx.stroke();
+    // D and Q labels
+    ctx.font='600 13px '+mono;ctx.textAlign='left';ctx.fillStyle='#ffffff';
+    ctx.fillText('D',regX+4,regY+18);
+    ctx.textAlign='right';
+    ctx.fillText('Q',regX+regW-4,regY+18);
+    // Register label
+    ctx.font='600 14px '+mono;ctx.textAlign='center';
+    ctx.fillText('E',regX+regW/2,regY+regH/2+14);
+    // Clock label
+    ctx.font='600 10px '+mono;ctx.textAlign='left';
+    ctx.fillText('clk',regX+triSize+2,regY+regH-6);
+    // Annotation
+    ctx.font='600 10px '+mono;ctx.fillStyle='rgba(255,255,255,0.6)';ctx.textAlign='left';
+    ctx.fillText('holds current',regX+regW+6,regY+regH/2-2);
+    ctx.fillText('edge value',regX+regW+6,regY+regH/2+10);
+
+    // D input dot
+    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(aOutX,regY,2.5,0,2*Math.PI);ctx.fill();
+
+    // Q output line to the right
+    var qOutX=regX+regW,qOutY=regY+14;
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(qOutX,qOutY);ctx.lineTo(qOutX+30,qOutY);ctx.stroke();
+
+    // Feedback: Q output goes up and back to adder
+    ctx.beginPath();
+    ctx.moveTo(qOutX+30,qOutY);
+    ctx.lineTo(fbX,qOutY);
+    ctx.lineTo(fbX,ay+ah/2);
+    ctx.stroke();
+    // Arrow on feedback entering adder
+    ctx.fillStyle='#ffffff';ctx.beginPath();
+    ctx.moveTo(ax+aw,ay+ah/2);ctx.lineTo(ax+aw+8,ay+ah/2-4);ctx.lineTo(ax+aw+8,ay+ah/2+4);ctx.closePath();ctx.fill();
+    // Feedback label
+    ctx.font='600 10px '+mono;ctx.fillStyle='rgba(255,255,255,0.6)';ctx.textAlign='center';
+    ctx.fillText('feedback',fbX,(ay+ah/2+qOutY)/2);
+
+    // --- MSB TAP ---
+    // Tap off the Q output for sign bit
+    var tapX=qOutX+30,tapY=qOutY;
+    ctx.beginPath();ctx.arc(tapX,tapY,2.5,0,2*Math.PI);ctx.fill();
+    // Line going right from tap
+    ctx.beginPath();ctx.moveTo(tapX,tapY);ctx.lineTo(tapX+80,tapY);ctx.stroke();
+    ctx.font='600 12px '+mono;ctx.textAlign='left';
+    ctx.fillText('MSB (sign bit)',tapX+86,tapY+4);
+    ctx.font='600 10px '+mono;ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.fillText('positive = inside this edge',tapX+86,tapY+16);
+
+    // --- VALUE OUTPUT ---
+    // Full value goes down from register for interpolation
+    var valOutY=regY+regH;
+    ctx.beginPath();ctx.moveTo(aOutX,valOutY);ctx.lineTo(aOutX,valOutY+30);ctx.stroke();
+    // Arrow
+    ctx.fillStyle='#ffffff';ctx.beginPath();
+    ctx.moveTo(aOutX,valOutY+30);ctx.lineTo(aOutX-4,valOutY+22);ctx.lineTo(aOutX+4,valOutY+22);ctx.closePath();ctx.fill();
+    ctx.font='600 12px '+mono;ctx.textAlign='center';
+    ctx.fillText('to interpolation (\u03bb)',aOutX,valOutY+46);
+
+    // ============ REPLICATION INDICATOR ============
+    // Dashed box around the whole unit
+    var boxX=cx-90,boxY=baseY+30,boxW=290,boxH=320;
+    ctx.setLineDash([6,4]);ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.roundRect(boxX,boxY,boxW,boxH,8);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.font='600 12px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='right';
+    ctx.fillText('\u00d73 (one per edge)',boxX+boxW-8,boxY+boxH+16);
+
+    // ============ SIGN COMPARISON CIRCUIT (right side) ============
+    var scX=420,scY=baseY+80;
+
+    ctx.font='600 14px '+mono;ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('coverage test',scX+50,scY-10);
+
+    // Three sign input lines
+    var signNames=['sign\u2080','sign\u2081','sign\u2082'];
+    for(var i=0;i<3;i++){
+      var sy=scY+20+i*50;
+      ctx.font='600 12px '+mono;ctx.textAlign='right';ctx.fillStyle='#ffffff';
+      ctx.fillText(signNames[i],scX-6,sy+4);
+      ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(scX,sy);ctx.lineTo(scX+30,sy);ctx.stroke();
+    }
+
+    // XNOR gate 1 (sign0, sign1)
+    var gx=scX+30,gy=scY+20;
+    // Gate body (curved shape)
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(gx,gy-15);
+    ctx.bezierCurveTo(gx+10,gy-15,gx+30,gy-10,gx+40,gy);
+    ctx.bezierCurveTo(gx+30,gy+10,gx+10,gy+15,gx,gy+15);
+    ctx.bezierCurveTo(gx+8,gy,gx+8,gy,gx,gy-15);
+    ctx.stroke();
+    // Input curve
+    ctx.beginPath();
+    ctx.moveTo(gx-4,gy-15);ctx.bezierCurveTo(gx+4,gy,gx+4,gy,gx-4,gy+15);ctx.stroke();
+    // Circle for XNOR
+    ctx.beginPath();ctx.arc(gx+43,gy,3,0,2*Math.PI);ctx.stroke();
+    // Input lines
+    ctx.beginPath();ctx.moveTo(scX+30,scY+20);ctx.lineTo(gx+4,gy-8);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(scX+30,scY+70);ctx.lineTo(gx+4,gy+8);ctx.stroke();
+
+    // XNOR gate 2 (sign1, sign2)
+    var gy2=scY+95;
+    ctx.beginPath();
+    ctx.moveTo(gx,gy2-15);
+    ctx.bezierCurveTo(gx+10,gy2-15,gx+30,gy2-10,gx+40,gy2);
+    ctx.bezierCurveTo(gx+30,gy2+10,gx+10,gy2+15,gx,gy2+15);
+    ctx.bezierCurveTo(gx+8,gy2,gx+8,gy2,gx,gy2-15);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gx-4,gy2-15);ctx.bezierCurveTo(gx+4,gy2,gx+4,gy2,gx-4,gy2+15);ctx.stroke();
+    ctx.beginPath();ctx.arc(gx+43,gy2,3,0,2*Math.PI);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(scX+30,scY+70);ctx.lineTo(gx+4,gy2-8);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(scX+30,scY+120);ctx.lineTo(gx+4,gy2+8);ctx.stroke();
+
+    // XNOR labels
+    ctx.font='600 9px '+mono;ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('XNOR',gx+20,gy+3);
+    ctx.fillText('XNOR',gx+20,gy2+3);
+
+    // XNOR outputs to AND gate
+    var andX=gx+70,andY=(gy+gy2)/2;
+    // Lines from XNOR outputs
+    ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(gx+46,gy);ctx.lineTo(andX,gy);ctx.lineTo(andX,andY-12);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(gx+46,gy2);ctx.lineTo(andX,gy2);ctx.lineTo(andX,andY+12);ctx.stroke();
+
+    // AND gate
+    var agx=andX,agy=andY;
+    ctx.beginPath();
+    ctx.moveTo(agx,agy-18);
+    ctx.lineTo(agx+15,agy-18);
+    ctx.bezierCurveTo(agx+38,agy-18,agx+38,agy+18,agx+15,agy+18);
+    ctx.lineTo(agx,agy+18);
+    ctx.closePath();ctx.stroke();
+    ctx.font='600 9px '+mono;ctx.textAlign='center';
+    ctx.fillText('AND',agx+16,agy+3);
+
+    // AND inputs
+    ctx.beginPath();ctx.moveTo(andX,andY-10);ctx.lineTo(agx,andY-10);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(andX,andY+10);ctx.lineTo(agx,andY+10);ctx.stroke();
+
+    // AND output
+    ctx.beginPath();ctx.moveTo(agx+36,agy);ctx.lineTo(agx+70,agy);ctx.stroke();
+    // Arrow
+    ctx.fillStyle='#ffffff';ctx.beginPath();
+    ctx.moveTo(agx+70,agy);ctx.lineTo(agx+62,agy-4);ctx.lineTo(agx+62,agy+4);ctx.closePath();ctx.fill();
+    ctx.font='600 13px '+mono;ctx.textAlign='left';
+    ctx.fillText('inside',agx+76,agy+5);
+    ctx.font='600 10px '+mono;ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.fillText('all 3 signs match',agx+76,agy+18);
+
+    // ============ BOTTOM: full lane summary ============
+    var sumY=H-140;
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(40,sumY);ctx.lineTo(W-40,sumY);ctx.stroke();
+
+    ctx.font='600 14px '+mono;ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('per pixel, per clock:',W/2,sumY+28);
+    ctx.font='500 13px '+mono;
+    ctx.fillText('3 mux selects  +  3 fixed-point adds  +  2 XNOR  +  1 AND',W/2,sumY+52);
+    ctx.fillText('zero multiplies.  zero dependencies on neighboring pixels.',W/2,sumY+74);
+    ctx.fillText('replicate lanes freely \u2014 limited only by transistor budget.',W/2,sumY+96);
+  }
+
+  window._rasterHWDraw=draw;
+})();
+
+
+// ============ INTERPOLATION HARDWARE SCHEMATIC ============
+(function(){
+  function draw(){
+    var cv=document.getElementById('cvInterpHW');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+    var mono=(getComputedStyle(document.body).getPropertyValue('--mono')||'').trim()||'Consolas,monospace';
+    ctx.clearRect(0,0,W,H);
+    var white='#ffffff';
+
+    function drawMux(cx,cy,w,h){
+      ctx.strokeStyle=white;ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx-w/2,cy-h/2);ctx.lineTo(cx+w/2,cy-h/2);
+      ctx.lineTo(cx+w/2-10,cy+h/2);ctx.lineTo(cx-w/2+10,cy+h/2);
+      ctx.closePath();ctx.stroke();
+    }
+    function drawAdder(cx,cy,s){
+      ctx.strokeStyle=white;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.roundRect(cx-s/2,cy-s/2,s,s,3);ctx.stroke();
+      ctx.font='700 20px '+mono;ctx.fillStyle=white;ctx.textAlign='center';
+      ctx.fillText('+',cx,cy+7);
+    }
+    function drawReg(cx,cy,w,h,label){
+      ctx.strokeStyle=white;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.rect(cx-w/2,cy-h/2,w,h);ctx.stroke();
+      var tx=cx-w/2,ty=cy+h/2;
+      ctx.beginPath();ctx.moveTo(tx,ty);ctx.lineTo(tx+8,ty-8);ctx.lineTo(tx,ty-16);ctx.stroke();
+      if(label){ctx.font='600 14px '+mono;ctx.fillStyle=white;ctx.textAlign='center';ctx.fillText(label,cx,cy+5);}
+    }
+    function ln(x1,y1,x2,y2){
+      ctx.strokeStyle=white;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    }
+    function dot(x,y){ctx.fillStyle=white;ctx.beginPath();ctx.arc(x,y,2.5,0,2*Math.PI);ctx.fill();}
+    function arrowDown(x,y1,y2){
+      ln(x,y1,x,y2-6);
+      ctx.fillStyle=white;ctx.beginPath();ctx.moveTo(x,y2);ctx.lineTo(x-4,y2-8);ctx.lineTo(x+4,y2-8);ctx.closePath();ctx.fill();
+    }
+    function drawXnor(cx,cy){
+      ctx.strokeStyle=white;ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy-14);
+      ctx.bezierCurveTo(cx+12,cy-14,cx+30,cy-8,cx+36,cy);
+      ctx.bezierCurveTo(cx+30,cy+8,cx+12,cy+14,cx,cy+14);
+      ctx.bezierCurveTo(cx+7,cy,cx+7,cy,cx,cy-14);
+      ctx.stroke();
+      ctx.beginPath();ctx.moveTo(cx-4,cy-14);ctx.bezierCurveTo(cx+3,cy,cx+3,cy,cx-4,cy+14);ctx.stroke();
+      ctx.beginPath();ctx.arc(cx+39,cy,3,0,2*Math.PI);ctx.stroke();
+    }
+    function drawAnd(cx,cy){
+      ctx.strokeStyle=white;ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy-16);ctx.lineTo(cx+12,cy-16);
+      ctx.bezierCurveTo(cx+30,cy-16,cx+30,cy+16,cx+12,cy+16);
+      ctx.lineTo(cx,cy+16);ctx.closePath();ctx.stroke();
+    }
+
+    // unit footprint: input labels ~50px left of cx, feedback+MSB ~80px right of cx
+    // total width ~130px per unit. spacing must exceed this.
+    function drawUnit(cx,baseY,regLabel,inA,inB){
+      ctx.font='600 12px '+mono;ctx.fillStyle=white;ctx.textAlign='right';
+      ctx.fillText(inA,cx-34,baseY+20);
+      ctx.fillText(inB,cx-34,baseY+46);
+      ln(cx-28,baseY+16,cx-12,baseY+16);
+      ln(cx-28,baseY+42,cx-12,baseY+42);
+      drawMux(cx+12,baseY+30,48,42);
+      ln(cx+12,baseY+51,cx+12,baseY+68);
+      drawAdder(cx+12,baseY+86,32);
+      dot(cx+12,baseY+68);
+      var fbX=cx+60;
+      ln(cx+28,baseY+86,fbX,baseY+86);
+      dot(cx+28,baseY+86);
+      ln(cx+12,baseY+102,cx+12,baseY+122);
+      drawReg(cx+12,baseY+142,48,32,regLabel);
+      ln(cx+36,baseY+136,fbX,baseY+136);
+      ln(fbX,baseY+136,fbX,baseY+86);
+      ctx.fillStyle=white;ctx.beginPath();
+      ctx.moveTo(cx+28,baseY+86);ctx.lineTo(cx+34,baseY+83);ctx.lineTo(cx+34,baseY+89);ctx.closePath();ctx.fill();
+      dot(fbX,baseY+136);
+      ln(fbX,baseY+136,fbX+20,baseY+136);
+      return {cx:cx+12,outY:baseY+158,tapX:fbX+20,tapY:baseY+136};
+    }
+
+    ctx.font='600 17px '+mono;ctx.fillStyle=white;ctx.textAlign='center';
+    ctx.fillText('full pixel lane',W/2,26);
+
+    // ============ ROW 1: EDGE EVALUATION (3 units, sp=240) ============
+    var r1Y=56;
+    ctx.font='600 15px '+mono;ctx.textAlign='left';ctx.fillStyle=white;
+    ctx.fillText('edge evaluation (\u00d73)',30,r1Y);
+
+    var sp1=240;
+    var e0=drawUnit(90,r1Y+18,'E\u2080','A\u2080','B\u2080');
+    var e1=drawUnit(90+sp1,r1Y+18,'E\u2081','A\u2081','B\u2081');
+    var e2=drawUnit(90+sp1*2,r1Y+18,'E\u2082','A\u2082','B\u2082');
+
+    ctx.font='600 10px '+mono;ctx.textAlign='left';ctx.fillStyle=white;
+    var taps=[e0,e1,e2];
+    for(var i=0;i<3;i++) ctx.fillText('MSB',taps[i].tapX+4,taps[i].tapY-8);
+
+    // Route 3 sign bits: drop down, route right to gates
+    var busY=r1Y+210;
+    var gX=720;
+    for(var i=0;i<3;i++){
+      var tx=taps[i].tapX+20;
+      ln(tx,taps[i].tapY,tx,busY+i*40);
+      ln(tx,busY+i*40,gX-14,busY+i*40);
+    }
+    ctx.font='600 10px '+mono;ctx.fillStyle=white;ctx.textAlign='right';
+    ctx.fillText('sign\u2080',gX-18,busY-8);
+    ctx.fillText('sign\u2081',gX-18,busY+32);
+    ctx.fillText('sign\u2082',gX-18,busY+72);
+
+    // XNOR 1: sign0 + sign1
+    var xn1Y=busY+14;
+    ln(gX-14,busY,gX+4,xn1Y-7);
+    ln(gX-14,busY+40,gX+4,xn1Y+7);
+    drawXnor(gX,xn1Y);
+
+    // XNOR 2: sign1 (tee) + sign2
+    var xn2Y=busY+66;
+    dot(gX-14,busY+40);
+    ln(gX-14,busY+40,gX-14,xn2Y-7);
+    ln(gX-14,xn2Y-7,gX+4,xn2Y-7);
+    ln(gX-14,busY+80,gX+4,xn2Y+7);
+    drawXnor(gX,xn2Y);
+
+    // AND gate
+    var andX=gX+58,andY=(xn1Y+xn2Y)/2;
+    ln(gX+42,xn1Y,andX+6,xn1Y);ln(andX+6,xn1Y,andX+6,andY-10);
+    ln(gX+42,xn2Y,andX+6,xn2Y);ln(andX+6,xn2Y,andX+6,andY+10);
+    drawAnd(andX,andY);
+    ln(andX+28,andY,andX+56,andY);
+    ctx.font='600 13px '+mono;ctx.textAlign='left';ctx.fillStyle=white;
+    ctx.fillText('inside',andX+60,andY+5);
+
+    // ============ ROW 2: COLOR + DEPTH (4 units, sp=200) ============
+    var r2Y=r1Y+280;
+    ctx.font='600 15px '+mono;ctx.textAlign='left';ctx.fillStyle=white;
+    ctx.fillText('color + depth (\u00d74)',30,r2Y);
+
+    var sp2=200;
+    var aR=drawUnit(100,r2Y+18,'R','\u2202R/\u2202x','\u2202R/\u2202y');
+    var aG=drawUnit(100+sp2,r2Y+18,'G','\u2202G/\u2202x','\u2202G/\u2202y');
+    var aB=drawUnit(100+sp2*2,r2Y+18,'B','\u2202B/\u2202x','\u2202B/\u2202y');
+    var aZ=drawUnit(100+sp2*3,r2Y+18,'Z','\u2202Z/\u2202x','\u2202Z/\u2202y');
+
+    // Output labels BELOW the row, not beside units
+    ctx.font='600 13px '+mono;ctx.textAlign='center';ctx.fillStyle=white;
+    var r2bottom=r2Y+18+170;
+    // Bracket under R,G,B
+    ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(aR.cx,r2bottom);ctx.lineTo(aR.cx,r2bottom+10);
+    ctx.lineTo(aB.cx,r2bottom+10);ctx.lineTo(aB.cx,r2bottom);ctx.stroke();
+    ctx.strokeStyle=white;ctx.lineWidth=1.5;
+    ctx.fillText('\u2192 fragment color',(aR.cx+aB.cx)/2,r2bottom+28);
+    // Z output
+    arrowDown(aZ.cx,r2bottom,r2bottom+14);
+    ctx.fillText('\u2192 depth test',aZ.cx,r2bottom+28);
+
+    // ============ ROW 3: PERSPECTIVE (3 units, sp=240) ============
+    var r3Y=r2Y+290;
+    ctx.font='600 15px '+mono;ctx.textAlign='left';ctx.fillStyle=white;
+    ctx.fillText('perspective-correct texture (\u00d73 + reciprocal)',30,r3Y);
+
+    var sp3=240;
+    var pU=drawUnit(90,r3Y+18,'u/w','\u2202(u/w)','\u2202(u/w)');
+    var pV=drawUnit(90+sp3,r3Y+18,'v/w','\u2202(v/w)','\u2202(v/w)');
+    var pW=drawUnit(90+sp3*2,r3Y+18,'1/w','\u2202(1/w)','\u2202(1/w)');
+
+    var rcpY=r3Y+240;
+    arrowDown(pU.cx,r3Y+18+158,rcpY);
+    arrowDown(pV.cx,r3Y+18+158,rcpY);
+    arrowDown(pW.cx,r3Y+18+158,rcpY);
+
+    var rcpX=60,rcpW=540;
+    ctx.strokeStyle=white;ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.roundRect(rcpX,rcpY,rcpW,50,4);ctx.stroke();
+    ctx.font='600 14px '+mono;ctx.fillStyle=white;ctx.textAlign='center';
+    ctx.fillText('reciprocal: u = (u/w) \u00f7 (1/w),  v = (v/w) \u00f7 (1/w)',rcpX+rcpW/2,rcpY+20);
+    ctx.font='600 12px '+mono;
+    ctx.fillText('the one expensive operation per pixel',rcpX+rcpW/2,rcpY+40);
+
+    arrowDown(rcpX+rcpW/2,rcpY+50,rcpY+80);
+    ctx.font='600 14px '+mono;ctx.textAlign='center';
+    ctx.fillText('u, v \u2192 texture fetch',rcpX+rcpW/2,rcpY+96);
+
+    ctx.font='600 14px '+mono;ctx.fillStyle=white;ctx.textAlign='center';
+    ctx.fillText('every accumulator is the same circuit: MUX \u2192 adder \u2192 register \u2192 feedback',W/2,H-18);
+  }
+
+    window._interpHWDraw=draw;
+})();
+
 // ============ PARALLELOGRAM AREA / BARYCENTRIC DEMO ============
 (function(){
   function draw(){
@@ -8630,6 +9166,10 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       if(window._pinCarDraw)window._pinCarDraw();
       if(window._crossVecDraw)window._crossVecDraw();
       if(window._baryDraw)window._baryDraw();
+      if(window._rasterHWDraw)window._rasterHWDraw();
+    },100);
+    if(id==='interpHW') setTimeout(function(){
+      if(window._interpHWDraw)window._interpHWDraw();
     },100);
     if(id==='poincare') setTimeout(function(){
       var vid=document.getElementById('mugVid');
