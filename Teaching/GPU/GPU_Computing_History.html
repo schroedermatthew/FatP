@@ -20,7 +20,7 @@ Each occurrence earns demerits. The goal is zero.
 │ existing AI notes before reviewing,  │        │        │         │      │
 │ patching, or critiquing the file.    │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ UNVERIFIED HISTORICAL CLAIM          │        │        │         │      │
+│ UNVERIFIED HISTORICAL CLAIM          │   1    │        │         │      │
 │ Stating a date, name, or event as    │        │        │         │      │
 │ fact without source verification.    │        │        │         │      │
 │ History documents earn trust through │        │        │         │      │
@@ -28,11 +28,11 @@ Each occurrence earns demerits. The goal is zero.
 │ misattributed invention destroys     │        │        │         │      │
 │ credibility for the entire series.   │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ STALE AI NOTES                       │        │        │         │      │
+│ STALE AI NOTES                       │   1    │        │         │      │
 │ Failing to update the AI notes after │        │        │         │      │
 │ changing the document structure.     │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ ACCOUNTABILITY AVOIDANCE             │        │        │         │      │
+│ ACCOUNTABILITY AVOIDANCE             │   1    │        │         │      │
 │ Forgetting to present/deliver the    │        │        │         │      │
 │ updated file after changing it.      │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
@@ -42,20 +42,20 @@ Each occurrence earns demerits. The goal is zero.
 │ space. This is the failure mode      │        │        │         │      │
 │ that makes history sections boring.  │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ BAND-AID FIX                         │   2    │        │         │      │
+│ BAND-AID FIX                         │   3    │        │         │      │
 │ Shipping partial fixes when the      │        │        │         │      │
 │ correct fix is known. The working    │        │        │         │      │
 │ reference was in the same file.      │        │        │         │      │
 │ Five iterations instead of one.      │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ DID NOT FOLLOW INSTRUCTION           │   3    │        │         │      │
+│ DID NOT FOLLOW INSTRUCTION           │   4    │        │         │      │
 │ Not following an instruction without │        │        │         │      │
 │ providing a reason why. "Delete the  │        │        │         │      │
 │ line" was clear. If there was a      │        │        │         │      │
 │ reason not to, say so. Otherwise     │        │        │         │      │
 │ just do it.                          │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ TOTAL DEMERITS                       │   7    │   0    │    0    │  0   │
+│ TOTAL DEMERITS                       │  12    │   0    │    0    │  0   │
 └──────────────────────────────────────┴────────┴────────┴─────────┴──────┘
 
 Rules:
@@ -116,6 +116,276 @@ Future-AI modification protocol:
 AI SESSION NOTES — READ BEFORE CONTINUING ANY ANIMATION WORK
 ══════════════════════════════════════════════════════════════════════════════
 
+SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
+
+- Wrote Section 3 ("The crack in the wall") and Section 4 ("The era of the
+  hack") as full narrative prose, replacing the Planned stubs. Author said
+  "don't bother with notes," so NEITHER section has note buttons or any
+  sectionNotes / topicOrder / topicSection entries. Note system stays 11/11/11/11
+  (all 11 notes are in Sections 1-2). If notes are added to 3/4 later, register
+  them in all four places.
+- Both written per philosophy principle 0 (technology-led, industry/people as
+  texture), principle 9 caveat (terms introduced before leaned on: shader,
+  vertex/pixel shader, ALU in S3; texture-as-data, stream, kernel, gather/
+  scatter, GPGPU in S4), and principle 13 (clarity over density — unpacked, not
+  compressed). Callbacks: S3 ties the vertex shader to S2's transform-and-
+  lighting and the pixel shader to S1's per-pixel function; S4 hands off to S5
+  (CUDA / Ian Buck -> NVIDIA), matching the existing s5 stub.
+- VERIFIED for S3: DirectX 8.0 released Nov 9 2000, introduced Shader Model 1.0
+  = Vertex Shader 1.0 + Pixel Shader 1.0, assembly-like (Microsoft/Tom's
+  Hardware/Grokipedia). GeForce 3 (NV20) launched Feb 27 2001, first to fully
+  implement DX8 vertex+pixel shaders, 1 vertex / 4 pixel units (Wikipedia,
+  Grokipedia). Radeon 8500 = SM 1.4 / DX8.1. Original Xbox = GeForce 3 derivative
+  (NV2A). Early games Morrowind, Splinter Cell; Unreal Engine 2. SM2.0 = DX9
+  2002, Radeon 9700, floating point + longer programs; SM3.0 = DX9.0c, GeForce 6
+  series 2004, added branches/loops + vertex texture lookups (bit-tech).
+- VERIFIED for S4: "Brook for GPUs" — Ian Buck, Tim Foley, Daniel Horn, Jeremy
+  Sugerman, Kayvon Fatahalian, Mike Houston, Pat Hanrahan; Stanford; SIGGRAPH
+  2004 / ACM TOG 23(3). Extends C with data-parallel stream + kernel constructs,
+  GPU as streaming co-processor; compiler maps streams->textures, kernels->
+  fragment programs over OpenGL/DirectX, hiding the graphics API. Pre-Brook
+  GPGPU: computation expressed "as a sequence of shading operations on graphics
+  primitives," data manually packed into textures, kernels invoked by rendering
+  geometry (brookgpu.pdf). Brook eval apps: SAXPY, SGEMV (BLAS), image
+  segmentation, FFT, ray tracing. Stream-processor vs vector-processor: GPU
+  programs load/store to local registers, not off-chip memory. Gather-not-scatter
+  and no FP64 are standard era limits. Project: graphics.stanford.edu/projects/
+  brookgpu/ ; paper: graphics.stanford.edu/papers/brookgpu/brookgpu.pdf
+- Also fixed one British spelling ("re-centre" -> "re-center") in the
+  transformLighting note; house convention is American (color/center/behavior).
+- The nv1Quadratics note ("What is a quadratic?") is now a CANVAS, IIFE "cvQuad"
+  (right after the cvSimplex IIFE), in the cvSimplex render idiom:
+  rotX(rotY(v,angle),0.4) projection + rotation, own quadRAF started/stopped by
+  chained _openNotes/_closeNotes on id "nv1Quadratics"; body is canvas-only.
+  It shows a biquadratic BEZIER patch: a 3x3 control net (9 control points, AMBER
+  --amber #e8a832, drawn as cage lines + r4 dots) is the definition; the smooth
+  surface is evaluated from the degree-2 Bernstein basis and rendered as
+  translucent-blue faces rgba(100,160,255,.09/.22), faint blue edges, back-to-
+  front sorted. Control z_ij = fz[i]+fz[j], fz=[0,1,0] (the dome z=1-0.5(x^2+y^2));
+  corners lie on the surface, edge/center control points sit above and pull it.
+  ITERATION + lesson: v1 = from-scratch SVG in mint/teal (wrong visual language,
+  flagged against the poincare note). v2 = cvSimplex palette but a dense sampled
+  quad grid with white vertex dots -- author noted the grid+vertices do NOT define
+  the patch (a tessellation, not the definition). v3 (current) shows the control
+  points AS the definition, the surface as the generated result. Match the working
+  analog; draw what DEFINES a thing, not a sampling of it.
+- v4 (current): made cvQuad INTERACTIVE. Note body now has a 3x3 grid of range
+  sliders (id "cvQuadCtl", amber accent) -- one per control-point height, the 9
+  parameters. oninput calls global window._cvQuadSet(k,val) which writes cz[i][j],
+  rebuild()s the surface, and flags that point active (drawn larger ~1.2s so you
+  can see which one you grabbed while it rotates). rebuild() re-centers by mean
+  height so the patch stays framed. On note open, syncFromSliders() reads the DOM
+  sliders into cz then rebuilds (robust whether the body is re-injected or cached).
+  Verified the deform math headless (corner up / center down) before shipping.
+- v5: each of the 9 control points now has a distinct color (COLORS array,
+  k=i*3+j: red/orange/gold/yellow/green/mint/cyan/pink/lime, all non-purple per
+  house rule, none the surface blue), and each slider's accent-color matches the
+  control point it drives. Control net recolored neutral gray rgba(200,205,220,.32)
+  so it does not clash. Slider names deferred (author: "nevermind names for now").
+  DOF note (author asked "are the 4 corner vertices really 1DOF?"): no -- each
+  control point is a point in 3-space (3 DOF: x,y,z); the sliders expose only
+  height (z), a deliberate height-field simplification. Corners are not special in
+  DOF; they are 3-DOF like the rest, distinguished only by lying ON the surface
+  (their height moves the surface corner one-for-one) vs edge/center points that
+  sit off it and pull. Full 3-DOF control (27 params / draggable points) is the
+  obvious next step if the simplification ever needs lifting.
+
+
+SESSION 9 (May 2026) — minor edits
+
+- Section 2 opening reworked twice for the learner audience: introduce the
+  Voodoo before leaning on it ("a card called the Voodoo Graphics, which slotted
+  into a home PC and did exactly one job, draw 3D for games"). See philosophy
+  rule 9 caveat (introduce load-bearing / section-opening terms on first use).
+- Removed two Section-2 notes at author request: volumeEconomics ("The
+  arithmetic of volume") and verticalIntegration ("channel conflict / STB"). In
+  both cases the main-prose beat stays and carries the idea; only the deep-dive
+  sidebar was dropped. Notes now 11/11/11/11. The four-note lists in SESSIONS 6-8
+  should be read as TWO surviving Section-2 notes: nv1Quadratics and
+  transformLighting.
+- Adopted DOCUMENT PHILOSOPHY principle 13, CLARITY OVER DENSITY: it is fine
+  for the writing not to be dense; unpack rather than compress. Author
+  confirmed this preference explicitly. Applies to Sections 3-9.
+
+
+SESSION 8 (May 2026) — CORRECTED THE SESSION 7 OVER-CORRECTION
+
+The SESSION 7 directive "technology is the star, not the players" was about
+EMPHASIS, not deletion. SESSION 7 over-applied it and stripped Section 2 of
+industry history the author explicitly wanted kept (the SGI-engineers-found-3dfx
+lineage, the Denny's founding, the invidia/envy naming, the NV1 near-death with
+the "one month of payroll" stake, the STB/Creative/Diamond channel detail, the
+ATI/Radeon/AMD outcome). Worse, SESSION 7's own delivery message noted the
+vividness was lost and shipped it anyway instead of catching the over-reach.
+
+SESSION 8 restored all of that industry history, but kept the SESSION 7
+technology-led STRUCTURE: concept-first H3s ("Why open standards beat fast ones",
+"Betting against the grain of the hardware", "The pendulum returns") and each
+beat opening with the technical/economic idea before the company story fills it
+in. Net result is the intended balance: technology leads and organizes; industry
+history is the texture under it. Principle 0 in DOCUMENT PHILOSOPHY corrected from
+exclusion to emphasis.
+
+Demerit applied: DID NOT FOLLOW INSTRUCTION (over-applied "rebalance" as "remove",
+deleting content the author did not ask to cut, and shipping it despite noticing
+the cost).
+
+Note system unchanged (13/13/13/13); four Section 2 notes intact throughout.
+
+
+SESSION 7 (May 2026) — EDITORIAL PIVOT: technology is the star, not the players
+
+Author directive: rebalance the whole series so the technology and ideas lead and
+companies/founders are demoted to vehicles for technical or economic decisions.
+Recorded as DOCUMENT PHILOSOPHY principle 0 (TECHNOLOGY IS THE STAR); principle 2
+reframed so specific details must serve the technology. This governs all future
+sections 3-9.
+
+Applied to Section 2 (the most player-heavy section, written SESSION 6, not yet
+presented). Rewrote the main prose tech-first; the four notes were already
+tech-focused and were left intact (note system still 13/13/13/13).
+  CUT or compressed to clauses: the Denny's founding scene, the "invidia/envy"
+    naming, Jensen's busboy backstory, the Dreamcast/$5M-Sega/layoffs saga, the
+    "one month of payroll" beat, the bankruptcy blow-by-blow, the "bought the
+    bones" line, the ATI-Canada/Radeon-AMD aside.
+  KEPT/ELEVATED as the spine: volume economics (the engine), the open-vs-
+    proprietary API contract (portability compounds), the NV1 quadratic bet as a
+    pure "against the grain of the parallel hardware" lesson (reinforces Section
+    1's per-pixel independence), vertical integration as an economics lesson (now
+    one paragraph + the note), and hardware T&L as the pendulum swing toward
+    fixed-function. Section 1 callbacks preserved.
+  Retitled the H3s from people-first to concept-first: "Workstation techniques,
+    mass-market price" / "Why open standards beat fast ones" / "Betting against
+    the grain of the hardware" / "The pendulum returns".
+
+Resolved tension: principle 0 vs old principle 2 ("specific details"). Rule now:
+a vivid detail stays only if it is the cause or consequence of a technical
+decision; it is cut if it is only corporate color.
+
+NEXT: Section 3 "The crack in the wall" (programmable shaders) to be written
+tech-first under principle 0 &ndash; lead with "a shader is the per-pixel function,
+and now YOU write it" (callback to Section 1 per-pixel independence); DirectX 8 /
+shader-model versions are a sidebar, not the spine.
+
+
+SESSION 6 (May 2026) — WROTE SECTION 2 "The game engine that ate everything"
+(prose + notes only; NO canvas/animation code added)
+
+Section 2 promoted from stub to full narrative. "Planned" badge removed.
+Structure mirrors Section 1 (narrative prose with note buttons for depth):
+  Intro: the $300 3D-only Voodoo beating the $100k workstation; volume economics.
+  H3 "The people who left the cathedral": 3dfx founded 1994 by ex-SGI engineers
+     (Smith, Sellers, Tarolli); Voodoo (1996); proprietary Glide moat.
+  H3 "Three guys at a Denny's": NVIDIA 1993 founding; NV1 quadratic wrong turn;
+     Direct3D mandates triangles; near-death (Sega $5M, one month of payroll,
+     RIVA 128 1997 course-correct).
+  H3 "Two ways to die": 3dfx's two top-of-market mistakes — proprietary Glide vs
+     open Direct3D, and the STB vertical-integration channel-conflict blunder;
+     Dec 2000 NVIDIA buys the assets.
+  H3 "Inventing the word": GeForce 256 (1999), hardware T&L, coining of "GPU";
+     pendulum swing further toward fixed-function; ATI/Radeon survive; handoff
+     to Section 3 "the crack in the wall."
+
+Four NEW notes added (factual teaching voice, no canvases), wired into
+sectionNotes + topicOrder + topicSection (now 13 notes total, all keys aligned):
+  volumeEconomics    — fixed vs marginal cost / NRE amortization / the flywheel
+  nv1Quadratics      — forward vs inverse texture mapping; why triangles are the
+                       parallel choice (ties to Section 1 per-pixel independence)
+  verticalIntegration— channel conflict; why buying STB killed 3dfx
+  transformLighting  — what T&L is (transform matrices + per-vertex lighting),
+                       why moving it off the CPU mattered, why it's fixed-function
+  NOTE: these are written in the document's factual voice as scaffolding; the
+  author (a learner) may rewrite them in their own first-person journey voice.
+
+All Section 2 historical claims VERIFIED against sources and logged in VERIFIED
+HISTORICAL CLAIMS (entries 2, 4, 6 updated; 6b ATI added). The prior "ATI bet on
+open standards" framing in the architecture STRUCTURE notes is imprecise — the
+real open-vs-proprietary story is Glide vs Direct3D; written accurately in prose.
+
+Checks: embedded harness 10/10; note-key integrity 13/13/13/13; no "we" in
+Section 2 prose; no em-dashes in rendered text; div balance 46/46.
+
+AUTHOR EDIT (synced this turn): in Section 1's "rasterization bargain" the line
+"...and that circuit will never encounter a degenerate case." was an overclaim
+(degenerate triangles DO occur). Author corrected it to "Degenerate triangles
+still exist, but they are local cases the rasterizer can reject or handle with
+fixed rules." Accurate: zero signed area -> trivial reject; top-left fill rule
+resolves shared edges. Synced into the working copy so future passes don't revert it.
+
+
+SESSION 5 (May 2026) — REVIEW + SYNC PASS (notes/prose only, NO animation
+code touched)
+
+This block reflects the ACTUAL current state of the file and SUPERSEDES the
+Session 4 "CANVAS LAYOUT" and "11 states (vtxIdx 0-10)" descriptions, which
+went stale as the animations grew. Session 4 is kept below as history.
+
+Section 1 prose is complete. Every interactive animation lives INSIDE the
+Learning Notes panels (the "note button is for depth" model), not in the main
+scroll. Sections 2-9 are stubs carrying "Planned" status badges.
+
+Full canvas inventory (16 canvases) by the note that contains them:
+  whyIndependent — the rasterization-pipeline walkthrough note:
+    cvBlur    3x3 box blur: the neighbor-DEPENDENT counterexample
+    cvFilter  filter / kernel comparison widget
+    cvProj    perspective projection of the triangle
+    cvRock    rocking triangle (orientation intuition)
+    cvPixel   pixel coverage / inside-triangle test
+    cvInterp  attribute interpolation — NOW 15 STATES (vtxIdx 0-14):
+                0-2  vertex normal computation (face -> vertex normals)
+                3    grid fade-in + projection to ground
+                4    fly-up to 2D with column vectors
+                5    barycentric sub-triangle shading + dashed lines
+                6-8  lambda0 / lambda1 / lambda2 area-ratio equations
+                9    interpolated normal (weighted sum, flies to pixel)
+                10   reverse fly to ground
+                11-14 COLOR interpolation folded in: fly up with RGB
+                      column vectors, color equation, pixel recolors to
+                      the interpolated color, reverse fly + zoom. Final
+                      label: "Pixel p with interpolated color and surface
+                      normal."
+    cvShade   Step 4 Lambertian shading — COMPLETE (shadeIdx 0-~10):
+                N.L dot product -> brightness factor -> multiply by the
+                interpolated color. (Session 4 marked this IN PROGRESS;
+                it is now finished.)
+    cvDepth   Step 5 depth test — COMPLETE (depthIdx 0-10): three
+                fragments arrive one at a time; each passes or fails the
+                depth test before writing color.
+  poincare  — cvSimplex (simplex / triangulation)
+  pineda    — cvScanCar, cvPinCar (scanline vs Pineda edge-function),
+              cvCrossVec (edge function as signed area / cross product),
+              cvBary (barycentric coordinates), cvRasterHW (parallel
+              hardware rasterizer)
+  interpHW  — cvInterpHW (hardware interpolation)
+  carpenter — cvFractal (midpoint-subdivision fractal terrain)
+
+NOTE: color/shading now appears BOTH at the tail of cvInterp (vtxIdx 11-14,
+attribute interpolation including color) AND as the standalone cvShade
+animation (isolated Lambertian lighting math). This is intentional, not
+duplication — they teach different things.
+
+Fixes applied this pass (no animation logic altered):
+  1. RealityEngine throughput corrected in BOTH places it appeared
+     (Section 1 main prose AND the sgiHistory note body): was "500,000
+     polygons/sec" (the DESIGN TARGET) -> "more than a million" (the
+     DELIVERED figure). Source: Akeley, SIGGRAPH '93. See VERIFIED
+     HISTORICAL CLAIMS #3. NOTE: the first edit pass corrected only the
+     main prose and missed the note copy, shipping a self-contradicting
+     document; caught and completed on re-read. BAND-AID FIX demerit
+     applied for the incomplete first pass.
+  2. Added the canonical UNIVERSAL AI RULES (v4) block (upstream added
+     rule 25, SIGNS FOLLOW FROM STRUCTURE — relevant to cvCrossVec).
+  3. Demerits applied: STALE AI NOTES (Session 4 layout never updated as
+     animations grew), UNVERIFIED HISTORICAL CLAIM (RealityEngine figure
+     stated as fact in prose), BAND-AID FIX (incomplete first RealityEngine
+     correction), and ACCOUNTABILITY AVOIDANCE (changed the artifact but
+     said "above" without actually presenting the file the prior turn).
+
+If rule 25 is ever applied to cvCrossVec: the edge function's sign is the
+orientation of the signed-area cross product, not a "convention" — keep
+the operand order tracking the right-hand rule.
+
+
 SESSION 4 (May 2026) — Step 3 Interpolation + Step 4 Shading animations
 
 COMPLETED:
@@ -167,21 +437,130 @@ EQUATION LAYOUT:
 
 
 ══════════════════════════════════════════════════════════════════════════════
+UNIVERSAL AI RULES (v4)
+══════════════════════════════════════════════════════════════════════════════
+
+Verbatim sync from the canonical ai_teaching_artifact_rules.md (v4). This is
+the shared rule set across the GPU computing lecture series. The DOCUMENT
+PHILOSOPHY section below is the document-specific elaboration and is never
+overwritten during sync. [Editorial note: the canonical v4 file has a
+numbering glitch — two rule "8"s and no rule "9". Numbering is normalized to
+1-25 here; fix at the source on the next version bump.]
+
+Prose style
+  1. NO "WE" IN PROSE. Do not use "we" to mean "the community of experts."
+     It is a credentialing gesture. State facts directly.
+  2. SPACED EN-DASHES ONLY. No em-dashes in rendered text. Use &ndash; with
+     spaces on both sides.
+  3. SENTENCE SPACING. Use &ensp; after periods in prose.
+
+Visual standards
+  4. ALL TEXT WHITE. --fg:#ffffff, --fg2:#eeeeee, --fg3:#dddddd,
+     --fg4:#cccccc. No gray text. No purple/violet text in canvas elements.
+  5. DARK THEME ONLY. No light themes, no toggle.
+  6. FONT SIZE MINIMUMS. Note panel 14px, code 15px, body 17px.
+  7. SYSTEM FONTS ONLY. No linked/Google/CDN fonts. Mono for code, serif
+     for prose.
+  8. ANIMATION SPACING. Every canvas and its control bar must have visible
+     whitespace above and below separating it from prose.
+
+Interactive controls
+  9. BUTTON SELECTED COLOR IS AMBER. Selected/active state uses --amber, not
+     --mint. Mint is for structural accents; amber is for interactive state.
+  10. BUTTON PATTERNS: COPY, DO NOT REINVENT. Find the working button
+     pattern in the same file and replicate it exactly (HTML, CSS, JS state,
+     symbols, getElementById pattern). Do not guess.
+
+AI behavior
+  11. NO BAND-AID FIXES. If the correct fix is known, implement it. Do not
+     ship partial fixes across iterations when a working reference exists.
+  12. FIX ONLY WHAT IS FLAGGED. When asked to fix X, fix X. Unrequested
+     changes are unreviewed changes.
+  13. CONSULT BEFORE GUESSING. Before calling an existing API, open the
+     existing source and read it. Do not guess signatures, IDs, or CSS vars.
+  14. VERIFY, DO NOT CLAIM. Never say "all clean" on incomplete checks. If an
+     audit covers N items, check all N. An honest partial beats a false pass.
+  15. FOLLOW INSTRUCTIONS OR PUSH BACK. Either do it or explain why not.
+     Silently not doing what was asked is not pushing back.
+
+Architecture
+  16. SINGLE SELF-CONTAINED HTML FILE. No build system, no external JS/CSS,
+     no linked fonts. Only binary assets go in an adjacent artifacts/ dir.
+  17. ARTIFACTS FOLDER. Images live in artifacts/ with relative paths; every
+     image has alt text and a figcaption.
+
+AI-native artifact purpose
+  18. THREE AUDIENCES. (a) human learner in a browser, (b) the learner's
+     adjacent LLM reading the whole file, (c) the future AI author.
+  19. EDITS ARE STATE TRANSITIONS. A claim/date/deletion becomes artifact
+     state and then context for the next model.
+  20. WHEN IN DOUBT, MARK IT. Mark uncertain claims NEEDS VERIFICATION rather
+     than stating them as fact.
+  21. DESIGNED FOR LLM-ASSISTED READING. The document is one half of a
+     conversation; not every term needs an inline definition.
+
+Note system
+  22. THE NOTE BUTTON IS FOR DEPTH. The narrative keeps moving; the reader
+     who wants more pops the note. Notes expand without breaking flow.
+
+Demerit system
+  23. DEMERIT TABLE FORMAT. Every artifact carries a per-model demerit table;
+     it is an AI-facing behavioral pressure device.
+  24. DEMERIT RULES. Preserve per-model totals; do not soften. A demerit is
+     applied only when the artifact is updated and returned. Name the pattern
+     on first occurrence. Demerits are permanent. If a pass changes the
+     artifact, the final answer returns the updated artifact link.
+
+Mathematical integrity
+  25. SIGNS FOLLOW FROM STRUCTURE, NOT CONVENTION. When a sign is determined
+     by mathematical structure (plane orientation, the right-hand rule, the
+     wave equation, forward propagation), it is not a "convention" — calling
+     it one hides the object doing the work. If a seminal paper writes a
+     formula with a sign flip that obscures the geometry (swapped cross-
+     product operands, unstated left-hand coords, flipped Doppler signs),
+     correct the formula and explain why. Do not inherit bad notation.
+     Engineers who flip signs without tracking the full invariant chain are
+     unknowingly switching orientation, then chase it with sign duct tape.
+
+Standard error patterns: DID NOT CAREFULLY READ THE AI NOTES; BAND-AID FIX;
+STALE AI NOTES; ACCOUNTABILITY AVOIDANCE; FALSE VERIFICATION; DID NOT FOLLOW
+INSTRUCTION. (Documents may add their own, e.g. UNVERIFIED HISTORICAL CLAIM,
+TIMELINE PADDING.)
+
+
+══════════════════════════════════════════════════════════════════════════════
 DOCUMENT PHILOSOPHY — THE TEACHING MODEL
 ══════════════════════════════════════════════════════════════════════════════
 
 This document teaches the history of GPU computing as a narrative, not as a
 timeline. The teaching philosophy:
 
+  0. TECHNOLOGY IS THE STAR, NOT THE PLAYERS  [adopted SESSION 7, corrected SESSION 8]
+     The SUBJECT and organizing spine of every section is the technology and the
+     ideas &ndash; how and why the silicon works the way it does.&ensp; This is
+     about EMPHASIS, not exclusion.&ensp; The industry history &ndash; the
+     companies, the founders, the bets, the near-deaths and bankruptcies &ndash;
+     STAYS.&ensp; It is part of the story and it is the texture that makes the
+     technology concrete and memorable.&ensp; Lead with the idea, let the people
+     and companies illustrate and humanize the technical and economic forces, and
+     do not let the corporate saga DISPLACE the technology as the point.&ensp;
+     TEST: a reader should come away understanding the technology and WHY it turned
+     out that way; the names and stories are how that understanding is made vivid
+     and durable, not a substitute for it &ndash; and not something to strip out.
+     (SESSION 7 over-applied this and deleted industry history the author wanted
+     kept; SESSION 8 restored it under the technology-led framing.)
+
   1. STORIES, NOT TIMELINES
      Every section has a narrative arc: a problem, a tension, a resolution.
      Dates appear when they matter but the structure is causal ("this
      happened BECAUSE of that"), not chronological ("and then this happened").
 
-  2. SPECIFIC DETAILS MAKE HISTORY STICK
-     "NVIDIA was founded in 1993" slides off. "Three guys at a Denny's in
-     East San Jose" sticks. The document earns the reader's attention by
-     being specific enough to be surprising.
+  2. SPECIFIC DETAILS MAKE THE TECHNOLOGY STICK
+     A bare claim slides off; a concrete, surprising detail sticks. But under
+     principle 0 the detail must serve the technology &ndash; illustrate a
+     mechanism, a tradeoff, or the stakes of a technical decision &ndash; rather
+     than exist for its own narrative color. The detail is the handle on an
+     idea, not the idea.
 
   3. THE THROUGHLINE IS THE PENDULUM
      The repeating tension between special-purpose and general-purpose
@@ -221,6 +600,15 @@ timeline. The teaching philosophy:
      The document is one half of a conversation. Not every term needs an
      inline definition. Some are left as natural prompts for the reader
      to ask about in context.
+     CAVEAT [SESSION 8]: this license is for SECONDARY terms only. A term
+     the reader must understand for a sentence to land &ndash; especially the
+     proper noun a section opens on, or the term a hook depends on &ndash;
+     must be introduced on first use. The human learner is audience (a) and
+     cannot be assumed to recognize a product or company name. Section 2
+     originally opened "A Voodoo Graphics card cost..." with no idea given of
+     what a Voodoo was; the hook ("a worse machine that won") only works once
+     the reader knows it was the first affordable consumer 3D card. Introduce,
+     then surprise &ndash; never surprise with an unintroduced name.
 
   10. NO "WE" IN PROSE
      Do not use "we" to mean "the community of experts" or "people who
@@ -244,6 +632,17 @@ timeline. The teaching philosophy:
      the layout, then fix each guess separately across five rounds.
      Minimizing diff size or "making it work for now" is not a valid
      reason to deliver a lesser fix when the correct one is known.
+
+  13. CLARITY OVER DENSITY  [adopted SESSION 9]
+     It is fine for the writing not to be dense. Favor clarity and breathing
+     room over packing ideas tightly. Unpack a complex point into separate
+     sentences rather than cramming it into a parenthetical, a run-on, or a
+     comma-heavy clause; if a definition or aside is long enough to interrupt
+     a sentence, give it its own sentence. A reader following easily beats a
+     clever, compressed line. This was the through-line behind many SESSION 9
+     prose edits (the overloaded Glide sentence, the parenthetical inside the
+     GeForce 256 sentence, the doubled-up "software rendering"), each fixed by
+     unpacking rather than by trimming words.
 
 
 ══════════════════════════════════════════════════════════════════════════════
@@ -329,13 +728,25 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
    Sources: Wikipedia (Loren Carpenter), IEEE Spectrum "And the Oscar Goes
    To..." (2001), kottke.org (2009), Memory Alpha, SIGGRAPH history archives
 
-2. NVIDIA founding
-   - Founded January 1993 by Jensen Huang, Chris Malachowsky, Curtis Priem
-   - Named at a Denny's in East San Jose — NEEDS VERIFICATION of specific
-     location (commonly cited but primary source unclear)
-   - NV1 (1995) used quadratic texture mapping — NEEDS VERIFICATION of
-     exact year and technical details
-   - RIVA 128 (1997) — course correction to triangle-based rendering
+2. NVIDIA founding  [Section 2 — VERIFIED May 2026]
+   - Founded 1993 by Jensen Huang, Chris Malachowsky, Curtis Priem
+     (incorporation date varies by source: Jan 25 / Apr 5, 1993).
+   - Denny's in East San Jose: VERIFIED. NVIDIA's own account confirms
+     it (Jensen + Denny's CEO unveiled a commemorative plaque, 2023;
+     blogs.nvidia.com). Jensen had worked at a Denny's as a teen
+     (busboy/dishwasher). Name from "invidia" (Latin: envy).
+   - NV1 (1995): quadratic-patch (non-triangle) rendering; Sega Saturn
+     gamepad ports on the card for easy porting. Microsoft's Direct3D
+     standardized on triangles only, stranding the NV1. VERIFIED:
+     Wikipedia (NV1), Electronic Design / Jon Peddie, HandWiki.
+   - Near-death: spent ~a year on a quadratic Dreamcast chip; Sega
+     cancelled but kept NVIDIA alive with a $5M investment; ~half of
+     ~100 staff laid off; at RIVA 128 release (Aug 1997) NVIDIA was
+     down to ~one month of payroll. VERIFIED: Wikipedia (RIVA 128,
+     citing WSJ 2024 / Witt), CNBC (Huang NTU 2023 speech).
+   - RIVA 128 (1997): course correction to triangles + Direct3D.
+   Sources: blogs.nvidia.com (Denny's plaque), Wikipedia (NV1, RIVA 128),
+   Electronic Design (Jon Peddie Research), CNBC, Quartr.
 
 3. Silicon Graphics (SGI)
    - Founded 1982 by Jim Clark (Stanford professor)
@@ -345,8 +756,15 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
      Motorola 68000 at 8 MHz, attached to VAX-11 host
    - IRIS 1400: first standalone workstation, 1984
    - IRIS = Integrated Raster Imaging System
-   - RealityEngine: 1993, 500K polygons/sec — NEEDS VERIFICATION of
-     exact polygon count claim
+   - RealityEngine: 1993, >1 million antialiased textured triangles/sec
+     (DELIVERED). 500K was the INITIAL DESIGN TARGET, not the shipped
+     figure. VERIFIED against the primary source: Kurt Akeley,
+     "RealityEngine Graphics," SIGGRAPH '93 — abstract states "Rendering
+     performance exceeds 1 million antialiased, texture mapped triangles
+     per second"; body states "the initial target performance was 1/2
+     million such triangles per second." The 500K figure appeared in TWO
+     places (Section 1 main prose AND the sgiHistory note body); both
+     corrected to ">1 million" this pass. (Earlier marked NEEDS VERIFICATION.)
    - OpenGL: 1992, derived from IRIS GL
    - Jim Clark left to co-found Netscape: 1994
    - Bankruptcy: 2006 and 2009
@@ -354,19 +772,52 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
    Sources: Wikipedia (SGI IRIS), Computer History Museum, Study.com,
    FundingUniverse, HandWiki
 
-4. 3dfx
-   - Voodoo Graphics (1996) — first mainstream consumer 3D accelerator
-   - Acquired STB Systems (1998) — vertical integration mistake
-   - Bankruptcy and NVIDIA acquisition of patents (2000-2002)
-   NEEDS VERIFICATION: exact dates and sequence of 3dfx decline
+4. 3dfx  [Section 2 — VERIFIED May 2026]
+   - Founded Aug 24, 1994 (as 3D/fx) by Ross Smith, Scott Sellers, Gary
+     Tarolli — all former SGI employees (the SGI-to-consumer brain drain;
+     Tarolli also appears in Section 1 as the Voodoo rasterizer designer).
+   - Voodoo Graphics (1996): first commercially successful consumer 3D
+     accelerator; 3D-only add-in card (relied on a separate 2D card);
+     ~150 games supported the proprietary Glide API; Quake II in Glide.
+   - Microsoft's Direct3D (open, runs on any card) eroded the value of
+     the proprietary Glide moat.
+   - Announced acquisition of STB Systems Dec 1998, completed ~May 1999:
+     made 3dfx a board maker competing with its own board-maker customers
+     (Creative, Diamond), who defected to NVIDIA. Analysts cite this as a
+     primary cause of the decline (channel conflict / vertical integration).
+   - Stopped card production Nov 16, 2000; creditors forced bankruptcy;
+     assets (mostly IP) sold to NVIDIA Dec 15, 2000; dissolved 2002.
+   Sources: Wikipedia (3dfx, STB Systems), Tom's Hardware, computer.org
+   (Chasing Pixels), The Silicon Underground (dfarq), VOGONS wiki.
 
 5. Programmable shaders / DirectX 8
    - DirectX 8 released November 2000 — NEEDS VERIFICATION
    - Introduced vertex and pixel shaders (Shader Model 1.0)
 
-6. GeForce 256 (1999)
-   - NVIDIA marketed as "the world's first GPU"
-   - Moved transform and lighting from CPU to card
+6. GeForce 256 (1999)  [Section 2 — VERIFIED May 2026]
+   - Announced Aug 31, 1999; released Oct 11, 1999 (NV10, TSMC 220nm,
+     ~17M transistors, 120 MHz, four pixel pipelines). DDR variant Dec 1999.
+   - Marketed as "the world's first GPU" (term debated). NVIDIA's stated
+     definition: a single-chip processor with integrated transform,
+     lighting, triangle setup/clipping, and rendering, capable of >=10
+     million polygons/sec. "GeForce" = "Geometry Force."
+   - Key advance: hardware transform & lighting (T&L) — moved per-vertex
+     geometry transforms and lighting off the CPU onto the card. (Pro/
+     OpenGL CAD cards had T&L earlier; this brought it to consumer.)
+   - Pendulum note: T&L is a fixed-function stage; the GPU absorbed more
+     of the pipeline into dedicated silicon (sets up Section 3's shaders).
+   Sources: Wikipedia (GeForce 256; Transform, clipping and lighting),
+   computer.org (Chasing Pixels), VideoCardz, PC Gamer.
+
+6b. ATI / Radeon  [Section 2 — VERIFIED May 2026]
+   - ATI Technologies founded Aug 1985 in Markham, Ontario (as Array
+     Technology Inc.) by K.Y. Ho, Lee Ka Lau, Benny Lau, Francis Lau.
+   - Radeon line launched 2000 (successor to Rage). ATI + NVIDIA became
+     the two surviving GPU powers.
+   - AMD acquired ATI: announced Jul 24, 2006; completed Oct 25, 2006
+     (~$5.4B). ATI brand phased out 2010.
+   Sources: Wikipedia (ATI Technologies, Radeon), SEC 6-K (AMD/ATI 2006),
+   computerhope.
 
 7. Poincare / simplicial complexes
    - Henri Poincare, Analysis Situs (1895) — foundational work on
@@ -842,8 +1293,9 @@ button:disabled { opacity:0.35; cursor:default !important; }
 
   <p>
     SGI's hardware used custom graphics pipelines built from specialized chips.&ensp; The
-    RealityEngine (1993) could render 500,000 lit, textured, antialiased polygons per second &ndash;
-    a staggering number at the time, achieved with dedicated rasterization hardware that did
+    RealityEngine (1993) could render more than a million lit, textured, antialiased polygons per
+    second &ndash; the design target had been half that, and the shipped hardware doubled it.&ensp;
+    A staggering number at the time, achieved with dedicated rasterization hardware that did
     one job and did it fast.&ensp; This was not general-purpose computing.&ensp; These chips
     could not run a spreadsheet.&ensp; They were hardwired to transform vertices, clip polygons
     to the screen boundary, interpolate colors across triangle surfaces, and write pixel values
@@ -934,8 +1386,8 @@ button:disabled { opacity:0.35; cursor:default !important; }
     with no ambiguity.&ensp; A quad can be non-planar.&ensp; A pentagon can be concave.&ensp;
     A triangle cannot.&ensp; This guarantee means you can build a circuit that answers
     &ldquo;is this pixel inside this triangle?&rdquo; with three edge-function evaluations
-    &ndash; a handful of multiplies and compares per pixel &ndash; and that circuit will
-    never encounter a degenerate case.
+    &ndash; a handful of multiplies and compares per pixel.&ensp; Degenerate triangles still exist, but they are local cases
+    the rasterizer can reject or handle with fixed rules.
   </p>
 
   <p>
@@ -983,12 +1435,124 @@ button:disabled { opacity:0.35; cursor:default !important; }
     <span><span class="part-num">Section 2</span> &ndash; The game engine that ate everything</span>
     <a class="top-link" href="#top" aria-label="Go to top">Top &uarr;</a>
   </h2>
-  <span class="status-badge badge-planned">Planned</span>
 
-  <p style="color:var(--fg3);font-style:italic">
-    3dfx, NVIDIA, ATI, and the GPU wars.&ensp; The economic engine of gaming.&ensp;
-    3dfx&rsquo;s rise and fall.&ensp; NVIDIA&rsquo;s NV1 near-death experience.&ensp;
-    The GeForce 256 and the invention of the word &ldquo;GPU.&rdquo;
+  <p>
+    In 1996 a small company called 3dfx shipped the first 3D accelerator a regular person could afford:
+    a card called the Voodoo Graphics, which slotted into a home PC and did exactly one job, draw 3D for
+    games.&ensp; It cost around $300 and could not draw a single 2D window.&ensp; You kept your existing
+    2D card and let the Voodoo take over the instant a game went full-screen.&ensp; By every measure of
+    versatility it was a worse machine than the workstation SGI sold for a hundred times the price.&ensp;
+    And it won.&ensp; The question this section answers is why the worse machine was the one that kept
+    getting better &ndash; and the answer runs as much through the companies that bet on it as through the
+    silicon itself.
+  </p>
+
+  <p>
+    The answer is the arithmetic of volume.&ensp; A workstation sold in the thousands at six figures each;
+    a consumer 3D card sold in the millions
+    at a few hundred dollars.&ensp; The fixed cost of designing a chip &ndash; the mask sets, the
+    verification, the tooling &ndash; is enormous and barely changes whether you ship ten thousand units
+    or ten million.&ensp; Spread across millions of buyers it nearly vanishes per unit, and what is left
+    over funds the next chip.&ensp; The mass market turned out to be the only market that could afford to
+    keep paying for better silicon, generation after generation.&ensp; This is the economic engine that
+    funds everything later in this series &ndash; including the hardware that now trains neural networks.
+  </p>
+
+  <h3>Workstation techniques, mass-market price</h3>
+
+  <p>
+    The consumer 3D industry was built, in large part, by engineers who came out of the high-end
+    graphics-workstation world of the previous section &ndash; the expensive machines built specifically to
+    render 3D.&ensp; In 1994 three Silicon Graphics engineers &ndash; Ross Smith, Scott
+    Sellers, and Gary Tarolli &ndash; left to found 3dfx Interactive; Tarolli is the same engineer whose
+    Pineda-style rasterizer closed the previous section.&ensp; They took the techniques that made
+    those graphics workstations expensive and put them on a card a teenager could buy with a summer job.&ensp; What the
+    Voodoo delivered was smooth, textured, perspective-correct 3D at frame rates that made software rendering
+    look like a slideshow.&ensp; The first time a player saw it run, they wanted one.&ensp; Quake, in particular, sold cards: people bought a Voodoo to play
+    it, and for a generation that was the moment 3D stopped being a novelty.&ensp; The math inside it was not
+    new &ndash; it was the rasterization and interpolation of the graphics-workstation era.&ensp; What was new was
+    the price, and therefore the volume, and therefore the budget for the next chip.&ensp; The expensive
+    ideas had found a cheaper home.
+  </p>
+
+  <h3>Why open standards beat fast ones</h3>
+
+  <p>
+    A graphics API is the contract between a game and the hardware: the game describes triangles and
+    textures, and the API hands them to whatever chip is installed.&ensp; 3dfx wrote its own contract &ndash;
+    a proprietary interface called Glide, thin and fast because it mapped almost directly onto Voodoo
+    silicon.&ensp; For a few years that was a genuine edge: around a hundred and fifty games supported Glide.&ensp;
+    But proprietary cuts both ways.&ensp; A game written for Glide ran only on 3dfx cards; a
+    game written for Microsoft&rsquo;s Direct3D or for OpenGL ran on every card from every vendor.&ensp; Once
+    the open standards caught up on quality, that portability decided everything: the sensible target was the
+    API that reached every card, not the one that reached only 3dfx.&ensp; Fast-but-proprietary lost to
+    good-enough-and-everywhere.
+  </p>
+
+  <p>
+    A self-inflicted wound finished the proprietary bet.&ensp; For most of its life 3dfx sold chips to board
+    makers &ndash; companies like Creative and Diamond &ndash; who designed, built, and sold the actual
+    cards.&ensp; In 1998 it bought one of them, STB Systems, and began making its own cards.&ensp; In one move
+    it turned its customers into competitors, and they moved their business to the chip
+    supplier that did not compete with them.&ensp; By the end of 2000 the company that had introduced consumer
+    3D had stopped making cards and sold its remaining technology &ndash; mostly patents &ndash; to NVIDIA.&ensp;
+    The lesson that outlives the names is the one about the contract: the hardware that won was the hardware
+    anyone could write for.
+  </p>
+
+  <h3>Betting against the grain of the hardware</h3>
+
+  <p>
+    NVIDIA, the company that bought those patents, had come close to dying first.&ensp; It was founded in
+    1993 &ndash; three engineers, Jensen Huang, Chris Malachowsky, and Curtis Priem, sketching a 3D-chip
+    company in a booth at a Denny&rsquo;s in East San Jose, naming it after <em>invidia</em>, the Latin word
+    for envy.&ensp; Their first chip, the NV1 (1995), made a confident bet against the lesson of the previous
+    section: instead of decomposing everything into triangles, it rendered curved surfaces directly, as
+    quadratic patches. <button class="notes-btn" data-note="nv1Quadratics" onclick="window._openNotes('nv1Quadratics',false)">N</button>
+    &ensp;It was a real idea with a real advantage &ndash; curved shapes need fewer primitives than a triangle
+    mesh &ndash; but it ran against the grain of the hardware.&ensp; The previous section showed why triangles
+    are the parallel-friendly primitive: each pixel asks one independent question, in any order, with no
+    shared state.&ensp; Quadratic patches give that up.&ensp; So when Direct3D standardized on triangles, and
+    only triangles, the quadratic approach was not merely off-standard &ndash; it was off-hardware, betting
+    against the very structure that makes a GPU fast.
+  </p>
+
+  <p>
+    The bet nearly ended the company.&ensp; NVIDIA spent a year building a quadratic chip for Sega&rsquo;s
+    Dreamcast; Sega cancelled it and switched vendors, but kept NVIDIA alive with a five-million-dollar
+    investment.&ensp; Half the staff was laid off, and when the RIVA 128 shipped in 1997 the company had about
+    one month of payroll left in the bank.&ensp; The RIVA 128 used triangles, aligned with Direct3D, and
+    sold.&ensp; NVIDIA had course-corrected onto the standard, and it never bet against it again.
+  </p>
+
+  <h3>The pendulum returns</h3>
+
+  <p>
+    By the end of the decade the consumer GPU had absorbed almost the entire rendering pipeline into dedicated
+    hardware.&ensp; The last large piece moved in 1999, when NVIDIA&rsquo;s GeForce 256 pulled the geometry
+    stage off the CPU and onto the card.&ensp; That stage transforms each vertex from model space into screen
+    space and computes how light falls on it. <button class="notes-btn" data-note="transformLighting" onclick="window._openNotes('transformLighting',false)">N</button>
+    &ensp;NVIDIA marketed it as the world&rsquo;s first GPU, a term it defined as a single chip that did
+    transform, lighting, triangle setup, and rendering on its own, at a minimum of ten million polygons per
+    second; the &ldquo;GeForce&rdquo; name was short for Geometry Force, and whether it was truly the first has
+    been argued over ever since.&ensp; But notice the direction of travel.&ensp; The previous
+    section ended with the pipeline fixed in silicon; this one ends by fixing one more stage, hardware
+    transform and lighting, into that silicon.&ensp; The chip was not becoming more general.&ensp; It was
+    swinging further toward special-purpose, absorbing more of a known, unchanging pipeline into dedicated
+    circuits &ndash; the same bargain as rasterization, one stage earlier.&ensp; NVIDIA and ATI, whose Radeon
+    line arrived in 2000 and which AMD would absorb in 2006, were the two that came out the far side of the
+    GPU wars; everyone else was acquired or gone.
+  </p>
+
+  <p>
+    The gaming market had produced a chip that did every step of 3D rendering in hardware, faster every year,
+    funded by an audience of millions who only wanted better games.&ensp; For a while that looked like the end
+    of the story: a fully fixed-function machine, perfected.&ensp; But fixed-function has a built-in limit
+    &ndash; it can only produce the effects its designers anticipated.&ensp; The next pressure on the GPU did
+    not come from a company or a standards committee.&ensp; It came from developers who wanted light, water,
+    and surfaces to behave in ways no fixed pipeline could express, and who would not take no for an
+    answer.&ensp; To give them that, the hardware would have to become, for the first time,
+    programmable.&ensp; That is the crack in the wall.
   </p>
 </div>
 
@@ -999,12 +1563,74 @@ button:disabled { opacity:0.35; cursor:default !important; }
     <span><span class="part-num">Section 3</span> &ndash; The crack in the wall</span>
     <a class="top-link" href="#top" aria-label="Go to top">Top &uarr;</a>
   </h2>
-  <span class="status-badge badge-planned">Planned</span>
+  <p>
+    A fixed-function pipeline does a fixed list of things.&ensp; The geometry stage transformed and lit each
+    vertex with the one lighting model built into it; the stages after it combined a few textures in a small
+    set of preset ways.&ensp; For most of a decade that list was enough, because it covered what most games
+    asked for.&ensp; But a developer who wanted a surface the list did not cover &ndash; skin that scatters
+    light softly, water that bends what is behind it, metal that streaks the way real metal does &ndash; had
+    only two choices: fake it with clever combinations of the presets, or wait for the next chip to add the
+    effect to the list.&ensp; A fixed pipeline can only produce the effects its designers thought of in
+    advance, and by 2000 the people making games had run past that edge.
+  </p>
 
-  <p style="color:var(--fg3);font-style:italic">
-    Programmable shaders and DirectX 8.&ensp; Why game developers demanded custom visual
-    effects.&ensp; The shader model evolution from SM 1.0 to SM 3.0.&ensp; The moment
-    GPUs acquired programmable ALUs.
+  <h3>What a shader is</h3>
+
+  <p>
+    The answer arrived in two steps.&ensp; In November 2000 Microsoft shipped DirectX 8, and in February 2001
+    NVIDIA shipped the GeForce 3 to run it.&ensp; Together they introduced something the pipeline had never
+    allowed: instead of choosing from a menu of built-in operations, a developer could write a small program
+    that the GPU would execute as part of drawing.&ensp; Such a program is called a <em>shader</em>.&ensp;
+    There were two kinds.&ensp; A <em>vertex shader</em> ran once for every vertex and decided where that
+    vertex landed and what it carried; a <em>pixel shader</em> ran once for every pixel a triangle covered and
+    decided that pixel&rsquo;s final color.&ensp; Microsoft named the arrangement Shader Model 1.0.
+  </p>
+
+  <p>
+    Set those two jobs against the earlier sections and the change is striking.&ensp; The vertex shader is the
+    transform-and-lighting stage from the previous section &ndash; except the developer now writes the math
+    rather than accepting the single model baked into the GeForce 256.&ensp; The pixel shader is the per-pixel
+    function from the first section &ndash; the question asked independently of every other pixel &ndash;
+    except it, too, is now something a developer writes.&ensp; The fixed-function unit had become a tiny
+    programmable processor.&ensp; Each shader was a handful of instructions running on a small arithmetic
+    engine &ndash; an ALU, the part of any processor that does the actual adds and multiplies &ndash; and the
+    GPU ran that same little program across millions of vertices or pixels at once.
+  </p>
+
+  <p>
+    The first shaders were humble: written in an assembly-like notation, capped at a few dozen instructions,
+    with no loops and no branches &ndash; closer to a pocket calculator than to a programming language.&ensp;
+    Even so, the effect was immediate, because the developer now <em>defined</em> the lighting math instead of
+    selecting it from a list.&ensp; Early titles such as Morrowind and Splinter Cell used the new per-pixel
+    control for lighting and shadow the fixed pipeline could not have produced; Unreal Engine 2 soon made
+    shaders ordinary; and the first Xbox, built around a GeForce 3 derivative, put the same capability under
+    millions of televisions.
+  </p>
+
+  <h3>From calculator to processor</h3>
+
+  <p>
+    Then the programs grew up.&ensp; Each generation made the shader less like a calculator and more like a
+    real processor.&ensp; Shader Model 2.0, arriving with DirectX 9 in 2002 on cards like ATI&rsquo;s Radeon
+    9700, added floating-point arithmetic and far longer programs.&ensp; Shader Model 3.0, on NVIDIA&rsquo;s
+    GeForce 6 series in 2004, added the things that make code actually <em>code</em>: branches, so a shader
+    could choose different work depending on its input, and loops, so it could repeat work a variable number
+    of times.&ensp; With each step the shader could express more on its own and lean less on the fixed
+    scaffolding around it.
+  </p>
+
+  <h3>The pendulum reverses</h3>
+
+  <p>
+    This was the pendulum swinging the other way.&ensp; The previous section ended with the GPU at its most
+    special-purpose, every stage frozen in silicon.&ensp; Programmable shaders pried one stage, and then
+    another, back open &ndash; the first real movement in twenty years toward a more general machine.&ensp; But
+    the motive was still entirely about graphics: shaders existed to make better-looking games, and they spoke
+    only in vertices, pixels, and textures.&ensp; What almost no one set out to build was the implication
+    sitting in plain view.&ensp; A pixel shader is a small program that runs the same arithmetic across
+    millions of independent elements at once.&ensp; Forget what the elements are &ndash; forget that they are
+    pixels &ndash; and that is simply a parallel computer.&ensp; Someone was going to notice, and what they did
+    about it became one of the stranger chapters in the story of the hardware.
   </p>
 </div>
 
@@ -1015,11 +1641,77 @@ button:disabled { opacity:0.35; cursor:default !important; }
     <span><span class="part-num">Section 4</span> &ndash; The era of the hack</span>
     <a class="top-link" href="#top" aria-label="Go to top">Top &uarr;</a>
   </h2>
-  <span class="status-badge badge-planned">Planned</span>
+  <p>
+    The previous section ended on a quiet implication: a pixel shader is a small program that runs the same
+    arithmetic across millions of independent elements at once, and nothing about it requires those elements to
+    be pixels.&ensp; Around 2003 a handful of researchers began taking that seriously.&ensp; The GPU was by
+    then the fastest parallel arithmetic engine an ordinary person could buy &ndash; far quicker at bulk math
+    than any CPU of the day &ndash; so the question was whether it could be made to do arithmetic that had
+    nothing to do with graphics.&ensp; It could.&ensp; But only by lying to it.
+  </p>
 
-  <p style="color:var(--fg3);font-style:italic">
-    GPGPU before CUDA.&ensp; BrookGPU, encoding floats as pixel colors, running physics
-    simulations as shader programs.&ensp; The creativity and absurdity of the 2003&ndash;2006 era.
+  <h3>Computation disguised as drawing</h3>
+
+  <p>
+    The trick was to dress an ordinary computation up as a rendering job.&ensp; To the GPU a texture is just a
+    grid of numbers it knows how to read, so a programmer would pack the input &ndash; an array of values, the
+    cells of a simulation, the entries of a matrix &ndash; into a texture, treating each texel&rsquo;s color
+    channels as plain numbers rather than colors.&ensp; The computation itself was written as a pixel
+    shader.&ensp; To run it, the programmer drew a single rectangle the size of the desired output, which
+    forced the GPU to fire the shader once for every output element, all in parallel.&ensp; The shader read
+    from the input textures, did its arithmetic, and wrote its answer as a &ldquo;color&rdquo; into an output
+    texture, which was then read back as data.&ensp; To add two arrays of a million numbers, in other words,
+    you drew a rectangle.
+  </p>
+
+  <p>
+    Stated plainly it sounds absurd, and it was &ndash; but it worked, and it was fast.&ensp; Through the
+    middle of the decade researchers folded one problem after another into the shape of a drawing operation:
+    fluid and physics simulations, the linear-algebra routines underneath most scientific computing, the Fast
+    Fourier Transform, even early work on options pricing and protein folding.&ensp; Each was expressed as a
+    sequence of rectangles drawn into textures.&ensp; The practice acquired a name &ndash; GPGPU, for
+    general-purpose computation on the GPU &ndash; and a small, inventive community formed around the craft of
+    making graphics hardware do work that had nothing to do with graphics.
+  </p>
+
+  <h3>BrookGPU</h3>
+
+  <p>
+    The contortions were the obvious thing to attack next.&ensp; Even with a higher-level shading language, a
+    GPGPU program was not written as computation; it was written as a run of graphics calls &ndash; pack the
+    data into textures by hand, load and bind the shader, render the geometry that invokes it.&ensp; In 2004 a
+    Stanford group led by the graduate student Ian Buck, with his advisor Pat Hanrahan and several others,
+    presented Brook for GPUs: a language that let a programmer write the computation directly.&ensp; Brook
+    extended ordinary C with two ideas &ndash; a <em>stream</em>, which is simply a collection of data to be
+    processed in parallel, and a <em>kernel</em>, a function applied to every element of a stream &ndash; and
+    its compiler quietly turned the streams into textures and the kernels into shaders underneath.&ensp; The
+    graphics API was still down there doing the work; Brook only hid it, so the programmer could think about
+    the computation instead of the disguise.
+  </p>
+
+  <h3>The limits of the costume</h3>
+
+  <p>
+    For all its ingenuity, the era was built on a workaround, and the seams showed.&ensp; A shader could read
+    from anywhere in its input textures but could write only to its own single output location: it could
+    <em>gather</em> freely yet could not <em>scatter</em>, so any algorithm that needed to write results to
+    arbitrary places had to be bent around that restriction.&ensp; The hardware of the day had no
+    double-precision arithmetic, which much scientific work depends on.&ensp; Pulling results back off the
+    card was slow and clumsy.&ensp; And every problem, however far from graphics, still had to be forced into
+    the vocabulary of textures and pixels.&ensp; None of these were limits of the silicon&rsquo;s raw ability
+    to compute.&ensp; They were limits of the costume &ndash; the graphics interface the computation was made
+    to wear.
+  </p>
+
+  <p>
+    That is what the hack era proved, and it is why it mattered.&ensp; It showed two things at once: that there
+    was real demand for general-purpose computing on the GPU, and that the chip was genuinely capable of
+    it.&ensp; The only thing in the way was the graphics disguise &ndash; and a disguise can be taken
+    off.&ensp; The obvious next move was to build a GPU that presented itself as a general parallel processor
+    from the start, paired with a language that addressed it directly, with no textures or rectangles in
+    sight.&ensp; Ian Buck would carry the stream-and-kernel idea out of Brook and into the one company with the
+    means to build exactly that.&ensp; The company was NVIDIA, the result would be called CUDA, and putting it
+    into silicon meant spending transistors on a bet that almost no one outside the company yet understood.
   </p>
 </div>
 
@@ -1654,7 +2346,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<h4>What they built</h4>' +
         '<p>SGI workstations dominated professional 3D graphics through the late 1980s ' +
         'and 1990s. The RealityEngine (1993) was the flagship: a multi-board system ' +
-        'that could render 500,000 lit, textured, antialiased polygons per second with ' +
+        'that could render more than a million lit, textured, antialiased polygons per second with ' +
         'hardware-accelerated depth buffering and texture mapping. Industrial Light &amp; ' +
         'Magic used SGI hardware for Jurassic Park (1993) and Terminator 2 (1991). ' +
         'Flight simulators, automotive CAD, and scientific visualization were the other ' +
@@ -2234,6 +2926,59 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:8px">' +
         '<em>Smithfield Utah</em> by Alan Butler (2021).&ensp; A digital test model made physical, ' +
         'fifty years after a physical teapot was made digital.</figcaption></figure>'
+    },
+
+    'nv1Quadratics': {
+      title: 'What is a quadratic?',
+      body: '<canvas id="cvQuad" width="700" height="580" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas><div id="cvQuadCtl" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px;max-width:380px;margin:14px auto 4px"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(0,this.value)" style="width:100%;accent-color:#ff5b5b"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(1,this.value)" style="width:100%;accent-color:#ff9b3d"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(2,this.value)" style="width:100%;accent-color:#ffc23a"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(3,this.value)" style="width:100%;accent-color:#eef25a"><input type="range" min="-2" max="3" step="0.1" value="2" oninput="window._cvQuadSet&&window._cvQuadSet(4,this.value)" style="width:100%;accent-color:#4fd06a"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(5,this.value)" style="width:100%;accent-color:#3ce8b2"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(6,this.value)" style="width:100%;accent-color:#3cd6e8"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(7,this.value)" style="width:100%;accent-color:#ff79b0"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(8,this.value)" style="width:100%;accent-color:#b6e84d"></div>'
+    },
+
+    'transformLighting': {
+      title: 'What transform and lighting actually is',
+      body: '<p>The GeForce 256 earned the word &ldquo;GPU&rdquo; by taking over the stage that runs ' +
+        '<em>before</em> rasterization: the geometry stage.&ensp; It works on <em>vertices</em> &ndash; the ' +
+        'corner points of triangles &ndash; rather than pixels, and it does two jobs: transform and lighting, ' +
+        'T&amp;L for short.</p>' +
+
+        '<h4>Transform: where does this vertex go?</h4>' +
+        '<p>A 3D model is built in its own private coordinate system, with its own origin &ndash; call it model ' +
+        'space.&ensp; A teapot has no idea where it sits in the scene, which way the camera points, or where it ' +
+        'lands on the screen.&ensp; Transform is the chain of moves that answers those questions, one space at a ' +
+        'time:</p>' +
+        '<p style="font-family:var(--mono);font-size:15px;color:var(--fg2);padding-left:12px;line-height:1.8">' +
+        'model space &rarr; world space&ensp;&ensp;(place the object in the scene)<br>' +
+        'world space &rarr; view space&ensp;&ensp;(re-center everything on the camera)<br>' +
+        'view space &rarr; screen space&ensp;&ensp;(flatten 3D to 2D, with perspective)</p>' +
+        '<p>Each step is one multiplication of the vertex by a 4&times;4 matrix.&ensp; Why 4&times;4 for a 3D ' +
+        'point?&ensp; A 3&times;3 matrix can rotate and scale a point but cannot <em>move</em> it or apply ' +
+        'perspective.&ensp; Adding a fourth coordinate &ndash; called homogeneous coordinates &ndash; lets a ' +
+        'single matrix do rotation, scale, translation, and perspective all at once.&ensp; A scene with a ' +
+        'million vertices is a million of these matrix multiplies, every frame.</p>' +
+
+        '<h4>Lighting: how bright is this vertex?</h4>' +
+        '<p>Once a vertex has a position, the hardware works out how much light reaches it.&ensp; The heart of ' +
+        'the fixed-function model is Lambert&rsquo;s law: take the dot product of the surface normal (the ' +
+        'direction the surface faces) with the direction to the light.&ensp; When the two line up the surface ' +
+        'faces the light squarely and is bright; as they fall out of line the dot product shrinks and the ' +
+        'surface darkens &ndash; exactly the shading computation from Section 1.&ensp; The fixed pipeline did ' +
+        'this for a few lights plus a constant ambient term, once per vertex.&ensp; Those corner brightnesses ' +
+        'are then interpolated across the triangle (again, the interpolation from Section 1), so the whole face ' +
+        'is shaded smoothly from just a handful of vertex calculations.</p>' +
+
+        '<h4>Why moving it off the CPU mattered</h4>' +
+        '<p>Before 1999 the CPU did all of this and handed the card vertices that were already positioned and ' +
+        'lit.&ensp; That made the CPU the ceiling on how many polygons a scene could hold.&ensp; A dedicated ' +
+        'T&amp;L engine on the card runs these uniform per-vertex operations in parallel and frees the CPU for ' +
+        'game logic, so polygon counts could jump &ndash; which is why 3D scenes suddenly grew far denser around ' +
+        'the turn of the decade.</p>' +
+
+        '<h4>Why it is a pendulum swing</h4>' +
+        '<p>Notice the shape of the win.&ensp; The operations are <em>fixed</em>: the same matrix multiplies, ' +
+        'the same single lighting model, for every vertex.&ensp; Because they never vary, they can be cast into ' +
+        'dedicated silicon &ndash; the rasterization bargain from Section 1, now one stage earlier.&ensp; The GPU ' +
+        'did not become more general; it absorbed another fixed-function stage.&ensp; That is exactly why the ' +
+        'next section has to pry the pipeline back open: developers wanted lighting and effects the fixed engine ' +
+        'could not express, and the only way to give it to them was to make the stage programmable.</p>'
     }
   };
 
@@ -2246,7 +2991,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'pineda',
     'interpHW',
     'carpenter',
-    'teapot'
+    'teapot',
+    'nv1Quadratics',
+    'transformLighting'
   ];
 
   var topicSection = {
@@ -2258,7 +3005,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'interpHW': 'Section 1 \u2013 The pixel problem',
     'pineda': 'Section 1 &ndash; The pixel problem',
     'carpenter': 'Section 1 &ndash; The pixel problem',
-    'teapot': 'Section 1 &ndash; The pixel problem'
+    'teapot': 'Section 1 &ndash; The pixel problem',
+    'nv1Quadratics': 'Section 2 &ndash; The game engine that ate everything',
+    'transformLighting': 'Section 2 &ndash; The game engine that ate everything'
   };
 
   var currentTopic = null;
@@ -7579,6 +8328,98 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._closeNotes=function(){
     if(simpRAF){cancelAnimationFrame(simpRAF);simpRAF=null;}
     origCloseS();
+  };
+})();
+
+// ============ CVQUAD: interactive biquadratic Bezier patch (cvSimplex style) ============
+(function(){
+  var quadRAF=null;
+  var fz=[0,1,0];
+  var COLORS=['#ff5b5b','#ff9b3d','#ffc23a','#eef25a','#4fd06a','#3ce8b2','#3cd6e8','#ff79b0','#b6e84d'];
+  // cz[i][j] = the 9 control-point heights (the parameters the sliders drive)
+  var cz=[];for(var i=0;i<3;i++){cz.push([]);for(var j=0;j<3;j++)cz[i].push(fz[i]+fz[j]);}
+  var cp=[], surf=[], TESS=12;
+  function B2(t){var s=1-t;return [s*s,2*s*t,t*t];}
+  function rebuild(){
+    var i,j,m=0;
+    for(i=0;i<3;i++){for(j=0;j<3;j++)m+=cz[i][j];}
+    m/=9;                                  // center by mean height so it stays put
+    cp=[];
+    for(i=0;i<3;i++){cp.push([]);for(j=0;j<3;j++)cp[i].push([-1+i,-1+j,cz[i][j]-m]);}
+    surf=[];
+    for(var a=0;a<=TESS;a++){
+      var Bu=B2(a/TESS);surf.push([]);
+      for(var b=0;b<=TESS;b++){
+        var Bv=B2(b/TESS),px=0,py=0,pz=0;
+        for(i=0;i<3;i++){for(j=0;j<3;j++){var w=Bu[i]*Bv[j],P=cp[i][j];px+=w*P[0];py+=w*P[1];pz+=w*P[2];}}
+        surf[a].push([px,py,pz]);
+      }
+    }
+  }
+  rebuild();
+  function syncFromSliders(){
+    var el=document.getElementById('cvQuadCtl');if(!el)return;
+    var ins=el.getElementsByTagName('input');
+    for(var k=0;k<ins.length&&k<9;k++){cz[Math.floor(k/3)][k%3]=parseFloat(ins[k].value);}
+  }
+  var activeK=-1, activeT=0;
+  window._cvQuadSet=function(k,val){
+    cz[Math.floor(k/3)][k%3]=parseFloat(val);
+    activeK=k; activeT=performance.now();
+    rebuild();
+  };
+
+  function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
+  function rotX(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];}
+
+  function drawQuad(){
+    var cv=document.getElementById('cvQuad');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var angle=performance.now()*0.0006, ox=W*0.5, oy=H*0.5, scale=96, i,j;
+    function pr(p){var q=rotX(rotY(p,angle),0.4);return {x:ox+q[0]*scale, y:oy-q[2]*scale, z:q[1]};}
+
+    var ps=[];
+    for(var a=0;a<=TESS;a++){ps.push([]);for(var b=0;b<=TESS;b++)ps[a].push(pr(surf[a][b]));}
+    var faces=[];
+    for(a=0;a<TESS;a++){for(b=0;b<TESS;b++){
+      var p0=ps[a][b],p1=ps[a+1][b],p2=ps[a+1][b+1],p3=ps[a][b+1];
+      var nz=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);
+      faces.push({q:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,nz:nz});
+    }}
+    faces.sort(function(A,B){return A.z-B.z;});
+    for(var k=0;k<faces.length;k++){
+      var q=faces[k].q, shade=0.09+(faces[k].nz>0?0.13:0);
+      ctx.fillStyle='rgba(100,160,255,'+shade+')';
+      ctx.strokeStyle='rgba(140,175,255,0.13)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(q[0].x,q[0].y);ctx.lineTo(q[1].x,q[1].y);
+      ctx.lineTo(q[2].x,q[2].y);ctx.lineTo(q[3].x,q[3].y);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+
+    var pc=[];for(i=0;i<3;i++){pc.push([]);for(j=0;j<3;j++)pc[i].push(pr(cp[i][j]));}
+    ctx.strokeStyle='rgba(200,205,220,0.32)';ctx.lineWidth=1.3;
+    for(i=0;i<3;i++){ctx.beginPath();ctx.moveTo(pc[i][0].x,pc[i][0].y);ctx.lineTo(pc[i][1].x,pc[i][1].y);ctx.lineTo(pc[i][2].x,pc[i][2].y);ctx.stroke();}
+    for(j=0;j<3;j++){ctx.beginPath();ctx.moveTo(pc[0][j].x,pc[0][j].y);ctx.lineTo(pc[1][j].x,pc[1][j].y);ctx.lineTo(pc[2][j].x,pc[2][j].y);ctx.stroke();}
+    var now=performance.now();
+    for(i=0;i<3;i++){for(j=0;j<3;j++){
+      var kk=i*3+j, r=(kk===activeK && now-activeT<1200)?6.5:4.2;
+      ctx.fillStyle=COLORS[kk];
+      ctx.beginPath();ctx.arc(pc[i][j].x,pc[i][j].y,r,0,Math.PI*2);ctx.fill();
+    }}
+    quadRAF=requestAnimationFrame(drawQuad);
+  }
+
+  var origOpenQ=window._openNotes;
+  window._openNotes=function(id,scroll){
+    origOpenQ(id,scroll);
+    if(id==='nv1Quadratics'){
+      syncFromSliders(); rebuild();
+      if(!quadRAF) quadRAF=requestAnimationFrame(drawQuad);
+    }
+  };
+  var origCloseQ=window._closeNotes;
+  window._closeNotes=function(){
+    if(quadRAF){cancelAnimationFrame(quadRAF);quadRAF=null;}
+    origCloseQ();
   };
 })();
 
