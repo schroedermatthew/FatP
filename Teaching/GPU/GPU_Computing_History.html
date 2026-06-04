@@ -215,6 +215,370 @@ SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
   link, blows up = Runge), Chebyshev/Lobatto wj = (-1)^j with 1/2 at ends (stable);
   the denominator = partition-of-unity normalizer = the NURBS rational denominator.
   div balance 57/57, harness 10/10.
+- v8: replaced the 9 control-point / slider colors with 9 evenly-spaced hues
+  (40 deg apart, HSL S=0.72 L=0.60) because the previous palette had similar
+  pairs (gold/yellow, mint/cyan, green/lime). New = ['#e25050','#e2b150',
+  '#b1e250','#50e250','#50e2b1','#50b1e2','#5050e2','#b150e2','#e250b1'].
+  Even spacing forces one violet (#b150e2) and a magenta (#e250b1) -- deviates
+  from the no-purple-on-canvas lean; flagged to author for veto. IMPORTANT swap
+  gotcha: do NOT global-replace the old hexes -- old '#3ce8b2' is also the --mint
+  CSS var (~19 uses), so a global swap corrupts unrelated colors. Scope the swap
+  to (a) the `var COLORS=[...]` line and (b) the 9 `accent-color:#OLD` tokens
+  (unique to the sliders) only. Net stays neutral gray. harness 10/10.
+- v9: on slider release, display the closed-form surface equation below the
+  sliders. Added: (A) onchange="window._cvQuadEqShow()" on all
+  9 sliders (fires on release; oninput still drives the live surface during drag),
+  (B) a #cvQuadEq mono box after #cvQuadCtl, (C) window._cvQuadEqShow() in the
+  cvQuad IIFE -- expands z(u,v) = SumSum cz[i][j] Bi(u) Bj(v) into the monomial
+  biquadratic via a = C^T Z C with C=[[1,-2,1],[0,2,-2],[0,0,1]] (Bernstein ->
+  monomial), formats nonzero terms to 2dp with proper signs, writes z(u,v)=...
+  to the box, (D) an init call on note open so the box is never empty. Uses RAW
+  slider heights (the control values set), not the mean-centered display copy;
+  caption notes x=-1+2u, y=-1+2v. Verified in node: default = 2u+2v-2u^2-2v^2
+  (z(.5,.5)=1, z(0,0)=0), all-equal -> constant, corner raise -> full cross terms.
+  harness 10/10.
+- v10: switched the live equation from u,v in [0,1] to x,y in [-1,1] (author:
+  the (u,v)->(x,y) map is a trivial affine bijection under the height-field
+  restriction, so the extra parameterization is needless here). Replaced C
+  (Bernstein -> u-monomial) with E = [[.25,-.5,.25],[.5,0,-.5],[.25,.5,.25]]
+  (Bernstein -> x-monomial via u=(x+1)/2, i.e. E = C*T), relabeled u,v -> x,y,
+  caption now "x, y in [-1, 1]". Cleaner output: default = 1 - 0.5x^2 - 0.5y^2,
+  the recognizable bowl. Left the top S(u,v) = SumSum Bi(u)Bj(v)Pij definition in
+  u,v (the general Bernstein form; a general patch is parametric and can fold, so
+  u,v is the honest representation -- x,y only works because x,y are pinned to the
+  grid here). Verified in node. harness 10/10.
+- v11: moved the surface equation off the area below the sliders and into the
+  graph: the canvas is wrapped in a position:relative div, and #cvQuadEq is now a
+  position:absolute overlay (top:0;left:0;right:0; padding:10px 14px; text-align
+  left; white-space:nowrap; overflow:hidden; pointer-events:none) across the top
+  of the canvas. _cvQuadEqShow now auto-shrinks the font from 15px in 0.5px steps
+  (min 8px) while el.scrollWidth>el.clientWidth, so the equation stays on ONE line
+  at any panel width and is largest when the resizable panel is dragged widest.
+  Removed the old below-sliders #cvQuadEq (single cvQuadEq now). div 59/59,
+  harness 10/10.
+- v12: the equation now refits its font on a note-panel resize, not just on
+  slider release / open. Added window._cvQuadEqShow() to the notesResize drag
+  mousemove handler (live refit as the handle is dragged) and a window 'resize'
+  listener (the panel is capped at 60% of the viewport, so a browser-window
+  resize changes its width too). Both calls are guarded by window._cvQuadEqShow
+  and no-op when the note is closed / #cvQuadEq is absent. harness 10/10.
+- v13: shortened the canvas to ~3/4 height (580 -> 435) and shrank the surface by
+  the same factor (projection scale 96 -> 72, oy stays H*0.5) so the patch fits the
+  shorter graph with the same relative margins. Verified worst case (corner at +3
+  over all rotation angles): screen-y 45..324 within the 435 canvas, no clipping.
+  harness 10/10.
+- v14: (a) the equation now always shows all 9 terms, with 0.00 for zero
+  coefficients (dropped the near-zero skip and the empty-out fallback; sign is
+  suppressed when |coeff| rounds to 0.00 so there is never a "-0.00"). Because
+  every term is always present at fixed 2dp width, the rendered line width is
+  ~constant, so the auto-fit font no longer jitters as values change. (b) the
+  coefficients update live during the drag, not just on release: _cvQuadSet now
+  calls window._cvQuadEqShow() after rebuild(), so the oninput path refreshes the
+  equation continuously (the onchange handlers remain, harmless, firing once more
+  on release). Verified output in node. harness 10/10.
+- v15: moved the surface render to the center of the LEFT HALF of the canvas
+  (drawQuad ox: W*0.5 -> W*0.25; oy stays H*0.5). Net and control points move with
+  it (all via pr()). Verified horizontal extent 73..277 stays within the left half
+  [0,350] across all rotations at worst-case heights, so the right half is now
+  free. harness 10/10.
+- v16: the RIGHT half now shows the same surface as a triangle mesh with a white
+  dot at every vertex. Added a coarse grid surfTri (NTRI=6 -> 7x7 vertices, 72
+  triangles) computed in rebuild() from the same control points; parameterized
+  pr(p,ox) by origin. Left renders the smooth quad surface at oxL=W*0.25; right
+  renders at oxR=W*0.75 as triangles (each grid cell split into two, depth-sorted
+  translucent fill + brighter edges rgba(150,180,255,0.32) so the triangulation
+  reads), then white dots r=2 at every vertex. Both halves share the rotation
+  angle so they spin in sync. Self-rendered to verify; horizontal extent stays in
+  the right half. harness 10/10.
+- v17: made the right-half triangulation ADAPTIVE and added floats-to-store labels
+  under each representation (goal: the biquadratic surface is ALWAYS 27 floats = 9
+  control points x 3, while the triangle mesh grows with curvature). rebuild() now
+  chooses triN in [1,24] by subdividing until the flat-triangle approximation of
+  the height surface is within TOL=0.04 (per cell it checks the center-on-diagonal
+  error and the 4 edge-midpoint errors); stores triCount=2*triN^2 and
+  triFloats=3*(triN+1)^2. drawQuad uses dynamic triN for the right mesh (dot r=2,
+  or 1.5 when triN>14) and draws labels: left "biquadratic surface / 27 floats"
+  (mint #3ce8b2), right "triangle mesh (T triangles) / F floats" (amber #e8a832).
+  Counts update live as sliders move (rebuild on oninput). Spread: flat -> N=1,
+  2 tris, 12 floats; default dome -> N=6, 72 tris, 147 floats; strong curvature ->
+  up to N~12-16+ (hundreds of floats). Self-rendered to verify. harness 10/10.
+- v18: added a live spinning panel of the nine Bernstein basis surfaces
+  (canvas id=cvBasis 700x420 + new IIFE), placed inside the writeup right after
+  the "The patch in one line" section (so the S(u,v) formula introduces it) and
+  before "why nine", with the former top title text moved into an HTML caption
+  beneath it. Each of the 9 tiles renders z = B_i(u)*B_j(v) (one control height=1,
+  the rest 0) in the cvQuad style: rotY(time)+rotX(0.4), translucent blue faces
+  shaded by facing, depth-sorted; all nine share the rotation angle so they spin
+  in sync. 3x3 layout cx=[W/6,W/2,5W/6] cy=[H/6,H/2,5H/6], scale=38, zs=1.2,
+  oy=cy+0.45*scale, per-tile label B_iB_j. RAF chained to _openNotes/_closeNotes
+  for nv1Quadratics (third such chain, after cvSimplex and cvQuad). Verified
+  layout via static render. harness 10/10, div 60/60.
+- v19: caption "any surface" -> "any biquadratic surface" (the nine span the
+  biquadratic family, not all surfaces). Each basis tile is now labeled with its
+  full equation in u,v instead of just "B_iB_j": built from i,j as
+  uf=[(1-u)^2, u(1-u), u^2], vf=[(1-v)^2, v(1-v), v^2], coef=(i==1?2:1)*(j==1?2:1),
+  e.g. B1B1 = 4u(1-u)v(1-v), B0B1 = 2(1-u)^2 v(1-v), B2B2 = u^2 v^2. Drawn at 11px
+  with U+00B2 superscripts; verified all nine fit within their tile columns via
+  static render. harness 10/10.
+- v20: in the nine-basis panel, made the wireframe edges white
+  (rgba(255,255,255,0.28), was faint blue 0.16) and the equation labels white
+  (#ffffff, was gray rgba(180,190,210,0.9)) and a little bigger (13px, was 11px).
+  Faces still translucent blue for depth. Verified fit/look via render. harness 10/10.
+- v21: lifted the nine-basis surface grid up ~14px (cy minus 14) so there is
+  padding below the bottom row of labels; left-justified the caption and removed
+  its max-width/auto-centering so it spans the full canvas width and wraps there.
+  Render confirms top margin 29px / bottom 26px, no clipping. harness 10/10.
+- v22: bumped the nine-basis equation labels 13px -> 15px ("a little bigger").
+  Longest label (~180px) still fits its tile column (~233px). harness 10/10.
+- v23: defined "biquadratic" at its first reader-facing use (the opening sentence
+  of "The patch in one line"): "a second-order polynomial in two variables". harness 10/10.
+- v24: added a new looping animation (canvas id "cvCombo" 700x430 + caption, placed
+  right after the nine-basis panel) showing a surface as a weighted sum of three
+  basis elements. Own IIFE after the cvBasis IIFE, same draw idiom (shared drawSurf:
+  12x12, depth-sorted translucent-blue faces + white edges, globalAlpha for fades),
+  RAF chained to _openNotes/_closeNotes on nv1Quadratics (t0 reset on open). Basis
+  B0B0/B1B1/B2B2 with weights 1.4/2.5/0.7. 7-phase state machine: (0) show centered
+  surface S, (1) cross-fade S out / three unit basis in as an equation row
+  [t1 + t2 + t3 = result], (2) scale each term 1->weight (number label tracks
+  height), (3) result fades in = first two summed, (4) third grows into the result,
+  (5) hold full equation, (6) collapse row / fade centered S back in -> seamless
+  loop. Amber step captions narrate each stage. All key frames verified by Python
+  mirror render (combo_center / combo_row / combo_p3). harness 10/10.
+- v25: added the standard control bar to cvCombo by REUSING the existing
+  AnimBtnBar controller and copying the rock-demo button-bar HTML verbatim (only
+  ids + speeds changed: btnComboPlay/Step, cSpd0/1/2, 0.5x/1x/2x, amber selected,
+  12px spacer, 11px/--fg3 Speed label). Converted the free-running loop into the
+  standard step model: rest state = centered surface; phases 1-4 are the four
+  steps (cross-fade to three unit basis, scale by weights, add first two, add
+  third); Play runs to the full sum then stops, Step advances one phase, Reset
+  returns to the surface, speed scales the tween rate. Continuous spin preserved
+  via RAF; tween freezes when paused and resumes. Control state machine verified
+  in node (step / play-to-end / pause-resume / 2x / replay all correct). Surface
+  draw math and on-canvas step caption unchanged. harness 10/10.
+- v26: starting frame (phase 0) - enlarged the centered surface (sc 56 -> 72) and
+  replaced the bare "S(u,v)" label with a two-line equation, left-aligned with the
+  "=" signs aligned and measureText-centered: line 1 the general weighted-basis
+  form S(u,v) = Si Sj wij Bi(u) Bj(v), line 2 the concrete formula
+  = 1.4 B0B0 + 2.5 B1B1 + 0.7 B2B2. Render confirms no overlap (~70px gap below
+  surface). harness 10/10.
+- v27: added a third equation line on the starting frame, the simplified expanded
+  polynomial S(u,v) = 1.4 - 2.8u - 2.8v + 1.4u2 + 15.6uv + 1.4v2 - 12.8u2v
+  - 12.8uv2 + 12.1u2v2 (verified exact vs the basis sum, max diff ~1e-15 over an
+  11x11 grid). Equation block dropped to 14px so all three lines share width for
+  "=" alignment; block measureText-centered on the widest (polynomial) line, which
+  fits with margins. harness 10/10.
+- v28: removed the simplified-polynomial line per request; restored the two-line
+  15px equation (general weighted form + concrete weighted-basis formula). harness 10/10.
+- v29: redesigned the decomposition layout. Removed the old centered cross-fade
+  and the small horizontal "t1 + t2 + t3 = result" row. New: phase 1 fades out the
+  equation text and FLIES the combined surface from center to the bottom-right
+  corner (constant size), while the three basis shapes fade in across the TOP, each
+  centered in a third of the width (cx W/6, W/2, 5W/6) at the same size as the
+  surface (sc 72); phase 2 scales the top basis by their weights. Stage count 4->2.
+  Geometry verified by render (fits H=430: top row y23..169, corner surface y248..354;
+  control state machine re-verified in node). NOTE: the summation steps ("add first
+  two / third") were dropped with the old row layout, pending the next instruction
+  for how the top basis should combine into the corner. harness 10/10.
+- v30: removed the intermediary sigma form S(u,v) = Si Sj wij Bi Bj from the
+  starting image; only the concrete formula S(u,v) = 1.4 B0B0 + 2.5 B1B1 + 0.7 B2B2
+  remains (single centered line). harness 10/10.
+- v31: scaling is now ONE BASIS AT A TIME. Split the single scale step into three
+  steps (phases 2,3,4 scale B0B0, B1B1, B2B2 in turn); stage count 2 -> 4. Slowed
+  the scaling (DUR 1300 -> 2000ms per basis). The basis currently stretching is
+  COLORED amber (faces rgba(232,168,50) + amber label) only while actively tweening
+  (gated on `tween`); the others stay blue. drawSurf gained an optional col arg
+  (default blue). Control flow re-verified in node (4 steps); colored mid-scale
+  frame verified by render. harness 10/10.
+- v32: phase-1 refinements. (a) The surface now SHRINKS to 2/3 (sc 72 -> 48) as it
+  flies to the bottom-right corner. (b) Removed the "S(u,v)" label on the flown
+  surface. (c) The three basis no longer fade in until the surface is out of the
+  way - basis alpha is gated to ramp only over p=0.6..1.0 of the fly (verified mid-
+  flight frame shows no basis). (d) Longer pause between steps when playing
+  (onAdvance 320 -> 800ms / spd). (e) More noticeable scaling coefficients:
+  COEF [1.4,2.5,0.7] -> [1.8,3.0,0.4]. Top basis still clear the canvas top
+  (min y ~44 at sc72); corner surface at (595,360) sc48 sits bottom-right. harness 10/10.
+- v33: slid the three basis down and vertically centered them (oyTop 120 -> 205;
+  surface+label group center ~210 vs canvas mid 215); shrank the translated corner
+  surface (cornerSc 48 -> 40) and moved it further into the bottom-right corner
+  ((595,360) -> (632,378)) so it clears the now-lower basis (corner-top vs rightmost
+  label gap ~49px). harness 10/10.
+- v34: changed the third basis element from B2B2 to B1B2 (IJ[2] [2,2] -> [1,2]).
+  Also corrected stale displayed text that had not been updated when the
+  coefficients changed in v32: the starting formula and the three step captions now
+  read 1.8/3.0/0.4 (matching COEF) with the third term shown as B1B2. Live basis
+  label auto-updates from IJ. Verified by render. harness 10/10.
+- v35: added phase 5 - "add the first two". B0B0 and B1B1 (already scaled) fly
+  together to a merge point (x=235) and cross-fade into their sum surface
+  (1.8 B0B0 + 3.0 B1B1), whose label below it is the sum formula; B1B2 stays put,
+  the corner target updates. Slow (DUR 3000ms). Individual labels fade out before
+  the surfaces converge (separate aIndL) to avoid text overlap; sum label fades in.
+  drawFrame basis section now branches ph<=4 (three separate) vs ph===5 (merge).
+  Stage count 4 -> 5. Also bumped B1B2 weight 0.4 -> 1.5 so it has an observable
+  impact when added (and synced the formula/caption text). Control flow (5 steps)
+  and frames verified. harness 10/10.
+- v36: added phases 6 and 7. Phase 6 "add the third": the sum-of-first-two (at
+  x=235) and B1B2 (at 5W/6) fly together to the center (W/2) and cross-fade into the
+  full sum (1.8 B0B0 + 3.0 B1B1 + 1.5 B1B2), which sits in the middle with the full
+  formula as its label; corner target stays put. Phase 7 "cover": the small corner
+  surface flies back to the center and scales up (cornerSc->fullSc, pos->W/2,oyTop),
+  tinted amber, landing exactly on the blue full sum to show the original equals the
+  reconstruction. drawFrame basis section branches ph<=4 / 5 / 6 / >=7; main surface
+  gets amber tint only in ph7; placement gains a ph7 fly-back branch. DUR adds
+  3000/2200ms; stage count 5 -> 7. Control flow (7 steps) and both end frames
+  verified by render. harness 10/10.
+- v37: in phase 6 the equation no longer fades out and back. The running sum
+  "1.8 B0B0 + 3.0 B1B1" stays visible (carried from phase 5) and "+ 1.5 B1B2" is
+  appended (slides/fades in) as B1B2 comes in - the equation just grows by one term.
+  Base centered at a sliding anchor, addend drawn left-aligned right after it
+  (measureText), so the full equation ends centered at W/2 exactly matching the
+  phase-7 label (no jump at the 6->7 boundary). Dropped B1B2's separate label.
+  Verified mid/end frames by render. harness 10/10.
+- v38: phase 6 equation reworked again - both pieces stay at full opacity the whole
+  time (no fade-out/reappear of 1.5 B1B2). "1.8 B0B0 + 3.0 B1B1" slides in from x=235
+  and "1.5 B1B2" slides in from 5W/6, each from where phase 5 left it; a "+" fades in
+  between them as they dock. Final docked layout (base centered at cX-fullW/2+bw/2,
+  B1B2 at cX+fullW/2-b12w/2, + at the gap midpoint via measureText) equals the full
+  string centered at cX, matching phase 7 (no 6->7 jump). Start/mid/end verified by
+  render. harness 10/10.
+- v39: terminology fix in the representation-comparison animation. The left label
+  read "quadratic surface" but 27 floats = 9 control points = a biquadratic patch
+  (degree 2 in each of u and v), so changed it to "biquadratic surface" to match
+  the rest of the document. Synced the two AI-note references to that label.
+  harness 10/10.
+- v40: added a new stepped animation (canvas id "cvFillet" 700x430 + control bar +
+  caption + a short "What the patch is for: rounding an edge" h4), placed in the
+  nv1Quadratics note right after the cvCombo block. Shows the canonical CAD fillet:
+  two flat 45-degree planes meeting at a sharp ridge, rounded by the biquadratic
+  into a smooth blend. Own IIFE after the cvCombo IIFE, same idiom (copied drawSurf,
+  rotY/rotX/sstep, AnimBtnBar controller, RAF chained to _openNotes/_closeNotes on
+  nv1Quadratics with its own !rafF guard; control-bar HTML copied verbatim from
+  cvCombo, only ids/handlers changed: btnFilletPlay/Step, fSpd0/1/2,
+  window._fillet{Play,Step,Reset,Speed}). The surface is a RIDGE (height field
+  curved in x, flat in y) so the two faces are genuinely planar: x-profile is the
+  degree-2 Bezier of control heights [0,1,0], swept in y. profSharp(u)=min(2u,2(1-u))
+  is the control polygon (peak 1 at the ridge); profFillet(u)=2u(1-u) is the Bezier
+  (peak 0.5); prof(u,tau) linearly blends sharp->fillet. 4 states (rest + 3 steps):
+  (0) two sharp planes + a white crease highlight on the ridge; (1) the control edge
+  fades in (amber dashed line + 5 dots at x=0,z=1 along the whole length - the point
+  being the entire sharp edge is one control row); (2) tau 0->1 rounds the surface,
+  the crease highlight fades, the amber edge stays up and now sits ABOVE the rounded
+  surface (echoes the note's core lesson: control points off the surface pull it);
+  (3) the centre-slice control-polygon legs (amber dashed) appear so the curve is
+  seen hugging them at the base = tangency. The 45-deg / tangency claims are exact,
+  not decorative: verified in node that profFillet'(x) at the base = 1 = the plane
+  slope (G1 join), endpoints coincide at 0, sharp peak 1 vs fillet peak 0.5. Framing
+  (SC=104, OX=350, OY=250, ZS=1.1, TILT=0.5, ZC=0.42) verified headless: screen
+  extents x 203..497, y 142..363 within 700x430 across all rotation angles, no clip.
+  ASSUMPTION FLAGGED: "45 degrees" read as each FACE at 45 deg (slopes +/-1, 90-deg
+  dihedral) - the clean symmetric roof. If the 45 deg was meant as the dihedral
+  BETWEEN the faces, it is a one-line change: raise the apex (APEX and the [0,1,0]
+  middle height) to cot(22.5)=~2.414. Note system unchanged (11/11/11/11; a canvas
+  added to an existing note does not change the note count). div 62/62, harness 10/10.
+- v41: extended the cvFillet state machine from 4 states to 7 (added phases 4,5,6),
+  per the author's request to continue the same animation. New phases use a FIXED,
+  non-rotating ~22-degree view (ANG_Y=ANG_X=0.384) and compare the biquadratic to a
+  fixed triangulation of the SAME fillet, then zoom in to expose the artifacts:
+  (4) cross-fade from the spinning single fillet (frozen at spinFreeze, captured in
+  startStep at the 3->4 transition) into a static two-up: left = smooth biquadratic
+  (drawSurf, mint label), right = a coarse fixed triangulation (new drawMesh: NX=3 x
+  NY=2 grid split into flat-shaded triangles with white edges + white vertex dots,
+  amber label); (5) the right fades out while the left zooms to centre (SC4 70 ->
+  SCZ 210) - still smooth; (6) cross-fade in place from the zoomed biquadratic to the
+  zoomed triangulation, with the true smooth profile overlaid (mint line) so the chord
+  gap is visible - the facets chord the curve and the round top reads as flattened.
+  Camera: new camFor(focus,tx,ty,sc,ang,tilt) origin-solver centres the fillet crease
+  FOC=(0,0,0.5) at a chosen screen point, so two-up and zoom share one path. lerpA is a
+  shortest-path angle lerp (kept for the freeze although the final cut freezes hard).
+  Phase-boundary continuity verified in node (ph4end==ph5start; ph5end->ph6start only
+  repositions the right surface while its alpha=0, so invisible); framing verified
+  headless (two-up halves clear at x<=280 / x>=420; zoomed crease on-canvas). isDone /
+  onPlay thresholds bumped 3 -> 6. DUR/STEP extended by three entries. drawSurf, the
+  control bar, AnimBtnBar, and the RAF/_openNotes chaining are unchanged. Phases 0-3
+  kept verbatim inside an `if(ph<4)` branch. ASSUMPTION FLAGGED: "22 degrees" read as
+  both azimuth and tilt = a symmetric 3/4 view; one-line change if a different axis was
+  meant. Body caption extended by one sentence about the comparison/zoom. harness 10/10.
+- v42: two author-requested tweaks to the v41 comparison. (1) The zoomed surface was
+  running off the bottom into the step caption (full-surface screen-y reached ~425 vs
+  caption at H-16=414); added a cyZ=0.40 constant and moved the zoom centre from H*0.50
+  to H*cyZ in phases 5 and 6, so the zoomed surface now spans y~97..382, clearing both
+  the bottom caption and the top label (verified headless). (2) Made the triangulation
+  dense like a real mesh: NX/NY 3x2 -> 12x12; dimmed/thinned the wireframe edges
+  (rgba 0.85->0.5, lineWidth 1->0.7) and removed the white vertex dots (a dense mesh
+  reads as a real triangulation from its wireframe; dots became clutter). At the zoom,
+  the dense mesh still chords the curve against the mint reference line and the flat-
+  shaded facets still show seams - the artifact survives the higher density, it is just
+  finer. harness 10/10.
+- v43: at 12x12 the per-facet chord error is sub-pixel until very deep zoom (measured
+  in node: on-screen chord-vs-curve gap is 0.7px at sc=210, 3.5px at 1000, 4.6px at
+  1300), so the v42 zoom (SCZ=210) showed the mesh looking smooth. Per author ("you
+  have to zoom in further to see it is not smooth"), phase 6 now zooms FURTHER: added
+  SCZ2=1300 and made phase 6 lerp the scale SCZ(210)->SCZ2(1300) while it cross-fades
+  the biquadratic into the triangulation. Phase 5 (biquadratic) stays at the well-
+  framed SCZ=210; phase 6 pushes deeper into the mesh until ~4 facets fill the frame
+  and the chords visibly bow ~4.6px under the mint reference curve (plus the flat-
+  shaded facet seams). Net narrative: the dense mesh looks smooth at normal zoom, and
+  only the deeper zoom reveals it is faceted - which is the point. Phase-6 caption
+  updated to "Zoom in further on the triangulation...". Continuity preserved (phase5
+  end lsc=SCZ == phase6 start zsc=lerp(SCZ,SCZ2,0)=SCZ). harness 10/10.
+- v44: per author ("as you zoom in to the triangulation rotate the view a little so the
+  gap is more face on"). The chord gap is the z-deviation in the x-z profile; at the
+  22-deg 3/4 view the profile plane is turned away from the camera (azimuth foreshortens
+  it), so the gap is seen obliquely. Phase 6 now also eases the view toward a near-face-on
+  profile while it zooms: added ANG_Y2=0.10, ANG_X2=0.18 and local ay/ax = (ph>=6 ?
+  lerp(ANG_Y/ANG_X -> ANG_Y2/ANG_X2, pe) : ANG_Y/ANG_X), threaded through camFor (both),
+  drawSurf, drawMesh and the reference-curve projection. camFor re-solves the origin from
+  the focus each frame, so the crease stays centred as the view rotates (no drift).
+  Verified in node: at sc=1300 the on-screen gap is 4.9px (was 4.6px) and now head-on -
+  azimuth ~22deg -> ~6deg turns the x-z cross-section to face the camera, so the chord
+  polyline and the mint reference curve separate vertically rather than obliquely.
+  Phases 4 and 5 keep the original 22-deg view. ASSUMPTION FLAGGED: target angles
+  (0.10, 0.18) chosen for a near-face-on read with a slight look-down; one-line tweak.
+  harness 10/10.
+- v45: added phase 7 (8 states now), per author ("fly to rotate to a 2d plane with the
+  surface disappearing except the curve and the interpolation"). Phase 7 continues from
+  the phase-6 end (deep zoom, near-face-on): it rotates the rest of the way to a flat
+  profile (ay/ax lerp ANG_Y2/ANG_X2 -> 0,0), dissolves the 3D mesh fill (ra=1-pe), zooms
+  out a little (SCZ2 1300 -> SC2D 900) so a few interpolation segments frame nicely, and
+  fades in (interpA=pe) the 2D figure: the smooth biquadratic profile curve (mint), the
+  triangulation's piecewise-linear interpolation between the y=0 sample points (amber
+  polyline + sample dots), and a soft-red error band filling the gap between them (curve
+  is concave so its chords lie below -> the band is the interpolation error). Refactored
+  the reference-curve draw to a shared pPt(x,z) projector; replaced the standalone ay/ax
+  line with per-phase ay/ax set inside each branch (ph4/5 = 22deg, ph6 lerp to face-on,
+  ph7 lerp to flat). Labels "smooth curve"/"linear interpolation" fade in; the bottom
+  caption reads "Flatten to the profile...". Verified in node: ph6-end == ph7-start
+  (ay/ax/sc/ra/refA/interpA all match, no pop); at the flat end (sc=900) 5 sample dots /
+  4 chords are on-canvas, profile spans 684px, curve-vs-interp gap ~3.4px. isDone /
+  onPlay / startStep thresholds bumped 6 -> 7; DUR/STEP extended by one. ASSUMPTION
+  FLAGGED: kept the deep crease framing rather than zooming out to the whole fillet
+  (dense 12-seg interpolation hugs the curve at full-profile scale, hiding the error);
+  SC2D=900 is a one-number tweak. harness 10/10.
+- v46: two changes. (1) WHITE CANVAS TEXT (author reminder, Rule 4): the cvFillet step
+  caption was amber and the data labels were mint/amber; all on-canvas text is now
+  #ffffff. To keep the colour coding, each label now gets a short colour-swatch dash
+  (mint or amber) drawn just left of the white text via a local tag() helper, so the
+  legend survives without coloured text. (2) Added phase 8 (9 states now), per author
+  ("zoom in on the curve so you can actually see the error band"): at SC2D=900 the flat
+  curve-vs-interpolation gap was only ~3.4px; phase 8 stays flat (ay=ax=0) and zooms the
+  profile in from SC2D(900) to SC8(1900), where ~3 samples / 2 facets fill the frame and
+  the shaded error band is ~7.3px - clearly visible. Continuity verified (ph7 end flat
+  sc900 == ph8 start). Steps run 1..8; isDone/startStep/onPlay bumped to 8.
+  CAUGHT IN PROCESS (not shipped): a too-broad sed bumping the 7->8 thresholds also hit
+  cvCombo's identical state-machine lines (cvCombo legitimately ends at 7); detected via
+  grep showing two matches and reverted cvCombo's three back to 7 before validating.
+  Lesson: scope edits to repeated patterns (cSpd vs fSpd) rather than global sed.
+  harness 10/10.
+- v47: per author ("get rid of the legends, map curve color to type, it is obvious;
+  the last description is too long, does not fit"). (1) Removed the v46 legend labels
+  and the tag() swatch helper entirely. (2) Colour now maps to type so no legend is
+  needed: the reference smooth curve was mint and is now blue (#6aa6ff), matching the
+  biquadratic SURFACE (drawSurf rgb 100,160,255) used in phases 4-6; the interpolation
+  line/dots stay amber (#e8a832), matching the triangulation mesh; the error band stays
+  red. So across all phases blue = biquadratic, amber = triangulation/interpolation.
+  (3) Shortened the long captions (ph4/6/7/8) and added a caption auto-shrink: the step
+  caption now measures STEP[ph] at 15px and steps the font down by 0.5px (min 10px)
+  until it fits W-24, so no caption can overrun the canvas again. Verified all 9
+  captions fit at 15px (max ~621px < 676). harness 10/10.
 
 
 SESSION 9 (May 2026) — minor edits
@@ -2956,12 +3320,40 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
     'nv1Quadratics': {
       title: 'What is a quadratic?',
-      body: '<canvas id="cvQuad" width="700" height="580" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
-        '<div id="cvQuadCtl" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px;max-width:380px;margin:14px auto 4px"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(0,this.value)" style="width:100%;accent-color:#ff5b5b"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(1,this.value)" style="width:100%;accent-color:#ff9b3d"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(2,this.value)" style="width:100%;accent-color:#ffc23a"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(3,this.value)" style="width:100%;accent-color:#eef25a"><input type="range" min="-2" max="3" step="0.1" value="2" oninput="window._cvQuadSet&&window._cvQuadSet(4,this.value)" style="width:100%;accent-color:#4fd06a"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(5,this.value)" style="width:100%;accent-color:#3ce8b2"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(6,this.value)" style="width:100%;accent-color:#3cd6e8"><input type="range" min="-2" max="3" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(7,this.value)" style="width:100%;accent-color:#ff79b0"><input type="range" min="-2" max="3" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(8,this.value)" style="width:100%;accent-color:#b6e84d"></div>' +
+      body: '<div style="position:relative;margin-top:12px"><canvas id="cvQuad" width="700" height="435" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1)"></canvas><div id="cvQuadEq" style="position:absolute;top:0;left:0;right:0;padding:10px 14px;font-family:var(--mono);font-size:15px;color:var(--fg);text-align:left;white-space:nowrap;overflow:hidden;pointer-events:none"></div></div>' +
+        '<div id="cvQuadCtl" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px;max-width:380px;margin:14px auto 4px"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(0,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#e25050"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(1,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#e2b150"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(2,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#b1e250"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(3,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#50e250"><input type="range" min="-1.5" max="2.5" step="0.1" value="2" oninput="window._cvQuadSet&&window._cvQuadSet(4,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#50e2b1"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(5,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#50b1e2"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(6,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#5050e2"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(7,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#b150e2"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(8,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#e250b1"></div>' +
         '<div style="margin-top:24px;border-top:1px solid var(--b1);padding-top:20px">' +
         '<h4>The patch in one line</h4>' +
-        '<p>The surface above is a biquadratic B&eacute;zier patch.&ensp; It is the weighted blend of the nine control points, with the degree-2 Bernstein functions as the weights.&ensp; Everything below unpacks that one formula and shows where it sits in the wider world of approximation, quadrature, and splines.</p>' +
-        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">S(u,v) = &Sigma;<sub>i</sub> &Sigma;<sub>j</sub> B<sub>i</sub>(u) B<sub>j</sub>(v) P<sub>ij</sub>,&ensp;&ensp; B<sub>0</sub>(t) = (1-t)<sup>2</sup>,&ensp; B<sub>1</sub>(t) = 2(1-t)t,&ensp; B<sub>2</sub>(t) = t<sup>2</sup></div>' +
+        '<p>The surface above is a biquadratic B&eacute;zier patch.&ensp; <i>Biquadratic</i> means a second-order polynomial in two variables.&ensp; It is the weighted blend of the nine control points, with the degree-2 Bernstein polynomials as the weights.&ensp; Everything below unpacks that one formula and shows where it sits in the wider world of approximation, quadrature, and splines.</p>' +
+        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">S(u,v) = &Sigma;<sub>i</sub> &Sigma;<sub>j</sub> B<sub>i</sub>(u) B<sub>j</sub>(v) P<sub>ij</sub><br>B<sub>0</sub>(t) = (1-t)<sup>2</sup>,&ensp;&ensp; B<sub>1</sub>(t) = 2(1-t)t,&ensp;&ensp; B<sub>2</sub>(t) = t<sup>2</sup></div>' +
+        '<canvas id="cvBasis" width="700" height="420" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="text-align:left;color:var(--fg3);font-size:13px;margin:8px 0 4px;line-height:1.5">The nine basis surfaces z = B<sub>i</sub>(u)&middot;B<sub>j</sub>(v) &ndash; each is one control point acting alone, its height set to 1 and the other eight to 0.&ensp; They sum to 1 everywhere, so any biquadratic surface is a weighted stack of these nine fixed shapes.</div>' +
+        '<canvas id="cvCombo" width="700" height="430" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnComboPlay" onclick="window._comboPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnComboStep" onclick="window._comboStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._comboReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="cSpd0" onclick="window._comboSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="cSpd1" onclick="window._comboSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="cSpd2" onclick="window._comboSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div style="text-align:left;color:var(--fg3);font-size:13px;margin:8px 0 4px;line-height:1.5">Any surface is built the same way: choose a few basis shapes, scale each by a weight, and add them.&ensp; Here three of the nine are weighted and summed, the first two then the third, to rebuild the surface shown at the top.</div>' +
+        '<h4>What the patch is for: rounding an edge</h4>' +
+        '<p>One of the oldest uses of these patches is the CAD fillet.&ensp; Two flat faces meet at a sharp edge, and a quadratic patch rounds that edge into a smooth blend.&ensp; Watch the sharp corner become the surface\'s single row of control points, then watch the surface pull toward them.</p>' +
+        '<canvas id="cvFillet" width="700" height="430" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnFilletPlay" onclick="window._filletPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnFilletStep" onclick="window._filletStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._filletReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="fSpd0" onclick="window._filletSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="fSpd1" onclick="window._filletSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="fSpd2" onclick="window._filletSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div style="text-align:left;color:var(--fg3);font-size:13px;margin:8px 0 4px;line-height:1.5">Each face rises at 45&deg;, so they meet at a 90&deg; ridge.&ensp; The whole sharp edge is one row of control points (amber) sitting above the surface.&ensp; The biquadratic patch blends toward those points without reaching them, so the edge rounds off and the curve meets each face tangentially &ndash; a smooth join with no crease.&ensp; The last steps set the smooth patch beside a fixed triangulation of the same fillet and zoom in: the patch stays smooth, the triangulation shows facets and chords the curve.</div>' +
         '<h4>Why nine control points</h4>' +
         '<p>A quadratic <em>curve</em> needs three control points.&ensp; Degree two means a polynomial with three coefficients (a&middot;t<sup>2</sup> + b&middot;t + c), so three knobs; the degree-2 Bernstein basis has exactly three terms, one per control point.&ensp; Three points are the minimum to fix a parabola, just as two fix a line.</p>' +
         '<p>A <em>patch</em> is the surface version, addressed by two parameters u and v instead of one.&ensp; Making it quadratic in both directions is a tensor product &ndash; a quadratic in u times a quadratic in v &ndash; so the basis is three terms times three terms, giving 3 &times; 3 = 9 control points in a grid.&ensp; Read it as three rows, each a quadratic curve of three control points, with those three curves themselves blended quadratically as v moves.</p>' +
@@ -3182,6 +3574,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       w = Math.max(260, Math.min(w, window.innerWidth * 0.6));
       document.getElementById('notesPanel').style.width = w + 'px';
       document.querySelector('.page').style.marginRight = w + 'px';
+      if (window._cvQuadEqShow) window._cvQuadEqShow();
     });
     document.addEventListener('mouseup', function()
     {
@@ -3189,6 +3582,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       resize.classList.remove('dragging');
     });
   }
+
+  // Re-fit the surface equation when a window resize changes the panel width
+  window.addEventListener('resize', function(){ if (window._cvQuadEqShow) window._cvQuadEqShow(); });
 
   // Escape key closes
   document.addEventListener('keydown', function(e)
@@ -8412,10 +8808,10 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 (function(){
   var quadRAF=null;
   var fz=[0,1,0];
-  var COLORS=['#ff5b5b','#ff9b3d','#ffc23a','#eef25a','#4fd06a','#3ce8b2','#3cd6e8','#ff79b0','#b6e84d'];
+  var COLORS=['#e25050','#e2b150','#b1e250','#50e250','#50e2b1','#50b1e2','#5050e2','#b150e2','#e250b1'];
   // cz[i][j] = the 9 control-point heights (the parameters the sliders drive)
   var cz=[];for(var i=0;i<3;i++){cz.push([]);for(var j=0;j<3;j++)cz[i].push(fz[i]+fz[j]);}
-  var cp=[], surf=[], TESS=12;
+  var cp=[], surf=[], TESS=12, surfTri=[], triN=1, triFloats=12, triCount=2;
   function B2(t){var s=1-t;return [s*s,2*s*t,t*t];}
   function rebuild(){
     var i,j,m=0;
@@ -8432,6 +8828,36 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         surf[a].push([px,py,pz]);
       }
     }
+    // adaptive triangulation of the right-half surface: subdivide until the
+    // flat-triangle approximation is within TOL of the true (height) surface
+    function zsurf(u,v){var Bu=B2(u),Bv=B2(v),z=0,ii,jj;
+      for(ii=0;ii<3;ii++){for(jj=0;jj<3;jj++)z+=Bu[ii]*Bv[jj]*cp[ii][jj][2];}return z;}
+    var TOL=0.04, NMIN=1, NMAX=24;
+    triN=NMIN;
+    for(var nn=NMIN;nn<=NMAX;nn++){
+      triN=nn; var maxe=0;
+      for(var ea=0;ea<nn;ea++){for(var eb=0;eb<nn;eb++){
+        var z00=zsurf(ea/nn,eb/nn),z10=zsurf((ea+1)/nn,eb/nn),z01=zsurf(ea/nn,(eb+1)/nn),z11=zsurf((ea+1)/nn,(eb+1)/nn);
+        var e=Math.abs(zsurf((ea+0.5)/nn,(eb+0.5)/nn)-(z00+z11)/2);          // cell center sits on the diagonal
+        e=Math.max(e,Math.abs(zsurf((ea+0.5)/nn,eb/nn)-(z00+z10)/2));
+        e=Math.max(e,Math.abs(zsurf((ea+0.5)/nn,(eb+1)/nn)-(z01+z11)/2));
+        e=Math.max(e,Math.abs(zsurf(ea/nn,(eb+0.5)/nn)-(z00+z01)/2));
+        e=Math.max(e,Math.abs(zsurf((ea+1)/nn,(eb+0.5)/nn)-(z10+z11)/2));
+        if(e>maxe)maxe=e;
+      }}
+      if(maxe<=TOL)break;
+    }
+    triCount=2*triN*triN;
+    triFloats=3*(triN+1)*(triN+1);
+    surfTri=[];
+    for(var ta=0;ta<=triN;ta++){
+      var Tu=B2(ta/triN);surfTri.push([]);
+      for(var tb=0;tb<=triN;tb++){
+        var Tv=B2(tb/triN),qx=0,qy=0,qz=0;
+        for(i=0;i<3;i++){for(j=0;j<3;j++){var ww=Tu[i]*Tv[j],PP=cp[i][j];qx+=ww*PP[0];qy+=ww*PP[1];qz+=ww*PP[2];}}
+        surfTri[ta].push([qx,qy,qz]);
+      }
+    }
   }
   rebuild();
   function syncFromSliders(){
@@ -8444,6 +8870,28 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     cz[Math.floor(k/3)][k%3]=parseFloat(val);
     activeK=k; activeT=performance.now();
     rebuild();
+    if(window._cvQuadEqShow)window._cvQuadEqShow();
+  };
+
+  window._cvQuadEqShow=function(){
+    var el=document.getElementById('cvQuadEq');if(!el)return;
+    var E=[[0.25,-0.5,0.25],[0.5,0,-0.5],[0.25,0.5,0.25]];   // Bernstein index -> x/y monomial coeff on [-1,1] (u=(x+1)/2)
+    var a=[[0,0,0],[0,0,0],[0,0,0]],p,q,ii,jj;
+    for(p=0;p<3;p++){for(q=0;q<3;q++){var sm=0;
+      for(ii=0;ii<3;ii++){for(jj=0;jj<3;jj++){sm+=E[ii][p]*cz[ii][jj]*E[jj][q];}}
+      a[p][q]=sm;}}
+    var ord=[[0,0],[1,0],[0,1],[2,0],[1,1],[0,2],[2,1],[1,2],[2,2]],out='';
+    for(var t=0;t<ord.length;t++){
+      p=ord[t][0];q=ord[t][1];
+      var cr=Math.round(a[p][q]*100)/100, mag=Math.abs(cr).toFixed(2), neg=(cr<0&&mag!=='0.00');
+      var ml=(p===0?'':(p===1?'x':'x<sup>2</sup>'))+(q===0?'':(q===1?'y':'y<sup>2</sup>'));
+      var term=(ml===''?mag:mag+'&thinsp;'+ml);
+      out+=(t===0?(neg?'-':'')+term:(neg?' - ':' + ')+term);
+    }
+    el.style.fontSize='15px';
+    el.innerHTML='z(x,y) = '+out;
+    var fs=15;
+    for(var g=0;g<14&&el.clientWidth>20&&el.scrollWidth>el.clientWidth;g++){fs-=0.5;el.style.fontSize=fs+'px';}
   };
 
   function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
@@ -8452,11 +8900,11 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   function drawQuad(){
     var cv=document.getElementById('cvQuad');if(!cv)return;
     var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
-    var angle=performance.now()*0.0006, ox=W*0.5, oy=H*0.5, scale=96, i,j;
-    function pr(p){var q=rotX(rotY(p,angle),0.4);return {x:ox+q[0]*scale, y:oy-q[2]*scale, z:q[1]};}
+    var angle=performance.now()*0.0006, oxL=W*0.25, oxR=W*0.75, oy=H*0.5, scale=72, i,j;
+    function pr(p,ox){var q=rotX(rotY(p,angle),0.4);return {x:ox+q[0]*scale, y:oy-q[2]*scale, z:q[1]};}
 
     var ps=[];
-    for(var a=0;a<=TESS;a++){ps.push([]);for(var b=0;b<=TESS;b++)ps[a].push(pr(surf[a][b]));}
+    for(var a=0;a<=TESS;a++){ps.push([]);for(var b=0;b<=TESS;b++)ps[a].push(pr(surf[a][b],oxL));}
     var faces=[];
     for(a=0;a<TESS;a++){for(b=0;b<TESS;b++){
       var p0=ps[a][b],p1=ps[a+1][b],p2=ps[a+1][b+1],p3=ps[a][b+1];
@@ -8472,7 +8920,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       ctx.lineTo(q[2].x,q[2].y);ctx.lineTo(q[3].x,q[3].y);ctx.closePath();ctx.fill();ctx.stroke();
     }
 
-    var pc=[];for(i=0;i<3;i++){pc.push([]);for(j=0;j<3;j++)pc[i].push(pr(cp[i][j]));}
+    var pc=[];for(i=0;i<3;i++){pc.push([]);for(j=0;j<3;j++)pc[i].push(pr(cp[i][j],oxL));}
     ctx.strokeStyle='rgba(200,205,220,0.32)';ctx.lineWidth=1.3;
     for(i=0;i<3;i++){ctx.beginPath();ctx.moveTo(pc[i][0].x,pc[i][0].y);ctx.lineTo(pc[i][1].x,pc[i][1].y);ctx.lineTo(pc[i][2].x,pc[i][2].y);ctx.stroke();}
     for(j=0;j<3;j++){ctx.beginPath();ctx.moveTo(pc[0][j].x,pc[0][j].y);ctx.lineTo(pc[1][j].x,pc[1][j].y);ctx.lineTo(pc[2][j].x,pc[2][j].y);ctx.stroke();}
@@ -8482,6 +8930,44 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       ctx.fillStyle=COLORS[kk];
       ctx.beginPath();ctx.arc(pc[i][j].x,pc[i][j].y,r,0,Math.PI*2);ctx.fill();
     }}
+
+    // RIGHT HALF: the same surface as an adaptive triangle mesh, white dot at every vertex
+    var pt=[];
+    for(a=0;a<=triN;a++){pt.push([]);for(b=0;b<=triN;b++)pt[a].push(pr(surfTri[a][b],oxR));}
+    var tris=[];
+    for(a=0;a<triN;a++){for(b=0;b<triN;b++){
+      var t0=pt[a][b],t1=pt[a+1][b],t2=pt[a+1][b+1],t3=pt[a][b+1];
+      var na=(t1.x-t0.x)*(t2.y-t0.y)-(t1.y-t0.y)*(t2.x-t0.x);
+      var nb=(t2.x-t0.x)*(t3.y-t0.y)-(t2.y-t0.y)*(t3.x-t0.x);
+      tris.push({t:[t0,t1,t2],z:(t0.z+t1.z+t2.z)/3,nz:na});
+      tris.push({t:[t0,t2,t3],z:(t0.z+t2.z+t3.z)/3,nz:nb});
+    }}
+    tris.sort(function(A,B){return A.z-B.z;});
+    for(k=0;k<tris.length;k++){
+      var tt=tris[k].t, tsh=0.09+(tris[k].nz>0?0.13:0);
+      ctx.fillStyle='rgba(100,160,255,'+tsh+')';
+      ctx.strokeStyle='rgba(150,180,255,0.32)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(tt[0].x,tt[0].y);ctx.lineTo(tt[1].x,tt[1].y);ctx.lineTo(tt[2].x,tt[2].y);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+    var dotR=(triN>14)?1.5:2;
+    ctx.fillStyle='#ffffff';
+    for(a=0;a<=triN;a++){for(b=0;b<=triN;b++){
+      ctx.beginPath();ctx.arc(pt[a][b].x,pt[a][b].y,dotR,0,Math.PI*2);ctx.fill();
+    }}
+
+    // floats-to-store labels under each representation
+    ctx.textAlign='center';
+    ctx.font='12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.fillStyle='rgba(150,160,180,0.9)';
+    ctx.fillText('biquadratic surface', oxL, H-26);
+    ctx.fillText('triangle mesh  ('+triCount+' triangles)', oxR, H-26);
+    ctx.font='600 16px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.fillStyle='#3ce8b2';
+    ctx.fillText('27 floats', oxL, H-8);
+    ctx.fillStyle='#e8a832';
+    ctx.fillText(triFloats+' floats', oxR, H-8);
+    ctx.textAlign='start';
+
     quadRAF=requestAnimationFrame(drawQuad);
   }
 
@@ -8489,7 +8975,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._openNotes=function(id,scroll){
     origOpenQ(id,scroll);
     if(id==='nv1Quadratics'){
-      syncFromSliders(); rebuild();
+      syncFromSliders(); rebuild(); if(window._cvQuadEqShow)window._cvQuadEqShow();
       if(!quadRAF) quadRAF=requestAnimationFrame(drawQuad);
     }
   };
@@ -8497,6 +8983,465 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._closeNotes=function(){
     if(quadRAF){cancelAnimationFrame(quadRAF);quadRAF=null;}
     origCloseQ();
+  };
+})();
+
+// ============ CVBASIS: nine spinning Bernstein basis surfaces ============
+(function(){
+  var rafB=null;
+  function B2(t){var s=1-t;return [s*s,2*s*t,t*t];}
+  function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
+  function rotX(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];}
+  var TS=14, sub=['\u2080','\u2081','\u2082'];
+  function draw(){
+    var cv=document.getElementById('cvBasis');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var angle=performance.now()*0.0006, tilt=0.4, scale=38, zs=1.2;
+    var cx=[W/6,W/2,5*W/6], cy=[H/6-14,H/2-14,5*H/6-14], a, b;
+    ctx.textAlign='center';
+    for(var i=0;i<3;i++){for(var j=0;j<3;j++){
+      var ox=cx[j], oy=cy[i]+0.45*scale, P=[];
+      for(a=0;a<=TS;a++){var Bu=B2(a/TS);P.push([]);
+        for(b=0;b<=TS;b++){var Bv=B2(b/TS),x=-1+2*(a/TS),y=-1+2*(b/TS),z=Bu[i]*Bv[j];
+          var q=rotX(rotY([x,y,z*zs],angle),tilt);
+          P[a].push({x:ox+q[0]*scale, y:oy-q[2]*scale, z:q[1]});
+        }}
+      var faces=[];
+      for(a=0;a<TS;a++){for(b=0;b<TS;b++){
+        var p0=P[a][b],p1=P[a+1][b],p2=P[a+1][b+1],p3=P[a][b+1];
+        var nz=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);
+        faces.push({q:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,nz:nz});
+      }}
+      faces.sort(function(A,B){return A.z-B.z;});
+      for(var k=0;k<faces.length;k++){
+        var qq=faces[k].q, sh=0.12+(faces[k].nz>0?0.18:0);
+        ctx.fillStyle='rgba(100,160,255,'+sh+')';
+        ctx.strokeStyle='rgba(255,255,255,0.28)';ctx.lineWidth=0.7;
+        ctx.beginPath();ctx.moveTo(qq[0].x,qq[0].y);ctx.lineTo(qq[1].x,qq[1].y);ctx.lineTo(qq[2].x,qq[2].y);ctx.lineTo(qq[3].x,qq[3].y);ctx.closePath();ctx.fill();ctx.stroke();
+      }
+      var uf=(i===0?'(1-u)\u00b2':(i===1?'u(1-u)':'u\u00b2'));
+      var vf=(j===0?'(1-v)\u00b2':(j===1?'v(1-v)':'v\u00b2'));
+      var cf=(i===1?2:1)*(j===1?2:1);
+      ctx.fillStyle='#ffffff';
+      ctx.font='15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+      ctx.fillText('B'+sub[i]+'B'+sub[j]+' = '+(cf===1?'':cf)+uf+vf, ox, cy[i]+H/6-12);
+    }}
+    ctx.textAlign='start';
+    rafB=requestAnimationFrame(draw);
+  }
+  var oOpen=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpen(id,scroll);
+    if(id==='nv1Quadratics' && !rafB) rafB=requestAnimationFrame(draw);
+  };
+  var oClose=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafB){cancelAnimationFrame(rafB);rafB=null;}
+    oClose();
+  };
+})();
+
+// ============ CVCOMBO: a surface as a weighted sum of three basis elements ============
+(function(){
+  var rafC=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
+  function B2(t){var s=1-t;return [s*s,2*s*t,t*t];}
+  function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
+  function rotX(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];}
+  function sstep(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
+  var sub=['\u2080','\u2081','\u2082'];
+  var IJ=[[0,0],[1,1],[1,2]], COEF=[1.8,3.0,1.5];
+  function bval(ij,u,v){return B2(u)[ij[0]]*B2(v)[ij[1]];}
+  function drawSurf(ctx,ox,oy,sc,zs,ang,tilt,zf,alpha,col){col=col||'100,160,255';
+    if(alpha<=0.01) return;
+    var TS=12,P=[],a,b;
+    for(a=0;a<=TS;a++){P.push([]);
+      for(b=0;b<=TS;b++){var u=a/TS,v=b/TS,x=-1+2*u,y=-1+2*v,z=zf(u,v);
+        var q=rotX(rotY([x,y,z*zs],ang),tilt);
+        P[a].push({x:ox+q[0]*sc, y:oy-q[2]*sc, z:q[1]});
+      }}
+    var faces=[];
+    for(a=0;a<TS;a++){for(b=0;b<TS;b++){
+      var p0=P[a][b],p1=P[a+1][b],p2=P[a+1][b+1],p3=P[a][b+1];
+      var nz=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);
+      faces.push({q:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,nz:nz});
+    }}
+    faces.sort(function(A,B){return A.z-B.z;});
+    ctx.save();ctx.globalAlpha=alpha;
+    for(var k=0;k<faces.length;k++){
+      var qq=faces[k].q, sh=0.12+(faces[k].nz>0?0.18:0);
+      ctx.fillStyle='rgba('+col+','+sh+')';
+      ctx.strokeStyle='rgba(255,255,255,0.28)';ctx.lineWidth=0.7;
+      ctx.beginPath();ctx.moveTo(qq[0].x,qq[0].y);ctx.lineTo(qq[1].x,qq[1].y);ctx.lineTo(qq[2].x,qq[2].y);ctx.lineTo(qq[3].x,qq[3].y);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // phases: 0 surface; 1 fly to corner; 2,3,4 scale each; 5 add first two; 6 add third (sum in middle); 7 fly corner surface back to cover the sum
+  var DUR=[0,1500,2000,2000,2000,3000,3000,2200];
+  var STEP=['A biquadratic surface.',
+            'The surface, and its three basis shapes.',
+            'Scale B\u2080B\u2080 by 1.8.',
+            'Scale B\u2081B\u2081 by 3.0.',
+            'Scale B\u2081B\u2082 by 1.5.',
+            'Add the first two.',
+            'Add the third basis.',
+            'The original surface covers the sum exactly.'];
+  function drawFrame(ph,p){
+    var cv=document.getElementById('cvCombo');if(!cv){return;}
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var ang=performance.now()*0.0005, tilt=0.5, k, pe=sstep(p);
+    var cornerX=632, cornerY=378, fullSc=72, cornerSc=40, sc=72, oyTop=205;
+    var sx,sy,ssc,ta,ba;
+    if(ph===0){ sx=W/2; sy=210; ssc=fullSc; ta=1; ba=0; }
+    else if(ph===1){ sx=W/2+(cornerX-W/2)*pe; sy=210+(cornerY-210)*pe; ssc=fullSc+(cornerSc-fullSc)*pe; ta=1-sstep(Math.min(1,p/0.45)); ba=sstep(Math.min(1,Math.max(0,(p-0.6)/0.4))); }
+    else if(ph===7){ sx=cornerX+(W/2-cornerX)*pe; sy=cornerY+(oyTop-cornerY)*pe; ssc=cornerSc+(fullSc-cornerSc)*pe; ta=0; ba=1; }
+    else { sx=cornerX; sy=cornerY; ssc=cornerSc; ta=0; ba=1; }
+    function mul(k){ if(ph<=1) return 1; var a=ph-2; if(k<a) return COEF[k]; if(k===a) return 1+(COEF[k]-1)*pe; return 1; }
+    // main combined surface S: centered (rest), flies to the bottom-right corner
+    var mainCol=(ph===7)?'232,168,50':'100,160,255';
+    drawSurf(ctx,sx,sy,ssc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v)+COEF[1]*bval(IJ[1],u,v)+COEF[2]*bval(IJ[2],u,v);},1,mainCol);
+    // equation text (phase 0, fades out during phase 1)
+    if(ta>0.02){ ctx.save();ctx.globalAlpha=ta;ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font='15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+      ctx.fillText('S(u,v) = 1.8\u00b7B\u2080B\u2080 + 3.0\u00b7B\u2081B\u2081 + 1.5\u00b7B\u2081B\u2082',W/2,312);ctx.restore(); }
+    // three basis at the top, each in a third of the width, same size as the surface
+    if(ba>0.02){
+      var cx=[W/6,W/2,5*W/6], FNT='14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+      var lbl=function(i){return COEF[i].toFixed(1)+' \u00b7 B'+sub[IJ[i][0]]+'B'+sub[IJ[i][1]];};
+      if(ph<=4){
+        var act=(tween && ph>=2)?ph-2:-1;
+        for(k=0;k<3;k++){
+          var ij=IJ[k], m=mul(k), hot=(k===act);
+          drawSurf(ctx,cx[k],oyTop,sc,1.1,ang,tilt,function(u,v){return m*bval(ij,u,v);},ba,hot?'232,168,50':'100,160,255');
+          ctx.save();ctx.globalAlpha=ba;ctx.fillStyle=hot?'#e8a832':'#ffffff';ctx.textAlign='center';ctx.font=FNT;
+          ctx.fillText(m.toFixed(1)+' \u00b7 B'+sub[ij[0]]+'B'+sub[ij[1]], cx[k], oyTop+86);ctx.restore();
+        }
+      } else if(ph===5){
+        // ph===5: fly the first two basis together and add them into their sum
+        var mergeX=235, q=sstep(Math.min(1,p/0.65)), aInd=1-sstep(Math.max(0,(p-0.45)/0.3)), aSum=sstep(Math.max(0,(p-0.5)/0.35)), aIndL=1-sstep(Math.min(1,p/0.4));
+        var x0=W/6+(mergeX-W/6)*q, x1=W/2+(mergeX-W/2)*q;
+        ctx.textAlign='center';
+        if(aInd>0.02){
+          drawSurf(ctx,x0,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v);},aInd);
+          drawSurf(ctx,x1,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[1]*bval(IJ[1],u,v);},aInd);
+          ctx.save();ctx.globalAlpha=aIndL;ctx.fillStyle='#ffffff';ctx.font=FNT;
+          ctx.fillText(lbl(0),x0,oyTop+86);ctx.fillText(lbl(1),x1,oyTop+86);ctx.restore();
+        }
+        if(aSum>0.02){
+          drawSurf(ctx,mergeX,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v)+COEF[1]*bval(IJ[1],u,v);},aSum);
+          ctx.save();ctx.globalAlpha=aSum;ctx.fillStyle='#ffffff';ctx.font=FNT;
+          ctx.fillText(lbl(0)+' + '+lbl(1),mergeX,oyTop+86);ctx.restore();
+        }
+        drawSurf(ctx,cx[2],oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[2]*bval(IJ[2],u,v);},1);
+        ctx.save();ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font=FNT;
+        ctx.fillText(lbl(2),cx[2],oyTop+86);ctx.restore();
+      } else if(ph===6){
+        // both equation pieces stay visible and slide together; a + joins them
+        var cX=W/2, q6=sstep(Math.min(1,p/0.65)), aP=1-sstep(Math.max(0,(p-0.45)/0.3)), aF=sstep(Math.max(0,(p-0.5)/0.35));
+        var xs=235+(cX-235)*q6, xb=5*W/6+(cX-5*W/6)*q6;
+        if(aP>0.02){
+          drawSurf(ctx,xs,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v)+COEF[1]*bval(IJ[1],u,v);},aP);
+          drawSurf(ctx,xb,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[2]*bval(IJ[2],u,v);},aP);
+        }
+        if(aF>0.02){
+          drawSurf(ctx,cX,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v)+COEF[1]*bval(IJ[1],u,v)+COEF[2]*bval(IJ[2],u,v);},aF);
+        }
+        ctx.save();ctx.font=FNT;ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.globalAlpha=1;
+        var baseTxt=lbl(0)+' + '+lbl(1), b12Txt=lbl(2);
+        var bw=ctx.measureText(baseTxt).width, b12w=ctx.measureText(b12Txt).width, pw=ctx.measureText(' + ').width, fullW=bw+pw+b12w;
+        var baseCx=235+((cX-fullW/2+bw/2)-235)*q6, b12Cx=(5*W/6)+((cX+fullW/2-b12w/2)-(5*W/6))*q6;
+        ctx.fillText(baseTxt,baseCx,oyTop+86);
+        ctx.fillText(b12Txt,b12Cx,oyTop+86);
+        var plusA=sstep(Math.max(0,(q6-0.5)/0.5));
+        if(plusA>0.02){ ctx.globalAlpha=plusA;ctx.fillText('+',(baseCx+bw/2+b12Cx-b12w/2)/2,oyTop+86); }
+        ctx.restore();
+      } else {
+        // ph>=7: the full sum sits in the middle; the corner surface flies back to cover it
+        drawSurf(ctx,W/2,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v)+COEF[1]*bval(IJ[1],u,v)+COEF[2]*bval(IJ[2],u,v);},1);
+        ctx.save();ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font=FNT;
+        ctx.fillText(lbl(0)+' + '+lbl(1)+' + '+lbl(2),W/2,oyTop+86);ctx.restore();
+      }
+    }
+    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';ctx.fillText(STEP[ph],W/2,H-18);ctx.restore();
+  }
+  function startStep(){ if(stage>=7) return; tween={ph:stage+1, t:0}; }
+  function frame(ts){
+    if(!lastTs) lastTs=ts;
+    var dt=ts-lastTs; lastTs=ts;
+    if(tween && (comboBar.mode==='playing'||comboBar.mode==='stepping')){
+      tween.t += dt/DUR[tween.ph]*spd;
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); comboBar.stepDone(); }
+      else drawFrame(tween.ph,tween.t);
+    } else if(tween){ drawFrame(tween.ph,tween.t); }
+    else { drawFrame(stage,1); }
+    rafC=requestAnimationFrame(frame);
+  }
+  var comboBar = new AnimBtnBar({
+    playId:'btnComboPlay', stepId:'btnComboStep',
+    speedIds:['cSpd0','cSpd1','cSpd2'],
+    isDone: function(){ return stage>=7 && !tween; },
+    onStep:  function(){ if(!tween) startStep(); },
+    onPlay:  function(){ if(!tween){ if(stage>=7) stage=0; startStep(); } },
+    onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(comboBar.mode==='playing') startStep(); }, 800/spd); }
+  });
+  window._comboPlay  = function(){ comboBar.play(); };
+  window._comboStep  = function(){ comboBar.step(); };
+  window._comboReset = function(){ comboBar.reset(); };
+  window._comboSpeed = function(mult, idx){ spd=mult; comboBar.selectSpeed(idx); };
+  var oOpenC=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenC(id,scroll);
+    if(id==='nv1Quadratics' && !rafC){ stage=0; tween=null; lastTs=0; comboBar.mode='idle'; comboBar.update(); rafC=requestAnimationFrame(frame); }
+  };
+  var oCloseC=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafC){cancelAnimationFrame(rafC);rafC=null;}
+    if(playTimer){clearTimeout(playTimer);playTimer=null;}
+    oCloseC();
+  };
+})();
+
+// ============ CVFILLET: a CAD fillet - two 45-degree planes rounded by a biquadratic ============
+(function(){
+  var rafF=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
+  function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
+  function rotX(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];}
+  function sstep(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
+  var SC=104, OX=350, OY=250, ZS=1.1, TILT=0.5, ZC=0.42, APEX=1;
+  function profSharp(u){return u<=0.5?2*u:2*(1-u);}   // two 45-deg planes meeting at a ridge (peak 1)
+  function profFillet(u){return 2*u*(1-u);}            // quadratic Bezier of heights [0,1,0] (peak .5)
+  function prof(u,tau){return (1-tau)*profSharp(u)+tau*profFillet(u);}
+
+  function drawSurf(ctx,ox,oy,sc,zs,ang,tilt,zf,alpha){
+    if(alpha<=0.01) return;
+    var TS=12,P=[],a,b;
+    for(a=0;a<=TS;a++){P.push([]);
+      for(b=0;b<=TS;b++){var u=a/TS,v=b/TS,x=-1+2*u,y=-1+2*v,z=zf(u,v);
+        var q=rotX(rotY([x,y,z*zs],ang),tilt);
+        P[a].push({x:ox+q[0]*sc, y:oy-q[2]*sc, z:q[1]});
+      }}
+    var faces=[];
+    for(a=0;a<TS;a++){for(b=0;b<TS;b++){
+      var p0=P[a][b],p1=P[a+1][b],p2=P[a+1][b+1],p3=P[a][b+1];
+      var nz=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);
+      faces.push({q:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,nz:nz});
+    }}
+    faces.sort(function(A,B){return A.z-B.z;});
+    ctx.save();ctx.globalAlpha=alpha;
+    for(var k=0;k<faces.length;k++){
+      var qq=faces[k].q, sh=0.12+(faces[k].nz>0?0.18:0);
+      ctx.fillStyle='rgba(100,160,255,'+sh+')';
+      ctx.strokeStyle='rgba(255,255,255,0.28)';ctx.lineWidth=0.7;
+      ctx.beginPath();ctx.moveTo(qq[0].x,qq[0].y);ctx.lineTo(qq[1].x,qq[1].y);ctx.lineTo(qq[2].x,qq[2].y);ctx.lineTo(qq[3].x,qq[3].y);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ---- fixed-view comparison helpers (phases 4-6: not rotating, ~22-deg camera) ----
+  var ANG_Y=0.384, ANG_X=0.384;   // azimuth and tilt of the fixed comparison view (22 deg)
+  var ANG_Y2=0.10, ANG_X2=0.18;   // phase 6 rotates toward this near-face-on profile so the chord gap reads head-on
+  var spinFreeze=0.7;             // azimuth captured the instant the spin stops (set on entering phase 4)
+  var FOC=[0,0,0.5];              // the fillet crease, used as the camera focus point
+  var SC4=70, cyT=198, SCZ=210, SCZ2=1300, SC2D=900, SC8=1900, NX=12, NY=12, cyZ=0.40;   // two-up; phase-5 zoom; phase-6 facet-reveal zoom; phase-7 flat-view zoom; phase-8 error-band close-up; dense grid; zoom centre (fraction of H)
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function lerpA(a,b,t){var d=Math.atan2(Math.sin(b-a),Math.cos(b-a));return a+d*t;}   // shortest-path angle lerp
+  function camFor(F,tx,ty,sc,ang,tilt){   // origin so focus F lands at screen (tx,ty)
+    var q=rotX(rotY([F[0],F[1],(F[2]-ZC)*ZS],ang),tilt);
+    return {ox:tx-q[0]*sc, oy:ty+q[2]*sc};
+  }
+  // the same fillet as a fixed, coarse triangulation: flat-shaded facets, white edges, white vertices
+  function drawMesh(ctx,ox,oy,sc,ang,tilt,zf,nx,ny,alpha){
+    if(alpha<=0.01) return;
+    var Pw=[],Ps=[],a,b;
+    for(a=0;a<=nx;a++){Pw.push([]);Ps.push([]);
+      for(b=0;b<=ny;b++){var u=a/nx,v=b/ny,x=-1+2*u,y=-1+2*v,z=zf(u,v)*ZS;
+        Pw[a].push([x,y,z]);
+        var q=rotX(rotY([x,y,z],ang),tilt);
+        Ps[a].push({x:ox+q[0]*sc, y:oy-q[2]*sc, z:q[1]});
+      }}
+    function sb(p,q){return [p[0]-q[0],p[1]-q[1],p[2]-q[2]];}
+    function cr(p,q){return [p[1]*q[2]-p[2]*q[1], p[2]*q[0]-p[0]*q[2], p[0]*q[1]-p[1]*q[0]];}
+    function nm(p){var L=Math.hypot(p[0],p[1],p[2])||1;return [p[0]/L,p[1]/L,p[2]/L];}
+    var Ld=nm([0.35,-0.4,0.85]), cells=[[[0,0],[1,0],[1,1]],[[0,0],[1,1],[0,1]]];
+    var tris=[];
+    for(a=0;a<nx;a++){for(b=0;b<ny;b++){
+      for(var c=0;c<2;c++){
+        var t=cells[c];
+        var w0=Pw[a+t[0][0]][b+t[0][1]],w1=Pw[a+t[1][0]][b+t[1][1]],w2=Pw[a+t[2][0]][b+t[2][1]];
+        var n=nm(cr(sb(w1,w0),sb(w2,w0))), lam=Math.abs(n[0]*Ld[0]+n[1]*Ld[1]+n[2]*Ld[2]);
+        var s0=Ps[a+t[0][0]][b+t[0][1]],s1=Ps[a+t[1][0]][b+t[1][1]],s2=Ps[a+t[2][0]][b+t[2][1]];
+        tris.push({s:[s0,s1,s2], z:(s0.z+s1.z+s2.z)/3, lam:lam});
+      }
+    }}
+    tris.sort(function(A,B){return A.z-B.z;});
+    ctx.save();ctx.globalAlpha=alpha;
+    for(var k=0;k<tris.length;k++){var T=tris[k], sh=0.10+0.55*T.lam;
+      ctx.fillStyle='rgba(232,168,50,'+sh.toFixed(3)+')';
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=0.7;
+      ctx.beginPath();ctx.moveTo(T.s[0].x,T.s[0].y);ctx.lineTo(T.s[1].x,T.s[1].y);ctx.lineTo(T.s[2].x,T.s[2].y);ctx.closePath();ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // phases: 0 two sharp planes; 1 reveal the control edge; 2 round into the fillet; 3 tangency;
+  //         4 same fillet two ways (biquadratic vs a fixed triangulation, static 22-deg view);
+  //         5 zoom the biquadratic (still smooth); 6 zoom the triangulation (faceted)
+  var DUR=[0,1400,2600,1800,1500,2000,2000,2400,1800];
+  var STEP=['Two flat planes meet at a sharp 45\u00b0 edge.',
+            'The whole sharp edge is one row of control points along the top.',
+            'The patch blends toward them, rounding the edge into a smooth fillet.',
+            'The fillet leaves each plane tangentially \u2013 a smooth join, no crease.',
+            'The same fillet two ways: biquadratic, and a triangulation.',
+            'Zoom into the biquadratic: still perfectly smooth.',
+            'Zoom in further: the mesh is actually faceted.',
+            'Flatten to the profile: the curve, and its interpolation.',
+            'Zoom in: the shaded band is the interpolation error.'];
+
+  function drawFrame(ph,p){
+    var cv=document.getElementById('cvFillet');if(!cv){return;}
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var pe=sstep(p), now=performance.now(), k, yy, q, first;
+    var filZf=function(u,v){return profFillet(u)-ZC;};
+
+    if(ph<4){
+      // ===== build the fillet (rotating single surface) =====
+      var ang=now*0.0005;
+      var tau  = ph<2 ? 0 : (ph===2 ? pe : 1);
+      var edgeA= ph<1 ? 0 : (ph===1 ? pe : 1);
+      var legA = ph<3 ? 0 : pe;
+      function proj(x,y,zraw){var qq=rotX(rotY([x,y,(zraw-ZC)*ZS],ang),TILT);return {x:OX+qq[0]*SC, y:OY-qq[2]*SC, z:qq[1]};}
+
+      // the surface: two sharp planes (tau=0) morphing into the smooth fillet (tau=1)
+      drawSurf(ctx,OX,OY,SC,ZS,ang,TILT,function(u,v){return prof(u,tau)-ZC;},1);
+
+      // sharp-edge highlight on the surface ridge (fades out as the edge rounds)
+      var creaseA=(1-tau)*0.85;
+      if(creaseA>0.02){
+        ctx.save();ctx.globalAlpha=creaseA;ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=2;
+        ctx.beginPath();first=true;
+        for(yy=-1;yy<=1.0001;yy+=0.1){q=proj(0,yy,prof(0.5,tau));if(first){ctx.moveTo(q.x,q.y);first=false;}else ctx.lineTo(q.x,q.y);}
+        ctx.stroke();ctx.restore();
+      }
+
+      // control edge: the top row of control points at x=0, z=APEX, running the whole length
+      if(edgeA>0.02){
+        ctx.save();ctx.globalAlpha=edgeA;
+        ctx.strokeStyle='#e8a832';ctx.lineWidth=2;ctx.setLineDash([6,5]);
+        ctx.beginPath();first=true;
+        for(yy=-1;yy<=1.0001;yy+=0.1){q=proj(0,yy,APEX);if(first){ctx.moveTo(q.x,q.y);first=false;}else ctx.lineTo(q.x,q.y);}
+        ctx.stroke();ctx.setLineDash([]);
+        ctx.fillStyle='#e8a832';
+        var dys=[-1,-0.5,0,0.5,1];
+        for(k=0;k<dys.length;k++){q=proj(0,dys[k],APEX);ctx.beginPath();ctx.arc(q.x,q.y,3.4,0,Math.PI*2);ctx.fill();}
+        ctx.restore();
+      }
+
+      // control-polygon legs at the centre slice: the two planes in profile (the Bezier is tangent to these)
+      if(legA>0.02){
+        ctx.save();ctx.globalAlpha=legA;ctx.strokeStyle='#e8a832';ctx.lineWidth=1.6;ctx.setLineDash([4,4]);
+        var L0=proj(-1,0,0),L1=proj(0,0,APEX),L2=proj(1,0,0);
+        ctx.beginPath();ctx.moveTo(L0.x,L0.y);ctx.lineTo(L1.x,L1.y);ctx.lineTo(L2.x,L2.y);ctx.stroke();ctx.setLineDash([]);
+        ctx.restore();
+      }
+    } else {
+      // ===== fixed 22-deg comparison: biquadratic (left) vs a fixed triangulation (right), then zoom =====
+      if(ph===4){   // dissolve the frozen single fillet out as the static pair fades in
+        drawSurf(ctx,OX,OY,SC,ZS,spinFreeze,TILT,filZf,1-pe);
+      }
+      var lx,ly,lsc,la, rx,ry,rsc,ra, refA=0, interpA=0, ay, ax;
+      if(ph===4){
+        lx=W*0.27; ly=cyT; lsc=SC4; la=pe;
+        rx=W*0.73; ry=cyT; rsc=SC4; ra=pe;
+        ay=ANG_Y; ax=ANG_X;
+      } else if(ph===5){
+        lx=lerp(W*0.27,W/2,pe); ly=lerp(cyT,H*cyZ,pe); lsc=lerp(SC4,SCZ,pe); la=1;
+        rx=W*0.73; ry=cyT; rsc=SC4; ra=1-pe;
+        ay=ANG_Y; ax=ANG_X;
+      } else if(ph===6){   // zoom in FURTHER and rotate toward face-on while cross-fading to the triangulation
+        var zsc=lerp(SCZ,SCZ2,pe);
+        lx=W/2; ly=H*cyZ; lsc=zsc; la=1-pe;
+        rx=W/2; ry=H*cyZ; rsc=zsc; ra=pe; refA=pe;
+        ay=lerp(ANG_Y,ANG_Y2,pe); ax=lerp(ANG_X,ANG_X2,pe);
+      } else if(ph===7){   // rotate the rest of the way to a flat profile; the surface dissolves, leaving the curve and its interpolation
+        lx=W/2; ly=H*cyZ; lsc=SCZ2; la=0;
+        rx=W/2; ry=H*cyZ; rsc=lerp(SCZ2,SC2D,pe); refA=1; ra=1-pe; interpA=pe;
+        ay=lerp(ANG_Y2,0,pe); ax=lerp(ANG_X2,0,pe);
+      } else {             // ph>=8: zoom in on the flat curve until the error band is clearly visible
+        lx=W/2; ly=H*cyZ; lsc=SC8; la=0;
+        rx=W/2; ry=H*cyZ; rsc=lerp(SC2D,SC8,pe); refA=1; ra=0; interpA=1;
+        ay=0; ax=0;
+      }
+      var camL=camFor(FOC,lx,ly,lsc,ay,ax), camR=camFor(FOC,rx,ry,rsc,ay,ax);
+      function pPt(x,z){var qp=rotX(rotY([x,0,(z-ZC)*ZS],ay),ax);return {x:camR.ox+qp[0]*rsc, y:camR.oy-qp[2]*rsc};}
+      if(la>0.01) drawSurf(ctx,camL.ox,camL.oy,lsc,ZS,ay,ax,filZf,la);          // left: smooth biquadratic
+      if(ra>0.01) drawMesh(ctx,camR.ox,camR.oy,rsc,ay,ax,filZf,NX,NY,ra);       // right: dense triangulation
+      var spts=null;
+      if(interpA>0.02){ spts=[]; for(var si=0;si<=NX;si++){var su=si/NX; spts.push(pPt(-1+2*su, profFillet(su)));} }
+      if(interpA>0.02){   // the error band between the smooth curve and the piecewise-linear interpolation
+        ctx.save();ctx.globalAlpha=interpA;ctx.fillStyle='rgba(232,96,96,0.20)';
+        ctx.beginPath();first=true;
+        for(var gx=0;gx<=1.0001;gx+=0.01){var Pg=pPt(-1+2*gx, profFillet(gx)); if(first){ctx.moveTo(Pg.x,Pg.y);first=false;}else ctx.lineTo(Pg.x,Pg.y);}
+        for(var gi=NX;gi>=0;gi--){ctx.lineTo(spts[gi].x,spts[gi].y);}
+        ctx.closePath();ctx.fill();ctx.restore();
+      }
+      if(refA>0.02){   // the true smooth profile curve (blue, matching the biquadratic surface)
+        ctx.save();ctx.globalAlpha=refA;ctx.strokeStyle='#6aa6ff';ctx.lineWidth=2.4;
+        ctx.beginPath();first=true;
+        for(var xu=0;xu<=1.0001;xu+=0.01){var P2=pPt(-1+2*xu, profFillet(xu));if(first){ctx.moveTo(P2.x,P2.y);first=false;}else ctx.lineTo(P2.x,P2.y);}
+        ctx.stroke();ctx.restore();
+      }
+      if(interpA>0.02){   // the triangulation's straight-line interpolation between samples (amber) + the sample points
+        ctx.save();ctx.globalAlpha=interpA;ctx.strokeStyle='#e8a832';ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(spts[0].x,spts[0].y);for(var li=1;li<=NX;li++)ctx.lineTo(spts[li].x,spts[li].y);ctx.stroke();
+        ctx.fillStyle='#e8a832';
+        for(var di=0;di<=NX;di++){ctx.beginPath();ctx.arc(spts[di].x,spts[di].y,2.6,0,Math.PI*2);ctx.fill();}
+        ctx.restore();
+      }
+    }
+
+    // step caption (white, auto-shrunk to fit the canvas width)
+    ctx.save();ctx.fillStyle='#ffffff';ctx.textAlign='center';
+    var cfs=15; ctx.font=cfs+'px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    while(cfs>10 && ctx.measureText(STEP[ph]).width>W-24){ cfs-=0.5; ctx.font=cfs+'px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'; }
+    ctx.fillText(STEP[ph],W/2,H-16);ctx.restore();
+  }
+
+  function startStep(){ if(stage>=8) return; if(stage+1===4) spinFreeze=performance.now()*0.0005; tween={ph:stage+1, t:0}; }
+  function frame(ts){
+    if(!lastTs) lastTs=ts;
+    var dt=ts-lastTs; lastTs=ts;
+    if(tween && (filletBar.mode==='playing'||filletBar.mode==='stepping')){
+      tween.t += dt/DUR[tween.ph]*spd;
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); filletBar.stepDone(); }
+      else drawFrame(tween.ph,tween.t);
+    } else if(tween){ drawFrame(tween.ph,tween.t); }
+    else { drawFrame(stage,1); }
+    rafF=requestAnimationFrame(frame);
+  }
+  var filletBar = new AnimBtnBar({
+    playId:'btnFilletPlay', stepId:'btnFilletStep',
+    speedIds:['fSpd0','fSpd1','fSpd2'],
+    isDone: function(){ return stage>=8 && !tween; },
+    onStep:  function(){ if(!tween) startStep(); },
+    onPlay:  function(){ if(!tween){ if(stage>=8) stage=0; startStep(); } },
+    onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(filletBar.mode==='playing') startStep(); }, 800/spd); }
+  });
+  window._filletPlay  = function(){ filletBar.play(); };
+  window._filletStep  = function(){ filletBar.step(); };
+  window._filletReset = function(){ filletBar.reset(); };
+  window._filletSpeed = function(mult, idx){ spd=mult; filletBar.selectSpeed(idx); };
+  var oOpenF=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenF(id,scroll);
+    if(id==='nv1Quadratics' && !rafF){ stage=0; tween=null; lastTs=0; filletBar.mode='idle'; filletBar.update(); rafF=requestAnimationFrame(frame); }
+  };
+  var oCloseF=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafF){cancelAnimationFrame(rafF);rafF=null;}
+    if(playTimer){clearTimeout(playTimer);playTimer=null;}
+    oCloseF();
   };
 })();
 
