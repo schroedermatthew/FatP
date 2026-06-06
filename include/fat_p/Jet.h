@@ -36,6 +36,7 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <compare>
 #include <cstddef>
@@ -77,12 +78,32 @@ struct Jet
      * @brief Creates an independent variable seeded in direction k.
      * @param value The value of the variable.
      * @param k     The partial-derivative direction set to unit (0-based).
+     *              Precondition: k < N. A constant expression with k >= N is
+     *              ill-formed; at runtime k >= N is a debug-asserted precondition
+     *              (and otherwise out-of-bounds, as with std::array::operator[]).
      * @return A Jet with value `value` and mPartials[k] == 1.
      */
     [[nodiscard]] static constexpr Jet seed(double value, std::size_t k) noexcept
     {
+        assert(k < N && "Jet::seed: direction index out of range");
         Jet result(value);
         result.mPartials[k] = 1.0;
+        return result;
+    }
+
+    /**
+     * @brief Creates an independent variable seeded in a compile-time direction K.
+     * @tparam K The partial-derivative direction set to unit (0-based). K < N is
+     *           enforced at compile time, so an out-of-range direction is ill-formed.
+     * @param value The value of the variable.
+     * @return A Jet with value `value` and mPartials[K] == 1.
+     */
+    template <std::size_t K>
+        requires(K < N)
+    [[nodiscard]] static constexpr Jet seed(double value) noexcept
+    {
+        Jet result(value);
+        result.mPartials[K] = 1.0;
         return result;
     }
 
@@ -110,6 +131,17 @@ struct Jet
     {
         return x.mValue == s;
     }
+
+    /// Compound assignment, expressed through the binary operators so the
+    /// derivative rules live in one place; constexpr like that arithmetic.
+    constexpr Jet& operator+=(const Jet& rhs) noexcept { return *this = *this + rhs; }
+    constexpr Jet& operator-=(const Jet& rhs) noexcept { return *this = *this - rhs; }
+    constexpr Jet& operator*=(const Jet& rhs) noexcept { return *this = *this * rhs; }
+    constexpr Jet& operator/=(const Jet& rhs) noexcept { return *this = *this / rhs; }
+    constexpr Jet& operator+=(double rhs) noexcept { return *this = *this + rhs; }
+    constexpr Jet& operator-=(double rhs) noexcept { return *this = *this - rhs; }
+    constexpr Jet& operator*=(double rhs) noexcept { return *this = *this * rhs; }
+    constexpr Jet& operator/=(double rhs) noexcept { return *this = *this / rhs; }
 };
 
 namespace detail
@@ -315,6 +347,10 @@ template <std::size_t N>
 template <std::size_t N>
 [[nodiscard]] Jet<N> pow(const Jet<N>& x, double p)
 {
+    if (p == 0.0)
+    {
+        return Jet<N>{std::pow(x.mValue, p)}; // x^0 is the constant function; zero partials
+    }
     return detail::lift(std::pow(x.mValue, p), p * std::pow(x.mValue, p - 1.0), x);
 }
 
@@ -337,6 +373,23 @@ template <std::size_t N>
 }
 
 /**
+ * @brief Raises a scalar base to a Jet power.
+ *
+ * d/d(exp) base^exp = base^exp ln(base), which requires a positive base; for a
+ * non-positive base the gradient is NaN (use pow(Jet, double) for a constant base).
+ *
+ * @param base     The constant base (must be positive).
+ * @param exponent The exponent.
+ * @return A Jet holding base^exponent and its gradient.
+ */
+template <std::size_t N>
+[[nodiscard]] Jet<N> pow(double base, const Jet<N>& exponent)
+{
+    const double v = std::pow(base, exponent.mValue);
+    return detail::lift(v, v * std::log(base), exponent);
+}
+
+/**
  * @brief Euclidean norm hypot(x, y): d/dx = x/h, d/dy = y/h.
  * @param x First component.
  * @param y Second component.
@@ -346,9 +399,27 @@ template <std::size_t N>
 [[nodiscard]] Jet<N> hypot(const Jet<N>& x, const Jet<N>& y)
 {
     const double h = std::hypot(x.mValue, y.mValue);
+    if (std::isnan(h))
+    {
+        return detail::lift(h, h, h, x, y); // out of domain: NaN value and partials
+    }
+    // h == 0 only at the origin, where the gradient is undefined; 0 by convention.
     const double hx = (h > 0.0) ? x.mValue / h : 0.0;
     const double hy = (h > 0.0) ? y.mValue / h : 0.0;
     return detail::lift(h, hx, hy, x, y);
+}
+
+/// hypot with one scalar argument; delegates so the NaN and origin conventions
+/// are shared with the Jet/Jet form.
+template <std::size_t N>
+[[nodiscard]] Jet<N> hypot(const Jet<N>& x, double y)
+{
+    return hypot(x, Jet<N>{y});
+}
+template <std::size_t N>
+[[nodiscard]] Jet<N> hypot(double x, const Jet<N>& y)
+{
+    return hypot(Jet<N>{x}, y);
 }
 
 /**
@@ -363,10 +434,37 @@ template <std::size_t N>
 template <std::size_t N>
 [[nodiscard]] Jet<N> atan2(const Jet<N>& y, const Jet<N>& x)
 {
-    const double denom = x.mValue * x.mValue + y.mValue * y.mValue;
-    const double dy = (denom > 0.0) ? x.mValue / denom : 0.0;
-    const double dx = (denom > 0.0) ? -y.mValue / denom : 0.0;
-    return detail::lift(std::atan2(y.mValue, x.mValue), dy, dx, y, x);
+    const double v = std::atan2(y.mValue, x.mValue);
+    if (std::isnan(v))
+    {
+        return detail::lift(v, v, v, y, x); // out of domain: NaN value and partials
+    }
+    // Scale by the larger magnitude so the denominator stays O(1); squaring the
+    // raw values would overflow or underflow for very large or very small inputs.
+    const double scale = std::max(std::fabs(x.mValue), std::fabs(y.mValue));
+    if (scale == 0.0)
+    {
+        return detail::lift(v, 0.0, 0.0, y, x); // origin: gradient undefined, 0 by convention
+    }
+    const double xs = x.mValue / scale;
+    const double ys = y.mValue / scale;
+    const double denom = xs * xs + ys * ys;
+    const double dy = xs / (scale * denom);  // d/dy =  x / (x^2 + y^2)
+    const double dx = -ys / (scale * denom); // d/dx = -y / (x^2 + y^2)
+    return detail::lift(v, dy, dx, y, x);
+}
+
+/// atan2 with one scalar argument; delegates to the Jet/Jet form (argument
+/// order matches std::atan2(y, x)).
+template <std::size_t N>
+[[nodiscard]] Jet<N> atan2(const Jet<N>& y, double x)
+{
+    return atan2(y, Jet<N>{x});
+}
+template <std::size_t N>
+[[nodiscard]] Jet<N> atan2(double y, const Jet<N>& x)
+{
+    return atan2(Jet<N>{y}, x);
 }
 
 } // namespace fat_p::autodiff

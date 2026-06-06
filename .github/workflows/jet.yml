@@ -16,16 +16,19 @@ on:
     paths:
       - 'include/fat_p/Jet.h'
       - 'components/Jet/tests/test_Jet.cpp'
+      - 'components/Jet/tests/compile_fail/**'
       - '.github/workflows/jet.yml'
   pull_request:
     paths:
       - 'include/fat_p/Jet.h'
       - 'components/Jet/tests/test_Jet.cpp'
+      - 'components/Jet/tests/compile_fail/**'
       - '.github/workflows/jet.yml'
 
 env:
   HEADER: Jet.h
   TEST_SRC: components/Jet/tests/test_Jet.cpp
+  COMPILE_FAIL_DIR: components/Jet/tests/compile_fail
 
 jobs:
   # ===========================================================================
@@ -201,12 +204,9 @@ jobs:
 
       - name: Test header compiles standalone
         run: |
-          echo '#include "${{ env.HEADER }}"' > test_include.cpp
-          echo 'int main() {{ return 0; }}' >> test_include.cpp
-
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
-            -c test_include.cpp -o /dev/null
+            -c components/Jet/tests/test_Jet_HeaderSelfContained.cpp -o /dev/null
 
           echo "Header is self-contained"
 
@@ -253,11 +253,121 @@ jobs:
           echo "No warnings"
 
   # ===========================================================================
+  # Compile-Fail Tests (Jet-specific)
+  # ===========================================================================
+  compile-fail-gcc:
+    name: Compile-Fail GCC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Expected-fail compilation
+        run: |
+          dir="${{ env.COMPILE_FAIL_DIR }}"
+          if [ ! -d "$dir" ]; then
+            echo "No compile-fail directory, skipping"
+            exit 0
+          fi
+
+          files=$(find "$dir" -maxdepth 1 -name "compile_fail_*.cpp" 2>/dev/null | sort)
+          if [ -z "$files" ]; then
+            echo "No compile-fail files found, skipping"
+            exit 0
+          fi
+
+          for f in $files; do
+            echo "Testing: $f"
+            if g++ -std=c++20 -Wall -Wextra -Wpedantic \
+              -I./include/fat_p \
+              -c "$f" -o /dev/null 2>/dev/null; then
+              echo "ERROR: expected compilation failure but succeeded: $f"
+              exit 1
+            fi
+            echo "OK: Failed as expected"
+          done
+
+  compile-fail-clang:
+    name: Compile-Fail Clang
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 16
+
+      - name: Expected-fail compilation
+        run: |
+          dir="${{ env.COMPILE_FAIL_DIR }}"
+          if [ ! -d "$dir" ]; then
+            echo "No compile-fail directory, skipping"
+            exit 0
+          fi
+
+          files=$(find "$dir" -maxdepth 1 -name "compile_fail_*.cpp" 2>/dev/null | sort)
+          if [ -z "$files" ]; then
+            echo "No compile-fail files found, skipping"
+            exit 0
+          fi
+
+          for f in $files; do
+            echo "Testing: $f"
+            if clang++-16 -std=c++20 -Wall -Wextra -Wpedantic \
+              -Wno-gnu-zero-variadic-macro-arguments \
+              -I./include/fat_p \
+              -c "$f" -o /dev/null 2>/dev/null; then
+              echo "ERROR: expected compilation failure but succeeded: $f"
+              exit 1
+            fi
+            echo "OK: Failed as expected"
+          done
+
+  compile-fail-msvc:
+    name: Compile-Fail MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Expected-fail compilation
+        shell: pwsh
+        run: |
+          $dir = "${{ env.COMPILE_FAIL_DIR }}"
+          if (-not (Test-Path $dir)) {
+            Write-Host "No compile-fail directory, skipping"
+            exit 0
+          }
+
+          $files = Get-ChildItem -Path $dir -Filter "compile_fail_*.cpp" -File 2>$null | Sort-Object Name
+          if ($files.Count -eq 0) {
+            Write-Host "No compile-fail files found, skipping"
+            exit 0
+          }
+
+          foreach ($f in $files) {
+            Write-Host "Testing: $($f.FullName)"
+
+            $output = cl /nologo /std:c++20 /W4 /wd4324 /EHsc /permissive- /utf-8 /Zc:preprocessor /c `
+              /I".\include\fat_p" `
+              "$($f.FullName)" 2>&1
+
+            if ($LASTEXITCODE -eq 0) {
+              throw "ERROR: expected compilation failure but succeeded: $($f.Name)"
+            }
+            Write-Host "OK: Failed as expected"
+          }
+          exit 0
+
+  # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings, compile-fail-gcc, compile-fail-clang, compile-fail-msvc]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -271,4 +381,7 @@ jobs:
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.compile-fail-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.compile-fail-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.compile-fail-msvc.result }}" != "success" ]]; then exit 1; fi
           echo "All checks passed"

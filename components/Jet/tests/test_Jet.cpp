@@ -545,6 +545,22 @@ FATP_TEST_CASE(edge_guards)
     // abs: derivative 0 at 0 (subgradient), +/-1 away from 0.
     Jet<1> a0 = abs(Jet<1>::seed(0.0, 0));
     FATP_ASSERT_CLOSE(a0.mPartials[0], 0.0, "abs'(0) taken as 0");
+
+    // hypot and atan2 at the origin: gradient undefined, taken as 0 by convention.
+    Jet<2> h0 = hypot(Jet<2>::seed(0.0, 0), Jet<2>::seed(0.0, 1));
+    FATP_ASSERT_CLOSE(h0.mValue, 0.0, "hypot(0,0) value");
+    FATP_ASSERT_CLOSE(h0.mPartials[0], 0.0, "hypot(0,0) d/dx convention 0");
+    FATP_ASSERT_CLOSE(h0.mPartials[1], 0.0, "hypot(0,0) d/dy convention 0");
+
+    Jet<2> t0 = atan2(Jet<2>::seed(0.0, 0), Jet<2>::seed(0.0, 1));
+    FATP_ASSERT_CLOSE(t0.mValue, 0.0, "atan2(0,0) value");
+    FATP_ASSERT_CLOSE(t0.mPartials[0], 0.0, "atan2(0,0) convention 0");
+    FATP_ASSERT_CLOSE(t0.mPartials[1], 0.0, "atan2(0,0) convention 0");
+
+    // pow(x, 0) is the constant 1, including at x == 0 (derivative 0, not NaN).
+    Jet<1> p0 = pow(Jet<1>::seed(0.0, 0), 0.0);
+    FATP_ASSERT_CLOSE(p0.mValue, 1.0, "pow(0,0) value 1");
+    FATP_ASSERT_CLOSE(p0.mPartials[0], 0.0, "pow(0,0) derivative 0 (not NaN)");
     return true;
 }
 
@@ -597,6 +613,15 @@ FATP_TEST_CASE(out_of_domain_nan)
     Jet<1> ab = abs(Jet<1>{std::numeric_limits<double>::quiet_NaN()});
     FATP_ASSERT_TRUE(std::isnan(ab.mValue), "abs(NaN) value NaN");
     FATP_ASSERT_TRUE(std::isnan(ab.mPartials[0]), "abs(NaN) gradient NaN");
+
+    // Binary functions: a NaN argument propagates to value and partials too.
+    Jet<1> hn = hypot(Jet<1>{std::numeric_limits<double>::quiet_NaN()}, Jet<1>::seed(1.0, 0));
+    FATP_ASSERT_TRUE(std::isnan(hn.mValue), "hypot(NaN,.) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(hn.mPartials[0]), "hypot(NaN,.) gradient NaN");
+
+    Jet<1> tn = atan2(Jet<1>{std::numeric_limits<double>::quiet_NaN()}, Jet<1>::seed(1.0, 0));
+    FATP_ASSERT_TRUE(std::isnan(tn.mValue), "atan2(NaN,.) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(tn.mPartials[0]), "atan2(NaN,.) gradient NaN");
     return true;
 }
 
@@ -716,6 +741,148 @@ FATP_TEST_CASE(fd_sweep_binary)
     return true;
 }
 
+FATP_TEST_CASE(atan2_extreme_scale)
+{
+    // The derivative magnitude must survive inputs whose squares overflow or
+    // underflow. With x == y == a, d/dy = 1/(2a) and d/dx = -1/(2a); a naive
+    // x^2 + y^2 denominator collapses these to 0 for extreme a.
+    for (double a : {1.0e200, 1.0e-200, 1.0})
+    {
+        Jet<2> r = atan2(Jet<2>::seed(a, 0), Jet<2>::seed(a, 1));
+        FATP_ASSERT_TRUE(std::isfinite(r.mPartials[0]), "atan2 extreme d/dy finite");
+        FATP_ASSERT_CLOSE_EPS(r.mPartials[0] * (2.0 * a), 1.0, 1e-9, "atan2 extreme d/dy = 1/(2a)");
+        FATP_ASSERT_CLOSE_EPS(r.mPartials[1] * (2.0 * a), -1.0, 1e-9, "atan2 extreme d/dx = -1/(2a)");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(documented_edge_contracts)
+{
+    // These pin the CURRENT documented contract for two cases whose policy is
+    // open (NaN*0 suppression has not been adopted). If that policy changes,
+    // update these expectations deliberately.
+
+    // pow(Jet, Jet) requires a positive base. With a non-positive base the value
+    // is still correct, but the exponent-side term carries log(base) = NaN, which
+    // poisons the gradient even for a constant exponent. Use pow(x, double) there.
+    Jet<1> pn = pow(Jet<1>::seed(-2.0, 0), Jet<1>{2.0});
+    FATP_ASSERT_CLOSE(pn.mValue, 4.0, "pow(-2, const 2) value correct");
+    FATP_ASSERT_TRUE(std::isnan(pn.mPartials[0]), "pow(-2, const 2) gradient NaN (contract)");
+
+    Jet<1> pz = pow(Jet<1>::seed(0.0, 0), Jet<1>{2.0});
+    FATP_ASSERT_CLOSE(pz.mValue, 0.0, "pow(0, const 2) value 0");
+    FATP_ASSERT_TRUE(std::isnan(pz.mPartials[0]), "pow(0, const 2) gradient NaN (contract)");
+
+    // pow(x, double) on the same negative base differentiates correctly.
+    Jet<1> pd = pow(Jet<1>::seed(-2.0, 0), 2.0);
+    FATP_ASSERT_CLOSE(pd.mValue, 4.0, "pow(-2, 2.0) value 4");
+    FATP_ASSERT_CLOSE(pd.mPartials[0], -4.0, "pow(-2, 2.0) d/dx = 2x = -4");
+
+    // log at +0 has a +inf slope; at signed -0.0 the IEEE reciprocal is -inf.
+    Jet<1> lp = log(Jet<1>::seed(0.0, 0));
+    FATP_ASSERT_TRUE(lp.mValue == -std::numeric_limits<double>::infinity(), "log(+0) value -inf");
+    FATP_ASSERT_TRUE(lp.mPartials[0] == std::numeric_limits<double>::infinity(), "log(+0) slope +inf");
+    Jet<1> ln = log(Jet<1>::seed(-0.0, 0));
+    FATP_ASSERT_TRUE(ln.mValue == -std::numeric_limits<double>::infinity(), "log(-0) value -inf");
+    FATP_ASSERT_TRUE(ln.mPartials[0] == -std::numeric_limits<double>::infinity(), "log(-0) slope -inf (signed zero)");
+    return true;
+}
+
+constexpr Jet<1> compoundChainCE()
+{
+    Jet<1> t = Jet<1>::seed(1.0, 0);
+    t += 2.0; // (3; 1)
+    t *= 3.0; // (9; 3)
+    return t;
+}
+
+FATP_TEST_CASE(seed_compile_time)
+{
+    // seed<K>() matches the runtime seed for the same direction; the direction
+    // is checked at compile time rather than asserted at runtime.
+    Jet<3> ck = Jet<3>::seed<2>(5.0);
+    Jet<3> rk = Jet<3>::seed(5.0, 2);
+    FATP_ASSERT_CLOSE(ck.mValue, rk.mValue, "seed<K> value");
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        FATP_ASSERT_CLOSE(ck.mPartials[i], rk.mPartials[i], "seed<K> partial matches runtime seed");
+    }
+    constexpr Jet<2> c = Jet<2>::seed<1>(2.0);
+    static_assert(c.mPartials[1] == 1.0 && c.mPartials[0] == 0.0);
+    FATP_ASSERT_CLOSE(c.mValue, 2.0, "constexpr seed<K> value");
+    return true;
+}
+
+FATP_TEST_CASE(compound_assignment)
+{
+    // Each compound form must equal the matching binary operator in value and
+    // gradient, for Jet and scalar right-hand sides.
+    const Jet<1> x = Jet<1>::seed(2.0, 0);
+    const Jet<1> y = Jet<1>::seed(3.0, 0);
+
+    const Jet<1> rAdd = x + y; Jet<1> a = x; a += y;
+    FATP_ASSERT_CLOSE(a.mValue, rAdd.mValue, "+=(Jet) value");
+    FATP_ASSERT_CLOSE(a.mPartials[0], rAdd.mPartials[0], "+=(Jet) grad");
+    const Jet<1> rSub = x - y; Jet<1> s = x; s -= y;
+    FATP_ASSERT_CLOSE(s.mValue, rSub.mValue, "-=(Jet) value");
+    FATP_ASSERT_CLOSE(s.mPartials[0], rSub.mPartials[0], "-=(Jet) grad");
+    const Jet<1> rMul = x * y; Jet<1> m = x; m *= y;
+    FATP_ASSERT_CLOSE(m.mValue, rMul.mValue, "*=(Jet) value");
+    FATP_ASSERT_CLOSE(m.mPartials[0], rMul.mPartials[0], "*=(Jet) grad");
+    const Jet<1> rDiv = x / y; Jet<1> d = x; d /= y;
+    FATP_ASSERT_CLOSE(d.mValue, rDiv.mValue, "/=(Jet) value");
+    FATP_ASSERT_CLOSE(d.mPartials[0], rDiv.mPartials[0], "/=(Jet) grad");
+
+    const Jet<1> rAddS = x + 4.0; Jet<1> as = x; as += 4.0;
+    FATP_ASSERT_CLOSE(as.mValue, rAddS.mValue, "+=(double) value");
+    FATP_ASSERT_CLOSE(as.mPartials[0], rAddS.mPartials[0], "+=(double) grad");
+    const Jet<1> rSubS = x - 4.0; Jet<1> ss = x; ss -= 4.0;
+    FATP_ASSERT_CLOSE(ss.mValue, rSubS.mValue, "-=(double) value");
+    const Jet<1> rMulS = x * 3.0; Jet<1> ms = x; ms *= 3.0;
+    FATP_ASSERT_CLOSE(ms.mValue, rMulS.mValue, "*=(double) value");
+    FATP_ASSERT_CLOSE(ms.mPartials[0], rMulS.mPartials[0], "*=(double) grad");
+    const Jet<1> rDivS = x / 2.0; Jet<1> ds = x; ds /= 2.0;
+    FATP_ASSERT_CLOSE(ds.mValue, rDivS.mValue, "/=(double) value");
+    FATP_ASSERT_CLOSE(ds.mPartials[0], rDivS.mPartials[0], "/=(double) grad");
+
+    static_assert(compoundChainCE().mValue == 9.0 && compoundChainCE().mPartials[0] == 3.0);
+    return true;
+}
+
+FATP_TEST_CASE(scalar_function_overloads)
+{
+    // Scalar overloads must agree with the Jet/Jet form fed a constant Jet, in
+    // value and gradient; the constant argument contributes no partial.
+    const Jet<1> x = Jet<1>::seed(3.0, 0);
+
+    const Jet<1> hRef = hypot(x, Jet<1>{4.0});
+    Jet<1> h1 = hypot(x, 4.0);
+    FATP_ASSERT_CLOSE(h1.mValue, hRef.mValue, "hypot(Jet,double) value");
+    FATP_ASSERT_CLOSE(h1.mPartials[0], hRef.mPartials[0], "hypot(Jet,double) grad");
+    FATP_ASSERT_CLOSE(h1.mPartials[0], 3.0 / 5.0, "hypot(Jet,double) grad x/h");
+    Jet<1> h2 = hypot(4.0, x);
+    FATP_ASSERT_CLOSE(h2.mValue, 5.0, "hypot(double,Jet) value");
+    FATP_ASSERT_CLOSE(h2.mPartials[0], 3.0 / 5.0, "hypot(double,Jet) grad");
+
+    const Jet<1> a1Ref = atan2(x, Jet<1>{1.0});
+    Jet<1> a1 = atan2(x, 1.0);
+    FATP_ASSERT_CLOSE(a1.mValue, a1Ref.mValue, "atan2(Jet,double) value");
+    FATP_ASSERT_CLOSE(a1.mPartials[0], a1Ref.mPartials[0], "atan2(Jet,double) grad");
+    const Jet<1> a2Ref = atan2(Jet<1>{1.0}, x);
+    Jet<1> a2 = atan2(1.0, x);
+    FATP_ASSERT_CLOSE(a2.mValue, a2Ref.mValue, "atan2(double,Jet) value");
+    FATP_ASSERT_CLOSE(a2.mPartials[0], a2Ref.mPartials[0], "atan2(double,Jet) grad");
+
+    Jet<1> pe = pow(2.0, x);
+    FATP_ASSERT_CLOSE(pe.mValue, 8.0, "pow(double,Jet) value");
+    FATP_ASSERT_CLOSE(pe.mPartials[0], 8.0 * std::log(2.0), "pow(double,Jet) grad = v ln(base)");
+    const Jet<1> pOne = pow(1.0, x);
+    FATP_ASSERT_CLOSE(pOne.mPartials[0], 0.0, "pow(1,exp) grad 0 (constant)");
+    const Jet<1> pn = pow(-2.0, x);
+    FATP_ASSERT_TRUE(std::isnan(pn.mPartials[0]), "pow(neg,Jet) gradient NaN (contract)");
+    return true;
+}
+
 } // namespace fat_p::testing::jet
 
 // ============================================================================
@@ -786,6 +953,11 @@ bool test_Jet()
 
     out << "\n" << colors::blue() << "--- Jacobian & Cross-Validation ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, jet, composite_jacobian);
+    FATP_RUN_TEST_NS(runner, jet, atan2_extreme_scale);
+    FATP_RUN_TEST_NS(runner, jet, documented_edge_contracts);
+    FATP_RUN_TEST_NS(runner, jet, seed_compile_time);
+    FATP_RUN_TEST_NS(runner, jet, compound_assignment);
+    FATP_RUN_TEST_NS(runner, jet, scalar_function_overloads);
     FATP_RUN_TEST_NS(runner, jet, fd_sweep_unary);
     FATP_RUN_TEST_NS(runner, jet, fd_sweep_binary);
 

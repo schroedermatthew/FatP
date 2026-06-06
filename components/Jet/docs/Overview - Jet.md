@@ -48,8 +48,8 @@ Jet is a fixed-size forward-mode automatic differentiation scalar: it carries a 
 A gradient-based optimizer needs the derivatives of an objective. The path most reach for first is central finite differences: perturb each input by a small step and subtract.
 
 ```cpp
-// Central finite differences: one gradient costs N+1 evaluations of f,
-// and the answer depends on the step h you happened to pick.
+// Central finite differences: one gradient costs 2N evaluations of f (two per
+// input), and the answer depends on the step h you happened to pick.
 double grad_fd(double (*f)(const double*), const double* x, int n, int i, double h)
 {
     double xp[64], xm[64];
@@ -60,12 +60,12 @@ double grad_fd(double (*f)(const double*), const double* x, int n, int i, double
 }
 ```
 
-The result is never the derivative; it is an estimate whose error is governed by two terms pulling in opposite directions. The truncation term falls as the step shrinks (order `h^2` for the central rule), while the roundoff term — the subtraction of two nearly equal values divided by a tiny `h` — grows as the step shrinks (order `eps/h`). The best achievable accuracy sits near `h ~ eps^(1/3)`, around six significant digits, and only if you tuned `h` for this function at this point. Change the scale of an input and the good step changes with it.
+The result is never the derivative; it is an estimate whose error is governed by two terms pulling in opposite directions. The truncation term falls as the step shrinks (order `h^2` for the central rule), while the roundoff term — the subtraction of two nearly equal values divided by a tiny `h` — grows as the step shrinks (order `eps/h`). The two terms balance near `h ~ eps^(1/3)`, where the central rule bottoms out at about `eps^(2/3)` — roughly ten significant digits, and only with a step tuned for this function at this point. (A one-sided difference does worse, balancing at about `eps^(1/2)`, half the working digits.) Change the scale of an input and the good step changes with it.
 
 | Issue | HPC impact |
 |-------|------------|
-| Truncation vs. roundoff tradeoff | Best case loses about half the mantissa; no step is right everywhere |
-| N+1 evaluations per gradient | A 30-variable Jacobian row costs 31 evaluations of the model |
+| Truncation vs. roundoff tradeoff | Even at the optimal step the central rule gives up about a third of the working digits; no step is right everywhere |
+| 2N evaluations per gradient | A 30-variable gradient costs 60 evaluations of the model |
 | Catastrophic cancellation | Near a flat region the subtraction yields noise, and the optimizer chases it |
 | Step-size tuning | `h` becomes a per-input, per-scale knob that has to be maintained |
 
@@ -145,6 +145,19 @@ static_assert(p.mPartials[0] == 4.0); // d(xy)/dx == y, evaluated at compile tim
 
 Comparisons act on the value alone, through a `std::partial_ordering` three-way operator, so a Jet orders the way its value does and remains usable in branchy numerical code. The ordering is partial because a NaN value compares unordered, as it should.
 
+### Scalar Mixing and Accumulation
+
+A Jet drops into scalar-shaped code without ceremony. The binary functions accept a `double` on either side — `hypot(x, 1.0)`, `atan2(y, 1.0)`, `pow(2.0, x)` — and the compound assignments `+= -= *= /=` take a Jet or a `double`, so an accumulation written against `double` compiles unchanged on a Jet. When a seed direction is fixed at compile time, `seed<K>()` carries the bounds check into the type system, where an out-of-range direction is a compilation error rather than a runtime fault.
+
+```cpp
+using fat_p::autodiff::Jet;
+
+Jet<2> x = Jet<2>::seed<0>(3.0);   // direction checked at compile time
+Jet<2> acc{};
+acc += hypot(x, 4.0);              // scalar second argument
+acc *= 2.0;                        // scalar compound assignment
+```
+
 ---
 
 ## Why Not Alternatives?
@@ -197,7 +210,7 @@ Forward mode carries one direction per input, so the gradient of a scalar object
 
 ```
 Jet.h
-    → uses: standard library only (<array>, <cmath>, <ranges>, <compare>)
+    → uses: standard library only (<algorithm>, <array>, <cassert>, <cmath>, <compare>, <cstddef>)
     → used by: (none yet) intended for gradient and Jacobian assembly in
                solver-facing numerics that consume first derivatives
 ```

@@ -196,7 +196,7 @@ Jet does not throw and does not allocate, so its failure model is the floating-p
 
 Two boundary points are handled deliberately rather than left to raw `<cmath>` behavior. `sqrt` at exactly zero, where the true slope is infinite, returns a value of zero and a guarded derivative of zero rather than an infinity that would poison the rest of a gradient. `abs` at zero, where no derivative exists, returns zero as its subgradient. These are documented conventions, not accidents, and they keep a single awkward point from contaminating an otherwise finite gradient.
 
-> **Critical: trust the value, then the gradient.** At in-domain points the gradient is exact to rounding. At a domain edge, read `mValue` first. Outside the domain — `sqrt` or `log` of a negative argument, `asin`/`acos` past `±1` — the value and every partial are NaN, so a NaN value never sits beside a finite-looking gradient. At a boundary where the slope is genuinely unbounded, the value is infinite and so is the partial: `log` at 0 gives `-inf` with a `+inf` derivative. The two guarded points are `sqrt` and `abs` at exactly 0, which return a finite 0 slope by convention rather than an infinity.
+> **Critical: trust the value, then the gradient.** At in-domain points the gradient is exact to rounding. At a domain edge, read `mValue` first. Outside the domain — `sqrt` or `log` of a negative argument, `asin`/`acos` past `±1` — the value and every partial are NaN, so a NaN value never sits beside a finite-looking gradient. At a boundary where the slope is genuinely unbounded, the value is infinite and so is the partial: `log` at 0 gives `-inf` with a `+inf` derivative. The guarded points are `sqrt` and `abs` at exactly 0, and `hypot` and `atan2` at the origin `(0, 0)`: where the slope is undefined, these return a finite 0 by convention rather than an infinity or a NaN.
 
 There is no debug-versus-release split in Jet's behavior. The one compile-time contract — that `N` is at least one — is enforced by a `requires` clause, so `Jet<0>` fails to compile regardless of build mode; `NDEBUG`, sanitizers, and optimization level do not change results.
 
@@ -224,10 +224,10 @@ Do not reach for Jet when the function maps many inputs to a single scalar and y
 
 ### From Finite Differences
 
-A finite-difference gradient loop has the shape of N+1 evaluations and a step constant. Replace the perturb-and-subtract with seeded Jets and a single evaluation; the step constant disappears, and the result is exact rather than an estimate.
+A finite-difference gradient loop has the shape of 2N evaluations (two per input) and a step constant. Replace the perturb-and-subtract with seeded Jets and a single evaluation; the step constant disappears, and the result is exact rather than an estimate.
 
 ```cpp
-// THE TRAP: central differences -- N+1 evals, a step to tune, ~eps^(2/3) error
+// THE TRAP: central differences -- 2N evals, a step to tune, ~eps^(2/3) error
 for (int i = 0; i < n; ++i) {
     auto xp = x; auto xm = x;
     xp[i] += h; xm[i] -= h;
@@ -270,7 +270,7 @@ A failure that names the constraint `requires N >= 1` means a `Jet<0>` was insta
 
 ### Runtime Errors
 
-A gradient of all zeros where you expected nonzero entries almost always means the inputs were constructed rather than seeded; a constructed Jet is a constant. Re-check that every variable came from `seed`. A NaN gradient at a point you believe is in-domain usually means the value is also NaN — read `mValue` first and confirm the point is inside the function's domain. A partial that landed in the wrong slot is an index-mapping slip: the direction you read must be the direction you seeded.
+A gradient of all zeros where you expected nonzero entries almost always means the inputs were constructed rather than seeded; a constructed Jet is a constant. Re-check that every variable came from `seed`. A NaN gradient at a point you believe is in-domain usually means the value is also NaN — read `mValue` first and confirm the point is inside the function's domain. One case breaks that pattern: `pow(base, exponent)` with a `Jet` exponent and a non-positive base returns a correct value but a NaN gradient, because the exponent-side term carries `log(base)`. When the exponent is constant, call `pow(x, double)` instead — it differentiates a non-positive base correctly. A partial that landed in the wrong slot is an index-mapping slip: the direction you read must be the direction you seeded.
 
 ### Performance Issues
 
@@ -286,12 +286,13 @@ Construction:
 - `Jet()` — value zero, all partials zero.
 - `explicit Jet(double v)` — a constant: value `v`, all partials zero.
 - `static Jet seed(double v, std::size_t k)` — a variable: value `v`, partial `k` set to one.
+- `template <std::size_t K> static Jet seed(double v)` — the same, with the direction `K` checked at compile time (`K < N`, so an out-of-range direction is ill-formed rather than asserted at runtime).
 
 Comparison: a `constexpr friend operator<=>` returning `std::partial_ordering` and an `operator==`, both acting on `mValue` only; the remaining relational and reversed forms are synthesized. A NaN value compares unordered.
 
-Arithmetic (`constexpr`): unary `-`; binary `+ - * /` for Jet-with-Jet and for either operand a `double`.
+Arithmetic (`constexpr`): unary `-`; binary `+ - * /` for Jet-with-Jet and for either operand a `double`; and the compound assignments `+= -= *= /=` taking a Jet or a `double`.
 
-Elementary functions (named to match `<cmath>`, found by ADL; not `constexpr` because `<cmath>` is not): `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `exp`, `log`, `sqrt`, `abs`, `pow(Jet, double)`, `pow(Jet, Jet)` (positive base), `hypot`, `atan2`. Domain edges follow `<cmath>` for the value, with `sqrt` and `abs` guarded to a finite derivative at zero.
+Elementary functions (named to match `<cmath>`, found by ADL; not `constexpr` because `<cmath>` is not): `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `exp`, `log`, `sqrt`, `abs`, `pow(Jet, double)`, `pow(Jet, Jet)` (positive base), `pow(double, Jet)` (positive base), `hypot`, `atan2`; `hypot` and `atan2` also accept a `double` on either side. Domain edges follow `<cmath>` for the value, with `sqrt` and `abs` guarded to a finite derivative at 0 and `hypot`/`atan2` to a zero gradient at the origin; an out-of-domain value (NaN) carries NaN partials.
 
 ---
 
