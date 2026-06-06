@@ -855,6 +855,167 @@ SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
   graceful fallback elsewhere). (3) Recorded as a standing rule: added rule 26 CAPTIONS ARE PART
   OF THE FIGURE to the embedded UNIVERSAL AI RULES block (bumped v4 -> v5) AND to the canonical
   ai_teaching_artifact_rules.md (now v5, delivered alongside). harness 10/10.
+- v81: author ("lets bring the standard tool bar into this animation" - the cvFractal fractal-
+  terrain animation in the carpenter note). Replaced the one-off "Subdivide / Reset + label"
+  bar with the standard AnimBtnBar toolbar: Play | Step | Reset | speed 0.5x/1x/2x, plus the
+  k/triangle-count label kept at the right. Wiring: a runStep() does one subdivision (level 0 =
+  the existing animated teaching reveal, which now calls fracBar.stepDone() at its end; level>=1
+  = instant subdivide then stepDone). Play auto-advances via onAdvance (setTimeout 700/spd) to
+  the max level 6; isDone = level>=6; Reset clears timers/RAF and re-inits the mesh. Speed (spd)
+  now scales both the teaching-animation phase durations and the auto-advance delay. Removed the
+  manual btnFracStep.disabled line in drawFractal (the bar's update() owns it now). Canvas
+  rounded top-only + bordered bar = one card. Renamed the speed-button ids to fracSpd0/1/2 (the
+  fSpd0/1/2 ids belong to cvFillet - caught by the duplicate-id check). Mid-edit I briefly
+  dropped drawFractal's closing brace and duplicated a label line; repaired before delivery.
+  Verified through a stubbed event loop driving the real AnimBtnBar + IIFE: Step 0->1 (animated)
+  re-enables Step, Step 1->2 instant, Play runs to level 7 then idles with Step disabled, Reset
+  -> 0, speed selection lights amber. Did NOT touch the Gaussian-vs-uniform sampling discrepancy
+  (separate, not part of this ask). harness 10/10.
+- v82: author ("the first step does the three computations at once. lets break this into 4 steps:
+  1 display the split, 2 do h01, 3 do h02, 4 do h12"). Replaced doFirstStep (which split + did
+  all three displacements in one Step) with a per-press state machine driven by a new fstep
+  counter (0..3) while level===0: fstep 0 -> fracSplitStep() inserts the three midpoints and
+  shows the split flat (animPhase held at 5 between steps so the in-progress mesh keeps drawing);
+  fstep 1/2/3 -> fracDispStep(0|1|2) reveals the equation and moves one midpoint, in the order
+  h01, h02, h12 (midpoints found by edge via eIdx(a,b), not by z-sort). The h12 step (k===2)
+  commits the subdivision (pushes verts, tris=newTris, level++, fstep=0). runStep dispatches by
+  fstep; levels >=1 still subdivide instantly. Each sub-step calls fracBar.stepDone() at its end,
+  so Step advances one beat and Play auto-advances through all four then deeper levels. Dropped
+  the old fixed-displacement override; the reveal now uses the real seed-42 displacements.
+  Verified by stubbed-event-loop sim: Step1 split (no disp), Step2 h01, Step3 h02, Step4 h12 ->
+  level 1, Step5 instant -> level 2, Reset -> 0, Play -> 7. harness 10/10.
+- v83: author confirmed hardcoding the first-reveal displacements ("not correct mathematically,
+  but correct for teaching"). v82 had dropped the override and used the real seed-42 draw, but
+  that draw was lopsided (h01 dx 0.13, h12 0.03, h02 0.66) so two midpoints barely moved on
+  screen (~1-5px). Restored deliberate values in fracSplitStep for the FIRST subdivision only:
+  h01 +0.5, h02 -0.7, h12 +0.4 (set m.disp and m.finalY = baseY+dval). Every level after the
+  first still uses prepareSubdivide's real random displacement. Verified committed heights:
+  h01 1.50, h12 1.35, h02 0.25 - all clearly visible, one down two up. harness 10/10.
+- v84: rebuilt each displacement Step (h01/h02/h12) as a choreographed reveal per author.
+  New drawEquation(ctx,mids,mi,W,H2,mono) lays out h_ij = ( _ + _ ) / 2 + _ = _ with
+  measured slot positions. Stages (eqStage): template (formula fades in, slots are blank
+  underlines) -> flyH (the two h values rise from proj(vertex) into their slots) -> flyDelta
+  (delta rises from the distribution center ~(170,H2-140) into the delta slot) -> result
+  (result value fades in) -> move (midpoint moves, whole equation fades out). fracDispStep
+  orchestrates with animateFracPhase + clearable eqTimer pauses (all /spd). Reset now clears
+  eqTimer and resets activeEq/activeDisp/eqStage. eqSub retired. Old single-line symbolic+
+  numbers block in drawFractal replaced by a drawEquation call. Verified: 4-step flow still
+  commits (h01 1.50, h12 1.35, h02 0.25), every stage's drawEquation path runs without error
+  (incl. flying-number proj branches). harness 10/10.
+- v85-v88 (equation wording, re-logged - earlier sed note-writes no-op'd on a stale anchor):
+  v85 added the symbolic line stacked above; v86 corrected to ONE line per author (symbolic folded
+  into the leading static text: h_ij = (h_i + h_j) / 2 + d = ( _ + _ ) / 2 _ = _) with a layout()
+  font auto-fit (shrinks below 19px only past W-14; all cases fit ~670-681px); v87 dropped the
+  redundant + (delta) operator/parens; v88 made delta fly in attached (sDfly) then settle into
+  operator spacing once placed (sD = sign + space + abs).
+- v89: replaced the fake-y projection (height was a decoupled -v.y*70 vertical screen offset) with
+  a real unified 3D camera. v.x/v.z are position in the triangle plane, v.y is height PERPENDICULAR
+  to it; transform plane-tilt(28deg) -> azimuth(26) -> elevation(20) -> orthographic, scale 48.85,
+  origin (395.9,256.7) fit to 700x480. A displacement now moves diagonally on screen (dh=0.5 ->
+  dX~-5, dY~+17px) = real 3D, not a flat vertical slide. depth = ay*sp - az*cp sorts far-to-near.
+  Angles CAM_TILT/AZ/EL tunable (changing them needs a CAM_S/CX/CY refit). harness 10/10, sim
+  commits, proj constants verified against fit.
+- v90: author - triangle too small + raise the left vertex. Raised h0 default 1.0 -> 1.8 (left
+  vertex now sits higher than the front-right one) and refit the camera bigger: CAM_S 48.85 -> 54.47,
+  origin (411.9, 307.2); base-triangle width span ~264 -> ~303px, fills the canvas more with modest
+  top headroom for lifts. verts now (203,293) left / (505,372) front-right / (465,157) back.
+  harness 10/10, sim commits (h02 base 1.35 -0.7 = 0.65).
+- v91: author - triangle too low (front edge crossed the bell curve, empty space up top). Shifted
+  it up 64px: CAM_CY 307.2 -> 243 (up = smaller screen-y). Back vertex now y~93 (clears the equation
+  line at ~y50), front edge lifted above the bell curve. verts (203,229)/(505,308)/(465,93). Pure
+  vertical translate; scale/CX unchanged. harness 10/10.
+- v92: author - delta jerked at landing (flew attached "+0.50" then snapped to spaced "+ 0.50").
+  Fixed by flying the FINAL spaced string sD itself: flying token is center-aligned ending at
+  S.D.cx, placed is left-aligned at S.D.x, and S.D.cx = S.D.x + w/2, so center-at-cx == left-at-x
+  for the same string -> lands exactly, no post-landing move. Removed the sDfly attached form
+  (h-values already flew their final strings, so they were already seamless). harness 10/10.
+- v93: author - longer pauses + don't pre-form the spaced blank; fly sign and magnitude on
+  separate paths. (a) inter-stage pauses lengthened: 550/350/350/450 -> 1100/800/800/900 (/spd).
+  (b) delta split into sSign and sMag with the operator gap as a layout space between two slots
+  (Ds, Dn). Before they arrive only the magnitude blank (underline S.Dn) shows - no pre-formed
+  "+ _" gap. On flyDelta they rise on two separate paths (sign from ~x152 low-left of the
+  distribution, magnitude from ~x190) to their own slots; each lands center==left so no jerk.
+  harness 10/10, sim commits.
+- v94: author - they should NOT fly on separate paths. Now start as one normal attached number
+  from the distribution (170, H2-145), fly as a single number for the first 2/3 of the way (center-
+  to-center gap held at the touching width), then over the last 1/3 slowly separate to the final
+  spaced sign/magnitude positions. Group centre flies the whole way; separation sp =
+  smoothstep((t-2/3)/(1/3)). Verified attached gap held to 2/3 then opens to the spaced gap.
+  harness 10/10, sim commits.
+- v95: author - slow down the number flight. flyDelta animateFracPhase 800 -> 1500ms. harness 10/10.
+- v96: author - the triangle should fade in on first appearance, not just pop. Added introA (0..1)
+  + fadeInTriangle() (own 600ms RAF ramp, smoothstep) applied as ctx.globalAlpha over the triangle
+  fill/stroke loop (introA=1 normally, so no effect except during the intro). Triggered on note open
+  and on Reset (replacing the bare drawFractal call). runStep cancels any in-progress intro fade and
+  forces introA=1 so it can't bleed into stepping. harness 10/10, sim commits.
+- v97: author - v96 faded the wrong thing; wanted the YELLOW midpoint dots to fade in (the split),
+  not the main triangle. Reverted all introA/fadeInTriangle machinery (triangle loop, function, vars,
+  runStep cancel, open + onReset back to drawFractal). Instead the midpoint-dot loop now uses
+  globalAlpha = (animPhase===0 ? animT : 1), so the three dots fade in during the split step and are
+  full once placed. Also moved the triangle left (CAM_CX 541.9 -> 486) so the h1 label no longer hangs
+  off the right edge (right edge ~685 of 700). harness 10/10, sim commits.
+- v98: author - the sub-triangle WHITE LINES must fade in during the split too (not just the dots).
+  Split the draw into a fills pass (always solid) and a strokes pass with globalAlpha=(animPhase===0
+  ?animT:1) so the white lines fade in during the split, full otherwise. During the split also draw
+  the original outer outline (verts 0/1/2) solid first, so only the new inner medial lines visibly
+  fade in while the outline stays put (midpoints are coplanar/on the edges at baseY). harness 10/10.
+- v99: author - make the distribution "spit out" the sample with a cannon/anticipation-recoil effect.
+  Added bellKAt(t): load (swell to 1.45x) -> fire (collapse to 0.70x) -> settle (spring to 1.08x ->
+  1.0). Bell-curve block now scales peak height by bellK and width by 1+0.25*(bellK-1) during
+  flyDelta, plus a 3-circle smoke puff at the peak over t[0.20,0.60]. drawEquation flyDelta: delta
+  loads ON the swelling peak (launchY tracks bellK to t=0.22), fires at 0.22 with ease-out
+  (ft=1-(1-x)^2) up to its slot, still separating into sign+magnitude over the last third of the
+  flight. flyDelta duration 1500 -> 1800ms to fit the load. NOTE: drawEquation hardcodes gyB=H2-50,
+  ghB=160, gxc=170 to match the bell block (gx=30,gw=280,gy=H2-50,gh=160) - keep in sync. harness
+  10/10, bellK trajectory verified, sim commits.
+- v100: author - firing direction was backwards; for an upward shot the wind-up is a downward
+  recoil first. Inverted bellKAt: recoil (compress DOWN to 0.70x by t=0.25) -> shoot (spring UP to
+  1.35x) -> settle to 1.0. Delta now rides the recoiling peak DOWN during [0,0.25] then fires UP at
+  0.25 as the peak springs (ft from (t2-0.25)/0.75). Smoke puff window moved to [0.25,0.62] (the
+  upward shoot). harness 10/10, trajectory verified, sim commits.
+- v101: author - make the third delta larger. h12 teaching displacement dval[2] 0.4 -> 0.8 (now
+  the largest; committed h12 = baseY 0.95 + 0.8 = 1.75). harness 10/10.
+- v102: author - the delta number should appear only after the distribution fires, not during the
+  recoil. Gated the sign/magnitude fillText with if(t2>=0.25), so the peak recoils empty and the
+  number emerges only as it's fired out. harness 10/10.
+- v103: author - delta should shoot straight up from the cannon (through the smoke), rise clearly,
+  then curve to its slot. Split the flight: gy rises with ft the whole way, but gx holds at the
+  cannon (gxc) until ft>0.3 then sweeps to the slot (xp=smoothstep((ft-0.3)/0.7)). Result: ~100px
+  straight-up rise at x~170, then an arc over to (slot). harness 10/10, trajectory traced, sim commits.
+- v104: author - the number moves way too fast now. Cause: the extra ease-out (ft=1-(1-x)^2) on the
+  flight front-loaded the motion (most distance covered in the first instant). Removed it - the flight
+  now just uses ft=(t2-0.25)/0.75, paced by animateFracPhase's own smoothstep. Also bumped flyDelta
+  1800 -> 2400ms. Straight-up-then-arc shape unchanged. harness 10/10, sim commits.
+- v105: author - shoot higher before curving. x-hold threshold ft>0.3 -> ft>0.5 (xp=smoothstep(
+  (ft-0.5)/0.5)), so the number climbs to ~140px straight up (y~181) before the curve starts.
+  harness 10/10, sim commits.
+- v106: author - (a) number was rendering BELOW the smoke (z-order: smoke block ran after the
+  equation/number). Moved the smoke into drawEquation's flyDelta branch, drawn BEFORE the number
+  fillText, so the number rides out on top. (b) slow the curve: replaced the single-ft path with a
+  phase split - straight-up [t2 0.25,0.55] (x=gxc, rise to apexY=0.55 of the way) then a curve
+  [0.55,1.0] that gets ~45% of the (smoothstepped) time instead of ~37%, easing slower into the
+  slot. Separation now keyed off the curve progress. harness 10/10, trajectory traced, sim commits.
+- v107: author - number appeared too soon (at the start of the spring, t2=0.25). Now it appears at
+  the REBOUND PEAK: FIRE=0.42 (bellKAt max, 1.35), launching from the top of the fully sprung peak
+  (launchY ~228). Gated number + smoke to t2>=0.42; straight-up [0.42,0.62] then slow curve
+  [0.62,1.0]. flyDelta 2400 -> 2800ms to keep the (now later-starting) flight from rushing. harness
+  10/10, launch-at-peak verified, sim commits.
+- v108: author - the following steps are just further subdividing; increase the pause between them.
+  onAdvance delay is now level-dependent: 1600/spd when level>=1 (the plain deeper subdivisions) vs
+  700/spd at level 0 (within the first subdivision's already-long choreography). harness 10/10,
+  Play still walks to level 7.
+- v109: author - (1) the pause between the last animation and the first subdivision producing
+  level 2 needs to be longer; (2) only go to sigma 6. onAdvance is now three-way: 700/spd at
+  level 0 (inside the first subdivision's choreography), 2600/spd at level 1 (the long beat after
+  the full detailed first subdivision, before the first plain subdivision), 1600/spd at level>=2
+  (between the plain deeper subdivisions). Level cap lowered 7->6 in all three guards (runStep,
+  isDone, onPlay re-init) plus the embedded note, so the deepest label is sigma_6. harness 10/10.
+- v110: author - leave the uniform draw, just document it. Added a comment above rand()
+  explaining: rand() is a seeded glibc LCG, uniform by construction; the canonical
+  midpoint-displacement algorithm uses a Gaussian but uniform is deliberate here because it is
+  bounded to +/-sigma (no fat-tail outlier can throw a vertex off the projection); this is a
+  bounded teaching visual whose sampled values are never consumed, so the bell carries the
+  concept, not a per-number claim. Code itself unchanged. harness 10/10, sim commits.
 
 
 SESSION 9 (May 2026) — minor edits
@@ -3511,11 +3672,18 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<p>Connect the three midpoints to subdivide into four smaller triangles.&ensp; ' +
         'Repeat.&ensp; At each level, the displacement shrinks by 2<sup>&minus;H</sup>, so fine ' +
         'detail is progressively smaller &ndash; exactly the self-similar structure of real terrain.</p>' +
-        '<canvas id="cvFractal" width="700" height="480" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
-        '<div style="display:flex;gap:8px;padding:8px 10px;background:var(--s2);border-radius:0 0 4px 4px;align-items:center;">' +
-        '<button id="btnFracStep" onclick="window._fractalStep()" class="anim-btn">Subdivide</button>' +
+        '<canvas id="cvFractal" width="700" height="480" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:12px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnFracPlay" onclick="window._fractalPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnFracStep" onclick="window._fractalStep()" class="anim-btn">Step</button>' +
         '<button onclick="window._fractalReset()" class="anim-btn">&#8634; Reset</button>' +
-        '<span id="lblFractal" style="font:600 12px var(--mono);color:var(--fg3);margin-left:8px;">k = 0  (1 triangle)</span>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="fracSpd0" onclick="window._fractalSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="fracSpd1" onclick="window._fractalSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="fracSpd2" onclick="window._fractalSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '<span style="width:12px"></span>' +
+        '<span id="lblFractal" style="font:600 12px var(--mono);color:var(--fg3);">k = 0  (1 triangle)</span>' +
         '</div>' +
 
         '<h4>Where H comes from</h4>' +
@@ -8650,17 +8818,28 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 // ============ FRACTAL SUBDIVISION ============
 (function(){
   var H_PARAM=0.6, sigma0=1.2;
+  var spd=1, fracTimer=null;
   var level=0;
   var verts=[], tris=[];
   var seed=42;
+  // rand(): seeded LCG (glibc constants), uniform on [-1,1] by construction.
+  // The canonical midpoint-displacement algorithm (Fournier/Fussell/Carpenter) draws the
+  // displacement from a GAUSSIAN of std-dev sigma; the uniform draw here is deliberate.
+  // Uniform is bounded to +/-sigma, so no fat-tail outlier can spike a vertex off the
+  // projection and wreck the framing, whereas a real Gaussian's occasional 3-sigma kicks
+  // would. This is a bounded teaching visual, not a terrain generator: the sampled values
+  // are never consumed downstream, and the bell curve carries the concept (delta shrinks
+  // each level), not a claim that any specific number was drawn from it. If this ever
+  // becomes a real generator, swap in Box-Muller here.
   function rand(){seed=(seed*1103515245+12345)&0x7fffffff;return(seed/0x7fffffff)*2-1;}
 
   function initMesh(){
     level=0; seed=42;
-    verts=[{x:-3,y:1.0,z:-2},{x:3,y:1.0,z:-2},{x:0,y:0.9,z:3}];
+    verts=[{x:-3,y:1.8,z:-2},{x:3,y:1.0,z:-2},{x:0,y:0.9,z:3}];
     tris=[[0,1,2]];
     animPhase=-1; animT=0; pendingMids=null;
     dispCompleted=[false,false,false];
+    fstep=0;
   }
   initMesh();
 
@@ -8709,12 +8888,116 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
   var animPhase=-1, animT=0, animRAF=null, animStart=0, pendingMids=null, pendingPrep=null;
 
-  // Projection
-  var cosA=0.85,sinA=0.52,tilt=0.85;
+  // 3D camera. We look down at the triangle's plane at an angle; v.x and v.z are the position
+  // IN that plane and v.y is the height measured PERPENDICULAR to it. One unified transform
+  // (plane tilt -> azimuth -> elevation -> orthographic), so a displacement reads as real 3D
+  // motion (diagonal on screen), not a flat vertical slide. Angles are tunable.
+  var CAM_TILT=28*Math.PI/180, CAM_AZ=26*Math.PI/180, CAM_EL=20*Math.PI/180;
+  var _ca=Math.cos(CAM_TILT), _sa=Math.sin(CAM_TILT),
+      _ct=Math.cos(CAM_AZ),   _st=Math.sin(CAM_AZ),
+      _cp=Math.cos(CAM_EL),   _sp=Math.sin(CAM_EL);
+  var CAM_S=54.47, CAM_CX=486, CAM_CY=243;       // scale + screen origin, fit to the 700x480 canvas
   function proj(v,W,H2){
-    var rx=v.x*cosA+v.z*sinA;
-    var rz=-v.x*sinA+v.z*cosA;
-    return{x:W/2+80+rx*90, y:H2/2+35+rz*45*tilt-v.y*70, depth:rz};
+    var wy=v.z*_sa + v.y*_ca, wz=v.z*_ca - v.y*_sa, wx=v.x;   // place in tilted plane, lift along normal
+    var ax=wx*_ct + wz*_st, az=-wx*_st + wz*_ct, ay=wy;        // azimuth about vertical
+    var sy=ay*_cp + az*_sp;                                    // elevation about horizontal
+    return { x:CAM_CX + ax*CAM_S, y:CAM_CY - sy*CAM_S, depth: ay*_sp - az*_cp };
+  }
+
+  function drawEquation(ctx, mids, mi, W, H2, mono){
+    var m=mids[mi];
+    var iLo=Math.min(m.fromA,m.fromB), iHi=Math.max(m.fromA,m.fromB);
+    var hA=verts[iLo].y, hB=verts[iHi].y, dval=m.disp, res=m.finalY;
+    var subI=['\u2080','\u2081','\u2082'];
+    var sHA=hA.toFixed(1), sHB=hB.toFixed(1);
+    var sSign=(dval>=0?'+':'-'), sMag=Math.abs(dval).toFixed(2);         // sign and magnitude fly in separately
+    var sRes=res.toFixed(2);
+    var eqX=20, eqY=40, i, p;
+    ctx.font='600 19px '+mono; ctx.textAlign='left';
+    var parts=[
+      {t:'h'+subI[iLo]+subI[iHi]+' = (h'+subI[iLo]+' + h'+subI[iHi]+') / 2 + \u03B4 = ('},
+      {slot:'A', v:sHA},
+      {t:' + '},
+      {slot:'B', v:sHB},
+      {t:') / 2 '},
+      {slot:'Ds', v:sSign},
+      {t:' '},
+      {slot:'Dn', v:sMag},
+      {t:' = '},
+      {slot:'R', v:sRes}
+    ];
+    var fpx=19, x, S;
+    function layout(){
+      ctx.font='600 '+fpx+'px '+mono;
+      x=eqX; S={};
+      for(i=0;i<parts.length;i++){ p=parts[i]; p.x=x;
+        if(p.t){ x+=ctx.measureText(p.t).width; }
+        else { p.w=ctx.measureText(p.v).width; S[p.slot]={x:x,w:p.w,v:p.v,cx:x+p.w/2}; x+=p.w; }
+      }
+    }
+    layout();
+    if(x > W-14){ fpx=Math.max(14, Math.floor(fpx*(W-14-eqX)/(x-eqX))); layout(); }
+    var ord={template:0,flyH:1,flyHdone:2,flyDelta:3,flyDdone:4,result:5,move:6};
+    var st=(ord[eqStage]!==undefined)?ord[eqStage]:0;
+    var aBase=(eqStage==='template')?animT:((eqStage==='move')?1-animT:1);
+    ctx.save();
+    ctx.globalAlpha=aBase;
+    ctx.fillStyle='#ffffff';
+    for(i=0;i<parts.length;i++){ p=parts[i]; if(p.t) ctx.fillText(p.t,p.x,eqY); }
+    ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=1.5;
+    function underline(s){ ctx.beginPath(); ctx.moveTo(s.x,eqY+5); ctx.lineTo(s.x+s.w,eqY+5); ctx.stroke(); }
+    // h slots: empty (underline) until they have flown in
+    if(st>=2){ ctx.fillText(S.A.v,S.A.x,eqY); ctx.fillText(S.B.v,S.B.x,eqY); } else { underline(S.A); underline(S.B); }
+    // delta: sign and magnitude land separately; only the value blank shows before they fly in
+    if(st>=4){ ctx.fillText(S.Ds.v,S.Ds.x,eqY); ctx.fillText(S.Dn.v,S.Dn.x,eqY); } else { underline(S.Dn); }
+    // result slot: fades in
+    if(st>=6){ ctx.fillText(S.R.v,S.R.x,eqY); }
+    else if(st===5){ underline(S.R); ctx.save(); ctx.globalAlpha=aBase*animT; ctx.fillText(S.R.v,S.R.x,eqY); ctx.restore(); }
+    else { underline(S.R); }
+    ctx.restore();
+    // flying numbers: h values rise from the two vertices, delta rises from the distribution
+    ctx.save(); ctx.font='600 '+fpx+'px '+mono; ctx.textAlign='center'; ctx.fillStyle='#ffffff';
+    if(eqStage==='flyH'){
+      var pA=proj(verts[iLo],W,H2), pB=proj(verts[iHi],W,H2), t=animT;
+      ctx.fillText(sHA, pA.x+(S.A.cx-pA.x)*t, pA.y+(eqY-pA.y)*t);
+      ctx.fillText(sHB, pB.x+(S.B.cx-pB.x)*t, pB.y+(eqY-pB.y)*t);
+    } else if(eqStage==='flyDelta'){
+      var t2=animT;
+      var gyB=H2-50, ghB=160, gxc=170;                       // must match the bell-curve block
+      var FIRE=0.42;                                         // rebound peak (bellKAt max): delta launches here
+      var launchY=gyB-ghB*0.9*bellKAt(FIRE)-8;               // off the top of the fully sprung peak
+      var gcF=(S.Ds.cx + S.Dn.cx)/2;
+      // smoke puff at the peak as it spits the sample, drawn BEFORE the number so it rides out above it
+      if(t2>=FIRE && t2<FIRE+0.38){
+        var sm=(t2-FIRE)/0.38, bkNow=bellKAt(t2), pkY=gyB-ghB*0.9*bkNow-6;
+        ctx.save();
+        for(var pk=0;pk<3;pk++){
+          ctx.globalAlpha=(1-sm)*0.30*(1-pk*0.22);
+          ctx.fillStyle='rgba(225,225,235,1)';
+          ctx.beginPath();ctx.arc(gxc+(pk-1)*7*sm, pkY-sm*16, 6+sm*20+pk*4, 0, 2*Math.PI);ctx.fill();
+        }
+        ctx.restore();
+        ctx.fillStyle='#ffffff';
+      }
+      // path: shoot straight up to an apex (fast), then a slower curve over to the slot
+      var upEnd=0.62, apexY=launchY+(eqY-launchY)*0.55, gx, gy, sp;
+      if(t2<upEnd){
+        var u=Math.max(0,(t2-FIRE)/(upEnd-FIRE)); u=u*u*(3-2*u);
+        gx=gxc; gy=launchY+(apexY-launchY)*u; sp=0;
+      } else {
+        var cr=(t2-upEnd)/(1-upEnd);                          // raw curve progress (~38% of the time -> slow)
+        var c=cr*cr*(3-2*cr);
+        gx=gxc+(gcF-gxc)*c; gy=apexY+(eqY-apexY)*c;
+        sp=Math.max(0,(cr-0.6)/0.4); sp=sp*sp*(3-2*sp);       // separate into sign+magnitude near the slot
+      }
+      var signOff=(-S.Dn.w/2) + ((S.Ds.cx-gcF)-(-S.Dn.w/2))*sp;
+      var magOff =( S.Ds.w/2) + ((S.Dn.cx-gcF)-( S.Ds.w/2))*sp;
+      if(t2>=FIRE){                                          // number appears at the rebound peak
+        ctx.fillText(sSign, gx+signOff, gy);
+        ctx.fillText(sMag,  gx+magOff,  gy);
+      }
+    }
+    ctx.restore();
   }
 
   function drawFractal(){
@@ -8765,25 +9048,39 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     triData.sort(function(a,b){return a.depth-b.depth;});
 
     var lw=Math.max(1,3.5-level*0.4);
+    // fills (always solid - interior doesn't flicker)
     for(var i=0;i<triData.length;i++){
       var td=triData[i];
       var hn=Math.max(0,Math.min(1,(td.h+2)/4));
-      var r=Math.round(120+hn*135);
-      var g=Math.round(90+hn*100);
-      var b=Math.round(50+hn*30);
+      var r=Math.round(120+hn*135), g=Math.round(90+hn*100), b=Math.round(50+hn*30);
       ctx.fillStyle='rgba('+r+','+g+','+b+',0.4)';
-      ctx.strokeStyle='rgba(255,255,255,0.5)';
-      ctx.lineWidth=lw;
       ctx.beginPath();
       ctx.moveTo(td.p0.x,td.p0.y);ctx.lineTo(td.p1.x,td.p1.y);ctx.lineTo(td.p2.x,td.p2.y);
-      ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.closePath();ctx.fill();
     }
+    // during the split, keep the outer outline solid so only the new inner lines fade in
+    if(animPhase===0){
+      var o0=proj(verts[0],W,H2),o1=proj(verts[1],W,H2),o2=proj(verts[2],W,H2);
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=lw;
+      ctx.beginPath();ctx.moveTo(o0.x,o0.y);ctx.lineTo(o1.x,o1.y);ctx.lineTo(o2.x,o2.y);ctx.closePath();ctx.stroke();
+    }
+    // white sub-triangle lines: fade in during the split, full once placed
+    ctx.save();
+    ctx.globalAlpha=(animPhase===0)?animT:1;
+    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=lw;
+    for(var i=0;i<triData.length;i++){
+      var td=triData[i];
+      ctx.beginPath();
+      ctx.moveTo(td.p0.x,td.p0.y);ctx.lineTo(td.p1.x,td.p1.y);ctx.lineTo(td.p2.x,td.p2.y);
+      ctx.closePath();ctx.stroke();
+    }
+    ctx.restore();
 
     // Vertex labels (original 3 vertices)
     if(level<=1){
       ctx.font='600 19px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='center';
       var vlabels=['h\u2080 = '+verts[0].y.toFixed(1),'h\u2081 = '+verts[1].y.toFixed(1),'h\u2082 = '+verts[2].y.toFixed(1)];
-      var voffsets=[{dx:0,dy:-25},{dx:15,dy:10},{dx:15,dy:0}];
+      var voffsets=[{dx:0,dy:-35},{dx:15,dy:10},{dx:15,dy:0}];
       var valigns=['center','left','left'];
       for(var vi=0;vi<3;vi++){
         var vp=proj(verts[vi],W,H2);
@@ -8797,41 +9094,20 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       var mids=pendingMids;
       var dispOrder2=[0,2,1];
 
-      // Dots at current positions
+      // Dots at current positions (fade in during the split, full once placed)
+      ctx.save();
+      ctx.globalAlpha = (animPhase===0) ? animT : 1;
       for(var mi=0;mi<mids.length;mi++){
         var m=mids[mi];
         var mp=proj({x:m.x,y:midY?midY[mi]:m.baseY,z:m.z},W,H2);
         ctx.fillStyle='#fbbf24';
         ctx.beginPath();ctx.arc(mp.x,mp.y,6,0,2*Math.PI);ctx.fill();
       }
+      ctx.restore();
 
-      // Equation display – single line, fades out during motion
+      // Equation: blank template -> values fly in -> result fades -> fades out during motion
       if(activeEq>=0 && animPhase>=10){
-        var m=mids[activeEq];
-        var subI=['\u2080','\u2081','\u2082'];
-        var hA=verts[m.fromA].y, hB=verts[m.fromB].y;
-        var idxA=m.fromA, idxB=m.fromB;
-        var result=m.finalY;
-        var eqX=20, eqY=30;
-
-        // Fade out during motion phase
-        var eqAlpha=(animPhase>=20)?(1-animT):((eqSub===0)?animT:1);
-        ctx.globalAlpha=eqAlpha;
-        ctx.font='600 19px '+mono;ctx.fillStyle='#ffffff';ctx.textAlign='left';
-
-        // Symbolic part
-        var sym='h'+subI[idxA]+subI[idxB]+' = (h'+subI[idxA]+' + h'+subI[idxB]+') / 2 + \u03B4';
-        ctx.fillText(sym,eqX,eqY);
-
-        // Numbers part (appended on same line)
-        if(eqSub>=1){
-          var numAlpha=(eqSub===1)?animT:1;
-          if(animPhase>=20) numAlpha=1-animT;
-          ctx.globalAlpha=numAlpha;
-          var symW=ctx.measureText(sym+'  ').width;
-          ctx.fillText('= ('+hA.toFixed(1)+' + '+hB.toFixed(1)+') / 2 + ('+m.disp.toFixed(2)+') = '+result.toFixed(2),eqX+symW,eqY);
-        }
-        ctx.globalAlpha=1;
+        drawEquation(ctx, mids, activeEq, W, H2, mono);
       }
     }
 
@@ -8853,14 +9129,16 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx+gw,gy);ctx.stroke();
       ctx.beginPath();ctx.moveTo(gx+gw/2,gy);ctx.lineTo(gx+gw/2,gy-gh);ctx.stroke();
 
-      // Draw bell curve
+      // Draw bell curve (deforms during the delta launch: load -> fire -> recoil)
+      var bellK=(eqStage==='flyDelta')?bellKAt(animT):1;
+      var widthK=1+0.25*(bellK-1);
+      var sigEff=sigK*widthK;
       ctx.strokeStyle='#ffffff';ctx.lineWidth=2;
       ctx.beginPath();
       for(var px=0;px<=gw;px++){
         var xv=(px-gw/2)/(gw/6);
-        var yv=Math.exp(-0.5*xv*xv/(sigK*sigK))/(sigK*Math.sqrt(2*Math.PI));
-        var normY=yv*sigK*Math.sqrt(2*Math.PI);
-        var sy2=gy-normY*gh*0.9;
+        var normY=Math.exp(-0.5*xv*xv/(sigEff*sigEff));
+        var sy2=gy-normY*gh*0.9*bellK;
         if(px===0) ctx.moveTo(gx+px,sy2); else ctx.lineTo(gx+px,sy2);
       }
       ctx.stroke();
@@ -8870,15 +9148,22 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       var subDigits=['\u2080','\u2081','\u2082','\u2083','\u2084','\u2085','\u2086','\u2087'];
       ctx.fillText('\u03C3'+subDigits[curLevel]+' = '+sigK.toFixed(2),gx+gw/2,gy+26);
     }
+  }
 
-    var btn=document.getElementById('btnFracStep');
-    if(btn) btn.disabled=(level>=7||animPhase>=0);
+  // Cannon amplitude for the distribution during the delta launch:
+  // recoil (compress DOWN, +y) -> shoot (spring UP, fires the sample) -> settle. 1.0 at rest.
+  function bellKAt(t){
+    if(t<0.25){ var u=t/0.25; return 1 - 0.30*(u*u*(3-2*u)); }           // recoil: compress down to 0.70
+    if(t<0.42){ var u=(t-0.25)/0.17; return 0.70 + 0.65*u; }             // shoot: spring up to 1.35
+    if(t<0.70){ var u=(t-0.42)/0.28; return 1.35 - 0.35*(u*u*(3-2*u)); } // settle back to 1.0
+    return 1;
   }
 
   function animateFracPhase(dur,onDone){
     animStart=performance.now();animT=0;
+    var eff=dur/spd;
     function tick(now){
-      var raw=Math.min(1,(now-animStart)/dur);
+      var raw=Math.min(1,(now-animStart)/eff);
       animT=raw*raw*(3-2*raw);
       drawFractal();
       if(raw<1) animRAF=requestAnimationFrame(tick);
@@ -8887,82 +9172,111 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     animRAF=requestAnimationFrame(tick);
   }
 
-  function doFirstStep(){
-    pendingPrep=prepareSubdivide();
-    pendingMids=pendingPrep.midpoints;
-
-    // Sort midpoints: front (lowest z) first, back (highest z) second, remaining third
-    pendingMids.sort(function(a,b){return a.z-b.z;});
-    // Override displacements for pedagogical clarity
-    pendingMids[0].disp=-0.8; pendingMids[0].finalY=pendingMids[0].baseY-0.8;
-    pendingMids[1].disp=0.4;  pendingMids[1].finalY=pendingMids[1].baseY+0.4;
-    pendingMids[2].disp=0.3;  pendingMids[2].finalY=pendingMids[2].baseY+0.3;
-
-    // Displacement order: front(0), back(2), side(1)
-    var order=[0,2,1];
-    var oi=0;
-
-    // Phase 0: show flat subdivision
-    animPhase=0;
-    animateFracPhase(600,function(){
-      setTimeout(function(){ doNextDisp(); },600);
-    });
-
-    function doNextDisp(){
-      if(oi>=3){
-        for(var pi=0;pi<pendingMids.length;pi++){
-          verts.push({x:pendingMids[pi].x,y:pendingMids[pi].finalY,z:pendingMids[pi].z});
-        }
-        tris=pendingPrep.newTris;
-        level++;
-        animPhase=-1;pendingMids=null;pendingPrep=null;activeDisp=-1;activeEq=-1;eqSub=0;
-        dispCompleted=[false,false,false];
-        drawFractal();
-        return;
-      }
-      // Sub-phase A: symbolic equation fades in
-      activeDisp=-1; activeEq=order[oi]; eqSub=0; animPhase=10;
-      animateFracPhase(600,function(){
-        // Sub-phase B: numbers fade in
-        eqSub=1;
-        animateFracPhase(600,function(){
-          // Pause to read
-          setTimeout(function(){
-            // Sub-phase C: move midpoint
-            activeDisp=order[oi]; animPhase=20+oi;
-            animateFracPhase(1000,function(){
-              dispCompleted[activeDisp]=true;
-              oi++;
-              setTimeout(function(){ doNextDisp(); },400);
-            });
-          },800);
-        });
-      });
-    }
+  function eIdx(a,b){
+    for(var i=0;i<pendingMids.length;i++){ var m=pendingMids[i];
+      if((m.fromA===a&&m.fromB===b)||(m.fromA===b&&m.fromB===a)) return i; }
+    return -1;
   }
 
-  var activeDisp=-1, activeEq=-1, eqSub=0;
-  var dispCompleted=[false,false,false];
+  // Step 1 of the first subdivision: insert the three midpoints and show the split (no displacement yet)
+  function fracSplitStep(){
+    pendingPrep=prepareSubdivide();
+    pendingMids=pendingPrep.midpoints;
+    dispOrder=[ eIdx(0,1), eIdx(0,2), eIdx(1,2) ];   // reveal order: h01, h02, h12
+    // Teaching reveal only: deliberate, clearly-visible displacements so each midpoint
+    // obviously moves. Not the real random draw - but every level after this stays random.
+    var dval=[0.5,-0.7,0.8];   // h01, h02, h12
+    for(var d=0;d<3;d++){ var m=pendingMids[dispOrder[d]]; m.disp=dval[d]; m.finalY=m.baseY+dval[d]; }
+    animPhase=0; activeEq=-1; activeDisp=-1; eqSub=0;
+    dispCompleted=[false,false,false];
+    animateFracPhase(600,function(){ animPhase=5; fstep=1; fracBar.stepDone(); });
+  }
 
-  window._fractalStep=function(){
-    if(level>=7||animPhase>=0) return;
+  // Steps 2-4: displace one midpoint (k = 0 -> h01, 1 -> h02, 2 -> h12).  k===2 commits the level.
+  // Choreography: blank formula fades in -> the two h values fly up from the vertices ->
+  // delta flies up from the distribution -> result fades in -> the midpoint moves.
+  function fracDispStep(k){
+    var mi=dispOrder[k];
+    activeEq=mi; activeDisp=-1; animPhase=10; eqStage='template';
+    animateFracPhase(500,function(){                       // 1. formula fades in, slots blank
+      eqTimer=setTimeout(function(){
+        eqStage='flyH';
+        animateFracPhase(800,function(){                   // 2. the two h values rise from the vertices
+          eqStage='flyHdone';
+          eqTimer=setTimeout(function(){
+            eqStage='flyDelta';
+            animateFracPhase(2800,function(){               // 3. delta rises from the distribution
+              eqStage='flyDdone';
+              eqTimer=setTimeout(function(){
+                eqStage='result';
+                animateFracPhase(500,function(){           // 4. result value fades in
+                  eqTimer=setTimeout(function(){
+                    eqStage='move'; activeDisp=mi; animPhase=20+k;
+                    animateFracPhase(900,function(){        // 5. midpoint moves; equation fades out
+                      dispCompleted[mi]=true;
+                      if(k>=2){                              // last midpoint: commit the subdivision
+                        for(var pi=0;pi<pendingMids.length;pi++){
+                          verts.push({x:pendingMids[pi].x,y:pendingMids[pi].finalY,z:pendingMids[pi].z});
+                        }
+                        tris=pendingPrep.newTris; level++;
+                        animPhase=-1; pendingMids=null; pendingPrep=null;
+                        activeDisp=-1; activeEq=-1; eqStage=''; fstep=0;
+                        dispCompleted=[false,false,false];
+                      } else {                               // hold the in-progress mesh between steps
+                        animPhase=5; activeDisp=-1; activeEq=-1; eqStage=''; fstep=k+2;
+                      }
+                      drawFractal();
+                      fracBar.stepDone();
+                    });
+                  }, 900/spd);
+                });
+              }, 800/spd);
+            });
+          }, 800/spd);
+        });
+      }, 1100/spd);
+    });
+  }
+
+  var activeDisp=-1, activeEq=-1, eqSub=0, eqStage='', eqTimer=null;
+  var dispCompleted=[false,false,false];
+  var fstep=0, dispOrder=[0,1,2];
+
+  function runStep(){
+    if(level>=6){ fracBar.stepDone(); return; }
     if(level===0){
-      doFirstStep();
+      // first subdivision is broken into 4 steps: split, then h01, h02, h12
+      if(fstep===0)      fracSplitStep();   // show the split
+      else if(fstep===1) fracDispStep(0);   // h01
+      else if(fstep===2) fracDispStep(1);   // h02
+      else               fracDispStep(2);   // h12 (commits the level)
     } else {
       var prep=prepareSubdivide();
       applySubdivide(prep);
       drawFractal();
+      fracBar.stepDone();
     }
-  };
-  window._fractalReset=function(){
-    if(animRAF){cancelAnimationFrame(animRAF);animRAF=null;}
-    initMesh();drawFractal();
-  };
+  }
+
+  var fracBar = new AnimBtnBar({
+    playId:'btnFracPlay', stepId:'btnFracStep',
+    speedIds:['fracSpd0','fracSpd1','fracSpd2'],
+    isDone: function(){ return level>=6; },
+    onStep:  function(){ runStep(); },
+    onPlay:  function(){ if(level>=6){ initMesh(); drawFractal(); } runStep(); },
+    onPause: function(){ if(fracTimer){ clearTimeout(fracTimer); fracTimer=null; } },
+    onReset: function(){ if(fracTimer){ clearTimeout(fracTimer); fracTimer=null; } if(eqTimer){ clearTimeout(eqTimer); eqTimer=null; } if(animRAF){ cancelAnimationFrame(animRAF); animRAF=null; } activeEq=-1; activeDisp=-1; eqStage=''; initMesh(); drawFractal(); },
+    onAdvance: function(){ var d=(level===0)?700:(level===1?2600:1600); fracTimer=setTimeout(function(){ if(fracBar.mode==='playing') runStep(); }, d/spd); }
+  });
+  window._fractalPlay  = function(){ fracBar.play(); };
+  window._fractalStep  = function(){ fracBar.step(); };
+  window._fractalReset = function(){ fracBar.reset(); };
+  window._fractalSpeed = function(mult, idx){ spd=mult; fracBar.selectSpeed(idx); };
 
   var origOpen=window._openNotes;
   window._openNotes=function(id,scroll){
     origOpen(id,scroll);
-    if(id==='carpenter') setTimeout(drawFractal,100);
+    if(id==='carpenter') setTimeout(function(){ fracBar.mode='idle'; fracBar.selectSpeed(1); fracBar.update(); drawFractal(); },100);
   };
 })();
 

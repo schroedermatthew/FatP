@@ -13,9 +13,7 @@ FATP_META:
   summary: Exhaustive unit tests for the Jet forward-mode AD scalar.
   api_stability: in_work
   related:
-    headers:
-      - include/fat_p/Jet.h
-      - include/fat_p/FatPTest.h
+    docs_search: "Jet"
   hygiene:
     pragma_once: false
     include_guard: false
@@ -569,27 +567,36 @@ FATP_TEST_CASE(domain_boundaries)
     return true;
 }
 
-FATP_TEST_CASE(out_of_domain_value_is_nan)
+FATP_TEST_CASE(out_of_domain_nan)
 {
-    // For inputs outside a function's domain the VALUE is NaN. This is the
-    // invariant a caller can rely on (check the value before trusting the
-    // gradient). The gradient at out-of-domain points is function-dependent
-    // and, for sqrt and log of a negative argument, is currently NOT NaN --
-    // see the out-of-domain finding accompanying this suite.
-    FATP_ASSERT_TRUE(std::isnan(sqrt(Jet<1>::seed(-1.0, 0)).mValue), "sqrt(neg) value NaN");
-    FATP_ASSERT_TRUE(std::isnan(log(Jet<1>::seed(-2.0, 0)).mValue), "log(neg) value NaN");
+    // Outside a function's domain the value AND every partial are NaN, so a NaN
+    // value never sits beside a finite-looking gradient. (Distinct from the
+    // boundary points in domain_boundaries, where an infinite value is paired
+    // with the genuinely infinite derivative.)
+    Jet<1> rs = sqrt(Jet<1>::seed(-1.0, 0));
+    FATP_ASSERT_TRUE(std::isnan(rs.mValue), "sqrt(neg) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(rs.mPartials[0]), "sqrt(neg) gradient NaN");
 
-    // asin/acos outside [-1,1] and pow(neg, fractional): value AND gradient NaN.
+    Jet<1> lg = log(Jet<1>::seed(-2.0, 0));
+    FATP_ASSERT_TRUE(std::isnan(lg.mValue), "log(neg) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(lg.mPartials[0]), "log(neg) gradient NaN");
+
     Jet<1> as = asin(Jet<1>::seed(2.0, 0));
     FATP_ASSERT_TRUE(std::isnan(as.mValue), "asin(2) value NaN");
     FATP_ASSERT_TRUE(std::isnan(as.mPartials[0]), "asin(2) gradient NaN");
 
     Jet<1> ac = acos(Jet<1>::seed(2.0, 0));
     FATP_ASSERT_TRUE(std::isnan(ac.mValue), "acos(2) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(ac.mPartials[0]), "acos(2) gradient NaN");
 
     Jet<1> pw = pow(Jet<1>::seed(-2.0, 0), 0.5);
     FATP_ASSERT_TRUE(std::isnan(pw.mValue), "pow(neg, 0.5) value NaN");
     FATP_ASSERT_TRUE(std::isnan(pw.mPartials[0]), "pow(neg, 0.5) gradient NaN");
+
+    // A NaN argument propagates through abs to both value and gradient.
+    Jet<1> ab = abs(Jet<1>{std::numeric_limits<double>::quiet_NaN()});
+    FATP_ASSERT_TRUE(std::isnan(ab.mValue), "abs(NaN) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(ab.mPartials[0]), "abs(NaN) gradient NaN");
     return true;
 }
 
@@ -774,7 +781,7 @@ bool test_Jet()
     out << "\n" << colors::blue() << "--- Domain Edges ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, jet, edge_guards);
     FATP_RUN_TEST_NS(runner, jet, domain_boundaries);
-    FATP_RUN_TEST_NS(runner, jet, out_of_domain_value_is_nan);
+    FATP_RUN_TEST_NS(runner, jet, out_of_domain_nan);
     FATP_RUN_TEST_NS(runner, jet, constant_propagation);
 
     out << "\n" << colors::blue() << "--- Jacobian & Cross-Validation ---" << colors::reset() << "\n";

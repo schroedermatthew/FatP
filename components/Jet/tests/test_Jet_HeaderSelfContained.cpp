@@ -17,8 +17,7 @@ FATP_META:
   summary: Compile-only self-contained and idempotence check for Jet.h.
   api_stability: in_work
   related:
-    headers:
-      - include/fat_p/Jet.h
+    docs_search: "Jet"
   hygiene:
     pragma_once: false
     include_guard: false

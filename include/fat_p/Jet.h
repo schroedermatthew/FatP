@@ -276,25 +276,34 @@ template <std::size_t N>
     const double e = std::exp(x.mValue);
     return detail::lift(e, e, x);
 }
-/// Natural logarithm of a Jet.
+/// Natural logarithm of a Jet. A negative argument is out of domain: the value
+/// and the partials are NaN. At 0 the value is -inf and the derivative +inf.
 template <std::size_t N>
 [[nodiscard]] Jet<N> log(const Jet<N>& x)
 {
-    return detail::lift(std::log(x.mValue), 1.0 / x.mValue, x);
+    const double v = std::log(x.mValue);
+    const double deriv = std::isnan(v) ? v : 1.0 / x.mValue;
+    return detail::lift(v, deriv, x);
 }
-/// Square root of a Jet. The derivative is unbounded as the value approaches 0.
+/// Square root of a Jet. The true derivative is unbounded as the value
+/// approaches 0; at exactly 0 it is returned as 0 by convention. A negative
+/// argument is out of domain: the value and the partials are NaN.
 template <std::size_t N>
 [[nodiscard]] Jet<N> sqrt(const Jet<N>& x)
 {
     const double s = std::sqrt(x.mValue);
-    return detail::lift(s, (s > 0.0) ? 0.5 / s : 0.0, x);
+    const double deriv = std::isnan(s) ? s : ((s > 0.0) ? 0.5 / s : 0.0);
+    return detail::lift(s, deriv, x);
 }
-/// Absolute value of a Jet. The derivative is taken as 0 at the value 0.
+/// Absolute value of a Jet. The derivative is taken as 0 at the value 0. A NaN
+/// argument propagates to the partials.
 template <std::size_t N>
 [[nodiscard]] Jet<N> abs(const Jet<N>& x)
 {
+    const double a = std::fabs(x.mValue);
     const double sign = static_cast<double>((x.mValue > 0.0) - (x.mValue < 0.0));
-    return detail::lift(std::fabs(x.mValue), sign, x);
+    const double deriv = std::isnan(a) ? a : sign;
+    return detail::lift(a, deriv, x);
 }
 
 /**

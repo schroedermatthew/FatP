@@ -18,8 +18,14 @@ FATP_META:
   summary: Expected-fail compile test that Jet<0> violates requires(N >= 1).
   api_stability: in_work
   related:
-    headers:
-      - include/fat_p/Jet.h
+    docs_search: "Jet"
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
 */
 
 #include "Jet.h"
