@@ -1,6 +1,6 @@
 # Universal AI Rules for Teaching Artifacts
 
-**Version: 4**
+**Version: 5**
 
 This is the canonical source for AI behavioral rules shared across all
 teaching artifacts in the GPU computing lecture series.  Each artifact
@@ -70,6 +70,16 @@ section is never overwritten during sync.
      Every canvas and its control bar must have visible whitespace
      above and below separating it from prose.  Animations and text
      must never run together.
+
+  26. CAPTIONS ARE PART OF THE FIGURE
+     An animation's caption is not a floating line of text sitting below
+     the canvas.  It is a bordered footer of the same card: the same border
+     colour, flush against the controls with no gap, rounded only at the
+     shared bottom edge, so the canvas, its control bar, and its caption
+     read as one object.  Caption text is at least 15px (see rule 6).  In
+     the reference implementation this is a `.anim-cap` class together with
+     a `:has(+ .anim-cap)` rule that squares the bottom corners and removes
+     the bottom margin of whatever element sits directly above the caption.
 
 ## Interactive controls
 
@@ -239,6 +249,11 @@ section is never overwritten during sync.
 ---
 
 ## Version history
+
+  v5 — June 2026
+    Added rule 26: CAPTIONS ARE PART OF THE FIGURE (a caption is a bordered
+    footer attached to its animation card, >=15px), under Visual standards.
+    26 rules, 6 standard error patterns.
 
   v4 — May 2026
     Added rule 25: SIGNS FOLLOW FROM STRUCTURE, NOT CONVENTION.

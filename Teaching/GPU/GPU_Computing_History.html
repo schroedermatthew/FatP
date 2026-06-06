@@ -579,6 +579,282 @@ SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
   caption now measures STEP[ph] at 15px and steps the font down by 0.5px (min 10px)
   until it fits W-24, so no caption can overrun the canvas again. Verified all 9
   captions fit at 15px (max ~621px < 676). harness 10/10.
+- v48: cvCombo phase 5 (combine the FIRST TWO) still used the old fade for its equation
+  text - the two labels faded out (aIndL) while a combined "lbl0 + lbl1" faded in (aSum),
+  the same disappear/reappear the author rejected for phase 6 in v37/v38. Rewrote phase 5
+  to mirror phase 6: both term labels stay at full opacity and slide together (lbl0 from
+  W/6, lbl1 from W/2, toward a centred dock at mergeX=235) with a "+" fading in between
+  them; removed the now-unused aIndL. The surfaces still cross-fade (two individuals out,
+  their sum in) as before - only the text behaviour changed. Verified continuity in node:
+  ph5 start q=0 puts the labels at W/6 / W/2 (matches phase-4 end), ph5 end q=1 docks them
+  centred at 235 (matches phase-6 start, which carries "lbl0 + lbl1" from 235). harness 10/10.
+- v49: per author ("I want the angle to be less than 90 so it is more pointy"). The ridge
+  was 90 deg (faces at 45). Parameterized it: var DIHEDRAL=60, H=1/tan(DIHEDRAL/2) is the
+  apex height, and the profiles now scale by H (profSharp peak H, profFillet peak H/2);
+  APEX=H, ZC=H/2 (re-centres the taller surface), FOC=[0,0,H/2] (crease for the camera).
+  DIHEDRAL=60 -> faces at 60 deg, a clearly pointier ridge; one-number tweak. A pointier
+  ridge is taller, so re-verified framing headless: build phase SC 104 -> 90 (104 clipped
+  the bottom at the new height; 90 fits y 132..386); two-up SC4=70 still fits; flat phases
+  fit and the steeper curvature makes the error gap bigger (6.0px at sc=900, 12.6px at
+  1900 vs 3.4/7.3 before) - the band reads even better. The comparison/zoom phases centre
+  on the crease via camFor so they reframe automatically. Text synced: STEP[0] "sharp 60
+  edge", body caption "Each face rises at 60, so they meet at a 60 ridge", IIFE header
+  comment de-hardcoded. harness 10/10.
+- v50: author ("the initial image has the surface too low"). The build phase (0-3) sat at
+  OY=250, so the surface spanned y 132..386 - mid 259, well below canvas centre (215), with
+  a big gap above and only 18px to the caption. Lowered OY to 196 -> span 78..332, mid 205,
+  balanced margins (78 above, 72 to the caption). Only the build phase / phase-4 frozen
+  cross-fade surface use OY; the comparison phases centre via camFor and are unaffected.
+  Side benefit: the frozen build surface now sits near the two-up row (cyT=198), so the
+  phase-4 dissolve lines up better. harness 10/10.
+- v51: author ("make the angle 45"). DIHEDRAL 60 -> 45 (H 1.73 -> 2.41, faces at 67.5 deg).
+  Re-verified framing: build SC=90 / OY=196 still fit (y 48..362), two-up SC4=70 fits, flat
+  phases fit (curve y 172..346 at sc=900) and the error gap grows again (8.3px at 900, 17.5px
+  at 1900). Only the one constant plus text changed: STEP[0] "sharp 45 edge", caption "Each
+  face rises at 67.5, so they meet at a sharp 45 ridge". harness 10/10.
+- v52: author ("make the errorband shading bright red, not transparent"). Error-band fill
+  rgba(232,96,96,0.20) -> solid #ff1f1f. globalAlpha still tracks interpA so it fades in with
+  the rest of the 2D figure, but at rest it is fully opaque bright red. Draw order unchanged
+  (band before the curve and interpolation lines), so the blue curve and amber chords still
+  sit on its top and bottom edges. harness 10/10.
+- v53: author ("why are there 5 control points"). The control-edge dots were drawn at
+  dys=[-1,-0.5,0,0.5,1] = 5 dots, which is wrong - a biquadratic patch is a 3x3 net, so the
+  ridge row (x=0 column, running in y) has 3 control points, at y=-1,0,1. The two extra dots
+  at +/-0.5 were decorative and misrepresented the patch. Fixed to dys=[-1,0,1]. harness 10/10.
+- v54: author ("why aren't you putting all nine control points on; also don't bother with
+  tangent thing"). (1) The build reveal now draws the FULL 3x3 control net: nine amber dots
+  at (x in -1,0,1) x (y in -1,0,1) with the middle column raised to APEX (heights [0,H,0]
+  across x, constant in y), plus the dashed net wireframe (3 rows + 3 columns). Replaced the
+  single dashed ridge + 3 dots. (2) Removed the tangency beat entirely - dropped the legA
+  variable and the control-polygon-legs block, and renumbered the phases: build is now 0,1,2
+  (planes / control net / round) and the comparison/zoom phases shifted 4-8 -> 3-7. Updated
+  if(ph<4)->if(ph<3), the comparison branch conditions, the spinFreeze capture (stage+1===4
+  ->3), isDone/startStep/onPlay (8->7), DUR (removed the 1800 tangency entry, now 8 entries),
+  STEP (removed the tangency caption; "one row" caption -> "3x3 net of nine control points").
+  Synced the intro prose and body caption (nine control points; trimmed the tangency clause).
+  Verified: step sequence 1->7, every transition has a DUR, no stale legA/ph===7/8 refs.
+  harness 10/10.
+- v55: author ("the object is spinning and then just disappears... I want it to spin until it
+  is oriented correctly for the next step, then stop spinning"). Phase 3 used to freeze the
+  single fillet at the random spinFreeze angle and cross-dissolve it out while the pair faded
+  in - so it vanished at the wrong orientation. Rewrote phase 3 self-contained: over the first
+  60% (ease-OUT, decelerating) the single fillet turns FORWARD from spinFreeze to ANG_Y
+  (tgt=ANG_Y+2pi*ceil((spinFreeze-ANG_Y)/2pi) keeps it going the same direction) and its tilt
+  eases TILT->ANG_X, coming to a full stop oriented exactly like the next step; over the last
+  40% the single fades out and the two-up pair fades in at that SAME orientation (no jump).
+  Boundary-checked: p=0 == build hand-off (ang=spinFreeze, tilt .5, full); p=.6 stopped on
+  ANG_Y at tilt ANG_X; p=1 single gone, pair full == phase-4 start. Pulled the zoom phases 4-7
+  into an inner else (generic camL/camR path runs only for ph>=4). DUR[3] 1500->2000 so the
+  deceleration reads. harness 10/10.
+- v56: author ("no it spins at the same rate until the right orientation"). v55 used an
+  ease-out (decelerating) ramp; author wants a steady rate that just stops on reaching the
+  orientation. Changed q1 from ease-out to linear (q1=min(1,p/0.60)) so the fillet turns at a
+  constant rate straight to ANG_Y, then stops; the pair still reveals over the last 40%.
+  harness 10/10.
+- v57: author ("it should continue to spin and stop during the same step, with the control
+  points and lines fading out after it stops"). The control net used to vanish at the 2->3
+  boundary. Extracted the net drawing into a shared drawControlNet(ctx,proj,alpha) helper
+  (reused by the build phase and phase 3). Phase 3 now carries the net on the spinning fillet
+  and fades it out only after the stop: spin to ANG_Y over [0,0.45] (net full), net fades
+  [0.48,0.68], clean stopped fillet, then pair appears [0.70,1]. p=0 hand-off now matches
+  phase-2 end exactly (fillet + full net). DUR[3] 2000->2400 for the extra beat. harness 10/10.
+- v58: author ("the spin to a stop is not another step. it is the same step that include the
+  fillet being created"). Moved the spin-to-stop OUT of phase 3 and INTO phase 2 (the round
+  step). Split the build branch: ph<2 = sharp planes + control-net reveal, free spin (live);
+  ph===2 = round into the fillet (tau over first 45%) AND turn the spin to a stop at ANG_Y
+  (constant rate, q1 over first 60%) with tilt TILT->ANG_X, then the control net fades after
+  the stop (netA over 0.65-0.90). spinFreeze now captured entering phase 2 (stage+1===2).
+  Phase 3 is now just the cross-fade of the finished, oriented fillet into the comparison
+  pair. DUR[2] 2600->3000 (room for round+spin+netfade), DUR[3] 2400->1500 (simple cross-fade).
+  Continuity verified: ph1 end (sharp+net, spinning) == ph2 start; ph2 end (rounded, oriented,
+  net gone) == ph3 start; ph3 end (pair at SC4) == ph4 start. Steps 1->7, harness 10/10.
+- v59: author ("don't speed up the rotation"). v58 turned within a fixed step time, so a
+  larger turn meant a faster spin. Now the phase-2 turn runs at exactly the build rate
+  (0.0005 rad/ms, same as phases 0-1): startStep sizes DUR[2]=Dn/0.0005+900 from the forward
+  turn distance Dn, and drawFrame uses sAng=spinFreeze+0.0005*min(elapsed,rotMs). Verified
+  the rate is 0.0005 for any start angle and always lands on ANG_Y. TRADEOFF: the step length
+  now varies with the turn (about 1s for a near-aligned start up to ~13s for almost a full
+  turn, ~6s average), since holding the rate fixed means time must scale with distance.
+  harness 10/10.
+- v60: author ("you can stop the first time the orientation is right... it is symmetric").
+  The fillet is a ridge symmetric in its cross-axis -> 180-deg rotational symmetry, so the
+  comparison view at ANG_Y is identical at ANG_Y+pi. Changed the forward target from mod-2pi
+  to mod-pi: Dn=(ANG_Y+pi*ceil((spinFreeze-ANG_Y)/pi))-spinFreeze. Still exact build rate, but
+  it stops at the FIRST matching orientation, so the turn is bounded by pi: max step ~7.2s
+  (was ~12.8s), avg ~3-4s. Verified it always lands on a view == ANG_Y (mod pi). harness 10/10.
+- v61: author ("instead of the image disappearing and the two appearing, fly the image back to
+  the position it should be in"). Phase 3 no longer cross-fades. The centred fillet and the
+  comparison-left slot are both just drawSurf(ox,oy,sc,...) calls, so phase 3 now interpolates
+  (ox,oy,sc) from (OX,OY,SC) to camFor's left slot (W*0.27,cyT,SC4) over pe - the fillet flies
+  to its slot staying fully solid - while the triangulation appears on the right. pe=0 == ph2
+  end (centred fillet); pe=1 == ph4 start (biquadratic at W*0.27/SC4, tri at W*0.73/SC4).
+  DUR[3] 1500->1800 for the glide. harness 10/10.
+- v62: author ("the triangulation only appears during the next step. have a bunch of triangles
+  fly in and form the surface"). Split the comparison setup into two steps and added a triangle
+  assembly. Phase 3 is now fly-ONLY (fillet glides to the left slot; right stays empty). New
+  phase 4: the left fillet holds while drawMeshAssemble() flies a bunch of triangles in on the
+  right - each triangle flies from a per-triangle random offset (70-200px), grows from its
+  centroid, fades in, staggered by a hashed delay over [0,0.55] - assembling the mesh; at
+  prog=1 it is pixel-identical to drawMesh(...,1) so the next zoom step is seamless. Renumbered
+  the zoom phases 4-7 -> 5-8 (only cvFillet's conditions/thresholds; left the preceding
+  animation's stage>=7 alone). DUR gained the assembly entry (2200); STEP[3] "Move the smooth
+  fillet aside...", STEP[4] "Triangles fly in to tile the same fillet...". isDone/onPlay/
+  startStep 7->8. Steps run 1->8, boundaries ph3->ph4->ph5 verified, harness 10/10.
+- v63: author ("slow down the triangles flying and have some come from the foreground so you
+  can clearly see they are triangles; they need to get smaller as they move back"). Reworked
+  drawMeshAssemble: ~half the triangles (hashed r4<0.5) now start at 3.5-6.5x scale with a
+  small offset and shrink back to scale 1 (loom from the foreground and recede); the rest grow
+  in from small with a larger lateral offset. Each frame the triangles are re-sorted by current
+  scale so the big foreground ones draw on top. Flight window widened to 0.50 and DUR[4]
+  2200->4500, so each triangle's flight is ~2.25s. Verified prog=1 gives scl=1/offset=0/alpha=1
+  for every triangle (pixel-identical to drawMesh -> seamless into the zoom step). harness 10/10.
+- v64: author ("the triangles need to fly in from the sides and not just all appear on top of
+  each other"). The previous offsets were small (10-220px) so triangles basically materialized
+  at the destination. Now each triangle enters from the left or right (side=+/-1) starting
+  240-460px off to that side with a vertical spread (+/-130px), and the offset decays to 0 as it
+  flies in - so they genuinely travel in from the sides, spread out (~even left/right split).
+  Foreground ones still start 3-6x and shrink; others slide in near full size. prog=1 still
+  lands every triangle exactly on the mesh. harness 10/10.
+- v65: author ("after the triangles form, the next step should fly the two shapes together to
+  the centre so the smooth version is on top of the triangulation; remove the rest of the steps
+  after that"). Phase 5 is now the FINAL step: both shapes converge to centre (camFor x lerps
+  W*0.27->W/2 and W*0.73->W/2, scale SC4->SC5=110), triangulation drawn first (underneath) then
+  the smooth biquadratic on top with alpha lerp 1->0.6 so the facets show through. Removed
+  phases 6-8 (zoom biquadratic / zoom triangulation / flatten / error band) and all the
+  interp/curve/error-band code, and deleted the now-unused constants (SCZ, SCZ2, SC2D, SC8,
+  cyZ, ANG_Y2, ANG_X2). DUR/STEP trimmed to 6 entries; isDone/onPlay/startStep 8->5 (cvFillet
+  only; left the preceding animation's stage>=7 alone). Body caption updated. SC5=110 framing
+  verified (y 160..387). Steps run 1->5, ph4 end == ph5 start, harness 10/10.
+- v66: author ("now we will zoom into the shape and rotate so it is head on so we can see the
+  error"). Added phase 6 (new final): from the centred overlay it lerps ay/ax ANG_Y/ANG_X->0
+  (head-on profile view), zooms SC5->SC6=900, and cy cyT->cyY6=150, keeping the faceted mesh
+  underneath and the smooth patch on top at alpha 0.6 - so the gap between the smooth curve and
+  the chords reads as the interpolation error (~8px at SC6=900, several facets visible, framed
+  y 150..324). ph5 made non-final (else if), ph6 the new else. DUR/STEP -> 7 entries;
+  isDone/onPlay/startStep 5->6; body caption extended. ph5 end == ph6 start (centre, SC5,
+  ANG_Y/ANG_X). Steps run 1->6, harness 10/10.
+- v67: author ("show the quadratic was not supposed to disappear, obviously"). At head-on a
+  height-field surface is edge-on and degenerate, so drawSurf had no area and the quadratic
+  vanished. Reworked phase 6 to FLATTEN to a profile as it rotates head-on: the 3D shapes fade
+  (drawMesh/drawSurf alpha 1-pe, starting at mesh 1 / smooth 0.6 to match phase-5 end) while a
+  2D profile fades in (pe) - the smooth quadratic as a blue curve (stays visible), the
+  triangulation as amber chords + sample dots, and a bright-red error band filling the gap
+  between them. pe=0 == phase-5 end (3D overlay, centre/SC5/ANG_Y/ANG_X); pe=1 == head-on flat
+  profile at SC6 showing curve vs chords (~8px gap). harness 10/10.
+- v68: author ("we don't need the surface to fade out, it should naturally be rotated to be
+  invisible right"). Correct - a filled height-field surface goes edge-on and collapses on its
+  own. Removed the explicit (1-pe) fade in phase 6; the 3D mesh/surface now draw at their
+  natural alpha (1 / 0.6) and vanish as they rotate head-on, while the flat profile (curve +
+  chords + band) emerges. harness 10/10.
+- v69: author ("don't narrate what the viewer can clearly see... just say the triangulation is
+  formed"). Rewrote the STEP captions to state the idea, not the visible motion: dropped
+  "triangles fly in", "the two meet", "move aside", "head-on and zoomed". Now: sharp edge /
+  nine control points define the patch / a smooth quadratic fillet / how well can flat triangles
+  match it? / the same fillet, triangulated / the smooth surface over the triangulation / the
+  gap between them is the approximation error. harness 10/10.
+- v70: author ("address 'biquadratic surface is a weighted stack of these nine fixed shapes'...
+  the first part is to look at the 1d bezier spline"). Built the 1D precursor as the building
+  block for the 2D nine-shape story. New subsection "First, one dimension" inserted before
+  cvBasis: prose + new canvas cvBez + control bar. cvBez IIFE (after cvCombo, before cvFillet):
+  4 phases - (0) three control points + dashed control polygon; (1) de Casteljau sweep, two
+  nested linear interpolations (mint) tracing the curve; (2) the three fixed Bernstein basis
+  functions B0,B1,B2 plotted at right (blue/amber/green, matched to P0/P1/P2); (3) weighted-sum
+  readout P(t)=B0 P0+B1 P1+B2 P2 with a moving t, weight dots on the basis plot, sum=1.00.
+  Same AnimBtnBar / _openNotes-_closeNotes RAF pattern as cvCombo. Math verified in node
+  (de Casteljau == Bernstein to 1e-13; weights sum to 1); all 4 phases stub-rendered with 0
+  runtime errors. This sets up the SPAN point (three basis functions span quadratics) as
+  distinct from partition-of-unity; the line-3503 caption fix (span vs sum-to-1) is the NEXT
+  part, not done here. harness 10/10.
+- v71: author ("no, I want to start the 1D part after the fillet. I want the reader invested
+  in the 2D case. then we start to address the span question"). Relocated the cvBez subsection:
+  removed it from before cvBasis and re-inserted it AFTER the cvFillet caption, before "Why nine
+  control points". Reframed the intro ("First, the same question in one dimension"): drops the
+  "before the surface" framing and instead opens the SPAN question explicitly &ndash; the prior
+  nine-shape caption claimed any biquadratic is a weighted stack of nine fixed shapes, and the
+  1D detour asks why that holds and whether summing to one is the reason. The cvBez canvas/IIFE
+  itself is unchanged (canvas id, controls, 4 phases all intact). 2D order restored:
+  cvBasis -> cvCombo -> cvFillet -> 1D Bezier -> Why-nine. The span resolution (and the
+  weighted-stack caption fix) is still the next part. harness 10/10.
+- v72: author wanted the DIVE HEADING changed (not the caption). First mis-read it as a caption
+  edit (had briefly rewritten the cvBasis caption to pose a question) - reverted that, the
+  cvBasis caption is back to its original "They sum to 1 everywhere, so any biquadratic surface
+  is a weighted stack of these nine fixed shapes." Changed the 1D-dive heading from "First, the
+  same question in one dimension" to the claim quoted back at the reader: "Any biquadratic
+  surface is a weighted stack of these nine fixed shapes." What? - using the caption's own bold
+  claim (and its sum-to-one non-sequitur) as the hook. Tightened the opening sentence of the
+  dive so the claim is not stated a third time; it now flows from the heading and flags that
+  summing to one is the obvious property but maybe not the reason. harness 10/10.
+- v73: author ("for the caption, it is wrong and we will just fix it. No reason to carry the
+  mistake. Just cut this out: They sum to 1 everywhere, so"). Cut the sum-to-one non-sequitur
+  from the cvBasis caption; capitalized the now-leading "Any". Caption is now: "...the other
+  eight to 0.  Any biquadratic surface is a weighted stack of these nine fixed shapes." The
+  claim stands (still the hook the dive heading quotes) but the false "sum to 1, so" reasoning
+  is gone. harness 10/10.
+- v74: author ("Before we get into the animation, I want a little 'paint' panel. You can draw
+  lines and bezier curves. You select which with button at the top. behave just like the paint
+  application"). Added cvPaint: a free-draw panel inserted in the 1D dive, after the posing
+  paragraph and before the cvBez animation. Top toolbar (Tool: Line | Curve, then Undo | Clear);
+  selected tool highlighted amber. Canvas uses Pointer Events (mouse+touch+pen), touch-action
+  none, crosshair cursor. Line tool: press-drag-release. Curve tool is a quadratic Bezier with
+  the MS-Paint-style two-stage interaction - drag to set the two endpoints (chord), then move
+  and click to place the single control point that bends it; live amber preview with dashed
+  handles and a mint control dot during the bend, committed strokes drawn white. State machine:
+  dragging (stage A) / pending+bending (stage B), so the stage-A release sets pending without
+  committing and only the stage-B press+release commits. shapes[] persists in closure and is
+  redrawn on each note open (innerHTML is recreated each open, so listeners are re-attached via
+  an _openNotes patch + per-element _pInit guard). No AnimBtnBar/RAF (not a stepped animation).
+  Verified by simulating pointer events in node: line and two-stage curve commit with correct
+  coords, Undo/Clear work, 0 runtime errors. harness 10/10.
+- v75: author ("have the endpoints of the lines and curves snap to a grid"). Added a 20px snap
+  grid to cvPaint: faint dots drawn behind the strokes at every grid intersection, and snap()
+  (round-to-nearest-GRID, clamped to the canvas) applied to the line/curve ENDPOINTS only -
+  start snaps on pointerdown, end snaps on drag/up. The quadratic control point is left free so
+  the curve can still bend smoothly. Hint updated ("Endpoints snap to the grid; the control
+  point moves freely"). Re-ran the pointer simulation: endpoints land on grid multiples
+  ([20,20]/[200,160], [60,300]/[400,300]), control free ([225,100]), 0 errors. harness 10/10.
+- v76: author, after I gave an honest critique of the paint app (the two-stage curve was a
+  hidden mode, bad on touch, and committed curves hid their control structure), chose the
+  teaching version ("let do the control handles"). Rebuilt cvPaint as a Bezier sandbox:
+  (1) curve creation is now a single drag - on release the quadratic is created immediately
+  with the control point auto-bowed perpendicular to the chord (ctrlInit, min(0.3*len,60)),
+  so it reads as a curve and there is no click-to-commit mode; (2) every committed shape now
+  shows draggable handles - amber endpoints (snap to grid) and, for curves, a mint control
+  point (free, clamped to canvas) plus a faint dashed control polygon a-c-b; (3) pointerdown
+  hit-tests handles within GRAB=11px (findHandle, topmost first) - hit a handle to edit it,
+  press empty space to draw a new shape with the current tool; (4) hover affordance highlights
+  the handle under the cursor and sets the cursor. Removed the pending/bending two-stage state
+  entirely. Line/Curve buttons now choose only what NEW empty-canvas drags create. Hint + intro
+  updated. Verified by node pointer simulation: single-drag curve auto-bows, control drags free,
+  endpoint drags snap, empty-space press starts a new shape, 0 errors. harness 10/10.
+- v77: author ("when I switch to curve the handles on the lines should disappear and vice
+  versa; they come back when I switch back"). Gated handle visibility AND hit-testing by the
+  current tool: drawHandles is only called for shapes whose type===tool, and findHandle skips
+  shapes whose type!==tool (so a hidden handle cannot be grabbed - pressing there starts a new
+  shape instead). _paintTool also clears hover. Strokes themselves always render; only the
+  handles/control-polygon toggle with the tool. Verified by simulation: tool=curve ignores line
+  endpoints (press makes a new curve) but edits curve handles; tool=line edits line endpoints
+  and ignores the curve control; 0 errors. harness 10/10.
+- v78: author ("make the draw area as tall as the other animations"). cvPaint canvas height
+  360 -> 420, matching cvBez/cvBasis (420) and a clean multiple of the 20px grid (430 would
+  not be). Grid, snap clamp, and empty-state hint all read cv.height, so they adapt automatically.
+  harness 10/10.
+- v79: author ("the font in the notes is just too small" - clarified it was not actually a
+  resize/scaling bug, the .notes-body text was simply small). Raised .notes-body font-size
+  14px -> 16px (mono). This enlarges the reading paragraphs and the h4 headings (1.0em). The
+  per-figure inline captions (font-size:13px) and formula divs (15px) have their own inline
+  sizes and were left unchanged. harness 10/10.
+- v80: author ("same problem with the caption font; also the caption needs to be put in a
+  border with the animation... they need to look like they are part of it. This should be in
+  the AI notes or the attached general notes"). (1) Caption font: the 5 canvas figure captions
+  in this note (cvBasis, cvCombo, cvFillet, cvPaint, cvBez) were 13px inline; converted them to
+  a new .anim-cap class at 15px. (2) Attachment: .anim-cap is a bordered footer (border, no top
+  border, rounded only at the shared bottom, --s2 background) and a CSS rule
+  ".notes-body canvas:has(+ .anim-cap), .notes-body div:has(+ .anim-cap)" squares the bottom
+  corners and zeroes the bottom margin of whatever element sits directly above the caption
+  (control bar or canvas), so canvas+controls+caption read as one card. Uses :has (Chrome ok;
+  graceful fallback elsewhere). (3) Recorded as a standing rule: added rule 26 CAPTIONS ARE PART
+  OF THE FIGURE to the embedded UNIVERSAL AI RULES block (bumped v4 -> v5) AND to the canonical
+  ai_teaching_artifact_rules.md (now v5, delivered alongside). harness 10/10.
 
 
 SESSION 9 (May 2026) — minor edits
@@ -827,10 +1103,10 @@ EQUATION LAYOUT:
 
 
 ══════════════════════════════════════════════════════════════════════════════
-UNIVERSAL AI RULES (v4)
+UNIVERSAL AI RULES (v5)
 ══════════════════════════════════════════════════════════════════════════════
 
-Verbatim sync from the canonical ai_teaching_artifact_rules.md (v4). This is
+Verbatim sync from the canonical ai_teaching_artifact_rules.md (v5). This is
 the shared rule set across the GPU computing lecture series. The DOCUMENT
 PHILOSOPHY section below is the document-specific elaboration and is never
 overwritten during sync. [Editorial note: the canonical v4 file has a
@@ -853,6 +1129,11 @@ Visual standards
      for prose.
   8. ANIMATION SPACING. Every canvas and its control bar must have visible
      whitespace above and below separating it from prose.
+  26. CAPTIONS ARE PART OF THE FIGURE. An animation's caption is a bordered
+     footer of its card (same border, flush, no gap, rounded only at the shared
+     bottom edge), rather than a floating line of text below it. Caption text is
+     at least 15px. Implemented with the .anim-cap class plus a
+     :has(+ .anim-cap) rule that squares the bottom of the element above it.
 
 Interactive controls
   9. BUTTON SELECTED COLOR IS AMBER. Selected/active state uses --amber, not
@@ -1558,7 +1839,7 @@ a:hover { text-decoration: underline; }
 
 .notes-body {
   flex:1; overflow-y:auto; padding:18px 20px;
-  font-family:var(--mono); font-size:14px;
+  font-family:var(--mono); font-size:16px;
   line-height:1.7; color:var(--fg2);
 }
 .notes-body h4 {
@@ -1599,6 +1880,19 @@ a:hover { text-decoration: underline; }
 }
 .notes-body canvas { margin-top:20px; }
 .notes-body div[style*="border-radius:0 0 4px 4px"] { margin-bottom:20px; }
+/* a figure caption attached to its animation as a bordered footer (rule 26) */
+.notes-body .anim-cap {
+  border:1px solid var(--b1); border-top:none; border-radius:0 0 4px 4px;
+  background:var(--s2); color:var(--fg3);
+  font-size:15px; line-height:1.6; text-align:left;
+  padding:10px 14px; margin:0 0 22px;
+}
+.notes-body canvas:has(+ .anim-cap),
+.notes-body div:has(+ .anim-cap) {
+  border-bottom-left-radius:0 !important;
+  border-bottom-right-radius:0 !important;
+  margin-bottom:0 !important;
+}
 button:disabled { opacity:0.35; cursor:default !important; }
 .anim-btn{padding:3px 12px;border:1px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:500 13px var(--mono);}
 .anim-btn:hover{background:var(--s4);}
@@ -3327,7 +3621,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<p>The surface above is a biquadratic B&eacute;zier patch.&ensp; <i>Biquadratic</i> means a second-order polynomial in two variables.&ensp; It is the weighted blend of the nine control points, with the degree-2 Bernstein polynomials as the weights.&ensp; Everything below unpacks that one formula and shows where it sits in the wider world of approximation, quadrature, and splines.</p>' +
         '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">S(u,v) = &Sigma;<sub>i</sub> &Sigma;<sub>j</sub> B<sub>i</sub>(u) B<sub>j</sub>(v) P<sub>ij</sub><br>B<sub>0</sub>(t) = (1-t)<sup>2</sup>,&ensp;&ensp; B<sub>1</sub>(t) = 2(1-t)t,&ensp;&ensp; B<sub>2</sub>(t) = t<sup>2</sup></div>' +
         '<canvas id="cvBasis" width="700" height="420" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
-        '<div style="text-align:left;color:var(--fg3);font-size:13px;margin:8px 0 4px;line-height:1.5">The nine basis surfaces z = B<sub>i</sub>(u)&middot;B<sub>j</sub>(v) &ndash; each is one control point acting alone, its height set to 1 and the other eight to 0.&ensp; They sum to 1 everywhere, so any biquadratic surface is a weighted stack of these nine fixed shapes.</div>' +
+        '<div class="anim-cap">The nine basis surfaces z = B<sub>i</sub>(u)&middot;B<sub>j</sub>(v) &ndash; each is one control point acting alone, its height set to 1 and the other eight to 0.&ensp; Any biquadratic surface is a weighted stack of these nine fixed shapes.</div>' +
         '<canvas id="cvCombo" width="700" height="430" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
         '<button id="btnComboPlay" onclick="window._comboPlay()" class="anim-btn">&#9654; Play</button>' +
@@ -3339,9 +3633,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<button id="cSpd1" onclick="window._comboSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
         '<button id="cSpd2" onclick="window._comboSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
         '</div>' +
-        '<div style="text-align:left;color:var(--fg3);font-size:13px;margin:8px 0 4px;line-height:1.5">Any surface is built the same way: choose a few basis shapes, scale each by a weight, and add them.&ensp; Here three of the nine are weighted and summed, the first two then the third, to rebuild the surface shown at the top.</div>' +
+        '<div class="anim-cap">Any surface is built the same way: choose a few basis shapes, scale each by a weight, and add them.&ensp; Here three of the nine are weighted and summed, the first two then the third, to rebuild the surface shown at the top.</div>' +
         '<h4>What the patch is for: rounding an edge</h4>' +
-        '<p>One of the oldest uses of these patches is the CAD fillet.&ensp; Two flat faces meet at a sharp edge, and a quadratic patch rounds that edge into a smooth blend.&ensp; Watch the sharp corner become the surface\'s single row of control points, then watch the surface pull toward them.</p>' +
+        '<p>One of the oldest uses of these patches is the CAD fillet.&ensp; Two flat faces meet at a sharp edge, and a quadratic patch rounds that edge into a smooth blend.&ensp; Watch the patch\'s nine control points appear, then watch the surface pull toward them.</p>' +
         '<canvas id="cvFillet" width="700" height="430" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
         '<button id="btnFilletPlay" onclick="window._filletPlay()" class="anim-btn">&#9654; Play</button>' +
@@ -3353,7 +3647,33 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<button id="fSpd1" onclick="window._filletSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
         '<button id="fSpd2" onclick="window._filletSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
         '</div>' +
-        '<div style="text-align:left;color:var(--fg3);font-size:13px;margin:8px 0 4px;line-height:1.5">Each face rises at 45&deg;, so they meet at a 90&deg; ridge.&ensp; The whole sharp edge is one row of control points (amber) sitting above the surface.&ensp; The biquadratic patch blends toward those points without reaching them, so the edge rounds off and the curve meets each face tangentially &ndash; a smooth join with no crease.&ensp; The last steps set the smooth patch beside a fixed triangulation of the same fillet and zoom in: the patch stays smooth, the triangulation shows facets and chords the curve.</div>' +
+        '<div class="anim-cap">Each face rises at 67.5&deg;, so they meet at a sharp 45&deg; ridge.&ensp; The patch is defined by a 3&times;3 net of nine control points (amber), the middle column raised above the surface.&ensp; The biquadratic patch blends toward those points without reaching them, so the edge rounds off into a smooth blend.&ensp; The smooth fillet is then set beside a triangulation of the same shape, which assembles from flying triangles; the two finally slide together so the smooth patch overlays the faceted mesh, then a head-on zoom reveals the gap between them &ndash; the triangulation\'s error.</div>' +
+        '<h4>"Any biquadratic surface is a weighted stack of these nine fixed shapes."&ensp; What?</h4>' +
+        '<p>It is worth asking why that should hold.&ensp; To begin answering this question, move one dimension down, where the patch becomes a curve and the nine shapes become three.</p>' +
+        '<p>Here is a small panel to draw on first.&ensp; Pick a tool at the top, then sketch a few straight lines and curves and drag their points to reshape them.&ensp; The Curve tool is a quadratic B&eacute;zier: two ends and a single control point that bends the line between them.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-bottom:none;border-radius:4px 4px 0 0;align-items:center;margin-top:18px;">' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Tool:</span>' +
+        '<button id="pntLine" onclick="window._paintTool(\'line\')" style="padding:2px 10px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">Line</button>' +
+        '<button id="pntCurve" onclick="window._paintTool(\'curve\')" style="padding:2px 10px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">Curve</button>' +
+        '<span style="width:12px"></span>' +
+        '<button onclick="window._paintUndo()" class="anim-btn">Undo</button>' +
+        '<button onclick="window._paintClear()" class="anim-btn">Clear</button>' +
+        '</div>' +
+        '<canvas id="cvPaint" width="700" height="420" style="width:100%;border-radius:0 0 4px 4px;background:var(--s1);display:block;border:1px solid var(--b1);border-top:none;touch-action:none;cursor:crosshair"></canvas>' +
+        '<div class="anim-cap">Drag on an empty spot to draw with the selected tool.&ensp; Then drag any handle to reshape it: the amber endpoints snap to the grid, and the mint control point bends the curve through it.&ensp; Undo removes the last stroke; Clear empties the panel.</div>' +
+        '<p>A quadratic B&eacute;zier curve is built from three control points P<sub>0</sub>, P<sub>1</sub>, P<sub>2</sub>.&ensp; The two ends sit on the curve; the middle point does not &ndash; it only pulls the curve toward itself.&ensp; The construction is linear interpolation done twice: slide a point along the leg P<sub>0</sub>P<sub>1</sub> and another along the leg P<sub>1</sub>P<sub>2</sub> by the same fraction t, then slide between those two by t again.&ensp; Writing that nested blend out gives the three weights B<sub>0</sub>(t), B<sub>1</sub>(t), B<sub>2</sub>(t), one multiplying each control point.</p>' +
+        '<canvas id="cvBez" width="700" height="420" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnBezPlay" onclick="window._bezPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnBezStep" onclick="window._bezStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._bezReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="bSpd0" onclick="window._bezSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="bSpd1" onclick="window._bezSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="bSpd2" onclick="window._bezSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div class="anim-cap">The three control points set the curve; the middle one stays off it.&ensp; At each t, two nested interpolations (mint) land on the curve point.&ensp; The same point is B<sub>0</sub>(t)P<sub>0</sub> + B<sub>1</sub>(t)P<sub>1</sub> + B<sub>2</sub>(t)P<sub>2</sub> &ndash; a weighted sum whose three weights are fixed functions of t, plotted at right and colored to match each point.&ensp; Only the control points change from one curve to the next; the three basis functions never do.</div>' +
         '<h4>Why nine control points</h4>' +
         '<p>A quadratic <em>curve</em> needs three control points.&ensp; Degree two means a polynomial with three coefficients (a&middot;t<sup>2</sup> + b&middot;t + c), so three knobs; the degree-2 Bernstein basis has exactly three terms, one per control point.&ensp; Three points are the minimum to fix a parabola, just as two fix a line.</p>' +
         '<p>A <em>patch</em> is the surface version, addressed by two parameters u and v instead of one.&ensp; Making it quadratic in both directions is a tensor product &ndash; a quadratic in u times a quadratic in v &ndash; so the basis is three terms times three terms, giving 3 &times; 3 = 9 control points in a grid.&ensp; Read it as three rows, each a quadratic curve of three control points, with those three curves themselves blended quadratically as v moves.</p>' +
@@ -9115,21 +9435,26 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
           ctx.fillText(m.toFixed(1)+' \u00b7 B'+sub[ij[0]]+'B'+sub[ij[1]], cx[k], oyTop+86);ctx.restore();
         }
       } else if(ph===5){
-        // ph===5: fly the first two basis together and add them into their sum
-        var mergeX=235, q=sstep(Math.min(1,p/0.65)), aInd=1-sstep(Math.max(0,(p-0.45)/0.3)), aSum=sstep(Math.max(0,(p-0.5)/0.35)), aIndL=1-sstep(Math.min(1,p/0.4));
+        // ph===5: the first two pieces slide together and a + joins them; the surfaces cross-fade into their sum
+        var mergeX=235, q=sstep(Math.min(1,p/0.65)), aInd=1-sstep(Math.max(0,(p-0.45)/0.3)), aSum=sstep(Math.max(0,(p-0.5)/0.35));
         var x0=W/6+(mergeX-W/6)*q, x1=W/2+(mergeX-W/2)*q;
-        ctx.textAlign='center';
         if(aInd>0.02){
           drawSurf(ctx,x0,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v);},aInd);
           drawSurf(ctx,x1,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[1]*bval(IJ[1],u,v);},aInd);
-          ctx.save();ctx.globalAlpha=aIndL;ctx.fillStyle='#ffffff';ctx.font=FNT;
-          ctx.fillText(lbl(0),x0,oyTop+86);ctx.fillText(lbl(1),x1,oyTop+86);ctx.restore();
         }
         if(aSum>0.02){
           drawSurf(ctx,mergeX,oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[0]*bval(IJ[0],u,v)+COEF[1]*bval(IJ[1],u,v);},aSum);
-          ctx.save();ctx.globalAlpha=aSum;ctx.fillStyle='#ffffff';ctx.font=FNT;
-          ctx.fillText(lbl(0)+' + '+lbl(1),mergeX,oyTop+86);ctx.restore();
         }
+        // both term labels stay at full opacity and slide together; a + fades in between them
+        ctx.save();ctx.font=FNT;ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.globalAlpha=1;
+        var t0=lbl(0), t1=lbl(1), w0=ctx.measureText(t0).width, w1=ctx.measureText(t1).width, pw5=ctx.measureText(' + ').width, fullW5=w0+pw5+w1;
+        var t0Cx=W/6+((mergeX-fullW5/2+w0/2)-W/6)*q, t1Cx=W/2+((mergeX+fullW5/2-w1/2)-W/2)*q;
+        ctx.fillText(t0,t0Cx,oyTop+86);
+        ctx.fillText(t1,t1Cx,oyTop+86);
+        var plus5=sstep(Math.max(0,(q-0.5)/0.5));
+        if(plus5>0.02){ ctx.globalAlpha=plus5;ctx.fillText('+',(t0Cx+w0/2+t1Cx-w1/2)/2,oyTop+86); }
+        ctx.restore();
+        // the third basis stays put as a reference, with its label
         drawSurf(ctx,cx[2],oyTop,sc,1.1,ang,tilt,function(u,v){return COEF[2]*bval(IJ[2],u,v);},1);
         ctx.save();ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font=FNT;
         ctx.fillText(lbl(2),cx[2],oyTop+86);ctx.restore();
@@ -9201,16 +9526,290 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   };
 })();
 
-// ============ CVFILLET: a CAD fillet - two 45-degree planes rounded by a biquadratic ============
+// ============ CVBEZ: 1D quadratic Bezier - de Casteljau + the three fixed Bernstein basis functions ============
+(function(){
+  var rafB=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
+  function sstep(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
+  function B2(t){var s=1-t;return [s*s,2*s*t,t*t];}
+  function lerp2(a,b,t){return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
+  var P0=[100,330], P1=[265,100], P2=[430,330];          // control points (left panel, canvas coords)
+  var COL=['#6aa6ff','#e8a832','#62c46b'];               // one colour per control point, reused for its basis function
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  function bez(t){var b=B2(t);return [b[0]*P0[0]+b[1]*P1[0]+b[2]*P2[0], b[0]*P0[1]+b[1]*P1[1]+b[2]*P2[1]];}
+  // basis plot region (right panel): t left-to-right, value 0 at PYB, value 1 at PYT
+  var PX0=486, PX1=662, PYB=330, PYT=104;
+  function px(t){return PX0+(PX1-PX0)*t;}
+  function py(v){return PYB-(PYB-PYT)*v;}
+
+  var DUR=[0,2600,1400,2600];
+  var STEP=['Three control points set a quadratic curve.',
+            'Each point: linear interpolation, applied twice.',
+            'Three fixed basis functions, one per control point.',
+            'Every point is a weighted sum of the three points.'];
+
+  function dot(ctx,p,r,fill){ ctx.beginPath();ctx.arc(p[0],p[1],r,0,7);ctx.fillStyle=fill;ctx.fill(); }
+  function drawPoly(ctx){
+    ctx.save();ctx.setLineDash([5,5]);ctx.strokeStyle='rgba(255,255,255,0.30)';ctx.lineWidth=1.2;
+    ctx.beginPath();ctx.moveTo(P0[0],P0[1]);ctx.lineTo(P1[0],P1[1]);ctx.lineTo(P2[0],P2[1]);ctx.stroke();ctx.restore();
+    var pts=[P0,P1,P2], nm=['P\u2080','P\u2081','P\u2082'], off=[[-16,5],[0,-14],[16,5]];
+    for(var i=0;i<3;i++){ dot(ctx,pts[i],5,COL[i]);
+      ctx.fillStyle='#ffffff';ctx.font='13px '+FN;ctx.textAlign='center';
+      ctx.fillText(nm[i], pts[i][0]+off[i][0], pts[i][1]+off[i][1]); }
+  }
+  function drawCurve(ctx,t0,t1){
+    ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=2.2;ctx.beginPath();
+    var N=80,i,q; for(i=0;i<=N;i++){ q=bez(t0+(t1-t0)*i/N); if(i===0)ctx.moveTo(q[0],q[1]); else ctx.lineTo(q[0],q[1]); }
+    ctx.stroke();ctx.restore();
+  }
+  function drawBasis(ctx,alpha,tMark){
+    if(alpha<=0.01) return;
+    ctx.save();ctx.globalAlpha=alpha;
+    ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(PX0,PYB);ctx.lineTo(PX1,PYB);ctx.stroke();
+    ctx.save();ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(PX0,PYT);ctx.lineTo(PX1,PYT);ctx.stroke();ctx.restore();
+    ctx.fillStyle='#ffffff';ctx.font='11px '+FN;
+    ctx.textAlign='right';ctx.fillText('1', PX0-6, PYT+4);ctx.fillText('0', PX0-6, PYB+4);
+    ctx.textAlign='center';ctx.fillText('t', (PX0+PX1)/2, PYB+19);ctx.fillText('0', PX0, PYB+19);ctx.fillText('1', PX1, PYB+19);
+    var lbl=['B\u2080','B\u2081','B\u2082'], tp=[0,0.5,1], lox=[14,0,-14], k,i,t,v;
+    for(k=0;k<3;k++){
+      ctx.strokeStyle=COL[k];ctx.lineWidth=2;ctx.beginPath();
+      for(i=0;i<=60;i++){ t=i/60; v=B2(t)[k]; if(i===0)ctx.moveTo(px(t),py(v)); else ctx.lineTo(px(t),py(v)); }
+      ctx.stroke();
+      ctx.fillStyle=COL[k];ctx.font='12px '+FN;ctx.textAlign='center';
+      ctx.fillText(lbl[k], px(tp[k])+lox[k], py(B2(tp[k])[k])-8);
+    }
+    if(tMark>=0){
+      ctx.save();ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(px(tMark),PYT);ctx.lineTo(px(tMark),PYB);ctx.stroke();ctx.restore();
+      var b=B2(tMark);
+      for(k=0;k<3;k++){ dot(ctx,[px(tMark),py(b[k])],4,COL[k]); }
+    }
+    ctx.restore();
+  }
+  function drawReadout(ctx,t){
+    var b=B2(t);
+    ctx.save();ctx.textAlign='center';
+    ctx.fillStyle='#ffffff';ctx.font='14px '+FN;
+    ctx.fillText('P(t) = '+b[0].toFixed(2)+' P\u2080 + '+b[1].toFixed(2)+' P\u2081 + '+b[2].toFixed(2)+' P\u2082', 350, 30);
+    ctx.fillStyle='#dddddd';ctx.font='12px '+FN;
+    ctx.fillText('t = '+t.toFixed(2)+'      weights sum to '+(b[0]+b[1]+b[2]).toFixed(2), 350, 50);
+    ctx.restore();
+  }
+  function drawFrame(ph,p){
+    var cv=document.getElementById('cvBez');if(!cv) return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var pe=sstep(p);
+    drawPoly(ctx);
+    if(ph===1){
+      var t=pe;
+      drawCurve(ctx,0,t);
+      var A=lerp2(P0,P1,t), Bp=lerp2(P1,P2,t), C=lerp2(A,Bp,t);
+      ctx.save();ctx.strokeStyle='#3ce8b2';ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(Bp[0],Bp[1]);ctx.stroke();ctx.restore();
+      dot(ctx,A,4,'#3ce8b2');dot(ctx,Bp,4,'#3ce8b2');dot(ctx,C,5.5,'#ffffff');
+    } else if(ph>=2){
+      drawCurve(ctx,0,1);
+    }
+    if(ph===2){ drawBasis(ctx,pe,-1); }
+    else if(ph===3){ drawBasis(ctx,1,pe); dot(ctx,bez(pe),5.5,'#ffffff'); drawReadout(ctx,pe); }
+    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;
+    ctx.fillText(STEP[ph], W/2, H-16);ctx.restore();
+  }
+  function startStep(){ if(stage>=3) return; tween={ph:stage+1, t:0}; }
+  function frame(ts){
+    if(!lastTs) lastTs=ts;
+    var dt=ts-lastTs; lastTs=ts;
+    if(tween && (bezBar.mode==='playing'||bezBar.mode==='stepping')){
+      tween.t += dt/DUR[tween.ph]*spd;
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); bezBar.stepDone(); }
+      else drawFrame(tween.ph,tween.t);
+    } else if(tween){ drawFrame(tween.ph,tween.t); }
+    else { drawFrame(stage,1); }
+    rafB=requestAnimationFrame(frame);
+  }
+  var bezBar = new AnimBtnBar({
+    playId:'btnBezPlay', stepId:'btnBezStep',
+    speedIds:['bSpd0','bSpd1','bSpd2'],
+    isDone: function(){ return stage>=3 && !tween; },
+    onStep:  function(){ if(!tween) startStep(); },
+    onPlay:  function(){ if(!tween){ if(stage>=3) stage=0; startStep(); } },
+    onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(bezBar.mode==='playing') startStep(); }, 800/spd); }
+  });
+  window._bezPlay  = function(){ bezBar.play(); };
+  window._bezStep  = function(){ bezBar.step(); };
+  window._bezReset = function(){ bezBar.reset(); };
+  window._bezSpeed = function(mult, idx){ spd=mult; bezBar.selectSpeed(idx); };
+  var oOpenB=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenB(id,scroll);
+    if(id==='nv1Quadratics' && !rafB){ stage=0; tween=null; lastTs=0; bezBar.mode='idle'; bezBar.update(); rafB=requestAnimationFrame(frame); }
+  };
+  var oCloseB=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafB){cancelAnimationFrame(rafB);rafB=null;}
+    if(playTimer){clearTimeout(playTimer);playTimer=null;}
+    oCloseB();
+  };
+})();
+
+// ============ CVPAINT: a little Bezier sandbox - draw lines/quadratic curves, then drag the handles ============
+(function(){
+  var cv=null, ctx=null, tool='line', shapes=[];
+  var dragging=false;          // drawing a new shape
+  var A=[0,0], B=[0,0];        // new-shape endpoints while drawing
+  var editing=null;            // {i,key} handle being dragged
+  var hover=null;              // {i,key} handle under the cursor
+  var MIN=8, GRID=20, GRAB=11, FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  function pos(e){ var r=cv.getBoundingClientRect(); return [ (e.clientX-r.left)*(cv.width/r.width), (e.clientY-r.top)*(cv.height/r.height) ]; }
+  function clamp(v,lo,hi){ return v<lo?lo:(v>hi?hi:v); }
+  function snap(p){ return [ clamp(Math.round(p[0]/GRID)*GRID, 0, cv.width), clamp(Math.round(p[1]/GRID)*GRID, 0, cv.height) ]; }
+  function clampPt(p){ return [ clamp(p[0],0,cv.width), clamp(p[1],0,cv.height) ]; }
+  function len(a,b){ return Math.hypot(b[0]-a[0], b[1]-a[1]); }
+  function dot(p,r,col){ ctx.beginPath();ctx.arc(p[0],p[1],r,0,7);ctx.fillStyle=col;ctx.fill(); }
+  function keysOf(s){ return s.type==='curve' ? ['a','c','b'] : ['a','b']; }
+  function ctrlInit(a,b){   // control point for a freshly drawn curve: a modest perpendicular bow, so it reads as a curve
+    var dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy)||1, nx=-dy/L, ny=dx/L;
+    if(ny>0){ nx=-nx; ny=-ny; }                 // bow upward
+    var off=Math.min(0.3*L, 60);
+    return clampPt([ (a[0]+b[0])/2 + nx*off, (a[1]+b[1])/2 + ny*off ]);
+  }
+  function findHandle(p){
+    var best=null, bd=GRAB, i, k, ks, d;
+    for(i=shapes.length-1;i>=0;i--){ if(shapes[i].type!==tool) continue; ks=keysOf(shapes[i]);
+      for(k=0;k<ks.length;k++){ d=len(p, shapes[i][ks[k]]); if(d<=bd){ bd=d; best={i:i, key:ks[k]}; } }
+    }
+    return best;
+  }
+  function drawShape(s,col,lw){
+    ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();
+    if(s.type==='line'){ ctx.moveTo(s.a[0],s.a[1]);ctx.lineTo(s.b[0],s.b[1]); }
+    else { ctx.moveTo(s.a[0],s.a[1]);ctx.quadraticCurveTo(s.c[0],s.c[1],s.b[0],s.b[1]); }
+    ctx.stroke();
+  }
+  function drawHandles(s,i){
+    var active = (editing&&editing.i===i) || (hover&&hover.i===i), ks, k, key, pt, on, r;
+    if(s.type==='curve'){
+      ctx.save();ctx.setLineDash([4,4]);
+      ctx.strokeStyle = active ? 'rgba(232,168,50,0.85)' : 'rgba(232,168,50,0.40)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(s.a[0],s.a[1]);ctx.lineTo(s.c[0],s.c[1]);ctx.lineTo(s.b[0],s.b[1]);ctx.stroke();ctx.restore();
+    }
+    ks=keysOf(s);
+    for(k=0;k<ks.length;k++){ key=ks[k]; pt=s[key];
+      on = (editing&&editing.i===i&&editing.key===key) || (hover&&hover.i===i&&hover.key===key);
+      r = on?6:(key==='c'?5:4);
+      dot(pt, r, key==='c' ? '#3ce8b2' : '#e8a832');
+    }
+  }
+  function redraw(){
+    if(!ctx) return;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    var gx,gy,i;
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    for(gx=0; gx<=cv.width; gx+=GRID){ for(gy=0; gy<=cv.height; gy+=GRID){ ctx.fillRect(gx-0.6,gy-0.6,1.3,1.3); } }
+    for(i=0;i<shapes.length;i++) drawShape(shapes[i],'#ffffff',2.2);
+    for(i=0;i<shapes.length;i++){ if(shapes[i].type===tool) drawHandles(shapes[i], i); }
+    if(dragging){
+      ctx.save();ctx.strokeStyle='#e8a832';ctx.lineWidth=2;ctx.beginPath();
+      if(tool==='curve'){ var c=ctrlInit(A,B); ctx.moveTo(A[0],A[1]);ctx.quadraticCurveTo(c[0],c[1],B[0],B[1]); }
+      else { ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]); }
+      ctx.stroke();
+      dot(A,4,'#e8a832');dot(B,4,'#e8a832');
+      if(tool==='curve'){ dot(ctrlInit(A,B),5,'#3ce8b2'); }
+      ctx.restore();
+    }
+    if(shapes.length===0 && !dragging){
+      ctx.save();ctx.fillStyle='rgba(255,255,255,0.30)';ctx.textAlign='center';ctx.font='14px '+FN;
+      ctx.fillText('Pick a tool above, then drag on the canvas to draw', cv.width/2, cv.height/2);ctx.restore();
+    }
+  }
+  function onDown(e){
+    if(!ctx) return; e.preventDefault();
+    try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    var p=pos(e), h=findHandle(p);
+    if(h){ editing=h; hover=null; cv.style.cursor='grabbing'; redraw(); return; }
+    dragging=true; A=snap(p); B=[A[0],A[1]]; redraw();
+  }
+  function onMove(e){
+    if(!ctx) return;
+    var p=pos(e);
+    if(editing){ e.preventDefault();
+      var s=shapes[editing.i];
+      s[editing.key] = (editing.key==='c') ? clampPt(p) : snap(p);
+      redraw(); return;
+    }
+    if(dragging){ e.preventDefault(); B=snap(p); redraw(); return; }
+    var h=findHandle(p);
+    var changed = (!!h!==!!hover) || (h&&hover&&(h.i!==hover.i||h.key!==hover.key));
+    hover=h; cv.style.cursor = h ? 'pointer' : 'crosshair';
+    if(changed) redraw();
+  }
+  function onUp(e){
+    if(!ctx) return;
+    var p=pos(e);
+    try{ cv.releasePointerCapture(e.pointerId); }catch(_){}
+    if(editing){ editing=null; cv.style.cursor='crosshair'; redraw(); return; }
+    if(dragging){
+      dragging=false;
+      var end=snap(p);
+      if(len(A,end)>=MIN){
+        if(tool==='line') shapes.push({type:'line', a:[A[0],A[1]], b:end});
+        else shapes.push({type:'curve', a:[A[0],A[1]], c:ctrlInit(A,end), b:end});
+      }
+      redraw();
+    }
+  }
+  function setToolBtns(){
+    var L=document.getElementById('pntLine'), Cb=document.getElementById('pntCurve');
+    function on(b){ if(b){b.style.borderColor='var(--amber)';b.style.background='var(--amber)';b.style.color='#07070a';} }
+    function off(b){ if(b){b.style.borderColor='var(--b1)';b.style.background='var(--s3)';b.style.color='var(--fg)';} }
+    if(tool==='line'){ on(L);off(Cb); } else { off(L);on(Cb); }
+  }
+  window._paintTool=function(t){ tool=t; dragging=false; editing=null; hover=null; setToolBtns(); redraw(); };
+  window._paintUndo=function(){ shapes.pop(); dragging=false; editing=null; hover=null; redraw(); };
+  window._paintClear=function(){ shapes=[]; dragging=false; editing=null; hover=null; redraw(); };
+  function initPaint(){
+    cv=document.getElementById('cvPaint'); if(!cv) return;
+    if(cv._pInit) return; cv._pInit=true;
+    ctx=cv.getContext('2d');
+    dragging=false; editing=null; hover=null;
+    cv.addEventListener('pointerdown',onDown);
+    cv.addEventListener('pointermove',onMove);
+    cv.addEventListener('pointerup',onUp);
+    cv.addEventListener('pointercancel',function(){ dragging=false; editing=null; redraw(); });
+    setToolBtns();
+    redraw();
+  }
+  var oOpenP=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenP(id,scroll);
+    if(id==='nv1Quadratics'){ setTimeout(initPaint, 60); }
+  };
+})();
+
+// ============ CVFILLET: a CAD fillet - two planes rounded by a biquadratic (ridge angle = DIHEDRAL) ============
 (function(){
   var rafF=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
   function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
   function rotX(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];}
   function sstep(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
-  var SC=104, OX=350, OY=250, ZS=1.1, TILT=0.5, ZC=0.42, APEX=1;
-  function profSharp(u){return u<=0.5?2*u:2*(1-u);}   // two 45-deg planes meeting at a ridge (peak 1)
-  function profFillet(u){return 2*u*(1-u);}            // quadratic Bezier of heights [0,1,0] (peak .5)
+  var DIHEDRAL=45, H=1/Math.tan(DIHEDRAL/2*Math.PI/180);   // ridge dihedral angle (deg); < 90 makes it pointier. H = apex height.
+  var SC=90, OX=350, OY=196, ZS=1.1, TILT=0.5, ZC=H/2, APEX=H;
+  function profSharp(u){return H*(u<=0.5?2*u:2*(1-u));}   // two planes meeting at the ridge (peak H)
+  function profFillet(u){return H*2*u*(1-u);}             // quadratic Bezier of heights [0,H,0] (peak H/2)
   function prof(u,tau){return (1-tau)*profSharp(u)+tau*profFillet(u);}
+
+  function drawControlNet(ctx, proj, alpha){   // the 3x3 net: nine control points + dashed grid, middle column raised to APEX
+    if(alpha<=0.01) return;
+    var hz=[0,APEX,0]; function cp(i,j){return proj(-1+i,-1+j,hz[i]);}
+    ctx.save();ctx.globalAlpha=alpha;ctx.strokeStyle='#e8a832';ctx.lineWidth=1.4;ctx.setLineDash([5,4]);
+    for(var jj=0;jj<3;jj++){var r0=cp(0,jj),r1=cp(1,jj),r2=cp(2,jj);ctx.beginPath();ctx.moveTo(r0.x,r0.y);ctx.lineTo(r1.x,r1.y);ctx.lineTo(r2.x,r2.y);ctx.stroke();}
+    for(var ii=0;ii<3;ii++){var c0=cp(ii,0),c1=cp(ii,1),c2=cp(ii,2);ctx.beginPath();ctx.moveTo(c0.x,c0.y);ctx.lineTo(c1.x,c1.y);ctx.lineTo(c2.x,c2.y);ctx.stroke();}
+    ctx.setLineDash([]);ctx.fillStyle='#e8a832';
+    for(var pi=0;pi<3;pi++)for(var pj=0;pj<3;pj++){var cc=cp(pi,pj);ctx.beginPath();ctx.arc(cc.x,cc.y,3.4,0,Math.PI*2);ctx.fill();}
+    ctx.restore();
+  }
 
   function drawSurf(ctx,ox,oy,sc,zs,ang,tilt,zf,alpha){
     if(alpha<=0.01) return;
@@ -9237,12 +9836,11 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     ctx.restore();
   }
 
-  // ---- fixed-view comparison helpers (phases 4-6: not rotating, ~22-deg camera) ----
+  // ---- fixed-view comparison helpers (phase 5: not rotating, ~22-deg camera) ----
   var ANG_Y=0.384, ANG_X=0.384;   // azimuth and tilt of the fixed comparison view (22 deg)
-  var ANG_Y2=0.10, ANG_X2=0.18;   // phase 6 rotates toward this near-face-on profile so the chord gap reads head-on
-  var spinFreeze=0.7;             // azimuth captured the instant the spin stops (set on entering phase 4)
-  var FOC=[0,0,0.5];              // the fillet crease, used as the camera focus point
-  var SC4=70, cyT=198, SCZ=210, SCZ2=1300, SC2D=900, SC8=1900, NX=12, NY=12, cyZ=0.40;   // two-up; phase-5 zoom; phase-6 facet-reveal zoom; phase-7 flat-view zoom; phase-8 error-band close-up; dense grid; zoom centre (fraction of H)
+  var spinFreeze=0.7;             // azimuth captured the instant phase 2 begins; the fillet turns from here to ANG_Y and stops
+  var FOC=[0,0,H/2];              // the fillet crease (peak of the rounded profile), used as the camera focus point
+  var SC4=70, SC5=110, SC6=900, cyT=198, cyY6=150, NX=12, NY=12;   // two-up scale; centre-overlay scale; head-on zoom scale; two-up vertical centre; head-on vertical centre; dense triangulation grid
   function lerp(a,b,t){return a+(b-a)*t;}
   function lerpA(a,b,t){var d=Math.atan2(Math.sin(b-a),Math.cos(b-a));return a+d*t;}   // shortest-path angle lerp
   function camFor(F,tx,ty,sc,ang,tilt){   // origin so focus F lands at screen (tx,ty)
@@ -9283,19 +9881,66 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     ctx.restore();
   }
 
-  // phases: 0 two sharp planes; 1 reveal the control edge; 2 round into the fillet; 3 tangency;
-  //         4 same fillet two ways (biquadratic vs a fixed triangulation, static 22-deg view);
-  //         5 zoom the biquadratic (still smooth); 6 zoom the triangulation (faceted)
-  var DUR=[0,1400,2600,1800,1500,2000,2000,2400,1800];
-  var STEP=['Two flat planes meet at a sharp 45\u00b0 edge.',
-            'The whole sharp edge is one row of control points along the top.',
-            'The patch blends toward them, rounding the edge into a smooth fillet.',
-            'The fillet leaves each plane tangentially \u2013 a smooth join, no crease.',
-            'The same fillet two ways: biquadratic, and a triangulation.',
-            'Zoom into the biquadratic: still perfectly smooth.',
-            'Zoom in further: the mesh is actually faceted.',
-            'Flatten to the profile: the curve, and its interpolation.',
-            'Zoom in: the shaded band is the interpolation error.'];
+  function drawMeshAssemble(ctx,ox,oy,sc,ang,tilt,zf,nx,ny,prog){   // like drawMesh, but triangles fly in to assemble; some loom from the foreground and shrink back. Identical to drawMesh at prog=1.
+    var Pw=[],Ps=[],a,b;
+    for(a=0;a<=nx;a++){Pw.push([]);Ps.push([]);
+      for(b=0;b<=ny;b++){var u=a/nx,v=b/ny,x=-1+2*u,y=-1+2*v,z=zf(u,v)*ZS;
+        Pw[a].push([x,y,z]);
+        var q=rotX(rotY([x,y,z],ang),tilt);
+        Ps[a].push({x:ox+q[0]*sc, y:oy-q[2]*sc, z:q[1]});
+      }}
+    function sb(p,q){return [p[0]-q[0],p[1]-q[1],p[2]-q[2]];}
+    function cr(p,q){return [p[1]*q[2]-p[2]*q[1], p[2]*q[0]-p[0]*q[2], p[0]*q[1]-p[1]*q[0]];}
+    function nm(p){var L=Math.hypot(p[0],p[1],p[2])||1;return [p[0]/L,p[1]/L,p[2]/L];}
+    function rnd(s){var v=Math.sin(s)*43758.5453;return v-Math.floor(v);}
+    var Ld=nm([0.35,-0.4,0.85]), cells=[[[0,0],[1,0],[1,1]],[[0,0],[1,1],[0,1]]];
+    var tris=[];
+    for(a=0;a<nx;a++){for(b=0;b<ny;b++){
+      for(var c=0;c<2;c++){
+        var t=cells[c];
+        var w0=Pw[a+t[0][0]][b+t[0][1]],w1=Pw[a+t[1][0]][b+t[1][1]],w2=Pw[a+t[2][0]][b+t[2][1]];
+        var n=nm(cr(sb(w1,w0),sb(w2,w0))), lam=Math.abs(n[0]*Ld[0]+n[1]*Ld[1]+n[2]*Ld[2]);
+        var s0=Ps[a+t[0][0]][b+t[0][1]],s1=Ps[a+t[1][0]][b+t[1][1]],s2=Ps[a+t[2][0]][b+t[2][1]];
+        var seed=a*7.13+b*3.71+c*11.9, r1=rnd(seed), r2=rnd(seed+1.3), r3=rnd(seed+2.7), r4=rnd(seed+4.1), r5=rnd(seed+5.7), r6=rnd(seed+7.2);
+        var fg=r4<0.45, side=(r2<0.5?-1:1);                                  // ~half loom from the foreground; each enters from the left or right side
+        tris.push({s:[s0,s1,s2], lam:lam, delay:r1*0.5,
+          ofx0:side*(240+r3*220), ofy0:(r6-0.5)*260,                         // starts well off to the side (240-460px out) with vertical spread
+          startScale:fg?(3.0+r5*3.0):(0.85+r5*0.45)});                       // foreground starts 3-6x and shrinks back; others slide in near full size
+      }
+    }}
+    var drawn=[];
+    for(var i=0;i<tris.length;i++){var T=tris[i];
+      var tl=(prog-T.delay)/0.50; tl=tl<0?0:(tl>1?1:tl); tl=tl*tl*(3-2*tl);                 // staggered ease
+      if(tl<=0.001) continue;
+      var scl=T.startScale+(1-T.startScale)*tl;                                             // -> 1 (shrinks as it moves back if it started big)
+      var cx=(T.s[0].x+T.s[1].x+T.s[2].x)/3, cy=(T.s[0].y+T.s[1].y+T.s[2].y)/3;
+      var al=tl*2.0; al=al>1?1:al;
+      drawn.push({T:T, scl:scl, cx:cx, cy:cy, ofx:T.ofx0*(1-tl), ofy:T.ofy0*(1-tl), al:al});
+    }
+    drawn.sort(function(A,B){return A.scl-B.scl;});                                         // small first, so the big foreground triangles draw on top
+    ctx.save();
+    for(var k=0;k<drawn.length;k++){var D=drawn[k], Tr=D.T, sh=0.10+0.55*Tr.lam;
+      ctx.globalAlpha=D.al; ctx.fillStyle='rgba(232,168,50,'+sh.toFixed(3)+')';
+      ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=0.7;
+      ctx.beginPath();
+      for(var vi=0;vi<3;vi++){var vx=D.cx+(Tr.s[vi].x-D.cx)*D.scl+D.ofx, vy=D.cy+(Tr.s[vi].y-D.cy)*D.scl+D.ofy; if(vi===0)ctx.moveTo(vx,vy);else ctx.lineTo(vx,vy);}
+      ctx.closePath();ctx.fill();ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // phases: 0 two sharp planes; 1 reveal the 3x3 control net; 2 round into the fillet AND spin it to a
+  //         stop at the comparison orientation, then the net fades; 3 fly the fillet to its left slot;
+  //         4 triangles fly in and assemble the triangulation on the right;
+  //         5 the two fly together to the centre, the smooth patch ending on top of the triangulation;
+  //         6 zoom in and rotate head-on so the gap between smooth patch and facets reads as the error
+  var DUR=[0,1400,3000,1800,4500,2000,2400];
+  var STEP=['A sharp edge between two flat faces.',
+            'Nine control points define the patch.',
+            'A smooth quadratic fillet.',
+            'How well can flat triangles match it?',
+            'The same fillet, triangulated.',
+            'The smooth surface, over the triangulation.',
+            'The gap between them is the approximation error.'];
 
   function drawFrame(ph,p){
     var cv=document.getElementById('cvFillet');if(!cv){return;}
@@ -9303,99 +9948,82 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     var pe=sstep(p), now=performance.now(), k, yy, q, first;
     var filZf=function(u,v){return profFillet(u)-ZC;};
 
-    if(ph<4){
-      // ===== build the fillet (rotating single surface) =====
+    if(ph<2){
+      // ===== phases 0-1: two sharp planes (the 3x3 control net appears in phase 1), rotating freely =====
       var ang=now*0.0005;
-      var tau  = ph<2 ? 0 : (ph===2 ? pe : 1);
-      var edgeA= ph<1 ? 0 : (ph===1 ? pe : 1);
-      var legA = ph<3 ? 0 : pe;
-      function proj(x,y,zraw){var qq=rotX(rotY([x,y,(zraw-ZC)*ZS],ang),TILT);return {x:OX+qq[0]*SC, y:OY-qq[2]*SC, z:qq[1]};}
-
-      // the surface: two sharp planes (tau=0) morphing into the smooth fillet (tau=1)
-      drawSurf(ctx,OX,OY,SC,ZS,ang,TILT,function(u,v){return prof(u,tau)-ZC;},1);
-
-      // sharp-edge highlight on the surface ridge (fades out as the edge rounds)
-      var creaseA=(1-tau)*0.85;
+      var edgeA= ph<1 ? 0 : pe;                          // the control net fades in during phase 1
+      var proj=function(x,y,zraw){var qq=rotX(rotY([x,y,(zraw-ZC)*ZS],ang),TILT);return {x:OX+qq[0]*SC, y:OY-qq[2]*SC};};
+      drawSurf(ctx,OX,OY,SC,ZS,ang,TILT,function(u,v){return profSharp(u)-ZC;},1);
+      ctx.save();ctx.globalAlpha=0.85;ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=2;   // sharp-edge ridge highlight
+      ctx.beginPath();first=true;
+      for(yy=-1;yy<=1.0001;yy+=0.1){q=proj(0,yy,profSharp(0.5));if(first){ctx.moveTo(q.x,q.y);first=false;}else ctx.lineTo(q.x,q.y);}
+      ctx.stroke();ctx.restore();
+      drawControlNet(ctx, proj, edgeA);
+    } else if(ph===2){
+      // ===== phase 2: round the planes into the fillet AND keep turning at the SAME build rate (no speed-up)
+      //               until it reaches the comparison orientation and stops; the control net then fades =====
+      var elapsed=p*DUR[2], rotMs=Math.max(DUR[2]-900,1);                // DUR[2] is sized per-entry so the turn runs at 0.0005 rad/ms
+      var sAng=spinFreeze+0.0005*Math.min(elapsed,rotMs);                // same rate as phases 0-1, then stop on ANG_Y
+      var prog=Math.min(1,elapsed/rotMs);
+      var sTilt=TILT+(ANG_X-TILT)*prog;
+      var tau=sstep(Math.min(1,elapsed/Math.min(rotMs,1300)));           // round into the fillet over ~1300ms
+      var netA=1-sstep(Math.max(0,(elapsed-(rotMs+80))/700));            // control net fades AFTER the stop
+      var proj=function(x,y,zraw){var qq=rotX(rotY([x,y,(zraw-ZC)*ZS],sAng),sTilt);return {x:OX+qq[0]*SC, y:OY-qq[2]*SC};};
+      drawSurf(ctx,OX,OY,SC,ZS,sAng,sTilt,function(u,v){return prof(u,tau)-ZC;},1);
+      var creaseA=(1-tau)*0.85;                                          // sharp-edge highlight fades out as the edge rounds
       if(creaseA>0.02){
         ctx.save();ctx.globalAlpha=creaseA;ctx.strokeStyle='rgba(255,255,255,0.9)';ctx.lineWidth=2;
         ctx.beginPath();first=true;
         for(yy=-1;yy<=1.0001;yy+=0.1){q=proj(0,yy,prof(0.5,tau));if(first){ctx.moveTo(q.x,q.y);first=false;}else ctx.lineTo(q.x,q.y);}
         ctx.stroke();ctx.restore();
       }
-
-      // control edge: the top row of control points at x=0, z=APEX, running the whole length
-      if(edgeA>0.02){
-        ctx.save();ctx.globalAlpha=edgeA;
-        ctx.strokeStyle='#e8a832';ctx.lineWidth=2;ctx.setLineDash([6,5]);
-        ctx.beginPath();first=true;
-        for(yy=-1;yy<=1.0001;yy+=0.1){q=proj(0,yy,APEX);if(first){ctx.moveTo(q.x,q.y);first=false;}else ctx.lineTo(q.x,q.y);}
-        ctx.stroke();ctx.setLineDash([]);
-        ctx.fillStyle='#e8a832';
-        var dys=[-1,-0.5,0,0.5,1];
-        for(k=0;k<dys.length;k++){q=proj(0,dys[k],APEX);ctx.beginPath();ctx.arc(q.x,q.y,3.4,0,Math.PI*2);ctx.fill();}
-        ctx.restore();
-      }
-
-      // control-polygon legs at the centre slice: the two planes in profile (the Bezier is tangent to these)
-      if(legA>0.02){
-        ctx.save();ctx.globalAlpha=legA;ctx.strokeStyle='#e8a832';ctx.lineWidth=1.6;ctx.setLineDash([4,4]);
-        var L0=proj(-1,0,0),L1=proj(0,0,APEX),L2=proj(1,0,0);
-        ctx.beginPath();ctx.moveTo(L0.x,L0.y);ctx.lineTo(L1.x,L1.y);ctx.lineTo(L2.x,L2.y);ctx.stroke();ctx.setLineDash([]);
-        ctx.restore();
-      }
+      drawControlNet(ctx, proj, netA);
     } else {
       // ===== fixed 22-deg comparison: biquadratic (left) vs a fixed triangulation (right), then zoom =====
-      if(ph===4){   // dissolve the frozen single fillet out as the static pair fades in
-        drawSurf(ctx,OX,OY,SC,ZS,spinFreeze,TILT,filZf,1-pe);
-      }
-      var lx,ly,lsc,la, rx,ry,rsc,ra, refA=0, interpA=0, ay, ax;
-      if(ph===4){
-        lx=W*0.27; ly=cyT; lsc=SC4; la=pe;
-        rx=W*0.73; ry=cyT; rsc=SC4; ra=pe;
-        ay=ANG_Y; ax=ANG_X;
+      if(ph===3){
+        // the finished fillet flies from centre to its left slot; the right stays empty until the next step
+        var c3L=camFor(FOC,W*0.27,cyT,SC4,ANG_Y,ANG_X);
+        var lox=OX+(c3L.ox-OX)*pe, loy=OY+(c3L.oy-OY)*pe, lsc=SC+(SC4-SC)*pe;
+        drawSurf(ctx,lox,loy,lsc,ZS,ANG_Y,ANG_X,filZf,1);                // the single fillet flies to the left slot (stays solid)
+      } else if(ph===4){
+        // the left fillet holds; a bunch of triangles fly in on the right and assemble the same fillet
+        var c4L=camFor(FOC,W*0.27,cyT,SC4,ANG_Y,ANG_X), c4R=camFor(FOC,W*0.73,cyT,SC4,ANG_Y,ANG_X);
+        drawSurf(ctx,c4L.ox,c4L.oy,SC4,ZS,ANG_Y,ANG_X,filZf,1);
+        drawMeshAssemble(ctx,c4R.ox,c4R.oy,SC4,ANG_Y,ANG_X,filZf,NX,NY,pe);
       } else if(ph===5){
-        lx=lerp(W*0.27,W/2,pe); ly=lerp(cyT,H*cyZ,pe); lsc=lerp(SC4,SCZ,pe); la=1;
-        rx=W*0.73; ry=cyT; rsc=SC4; ra=1-pe;
-        ay=ANG_Y; ax=ANG_X;
-      } else if(ph===6){   // zoom in FURTHER and rotate toward face-on while cross-fading to the triangulation
-        var zsc=lerp(SCZ,SCZ2,pe);
-        lx=W/2; ly=H*cyZ; lsc=zsc; la=1-pe;
-        rx=W/2; ry=H*cyZ; rsc=zsc; ra=pe; refA=pe;
-        ay=lerp(ANG_Y,ANG_Y2,pe); ax=lerp(ANG_X,ANG_X2,pe);
-      } else if(ph===7){   // rotate the rest of the way to a flat profile; the surface dissolves, leaving the curve and its interpolation
-        lx=W/2; ly=H*cyZ; lsc=SCZ2; la=0;
-        rx=W/2; ry=H*cyZ; rsc=lerp(SCZ2,SC2D,pe); refA=1; ra=1-pe; interpA=pe;
-        ay=lerp(ANG_Y2,0,pe); ax=lerp(ANG_X2,0,pe);
-      } else {             // ph>=8: zoom in on the flat curve until the error band is clearly visible
-        lx=W/2; ly=H*cyZ; lsc=SC8; la=0;
-        rx=W/2; ry=H*cyZ; rsc=lerp(SC2D,SC8,pe); refA=1; ra=0; interpA=1;
-        ay=0; ax=0;
-      }
-      var camL=camFor(FOC,lx,ly,lsc,ay,ax), camR=camFor(FOC,rx,ry,rsc,ay,ax);
-      function pPt(x,z){var qp=rotX(rotY([x,0,(z-ZC)*ZS],ay),ax);return {x:camR.ox+qp[0]*rsc, y:camR.oy-qp[2]*rsc};}
-      if(la>0.01) drawSurf(ctx,camL.ox,camL.oy,lsc,ZS,ay,ax,filZf,la);          // left: smooth biquadratic
-      if(ra>0.01) drawMesh(ctx,camR.ox,camR.oy,rsc,ay,ax,filZf,NX,NY,ra);       // right: dense triangulation
-      var spts=null;
-      if(interpA>0.02){ spts=[]; for(var si=0;si<=NX;si++){var su=si/NX; spts.push(pPt(-1+2*su, profFillet(su)));} }
-      if(interpA>0.02){   // the error band between the smooth curve and the piecewise-linear interpolation
-        ctx.save();ctx.globalAlpha=interpA;ctx.fillStyle='rgba(232,96,96,0.20)';
-        ctx.beginPath();first=true;
-        for(var gx=0;gx<=1.0001;gx+=0.01){var Pg=pPt(-1+2*gx, profFillet(gx)); if(first){ctx.moveTo(Pg.x,Pg.y);first=false;}else ctx.lineTo(Pg.x,Pg.y);}
-        for(var gi=NX;gi>=0;gi--){ctx.lineTo(spts[gi].x,spts[gi].y);}
-        ctx.closePath();ctx.fill();ctx.restore();
-      }
-      if(refA>0.02){   // the true smooth profile curve (blue, matching the biquadratic surface)
-        ctx.save();ctx.globalAlpha=refA;ctx.strokeStyle='#6aa6ff';ctx.lineWidth=2.4;
-        ctx.beginPath();first=true;
-        for(var xu=0;xu<=1.0001;xu+=0.01){var P2=pPt(-1+2*xu, profFillet(xu));if(first){ctx.moveTo(P2.x,P2.y);first=false;}else ctx.lineTo(P2.x,P2.y);}
-        ctx.stroke();ctx.restore();
-      }
-      if(interpA>0.02){   // the triangulation's straight-line interpolation between samples (amber) + the sample points
-        ctx.save();ctx.globalAlpha=interpA;ctx.strokeStyle='#e8a832';ctx.lineWidth=2;
-        ctx.beginPath();ctx.moveTo(spts[0].x,spts[0].y);for(var li=1;li<=NX;li++)ctx.lineTo(spts[li].x,spts[li].y);ctx.stroke();
-        ctx.fillStyle='#e8a832';
-        for(var di=0;di<=NX;di++){ctx.beginPath();ctx.arc(spts[di].x,spts[di].y,2.6,0,Math.PI*2);ctx.fill();}
-        ctx.restore();
+        // ===== phase 5: the two shapes fly together to the centre; the smooth patch ends on top of the triangulation =====
+        var scc=lerp(SC4,SC5,pe);
+        var cR5=camFor(FOC,lerp(W*0.73,W/2,pe),cyT,scc,ANG_Y,ANG_X);
+        drawMesh(ctx,cR5.ox,cR5.oy,scc,ANG_Y,ANG_X,filZf,NX,NY,1);              // triangulation underneath
+        var cL5=camFor(FOC,lerp(W*0.27,W/2,pe),cyT,scc,ANG_Y,ANG_X);
+        drawSurf(ctx,cL5.ox,cL5.oy,scc,ZS,ANG_Y,ANG_X,filZf,lerp(1,0.6,pe));    // the smooth patch flies on top, going part-translucent so the facets show through
+      } else {
+        // ===== phase 6 (final): rotate head-on and zoom. The 3D shapes go edge-on (degenerate), so they
+        //   flatten into their profile: the smooth quadratic stays visible as a curve, the mesh as its chords,
+        //   and the gap between them is the interpolation error =====
+        var ay6=lerp(ANG_Y,0,pe), ax6=lerp(ANG_X,0,pe);                         // rotate to a head-on profile view
+        var scc6=lerp(SC5,SC6,pe), cy6=lerp(cyT,cyY6,pe);                       // and zoom in
+        var c6=camFor(FOC,W/2,cy6,scc6,ay6,ax6);
+        function pPt(x,z){var qp=rotX(rotY([x,0,(z-ZC)*ZS],ay6),ax6);return {x:c6.ox+qp[0]*scc6, y:c6.oy-qp[2]*scc6};}
+        // no explicit fade needed: as the shapes rotate edge-on they collapse and vanish on their own
+        drawMesh(ctx,c6.ox,c6.oy,scc6,ay6,ax6,filZf,NX,NY,1);
+        drawSurf(ctx,c6.ox,c6.oy,scc6,ZS,ay6,ax6,filZf,0.6);
+        if(pe>0.02){                                                           // the flat profile fades in
+          var spts=[]; for(var si=0;si<=NX;si++){var su=si/NX; spts.push(pPt(-1+2*su, profFillet(su)));}
+          ctx.save();ctx.globalAlpha=pe;ctx.fillStyle='#ff1f1f';               // error band: the gap between the smooth curve and the chords
+          ctx.beginPath();first=true;
+          for(var gx=0;gx<=1.0001;gx+=0.01){var Pg=pPt(-1+2*gx, profFillet(gx)); if(first){ctx.moveTo(Pg.x,Pg.y);first=false;}else ctx.lineTo(Pg.x,Pg.y);}
+          for(var gi=NX;gi>=0;gi--){ctx.lineTo(spts[gi].x,spts[gi].y);}
+          ctx.closePath();ctx.fill();ctx.restore();
+          ctx.save();ctx.globalAlpha=pe;ctx.strokeStyle='#6aa6ff';ctx.lineWidth=2.4;   // the smooth quadratic profile (stays visible)
+          ctx.beginPath();first=true;
+          for(var xu=0;xu<=1.0001;xu+=0.01){var P2=pPt(-1+2*xu, profFillet(xu));if(first){ctx.moveTo(P2.x,P2.y);first=false;}else ctx.lineTo(P2.x,P2.y);}
+          ctx.stroke();ctx.restore();
+          ctx.save();ctx.globalAlpha=pe;ctx.strokeStyle='#e8a832';ctx.lineWidth=2;     // the triangulation's straight chords + sample points
+          ctx.beginPath();ctx.moveTo(spts[0].x,spts[0].y);for(var li=1;li<=NX;li++)ctx.lineTo(spts[li].x,spts[li].y);ctx.stroke();
+          ctx.fillStyle='#e8a832';for(var di=0;di<=NX;di++){ctx.beginPath();ctx.arc(spts[di].x,spts[di].y,2.6,0,Math.PI*2);ctx.fill();}
+          ctx.restore();
+        }
       }
     }
 
@@ -9406,7 +10034,11 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     ctx.fillText(STEP[ph],W/2,H-16);ctx.restore();
   }
 
-  function startStep(){ if(stage>=8) return; if(stage+1===4) spinFreeze=performance.now()*0.0005; tween={ph:stage+1, t:0}; }
+  function startStep(){ if(stage>=6) return;
+    if(stage+1===2){ spinFreeze=performance.now()*0.0005;
+      var Dn=(ANG_Y+Math.PI*Math.ceil((spinFreeze-ANG_Y)/Math.PI))-spinFreeze;  // forward turn to the first matching view (0..pi; fillet has 180-deg symmetry)
+      DUR[2]=Dn/0.0005+900; }                                                          // turn at the build rate, then net fade
+    tween={ph:stage+1, t:0}; }
   function frame(ts){
     if(!lastTs) lastTs=ts;
     var dt=ts-lastTs; lastTs=ts;
@@ -9421,9 +10053,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   var filletBar = new AnimBtnBar({
     playId:'btnFilletPlay', stepId:'btnFilletStep',
     speedIds:['fSpd0','fSpd1','fSpd2'],
-    isDone: function(){ return stage>=8 && !tween; },
+    isDone: function(){ return stage>=6 && !tween; },
     onStep:  function(){ if(!tween) startStep(); },
-    onPlay:  function(){ if(!tween){ if(stage>=8) stage=0; startStep(); } },
+    onPlay:  function(){ if(!tween){ if(stage>=6) stage=0; startStep(); } },
     onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
     onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
     onAdvance: function(){ playTimer=setTimeout(function(){ if(filletBar.mode==='playing') startStep(); }, 800/spd); }
