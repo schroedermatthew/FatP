@@ -192,13 +192,13 @@ The limit to know: the elementary functions (`sin`, `exp`, `sqrt`, …) call int
 
 ## Error Handling Model
 
-Jet does not throw and does not allocate, so its failure model is the floating-point one: out-of-range inputs produce NaN or infinity in the value, and those propagate. The rule for a caller is therefore short — check the value before you trust the gradient. A finite value means the gradient beside it is the real derivative; a NaN or infinite value means the point was outside the function's domain and the gradient is not to be relied on.
+Jet does not throw and does not allocate, so its failure model is the floating-point one: out-of-range inputs produce NaN or infinity in the value, and those propagate. The rule for a caller is therefore short — check the value before you trust the gradient. For finite, in-domain inputs a finite value means the gradient beside it is the propagated derivative; a NaN or infinite value means the point was outside the domain and the gradient is not to be relied on. One documented case runs the other way: `pow` on a non-positive base returns a correct value beside a NaN gradient, so where a function names a restriction, honor it before trusting the partials.
 
 Two boundary points are handled deliberately rather than left to raw `<cmath>` behavior. `sqrt` at exactly zero, where the true slope is infinite, returns a value of zero and a guarded derivative of zero rather than an infinity that would poison the rest of a gradient. `abs` at zero, where no derivative exists, returns zero as its subgradient. These are documented conventions, not accidents, and they keep a single awkward point from contaminating an otherwise finite gradient.
 
-> **Critical: trust the value, then the gradient.** At in-domain points the gradient is exact to rounding. At a domain edge, read `mValue` first. Outside the domain — `sqrt` or `log` of a negative argument, `asin`/`acos` past `±1` — the value and every partial are NaN, so a NaN value never sits beside a finite-looking gradient. At a boundary where the slope is genuinely unbounded, the value is infinite and so is the partial: `log` at 0 gives `-inf` with a `+inf` derivative. The guarded points are `sqrt` and `abs` at exactly 0, and `hypot` and `atan2` at the origin `(0, 0)`: where the slope is undefined, these return a finite 0 by convention rather than an infinity or a NaN.
+> **Critical: trust the value, then the gradient.** At in-domain points the gradient is exact to rounding. At a domain edge, read `mValue` first. Outside the domain — `sqrt` or `log` of a negative argument, `asin`/`acos` past `±1` — the value and every partial are NaN, so a NaN value never sits beside a finite-looking gradient. At a boundary where the slope is genuinely unbounded, the value is infinite and so is the partial: `log` at `+0.0` gives `-inf` with a `+inf` derivative (at signed `-0.0` the derivative is `-inf`, following IEEE). The guarded points are `sqrt` and `abs` at exactly 0, and `hypot` and `atan2` at the origin `(0, 0)`: where the slope is undefined, these return a finite 0 by convention rather than an infinity or a NaN.
 
-There is no debug-versus-release split in Jet's behavior. The one compile-time contract — that `N` is at least one — is enforced by a `requires` clause, so `Jet<0>` fails to compile regardless of build mode; `NDEBUG`, sanitizers, and optimization level do not change results.
+Jet's results do not depend on optimization level or sanitizers. The one compile-time contract — that `N` is at least one — is enforced by a `requires` clause, so `Jet<0>` fails to compile regardless of build mode. There is one deliberate debug/release split: the runtime `seed(value, k)` checks its precondition `k < N` with `assert` in debug builds and leaves it unchecked in release, matching the indexing policy of the standard containers; for a direction fixed at compile time, `seed<K>()` enforces `K < N` with no runtime check at all.
 
 ---
 
@@ -280,7 +280,7 @@ A computation heavier than expected is usually carrying directions it does not n
 
 ## API Reference
 
-`Jet<N>` — forward-mode AD scalar with `N >= 1` directions; aggregate over `double mValue` and `std::array<double, N> mPartials`; trivially copyable.
+`Jet<N>` — forward-mode AD scalar with `N >= 1` directions; a standard-layout, trivially copyable value type holding `double mValue` and `std::array<double, N> mPartials`.
 
 Construction:
 - `Jet()` — value zero, all partials zero.

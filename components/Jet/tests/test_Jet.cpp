@@ -28,6 +28,7 @@ FATP_META:
 #include <iostream>
 #include <limits>
 #include <random>
+#include <utility>
 #include <type_traits>
 
 #include "Jet.h"
@@ -622,6 +623,12 @@ FATP_TEST_CASE(out_of_domain_nan)
     Jet<1> tn = atan2(Jet<1>{std::numeric_limits<double>::quiet_NaN()}, Jet<1>::seed(1.0, 0));
     FATP_ASSERT_TRUE(std::isnan(tn.mValue), "atan2(NaN,.) value NaN");
     FATP_ASSERT_TRUE(std::isnan(tn.mPartials[0]), "atan2(NaN,.) gradient NaN");
+
+    // ...and symmetrically with the NaN in the second argument.
+    Jet<1> hn2 = hypot(Jet<1>::seed(1.0, 0), Jet<1>{std::numeric_limits<double>::quiet_NaN()});
+    FATP_ASSERT_TRUE(std::isnan(hn2.mValue) && std::isnan(hn2.mPartials[0]), "hypot(.,NaN) value and gradient NaN");
+    Jet<1> tn2 = atan2(Jet<1>::seed(1.0, 0), Jet<1>{std::numeric_limits<double>::quiet_NaN()});
+    FATP_ASSERT_TRUE(std::isnan(tn2.mValue) && std::isnan(tn2.mPartials[0]), "atan2(.,NaN) value and gradient NaN");
     return true;
 }
 
@@ -746,12 +753,16 @@ FATP_TEST_CASE(atan2_extreme_scale)
     // The derivative magnitude must survive inputs whose squares overflow or
     // underflow. With x == y == a, d/dy = 1/(2a) and d/dx = -1/(2a); a naive
     // x^2 + y^2 denominator collapses these to 0 for extreme a.
-    for (double a : {1.0e200, 1.0e-200, 1.0})
+    // Compare against 1/(2a) written as 0.5/a so the expected value itself does
+    // not overflow at a ~ DBL_MAX; the ratio keeps the check scale-invariant.
+    for (double a : {1.0, 1.0e200, 1.0e-200, 1.0e300, 1.0e307, 1.0e308,
+                     std::numeric_limits<double>::max() / 2.0})
     {
         Jet<2> r = atan2(Jet<2>::seed(a, 0), Jet<2>::seed(a, 1));
+        const double expDy = 0.5 / a; // 1/(2a) without forming 2a
         FATP_ASSERT_TRUE(std::isfinite(r.mPartials[0]), "atan2 extreme d/dy finite");
-        FATP_ASSERT_CLOSE_EPS(r.mPartials[0] * (2.0 * a), 1.0, 1e-9, "atan2 extreme d/dy = 1/(2a)");
-        FATP_ASSERT_CLOSE_EPS(r.mPartials[1] * (2.0 * a), -1.0, 1e-9, "atan2 extreme d/dx = -1/(2a)");
+        FATP_ASSERT_CLOSE_EPS(r.mPartials[0] / expDy, 1.0, 1e-9, "atan2 extreme d/dy = 1/(2a)");
+        FATP_ASSERT_CLOSE_EPS(r.mPartials[1] / (-expDy), 1.0, 1e-9, "atan2 extreme d/dx = -1/(2a)");
     }
     return true;
 }
@@ -880,6 +891,140 @@ FATP_TEST_CASE(scalar_function_overloads)
     FATP_ASSERT_CLOSE(pOne.mPartials[0], 0.0, "pow(1,exp) grad 0 (constant)");
     const Jet<1> pn = pow(-2.0, x);
     FATP_ASSERT_TRUE(std::isnan(pn.mPartials[0]), "pow(neg,Jet) gradient NaN (contract)");
+    // Zero base is non-positive too: gradient is NaN regardless of the exponent sign.
+    const Jet<1> pz0 = pow(0.0, Jet<1>::seed(2.0, 0));
+    const Jet<1> pzn = pow(0.0, Jet<1>::seed(-1.0, 0));
+    const Jet<1> pzz = pow(0.0, Jet<1>::seed(0.0, 0));
+    FATP_ASSERT_TRUE(std::isnan(pz0.mPartials[0]), "pow(0, exp>0) gradient NaN");
+    FATP_ASSERT_TRUE(std::isnan(pzn.mPartials[0]), "pow(0, exp<0) gradient NaN");
+    FATP_ASSERT_TRUE(std::isnan(pzz.mPartials[0]), "pow(0, exp=0) gradient NaN");
+    return true;
+}
+
+FATP_TEST_CASE(atan_large_argument)
+{
+    // Both branches: |x| <= 1 uses 1 + x^2; |x| > 1 uses 1/x to dodge overflow.
+    const Jet<1> at05 = atan(Jet<1>::seed(0.5, 0));
+    FATP_ASSERT_CLOSE(at05.mPartials[0], 1.0 / (1.0 + 0.25), "atan'(0.5)");
+    const Jet<1> at2 = atan(Jet<1>::seed(2.0, 0));
+    FATP_ASSERT_CLOSE(at2.mPartials[0], 1.0 / 5.0, "atan'(2)");
+    // For very large x, atan'(x) ~ 1/x^2 is a representable subnormal; x*x would
+    // overflow to inf and yield a spurious 0.
+    const double a = 1.0e155;
+    Jet<1> r = atan(Jet<1>::seed(a, 0));
+    const double expected = (1.0 / a) / a; // 1/a^2 without forming a*a
+    FATP_ASSERT_TRUE(std::isfinite(r.mPartials[0]) && r.mPartials[0] > 0.0, "atan'(1e155) finite positive");
+    FATP_ASSERT_CLOSE_EPS(r.mPartials[0] / expected, 1.0, 1e-6, "atan'(1e155) ~ 1/a^2");
+    return true;
+}
+
+FATP_TEST_CASE(hypot_extreme_scale)
+{
+    const double DMAX = std::numeric_limits<double>::max();
+    // The norm overflows to inf for a large finite pair, but the derivatives are
+    // x/||.|| and y/||.||, both O(1) and representable -- they must not collapse
+    // to 0 when h is inf.
+    Jet<2> r = hypot(Jet<2>::seed(DMAX, 0), Jet<2>::seed(DMAX, 1));
+    FATP_ASSERT_TRUE(std::isinf(r.mValue), "hypot(DMAX,DMAX) value overflows to inf");
+    FATP_ASSERT_CLOSE_EPS(r.mPartials[0], 1.0 / std::sqrt(2.0), 1e-12, "hypot(DMAX,DMAX) d/dx = 1/sqrt2");
+    FATP_ASSERT_CLOSE_EPS(r.mPartials[1], 1.0 / std::sqrt(2.0), 1e-12, "hypot(DMAX,DMAX) d/dy = 1/sqrt2");
+    Jet<2> a = hypot(Jet<2>::seed(DMAX, 0), Jet<2>::seed(1e307, 1));
+    FATP_ASSERT_TRUE(std::isfinite(a.mPartials[0]) && std::isfinite(a.mPartials[1]), "hypot extreme partials finite");
+    FATP_ASSERT_TRUE(a.mPartials[0] > 0.9, "hypot(DMAX,1e307) d/dx near 1");
+    return true;
+}
+
+FATP_TEST_CASE(derivative_sweep_vs_reference)
+{
+    using ld = long double;
+    // Differential test against a long double oracle. Where long double has a
+    // wider exponent than double (x86 gcc/clang), an intermediate that overflows
+    // or underflows in double survives in the reference, exposing any derivative
+    // formula that returns 0 or inf where a representable value exists. Skipped
+    // where long double == double (e.g. MSVC), since the oracle gains no range
+    // there; the *_extreme_scale and atan_large_argument cases cover this class
+    // on every platform with scale-invariant arithmetic.
+    constexpr bool kLdWider = std::numeric_limits<long double>::max_exponent
+                            > std::numeric_limits<double>::max_exponent;
+    if constexpr (kLdWider)
+    {
+        const double DMAX = std::numeric_limits<double>::max();
+        auto agrees = [](double jetD, ld refLD) -> bool
+        {
+            const double ref = static_cast<double>(refLD);
+            if (std::isfinite(ref) && ref != 0.0)
+            {
+                return std::fabs((jetD - ref) / ref) < 1e-6;
+            }
+            if (std::isfinite(ref))
+            {
+                return std::fabs(jetD) <= 1e-290; // reference underflows; jet must too
+            }
+            return !std::isfinite(jetD); // reference non-finite -> jet non-finite
+        };
+        const double mags[] = {1e-300, 1e-200, 1e-100, 1e-10, 0.1, 0.5, 0.9, 1.0,
+                               2.0, 10.0, 1e10, 1e100, 1e155, 1e300, 1e307};
+        for (double s : {1.0, -1.0})
+        {
+            for (double m : mags)
+            {
+                const double x = s * m;
+                const ld xl = static_cast<ld>(x);
+                FATP_ASSERT_TRUE(agrees(atan(Jet<1>::seed(x, 0)).mPartials[0], 1.0L / (1.0L + xl * xl)),
+                                 "atan' vs reference");
+                FATP_ASSERT_TRUE(agrees(sin(Jet<1>::seed(x, 0)).mPartials[0], cosl(xl)), "sin' vs reference");
+                FATP_ASSERT_TRUE(agrees(cos(Jet<1>::seed(x, 0)).mPartials[0], -sinl(xl)), "cos' vs reference");
+            }
+        }
+        for (double x : {DMAX / 2.0, DMAX, -DMAX / 2.0, -DMAX})
+        {
+            const ld xl = static_cast<ld>(x);
+            FATP_ASSERT_TRUE(agrees(atan(Jet<1>::seed(x, 0)).mPartials[0], 1.0L / (1.0L + xl * xl)),
+                             "atan' vs reference (extreme)");
+        }
+        for (double m : mags)
+        {
+            const ld ml = static_cast<ld>(m);
+            FATP_ASSERT_TRUE(agrees(log(Jet<1>::seed(m, 0)).mPartials[0], 1.0L / ml), "log' vs reference");
+            FATP_ASSERT_TRUE(agrees(sqrt(Jet<1>::seed(m, 0)).mPartials[0], 0.5L / sqrtl(ml)), "sqrt' vs reference");
+        }
+        for (double x : {-0.999999999999, -0.5, 0.0, 0.5, 0.999999999999, 1.0 - 1e-15})
+        {
+            const ld xl = static_cast<ld>(x);
+            FATP_ASSERT_TRUE(agrees(asin(Jet<1>::seed(x, 0)).mPartials[0], 1.0L / sqrtl(1.0L - xl * xl)),
+                             "asin' vs reference");
+            FATP_ASSERT_TRUE(agrees(acos(Jet<1>::seed(x, 0)).mPartials[0], -1.0L / sqrtl(1.0L - xl * xl)),
+                             "acos' vs reference");
+        }
+        const double grid[] = {1e-300, 1.0, 1e150, 1e300, 1e307, DMAX / 2.0, DMAX};
+        for (double a : grid)
+        {
+            for (double b : {1e-300, 1.0, 1e150, 1e300, 1e307})
+            {
+                const ld al = static_cast<ld>(a);
+                const ld bl = static_cast<ld>(b);
+                const ld den = al * al + bl * bl;
+                FATP_ASSERT_TRUE(agrees(hypot(Jet<2>::seed(a, 0), Jet<2>::seed(b, 1)).mPartials[0], al / sqrtl(den)),
+                                 "hypot d/dx vs reference");
+                FATP_ASSERT_TRUE(agrees(atan2(Jet<2>::seed(b, 0), Jet<2>::seed(a, 1)).mPartials[1], -bl / den),
+                                 "atan2 d/dx_den vs reference");
+            }
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(asin_acos_conditioning)
+{
+    // asin'/acos' factor the radicand as (1-x)(1+x); the looser 1 - x*x form
+    // loses ~6 digits to cancellation here. Pinned to a high-precision constant
+    // (independent of long double width, so this holds on MSVC too).
+    const double x = 1.0 - 1e-9;
+    const double kAsinD = 22360.68009678968; // asin'(x), computed in long double
+    const Jet<1> a = asin(Jet<1>::seed(x, 0));
+    const Jet<1> c = acos(Jet<1>::seed(x, 0));
+    FATP_ASSERT_CLOSE_EPS(a.mPartials[0] / kAsinD, 1.0, 1e-11, "asin'(1-1e-9) well-conditioned");
+    FATP_ASSERT_CLOSE_EPS(c.mPartials[0] / (-kAsinD), 1.0, 1e-11, "acos'(1-1e-9) well-conditioned");
     return true;
 }
 
@@ -958,6 +1103,10 @@ bool test_Jet()
     FATP_RUN_TEST_NS(runner, jet, seed_compile_time);
     FATP_RUN_TEST_NS(runner, jet, compound_assignment);
     FATP_RUN_TEST_NS(runner, jet, scalar_function_overloads);
+    FATP_RUN_TEST_NS(runner, jet, atan_large_argument);
+    FATP_RUN_TEST_NS(runner, jet, hypot_extreme_scale);
+    FATP_RUN_TEST_NS(runner, jet, derivative_sweep_vs_reference);
+    FATP_RUN_TEST_NS(runner, jet, asin_acos_conditioning);
     FATP_RUN_TEST_NS(runner, jet, fd_sweep_unary);
     FATP_RUN_TEST_NS(runner, jet, fd_sweep_binary);
 

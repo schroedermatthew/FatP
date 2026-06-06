@@ -283,23 +283,39 @@ template <std::size_t N>
     const double t = std::tan(x.mValue);
     return detail::lift(t, 1.0 + t * t, x);
 }
-/// Arcsine of a Jet.
+/// Arcsine of a Jet. The derivative radicand is factored as (1-x)(1+x) rather
+/// than 1 - x*x, which loses precision to cancellation as |x| -> 1.
 template <std::size_t N>
 [[nodiscard]] Jet<N> asin(const Jet<N>& x)
 {
-    return detail::lift(std::asin(x.mValue), 1.0 / std::sqrt(1.0 - x.mValue * x.mValue), x);
+    return detail::lift(std::asin(x.mValue),
+                        1.0 / std::sqrt((1.0 - x.mValue) * (1.0 + x.mValue)), x);
 }
-/// Arccosine of a Jet.
+/// Arccosine of a Jet. Radicand factored as (1-x)(1+x) for the same reason as asin.
 template <std::size_t N>
 [[nodiscard]] Jet<N> acos(const Jet<N>& x)
 {
-    return detail::lift(std::acos(x.mValue), -1.0 / std::sqrt(1.0 - x.mValue * x.mValue), x);
+    return detail::lift(std::acos(x.mValue),
+                        -1.0 / std::sqrt((1.0 - x.mValue) * (1.0 + x.mValue)), x);
 }
 /// Arctangent of a Jet.
 template <std::size_t N>
 [[nodiscard]] Jet<N> atan(const Jet<N>& x)
 {
-    return detail::lift(std::atan(x.mValue), 1.0 / (1.0 + x.mValue * x.mValue), x);
+    // For |x| > 1 compute via 1/x so x*x cannot overflow before the derivative
+    // (representable as a subnormal for large x) underflows.
+    double deriv;
+    if (std::fabs(x.mValue) > 1.0)
+    {
+        const double inv = 1.0 / x.mValue;
+        const double inv2 = inv * inv;
+        deriv = inv2 / (1.0 + inv2);
+    }
+    else
+    {
+        deriv = 1.0 / (1.0 + x.mValue * x.mValue);
+    }
+    return detail::lift(std::atan(x.mValue), deriv, x);
 }
 /// Exponential of a Jet.
 template <std::size_t N>
@@ -309,7 +325,8 @@ template <std::size_t N>
     return detail::lift(e, e, x);
 }
 /// Natural logarithm of a Jet. A negative argument is out of domain: the value
-/// and the partials are NaN. At 0 the value is -inf and the derivative +inf.
+/// and the partials are NaN. At +0.0 the value is -inf and the derivative +inf;
+/// at signed -0.0 the derivative follows the IEEE reciprocal and is -inf.
 template <std::size_t N>
 [[nodiscard]] Jet<N> log(const Jet<N>& x)
 {
@@ -368,6 +385,10 @@ template <std::size_t N>
 [[nodiscard]] Jet<N> pow(const Jet<N>& x, const Jet<N>& y)
 {
     const double ab = std::pow(x.mValue, y.mValue);
+    if (!(x.mValue > 0.0)) // positive-base contract; non-positive base -> NaN gradient
+    {
+        return detail::lift(ab, std::nan(""), std::nan(""), x, y);
+    }
     return detail::lift(ab, y.mValue * std::pow(x.mValue, y.mValue - 1.0),
                         ab * std::log(x.mValue), x, y);
 }
@@ -376,7 +397,7 @@ template <std::size_t N>
  * @brief Raises a scalar base to a Jet power.
  *
  * d/d(exp) base^exp = base^exp ln(base), which requires a positive base; for a
- * non-positive base the gradient is NaN (use pow(Jet, double) for a constant base).
+ * non-positive base the gradient is NaN (no real derivative exists there).
  *
  * @param base     The constant base (must be positive).
  * @param exponent The exponent.
@@ -386,6 +407,10 @@ template <std::size_t N>
 [[nodiscard]] Jet<N> pow(double base, const Jet<N>& exponent)
 {
     const double v = std::pow(base, exponent.mValue);
+    if (!(base > 0.0)) // includes 0, negative, and NaN base
+    {
+        return detail::lift(v, std::nan(""), exponent);
+    }
     return detail::lift(v, v * std::log(base), exponent);
 }
 
@@ -403,9 +428,20 @@ template <std::size_t N>
     {
         return detail::lift(h, h, h, x, y); // out of domain: NaN value and partials
     }
-    // h == 0 only at the origin, where the gradient is undefined; 0 by convention.
-    const double hx = (h > 0.0) ? x.mValue / h : 0.0;
-    const double hy = (h > 0.0) ? y.mValue / h : 0.0;
+    // Coefficients are x/h and y/h, both in [-1, 1]. Compute them through a
+    // scaled norm so they survive when h overflows to inf for a large finite
+    // pair; scale == 0 only at the origin, where the gradient is undefined (0).
+    const double scale = std::max(std::fabs(x.mValue), std::fabs(y.mValue));
+    double hx = 0.0;
+    double hy = 0.0;
+    if (scale > 0.0)
+    {
+        const double xs = x.mValue / scale;
+        const double ys = y.mValue / scale;
+        const double hs = std::sqrt(xs * xs + ys * ys);
+        hx = xs / hs;
+        hy = ys / hs;
+    }
     return detail::lift(h, hx, hy, x, y);
 }
 
@@ -449,8 +485,8 @@ template <std::size_t N>
     const double xs = x.mValue / scale;
     const double ys = y.mValue / scale;
     const double denom = xs * xs + ys * ys;
-    const double dy = xs / (scale * denom);  // d/dy =  x / (x^2 + y^2)
-    const double dx = -ys / (scale * denom); // d/dx = -y / (x^2 + y^2)
+    const double dy = (xs / denom) / scale;  // d/dy =  x / (x^2 + y^2); avoid forming scale*denom
+    const double dx = (-ys / denom) / scale; // d/dx = -y / (x^2 + y^2)
     return detail::lift(v, dy, dx, y, x);
 }
 

@@ -43,7 +43,7 @@ status: "draft"
 
 **The symptoms.** A solver using finite-difference gradients converges to a point and then stalls, unable to tighten its tolerance below the gradient's noise floor. In a flat region the subtraction of two almost-identical values returns mostly noise, and the optimizer chases it. Rescale an input — change its units — and a step that was adequate becomes either too coarse or too fine.
 
-**The cost.** Each gradient costs one extra evaluation per variable, so a Jacobian row for a 12-variable model is 13 evaluations of that model — and at the end of all that work the answer still carries an error floor near `eps^(2/3)`. For an iterative solver calling back thousands of times, this is both the dominant cost and the limit on final accuracy.
+**The cost.** Each gradient costs two evaluations per variable under the central rule, so a Jacobian row for a 12-variable model is 24 evaluations of that model — and at the end of all that work the answer still carries an error floor near `eps^(2/3)`. For an iterative solver calling back thousands of times, this is both the dominant cost and the limit on final accuracy.
 
 **The solution preview.** If the derivative travelled through the computation alongside the value, there would be no subtraction, no step, and no floor above rounding.
 
