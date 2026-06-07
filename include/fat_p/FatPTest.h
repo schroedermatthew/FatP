@@ -1012,14 +1012,15 @@ bool safe_ge(const A& a, const B& b) { return a >= b; }
  * @brief Assert that two floating-point values are approximately equal
  * Uses primitive::are_close() with default epsilon
  *
- * Uses auto&& (universal/forwarding reference) to handle all value categories
- * without copying. Binds lvalues as lvalue references and extends lifetime
- * of rvalues.
+ * Snapshots both operands by value (const auto): the comparison reads the
+ * value while any temporary is still alive. A forwarding reference would not
+ * extend a temporary reached through a function call such as
+ * std::array::operator[], so a reference capture could dangle there.
  */
 #define FATP_ASSERT_CLOSE(actual, expected, msg)                                                                       \
     {                                                                                                                  \
-        auto&& actual_val = (actual);                                                                                  \
-        auto&& expected_val = (expected);                                                                              \
+        const auto actual_val = (actual);                                                                                  \
+        const auto expected_val = (expected);                                                                              \
         if (!fat_p::testing::primitive::are_close(actual_val, expected_val))                                           \
         {                                                                                                              \
             *fat_p::testing::get_test_config().error                                                                   \
@@ -1047,15 +1048,16 @@ bool safe_ge(const A& a, const B& b) { return a >= b; }
  * @brief Assert that two floating-point values are approximately equal with custom epsilon
  * Uses the same epsilon value for both relative and absolute tolerance
  *
- * Uses auto&& (universal/forwarding reference) to handle all value categories
- * without copying. Binds lvalues as lvalue references and extends lifetime
- * of rvalues.
+ * Snapshots both operands by value (const auto): the comparison reads the
+ * value while any temporary is still alive. A forwarding reference would not
+ * extend a temporary reached through a function call such as
+ * std::array::operator[], so a reference capture could dangle there.
  */
 #define FATP_ASSERT_CLOSE_EPS(actual, expected, epsilon, msg)                                                          \
     {                                                                                                                  \
-        auto&& actual_val = (actual);                                                                                  \
-        auto&& expected_val = (expected);                                                                              \
-        auto&& epsilon_val = (epsilon);                                                                                \
+        const auto actual_val = (actual);                                                                                  \
+        const auto expected_val = (expected);                                                                              \
+        const auto epsilon_val = (epsilon);                                                                                \
         if (!fat_p::testing::primitive::are_close(actual_val, expected_val, epsilon_val, epsilon_val))                 \
         {                                                                                                              \
             *fat_p::testing::get_test_config().error                                                                   \
@@ -1085,16 +1087,17 @@ bool safe_ge(const A& a, const B& b) { return a >= b; }
  *        with separate relative and absolute epsilon
  * Provides full control over the HybridComparisonPolicy parameters
  *
- * Uses auto&& (universal/forwarding reference) to handle all value categories
- * without copying. Binds lvalues as lvalue references and extends lifetime
- * of rvalues.
+ * Snapshots both operands by value (const auto): the comparison reads the
+ * value while any temporary is still alive. A forwarding reference would not
+ * extend a temporary reached through a function call such as
+ * std::array::operator[], so a reference capture could dangle there.
  */
 #define FATP_ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg)                                    \
     {                                                                                                         \
-        auto&& actual_val = (actual);                                                                         \
-        auto&& expected_val = (expected);                                                                     \
-        auto&& rel_eps_val = (rel_eps);                                                                       \
-        auto&& abs_eps_val = (abs_eps);                                                                       \
+        const auto actual_val = (actual);                                                                         \
+        const auto expected_val = (expected);                                                                     \
+        const auto rel_eps_val = (rel_eps);                                                                       \
+        const auto abs_eps_val = (abs_eps);                                                                       \
         if (!fat_p::testing::primitive::are_close(actual_val, expected_val, rel_eps_val, abs_eps_val))        \
         {                                                                                                     \
             *fat_p::testing::get_test_config().error                                                          \

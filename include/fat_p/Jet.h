@@ -196,8 +196,24 @@ template <std::size_t N>
 template <std::size_t N>
 [[nodiscard]] constexpr Jet<N> operator/(const Jet<N>& x, const Jet<N>& y) noexcept
 {
-    const double inv = 1.0 / y.mValue;
-    return detail::lift(x.mValue * inv, inv, -x.mValue * inv * inv, x, y);
+    // Stable quotient: value by direct division, and each partial divided by
+    // the denominator once. Avoids forming 1/y or y*y, which overflow or
+    // underflow for tiny y even when the true quotient is finite.
+    //
+    // Structural-zero guard (Class X): when a denominator partial is zero (a
+    // constant operand or an inactive direction) the cross-term -value*dy is
+    // identically zero, but evaluates to inf*0 = NaN once the value overflows.
+    // Skipping it recovers the true partial. This is NOT the coefficient*0
+    // suppression rejected in detail::lift: there the zeroed coefficient may be
+    // a genuine NaN encoding non-differentiability; here dy == 0 is structural
+    // and carries no information. A genuine NaN in dx still propagates.
+    Jet<N> r;
+    r.mValue = x.mValue / y.mValue;
+    for (std::size_t i = 0; i < N; ++i)
+        r.mPartials[i] = (y.mPartials[i] == 0.0)
+                             ? x.mPartials[i] / y.mValue
+                             : (x.mPartials[i] - r.mValue * y.mPartials[i]) / y.mValue;
+    return r;
 }
 /// Negation.
 template <std::size_t N>
@@ -221,15 +237,31 @@ template <std::size_t N>
 template <std::size_t N>
 [[nodiscard]] constexpr Jet<N> operator/(const Jet<N>& x, double s) noexcept
 {
-    const double inv = 1.0 / s;
-    return detail::lift(x.mValue * inv, inv, x);
+    Jet<N> r;
+    r.mValue = x.mValue / s;
+    for (std::size_t i = 0; i < N; ++i)
+        r.mPartials[i] = x.mPartials[i] / s;
+    return r;
 }
 /// Scalar divided by a Jet.
 template <std::size_t N>
 [[nodiscard]] constexpr Jet<N> operator/(double s, const Jet<N>& x) noexcept
 {
-    const double inv = 1.0 / x.mValue;
-    return detail::lift(s * inv, -s * inv * inv, x);
+    // Multiply-first ordering -(value*dx)/x (matching the language ports) avoids
+    // the intermediate value/x overflowing when the value is finite but large
+    // (Class Y). The structural-zero guard handles inactive directions under
+    // value overflow (Class X), as in operator/(Jet,Jet).
+    //
+    // Known limitation (Class A2b): when the value itself overflows to inf, an
+    // active direction whose true derivative is finite cannot be recovered here,
+    // because the formula reuses the overflowed value. -s*dx/x^2 would need an
+    // exponent-scaled helper (cf. hypot/atan2). Deferred; documented.
+    Jet<N> r;
+    r.mValue = s / x.mValue;
+    for (std::size_t i = 0; i < N; ++i)
+        r.mPartials[i] =
+            (x.mPartials[i] == 0.0) ? 0.0 : -(r.mValue * x.mPartials[i]) / x.mValue;
+    return r;
 }
 /// Adds a scalar to the value.
 template <std::size_t N>
@@ -368,7 +400,16 @@ template <std::size_t N>
     {
         return Jet<N>{std::pow(x.mValue, p)}; // x^0 is the constant function; zero partials
     }
-    return detail::lift(std::pow(x.mValue, p), p * std::pow(x.mValue, p - 1.0), x);
+    // Finding B: for the root-like family 0 < p < 1 at x == 0 the true slope is
+    // +inf. Return 0 by the same non-poisoning convention sqrt() uses, so
+    // pow(x, 0.5) and sqrt(x) agree everywhere. p == 1 (slope 1) and p > 1
+    // (slope 0) are already finite and need no special case.
+    double deriv;
+    if (x.mValue == 0.0 && p > 0.0 && p < 1.0)
+        deriv = 0.0;
+    else
+        deriv = p * std::pow(x.mValue, p - 1.0);
+    return detail::lift(std::pow(x.mValue, p), deriv, x);
 }
 
 /**

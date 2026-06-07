@@ -314,6 +314,148 @@ FATP_TEST_CASE(divide)
     return true;
 }
 
+FATP_TEST_CASE(divide_subnormal_denominator)
+{
+    // Regression: a tiny denominator must not manufacture a non-finite *value*
+    // when the true quotient is finite. 1e-320 / 1e-310 is about 1e-10. A
+    // reciprocal-based form overflows (1/1e-310 is not representable) and
+    // poisons the value; direct division keeps it finite.
+    const double x = 1.0e-320;
+    const double y = 1.0e-310;
+    const double q = x / y; // plain double reference, finite
+
+    const Jet<2> jj = Jet<2>::seed(x, 0) / Jet<2>::seed(y, 1);
+    FATP_ASSERT_TRUE(std::isfinite(jj.mValue), "Jet/Jet value stays finite for tiny y");
+    FATP_ASSERT_CLOSE(jj.mValue, q, "Jet/Jet value equals plain x/y");
+    // d/dy = -x/y^2 = -(x/y)/y is representable (about -1e300); d/dx = 1/y
+    // genuinely overflows and is allowed to be infinite.
+    FATP_ASSERT_TRUE(std::isfinite(jj.mPartials[1]), "Jet/Jet d/dy stays finite");
+
+    const Jet<1> js = Jet<1>::seed(x, 0) / y;
+    FATP_ASSERT_TRUE(std::isfinite(js.mValue), "Jet/double value stays finite for tiny s");
+    FATP_ASSERT_CLOSE(js.mValue, q, "Jet/double value equals plain x/s");
+
+    const Jet<1> sj = x / Jet<1>::seed(y, 0);
+    FATP_ASSERT_TRUE(std::isfinite(sj.mValue), "double/Jet value stays finite for tiny x");
+    FATP_ASSERT_CLOSE(sj.mValue, q, "double/Jet value equals plain s/x");
+    FATP_ASSERT_TRUE(std::isfinite(sj.mPartials[0]), "double/Jet derivative stays finite");
+    return true;
+}
+
+// Class X: when the quotient *value* overflows to inf, a structurally-zero
+// direction (constant operand or inactive seed) must not be poisoned to NaN by
+// the inf*0 cross-term. Its true derivative is finite (0) or a representable
+// infinity. Regression for the structural-zero guard.
+FATP_TEST_CASE(divide_value_overflow_structural_zero)
+{
+    // Jet/Jet, constant denominator: value 1/1e-310 overflows to +inf.
+    // d/dx0 = 1/y overflows (+inf, honest); d/dx1 = 0 (constant in dir 1).
+    const Jet<2> a = Jet<2>::seed(1.0, 0) / Jet<2>{1.0e-310};
+    FATP_ASSERT_TRUE(std::isinf(a.mValue), "Class X Jet/Jet value overflows to inf");
+    FATP_ASSERT_TRUE(std::isinf(a.mPartials[0]), "Class X Jet/Jet active dir +inf (honest)");
+    FATP_ASSERT_CLOSE(a.mPartials[1], 0.0, "Class X Jet/Jet inactive dir 0, not NaN");
+
+    // double/Jet, inactive direction must be 0 not NaN under value overflow.
+    const Jet<2> b = 1.0 / Jet<2>::seed(1.0e-310, 0);
+    FATP_ASSERT_TRUE(std::isinf(b.mValue), "Class X double/Jet value overflows to inf");
+    FATP_ASSERT_TRUE(std::isinf(b.mPartials[0]), "Class X double/Jet active dir -inf (honest)");
+    FATP_ASSERT_CLOSE(b.mPartials[1], 0.0, "Class X double/Jet inactive dir 0, not NaN");
+    return true;
+}
+
+// Class Y: finite value, but a naive divide-first ordering (value/x) overflows
+// the intermediate even though the true derivative is finite. Multiply-first
+// ordering recovers it. Regression for the double/Jet ordering.
+FATP_TEST_CASE(divide_intermediate_overflow)
+{
+    Jet<1> x;
+    x.mValue = 1.0e-200;
+    x.mPartials[0] = 1.0e-200;          // non-unit partial; value 1/x = 1e200 is finite
+    const Jet<1> y = 1.0 / x;           // true d = -s*dx/x^2 = -1e200
+    FATP_ASSERT_TRUE(std::isfinite(y.mPartials[0]), "Class Y double/Jet derivative finite");
+    FATP_ASSERT_CLOSE_REL_ABS(y.mPartials[0], -1.0e200, 1e-12, 0.0,
+                              "Class Y double/Jet derivative equals -1e200");
+    return true;
+}
+
+// Class A2b (DOCUMENTED OPEN LIMITATION): when the value itself overflows to inf
+// on an ACTIVE direction whose true derivative is finite, double/Jet cannot
+// recover it (the formula reuses the overflowed value). True d ~ -1e300; the
+// result is -inf. Recovering this needs an exponent-scaled helper (deferred).
+// This test PINS the current limitation; if the helper lands, update it to
+// assert the recovered finite value.
+FATP_TEST_CASE(divide_active_overflow_open_limitation)
+{
+    Jet<2> x;
+    x.mValue = 1.0e-310;
+    x.mPartials[0] = 1.0e-320;          // active dir; true d/dx0 ~ -1e300 (finite)
+    const Jet<2> y = 1.0 / x;
+    FATP_ASSERT_TRUE(std::isinf(y.mValue), "A2b value overflows to inf");
+    FATP_ASSERT_TRUE(std::isinf(y.mPartials[0]),
+                     "A2b active finite derivative NOT recovered (documented limitation)");
+    FATP_ASSERT_CLOSE(y.mPartials[1], 0.0, "A2b inactive dir still clean (0)");
+    return true;
+}
+
+// Compound assignment is expressed through the binary operators, so x *= x is
+// evaluated into a temporary before assignment: no aliasing hazard. Lock-in.
+FATP_TEST_CASE(compound_assignment_aliasing)
+{
+    Jet<1> x = Jet<1>::seed(3.0, 0);
+    x *= x;                                          // d(x^2)/dx = 2x = 6
+    FATP_ASSERT_CLOSE(x.mValue, 9.0, "x*=x value 9");
+    FATP_ASSERT_CLOSE(x.mPartials[0], 6.0, "x*=x derivative 6 (no aliasing)");
+
+    Jet<1> z = Jet<1>::seed(2.0, 0);
+    z *= z;                                          // x^2
+    z *= z;                                          // (x^2)^2 = x^4; d = 4x^3 = 32 at x=2
+    FATP_ASSERT_CLOSE(z.mValue, 16.0, "chained *= value 16");
+    FATP_ASSERT_CLOSE(z.mPartials[0], 32.0, "chained *= derivative 32 (x^4)");
+    return true;
+}
+
+// Finding B: sqrt(x) and pow(x, 0.5) must agree on the derivative everywhere,
+// including the slope-0 convention at x == 0 and the NaN domain for x < 0.
+FATP_TEST_CASE(sqrt_pow_half_alignment)
+{
+    const Jet<1> s0 = sqrt(Jet<1>::seed(0.0, 0));
+    const Jet<1> p0 = pow(Jet<1>::seed(0.0, 0), 0.5);
+    FATP_ASSERT_CLOSE(s0.mPartials[0], 0.0, "sqrt'(0) = 0 (convention)");
+    FATP_ASSERT_CLOSE(p0.mPartials[0], 0.0, "pow(0,0.5)' = 0 (aligned with sqrt)");
+
+    const Jet<1> s4 = sqrt(Jet<1>::seed(4.0, 0));
+    const Jet<1> p4 = pow(Jet<1>::seed(4.0, 0), 0.5);
+    FATP_ASSERT_CLOSE(s4.mPartials[0], 0.25, "sqrt'(4) = 0.25");
+    FATP_ASSERT_CLOSE(p4.mPartials[0], 0.25, "pow(4,0.5)' = 0.25 (aligned)");
+
+    // Other pow exponents at 0 are unaffected: slope 1 at p==1, slope 0 at p>1.
+    // Inline temporaries are safe: FATP_ASSERT_CLOSE now snapshots operands by
+    // value (see the harness fix for the std::array::operator[] lifetime trap).
+    FATP_ASSERT_CLOSE(pow(Jet<1>::seed(0.0, 0), 1.0).mPartials[0], 1.0, "pow(0,1)' = 1");
+    FATP_ASSERT_CLOSE(pow(Jet<1>::seed(0.0, 0), 2.0).mPartials[0], 0.0, "pow(0,2)' = 0");
+    return true;
+}
+
+// Harness regression: FATP_ASSERT_CLOSE must snapshot operands by value so that
+// .mPartials[i] of a *temporary* Jet is read while the temporary is still alive.
+// std::array::operator[] is a function call, so a reference capture (the old
+// auto&&) would not extend the temporary's lifetime and would dangle, reading 0.
+// These assertions use inline temporaries with clearly non-zero derivatives; a
+// dangling read would fail them.
+FATP_TEST_CASE(assert_close_temporary_member_lifetime)
+{
+    // sqrt(16) = 4, derivative 1/(2*4) = 0.125.
+    FATP_ASSERT_CLOSE(sqrt(Jet<1>::seed(16.0, 0)).mPartials[0], 0.125,
+                      "CLOSE reads temporary .mPartials[0] (sqrt'(16))");
+    // exp'(1) = e on the seeded direction (index 1 of a 2-jet).
+    FATP_ASSERT_CLOSE(exp(Jet<2>::seed(1.0, 1)).mPartials[1], std::exp(1.0),
+                      "CLOSE reads temporary .mPartials[1] (exp'(1))");
+    // Direct member access (.mValue) was always safe; confirm it stays correct.
+    FATP_ASSERT_CLOSE((Jet<1>::seed(3.0, 0) * Jet<1>::seed(3.0, 0)).mValue, 9.0,
+                      "CLOSE reads temporary .mValue");
+    return true;
+}
+
 FATP_TEST_CASE(unary_negate)
 {
     Jet<2> r = -Jet<2>::seed(3.0, 0);
@@ -1066,6 +1208,13 @@ bool test_Jet()
     FATP_RUN_TEST_NS(runner, jet, subtract);
     FATP_RUN_TEST_NS(runner, jet, multiply);
     FATP_RUN_TEST_NS(runner, jet, divide);
+    FATP_RUN_TEST_NS(runner, jet, divide_subnormal_denominator);
+    FATP_RUN_TEST_NS(runner, jet, divide_value_overflow_structural_zero);
+    FATP_RUN_TEST_NS(runner, jet, divide_intermediate_overflow);
+    FATP_RUN_TEST_NS(runner, jet, divide_active_overflow_open_limitation);
+    FATP_RUN_TEST_NS(runner, jet, compound_assignment_aliasing);
+    FATP_RUN_TEST_NS(runner, jet, sqrt_pow_half_alignment);
+    FATP_RUN_TEST_NS(runner, jet, assert_close_temporary_member_lifetime);
     FATP_RUN_TEST_NS(runner, jet, unary_negate);
     FATP_RUN_TEST_NS(runner, jet, scalar_arithmetic);
 

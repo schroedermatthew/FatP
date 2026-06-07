@@ -1016,6 +1016,539 @@ SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
   bounded to +/-sigma (no fat-tail outlier can throw a vertex off the projection); this is a
   bounded teaching visual whose sampled values are never consumed, so the bell carries the
   concept, not a per-number claim. Code itself unchanged. harness 10/10, sim commits.
+- v111: author - separate the two concerns. The paint sandbox IS the geometric intuition
+  (drag handles, feel the ends pinned and the middle pulling); cvBez is now ONLY a
+  DERIVATION of the three weights, not a presentation. Rebuilt cvBez from its old form
+  (de Casteljau sweep + a 1D basis-function PLOT + an asserted "every point is the weighted
+  sum") into a stepped 5-stage symbolic derivation of B0/B1/B2 via the double interpolation:
+  ph0 curve+points already drawn (the picture paint left you with) + goal line B(t)=w0 P0+...;
+  ph1 first interpolation written out (Q0=(1-t)P0+t P1, Q1=(1-t)P1+t P2), legs drawn mint;
+  ph2 second interpolation B=(1-t)Q0+t Q1, point lands on the curve; ph3 substitute Q0,Q1
+  (they fade) and collect terms, P1 picks up a term from BOTH brackets -> 2t(1-t) (amber);
+  ph4 the three named weights B0=(1-t)^2,B1=2t(1-t),B2=t^2 + a continuous idle t-sweep that
+  retraces the curve. The 1D basis-function plot is REMOVED, deferred to a later basis
+  presentation ("never mind the presentation of the basis yet") - the SURFACE basis presentation
+  (cvBasis/cvCombo, 9 shapes) is untouched. Geometry repositioned to a left panel (P0/P1/P2 at
+  80,320 / 210,108 / 340,320), algebra built in a right column at EQX=372. Removed drawBasis,
+  drawReadout, and the px/py/PX* basis-plot constants. Prose reframed: the paragraph between
+  paint and the animation now hands off geometric feel -> "a feel is not a formula" -> what does
+  each control point contribute (one weight) -> weights fall out of the construction -> the
+  animation derives them; caption rewritten to describe the derivation (dropping "plotted at
+  right"). harness 10/10; cvBez node sim (/tmp/bez_v.js) walks stages 0->4 with no exceptions,
+  idle sweep curT bounded in [0,1].
+- v112: author - "this is really about parameterization." The word "interpolation" is overloaded
+  for a section that is ABOUT the many kinds of interpolation/approximation, so name things
+  precisely. Recast cvBez around parameterization without changing any geometry or math (prose +
+  step labels only): the lerp (1-t)P+tQ is linear interpolation = the line parameterized by t;
+  B(t) is a moving point that traces the curve as t runs 0->1; the three Bernstein weights ARE
+  that parameterization written in a fixed basis ("derive the weights" = "find the
+  parameterization"). Threaded the callback to the FIRST animation in this note (cvBasis): there
+  each control point moved in one dimension (height), so the result was a graph z=f(x,y) with no
+  parameter; a curve that bends cannot be a graph (two points share an x, tangent can go
+  vertical), so t is forced here - the height field postponed parameterization, the curve pays it
+  back. Caption now also names the approximation-vs-interpolation split: the curve touches only
+  its endpoints and is pulled toward P1, never through it, which is approximation, not
+  interpolation through the points (linear interpolation is the atom; the overall Bezier scheme
+  is approximation). Step labels 1/2 -> "Linear interpolation: parameterize each leg by t" /
+  "Linear interpolation once more, ..."; closing label -> "These three weights parameterize the
+  curve. Sweep t to retrace it." Per author, did NOT add the parameterization anchor to the
+  cvBasis caption - cvBasis left untouched; the point is made only when the curve arrives. No
+  logic change. harness 10/10; cvBez sim stages 0->4 clean, sweep bounded.
+- v113: author - put an N at "parameterized" and add a note on parameterization. Added a new
+  learning note via the documented 5-step procedure: sectionNotes key 'parameterization' (title
+  "Parameterization", 5-paragraph prose body); topicOrder in document-order right after
+  'nv1Quadratics' and before 'transformLighting'; topicSection labelled Section 2; inline
+  <button class="notes-btn" data-note="parameterization"> placed at the word "parameterized" in
+  the cvBez bridging prose (single-quoted body, so the onclick single quotes are escaped \'). The
+  note develops: a graph answers y=f(x) but a circle cannot be one (two heights per x, vertical
+  edges) -> a parameter drives both coords, t->(x(t),y(t)), the curve is the image and the
+  parameterization the schedule (circle = cos t, sin t) -> linear interpolation (1-t)P+tQ is the
+  simplest parameterization and the Bernstein weights are the coordinate functions of the Bezier
+  parameterization in a basis -> schedule is not shape (reparameterization, arc-length) ->
+  surfaces (u,v)->(x,y,z) with the height field z=f(x,y) as the tame case where two coords ARE
+  the parameters, and a sphere/teapot forces the parameters back. Prose note, no animation/IIFE,
+  so opening it just swaps the panel body (no init); navigating back to nv1Quadratics resumes
+  cvBez via its existing !rafB guard (unchanged behaviour). harness 10/10; every topicOrder id
+  verified present in sectionNotes; body has no em-dashes/apostrophe issues.
+- v114: author - build the staged set for the parameterization note, in steps with flying
+  numbers, engaging. Added TWO stepped animations (Play/Step + speed bar, AnimBtnBar skeleton
+  copied from cvBez). cvParam (2D, canvas 700x440, 4 stages): (1) graph fails - a circle with a
+  vertical line sweeping in, two crossings light, "two heights" floats up, verdict "y = f(x) X";
+  (2) parameterize - t sweeps 0->2pi, the point rides the circle and draws it, a clock dial with
+  a hand, dashed projections to the axes (cos t on x, sin t on y) with live coords, equation
+  P(t) = (cos t, sin t); (3) equal steps of t - circle morphs to an ellipse, equal-t ticks crowd
+  where the point creeps (the wide ends) and thin where it races, a velocity arrow whose length
+  scales with |P'(t)|; (4) equal steps of distance - the same ticks slide to even arc-length
+  spacing (precomputed arc table). cvParamSurf (3D, 700x440, 3 stages, reuses the cvBasis
+  rotX/rotY axonometric + depth-sorted faces + a slow continuous yaw): (0) flat ground grid; (1)
+  height field z=f(x,y) rises, a vertical probe meets it once, "one height / x, y are the
+  parameters"; (2) the landscape crossfades to a sphere, the probe pierces it twice, "two heights
+  / not z=f(x,y)"; (3) parameterize - a flat (u,v) grid maps to the sphere as lat/long with a
+  sweeping marker, a lit point, a connector, and P(u,v)=(sin v cos u, sin v sin u, cos v).
+  Placement: cvParam after the reparameterization paragraph, cvParamSurf after the surfaces
+  paragraph; both IIFEs chain _openNotes/_closeNotes on 'parameterization'. Speed-button IDs
+  prSpd0-2 / suSpd0-2 (the obvious pSpd0-2 collided with the pixel note). Canvas dashes use
+  \u2013 / arrow \u2192, never \u2014. Verified: harness 10/10; cvParam sim 0->4 clean;
+  cvParamSurf sim 0->3 clean; combined sim with BOTH IIFEs loaded - open note, step each, close -
+  no exceptions, both RAFs cancelled.
+
+  v115 (2026-06-06): cvBez REBUILT again per Souldog, from the symbolic Bernstein-weight
+  derivation (v111/v112) into a parameter-line / de-Casteljau CONSTRUCTION. No symbolic
+  derivation panel, no pre-drawn curve. Start state (stage 0): a white horizontal parameter
+  line near the top (TLX0=130..TLX1=570, TLY=44) with 11 dot-ticks at v=0,0.1,..,1.0 each
+  labeled "0".."1", plus the three WHITE control points P0=[175,320] P1=[350,148] P2=[525,320]
+  (control points are now white, not the old per-point colors, to reserve blue for curve points
+  and yellow for the active mark). Step 1: a COPY of the 11 ticks flies down (dots lerp
+  topPos(v)->lerp2(P0,P1,v), eased) and lands along leg P0P1, leg line fades in, and the leg's
+  linear-interpolation equation "(1-t)P0 + t P1" appears rotated/aligned ALONG the leg, offset
+  outward from the centroid (no labels on the landed dots). Step 2: same for leg P1P2 with
+  "(1-t)P1 + t P2". Step 3 (drawCurveBuild): for k=0..10 the connecting line spans
+  Q0(k/10)=lerp2(P0,P1,k/10) to Q1(k/10)=lerp2(P1,P2,k/10) with 11 faint ticks; the k-th tick
+  (= bez(k/10), all three interps share the same parameter index) lights bright yellow #ffd23f,
+  then becomes blue #6aa6ff and remains; repeats over the 11 pairs leaving a string of blue
+  points = the curve as the image of the parameter. Settle (p>=1) shows all 11 blue points, no
+  connecting line, no yellow. Old IIFE (was lines 9953-10124) spliced out via head/cat/tail;
+  backup at /tmp/backup_before_cvbez_rebuild.html; new IIFE now ~9953-10062, cvPaint follows.
+  Canvas id="cvBez" 700x420, control bar btnBezPlay/btnBezStep/bSpd0-2 + window._bezPlay/Step/
+  Reset/Speed and the _openNotes('nv1Quadratics',!rafB) chain all UNCHANGED; 3 steps now
+  (stage 0->3), DUR=[0,2600,2600,5000], no idle sweep (curT/sweepClock removed). Bridging prose
+  (in nv1Quadratics) handoff sentence + the cvBez caption rewritten to match: parameter line
+  copied onto each leg by linear interpolation, join the same-t marks, the same-t point on the
+  joining line is one curve point, repeat -> string of points; dropped the old "derives the
+  weights / collecting terms / mint Q0,Q1 / sweep" language. Verified: harness 10/10; node sim
+  /tmp/bez_v2.js (getter returns {stage,tween}, no curT) open->stage 0,1,2,3, extra step no-op,
+  closeNotes clean, no exceptions.
+
+  v116 (2026-06-06): cvBez step 3 tweak per Souldog - the two ACTIVE marks on the side
+  legs now light up too. In drawCurveBuild (p<1 branch) the connecting line's endpoints
+  A=Q0(t)=lerp2(P0,P1,t) and C=Q1(t)=lerp2(P1,P2,t) are drawn yellow #ffd23f r5 (over the
+  white leg dots) alongside the output bez(t) yellow r6, so each t shows two lit inputs on
+  the legs + one lit output between them. Only the current pair lights; previous leg dots
+  revert to white (drawLeg repaints them white each frame), blue outputs persist. Harness
+  10/10; sim clean.
+
+  v117 (2026-06-06): cvBez leg equations now prefixed Q1 = / Q2 = (Q\u2081, Q\u2082) so the
+  interpolation on each leg names the lit point it produces - Q1 on leg P0P1, Q2 on leg
+  P1P2. Caption left as-is (describes the same formulas). Harness 10/10.
+
+  v118 (2026-06-06): cvBez step 3 - the moving join line now shows its own interpolation
+  equation "(1\u2212t)Q\u2081 + t Q\u2082" rendered below the line, rotated to align with it
+  and offset ~16px on the downward perpendicular (perp=(-jdy,jdx)/jl, jdx always >0 so it
+  sits below). Sweeps/rotates with the line as t advances; only in the p<1 branch (gone at
+  settle). All three de-Casteljau equations now on screen: Q1=(1-t)P0+tP1 along leg1,
+  Q2=(1-t)P1+tP2 along leg2, (1-t)Q1+tQ2 under the join line. Harness 10/10; sim clean.
+
+  v119 (2026-06-06): cvBez step 3 - two tweaks. (1) The (1-t)Q1+tQ2 equation now slides
+  FORWARD of the active point along the chord (anchor = bez(t) + chordUnit*(textHalfWidth+8)
+  + downPerp*13, rotated to the chord) instead of sitting at the chord midpoint, so it leads
+  the build front into the not-yet-drawn region and never overlaps the accumulated blue dots;
+  center clamped to x<=600, y<=350 so the long rotated text stays on-canvas (and clear of the
+  step-label band) through t->1. Geometry-checked t=0..1: nearest blue dot stays >=95px from
+  the text center (text half-width ~58), bbox on-canvas every frame. (2) The top-line dot for
+  the current parameter lights yellow too - dot(topPos(t),4.5,#ffd23f) over the white tick -
+  so the same t lights at all stages: top-line tick, Q1 on leg1, Q2 on leg2, curve point.
+  Harness 10/10; sim clean 0->3.
+
+  v120 (2026-06-06): cvBez - fixed the (1-t)Q1+tQ2 equation MOTION. The v119 forward-by-fixed-
+  distance offset (bez(t)+chordUnit*(halfW+8)) overshot: for t>~0.65 the segment's remaining
+  forward length was less than that offset, so the equation detached and floated past the Q2
+  end into the lower-right. Replaced with an ON-SEGMENT anchor: jc = lerp2(Q1,Q2,(t+1)/2) - the
+  midpoint between the current curve point and Q2 - then perp-down 14px, rotated to the chord.
+  Center now always lies on the join line's forward half (never past Q2), slides toward the Q2
+  end as t->1, stays attached while rotating. Geometry-checked t=0..1: center 14..123px from the
+  Q2 end (on-segment), nearest blue dot >=48px (text box thin, perp-offset so no overlap),
+  bbox bottom <=376 (step-label band 392+ clear), on-canvas every frame. No measureText/clamp
+  needed now. Harness 10/10; sim clean 0->3.
+
+  v121 (2026-06-06): cvBez - per Souldog, (1) moved the (1-t)Q1+tQ2 equation further off the
+  join line (perp offset 14 -> 22) and (2) made it SCROLL across the line as t runs 0->1: its
+  right edge sits at the right end (Q2) at t=0 and its left edge at the left end (Q1) at t=1.
+  Impl: jW=measureText(eq).width; center distance from Q1 along chord = (1-t)*(jl - jW/2) +
+  t*(jW/2), then perp-down 22, rotated to chord. Endpoints geometry-verified exact (rightEdge=
+  segLen at t=0; leftEdge=0 at t=1). NOTE/known tradeoff: the right->left path crosses the curve
+  region near t=0.7-0.9, so the box overlaps ONE blue dot in that stretch (clear for t<=0.6 and
+  t=1). Flagged to Souldog with an offer to push it out further; left at 22 pending reply.
+  Harness 10/10; sim clean 0->3.
+
+  v122 (2026-06-06): cvBez - Souldog corrected the scroll direction (had it backwards): now
+  LEFT first then RIGHT. left edge at Q1 (left end) at t=0 -> right edge at Q2 (right end) at
+  t=1. One-line change: jdist=(1-t)*(jW/2)+t*(jl-jW/2). Bonus: this direction CLEARS ALL blue
+  dots at every t (geometry check: 0 dots inside the box for t=0..1) because the equation now
+  travels left->right with the build front, staying on the leading/un-dotted side - so the
+  v121 graze caveat is resolved. bbox bottom <=341, on-canvas throughout. Harness 10/10; sim
+  clean 0->3.
+
+  v123 (2026-06-06): cvBez - per Souldog, nudged the join-line equation a little further off
+  the line: perp offset 22 -> 27. Geometry-rechecked: still 0 blue dots inside the box at every
+  t, bbox bottom <=344 (step-label band 406 clear). Harness 10/10.
+
+  v124 (2026-06-06): cvBez - raised the whole triangle 30px to open a workspace band beneath
+  it for a future 1-line text readout. P0/P2 y 320->290, P1 y 148->118 (rigid translation, so
+  all derived elements - legs, dots, curve points, marks, both equations - move with it; top
+  parameter line TLY=44 and the step label at H-14 stay put; dot-clearance preserved since it's
+  a uniform shift). Resulting clear band: y~323..398 (equation lowest bbox bottom now 314, step
+  label at 406). Apex now y=118 vs top-line labels ~62. Harness 10/10; sim clean 0->3.
+
+  v125 (2026-06-06): cvBez - two changes per Souldog. (1) Top parameter line raised: TLY 44->34
+  (labels now y=52, dots top ~31, clear of canvas edge; apex/top-line gap restored after the
+  triangle raise). (2) The (1-t)Q1+tQ2 equation no longer disappears at settle - factored the
+  equation render into drawJoinEq(ctx,A,C,t) (shared by the sweep and the final state), and the
+  p>=1 branch now calls drawJoinEq(P1,P2,1) so the formula persists at its t=1 position (right
+  edge at Q2). Geometry-verified: at settle 0 of the 11 blue dots inside the box, bbox bottom
+  314 (step label 406 clear). No connecting line / yellow marks at settle (only the equation +
+  blue points persist). Harness 10/10; sim clean 0->3.
+
+  v126 (2026-06-06): cvBez - added STEP 4 (stage ceiling 3->4 in startStep/isDone/onPlay; DUR
+  now [0,2600,2600,5000,3000]; 5th STEP label 'Every curve point is this same blend of Q1 and
+  Q2.'). New drawEqFly(ctx,p): pause then fly. Start pose = the parked t=1 join-eq pose
+  (center ~[464,268], rot 45deg - identical to drawCurveBuild's settle render, so the 3->4
+  handoff is seamless); end pose = workspace, horizontally centered, flat (center [350,362],
+  rot 0). hold=0.3 of the step (pause), then eased fly + un-rotate. drawFrame ph===4 draws the
+  11 blue points (persist) + drawEqFly; legs/top line/control points still drawn via the ph>=
+  branches. Verified: 4-step sim 0->4 clean, extra step no-op, close clean; endpoints land as
+  intended; eq band 355-369 clear of curve (y<=290) and step label (406). Harness 10/10.
+
+  v127 (2026-06-06): cvBez drawEqFly tweaks per Souldog - land the flown equation higher
+  (ey 362->348) and grow the font during the descent (ctx.font=(13+5*u) -> 13px parked,
+  18px landed). measureText for the parked start pose still taken at 13px so the 3->4 handoff
+  stays seamless. Landed 18px text ~162px wide at center [350,348] -> x 269..431, y 339..357
+  (clear of curve base y<=290 and step label 406). Harness 10/10; sim 0->4 clean.
+
+  v128 (2026-06-06): cvBez - added STEP 5 (substitute Q1). Stage ceiling 4->5; DUR +3400; 6th
+  STEP label 'Substitute Q1 with (1-t)P0 + t P1.'. New drawEqStep5(ctx,p): segment-layout of the
+  workspace eq with a pause-then-morph. Parts sL='(1-t)', slot (Q1 token -> '(' + expr + ')'),
+  sR=' + t Q2'; expr sE='(1-t)P0 + t P1'. u (after hold=0.3) drives: total width W4->W5 with
+  recentering (x0=350-Wc/2), Q1 token fades (alpha 1-min(1,u*1.6)), parens fade in (alpha
+  min(1,u*1.3)), tail slides to cur+wSlot; a COPY of sE flies from leg P0P1's eq location
+  (midpoint+outward*20, leg angle, 13px, alpha min(1,u*3)) to the slot center (ex=cur+wP+wE/2),
+  growing to 18px and un-rotating. End: '(1-t)((1-t)P0 + t P1) + t Q2' centered ~294px (x
+  203..497 on-canvas). Parens REQUIRED for correctness (Q1 was x(1-t)). Stage-4->5 handoff
+  seamless: drawEqStep5 u=0 segment render == drawEqFly u=1 single render (monospace additive,
+  both centered 18px @ EY348); flying copy alpha 0 during pause so no doubling on the leg.
+  drawFrame: ph>=4 draws the 11 blue pts; ph===4 drawEqFly, ph===5 drawEqStep5; legs persist.
+  Verified: 5-step sim 0->5 clean, extra no-op, close clean. Harness 10/10.
+
+  v129 (2026-06-06): cvBez - added STEP 6 (distribute (1-t), multiply out (1-t)^2). Stage
+  ceiling 5->6; DUR +3200; 7th STEP label 'Distribute the (1-t) and multiply out (1-t)^2.'.
+  drawEqStep6(ctx,p): atom-layout morph from '(1-t)((1-t)P0 + t P1) + t Q2' (step-5 form) to
+  '(1-t)^2 P0 + (1-t)t P1 + t Q2'. Uses the U+00B2 squared glyph. Atoms c0/p0/pl/tP1/tail
+  persist (interpolate x; positions barely move - end is 1 char narrower); '(' / inner '(1-t)'
+  / ')' fade out (alpha 1-min(1,u*1.6)); exponent fades in 2nd half (alpha (u-0.5)/0.5) tracking
+  c0; a duplicate '(1-t)' slides from the front (c0s) to before t P1 (cde), alpha (u-0.1)/0.5.
+  Proven identical-at-the-seam: step-6 u=0 layout == step-5 u=1 render (monospace additive;
+  2 parens removed == 1 exponent + the width bookkeeping matches; verified algebraically).
+  drawFrame ph===6 -> blue pts (ph>=4) + drawEqStep6; legs persist. Final eq ~284px (x 208..492
+  on-canvas). Verified: 6-step sim 0->6 clean, extra no-op, close clean. Harness 10/10.
+
+  v130 (2026-06-06): cvBez - added STEP 7 (substitute Q2), mirror of step 5. Stage ceiling
+  6->7; DUR +3400; 8th STEP label 'Substitute Q2 with (1-t)P1 + t P2.'. drawEqStep7(ctx,p):
+  same slot-substitution pattern as step5 but the slot is the trailing Q2 (no right tail). sL=
+  '(1-t)^2 P0 + (1-t)t P1 + t ' (trailing space preserves the t Q2 spacing for a seamless seam),
+  sQ='Q2', sE='(1-t)P1 + t P2'; Q2 fades (1-min(1,u*1.6)), parens fade in (min(1,u*1.3)), a COPY
+  of sE flies off leg P1P2 (midpoint+outward*20, +44.5deg, 13px, alpha min(1,u*3)) to the slot
+  center (cur+wP+wE/2), growing to 18px, un-rotating. Result '(1-t)^2 P0 + (1-t)t P1 +
+  t((1-t)P1 + t P2)' ~431px (x 135..565 on-canvas). Seam step-6 u=1 == step-7 u=0 (same centered
+  string, monospace additive). drawFrame ph===7. Verified: 7-step sim 0->7 clean, extra no-op,
+  close clean. Harness 10/10. NEXT: distribute the t (t*t->t^2), then collect the two middle
+  (1-t)t P1 + t(1-t)P1 = 2t(1-t)P1 -> Bernstein form.
+
+  v131 (2026-06-06): cvBez - added STEP 8 (distribute t + combine like terms -> BERNSTEIN FORM).
+  Stage ceiling 7->8; DUR +4200; 9th STEP label 'Distribute the t and combine the like terms.'.
+  drawEqStep8(ctx,p): two-phase atom morph through three layouts. uu (post-hold) splits: phase A
+  vA (uu 0->0.5) morphs formA '(1-t)^2 P0 + (1-t)t P1 + t((1-t)P1 + t P2)' -> formI '...+ t(1-t)P1
+  + t^2 P2' (parens fade, t stays as coeff of (1-t)P1, exponent fades onto the t P2 term making
+  t^2 P2 - rendered as 't'+sup(alpha vA)+'P2', the sup char width == space so formA reads 't P2');
+  phase B vB (0.5->1) morphs formI -> formF '(1-t)^2 P0 + 2t(1-t)P1 + t^2 P2' (first middle term
+  (1-t)t P1 + its plus fade out, t & (1-t)P1 slide into the combined term, a '2' fades in left of
+  them). layout() centers each ordered atom list; shared atoms lerp positions across the active
+  phase. Seam: step-8 u=0 == step-7 u=1 (same centered string; P2t width 't^2 P2'=='t P2' in
+  mono). Final Bernstein form ~284px (x 208..492 on-canvas), narrower than step 7. drawFrame
+  ph===8. Verified: 8-step sim 0->8 clean, extra no-op, close clean. Harness 10/10. The full
+  workspace derivation Q-blend -> Bernstein is now complete (steps 4-8).
+
+  v132 (2026-06-06): cvBez - steps 5/7 now fly the leg's ORIGINAL RHS into the workspace slot
+  instead of a copy. drawLeg refactored into label + RHS pieces with independent alphas
+  (drawLeg(ctx,which,fp,labelMul,rhsMul), defaults 1). New helpers legEqLayout(which) (offset
+  midpoint + leg angle), legEqParts(which) ('Q1 = '/'Q2 = ' + rhs), legRhsPose(ctx,which) (RHS
+  center canvas pose: local x = +wLabel/2 in the leg-rotated frame; label center local x =
+  -wRhs/2). drawEqStep5/7 fliers now start from legRhsPose(1)/(2) at globalAlpha=1 (was an
+  approx midpoint pose + min(1,u*3) fade-in) - so the RHS is handed off from drawLeg to the
+  flier at the same pose/opacity, seamless. drawFrame leg calls pass per-stage alphas: leg1
+  (sub @stage5) l1Lbl=1-min(1,u5*1.5), l1Rhs=0 during ph===5 (flier provides RHS), both 0 for
+  ph>5; leg2 (sub @stage7) likewise with u7. u5/u7 reuse drawEqStep5/7's own post-hold progress
+  (hold=0.3) so the "Qn =" fade syncs with the fly. Leg line + 11 ticks still persist (fp-based).
+  Verified: at step5 u=0 label(leg)+RHS(flier) both alpha 1 => full eq unchanged before liftoff;
+  8-step sim 0->8 clean, close clean; harness 10/10.
+
+  v133 (2026-06-06): cvBez - construction restyle. (1) drawLeg: the two legs are now DASHED
+  white lines (setLineDash([6,5]), alpha 0.7, wrapped in save/restore so the dash doesn't leak)
+  and the 11 per-leg white parameter tick-dots are REMOVED (deleted the fp fly-in for-loop).
+  NOTE: with the tick-dots gone, steps 1-2 no longer show dots flying down the carry - the
+  dashed leg + its equation just fade in (fp still ramps line alpha + ea). (2) The 11 blue curve
+  points now fade into a SOLID blue Bezier curve. New helpers drawCurveLine(ctx,a) (64-seg
+  polyline through bez(t), #6aa6ff, lw 2.6) and drawCurveBlue(ctx,dotsA,lineA) (line + dots at
+  given alphas). drawFrame ph>=4 block replaced: ph===4 crossfades over the step's opening hold
+  (fc=E(min(1,p/0.3)): dotsA=1-fc, lineA=fc) so the dots resolve into the curve while the join
+  eq is still parked; ph>=5 shows the solid curve only (dotsA=0,lineA=1). Step 3 (drawCurveBuild)
+  unchanged - still lights yellow markers + accumulates blue dots, settle = 11 dots, so step4 p=0
+  (dotsA=1) is continuous with step3 settle. Top parameter line + control points untouched.
+  Verified: leg-dot loop gone (grep 0), helpers present, 8-step sim 0->8 clean; harness 10/10.
+
+  v134 (2026-06-06): cvBez - added STEP 9 (extract the three Bernstein basis polynomials).
+  Stage ceiling 8->9; DUR +3800; 10th STEP label 'The three weights are the quadratic Bernstein
+  basis.'. drawEqStep9(ctx,p): starts on step-8's settled form '(1-t)^2 P0 + 2t(1-t)P1 + t^2 P2'
+  (same centered string @ x350,y348 - seam). hold=0.25 then u eases. The 5 non-weight atoms
+  (P0, ' + ', P1, ' + ', P2) fade in place (alpha 1-min(1,u*1.6)); the 3 weights (1-t)^2,
+  2t(1-t), t^2 fly (left-aligned) from their substring positions in the equation - located via
+  ax(si)=leftEdge+MW(full.substring(0,si)) - to a vertical list at LX=555 (30px right of P2 x=525),
+  rows y=[158,204,250] (centered on triangle mid). End state: clean 3-line list right of the
+  triangle, bottom equation gone. drawFrame ph===9 (construction still drawn: dashed legs, control
+  pts, solid blue curve via drawCurveBlue lineA=1). Verified: 9-step sim 0->9 clean, extra no-op,
+  close clean; list widths on-canvas (max x629); harness 10/10. cvBez derivation now runs
+  parameter-line -> de Casteljau -> Q-blend -> Bernstein form -> Bernstein basis list (steps 0-9).
+
+  v135 (2026-06-06): cvBez step 9 - list rows now LABELED 'Bn(t) = '. drawEqStep9 reworked: the
+  three flying weights land just right of a fading-in label. The 'B0(t) = ' / 'B1(t) = ' /
+  'B2(t) = ' labels are NOT in the equation, so they fade in (alpha u<0.45?0:E((u-0.45)/0.55)) at
+  LX=540, rowY=[158,204,250]. Weight start x's (cStart) are precomputed at 18px BEFORE the font is
+  changed (ax(si)=leftEdge+MW(substring) is font-dependent), then weights fly with font interp
+  18px->16px to land at LX+wlab (wlab measured at 16px). List dropped to 16px so the longest labeled
+  line 'B1(t) = 2t(1-t)' fits (x 540..~680, on 700px canvas, 15px right of P2 x=525). 0-indexed
+  B0,B1,B2 to match the doc's cvCombo basis labels. Seam @u=0 still the full 18px equation. Verified:
+  9-step sim 0->9 clean; labeled rows on-canvas; harness 10/10.
+
+  v136 (2026-06-06): cvBez - four corrections to v133-135. (1) RESTORED the leg parameter
+  tick-dots (the fp fly-in dot loop, persistent white r3.4) - v133 wrongly deleted them; they
+  stay on the legs through all steps. (2) Legs now transition SOLID->DASHED in sync with the
+  blue-dots->solid-line crossfade. drawLeg gained a dashAmt arg (0=solid,1=dashed) drawn as a
+  solid+dashed crossfade (two strokes at alpha la*(1-dashAmt) and la*dashAmt, base
+  rgba(255,255,255,0.65)). drawFrame computes dashAmt=(ph<4)?0:(ph===4?E(min(1,p/0.3)):1) -
+  IDENTICAL easing to the drawCurveBlue fc, so legs go dashed exactly as the curve solidifies
+  during step 4's opening. (3) The bottom equation now STAYS in step 9 (no longer fades/flies
+  away wholesale). (4) drawEqStep9 reworked: bottom morphs from fullA '(1-t)^2 P0 + 2t(1-t)P1
+  + t^2 P2' to fullB 'B0P0 + B1P1 + B2P2'. Shared atoms (P0,+,P1,+,P2) stay full-alpha and slide
+  from form-A to form-B spacing (axA->axB by substring measure, cached @18px). The three weights
+  fly out (18->16px) to land right of fading-in 'Bn(t) = ' labels (LX=540, rows 158/204/250).
+  Each Bn symbol fades in AT the departing polynomial's left-edge (cStart) and slides into its
+  form-B slot (symEnd) - i.e. the function-of-t is replaced by Bn in place as the formula flies
+  away. Seam @u=0 = full fullA @18px (= step8 settle). Verified: 9-step sim 0->9 clean; dots
+  restored (grep 1); dash/curve easings identical (grep 2); formA/B centered & fit; harness 10/10.
+
+  v137 (2026-06-06): cvBez - leg tick-dots now FADE OUT (v136 wrongly persisted them). The dot
+  loop in drawLeg is wrapped at globalAlpha=1-dashAmt (skipped once dashAmt>=0.999), so the dots
+  fade on the SAME step-4 transition as legs->dashed and curve-dots->solid-line: full @ph<4,
+  fade 1->0 over p[0,0.3] of step4, gone after. One unified transition now takes solid-legs +
+  tick-dots + curve-sample-points -> dashed-legs + no-dots + solid-blue-curve. Verified: 9-step
+  sim 0->9 clean; dotAlpha=1-dashAmt present; harness 10/10.
+
+  v138 (2026-06-06): cvBez - added interactive MANUAL MODE after step 9. New state vars
+  manualMode/manualT(0.5)/manualTimer/dragging/evtAttached. When the step-9 tween completes the
+  frame loop schedules setTimeout(1000ms) -> manualMode=true (the requested pause); the idle
+  draw branch then calls drawManual() instead of drawFrame(9,1). drawManual draws: drawSlider
+  (top number line REPLACED by an amber slider on the same TLX0..TLX1@TLY track - faint white
+  full track + amber fill 0..t + amber handle r8 w/ dark ring + 't = 0.50' readout clamped near
+  handle + '0'/'1' end labels), dashed legs (drawLeg dashAmt=1, no dots, no eq), control points,
+  solid blue curve (drawCurveBlue 0,1), drawManualEq, drawBasisList, and a 'Drag the slider to
+  choose t.' hint. drawManualEq: bottom shows the LIVE values v=[(1-t)^2, 2t(1-t), t^2] (toFixed
+  2, always 4 chars so width is constant) as 'v0*P0 + v1*P1 + v2*P2' with the VALUES in amber and
+  the *Pi/+ structure in white, centered @ y348. drawBasisList: the right-hand 'Bn(t) = poly'
+  formulas (UNCHANGED, matches step-9 end positions LX540/rows158,204,250/16px). Pointer input:
+  mDown/mMove/mUp (+touch) attached once via attachManual() in _openNotes; drag hit-area y<TLY+30;
+  mSetT maps canvas x -> t=(x-TLX0)/(TLX1-TLX0) clamped [0,1]; RAF (always running) redraws so the
+  values update live; cursor='ew-resize' in manual mode. onPlay/onReset exit manual mode (clear
+  timer, manualMode=false, cursor=default); _closeNotes clears it too. Did NOT add a moving curve
+  point (not requested; targeted change). Verified: 10-step sim 0->9 clean, manualMode true after
+  pause, drawManual renders w/o error, reset exits; slider x->t clamps; values sum to 1; harness
+  10/10.
+
+  v139 (2026-06-06): cvBez manual mode now shows the de Casteljau CONSTRUCTION tracking the
+  slider (so dragging t moves the point on the curve, not just the coefficients). New helper
+  drawConstruction(ctx,t): Q1=lerp(P0,P1,t), Q2=lerp(P1,P2,t), B=bez(t); draws the faint full
+  join line Q1-Q2 + three SOLID white t-segments (P0->Q1, P1->Q2, Q1->B), yellow Q1/Q2 markers
+  w/ labels, and B as a prominent amber dot w/ dark ring + 'B(t)' label. drawManual calls it
+  after drawCurveBlue (B rides on the solid curve). Hint updated to 'Drag t to move the weights
+  and the curve point.'. B stays left of the formula list (x<=525 < 540). Verified: manual sim
+  renders construction w/o error; B traces the curve on-canvas; harness 10/10.
+  v140 (2026-06-06): cvBez - built the step-3 Q1Q2 CARRY (three beats) + two manual-mode tweaks.
+  (1) drawCurveBuild reworked into beats (DUR[3] 5000->6500; cEnd=0.28, rEnd=0.48): BEAT 1 carry
+  t onto the joining line at t=0.5 - join line fades in (alpha fp), 11 WHITE ticks fly from
+  topPos(k/10) down onto lerp(Q1(.5),Q2(.5),k/10), yellow Q1/Q2 endpoints, B(.5) lights, join eq
+  fades in (wrapped in globalAlpha=fp). BEAT 2 rewind t 0.5->0 (eased) - join line slides to leg
+  P0P1, B->P0, the loose white ticks fade (alpha 1-rp), NO blue points yet. BEAT 3 sweep sp:
+  t=floor(sp*11)/10 0->1 - existing behavior (join line, faint marks, join eq, yellow markers,
+  blue points accumulate). Settle p>=1 unchanged (11 blue + parked joinEq(P1,P2,1)) so the step-4
+  seam holds. Landed at 0.5 not 0 because t=0 join line == leg P0P1 (degenerate); the trip back to
+  0 is the explicit 'rewind to start' beat. STEP[3] label -> 'Carry t onto the joining line, then
+  sweep to trace the curve.'. (2) drawManualEq: bottom now prefixed 'B(t) = ' (B(t) amber, '=' white)
+  -> 'B(t) = 0.25*P0 + 0.50*P1 + 0.25*P2'. (3) drawConstruction: the segment lines are now AMBER
+  (slider color) - full join line rgba(232,168,50,0.4), solid t-segments #e8a832 (Q1/Q2 markers stay
+  yellow, B amber). Verified: 10-step sim 0->9 clean incl. 3-beat step 3, manual true after pause,
+  reset exits; join line @0.5 interior; harness 10/10.
+  v141 (2026-06-06): cvBez drawConstruction - B(t) label moved BELOW the dot (textBaseline='top', y=B[1]+10, ~3.5px gap below the r6.5 dot; on-canvas even at the endpoints). Harness 10/10; sim clean.
+  v142 (2026-06-06): cvBez - the blue-dot SWEEP was sped up by v140's three-beat split (sweep had shrunk to ~3380ms). Restored: DUR[3] 6500->8100 and beat boundaries cEnd 0.28->0.22, rEnd 0.48->0.38, so carry stays ~1780ms, rewind ~1300ms, and the sweep is back to ~5020ms (~457ms/blue dot, matching the original ~455ms). Harness 10/10; sim clean 0->9.
+  v143 (2026-06-06): cvBez drawEqStep7 - the Q2 substitution landed as "t (" (sL had a trailing space) but step 8 renders "t(" (no space), so the parenthesized group jerked ~half a cell left toward the t coefficient when step 8 took over. Fix: at u=1 close that space - W7-=spaceW and cur slides left by spaceW*u - so step 7 finishes at the "t(" position step 8 expects. Verified cell-for-cell: step7 u=1 and step8 uu=0 are both 40 monospace cells, identical except one blank cell (space vs the alpha-0 superscript-2), so they center identically and the flier lands on step 8's slot. u=0 (6->7 seam) unchanged. Only Q2 affected; step 5's (1-t)Q1 has no such space. Harness 10/10; sim clean.
+  v144 (2026-06-06): cvBez - entering manual mode no longer snaps; added a 600ms eased cross-fade (vars manualFading/manualFadeT, MANUAL_FADE=600, fe=E(t)). New drawManualTransition(mf) holds the SHARED components steady at full opacity (dashed legs, control points, blue curve, Bn(t) basis list) while OUTGOING pieces fade out (top number line drawTopLine, the symbolic bottom equation B0P0+B1P1+B2P2 via new standalone drawFormB, the step-9 caption) and INCOMING pieces fade in (the t slider, the de Casteljau construction, the live numeric B(t) equation, the drag hint). The step-9 settle now schedules manualFading after the 1s pause (was: manualMode=true directly); the frame loop advances manualFadeT and flips manualMode=true when it reaches 1. fe=0 reproduces drawFrame(9,1) and fe=1 reproduces drawManual, so no snap at either boundary. Fade state cleared in onPlay/onReset/_openNotes/_closeNotes. Harness 10/10; standard sim clean 0->9 + manual true; slow-clock sim (clock+=80) exercises intermediate fade frames (both branches together, incl drawFormB) with no exception.
+  v145 (2026-06-06): cvBez drawCurveBuild - during BEAT 1 (carry t to 0.5) and BEAT 2 (rewind to 0) the Q1/Q2 endpoint markers and the B point were gold (#ffd23f) while the join line is only being laid down and rolled back. Changed all three to white (#ffffff) for beats 1+2 so the construction reads as plain white scaffolding until BEAT 3 (the sweep) actually starts accumulating blue points. Beat 3's gold markers (topPos/A/C/B) are unchanged, so the white->gold switch coincides with blue-point generation. Harness 10/10; sim clean.
+  v146 (2026-06-06): NEW static plot cvBfns inserted in the nv1Quadratics body right after the cvBez block (before 'Why nine control points'), per the plan to plot the three Bernstein basis functions before the probability beat. New CVBFNS IIFE draws once on note open (chained _openNotes -> setTimeout(drawBfns,60), copying cvPaint's pattern; window._drawBfns exposed; no listeners, idempotent redraw). Plots B0=(1-t)^2, B1=2(1-t)t, B2=t^2 over t in [0,1] in a 700x400 canvas: faint grid (#262636), left+bottom axes (#4a4a5e), 0/0.5/1 ticks on both + 't' label, three curves lw2.6 in a warm->cool triad C0=#e8835c (coral, B0), C1=#5cc990 (green, B1), C2=#6aa6ff (blue, B2), each with an inline color-matched label (B0 upper-left, B2 upper-right, B1 above its peak; verified non-overlapping). Caption ties to the geometry (ends pinned because only B0 nonzero at t=0 / only B2 at t=1; B1 pulls toward P1) and deliberately does NOT assert sum-to-1 (held for the probability beat). Verified: harness 10/10; cvBfns IIFE node --check OK; matplotlib replica of the exact pixel mapping confirms curve shapes, label spots, B0(0)=B2(1)=1 and B1 peak 0.5.
+  v147 (2026-06-06): cvBfns - raised the plot bottom (y1 Hh-52 -> Hh-100) to leave an ~82px text-workspace band below the axis (matching cvBez's content-up-top / workspace-below pattern), and removed the standalone 't' axis label (the 0/0.5/1 x-ticks plus the B_i(t) curve labels already identify the axis). Plot box now 28..300 in the 400px canvas; curves and labels re-verified non-overlapping via matplotlib. Harness 10/10.
+  v148 (2026-06-06): cvBfns - converted from a static plot to an animation with the standard button bar (Play|Step|Reset|Speed; ids btnBfnsPlay/btnBfnsStep/bfSpd0-2; window._bfnsPlay/Step/Reset/Speed; bfnsBar=AnimBtnBar, scaffolding copied from cvBez). Body: added the bar div under the canvas, squared the canvas bottom corners. New IIFE: stage 0 = plot only, stage 1 = sum equation settled; single-step fly (FLY=2600ms, smoothstep). On Play/Step, COPIES of the three inline labels (originals stay on the plot in their curve colors) fly down into the workspace band, recoloring curve->white (lerpCol), growing 14->18px, regrouping into 'B0(t) + B1(t) + B2(t) = (1-t)^2 + 2(1-t)t + t^2' (names gather left, polys right, single '=' between; the +/= connectives fade in over the last 40%). drawFly derives start positions from the labels @14px and end positions from the centered target eq @18px (baseline EY=360). Chose a Play bar (not auto-play-on-open) because the plot sits far down the note and auto-play would finish before the reader scrolls to it. Verified: harness 10/10; AnimBtnBar+cvBfns node --check OK; node sim drives open->Play->Reset->Step->2x replay->close with no exceptions and stage resolving 0<->1 (slow STEP=80 drain exercises ~33 intermediate fly frames); matplotlib replica confirms the regrouping reads correctly and the settled eq (~508px @18px, spans 96..604) fits the 700px canvas + workspace band.
+  v149 (2026-06-06): cvBfns - extended from 1 step to 3 (the partition-of-unity payoff). Per author: fades only, NO flying numbers. Phase 1 unchanged (labels fly -> centered symbolic sum, 18px). Phase 2: fade in the t=0.25 evaluation -- on the plot an amber dashed line at t=0.25, '0.25' on the x-axis, three curve dots with their numeric heights beside them (0.5625 coral / 0.375 green / 0.0625 blue); and the workspace eq crossfades from the centered symbolic-t form to a substituted, smaller, left-shifted form B0(0.25)+B1(0.25)+B2(0.25) = (1-0.25)^2+2(1-0.25)(0.25)+(0.25)^2. subLayout auto-shrinks (measure at 18px, scale font so width <= 700-2*32, left-anchored x=32) so the eq cannot overflow. Phase 3: fade in trailing ' = 1'. Phase-2 eq fade-out/in overlap-sequenced (old t<=0.6, new t>=0.4) to avoid a cluttered mid-crossfade; marks fade with E(t). NMAX=3, DUR=[0,2600,2000,1400]; onAdvance plays through all three. Verified: harness 10/10; node --check OK; sim steps 0->1->2->3 (4th Step no-ops/done), Reset->0, single Play runs all 3, 2x replay, close - no exceptions across crossfade/fade frames; matplotlib confirms the substituted eq fits left-shifted (~14.3px, spans 32..668) and dots+heights read clearly. Decimals throughout (author switched 1/4 -> 0.25). Note: dot value labels sit just right of each dot (adjustable).
+  v150 (2026-06-06): cvBfns - added phase 4 + interactive MANUAL mode (slider over t), copied from cvBez's manual pattern. Canvas grown 400->464; geom() now pins y1=300 (was Hh-100) so the plot does NOT move - the extra space lands at the bottom for the slider (SLY=432). Phase 4 (DUR 1800) runs four simultaneous fades: (a) draggable t-slider fades IN (drawBfnsSlider: white track + amber fill-to-handle + r8 handle w/ #07070a outline + '0'/'1' ends + 't = X.XX' readout, track = X(0)..X(1)); (b) the white x-axis labels 0.0/0.5/1.0 fade OUT (drawXAxis whiteA) along with the amber 0.25; (c) the equation's symbolic right side (1-0.25)^2+2(1-0.25)(0.25)+(0.25)^2 fades OUT and the computed values 0.5625+0.3750+0.0625 fade IN (drawEvalEq aSymT/aSymTail vs aCompT/aCompTail, overlap-sequenced sym<=0.6 / comp>=0.4, both anchored right after the '='); '= 1' tail crossfades with them. At phase-4 completion manualMode=true, manualT=0.25. MANUAL mode (drawManual): drag the slider (mDown if mY>SLY-32; mSetT from X(0)..X(1)) and the dashed line, three dots, the toFixed(4) heights, and the live equation B0(T)+B1(T)+B2(T)=v0+v1+v2=1 all track t. drawEvalEq keeps ONE fit-font (~14.3px, fit to the longest=symbolic form, left-anchored x=32) for ALL of phases 2-4 + manual so the left side never moves/resizes; T is always toFixed(2) (4 chars) and values toFixed(4) (6 chars) -> constant-width, no jitter as t changes. Dot value labels flip side at t>=0.55 (right of line when t<0.55, else left) so they stay on-canvas near t=1. Drag handlers (mX/mY/mSetT/mDown/mMove/mUp/attachManual, guarded by evtAttached) copied from cvBez incl. touch {passive:false}; attachManual called in the open chain; onReset/onPlay(if done)/open/close all clear manualMode+dragging+cursor. NMAX=4, DUR=[0,2600,2000,1400,1800]. Verified: harness 10/10; AnimBtnBar+cvBfns node --check OK; DOM/RAF sim steps 0->1->2->3->4 (manual engages at 4), drawManual runs with NO exceptions at t in {0,0.001,0.05,0.34,0.5,0.55,0.6,0.9,0.999,1} (label-flip + edges), Step@manual no-ops, Reset->0, Play & 2x Play run all 4 -> manual@0.25, close resets; matplotlib confirms stage-4-end + manual@0.6/0.9 (slider, label side-flip, computed values, '= 1' all read; eq fits left-shifted ~14.3px). KNOWN MINOR: computed values are toFixed(4); for some dragged t (e.g. ~1/3 -> 0.4444+0.4444+0.1111) the displayed rounded values read 0.9999 while the eq asserts '= 1' (true sum is exact; display is rounded) - acceptable. Also at t~0.9 the top value label can crowd the B2 inline label (edge case, adjustable).
+  v151 (2026-06-06): cvBfns - reworked the two equation transitions into position-interpolating token MORPHS (per author: 't' should fade out / '0.25' fade in IN PLACE with the equation moving to make room smoothly; and when switching to just the computed values it should re-center smoothly; and the amber 0.25 must NOT disappear with the white labels). PHASE 2 is now drawMorph1: the centered symbolic-t equation morphs into the left-shifted substituted-0.25 equation by interpolating EACH token's position (layout A: symVars='t', 18px, centered 350) -> (layout B: subVars, evalFont ~14.3px, left-anchored 32). Tokenized as 8 FIXED atoms interleaved with 7 VARIABLE slots; symV all 't', subV=['0.25'x5,'(0.25)'x2] (the two bare-t slots gain parens). Fixed atoms slide+shrink (white); variable atoms crossfade 't'(alpha 1-ee) / sub(alpha ee) at the interpolated position, so the trailing tokens reflow to make room as each slot widens t->0.25 ('make room smoothly'). At e=0 == stage-1 symbolic-t; at e=1 == drawSubEq (substituted, left, no '= 1'). PHASE 4 is now drawMorph2: the right side crossfades algebra->computed AND the whole equation re-centers. swapE=E(min(1,e/0.5)) fades RSYM (1-swapE) out / RCOMP (swapE) in (sequenced first-half, both anchored right after the shared '='); moveE=E(max(0,(e-0.4)/0.6)) slides the LEFT anchor 32 -> (350 - wD/2) and grows font evalFont->compFont over the last 60% (AFTER the algebra is gone, so no overflow during the grow); the ' = 1' tail crossfades from after-RSYM to after-RCOMP. compFont fits the computed form to targetW=580 (~15.8px) so it does NOT fill the width -> centered with visible margins and the LEFT visibly moves x~32 -> x~60 ('center again'). At e=0 == drawSubEq(1) (left, substituted + '= 1'); at e=1 == drawCompCentered(0.25). MANUAL mode now uses drawCompCentered (centered computed, fixed compFont, T=toFixed(2)/values=toFixed(4) so constant-width -> stable as t changes). AMBER 0.25 NOW PERSISTS: phase 4 amberA=1 (was 1-fo) so the white 0.0/0.5/1.0 fade out while the amber value stays; manual drawXAxis(white 0, amber 1, manualT) so the amber x-axis value tracks the slider. Removed old drawSymEqCentered/drawEvalEq; added drawMorph1/drawMorph2/drawSubEq/drawCompCentered/compFont. Continuity verified at every boundary: fly(1)=morph1(0); morph1(1)=subEq(0); subEq(1)=morph2(0); morph2(1)=compCentered(0.25); manual@0.25=phase-4 end. Verified: harness 10/10; node --check OK; DOM/RAF sim steps 0->1->2->3->4 (manual engages at 4) with drawMorph1/drawMorph2 executing across all intermediate t during the tweens and drawManual across t in {0,0.001,0.05,0.34,0.5,0.55,0.6,0.9,0.999,1} -> NO exceptions; Step@manual no-ops; Reset->0; Play & 2x Play run all 4 -> manual@0.25; close resets. matplotlib frame-by-frame confirms: phase-2 in-place t->0.25 crossfade + reflow (e=0/0.5/1), stage-3 end, phase-4 algebra-fade + re-center (e=0.35/0.7/1; LEFT 32->~60, font 14.3->15.8), manual@0.25 centered w/ margins, manual@0.6 tracks t; no overflow. KNOWN MINOR (carried): computed values toFixed(4) so some dragged t (~1/3) show rounded values summing to 0.9999 while eq asserts '= 1' (true sum exact); the morph's mid-transition glyph spacing is an interpolation approximation (positions+font lerped, not re-laid-out at the interp font) - standard, looks smooth, brief.
+  v155 (2026-06-06): cvBfns - made the per-term MULTIPLY worked instead of a disappear/reappear crossfade (per author: 'the initial multiply just disappears and reappears the result'; the fly-down / break / fly-back already matched the spec and are UNTOUCHED). Builds on the (unlogged) NMAX=5 worked-expansion phases drawExpandA/drawExpandB [DUR=[0,2600,5200,4600,4200,2400]; phase2 expand (1-t)^2, phase3 expand 2(1-t)t, phase4 regroupCancel, phase5 toManual]. drawExpandA multiply window split into FOIL [0.42,0.52] (1-t)(1-t) -> 1 - t - t + t^2 (foil=['1',' - t',' - t',' + t^2'], crossfade prod->foil centred) then COMBINE [0.52,0.62] the two ' - t' slide together to the merge point and fade while ' - 2t' fades in, '1' and '+ t^2' lerp to their res positions -> 1 - 2t + t^2. drawExpandB: added a REARRANGE [0.20,0.38] 2(1-t)t -> 2t(1-t) (trailing 't' slides forward past '(1-t)'; rendered prodParts ['2','(1-t)','t'] -> rearrParts ['2','t','(1-t)'], '2' fixed since same centred width, t and (1-t) cross) then DISTRIBUTE [0.38,0.56] 2t(1-t) -> 2t - 2t^2 ('2t' carries out front lerp Wrr->Wr, '(1-t)' slides in and fades, ' - 2t^2' fades in). fly-down [0,0.20] and fly-back [0.56,1.0] UNCHANGED. Continuity within each phase preserved (single centred token == its parts centred, same total width). Verified: harness 10/10; cvBfns node --check OK; DOM/RAF sim steps 0->1->2->3->4->5 (manual engages at 5) with drawExpandA/B running across all intermediate e incl. the new foil/combine/rearrange/distribute sub-windows -> NO exceptions; drawManual clean across t; Step@manual no-ops; Reset->0; Play & 2x Play -> manual@0.25; close resets. matplotlib work-line frames confirm A: (1-t)(1-t) -> 1 - t - t + t^2 -> 1 - 2t + t^2; B: 2(1-t)t -> 2t(1-t) -> 2t - 2t^2; endpoints clean, widths fit centred (foil widest 151px @18, spans 274..426). KNOWN MINOR: mid-crossfade freeze-frames (A foil e~0.47, A combine e~0.57, B rearrange e~0.29, B distribute e~0.47) overlap glyphs in a static frame; smooth in motion (transient).
+  v153 (2026-06-06): cvBfns - REPLACED the 'plug in 0.25' beats with the algebraic partition-of-unity PROOF (per author: expand the polynomial in t and rearrange to get only 1 left, slowly; then go to the UNCHANGED manual mode starting at 0.25; the old 0.25-substitution version goes away). New phase plan (NMAX=4, DUR=[0,2600,2600,4200,2400]): PHASE 1 fly -> centered symbolic sum (unchanged). PHASE 2 drawExpand: crossfade the factored right side (1-t)^2+2(1-t)t+t^2 -> the expanded six terms 1 - 2t + t^2 + 2t - 2t^2 + t^2 (left side common, equation re-centers; factored out e<=0.55 / expanded in e>=0.45). PHASE 3 drawRegroupCancel (deliberately slow, sub-phased): e<0.28 REGROUP - swap +t^2 and +2t so like powers are adjacent (1 | -2t +2t | t^2 -2t^2 +t^2); e in [0.28,0.62] COLLAPSE - the t-group and t^2-group each converge to a single '+ 0' (terms slide to the group center and fade while the '+ 0' fades in) -> '1 + 0 + 0'; e in [0.62,0.76] HOLD '1 + 0 + 0'; e>0.76 DROP the '+ 0's -> '= 1'. Ends at 'B0(t)+B1(t)+B2(t) = 1' (the identity, for ALL t). PHASE 4 drawToManual: morph 'B0(t)+...=1' -> the centered computed form at 0.25 - left side t->0.25 (per-token crossfade), the right '1' stays as the final 1 while the value sum '0.5625 + 0.3750 + 0.0625 = ' reveals before it, font 18->compFont, re-center; SIMULTANEOUSLY (in drawFrame) the dots/dashed line, the slider, and the amber 0.25 fade IN and the white x-axis labels fade OUT - all the marked-t apparatus appears only at the handoff (during the symbolic proof NO specific t is marked, since the identity holds for every t). MANUAL unchanged (drawCompCentered, draggable). Removed drawMorph1/drawSubEq/evalFont; drawMorph2 reworked into drawToManual; added drawExpand/drawRegroupCancel/centerPos; kept drawFlyToSum/drawCompCentered/compFont and all slider/marks/drag/bar scaffolding. Continuity verified at every boundary: fly(1)=expand(0)=LEFTSYM+FACTORED centered; expand(1)=regroupCancel(0)=LEFTSYM+EXPANDED centered; regroupCancel(1)=toManual(0)='B0(t)+...=1' centered; toManual(1)=drawCompCentered(0.25)=manual@0.25. Verified: harness 10/10; AnimBtnBar+cvBfns node --check OK; DOM/RAF sim steps 0->1->2->3->4 (manual engages at 4) with drawExpand/drawRegroupCancel/drawToManual executing across all intermediate t (incl. the phase-3 sub-phase boundaries) and drawManual across t in {0,0.001,0.05,0.34,0.5,0.55,0.6,0.9,0.999,1} -> NO exceptions; Step@manual no-ops; Reset->0; Play & 2x Play run all 4 -> manual@0.25; close resets. matplotlib frame-by-frame confirms: phase-2 factored->expanded; phase-3 regrouped (like powers adjacent) -> '1 + 0 + 0' (held) -> '= 1'; phase-4 t->0.25 + value-sum reveal -> centered computed; all endpoints clean, widths fit centered (factored 486px, expanded 551px, '=1' 270px @18; computed @compFont ~15.8px). KNOWN MINOR: the mid-transition freeze-frames (phase-3 collapse e~0.45, drop e~0.90; phase-4 e~0.5) look busy in a static frame because crossfades overlap, but read as convergence/annihilation in motion (transient); computed values toFixed(4) so some dragged t (~1/3) show rounded values summing to 0.9999 while eq asserts '= 1' (true sum exact).
+  v152 (2026-06-06): cvBfns caption - removed the 2nd sentence ('B0 starts at 1 and falls to 0, B2 is its mirror, and B1 rises to a peak of 1/2 at t=1/2 and falls back') per author: the curve shapes are obvious from the animation. Caption now: 'The three quadratic Bernstein weights as functions of t. At t=0 only B0 is nonzero and at t=1 only B2 - which is exactly why the curve is pinned to P0 and P2, while in the interior B1 does the pulling toward P1.' Text-only edit; harness 10/10.
+  v156 (2026-06-06): NEW interactive cvGalton (a Galton board / quincunx) added to the
+  nv1Quadratics note, in the "The weights are probabilities" beat - inserted right after the
+  partition-of-unity (Sigma Bi = 1) line, before "That single fact has large consequences".
+  Prototyped first as an inline chat widget over several turns (author tuned: bars light gray,
+  curve dark blue not amber, pegs dark, per-bin count under each bin index), then ported into
+  the doc in the house idiom. NOT a stepped AnimBtnBar animation - it is a live sim with custom
+  controls (Drop one | Run/Pause | Reset + p slider 0.05..0.95 + n slider 4..14), so it follows
+  the cvPaint precedent (custom toolbar, no AnimBtnBar) rather than Play/Step/Speed. Control bar
+  on TOP (border-radius 4 4 0 0, border-bottom none), canvas below (the :has(+ .anim-cap) rule
+  squares its bottom), then an .anim-cap caption = one card. Run is the lone toggle, amber when
+  active (rule 9). IIFE placed right after the cvBfns IIFE (before CVFILLET); copies the
+  _openNotes/_closeNotes chaining and per-frame getElementById('cvGalton') idiom verbatim
+  (oOpenG/oCloseG; rafG guarded; on open resets n=10,p=0.5,counts,balls and starts RAF; on close
+  cancels rafG). Mechanics: each ball makes n L/R decisions (right w.p. p), lands in bin k =
+  #rights; counts[k]++/total++ together (sum==total by construction); bar height = counts[k] over
+  max(total,WARM=25) /maxV (the WARM floor makes piles grow UP from the bottom instead of a single
+  early ball pinning a bar to the top); blue polyline+dots overlay = the exact binomial pmf
+  C(n,k)p^k(1-p)^(n-k) it converges to; per-bin index (white) + running count (#ccc) under the
+  axis; "balls: N" top-left. COLOR ADAPTATION (rule 5 dark-only + rule 4 white text): the author's
+  light-mode preview words do NOT port literally - "dark pegs" would vanish on the dark canvas, so
+  pegs are light #ddd; bars light gray #c9cbd1; curve blue #5b9be8 (reads as the requested blue on
+  dark); balls coral #e8835c; counts #ccc (white-family, not gray-violating). Fixed 700x440 coord
+  space (no DPR/resize) to match every other doc canvas. New IDs cvGalton/galDrop/galRun/galP/
+  galPo/galN/galNo + window._galDrop/_galRun/_galReset/_galSetP/_galSetN - none collide. Note
+  registry UNCHANGED at 12/12/12 (a canvas added to an existing note does not change the note
+  count; cf v40). Caption makes the bridge: C(n,i) paths into bin i, each p^i(1-p)^(n-i), pile ->
+  C(n,i)p^i(1-p)^(n-i); read p as t and bin i's height IS the Bernstein weight Bi^n(t). Verified:
+  harness 10/10; no dup IDs; node --check OK; headless DOM/RAF lifecycle sim (open -> idle ticks ->
+  Drop one -> 60 ticks -> Run/400 ticks/Pause -> setP 0.75 -> setN 6 -> ticks -> Run/Pause ->
+  Reset -> close, then reopen + 50 drops) ran with NO exceptions. NOTE (still unfixed, separate):
+  the SESSION 10 header line still reads "11/11/11/11"; the live registry is 12/12/12.
+  v157 (2026-06-06): RESTRUCTURED the probability beat (supersedes v156's placement). Author:
+  "this is badly placed - the probability section goes before Why nine control points; the goal
+  is add the Galton board, describe what it represents, develop the formula, look at the 3 cases
+  and point out these are the B polynomials." Done with 5 surgical edits, NONE touching the
+  cvGalton bar/canvas markup: (1) removed the "Why nine control points" h4 block from before the
+  probability section; (2) re-inserted it AFTER the probability section (before "The barycentric
+  view") - so order is now cvBfns -> "The weights are probabilities" -> "Why nine control points"
+  -> barycentric (this is also better dependency order: why-nine asserts "the degree-2 Bernstein
+  basis has exactly three terms", which the binomial derivation now establishes first). (3-5)
+  rebuilt the section interior AROUND the existing board into a real development: lead-in p (the
+  three blend functions are a distribution; drop balls) -> the board (bar+canvas, untouched) ->
+  trimmed the board caption to a plain figure label (mechanic + interaction only; the math left
+  the caption) -> describe p (read the board as an experiment: n indep right/left choices w.p. p,
+  bin = #rights = #successes -> binomial) -> formula p (paths: one path p^k(1-p)^(n-k); C(n,k)
+  equally likely paths -> sum) -> div P(k rights)=C(n,k) p^k (1-p)^(n-k) -> 3-cases p (n=2, two
+  bounces, three bins) -> div k=0:(1-p)^2 / k=1:2p(1-p) / k=2:p^2 -> reveal p (rename p as t ->
+  B0=(1-t)^2,B1=2(1-t)t,B2=t^2, the de Casteljau weights on P0/P1/P2; the curve was a binomial all
+  along; general i-th weight) -> div Bi^n(t)=C(n,i) t^i (1-t)^(n-i) -> sum-to-1 p -> partition-of-
+  unity div (moved here from its old premature spot above the board) -> the original consequences
+  p (expectation/convex-hull/variation-diminishing, kept verbatim). The old terse claim sentence
+  ("The Bernstein weight ... is exactly the binomial probability...") is GONE - subsumed by the
+  developed reveal, so no duplication. Used &minus; for the algebraic minus signs and &thinsp; for
+  tight spacing in the math divs. Verified: harness 10/10; no dup active IDs; cvGalton + galRun
+  appear once each; exactly ONE rendered partition-of-unity div (the 2nd grep hit is a // comment
+  inside the cvBfns IIFE); section headings appear once each; no em-dashes; JS unchanged so the
+  v156 lifecycle sim still applies.
+  v158 (2026-06-06): cvGalton n slider min 4 -> 2 (per author) so the board can show the n = 2
+  quadratic case directly - three bins whose heights are exactly (1-p)^2, 2p(1-p), p^2 = the three
+  Bernstein weights the section reveals. One-token body edit (min="4" -> min="2"); range now
+  2..14, default still 10. Verified: harness 10/10; node sim at n=2 (and n=3) with 40 drops + p in
+  {0.05,0.95} + run + reset + close ran with no exceptions; the small-board geometry fits (n=2: dx
+  ~190, bins at x~159/350/541, 2 peg rows).
+  v159 (2026-06-06): cvGalton ball fall speed - made the per-step duration PROPORTIONAL to the row
+  spacing dy instead of a fixed time (per author: "balls drop way too fast as N gets small").
+  Root cause: dy = (boardBottom-topY)/n grows as n shrinks, so a fixed ms/step made the on-screen
+  px/sec scale ~n - at n=2 a ball raced down a 93px gap in the same time a n=10 ball crossed 18.6px.
+  Fix: spawn dur = geo.dy*(fast?3.0:5.0), giving a CONSTANT ~200 px/sec (drop) / ~333 px/sec (run)
+  at every n. n=10 unchanged (dy 18.6 -> drop 93ms ~ old 95ms, run 56ms ~ old 55ms); n=2 now ~465ms
+  /step (~1.4s total) vs ~285ms total before. Balls in flight keep their spawn-time dur (mid-run n
+  changes are fine). One-token body... actually one-line IIFE edit (dur:fast?55:95 ->
+  dur:geo.dy*(fast?3.0:5.0)). Verified: harness 10/10; timing table confirms constant 200px/sec
+  across n in {2,4,10,14}; node sim at n=2 (30 drops + run) and n=14 (run) no exceptions.
+  v160 (2026-06-06): cvGalton blue overlay - replaced the piecewise-linear polyline through the
+  discrete pmf points with the SMOOTH continuous binomial (per author: "don't give a piecewise
+  linear fit ... actually draw the smooth version"). The honest smooth version of a binomial is its
+  analytic continuation: the binomial coefficient -> Gamma, f(x) = Gamma(n+1)/(Gamma(x+1)
+  Gamma(n-x+1)) p^x (1-p)^(n-x) for real x in [0,n], which is exact at integer k and smooth between
+  (NOT a cosmetic spline / not the normal approximation - both would be made-up curves). Added a
+  Lanczos lgamma (g=7, 9 coeffs, reflection for z<0.5 though our args x+1,n-x+1,n+1 are all >=1) and
+  binomCont(x)=exp(lgamma(n+1)-lgamma(x+1)-lgamma(n-x+1)+x ln p+(n-x) ln(1-p)). Draw loop now samples
+  241 points over [0,n] (X=cx+(x-n/2)*dx, the same linear bin mapping at real x) and strokes them;
+  the integer-k dots are KEPT (they mark the exact discrete probabilities the curve passes through).
+  Endpoints exact: binomCont(0)=(1-p)^n, binomCont(n)=p^n. maxV (discrete-max*1.18) still covers the
+  continuous peak (which for asymmetric p sits slightly above the tallest integer value) - verified
+  no overflow. p slider min 0.05 / max 0.95 keeps ln(p), ln(1-p) finite. Verified: harness 10/10;
+  IIFE node --check OK; numeric check max|cont-disc| at integer k ~1e-16 across (n,p) in
+  {(2,.5),(2,.2),(10,.5),(10,.3),(14,.85)} (curve hits the dots), continuous peak < maxV in all
+  (no clamp), curve unimodal (one rise/one fall) in all; draw sim across p in {0.05,0.5,0.95} x n in
+  {2,7,14} no exceptions. ~720 lgamma/frame (3 per sample x 240) - trivial cost.
+  v161 (2026-06-06): renamed the nv1Quadratics note title 'What is a quadratic?' -> 'What is a
+  quadratic patch?' (per author). One-token title field edit; the data-note key stays
+  'nv1Quadratics' and the TOC/panel header derive from the title, so nothing else changes. Harness 10/10.
+  v162 (2026-06-06): binomial coefficient notation - switched from the inline C(n,k) form to the
+  traditional stacked (n over k) AND defined it (per author: "use the traditional notation for n
+  choose k, also define it"). Added a .binom CSS helper (inline-block; two block <span> children
+  stacked + centered at .86em; the parentheses are ::before/::after content "(" / ")" absolutely
+  pinned left/right and stretched with transform scaleY(1.95) so they bracket the 2-row stack -
+  renders in plain self-contained HTML, no MathML/fonts). Usage: <span class="binom"><span>TOP</span>
+  <span>BOT</span></span>. Converted all FIVE binomial coefficients in the note body: the formula
+  paragraph (now defines it: "the binomial coefficient (n k), read 'n choose k': the number of ways
+  to choose which k of the n bounces are the rights, equal to n!/(k!(n-k)!)" and reframes the law as
+  "number of paths times per-path probability"), the P(k rights) div, the general Bi^n(t) div, the
+  barycentric (n+2 choose 2), and the equispaced-quadrature-weights li ((-1)^j (n j)). The
+  multinomial in the Bezier-triangle div stays in factorial form (n!/(i!j!k!)) - it is a trinomial,
+  not n-choose-k. Verified: harness 10/10; zero C(n...) left in the rendered body (a regex sweep
+  caught one I'd missed in the quadrature li - fixed); 5 .binom spans, span tags balanced 107/107;
+  no em-dashes. CAVEAT: could not pixel-verify the stacked rendering in this environment (no browser;
+  weasyprint's transform support is unreliable for the scaleY paren trick) - the CSS uses a standard,
+  widely-working pattern, but the exact paren height/offset may want a small tweak after a look.
+  v163 (2026-06-06): named the cvBez animation as the "de Casteljau construction" in its caption and
+  added a NEW person-bio note 'deCasteljau' (title 'Paul de Casteljau'), reached via an N button in
+  that caption (per author: "I had never heard of de Casteljau - I would like this name in the caption
+  ... and a note on who that is"). The note is text-only (no photo in artifacts/ - did not reference a
+  missing file; cf the carpenter note which has one). FACTS WEB-VERIFIED before writing (rule 20):
+  Paul de Faget de Casteljau, French mathematician/physicist, 1930 Besançon - 2022 Versailles; ENS;
+  Citroën 1958-1992; 1959 de Casteljau algorithm (repeated linear interpolation) + "courbes et
+  surfaces à pôles" to turn car-body shapes into machine-cuttable equations; predated Bézier (Renault)
+  but Citroën secrecy barred publication until the 1970s, so the CURVES took Bézier's name while the
+  ALGORITHM kept de Casteljau's. Sources logged in VERIFIED HISTORICAL CLAIMS #11 (Wikipedia, HandWiki,
+  ScienceDirect/CAGD Mueller 2024 autobiography). Registry grew 12 -> 13: added 'deCasteljau' to
+  sectionNotes (as the first entry), topicOrder (after 'parameterization'), and topicSection (Section 2
+  label) - now 13/13/13, fully consistent (verified: every topicOrder id resolves in sectionNotes, no
+  orphans; the note + its single data-note button both present). The deCasteljau note is opened from
+  within nv1Quadratics the same way the parameterization note is (nested notes-btn). Verified: harness
+  10/10; no dup IDs; no em-dashes; registry integrity 13/13/13. NOTE: the SESSION-10 header "11/11/11/11"
+  is now further stale (live count 13/13/13); still a separate one-line fix if wanted.
+  v164 (2026-06-06): author supplied two portraits (artifacts/Paul_de_Casteljau.jpg 202x249,
+  artifacts/PierreBezier.gif 200x269). Added them as a side-by-side pair at the TOP of the
+  deCasteljau note (flex row, align-items flex-end, gap 14, each max-height:175px/max-width:46%,
+  rounded + b1 border, flex-wrap so they stack on a narrow panel), with one figcaption: "Paul de
+  Casteljau (left) devised the construction in 1959; the curves carry the name of Pierre Bezier
+  (right), who was free to publish." Chose the pairing (not a lone de Casteljau portrait like the
+  carpenter note) because the note's whole point is the two-name irony - showing both faces states
+  it at a glance. Both imgs have alt text + the shared figcaption (rule 17). Copied both files into
+  /mnt/user-data/outputs/artifacts/ so they travel with the deliverable. Verified: harness 10/10;
+  file types confirmed (JPEG/GIF, matched portrait aspect ratios so the height-matched pair reads
+  tidy); relative paths match the provided filenames exactly.
+  v165 (2026-06-06): author asked to use PierreBezier.jpg instead of the .gif. Switched the note
+  img src .gif -> .jpg (rendered body now has .jpg refs=1, .gif refs=0; only the v164 comment still
+  mentions .gif, as history). BUT PierreBezier.jpg did NOT arrive in /mnt/user-data/uploads (only the
+  earlier .gif is present), so it could not be copied into /mnt/user-data/outputs/artifacts/ or
+  verified - the bundled artifacts/ still holds the now-orphan PierreBezier.gif and is MISSING the
+  .jpg. ACTION NEEDED: re-upload PierreBezier.jpg to bundle it and drop the orphan .gif. (Left the
+  .gif in place rather than delete it, since it is the real photo and harmless.) The max-height/
+  max-width img styling is aspect-agnostic, so layout will be fine for whatever jpg dimensions arrive.
+  v166 (2026-06-06): PierreBezier.jpg received (180x226 JPEG) - copied into outputs/artifacts/ and
+  removed the orphan PierreBezier.gif. Bundled artifacts/ now = Paul_de_Casteljau.jpg + PierreBezier.jpg,
+  both referenced. No HTML change this turn (the src was already .jpg from v165). The .jpg portrait
+  aspect (~1:1.26) matches de Casteljau's (~1:1.23), so the height-matched (175px) side-by-side pair
+  reads tidy. Harness 10/10.
 
 
 SESSION 9 (May 2026) — minor edits
@@ -1672,6 +2205,26 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
    - First appeared in Volta architecture (V100), 2017
    - cuDNN released 2014 — NEEDS VERIFICATION of exact date
 
+11. Paul de Casteljau  [Section 2 — VERIFIED June 2026]
+   - Paul de Faget de Casteljau, French mathematician/physicist,
+     19 Nov 1930 (Besançon) – 24 Mar 2022 (Versailles, age 91).
+   - Studied at École Normale Supérieure; worked at Citroën 1958–1992.
+   - 1959: devised the de Casteljau algorithm (repeated linear
+     interpolation between control points) to turn car-body shapes
+     into machine-cuttable equations; framework "courbes et surfaces
+     à pôles" (curves and surfaces with poles), patents/internal docs
+     1959 & 1963. Numerically stable; still standard for evaluation
+     and subdivision of Bézier curves.
+   - Predated Pierre Bézier's related work at Renault, but Citroën's
+     secrecy barred publication; results did not reach open literature
+     until the 1970s (Bézier's own quote on the SMA page: "not published
+     until 1974"; Peugeot takeover 1976) — so the CURVES took Bézier's
+     name while the ALGORITHM kept de Casteljau's. This split is stated
+     in the new 'deCasteljau' note.
+   Sources: Wikipedia (Paul de Casteljau), HandWiki bio, ScienceDirect/
+   CAGD "Paul de Casteljau: The story of my adventure" (Mueller, 2024,
+   autobiography transcription), incl. Bézier's quoted remarks.
+
 
 ══════════════════════════════════════════════════════════════════════════════
 ADDING NEW CONTENT — CHECKLIST
@@ -2057,6 +2610,11 @@ a:hover { text-decoration: underline; }
 button:disabled { opacity:0.35; cursor:default !important; }
 .anim-btn{padding:3px 12px;border:1px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:500 13px var(--mono);}
 .anim-btn:hover{background:var(--s4);}
+.binom{display:inline-block;vertical-align:middle;position:relative;padding:0 .5em;font-style:normal;}
+.binom>span{display:block;text-align:center;line-height:1.05;font-size:.86em;}
+.binom::before,.binom::after{position:absolute;top:50%;transform:translateY(-50%) scaleY(1.95);font-weight:300;}
+.binom::before{content:"(";left:0;}
+.binom::after{content:")";right:0;}
 </style>
 </head>
 <body>
@@ -2748,6 +3306,20 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 (function()
 {
   var sectionNotes = {
+    'deCasteljau': {
+      title: 'Paul de Casteljau',
+      body: '<figure style="margin:0 0 18px 0;text-align:center">' +
+        '<div style="display:flex;gap:14px;justify-content:center;align-items:flex-end;flex-wrap:wrap">' +
+        '<img src="artifacts/Paul_de_Casteljau.jpg" alt="Paul de Casteljau" style="max-height:175px;max-width:46%;border-radius:6px;border:1px solid var(--b1)">' +
+        '<img src="artifacts/PierreBezier.jpg" alt="Pierre B&eacute;zier" style="max-height:175px;max-width:46%;border-radius:6px;border:1px solid var(--b1)">' +
+        '</div>' +
+        '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:8px">Paul de Casteljau (left) devised the construction in 1959; the curves carry the name of Pierre B&eacute;zier (right), who was free to publish.</figcaption>' +
+        '</figure>' +
+        '<h4>The algorithm that lost its name to a rival</h4>' +
+        '<p>Paul de Casteljau (1930&ndash;2022) was a French mathematician and physicist, trained at the &Eacute;cole Normale Sup&eacute;rieure, who spent his whole career &ndash; from 1958 until 1992 &ndash; at the carmaker Citro&euml;n.&ensp; His assignment was the plain-sounding problem that turned out to sit under all of computer-aided design: how to turn the curves and surfaces of a car body into equations a machine could cut.</p>' +
+        '<p>In 1959 he solved it with the very construction in the animation above &ndash; a curve built by repeated linear interpolation between control points &ndash; inside a broader theory he called <i>courbes et surfaces &agrave; p&ocirc;les</i>, &ldquo;curves and surfaces with poles.&rdquo;&ensp; It is numerically stable, and it is still the standard way to evaluate and subdivide these curves today.</p>' +
+        '<p>The irony is in the name.&ensp; De Casteljau&rsquo;s work predated Pierre B&eacute;zier&rsquo;s closely related work at the rival carmaker Renault, but Citro&euml;n treated it as a trade secret and would not let him publish.&ensp; B&eacute;zier could and did, so the world came to call the curves <em>B&eacute;zier curves</em>, and de Casteljau&rsquo;s results did not reach the open literature until the 1970s.&ensp; That is the split this document follows: the curves carry B&eacute;zier&rsquo;s name, while the construction &ndash; the one you just watched build the curve &ndash; keeps de Casteljau&rsquo;s.</p>'
+    },
     'whyIndependent': {
       title: 'Why each pixel is independent',
       body: '<p style="font-size:1.1em;font-weight:600;color:var(--fg)">120 million ' +
@@ -3780,8 +4352,41 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'fifty years after a physical teapot was made digital.</figcaption></figure>'
     },
 
+    'parameterization': {
+      title: 'Parameterization',
+      body: '<p>A graph answers one question: given x, what is y?&ensp; One height for each position, the curve marching left to right and never doubling back.&ensp; Most shapes are not so obliging.&ensp; A circle has two heights above almost every x and stands perfectly vertical at its left and right edges, so no single y = f(x) can trace it.&ensp; The way out is to stop treating one coordinate as a function of the other and hand both over to an outside quantity.</p>' +
+        '<p>That outside quantity is a <em>parameter</em>.&ensp; A parameterized curve is a map from an interval of parameter values into the plane, t &rarr; (x(t), y(t)) &ndash; read t as a clock and the point as something moving, so that as t advances the point traces the curve.&ensp; The circle that was impossible as a graph is effortless now: x(t) = cos t, y(t) = sin t, with t running from 0 to 2&pi;, both coordinates honest functions of t.&ensp; The curve itself is the <em>image</em>, the set of places the point visits; the parameterization is the schedule by which it visits them.</p>' +
+        '<p>The simplest schedule of all is a straight line.&ensp; The point (1-t)P + tQ leaves P at t = 0 and reaches Q at t = 1 in equal steps &ndash; exactly linear interpolation, the atom every richer curve is built from.&ensp; A quadratic B&eacute;zier is two of these line-parameterizations nested inside a third, and multiplying the nesting out makes the coordinate functions x(t) and y(t) appear as the Bernstein polynomials weighting the control points.&ensp; So the three weights of the curve are not decoration; they are the coordinate functions of its parameterization, written in a convenient basis.</p>' +
+        '<p>A schedule is not the shape.&ensp; Many schedules trace the same curve: run the circle at x(2t), y(2t) and you cover the identical set of points in half the time; dawdle near the top and sprint down the sides and the picture is unchanged.&ensp; The image is what stays fixed; the parameterization is a free choice laid over it.&ensp; Some choices are special &ndash; arc-length parameterization moves at constant speed, so equal steps of the parameter cover equal distance along the curve, which is what you want when dropping evenly spaced points onto a path.</p>' +
+        '<canvas id="cvParam" width="700" height="440" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnParamPlay" onclick="window._paramPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnParamStep" onclick="window._paramStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._paramReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="prSpd0" onclick="window._paramSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="prSpd1" onclick="window._paramSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="prSpd2" onclick="window._paramSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div class="anim-cap">A circle fails the vertical-line test &ndash; one x gives two heights &ndash; so it cannot be y = f(x).&ensp; Hand both coordinates to a parameter, P(t) = (cos t, sin t), and one moving point traces the whole curve: the curve is the image, t is the schedule.&ensp; Stretch it into an ellipse and the schedule becomes visible &ndash; equal steps of t crowd where the point creeps and thin out where it races, while equal steps of arc length space the marks evenly.&ensp; Same image, a different clock.</div>' +
+        '<p>Surfaces are the same idea with one parameter more: a sheet of values (u, v) pressed into space, (u, v) &rarr; (x, y, z).&ensp; The familiar height field z = f(x, y), a landscape with one elevation above each spot of ground, is the tame special case in which two of the three coordinates simply are the parameters and only the third does any work.&ensp; That is why a height field seems to carry no parameter at all: x and y already are the parameters.&ensp; Let the surface overhang, fold, or close on itself &ndash; a sphere, a teapot &ndash; and it can no longer be one elevation per location, and the parameters step back into view.</p>' +
+        '<canvas id="cvParamSurf" width="700" height="440" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnSurfPlay" onclick="window._surfPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnSurfStep" onclick="window._surfStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._surfReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="suSpd0" onclick="window._surfSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="suSpd1" onclick="window._surfSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="suSpd2" onclick="window._surfSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div class="anim-cap">A height field rises over the ground: one elevation per (x, y), so a vertical probe meets it once and x, y serve as the parameters.&ensp; A sphere cannot be written that way &ndash; the probe pierces it twice, top and bottom &ndash; so it needs parameters of its own.&ensp; A flat (u, v) grid maps onto it as longitude and latitude, P(u, v) = (sin v cos u, sin v sin u, cos v): the parameter square pressed onto the surface.</div>'
+    },
+
     'nv1Quadratics': {
-      title: 'What is a quadratic?',
+      title: 'What is a quadratic patch?',
       body: '<div style="position:relative;margin-top:12px"><canvas id="cvQuad" width="700" height="435" style="width:100%;border-radius:4px;background:var(--s1);display:block;border:1px solid var(--b1)"></canvas><div id="cvQuadEq" style="position:absolute;top:0;left:0;right:0;padding:10px 14px;font-family:var(--mono);font-size:15px;color:var(--fg);text-align:left;white-space:nowrap;overflow:hidden;pointer-events:none"></div></div>' +
         '<div id="cvQuadCtl" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px 16px;max-width:380px;margin:14px auto 4px"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(0,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#e25050"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(1,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#e2b150"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(2,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#b1e250"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(3,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#50e250"><input type="range" min="-1.5" max="2.5" step="0.1" value="2" oninput="window._cvQuadSet&&window._cvQuadSet(4,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#50e2b1"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(5,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#50b1e2"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(6,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#5050e2"><input type="range" min="-1.5" max="2.5" step="0.1" value="1" oninput="window._cvQuadSet&&window._cvQuadSet(7,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#b150e2"><input type="range" min="-1.5" max="2.5" step="0.1" value="0" oninput="window._cvQuadSet&&window._cvQuadSet(8,this.value)" onchange="window._cvQuadEqShow&&window._cvQuadEqShow()" style="width:100%;accent-color:#e250b1"></div>' +
         '<div style="margin-top:24px;border-top:1px solid var(--b1);padding-top:20px">' +
@@ -3829,7 +4434,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '</div>' +
         '<canvas id="cvPaint" width="700" height="420" style="width:100%;border-radius:0 0 4px 4px;background:var(--s1);display:block;border:1px solid var(--b1);border-top:none;touch-action:none;cursor:crosshair"></canvas>' +
         '<div class="anim-cap">Drag on an empty spot to draw with the selected tool.&ensp; Then drag any handle to reshape it: the amber endpoints snap to the grid, and the mint control point bends the curve through it.&ensp; Undo removes the last stroke; Clear empties the panel.</div>' +
-        '<p>A quadratic B&eacute;zier curve is built from three control points P<sub>0</sub>, P<sub>1</sub>, P<sub>2</sub>.&ensp; The two ends sit on the curve; the middle point does not &ndash; it only pulls the curve toward itself.&ensp; The construction is linear interpolation done twice: slide a point along the leg P<sub>0</sub>P<sub>1</sub> and another along the leg P<sub>1</sub>P<sub>2</sub> by the same fraction t, then slide between those two by t again.&ensp; Writing that nested blend out gives the three weights B<sub>0</sub>(t), B<sub>1</sub>(t), B<sub>2</sub>(t), one multiplying each control point.</p>' +
+        '<p>Dragging those handles gives the geometric feel: the two end points stay pinned to the curve while the middle one pulls it without ever being touched.&ensp; But a feel is not a formula, and there is a wrinkle the surface plots quietly stepped around.&ensp; There, each control point moved in a single dimension &ndash; its height &ndash; so the result was a graph, z = f(x, y), an ordinary function of two variables with no parameter in sight.&ensp; A curve that bends cannot be a graph: two points can share an x, and the tangent can stand straight up.&ensp; So the curve is <em>parameterized</em> <button class="notes-btn" data-note="parameterization" onclick="window._openNotes(\'parameterization\',false)">N</button> &ndash; a moving point B(t) that traces the shape as t runs from 0 to 1 &ndash; and the question is what each control point contributes to that point.&ensp; The building block is <em>linear interpolation</em>: the point (1-t)P + tQ that slides in a straight line from P to Q as t goes 0 to 1, nothing more than the line itself parameterized by t.&ensp; Apply it along each leg and once more between the results, and the curve too is parameterized &ndash; every value of t lands one point of it.&ensp; The animation below builds it that way: it copies the parameter line onto each leg, then joins the marks that share a value of t so that each t picks out a single point of the curve.</p>' +
         '<canvas id="cvBez" width="700" height="420" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
         '<button id="btnBezPlay" onclick="window._bezPlay()" class="anim-btn">&#9654; Play</button>' +
@@ -3841,22 +4446,57 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<button id="bSpd1" onclick="window._bezSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
         '<button id="bSpd2" onclick="window._bezSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
         '</div>' +
-        '<div class="anim-cap">The three control points set the curve; the middle one stays off it.&ensp; At each t, two nested interpolations (mint) land on the curve point.&ensp; The same point is B<sub>0</sub>(t)P<sub>0</sub> + B<sub>1</sub>(t)P<sub>1</sub> + B<sub>2</sub>(t)P<sub>2</sub> &ndash; a weighted sum whose three weights are fixed functions of t, plotted at right and colored to match each point.&ensp; Only the control points change from one curve to the next; the three basis functions never do.</div>' +
+        '<div class="anim-cap">This is the <em>de Casteljau</em> construction <button class="notes-btn" data-note="deCasteljau" onclick="window._openNotes(\'deCasteljau\',false)">N</button>.&ensp; The white line across the top is the parameter, running 0 to 1.&ensp; Copy it onto each leg by linear interpolation: the mark at t lands at (1-t)P<sub>0</sub> + t P<sub>1</sub> on the first leg and (1-t)P<sub>1</sub> + t P<sub>2</sub> on the second.&ensp; Join the two marks that share the same t, and the point at that same t along the joining line is one point of the curve.&ensp; Repeat for every t and the curve emerges as a string of points &ndash; the image of the parameter swept from 0 to 1, its ends pinned to P<sub>0</sub> and P<sub>2</sub> while the interior is only ever pulled toward P<sub>1</sub>.</div>' +
+        '<canvas id="cvBfns" width="700" height="464" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnBfnsPlay" onclick="window._bfnsPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnBfnsStep" onclick="window._bfnsStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._bfnsReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="bfSpd0" onclick="window._bfnsSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="bfSpd1" onclick="window._bfnsSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="bfSpd2" onclick="window._bfnsSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div class="anim-cap">The three quadratic Bernstein weights as functions of t.&ensp; At t = 0 only B<sub>0</sub> is nonzero and at t = 1 only B<sub>2</sub> &ndash; which is exactly why the curve is pinned to P<sub>0</sub> and P<sub>2</sub>, while in the interior B<sub>1</sub> does the pulling toward P<sub>1</sub>.</div>' +
+        '<h4>Wait, there&rsquo;s more</h4>' +
+        '<p>Take a look at the most familiar distribution in all of counting, the binomial distribution.&ensp; The machine that builds it sits below &ndash; drop a few balls, then click Run.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px 12px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-bottom:none;border-radius:4px 4px 0 0;align-items:center;margin-top:18px;">' +
+        '<button id="galDrop" onclick="window._galDrop()" class="anim-btn">Drop one</button>' +
+        '<button id="galRun" onclick="window._galRun()" class="anim-btn">Run</button>' +
+        '<button onclick="window._galReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:8px"></span>' +
+        '<span style="font:500 12px var(--mono);color:var(--fg3);">p</span>' +
+        '<input id="galP" type="range" min="0.05" max="0.95" step="0.05" value="0.5" oninput="window._galSetP(this.value)" style="accent-color:var(--amber);width:120px;vertical-align:middle;">' +
+        '<span id="galPo" style="font:600 12px var(--mono);color:var(--fg);min-width:30px;display:inline-block;">0.50</span>' +
+        '<span style="width:8px"></span>' +
+        '<span style="font:500 12px var(--mono);color:var(--fg3);">n</span>' +
+        '<input id="galN" type="range" min="2" max="14" step="1" value="10" oninput="window._galSetN(this.value)" style="accent-color:var(--amber);width:100px;vertical-align:middle;">' +
+        '<span id="galNo" style="font:600 12px var(--mono);color:var(--fg);min-width:18px;display:inline-block;">10</span>' +
+        '</div>' +
+        '<canvas id="cvGalton" width="700" height="440" style="width:100%;border-radius:0 0 4px 4px;background:var(--s1);display:block;border:1px solid var(--b1);border-top:none"></canvas>' +
+        '<div class="anim-cap">Each ball falls through n rows of pegs, bouncing right with probability p at every peg; the bin it lands in counts how many times it went right.&ensp; The gray piles grow toward the blue curve as more balls fall.&ensp; Drag p to bias the bounces and n to change the number of rows.</div>' +
+        '<p>Read the board as an experiment.&ensp; A ball makes n independent left-or-right choices, going right with probability p each time, and the bin it lands in is the number of rights &ndash; so the bins count successes, and asking which bin a ball reaches is asking how many of n trials succeeded.&ensp; The heights the piles settle into are that experiment&rsquo;s probabilities: the binomial distribution.</p>' +
+        '<p>The probability of any one bin follows from the paths into it.&ensp; To reach bin k a ball goes right k times and left n &minus; k times, and since the bounces are independent one such path has probability p<sup>k</sup>(1 &minus; p)<sup>n&minus;k</sup>.&ensp; But many paths reach the same bin &ndash; any choice of which k of the n bounces went right.&ensp; That count is the <em>binomial coefficient</em> <span class="binom"><span>n</span><span>k</span></span>, read &ldquo;n choose k&rdquo;: the number of ways to choose which k of the n bounces are the rights, equal to n!&thinsp;/&thinsp;(k!&thinsp;(n &minus; k)!).&ensp; Every such path is equally likely, so a bin&rsquo;s probability is the number of paths times the per-path probability:</p>' +
+        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">P(k rights) = <span class="binom"><span>n</span><span>k</span></span> p<sup>k</sup> (1 &minus; p)<sup>n&minus;k</sup></div>' +
+        '<p>The B&eacute;zier curve is the smallest case that bends: n = 2, two bounces, three bins.&ensp; Writing this out for k = 0, 1, 2 gives three functions of the bias p:</p>' +
+        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.9;overflow-x:auto">k = 0:&ensp; (1 &minus; p)<sup>2</sup><br>k = 1:&ensp; 2&thinsp;p&thinsp;(1 &minus; p)<br>k = 2:&ensp; p<sup>2</sup></div>' +
+        '<p>Those are exactly the three functions from the plot above.&ensp; Rename the bias p as the curve&rsquo;s parameter t and they become B<sub>0</sub>(t) = (1 &minus; t)<sup>2</sup>, B<sub>1</sub>(t) = 2(1 &minus; t)t, and B<sub>2</sub>(t) = t<sup>2</sup> &ndash; the very weights the de Casteljau construction placed on P<sub>0</sub>, P<sub>1</sub>, and P<sub>2</sub>.&ensp; Those weights were never in question: they come straight from the geometry of repeated linear interpolation.&ensp; The surprise is that the same numbers are also a binomial distribution &ndash; at parameter t, the weight on a control point equals the probability of landing on it after two bounces of a coin that goes right with probability t.&ensp; Repeated interpolation and repeated coin flips have no obvious reason to agree, yet they give identical weights, and the coincidence holds at every degree: the i-th Bernstein weight equals the binomial probability of i rights in n trials:</p>' +
+        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">B<sub>i</sub><sup>n</sup>(t) = <span class="binom"><span>n</span><span>i</span></span> t<sup>i</sup> (1 &minus; t)<sup>n&minus;i</sup></div>' +
+        '<p>Read as those probabilities &ndash; the n + 1 disjoint outcomes of one experiment &ndash; they cannot be negative and must add to one for every t:</p>' +
+        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">&Sigma;<sub>i</sub> B<sub>i</sub><sup>n</sup>(t) = 1&ensp;&ensp;&ensp; (partition of unity)</div>' +
+        '<p>That single fact has large consequences.&ensp; A point on the curve is the expected value of the control points under a Binomial(n, t) distribution, S(t) = E[P<sub>X</sub>] with X ~ Binomial(n, t).&ensp; Because the weights are nonnegative and sum to one, every surface point is a convex combination of the control points, so the patch never leaves their convex hull, and it is variation diminishing: it wiggles no more than its control net does.&ensp; These are the properties that make the Bernstein form so stable and so good for design.</p>' +
         '<h4>Why nine control points</h4>' +
         '<p>A quadratic <em>curve</em> needs three control points.&ensp; Degree two means a polynomial with three coefficients (a&middot;t<sup>2</sup> + b&middot;t + c), so three knobs; the degree-2 Bernstein basis has exactly three terms, one per control point.&ensp; Three points are the minimum to fix a parabola, just as two fix a line.</p>' +
         '<p>A <em>patch</em> is the surface version, addressed by two parameters u and v instead of one.&ensp; Making it quadratic in both directions is a tensor product &ndash; a quadratic in u times a quadratic in v &ndash; so the basis is three terms times three terms, giving 3 &times; 3 = 9 control points in a grid.&ensp; Read it as three rows, each a quadratic curve of three control points, with those three curves themselves blended quadratically as v moves.</p>' +
         '<p>The pattern is (degree + 1) per direction:</p>' +
         '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">bilinear&nbsp;&nbsp;(degree 1):&ensp; 2 &times; 2 = 4 control points<br>biquadratic (degree 2):&ensp; 3 &times; 3 = 9 control points<br>bicubic&nbsp;&nbsp;&nbsp;(degree 3):&ensp; 4 &times; 4 = 16 control points</div>' +
         '<p>The bicubic, sixteen points, is the patch type behind the Utah teapot from the first section.&ensp; This patch is the degree-2 member of the same family, one notch down in smoothness.</p>' +
-        '<h4>The weights are probabilities</h4>' +
-        '<p>The Bernstein weight B<sub>i</sub><sup>n</sup>(t) = C(n,i) t<sup>i</sup> (1-t)<sup>n-i</sup> is exactly the binomial probability of i successes in n trials with success probability t.&ensp; So the weights are a genuine probability distribution over the control points, and they sum to one for every t:</p>' +
-        '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">&Sigma;<sub>i</sub> B<sub>i</sub><sup>n</sup>(t) = 1&ensp;&ensp;&ensp; (partition of unity)</div>' +
-        '<p>That single fact has large consequences.&ensp; A point on the curve is the expected value of the control points under a Binomial(n, t) distribution, S(t) = E[P<sub>X</sub>] with X ~ Binomial(n, t).&ensp; Because the weights are nonnegative and sum to one, every surface point is a convex combination of the control points, so the patch never leaves their convex hull, and it is variation diminishing: it wiggles no more than its control net does.&ensp; These are the properties that make the Bernstein form so stable and so good for design.</p>' +
         '<h4>The barycentric view, and triangles</h4>' +
         '<p>The sum-to-one condition has a name: barycentric.&ensp; A point inside a triangle is &lambda;<sub>0</sub>V<sub>0</sub> + &lambda;<sub>1</sub>V<sub>1</sub> + &lambda;<sub>2</sub>V<sub>2</sub> with &lambda;<sub>i</sub> &ge; 0 and &Sigma; &lambda;<sub>i</sub> = 1; the &lambda; are masses at the vertices whose center of mass is the point (barycentric means center of weight).&ensp; That is the partition of unity again, so the Bernstein values <em>are</em> barycentric weights of the control points: a B&eacute;zier point is the barycenter of the control net under the binomial masses, the same object as the expectation under Binomial(n, t) seen above.</p>' +
         '<p>The count changes over a triangle.&ensp; This patch is a tensor product &ndash; Bernstein in u times Bernstein in v &ndash; giving (n+1)<sup>2</sup> control points.&ensp; The triangular analogue, the B&eacute;zier triangle, writes the Bernstein basis directly in barycentric coordinates,</p>' +
         '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">B<sup>n</sup><sub>ijk</sub>(&lambda;) = (n! / i!&thinsp;j!&thinsp;k!) &lambda;<sub>0</sub><sup>i</sup> &lambda;<sub>1</sub><sup>j</sup> &lambda;<sub>2</sub><sup>k</sup>,&ensp;&ensp; i + j + k = n</div>' +
-        '<p>which gives C(n+2, 2) = (n+1)(n+2)/2 control points instead:</p>' +
+        '<p>which gives <span class="binom"><span>n+2</span><span>2</span></span> = (n+1)(n+2)/2 control points instead:</p>' +
         '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">tensor product (square):&ensp; (n+1)<sup>2</sup> = 4, 9, 16, ...<br>B&eacute;zier triangle:&ensp;&ensp;&ensp; (n+1)(n+2)/2 = 3, 6, 10, ...</div>' +
         '<p>And the degree-1 B&eacute;zier triangle is exactly the flat triangle the section began with: three control points at the three vertices, with the barycentric coordinates as the linear blend.&ensp; So &ldquo;three points define a flat triangle&rdquo; is precisely the degree-1, barycentric-Bernstein patch &ndash; the same machine as this one, one degree and one domain dimension lower.</p>' +
         '<h4>The flat-plane case</h4>' +
@@ -3876,7 +4516,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<p>There is a second thing called barycentric weights, and it lives on the Lagrange / cardinal side.&ensp; A polynomial interpolant can be written in the second barycentric form:</p>' +
         '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">p(x) = [ &Sigma;<sub>j</sub> w<sub>j</sub>/(x - x<sub>j</sub>) f<sub>j</sub> ] / [ &Sigma;<sub>j</sub> w<sub>j</sub>/(x - x<sub>j</sub>) ]&ensp;,&ensp;&ensp; w<sub>j</sub> = 1 / &prod;<sub>k&ne;j</sub> (x<sub>j</sub> - x<sub>k</sub>)</div>' +
         '<p>The weights w<sub>j</sub> depend only on the node locations, not on the data, so they are computed once and reused for any f; evaluation is O(n) and numerically stable.&ensp; This is how spectral methods actually evaluate, and it folds straight into the node-distribution story:</p>' +
-        '<ul style="line-height:1.7;padding-left:20px"><li><strong>Equispaced nodes</strong> &ndash; w<sub>j</sub> &prop; (-1)<sup>j</sup> C(n, j), the binomial coefficients with alternating sign (the Bernstein/binomial thread once more).&ensp; These span an exponential range of magnitudes &ndash; the Runge phenomenon wearing its conditioning face.</li><li><strong>Chebyshev (second-kind / Lobatto) nodes</strong> &ndash; w<sub>j</sub> = (-1)<sup>j</sup>, with &frac12; at the two endpoints.&ensp; Trivially simple and all O(1) in magnitude.&ensp; That uniformity is why Chebyshev is the stable, practical choice: the good node distribution is the one whose barycentric weights do not blow up.</li></ul>' +
+        '<ul style="line-height:1.7;padding-left:20px"><li><strong>Equispaced nodes</strong> &ndash; w<sub>j</sub> &prop; (-1)<sup>j</sup> <span class="binom"><span>n</span><span>j</span></span>, the binomial coefficients with alternating sign (the Bernstein/binomial thread once more).&ensp; These span an exponential range of magnitudes &ndash; the Runge phenomenon wearing its conditioning face.</li><li><strong>Chebyshev (second-kind / Lobatto) nodes</strong> &ndash; w<sub>j</sub> = (-1)<sup>j</sup>, with &frac12; at the two endpoints.&ensp; Trivially simple and all O(1) in magnitude.&ensp; That uniformity is why Chebyshev is the stable, practical choice: the good node distribution is the one whose barycentric weights do not blow up.</li></ul>' +
         '<p>The denominator in that formula does nothing but normalize the weights to sum to one &ndash; it is the partition-of-unity enforcer, the same normalization move as the rational (NURBS) denominator.&ensp; So both meanings of barycentric return to one idea: a weighted combination normalized to unit total &ndash; the convex-mass version on the geometry side, the divide-by-the-sum version on the interpolation side, and the same condition that makes a B&eacute;zier point a center of mass.</p>' +
         '<h4>The weight function picks the basis</h4>' +
         '<p>The unifying object is a weight function w(x) on the normalized interval [-1, 1].&ensp; It defines an inner product &lang;f, g&rang; = &int; f g w dx, and from that (Gram&ndash;Schmidt on the monomials) a family of orthogonal polynomials, and from those the Gauss nodes (the roots of the degree-n member) and the Gauss weights (the Christoffel numbers).&ensp; The same w is both the orthogonality weight and the quadrature weight, one function wearing two hats.&ensp; Different w give different bases, different optimal node clusterings, and different rules:</p>' +
@@ -3950,6 +4590,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'carpenter',
     'teapot',
     'nv1Quadratics',
+    'parameterization',
+    'deCasteljau',
     'transformLighting'
   ];
 
@@ -3964,6 +4606,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'carpenter': 'Section 1 &ndash; The pixel problem',
     'teapot': 'Section 1 &ndash; The pixel problem',
     'nv1Quadratics': 'Section 2 &ndash; The game engine that ate everything',
+    'parameterization': 'Section 2 &ndash; The game engine that ate everything',
+    'deCasteljau': 'Section 2 &ndash; The game engine that ate everything',
     'transformLighting': 'Section 2 &ndash; The game engine that ate everything'
   };
 
@@ -9840,116 +10484,450 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   };
 })();
 
-// ============ CVBEZ: 1D quadratic Bezier - de Casteljau + the three fixed Bernstein basis functions ============
+// ============ CVBEZ: a quadratic Bezier built by carrying the parameter onto the legs (de Casteljau) ============
 (function(){
   var rafB=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
-  function sstep(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
-  function B2(t){var s=1-t;return [s*s,2*s*t,t*t];}
-  function lerp2(a,b,t){return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t];}
-  var P0=[100,330], P1=[265,100], P2=[430,330];          // control points (left panel, canvas coords)
-  var COL=['#6aa6ff','#e8a832','#62c46b'];               // one colour per control point, reused for its basis function
+  var manualMode=false, manualT=0.5, manualTimer=null, dragging=false, evtAttached=false, manualFading=false, manualFadeT=0;
+  var MANUAL_FADE=600;   // ms, cross-fade from the step-9 settle into manual mode
+  function E(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
   var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-  function bez(t){var b=B2(t);return [b[0]*P0[0]+b[1]*P1[0]+b[2]*P2[0], b[0]*P0[1]+b[1]*P1[1]+b[2]*P2[1]];}
-  // basis plot region (right panel): t left-to-right, value 0 at PYB, value 1 at PYT
-  var PX0=486, PX1=662, PYB=330, PYT=104;
-  function px(t){return PX0+(PX1-PX0)*t;}
-  function py(v){return PYB-(PYB-PYT)*v;}
+  var P0=[175,290], P1=[350,118], P2=[525,290];           // three control points (raised to leave a workspace band below)
+  var TLX0=130, TLX1=570, TLY=34;                          // top parameter line (0..1), all white
+  function topPos(v){ return [TLX0+(TLX1-TLX0)*v, TLY]; }
+  function lerp2(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; }
+  function bez(t){ var s=1-t,b0=s*s,b1=2*s*t,b2=t*t; return [b0*P0[0]+b1*P1[0]+b2*P2[0], b0*P0[1]+b1*P1[1]+b2*P2[1]]; }
+  function dot(ctx,p,r,c){ ctx.beginPath();ctx.arc(p[0],p[1],r,0,7);ctx.fillStyle=c;ctx.fill(); }
 
-  var DUR=[0,2600,1400,2600];
-  var STEP=['Three control points set a quadratic curve.',
-            'Each point: linear interpolation, applied twice.',
-            'Three fixed basis functions, one per control point.',
-            'Every point is a weighted sum of the three points.'];
+  var DUR=[0,2600,2600,8100,3000,3400,3200,3400,4200,3800];
+  var STEP=['A parameter line from 0 to 1, and three control points.',
+            'Carry the parameter onto leg P\u2080P\u2081 by linear interpolation.',
+            'Carry it onto leg P\u2081P\u2082 the same way.',
+            'Carry t onto the joining line, then sweep to trace the curve.',
+            'Every curve point is this same blend of Q\u2081 and Q\u2082.',
+            'Substitute Q\u2081 with (1\u2212t)P\u2080 + t P\u2081.',
+            'Distribute the (1\u2212t) and multiply out (1\u2212t)\u00b2.',
+            'Substitute Q\u2082 with (1\u2212t)P\u2081 + t P\u2082.',
+            'Distribute the t and combine the like terms.',
+            'The three weights are the quadratic Bernstein basis.'];
 
-  function dot(ctx,p,r,fill){ ctx.beginPath();ctx.arc(p[0],p[1],r,0,7);ctx.fillStyle=fill;ctx.fill(); }
-  function drawPoly(ctx){
-    ctx.save();ctx.setLineDash([5,5]);ctx.strokeStyle='rgba(255,255,255,0.30)';ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(P0[0],P0[1]);ctx.lineTo(P1[0],P1[1]);ctx.lineTo(P2[0],P2[1]);ctx.stroke();ctx.restore();
-    var pts=[P0,P1,P2], nm=['P\u2080','P\u2081','P\u2082'], off=[[-16,5],[0,-14],[16,5]];
-    for(var i=0;i<3;i++){ dot(ctx,pts[i],5,COL[i]);
+  function drawTopLine(ctx){
+    ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(TLX0,TLY);ctx.lineTo(TLX1,TLY);ctx.stroke();
+    ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font='10px '+FN;
+    for(var k=0;k<=10;k++){ var v=k/10, x=TLX0+(TLX1-TLX0)*v;
+      dot(ctx,[x,TLY],2.6,'#ffffff');
+      ctx.fillText(v===0?'0':(v===1?'1':v.toFixed(1)), x, TLY+18); }
+    ctx.restore();
+  }
+  function drawCP(ctx){
+    ctx.save();var pts=[P0,P1,P2], nm=['P\u2080','P\u2081','P\u2082'], off=[[-16,6],[0,-12],[16,6]];
+    for(var i=0;i<3;i++){ dot(ctx,pts[i],5.5,'#ffffff');
       ctx.fillStyle='#ffffff';ctx.font='13px '+FN;ctx.textAlign='center';
       ctx.fillText(nm[i], pts[i][0]+off[i][0], pts[i][1]+off[i][1]); }
+    ctx.restore();
   }
-  function drawCurve(ctx,t0,t1){
-    ctx.save();ctx.strokeStyle='#ffffff';ctx.lineWidth=2.2;ctx.beginPath();
-    var N=80,i,q; for(i=0;i<=N;i++){ q=bez(t0+(t1-t0)*i/N); if(i===0)ctx.moveTo(q[0],q[1]); else ctx.lineTo(q[0],q[1]); }
+  function legEqLayout(which){
+    var A=(which===1)?P0:P1, B=(which===1)?P1:P2;
+    var M=[(A[0]+B[0])/2,(A[1]+B[1])/2], cx=(P0[0]+P1[0]+P2[0])/3, cy=(P0[1]+P1[1]+P2[1])/3;
+    var ox=M[0]-cx, oy=M[1]-cy, ol=Math.hypot(ox,oy)||1;
+    return {mox:M[0]+ox/ol*20, moy:M[1]+oy/ol*20, ang:Math.atan2(B[1]-A[1],B[0]-A[0])};
+  }
+  function legEqParts(which){
+    return which===1 ? {label:'Q\u2081 = ', rhs:'(1\u2212t)P\u2080 + t P\u2081'}
+                     : {label:'Q\u2082 = ', rhs:'(1\u2212t)P\u2081 + t P\u2082'};
+  }
+  function legRhsPose(ctx,which){
+    var lay=legEqLayout(which), pr=legEqParts(which);
+    ctx.save();ctx.font='13px '+FN;var wl=ctx.measureText(pr.label).width;ctx.restore();
+    return {x:lay.mox+Math.cos(lay.ang)*(wl/2), y:lay.moy+Math.sin(lay.ang)*(wl/2), ang:lay.ang};
+  }
+  function drawLeg(ctx,which,fp,labelMul,rhsMul,dashAmt){
+    if(labelMul===undefined)labelMul=1; if(rhsMul===undefined)rhsMul=1; if(dashAmt===undefined)dashAmt=0;
+    var A=(which===1)?P0:P1, B=(which===1)?P1:P2, la=Math.min(1,fp*1.3);
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.65)';ctx.lineWidth=1.4;
+    if(dashAmt<0.999){ ctx.globalAlpha=la*(1-dashAmt);ctx.setLineDash([]);ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke(); }
+    if(dashAmt>0.001){ ctx.globalAlpha=la*dashAmt;ctx.setLineDash([6,5]);ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(B[0],B[1]);ctx.stroke(); }
+    ctx.restore();
+    if(dashAmt<0.999){ ctx.save();ctx.globalAlpha=1-dashAmt;
+      for(var k=0;k<=10;k++){ var v=k/10, lp=lerp2(A,B,v), tp=topPos(v);
+        dot(ctx,[tp[0]+(lp[0]-tp[0])*fp, tp[1]+(lp[1]-tp[1])*fp], 3.4, '#ffffff'); }
+      ctx.restore(); }
+    var ea=Math.max(0,(fp-0.6)/0.4);
+    if(ea>0.01){
+      var lay=legEqLayout(which), pr=legEqParts(which), ca=Math.cos(lay.ang), sa=Math.sin(lay.ang);
+      ctx.save();ctx.font='13px '+FN;ctx.textBaseline='middle';ctx.textAlign='center';ctx.fillStyle='#ffffff';
+      var wl=ctx.measureText(pr.label).width, wr=ctx.measureText(pr.rhs).width;
+      ctx.save();ctx.globalAlpha=ea*labelMul;ctx.translate(lay.mox+ca*(-wr/2), lay.moy+sa*(-wr/2));ctx.rotate(lay.ang);ctx.fillText(pr.label,0,0);ctx.restore();
+      ctx.save();ctx.globalAlpha=ea*rhsMul;ctx.translate(lay.mox+ca*(wl/2), lay.moy+sa*(wl/2));ctx.rotate(lay.ang);ctx.fillText(pr.rhs,0,0);ctx.restore();
+      ctx.restore();
+    }
+  }
+  function drawJoinEq(ctx,A,C,t){
+    var jdx=C[0]-A[0], jdy=C[1]-A[1], jl=Math.hypot(jdx,jdy)||1, jux=jdx/jl, juy=jdy/jl;
+    ctx.save();ctx.font='13px '+FN;ctx.textAlign='center';ctx.textBaseline='middle';
+    var jeq='(1\u2212t)Q\u2081 + t Q\u2082', jW=ctx.measureText(jeq).width;
+    var jdist=(1-t)*(jW/2) + t*(jl - jW/2);   // left edge at Q1 (t=0) -> right edge at Q2 (t=1)
+    var jpx=A[0]+jux*jdist, jpy=A[1]+juy*jdist, joff=27;
+    ctx.translate(jpx - juy*joff, jpy + jux*joff);ctx.rotate(Math.atan2(jdy,jdx));
+    ctx.fillStyle='#ffffff';ctx.fillText(jeq,0,0);ctx.restore();
+  }
+  function drawCurveBuild(ctx,p){
+    if(p>=1){ for(var j=0;j<=10;j++){ dot(ctx,bez(j/10),4.6,'#6aa6ff'); } drawJoinEq(ctx,P1,P2,1); return; }
+    var cEnd=0.22, rEnd=0.38, t, A, C, k;
+    if(p<cEnd){                                   // BEAT 1: carry t onto the joining line at t=0.5
+      var fp=E(p/cEnd); t=0.5; A=lerp2(P0,P1,t); C=lerp2(P1,P2,t);
+      ctx.save();ctx.globalAlpha=fp;ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(C[0],C[1]);ctx.stroke();ctx.restore();
+      for(k=0;k<=10;k++){ var v=k/10, tp=topPos(v), jp=lerp2(A,C,v);
+        dot(ctx,[tp[0]+(jp[0]-tp[0])*fp, tp[1]+(jp[1]-tp[1])*fp], 3.4, '#ffffff'); }
+      dot(ctx,A,5,'#ffffff'); dot(ctx,C,5,'#ffffff');
+      if(fp>0.2) dot(ctx,bez(t),6,'#ffffff');
+      ctx.save();ctx.globalAlpha=fp;drawJoinEq(ctx,A,C,t);ctx.restore();
+      return;
+    }
+    if(p<rEnd){                                   // BEAT 2: rewind t 0.5 -> 0; loose ticks fade; no blue points yet
+      var rp=E((p-cEnd)/(rEnd-cEnd)); t=0.5*(1-rp); A=lerp2(P0,P1,t); C=lerp2(P1,P2,t);
+      ctx.save();ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.3;
+      ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(C[0],C[1]);ctx.stroke();ctx.restore();
+      ctx.save();ctx.globalAlpha=1-rp;
+      for(k=0;k<=10;k++){ dot(ctx,lerp2(A,C,k/10),3.4,'#ffffff'); }
+      ctx.restore();
+      dot(ctx,A,5,'#ffffff'); dot(ctx,C,5,'#ffffff'); dot(ctx,bez(t),6,'#ffffff');
+      drawJoinEq(ctx,A,C,t);
+      return;
+    }
+    // BEAT 3: sweep t 0 -> 1, the curve points accumulate
+    var sp=(p-rEnd)/(1-rEnd);
+    k=Math.min(10,Math.floor(sp*11)); t=k/10;
+    for(var j2=0;j2<k;j2++){ dot(ctx,bez(j2/10),4.6,'#6aa6ff'); }
+    A=lerp2(P0,P1,t); C=lerp2(P1,P2,t);
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.55)';ctx.lineWidth=1.3;
+    ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(C[0],C[1]);ctx.stroke();ctx.restore();
+    for(var m=0;m<=10;m++){ dot(ctx,lerp2(A,C,m/10),2,'rgba(255,255,255,0.4)'); }
+    drawJoinEq(ctx,A,C,t);
+    dot(ctx,topPos(t),4.5,'#ffd23f'); dot(ctx,A,5,'#ffd23f'); dot(ctx,C,5,'#ffd23f'); dot(ctx,bez(t),6,'#ffd23f');
+  }
+  function drawCurveLine(ctx,a){
+    if(a<=0.01) return;
+    ctx.save();ctx.globalAlpha=a;ctx.strokeStyle='#6aa6ff';ctx.lineWidth=2.6;ctx.lineJoin='round';
+    ctx.beginPath();var b0=bez(0);ctx.moveTo(b0[0],b0[1]);
+    for(var i=1;i<=64;i++){ var q=bez(i/64); ctx.lineTo(q[0],q[1]); }
     ctx.stroke();ctx.restore();
   }
-  function drawBasis(ctx,alpha,tMark){
-    if(alpha<=0.01) return;
-    ctx.save();ctx.globalAlpha=alpha;
-    ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(PX0,PYB);ctx.lineTo(PX1,PYB);ctx.stroke();
-    ctx.save();ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(PX0,PYT);ctx.lineTo(PX1,PYT);ctx.stroke();ctx.restore();
-    ctx.fillStyle='#ffffff';ctx.font='11px '+FN;
-    ctx.textAlign='right';ctx.fillText('1', PX0-6, PYT+4);ctx.fillText('0', PX0-6, PYB+4);
-    ctx.textAlign='center';ctx.fillText('t', (PX0+PX1)/2, PYB+19);ctx.fillText('0', PX0, PYB+19);ctx.fillText('1', PX1, PYB+19);
-    var lbl=['B\u2080','B\u2081','B\u2082'], tp=[0,0.5,1], lox=[14,0,-14], k,i,t,v;
-    for(k=0;k<3;k++){
-      ctx.strokeStyle=COL[k];ctx.lineWidth=2;ctx.beginPath();
-      for(i=0;i<=60;i++){ t=i/60; v=B2(t)[k]; if(i===0)ctx.moveTo(px(t),py(v)); else ctx.lineTo(px(t),py(v)); }
-      ctx.stroke();
-      ctx.fillStyle=COL[k];ctx.font='12px '+FN;ctx.textAlign='center';
-      ctx.fillText(lbl[k], px(tp[k])+lox[k], py(B2(tp[k])[k])-8);
-    }
-    if(tMark>=0){
-      ctx.save();ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(255,255,255,0.45)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(px(tMark),PYT);ctx.lineTo(px(tMark),PYB);ctx.stroke();ctx.restore();
-      var b=B2(tMark);
-      for(k=0;k<3;k++){ dot(ctx,[px(tMark),py(b[k])],4,COL[k]); }
+  function drawCurveBlue(ctx,dotsA,lineA){
+    drawCurveLine(ctx,lineA);
+    if(dotsA>0.01){ ctx.save();ctx.globalAlpha=dotsA; for(var j=0;j<=10;j++){ dot(ctx,bez(j/10),4.6,'#6aa6ff'); } ctx.restore(); }
+  }
+  function drawEqFly(ctx,p){
+    var jeq='(1\u2212t)Q\u2081 + t Q\u2082';
+    ctx.save();ctx.font='13px '+FN;ctx.textAlign='center';ctx.textBaseline='middle';
+    var jW=ctx.measureText(jeq).width;                                       // width at 13px for the parked start pose
+    var A=P1,C=P2,jdx=C[0]-A[0],jdy=C[1]-A[1],jl=Math.hypot(jdx,jdy)||1,jux=jdx/jl,juy=jdy/jl,d=jl-jW/2;
+    var sx=A[0]+jux*d-juy*27, sy=A[1]+juy*d+jux*27, sa=Math.atan2(jdy,jdx);   // parked t=1 pose
+    var ex=350, ey=348, ea=0;                                                // workspace: centered, horizontal, a touch higher
+    var hold=0.3, u=p<hold?0:E((p-hold)/(1-hold));                           // pause, then fly down
+    ctx.font=(13+5*u).toFixed(1)+'px '+FN;                                    // grow 13 -> 18 as it flies
+    ctx.translate(sx+(ex-sx)*u, sy+(ey-sy)*u);ctx.rotate(sa+(ea-sa)*u);
+    ctx.fillStyle='#ffffff';ctx.fillText(jeq,0,0);ctx.restore();
+  }
+  function drawEqStep5(ctx,p){
+    var EY=348;
+    var sL='(1\u2212t)', sQ='Q\u2081', sP1='(', sP2=')', sR=' + t Q\u2082', sE='(1\u2212t)P\u2080 + t P\u2081';
+    ctx.save();ctx.font='18px '+FN;ctx.textBaseline='middle';ctx.textAlign='left';
+    var wL=ctx.measureText(sL).width, wQ=ctx.measureText(sQ).width, wP=ctx.measureText(sP1).width,
+        wR=ctx.measureText(sR).width, wE=ctx.measureText(sE).width;
+    var W4=wL+wQ+wR, W5=wL+2*wP+wE+wR;
+    var hold=0.3, u=p<hold?0:E((p-hold)/(1-hold));
+    var Wc=W4+(W5-W4)*u, x0=350-Wc/2, cur=x0+wL, wSlot=wQ+((2*wP+wE)-wQ)*u;
+    ctx.globalAlpha=1;ctx.fillStyle='#ffffff';ctx.fillText(sL,x0,EY);          // left coefficient (1-t)
+    if(u<1){ ctx.globalAlpha=1-Math.min(1,u*1.6); ctx.fillText(sQ,cur,EY); }   // old Q1 fades out
+    ctx.globalAlpha=Math.min(1,u*1.3);ctx.fillText(sP1,cur,EY);ctx.fillText(sP2,cur+wSlot-wP,EY); // parens fade in
+    ctx.globalAlpha=1;ctx.fillText(sR,cur+wSlot,EY);                           // right tail + t Q2
+    ctx.restore();
+    // the (1-t)P0 + t P1 expression (the leg's own RHS) flies off leg P0P1 into the slot
+    var sp=legRhsPose(ctx,1), sx=sp.x, sy=sp.y, sa=sp.ang;
+    var ex=cur+wP+wE/2, ey=EY, ea=0;
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font=(13+5*u).toFixed(1)+'px '+FN;
+    ctx.globalAlpha=1;
+    ctx.translate(sx+(ex-sx)*u, sy+(ey-sy)*u);ctx.rotate(sa+(ea-sa)*u);
+    ctx.fillStyle='#ffffff';ctx.fillText(sE,0,0);ctx.restore();
+  }
+  function drawEqStep6(ctx,p){
+    var EY=348;
+    ctx.save();ctx.font='18px '+FN;ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle='#ffffff';
+    var c0='(1\u2212t)', lp='(', c1='(1\u2212t)', p0='P\u2080', pl=' + ', tP1='t P\u2081', rp=')', tail=' + t Q\u2082', sup='\u00b2', cd='(1\u2212t)';
+    var wc=ctx.measureText(c0).width, wlp=ctx.measureText(lp).width, wp0=ctx.measureText(p0).width,
+        wpl=ctx.measureText(pl).width, wtp1=ctx.measureText(tP1).width, wrp=ctx.measureText(rp).width,
+        wtail=ctx.measureText(tail).width, wsup=ctx.measureText(sup).width;
+    var Ws=wc+wlp+wc+wp0+wpl+wtp1+wrp+wtail, xs=350-Ws/2;
+    var c0s=xs, lps=xs+wc, c1s=lps+wlp, p0s=c1s+wc, pls=p0s+wp0, tp1s=pls+wpl, rps=tp1s+wtp1, tails=rps+wrp;
+    var We=wc+wsup+wp0+wpl+wc+wtp1+wtail, xe=350-We/2;
+    var c0e=xe, p0e=xe+wc+wsup, ple=p0e+wp0, cde=ple+wpl, tp1e=cde+wc, taile=tp1e+wtp1;
+    var hold=0.3, u=p<hold?0:E((p-hold)/(1-hold));
+    function L(a,b){return a+(b-a)*u;}
+    ctx.globalAlpha=1;
+    ctx.fillText(c0, L(c0s,c0e), EY);
+    ctx.fillText(p0, L(p0s,p0e), EY);
+    ctx.fillText(pl, L(pls,ple), EY);
+    ctx.fillText(tP1, L(tp1s,tp1e), EY);
+    ctx.fillText(tail, L(tails,taile), EY);
+    ctx.globalAlpha=1-Math.min(1,u*1.6);                  // ( , inner (1-t), )  fade out
+    ctx.fillText(lp, lps, EY); ctx.fillText(c1, c1s, EY); ctx.fillText(rp, rps, EY);
+    ctx.globalAlpha=Math.max(0,(u-0.5)/0.5);              // exponent appears once the two (1-t) coincide
+    ctx.fillText(sup, L(c0s,c0e)+wc, EY);
+    ctx.globalAlpha=Math.min(1,Math.max(0,(u-0.1)/0.5));  // distributed (1-t) slides to the t P1 term
+    ctx.fillText(cd, L(c0s,cde), EY);
+    ctx.restore();
+  }
+  function drawEqStep7(ctx,p){
+    var EY=348;
+    var sL='(1\u2212t)\u00b2P\u2080 + (1\u2212t)t P\u2081 + t ', sQ='Q\u2082', sP1='(', sP2=')', sE='(1\u2212t)P\u2081 + t P\u2082';
+    ctx.save();ctx.font='18px '+FN;ctx.textBaseline='middle';ctx.textAlign='left';
+    var wL=ctx.measureText(sL).width, wQ=ctx.measureText(sQ).width, wP=ctx.measureText(sP1).width, wE=ctx.measureText(sE).width, spaceW=ctx.measureText(' ').width;
+    var W6=wL+wQ, W7=wL-spaceW+2*wP+wE;        // u=1 closes the space so it lands as "t(" not "t ("
+    var hold=0.3, u=p<hold?0:E((p-hold)/(1-hold));
+    var Wc=W6+(W7-W6)*u, x0=350-Wc/2, cur=x0+wL-spaceW*u, wSlot=wQ+((2*wP+wE)-wQ)*u;   // slot slides left to close the space
+    ctx.globalAlpha=1;ctx.fillStyle='#ffffff';ctx.fillText(sL,x0,EY);          // unchanged terms + the t coefficient
+    if(u<1){ ctx.globalAlpha=1-Math.min(1,u*1.6); ctx.fillText(sQ,cur,EY); }   // old Q2 fades out
+    ctx.globalAlpha=Math.min(1,u*1.3);ctx.fillText(sP1,cur,EY);ctx.fillText(sP2,cur+wSlot-wP,EY); // parens fade in
+    ctx.restore();
+    // (1-t)P1 + t P2 expression (the leg's own RHS) flies off leg P1P2 into the slot
+    var sp=legRhsPose(ctx,2), sx=sp.x, sy=sp.y, sa=sp.ang;
+    var ex=cur+wP+wE/2, ey=EY, ea=0;
+    ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font=(13+5*u).toFixed(1)+'px '+FN;
+    ctx.globalAlpha=1;
+    ctx.translate(sx+(ex-sx)*u, sy+(ey-sy)*u);ctx.rotate(sa+(ea-sa)*u);
+    ctx.fillStyle='#ffffff';ctx.fillText(sE,0,0);ctx.restore();
+  }
+  function drawEqStep8(ctx,p){
+    var EY=348;
+    ctx.save();ctx.font='18px '+FN;ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle='#ffffff';
+    function MW(s){return ctx.measureText(s).width;}
+    var sT1='(1\u2212t)\u00b2P\u2080', sP=' + ', sT2='(1\u2212t)t P\u2081', sTo='t', sLp='(',
+        sInP1='(1\u2212t)P\u2081', sP2='P\u2082', sSup='\u00b2', sP2t='t\u00b2P\u2082', sRp=')',
+        sM2='2', sMr='t(1\u2212t)P\u2081';
+    function layout(items){var t=0,w=[],i;for(i=0;i<items.length;i++){w[i]=MW(items[i][1]);t+=w[i];}var x=350-t/2,o={};for(i=0;i<items.length;i++){o[items[i][0]]=x;x+=w[i];}return o;}
+    var LA=layout([['T1',sT1],['pA',sP],['T2',sT2],['pB',sP],['tO',sTo],['lp',sLp],['inP1',sInP1],['pC',sP],['P2t',sP2t],['rp',sRp]]);
+    var LI=layout([['T1',sT1],['pA',sP],['T2',sT2],['pB',sP],['tO',sTo],['inP1',sInP1],['pC',sP],['P2t',sP2t]]);
+    var LF=layout([['T1',sT1],['pA',sP],['M',sM2+sMr],['pD',sP],['P2t',sP2t]]);
+    var hold=0.3, uu=p<hold?0:(p-hold)/(1-hold);
+    var vA=uu<0.5?E(uu/0.5):1, vB=uu<0.5?0:E((uu-0.5)/0.5);
+    function L(a,b,v){return a+(b-a)*v;}
+    var w2=MW(sM2), wTo=MW(sTo), wt=MW('t'), wsup=MW(sSup);
+    ctx.globalAlpha=1;
+    ctx.fillText(sT1, vB>0?L(LI.T1,LF.T1,vB):L(LA.T1,LI.T1,vA), EY);            // (1-t)^2 P0  (unchanged term)
+    ctx.fillText(sP,  vB>0?L(LI.pA,LF.pA,vB):L(LA.pA,LI.pA,vA), EY);
+    ctx.globalAlpha = vB>0 ? 1-Math.min(1,vB*1.7) : 1;                          // first middle term + its plus fade in B
+    ctx.fillText(sT2, vB>0?LI.T2:L(LA.T2,LI.T2,vA), EY);
+    ctx.fillText(sP,  vB>0?LI.pB:L(LA.pB,LI.pB,vA), EY);
+    ctx.globalAlpha=1;                                                          // t and (1-t)P1 slide together into the combined term
+    ctx.fillText(sTo,   vB>0?L(LI.tO,  LF.M+w2,     vB):L(LA.tO,  LI.tO,  vA), EY);
+    ctx.fillText(sInP1, vB>0?L(LI.inP1,LF.M+w2+wTo, vB):L(LA.inP1,LI.inP1,vA), EY);
+    if(vB>0){ ctx.globalAlpha=Math.min(1,vB*1.5); ctx.fillText(sM2, L(LI.tO-w2, LF.M, vB), EY); }  // the "2" appears
+    if(vA<1){ ctx.globalAlpha=1-Math.min(1,vA*1.7); ctx.fillText(sLp, LA.lp, EY); ctx.fillText(sRp, LA.rp, EY); } // parens fade in A
+    ctx.globalAlpha=1; ctx.fillText(sP, vB>0?L(LI.pC,LF.pD,vB):L(LA.pC,LI.pC,vA), EY);
+    var xP2t = vB>0?L(LI.P2t,LF.P2t,vB):L(LA.P2t,LI.P2t,vA);                    // t P2 -> t^2 P2 (exponent fades in during A)
+    ctx.globalAlpha=1; ctx.fillText('t', xP2t, EY);
+    ctx.globalAlpha=Math.min(1,vA*1.5); ctx.fillText(sSup, xP2t+wt, EY);
+    ctx.globalAlpha=1; ctx.fillText(sP2, xP2t+wt+wsup, EY);
+    ctx.restore();
+  }
+  function drawEqStep9(ctx,p){
+    var EY=348;
+    ctx.save();ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle='#ffffff';
+    function MW(s){return ctx.measureText(s).width;}
+    var fullA='(1\u2212t)\u00b2P\u2080 + 2t(1\u2212t)P\u2081 + t\u00b2P\u2082';   // the function-of-t form
+    var fullB='B\u2080P\u2080 + B\u2081P\u2081 + B\u2082P\u2082';                 // weights replaced by Bn
+    ctx.font='18px '+FN;
+    var leA=350-MW(fullA)/2, leB=350-MW(fullB)/2;
+    function axA(si){ return leA+MW(fullA.substring(0,si)); }
+    function axB(si){ return leB+MW(fullB.substring(0,si)); }
+    var cStart=[axA(0),axA(11),axA(23)];          // weight left-edges in form A (cached @18px)
+    var symEnd=[axB(0),axB(7),axB(14)];           // Bn slots in form B (cached @18px)
+    var hold=0.25, u=p<hold?0:E((p-hold)/(1-hold));
+    function L(a,b){ return a+(b-a)*u; }
+    var LX=540, rowY=[158,204,250];
+    // the Pi factors and + signs STAY in the bottom equation, sliding from form-A to form-B spacing
+    var shared=[['P\u2080',6,2],[' + ',8,4],['P\u2081',18,9],[' + ',20,11],['P\u2082',25,16]];
+    ctx.globalAlpha=1;
+    for(var i=0;i<shared.length;i++){ ctx.fillText(shared[i][0], L(axA(shared[i][1]),axB(shared[i][2])), EY); }
+    // each Bn fades in where its polynomial departs, sliding into the form-B slot
+    var symA=E(Math.min(1,Math.max(0,(u-0.15)/0.55))), syms=['B\u2080','B\u2081','B\u2082'];
+    ctx.globalAlpha=symA;
+    for(var k=0;k<3;k++){ ctx.fillText(syms[k], L(cStart[k],symEnd[k]), EY); }
+    // list at 16px; the "Bn(t) = " labels are new so they fade in
+    ctx.font='16px '+FN; var wlab=MW('B\u2080(t) = ');
+    var labels=['B\u2080(t) = ','B\u2081(t) = ','B\u2082(t) = '];
+    ctx.globalAlpha = u<0.45?0:E((u-0.45)/0.55);
+    for(var r=0;r<3;r++){ ctx.fillText(labels[r], LX, rowY[r]); }
+    // the three weights fly out (18px -> 16px) to land just right of their labels
+    var coef=[['(1\u2212t)\u00b2',0],['2t(1\u2212t)',1],['t\u00b2',2]];
+    ctx.globalAlpha=1; ctx.font=(18-2*u).toFixed(2)+'px '+FN;
+    for(var j=0;j<coef.length;j++){
+      var ty=rowY[coef[j][1]];
+      ctx.fillText(coef[j][0], L(cStart[j], LX+wlab), EY+(ty-EY)*u);
     }
     ctx.restore();
   }
-  function drawReadout(ctx,t){
-    var b=B2(t);
-    ctx.save();ctx.textAlign='center';
-    ctx.fillStyle='#ffffff';ctx.font='14px '+FN;
-    ctx.fillText('P(t) = '+b[0].toFixed(2)+' P\u2080 + '+b[1].toFixed(2)+' P\u2081 + '+b[2].toFixed(2)+' P\u2082', 350, 30);
-    ctx.fillStyle='#dddddd';ctx.font='12px '+FN;
-    ctx.fillText('t = '+t.toFixed(2)+'      weights sum to '+(b[0]+b[1]+b[2]).toFixed(2), 350, 50);
+  function drawSlider(ctx,t){
+    var hx=TLX0+(TLX1-TLX0)*t;
+    ctx.save();ctx.lineCap='round';
+    ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(TLX0,TLY);ctx.lineTo(TLX1,TLY);ctx.stroke();
+    ctx.strokeStyle='#e8a832';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(TLX0,TLY);ctx.lineTo(hx,TLY);ctx.stroke();
+    ctx.fillStyle='#ffffff';ctx.font='11px '+FN;ctx.textAlign='center';
+    ctx.fillText('0',TLX0,TLY+20); ctx.fillText('1',TLX1,TLY+20);
+    dot(ctx,[hx,TLY],8,'#e8a832');
+    ctx.lineWidth=2;ctx.strokeStyle='#07070a';ctx.beginPath();ctx.arc(hx,TLY,8,0,7);ctx.stroke();
+    ctx.fillStyle='#e8a832';ctx.font='13px '+FN;ctx.textAlign='center';
+    ctx.fillText('t = '+t.toFixed(2), Math.max(TLX0+22,Math.min(TLX1-22,hx)), TLY-15);
     ctx.restore();
+  }
+  function drawManualEq(ctx,t){
+    var s=1-t, v=[s*s,2*s*t,t*t], EY=348;
+    ctx.save();ctx.font='18px '+FN;ctx.textBaseline='middle';ctx.textAlign='left';
+    function MW(x){return ctx.measureText(x).width;}
+    var parts=[ ['B(t)','#e8a832'], [' = ','#ffffff'],
+                [v[0].toFixed(2),'#e8a832'], ['\u00b7P\u2080 + ','#ffffff'],
+                [v[1].toFixed(2),'#e8a832'], ['\u00b7P\u2081 + ','#ffffff'],
+                [v[2].toFixed(2),'#e8a832'], ['\u00b7P\u2082','#ffffff'] ];
+    var tot=0,i; for(i=0;i<parts.length;i++) tot+=MW(parts[i][0]);
+    var x=350-tot/2;
+    for(i=0;i<parts.length;i++){ ctx.fillStyle=parts[i][1]; ctx.fillText(parts[i][0],x,EY); x+=MW(parts[i][0]); }
+    ctx.restore();
+  }
+  function drawBasisList(ctx){
+    var LX=540, rowY=[158,204,250], rows=['B\u2080(t) = (1\u2212t)\u00b2','B\u2081(t) = 2t(1\u2212t)','B\u2082(t) = t\u00b2'];
+    ctx.save();ctx.font='16px '+FN;ctx.textBaseline='middle';ctx.textAlign='left';ctx.fillStyle='#ffffff';
+    for(var r=0;r<3;r++){ ctx.fillText(rows[r], LX, rowY[r]); }
+    ctx.restore();
+  }
+  function drawConstruction(ctx,t){
+    var Q1=lerp2(P0,P1,t), Q2=lerp2(P1,P2,t), B=bez(t);
+    ctx.save();
+    ctx.strokeStyle='rgba(232,168,50,0.4)';ctx.lineWidth=1.4;ctx.setLineDash([]);
+    ctx.beginPath();ctx.moveTo(Q1[0],Q1[1]);ctx.lineTo(Q2[0],Q2[1]);ctx.stroke();      // the join line Q1-Q2 (amber)
+    ctx.strokeStyle='#e8a832';ctx.lineWidth=2;                                          // solid t-segments (amber = slider)
+    ctx.beginPath();
+    ctx.moveTo(P0[0],P0[1]);ctx.lineTo(Q1[0],Q1[1]);
+    ctx.moveTo(P1[0],P1[1]);ctx.lineTo(Q2[0],Q2[1]);
+    ctx.moveTo(Q1[0],Q1[1]);ctx.lineTo(B[0],B[1]);
+    ctx.stroke();
+    ctx.restore();
+    dot(ctx,Q1,4.5,'#ffd23f'); dot(ctx,Q2,4.5,'#ffd23f');
+    ctx.save();ctx.fillStyle='#ffd23f';ctx.font='12px '+FN;ctx.textAlign='center';ctx.textBaseline='alphabetic';
+    ctx.fillText('Q\u2081',Q1[0]-14,Q1[1]-6); ctx.fillText('Q\u2082',Q2[0]+14,Q2[1]-6);ctx.restore();
+    dot(ctx,B,6.5,'#e8a832');
+    ctx.save();ctx.lineWidth=2;ctx.strokeStyle='#07070a';ctx.beginPath();ctx.arc(B[0],B[1],6.5,0,7);ctx.stroke();ctx.restore();
+    ctx.save();ctx.fillStyle='#e8a832';ctx.font='12px '+FN;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText('B(t)',B[0],B[1]+10);ctx.restore();
+  }
+  function drawManual(){
+    var cv=document.getElementById('cvBez');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    cv.style.cursor='ew-resize';
+    ctx.textBaseline='alphabetic';
+    drawSlider(ctx,manualT);
+    drawLeg(ctx,1,1,0,0,1); drawLeg(ctx,2,1,0,0,1);   // dashed, no dots, no equation
+    drawCP(ctx);
+    drawCurveBlue(ctx,0,1);                            // solid blue curve
+    drawConstruction(ctx,manualT);                     // de Casteljau construction; B rides the curve at t
+    drawManualEq(ctx,manualT);
+    drawBasisList(ctx);
+    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;ctx.fillText('Drag t to move the weights and the curve point.',W/2,H-14);ctx.restore();
+  }
+  function drawFormB(ctx){   // step-9 bottom equation, standalone so it can fade out on its own
+    ctx.save();ctx.font='18px '+FN;ctx.textBaseline='middle';ctx.textAlign='center';ctx.fillStyle='#ffffff';
+    ctx.fillText('B\u2080P\u2080 + B\u2081P\u2081 + B\u2082P\u2082',350,348);
+    ctx.restore();
+  }
+  function drawManualTransition(mf){   // cross-fade from the step-9 settle into manual mode
+    var cv=document.getElementById('cvBez');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    ctx.textBaseline='alphabetic';
+    var fe=E(mf);
+    // shared components stay at full opacity through the whole transition
+    drawLeg(ctx,1,1,0,0,1); drawLeg(ctx,2,1,0,0,1);
+    drawCP(ctx);
+    drawCurveBlue(ctx,0,1);
+    drawBasisList(ctx);
+    // outgoing: number line, symbolic equation, step-9 caption fade out
+    if(fe<1){ ctx.save();ctx.globalAlpha=1-fe;
+      drawTopLine(ctx);
+      drawFormB(ctx);
+      ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;ctx.fillText(STEP[9],W/2,H-14);
+      ctx.restore(); }
+    // incoming: slider, de Casteljau construction, numeric equation, drag hint fade in
+    if(fe>0){ ctx.save();ctx.globalAlpha=fe;
+      drawSlider(ctx,manualT);
+      drawConstruction(ctx,manualT);
+      drawManualEq(ctx,manualT);
+      ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;ctx.fillText('Drag t to move the weights and the curve point.',W/2,H-14);
+      ctx.restore(); }
+  }
+  function mX(e){ var cv=document.getElementById('cvBez'),r=cv.getBoundingClientRect(),cx=e.touches?e.touches[0].clientX:e.clientX; return (cx-r.left)*(cv.width/r.width); }
+  function mY(e){ var cv=document.getElementById('cvBez'),r=cv.getBoundingClientRect(),cy=e.touches?e.touches[0].clientY:e.clientY; return (cy-r.top)*(cv.height/r.height); }
+  function mSetT(e){ manualT=Math.max(0,Math.min(1,(mX(e)-TLX0)/(TLX1-TLX0))); }
+  function mDown(e){ if(!manualMode)return; if(mY(e)<TLY+30){ dragging=true; mSetT(e); if(e.cancelable)e.preventDefault(); } }
+  function mMove(e){ if(!manualMode||!dragging)return; mSetT(e); if(e.cancelable)e.preventDefault(); }
+  function mUp(){ dragging=false; }
+  function attachManual(){ if(evtAttached)return; var cv=document.getElementById('cvBez'); if(!cv)return; evtAttached=true;
+    cv.addEventListener('mousedown',mDown); cv.addEventListener('mousemove',mMove); window.addEventListener('mouseup',mUp);
+    cv.addEventListener('touchstart',mDown,{passive:false}); cv.addEventListener('touchmove',mMove,{passive:false}); window.addEventListener('touchend',mUp);
   }
   function drawFrame(ph,p){
-    var cv=document.getElementById('cvBez');if(!cv) return;
+    var cv=document.getElementById('cvBez');if(!cv)return;
     var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
-    var pe=sstep(p);
-    drawPoly(ctx);
-    if(ph===1){
-      var t=pe;
-      drawCurve(ctx,0,t);
-      var A=lerp2(P0,P1,t), Bp=lerp2(P1,P2,t), C=lerp2(A,Bp,t);
-      ctx.save();ctx.strokeStyle='#3ce8b2';ctx.lineWidth=1.6;
-      ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(Bp[0],Bp[1]);ctx.stroke();ctx.restore();
-      dot(ctx,A,4,'#3ce8b2');dot(ctx,Bp,4,'#3ce8b2');dot(ctx,C,5.5,'#ffffff');
-    } else if(ph>=2){
-      drawCurve(ctx,0,1);
-    }
-    if(ph===2){ drawBasis(ctx,pe,-1); }
-    else if(ph===3){ drawBasis(ctx,1,pe); dot(ctx,bez(pe),5.5,'#ffffff'); drawReadout(ctx,pe); }
-    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;
-    ctx.fillText(STEP[ph], W/2, H-16);ctx.restore();
+    ctx.textBaseline='alphabetic';
+    drawTopLine(ctx);
+    // leg P0P1 eq: full until its substitution (stage 5); then RHS flies off (hidden here) and "Q1 =" fades; gone after
+    var l1Lbl=1, l1Rhs=1;
+    if(ph===5){ var u5=p<0.3?0:E((p-0.3)/0.7); l1Lbl=1-Math.min(1,u5*1.5); l1Rhs=0; }
+    else if(ph>5){ l1Lbl=0; l1Rhs=0; }
+    var dashAmt=(ph<4)?0:(ph===4?E(Math.min(1,p/0.3)):1);
+    if(ph>=1) drawLeg(ctx,1,(ph===1)?E(p):1, l1Lbl, l1Rhs, dashAmt);
+    // leg P1P2 eq: full until its substitution (stage 7); then RHS flies off and "Q2 =" fades; gone after
+    var l2Lbl=1, l2Rhs=1;
+    if(ph===7){ var u7=p<0.3?0:E((p-0.3)/0.7); l2Lbl=1-Math.min(1,u7*1.5); l2Rhs=0; }
+    else if(ph>7){ l2Lbl=0; l2Rhs=0; }
+    if(ph>=2) drawLeg(ctx,2,(ph===2)?E(p):1, l2Lbl, l2Rhs, dashAmt);
+    drawCP(ctx);
+    if(ph===3) drawCurveBuild(ctx,p);
+    if(ph>=4){ var dotsA,lineA; if(ph===4){ var fc=E(Math.min(1,p/0.3)); dotsA=1-fc; lineA=fc; } else { dotsA=0; lineA=1; } drawCurveBlue(ctx,dotsA,lineA); }
+    if(ph===4) drawEqFly(ctx,p);
+    if(ph===5) drawEqStep5(ctx,p);
+    if(ph===6) drawEqStep6(ctx,p);
+    if(ph===7) drawEqStep7(ctx,p);
+    if(ph===8) drawEqStep8(ctx,p);
+    if(ph===9) drawEqStep9(ctx,p);
+    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;ctx.fillText(STEP[ph],W/2,H-14);ctx.restore();
   }
-  function startStep(){ if(stage>=3) return; tween={ph:stage+1, t:0}; }
+
+  function startStep(){ if(stage>=9) return; tween={ph:stage+1,t:0}; }
   function frame(ts){
-    if(!lastTs) lastTs=ts;
-    var dt=ts-lastTs; lastTs=ts;
+    if(!lastTs) lastTs=ts; var dt=ts-lastTs; lastTs=ts;
     if(tween && (bezBar.mode==='playing'||bezBar.mode==='stepping')){
       tween.t += dt/DUR[tween.ph]*spd;
-      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); bezBar.stepDone(); }
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); bezBar.stepDone();
+        if(stage===9 && !manualMode && !manualFading && !manualTimer){ manualTimer=setTimeout(function(){ manualFading=true; manualFadeT=0; manualTimer=null; }, 1000); } }
       else drawFrame(tween.ph,tween.t);
     } else if(tween){ drawFrame(tween.ph,tween.t); }
+    else if(manualMode){ drawManual(); }
+    else if(manualFading){ manualFadeT += dt/MANUAL_FADE; if(manualFadeT>=1){ manualFadeT=1; manualFading=false; manualMode=true; } drawManualTransition(Math.min(1,manualFadeT)); }
     else { drawFrame(stage,1); }
     rafB=requestAnimationFrame(frame);
   }
   var bezBar = new AnimBtnBar({
     playId:'btnBezPlay', stepId:'btnBezStep',
     speedIds:['bSpd0','bSpd1','bSpd2'],
-    isDone: function(){ return stage>=3 && !tween; },
+    isDone: function(){ return stage>=9 && !tween; },
     onStep:  function(){ if(!tween) startStep(); },
-    onPlay:  function(){ if(!tween){ if(stage>=3) stage=0; startStep(); } },
+    onPlay:  function(){ if(!tween){ if(stage>=9){ stage=0; manualMode=false; manualFading=false; manualFadeT=0; if(manualTimer){clearTimeout(manualTimer);manualTimer=null;} var c0=document.getElementById('cvBez'); if(c0)c0.style.cursor='default'; } startStep(); } },
     onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
-    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
-    onAdvance: function(){ playTimer=setTimeout(function(){ if(bezBar.mode==='playing') startStep(); }, 800/spd); }
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } if(manualTimer){ clearTimeout(manualTimer); manualTimer=null; } manualMode=false; manualFading=false; manualFadeT=0; dragging=false; var c1=document.getElementById('cvBez'); if(c1)c1.style.cursor='default'; tween=null; stage=0; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(bezBar.mode==='playing') startStep(); }, 1100/spd); }
   });
   window._bezPlay  = function(){ bezBar.play(); };
   window._bezStep  = function(){ bezBar.step(); };
@@ -9958,12 +10936,13 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   var oOpenB=window._openNotes;
   window._openNotes=function(id,scroll){
     oOpenB(id,scroll);
-    if(id==='nv1Quadratics' && !rafB){ stage=0; tween=null; lastTs=0; bezBar.mode='idle'; bezBar.update(); rafB=requestAnimationFrame(frame); }
+    if(id==='nv1Quadratics' && !rafB){ stage=0; tween=null; lastTs=0; manualMode=false; manualFading=false; manualFadeT=0; if(manualTimer){clearTimeout(manualTimer);manualTimer=null;} bezBar.mode='idle'; bezBar.update(); attachManual(); rafB=requestAnimationFrame(frame); }
   };
   var oCloseB=window._closeNotes;
   window._closeNotes=function(){
     if(rafB){cancelAnimationFrame(rafB);rafB=null;}
     if(playTimer){clearTimeout(playTimer);playTimer=null;}
+    if(manualTimer){clearTimeout(manualTimer);manualTimer=null;} manualMode=false; manualFading=false; manualFadeT=0; dragging=false;
     oCloseB();
   };
 })();
@@ -10099,6 +11078,465 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._openNotes=function(id,scroll){
     oOpenP(id,scroll);
     if(id==='nv1Quadratics'){ setTimeout(initPaint, 60); }
+  };
+})();
+
+// ============ CVBFNS: the three quadratic Bernstein basis functions over t in [0,1] ============
+// Phase 1: fly the three labels down -> centered symbolic sum (18px): B0(t)+B1(t)+B2(t) = (1-t)^2 + 2(1-t)t + t^2.
+// Phase 2: expand (1-t)^2 -- fly it down to the work line, break into (1-t)(1-t) [slide out a copy, drop the ^2],
+//          multiply to 1 - 2t + t^2, fly the result back up while the rest of the equation makes room.
+// Phase 3: expand 2(1-t)t the same way (no square to break -> distribute to 2t - 2t^2). t^2 stays.
+// Phase 4: REGROUP (slide like powers together) then CANCEL (each group collapses to 0) -> = 1. Deliberately slow.
+//          Proves the weights sum to 1 for EVERY t (partition of unity), not just at one sampled value.
+// Phase 5: hand off to manual -- substitute t -> 0.25, reveal the value sum, fade in the slider/dots/amber while
+//          the white x-axis labels fade out. Manual: drag t -> line, dots, heights, equation, amber value track t.
+(function(){
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var C0='#e8835c', C1='#5cc990', C2='#6aa6ff';
+  var rafBf=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
+  var NMAX=5, DUR=[0,2600,5200,4600,4200,2400];
+  var EY=360, SLY=432, YW=410;   // YW = work line below the main equation
+  var manualMode=false, manualT=0.25, dragging=false, evtAttached=false;
+  var LEFTSYM=['B\u2080(t)',' + ','B\u2081(t)',' + ','B\u2082(t)',' = '];
+  var FACTORED=['(1\u2212t)\u00b2',' + ','2(1\u2212t)t',' + ','t\u00b2'];
+  var A_EXP=['1',' \u2212 2t',' + t\u00b2',' + ','2(1\u2212t)t',' + ','t\u00b2'];        // after expanding (1-t)^2
+  var B_EXP=['1',' \u2212 2t',' + t\u00b2',' + ','2t',' \u2212 2t\u00b2',' + ','t\u00b2'];  // after also expanding 2(1-t)t
+  var EXPANDED=['1',' \u2212 2t',' + t\u00b2',' + 2t',' \u2212 2t\u00b2',' + t\u00b2'];   // 6 signed terms (same string as B_EXP)
+  function E(x){ x=x<0?0:(x>1?1:x); return x*x*(3-2*x); }
+  function B0(t){ var s=1-t; return s*s; }
+  function B1(t){ return 2*(1-t)*t; }
+  function B2(t){ return t*t; }
+  function lerpCol(hex,e){
+    var r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16), b=parseInt(hex.substr(5,2),16);
+    r=Math.round(r+(255-r)*e); g=Math.round(g+(255-g)*e); b=Math.round(b+(255-b)*e);
+    return 'rgb('+r+','+g+','+b+')';
+  }
+  function labOf(X,Y){
+    return [ {name:'B\u2080(t)', poly:'(1\u2212t)\u00b2', col:C0, align:'left',   ax:X(0.15), ay:Y(0.83)},
+             {name:'B\u2081(t)', poly:'2(1\u2212t)t',  col:C1, align:'center', ax:X(0.5),  ay:Y(0.60)},
+             {name:'B\u2082(t)', poly:'t\u00b2',        col:C2, align:'right',  ax:X(0.85), ay:Y(0.83)} ];
+  }
+  // centered symbolic equation (18px) -- phase 1 fly target
+  function symLayout(ctx, Xg){
+    ctx.font='18px '+FN;
+    var L=['B\u2080('+Xg+')',' + ','B\u2081('+Xg+')',' + ','B\u2082('+Xg+')',' = ',
+           '(1\u2212'+Xg+')\u00b2',' + ','2(1\u2212'+Xg+')'+Xg,' + ',Xg+'\u00b2'];
+    var W=0,i; for(i=0;i<L.length;i++) W+=ctx.measureText(L[i]).width;
+    var cx=350-W/2, pos=[]; for(i=0;i<L.length;i++){ pos.push(cx); cx+=ctx.measureText(L[i]).width; }
+    return {toks:L, pos:pos};
+  }
+  function drawFlyToSum(ctx,u,X,Y){
+    var e=E(u), lab=labOf(X,Y), i, k;
+    ctx.font='14px '+FN;
+    var st=[];
+    for(i=0;i<3;i++){ var L=lab[i], full=L.name+' = '+L.poly,
+        wf=ctx.measureText(full).width, wn=ctx.measureText(L.name+' = ').width,
+        le=(L.align==='left')?L.ax:((L.align==='center')?L.ax-wf/2:L.ax-wf);
+      st.push({nameX:le, polyX:le+wn, y:L.ay}); }
+    var lay=symLayout(ctx,'t');
+    var map=[[0,0,'name'],[2,1,'name'],[4,2,'name'],[6,0,'poly'],[8,1,'poly'],[10,2,'poly']];
+    var ka=E(Math.max(0,(u-0.6)/0.4));
+    ctx.font='18px '+FN; ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillStyle='rgba(255,255,255,'+ka+')';
+    var conn=[1,3,5,7,9]; for(k=0;k<conn.length;k++) ctx.fillText(lay.toks[conn[k]], lay.pos[conn[k]], EY);
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+    for(k=0;k<map.length;k++){ var ti=map[k][0], li=map[k][1], part=map[k][2];
+      var sx=(part==='name')?st[li].nameX:st[li].polyX, sy=st[li].y;
+      var x=sx+(lay.pos[ti]-sx)*e, y=sy+(EY-sy)*e, fs=14+4*e;
+      ctx.font=fs+'px '+FN; ctx.fillStyle=lerpCol(lab[li].col,e); ctx.fillText(lay.toks[ti],x,y);
+    }
+  }
+  // compFont sizes the computed form so it fits centered with margins (so the phase-4 re-centering reads)
+  function compFont(ctx){
+    var probe=['B\u2080(0.25)',' + ','B\u2081(0.25)',' + ','B\u2082(0.25)',' = ','0.5625',' + ','0.3750',' + ','0.0625',' = ','1'];
+    ctx.font='18px '+FN; var W=0,i; for(i=0;i<probe.length;i++) W+=ctx.measureText(probe[i]).width;
+    var targetW=580; return (W>targetW)? 18*targetW/W : 18;   // leave margins so re-centering is visible
+  }
+  function centerPos(ctx, toks, font){
+    ctx.font=font+'px '+FN; var W=0,i; for(i=0;i<toks.length;i++) W+=ctx.measureText(toks[i]).width;
+    var cx=350-W/2, pos=[]; for(i=0;i<toks.length;i++){ pos.push(cx); cx+=ctx.measureText(toks[i]).width; }
+    return {pos:pos, W:W};
+  }
+  // ---- worked term-by-term expansion: fly the factored term down to the work line, manipulate, fly the result back ----
+  // shared: draw the un-expanded remainder of the equation at interpolated positions (before-layout -> after-layout)
+  function drawRest(ctx, Tb, Lb, La, leftN, restMap, u){
+    var i; ctx.fillStyle='#ffffff';
+    for(i=0;i<leftN;i++){ var x=Lb.pos[i]+(La.pos[i]-Lb.pos[i])*u; ctx.fillText(Tb[i], x, EY); }
+    for(var m=0;m<restMap.length;m++){ var bi=restMap[m][0], ai=restMap[m][1];
+      var x2=Lb.pos[bi]+(La.pos[ai]-Lb.pos[bi])*u; ctx.fillText(Tb[bi], x2, EY); }
+  }
+  // phase 2: expand (1-t)^2 -- fly down, break into (1-t)(1-t), multiply to 1 - 2t + t^2, fly back making room
+  function drawExpandA(ctx, e){
+    ctx.font='18px '+FN; ctx.textBaseline='alphabetic'; ctx.textAlign='left'; var i;
+    var Tb=LEFTSYM.concat(FACTORED), Ta=LEFTSYM.concat(A_EXP);
+    var Lb=centerPos(ctx,Tb,18), La=centerPos(ctx,Ta,18);
+    var restMap=[[7,9],[8,10],[9,11],[10,12]];   // FACTORED[1..4] -> A_EXP[3..6]
+    var sq=['(1\u2212t)','\u00b2'], prod=['(1\u2212t)','(1\u2212t)'], foil=['1',' \u2212 t',' \u2212 t',' + t\u00b2'], res=['1',' \u2212 2t',' + t\u00b2'];
+    var Wsq=centerPos(ctx,sq,18), Wprod=centerPos(ctx,prod,18), Wfoil=centerPos(ctx,foil,18), Wres=centerPos(ctx,res,18);
+    if(e<0.22){                          // fly '(1-t)^2' down to the work line
+      var u=E(e/0.22); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      var bx=Lb.pos[6]+(Wsq.pos[0]-Lb.pos[6])*u, by=EY+(YW-EY)*u;
+      ctx.fillStyle='#ffffff'; ctx.fillText(sq[0],bx,by); ctx.fillText(sq[1],bx+ctx.measureText(sq[0]).width,by);
+    } else if(e<0.42){                   // break: drop the ^2, slide out a second (1-t)
+      var u2=E((e-0.22)/0.20); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      var f1=Wsq.pos[0]+(Wprod.pos[0]-Wsq.pos[0])*u2;
+      ctx.fillStyle='#ffffff'; ctx.fillText('(1\u2212t)',f1,YW);
+      if(1-u2>0){ ctx.fillStyle='rgba(255,255,255,'+(1-u2)+')'; ctx.fillText('\u00b2',Wsq.pos[1],YW); }
+      if(u2>0){ var s2=f1+(Wprod.pos[1]-f1)*u2; ctx.fillStyle='rgba(255,255,255,'+u2+')'; ctx.fillText('(1\u2212t)',s2,YW); }
+    } else if(e<0.52){                   // multiply step 1: FOIL (1-t)(1-t) -> 1 - t - t + t^2
+      var uf=E((e-0.42)/0.10); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      if(1-uf>0){ ctx.fillStyle='rgba(255,255,255,'+(1-uf)+')'; ctx.fillText(prod[0],Wprod.pos[0],YW); ctx.fillText(prod[1],Wprod.pos[1],YW); }
+      if(uf>0){ ctx.fillStyle='rgba(255,255,255,'+uf+')'; for(i=0;i<foil.length;i++) ctx.fillText(foil[i],Wfoil.pos[i],YW); }
+    } else if(e<0.62){                   // multiply step 2: combine  - t - t  ->  - 2t  (the two slide together and merge)
+      var uc=E((e-0.52)/0.10); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      ctx.fillStyle='#ffffff';
+      ctx.fillText(foil[0], Wfoil.pos[0]+(Wres.pos[0]-Wfoil.pos[0])*uc, YW);              // '1'
+      ctx.fillText(foil[3], Wfoil.pos[3]+(Wres.pos[2]-Wfoil.pos[3])*uc, YW);              // '+ t^2'
+      if(uc>0){ ctx.fillStyle='rgba(255,255,255,'+uc+')'; ctx.fillText(res[1],Wres.pos[1],YW); }                 // '- 2t' fades in
+      if(1-uc>0){ ctx.fillStyle='rgba(255,255,255,'+(1-uc)+')';
+        ctx.fillText(foil[1], Wfoil.pos[1]+(Wres.pos[1]-Wfoil.pos[1])*uc, YW);            // first '- t' slides to merge point
+        ctx.fillText(foil[2], Wfoil.pos[2]+(Wres.pos[1]-Wfoil.pos[2])*uc, YW); }          // second '- t' slides to merge point
+    } else {                             // fly the result back up; rest makes room (Lb -> La)
+      var u4=E((e-0.62)/0.38); drawRest(ctx,Tb,Lb,La,6,restMap,u4);
+      ctx.fillStyle='#ffffff';
+      for(i=0;i<3;i++){ var x=Wres.pos[i]+(La.pos[6+i]-Wres.pos[i])*u4, y=YW+(EY-YW)*u4; ctx.fillText(res[i],x,y); }
+    }
+  }
+  // phase 3: expand 2(1-t)t -- fly down, distribute to 2t - 2t^2, fly back making room (no square to break)
+  function drawExpandB(ctx, e){
+    ctx.font='18px '+FN; ctx.textBaseline='alphabetic'; ctx.textAlign='left'; var i;
+    var Tb=LEFTSYM.concat(A_EXP), Ta=LEFTSYM.concat(B_EXP);
+    var Lb=centerPos(ctx,Tb,18), La=centerPos(ctx,Ta,18);
+    var restMap=[[6,6],[7,7],[8,8],[9,9],[11,12],[12,13]];   // A_EXP[0..3]->B_EXP[0..3]; A_EXP[5,6]->B_EXP[6,7]
+    var prod=['2(1\u2212t)t'], prodParts=['2','(1\u2212t)','t'], rearrParts=['2','t','(1\u2212t)'], res=['2t',' \u2212 2t\u00b2'];
+    var Wp=centerPos(ctx,prod,18), Wpp=centerPos(ctx,prodParts,18), Wrr=centerPos(ctx,rearrParts,18), Wr=centerPos(ctx,res,18);
+    if(e<0.20){                          // fly '2(1-t)t' down (Tb index 10)
+      var u=E(e/0.20); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      var bx=Lb.pos[10]+(Wp.pos[0]-Lb.pos[10])*u, by=EY+(YW-EY)*u;
+      ctx.fillStyle='#ffffff'; ctx.fillText(prod[0],bx,by);
+    } else if(e<0.38){                   // rearrange 2(1-t)t -> 2t(1-t): the trailing t slides forward past (1-t)
+      var ur=E((e-0.20)/0.18); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      ctx.fillStyle='#ffffff';
+      ctx.fillText('2', Wpp.pos[0], YW);                                                  // '2' fixed (same centred width)
+      ctx.fillText('t', Wpp.pos[2]+(Wrr.pos[1]-Wpp.pos[2])*ur, YW);                        // 't' slides left to after '2'
+      ctx.fillText('(1\u2212t)', Wpp.pos[1]+(Wrr.pos[2]-Wpp.pos[1])*ur, YW);              // '(1-t)' slides right
+    } else if(e<0.56){                   // distribute 2t(1-t) -> 2t - 2t^2
+      var ud=E((e-0.38)/0.18); drawRest(ctx,Tb,Lb,Lb,6,restMap,0);
+      ctx.fillStyle='#ffffff'; ctx.fillText(res[0], Wrr.pos[0]+(Wr.pos[0]-Wrr.pos[0])*ud, YW);                   // '2t' carries out front
+      if(1-ud>0){ ctx.fillStyle='rgba(255,255,255,'+(1-ud)+')'; ctx.fillText('(1\u2212t)', Wrr.pos[2]+(Wr.pos[1]-Wrr.pos[2])*ud, YW); }   // '(1-t)' slides in and fades
+      if(ud>0){ ctx.fillStyle='rgba(255,255,255,'+ud+')'; ctx.fillText(res[1], Wr.pos[1], YW); }                 // '- 2t^2' fades in
+    } else {                             // fly result back; rest makes room (Lb -> La)
+      var u3=E((e-0.56)/0.44); drawRest(ctx,Tb,Lb,La,6,restMap,u3);
+      ctx.fillStyle='#ffffff';
+      for(i=0;i<2;i++){ var x=Wr.pos[i]+(La.pos[10+i]-Wr.pos[i])*u3, y=YW+(EY-YW)*u3; ctx.fillText(res[i],x,y); }
+    }
+  }
+  // phase 4: regroup like powers, collapse each group to "+ 0", hold "1 + 0 + 0", then drop the zeros -> "= 1"
+  function drawRegroupCancel(ctx, e){
+    var FNT=18, i, m; ctx.textBaseline='alphabetic'; ctx.textAlign='left';
+    var R_grp=['1',' \u2212 2t',' + 2t',' + t\u00b2',' \u2212 2t\u00b2',' + t\u00b2'];   // like powers adjacent
+    var R_zeros=['1',' + 0',' + 0'];
+    var R_one=['1'];
+    function lay(right){ var toks=LEFTSYM.concat(right); return {toks:toks, L:centerPos(ctx,toks,FNT)}; }
+    ctx.font=FNT+'px '+FN;
+    if(e<0.28){                              // regroup: swap +t^2 (exp idx8) and +2t (exp idx9)
+      var u=E(e/0.28);
+      var A=lay(EXPANDED), B=lay(R_grp);
+      var mapR=[[6,6],[7,7],[8,9],[9,8],[10,10],[11,11]];
+      ctx.fillStyle='#ffffff';
+      for(i=0;i<6;i++) ctx.fillText(A.toks[i], A.L.pos[i], EY);
+      for(m=0;m<mapR.length;m++){ var ei=mapR[m][0], gi=mapR[m][1];
+        var x=A.L.pos[ei]+(B.L.pos[gi]-A.L.pos[ei])*u; ctx.fillText(A.toks[ei], x, EY); }
+    } else if(e<0.62){                       // collapse: t-group & t^2-group converge to "+ 0"
+      var u2=E((e-0.28)/0.34);
+      var G=lay(R_grp), Z=lay(R_zeros);
+      ctx.fillStyle='#ffffff';
+      for(i=0;i<7;i++){ var xc=G.L.pos[i]+(Z.L.pos[i]-G.L.pos[i])*u2; ctx.fillText(G.toks[i], xc, EY); }  // LEFT + '1'
+      ctx.fillStyle='rgba(255,255,255,'+u2+')';
+      ctx.fillText(Z.toks[7], Z.L.pos[7], EY); ctx.fillText(Z.toks[8], Z.L.pos[8], EY);                  // the two "+ 0"
+      var aOut=1-u2;
+      if(aOut>0){ ctx.fillStyle='rgba(255,255,255,'+aOut+')';
+        var tg=[7,8]; for(m=0;m<tg.length;m++){ var gi2=tg[m]; var xa=G.L.pos[gi2]+(Z.L.pos[7]-G.L.pos[gi2])*u2; ctx.fillText(G.toks[gi2], xa, EY); }
+        var t2g=[9,10,11]; for(m=0;m<t2g.length;m++){ var gj=t2g[m]; var xb=G.L.pos[gj]+(Z.L.pos[8]-G.L.pos[gj])*u2; ctx.fillText(G.toks[gj], xb, EY); }
+      }
+    } else if(e<0.76){                       // hold "1 + 0 + 0"
+      var Z2=lay(R_zeros); ctx.fillStyle='#ffffff';
+      for(i=0;i<Z2.toks.length;i++) ctx.fillText(Z2.toks[i], Z2.L.pos[i], EY);
+    } else {                                 // drop the zeros -> "= 1"
+      var u3=E((e-0.76)/0.24);
+      var Z3=lay(R_zeros), O=lay(R_one);
+      ctx.fillStyle='#ffffff';
+      for(i=0;i<7;i++){ var xx=Z3.L.pos[i]+(O.L.pos[i]-Z3.L.pos[i])*u3; ctx.fillText(Z3.toks[i], xx, EY); }
+      var aZ=1-u3;
+      if(aZ>0){ ctx.fillStyle='rgba(255,255,255,'+aZ+')';
+        ctx.fillText(Z3.toks[7], Z3.L.pos[7], EY); ctx.fillText(Z3.toks[8], Z3.L.pos[8], EY); }
+    }
+  }
+  // phase 5: morph "B0(t)+B1(t)+B2(t) = 1" -> the centered computed form at 0.25 (t->0.25, value sum revealed)
+  function drawToManual(ctx, e){
+    var u=E(e), i;
+    var S=['B\u2080(t)',' + ','B\u2081(t)',' + ','B\u2082(t)',' = ','1'];
+    var D=['B\u2080(0.25)',' + ','B\u2081(0.25)',' + ','B\u2082(0.25)',' = ','0.5625',' + ','0.3750',' + ','0.0625',' = ','1'];
+    var fS=18, fD=compFont(ctx), font=fS+(fD-fS)*u;
+    var Sp=centerPos(ctx,S,fS).pos, Dp=centerPos(ctx,D,fD).pos;
+    ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.font=font+'px '+FN;
+    var map=[[0,0],[1,1],[2,2],[3,3],[4,4],[5,5],[6,12]];
+    for(var m=0;m<map.length;m++){ var si=map[m][0], di=map[m][1];
+      var x=Sp[si]+(Dp[di]-Sp[si])*u;
+      if(S[si]===D[di]){ ctx.fillStyle='#ffffff'; ctx.fillText(S[si], x, EY); }
+      else { if(u<1){ ctx.fillStyle='rgba(255,255,255,'+(1-u)+')'; ctx.fillText(S[si], x, EY); }
+             if(u>0){ ctx.fillStyle='rgba(255,255,255,'+u+')'; ctx.fillText(D[di], x, EY); } }
+    }
+    if(u>0){ ctx.fillStyle='rgba(255,255,255,'+u+')'; for(i=6;i<=11;i++) ctx.fillText(D[i], Dp[i], EY); }
+  }
+  // manual / phase-4 end: the computed equation, centered, tracking t
+  function drawCompCentered(ctx, t, alpha){
+    if(alpha<=0) return;
+    var fs=compFont(ctx); ctx.font=fs+'px '+FN; ctx.textBaseline='alphabetic'; ctx.textAlign='left'; var i;
+    var T=t.toFixed(2), s=1-t, v=[s*s,2*s*t,t*t];
+    var toks=['B\u2080('+T+')',' + ','B\u2081('+T+')',' + ','B\u2082('+T+')',' = ',v[0].toFixed(4),' + ',v[1].toFixed(4),' + ',v[2].toFixed(4),' = ','1'];
+    var W=0; for(i=0;i<toks.length;i++) W+=ctx.measureText(toks[i]).width;
+    var cx=350-W/2, pos=[]; for(i=0;i<toks.length;i++){ pos.push(cx); cx+=ctx.measureText(toks[i]).width; }
+    ctx.fillStyle='rgba(255,255,255,'+alpha+')'; for(i=0;i<toks.length;i++) ctx.fillText(toks[i], pos[i], EY);
+  }
+  function drawPlotBase(ctx,X,Y){
+    var i;
+    ctx.strokeStyle='#262636'; ctx.lineWidth=1;
+    var g=[0,0.25,0.5,0.75,1];
+    for(i=0;i<g.length;i++){ var yy=Y(g[i]); ctx.beginPath(); ctx.moveTo(X(0),yy); ctx.lineTo(X(1),yy); ctx.stroke(); }
+    for(i=0;i<g.length;i++){ var xx=X(g[i]); ctx.beginPath(); ctx.moveTo(xx,Y(1)); ctx.lineTo(xx,Y(0)); ctx.stroke(); }
+    ctx.strokeStyle='#4a4a5e'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(X(0),Y(1)); ctx.lineTo(X(0),Y(0)); ctx.lineTo(X(1),Y(0)); ctx.stroke();
+    ctx.fillStyle='#dddddd'; ctx.font='12px '+FN; ctx.textAlign='right'; ctx.textBaseline='middle';
+    var vl=[0,0.5,1]; for(i=0;i<vl.length;i++){ ctx.fillText(vl[i].toFixed(1), X(0)-8, Y(vl[i])); }
+    function plot(fn,col){ ctx.strokeStyle=col; ctx.lineWidth=2.6; ctx.beginPath();
+      for(var k=0;k<=240;k++){ var t=k/240, px=X(t), py=Y(fn(t)); if(k===0) ctx.moveTo(px,py); else ctx.lineTo(px,py); }
+      ctx.stroke(); }
+    plot(B0,C0); plot(B2,C2); plot(B1,C1);
+    var lab=labOf(X,Y);
+    ctx.font='14px '+FN; ctx.textBaseline='alphabetic';
+    for(i=0;i<3;i++){ ctx.fillStyle=lab[i].col; ctx.textAlign=lab[i].align; ctx.fillText(lab[i].name+' = '+lab[i].poly, lab[i].ax, lab[i].ay); }
+  }
+  function drawXAxis(ctx,X,Y,whiteA,amberA,t){
+    var i, vl=[0,0.5,1];
+    if(whiteA>0){ ctx.save(); ctx.globalAlpha=whiteA; ctx.fillStyle='#dddddd'; ctx.font='12px '+FN; ctx.textAlign='center'; ctx.textBaseline='top';
+      for(i=0;i<vl.length;i++) ctx.fillText(vl[i].toFixed(1), X(vl[i]), Y(0)+8); ctx.restore(); }
+    if(amberA>0){ ctx.save(); ctx.globalAlpha=amberA; ctx.fillStyle='#e8a832'; ctx.font='12px '+FN; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText(t.toFixed(2), X(t), Y(0)+8); ctx.restore(); }
+  }
+  function drawMarks(ctx,X,Y,alpha,t){
+    if(alpha<=0) return;
+    var lx=X(t), i, cols=[C0,C1,C2], s=1-t, H=[s*s,2*s*t,t*t];
+    var topV=Math.max(H[0],H[1],H[2]);
+    ctx.save(); ctx.globalAlpha=alpha;
+    ctx.strokeStyle='#e8a832'; ctx.lineWidth=1.3; ctx.setLineDash([5,4]);
+    ctx.beginPath(); ctx.moveTo(lx, Y(0)); ctx.lineTo(lx, Y(Math.min(1,topV+0.06))); ctx.stroke(); ctx.setLineDash([]);
+    var right=(t<0.55);
+    for(i=0;i<3;i++){ var dy=Y(H[i]);
+      ctx.fillStyle=cols[i]; ctx.beginPath(); ctx.arc(lx,dy,4,0,7); ctx.fill();
+      ctx.font='12px '+FN; ctx.textBaseline='middle';
+      if(right){ ctx.textAlign='left'; ctx.fillText(H[i].toFixed(4), lx+10, dy); }
+      else { ctx.textAlign='right'; ctx.fillText(H[i].toFixed(4), lx-10, dy); }
+    }
+    ctx.restore();
+  }
+  function drawBfnsSlider(ctx, X, t, alpha){
+    if(alpha<=0) return;
+    var x0=X(0), x1=X(1), hx=x0+(x1-x0)*t;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.lineCap='round';
+    ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(x0,SLY); ctx.lineTo(x1,SLY); ctx.stroke();
+    ctx.strokeStyle='#e8a832'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(x0,SLY); ctx.lineTo(hx,SLY); ctx.stroke();
+    ctx.fillStyle='#ffffff'; ctx.font='11px '+FN; ctx.textAlign='center'; ctx.textBaseline='alphabetic';
+    ctx.fillText('0',x0,SLY+20); ctx.fillText('1',x1,SLY+20);
+    ctx.beginPath(); ctx.arc(hx,SLY,8,0,7); ctx.fillStyle='#e8a832'; ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle='#07070a'; ctx.beginPath(); ctx.arc(hx,SLY,8,0,7); ctx.stroke();
+    ctx.fillStyle='#e8a832'; ctx.font='13px '+FN; ctx.textAlign='center';
+    ctx.fillText('t = '+t.toFixed(2), Math.max(x0+24,Math.min(x1-24,hx)), SLY-15);
+    ctx.restore();
+  }
+  function geom(cv){ var W=cv.width; return {x0:58, x1:W-28, y0:28, y1:300}; }
+  function drawFrame(ph, t){
+    var cv=document.getElementById('cvBfns'); if(!cv) return;
+    var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height; ctx.clearRect(0,0,W,Hh);
+    var G=geom(cv);
+    function X(tt){ return G.x0+(G.x1-G.x0)*tt; }
+    function Y(v){ return G.y1-(G.y1-G.y0)*v; }
+    cv.style.cursor='default';
+    drawPlotBase(ctx,X,Y);
+    var whiteA=1, amberA=0, markA=0, slideA=0, markT=0.25;
+    if(ph===5){ var fo=E(t); whiteA=1-fo; amberA=fo; markA=fo; slideA=fo; }   // dots/slider/amber appear only at the manual handoff
+    drawXAxis(ctx,X,Y,whiteA,amberA,markT);
+    if(markA>0) drawMarks(ctx,X,Y,markA,markT);
+    if(slideA>0) drawBfnsSlider(ctx,X,markT,slideA);
+    if(ph===1){ drawFlyToSum(ctx,t,X,Y); }
+    else if(ph===2){ drawExpandA(ctx,t); }
+    else if(ph===3){ drawExpandB(ctx,t); }
+    else if(ph===4){ drawRegroupCancel(ctx,t); }
+    else if(ph===5){ drawToManual(ctx,t); }
+  }
+  function drawManual(){
+    var cv=document.getElementById('cvBfns'); if(!cv) return;
+    var ctx=cv.getContext('2d'), W=cv.width, Hh=cv.height; ctx.clearRect(0,0,W,Hh);
+    var G=geom(cv);
+    function X(tt){ return G.x0+(G.x1-G.x0)*tt; }
+    function Y(v){ return G.y1-(G.y1-G.y0)*v; }
+    cv.style.cursor='ew-resize';
+    drawPlotBase(ctx,X,Y);
+    drawXAxis(ctx,X,Y,0,1,manualT);                 // white labels gone; amber value follows t
+    drawMarks(ctx,X,Y,1,manualT);
+    drawBfnsSlider(ctx,X,manualT,1);
+    drawCompCentered(ctx,manualT,1);
+  }
+  // ---- drag ----
+  function mX(e){ var cv=document.getElementById('cvBfns'),r=cv.getBoundingClientRect(),cx=e.touches?e.touches[0].clientX:e.clientX; return (cx-r.left)*(cv.width/r.width); }
+  function mY(e){ var cv=document.getElementById('cvBfns'),r=cv.getBoundingClientRect(),cy=e.touches?e.touches[0].clientY:e.clientY; return (cy-r.top)*(cv.height/r.height); }
+  function mSetT(e){ var cv=document.getElementById('cvBfns'),x0=58,x1=cv.width-28; manualT=Math.max(0,Math.min(1,(mX(e)-x0)/(x1-x0))); }
+  function mDown(e){ if(!manualMode)return; if(mY(e)>SLY-32){ dragging=true; mSetT(e); if(e.cancelable)e.preventDefault(); } }
+  function mMove(e){ if(!manualMode||!dragging)return; mSetT(e); if(e.cancelable)e.preventDefault(); }
+  function mUp(){ dragging=false; }
+  function attachManual(){ if(evtAttached)return; var cv=document.getElementById('cvBfns'); if(!cv)return; evtAttached=true;
+    cv.addEventListener('mousedown',mDown); cv.addEventListener('mousemove',mMove); window.addEventListener('mouseup',mUp);
+    cv.addEventListener('touchstart',mDown,{passive:false}); cv.addEventListener('touchmove',mMove,{passive:false}); window.addEventListener('touchend',mUp);
+  }
+  function startStep(){ if(stage>=NMAX) return; tween={ph:stage+1,t:0}; }
+  function frame(ts){
+    if(!lastTs) lastTs=ts; var dt=ts-lastTs; lastTs=ts;
+    if(tween && (bfnsBar.mode==='playing'||bfnsBar.mode==='stepping')){
+      tween.t += dt/DUR[tween.ph]*spd;
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var d=tween; tween=null;
+        if(d.ph===NMAX){ manualMode=true; manualT=0.25; }
+        bfnsBar.stepDone();
+        if(manualMode) drawManual(); else drawFrame(d.ph,1);
+      }
+      else drawFrame(tween.ph, tween.t);
+    } else if(tween){ drawFrame(tween.ph, tween.t); }
+    else if(manualMode){ drawManual(); }
+    else { drawFrame(stage,1); }
+    rafBf=requestAnimationFrame(frame);
+  }
+  var bfnsBar = new AnimBtnBar({
+    playId:'btnBfnsPlay', stepId:'btnBfnsStep',
+    speedIds:['bfSpd0','bfSpd1','bfSpd2'],
+    isDone: function(){ return stage>=NMAX && !tween; },
+    onStep:  function(){ if(!tween) startStep(); },
+    onPlay:  function(){ if(!tween){ if(stage>=NMAX){ stage=0; manualMode=false; dragging=false; var c=document.getElementById('cvBfns'); if(c)c.style.cursor='default'; } startStep(); } },
+    onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; manualMode=false; dragging=false; var c=document.getElementById('cvBfns'); if(c)c.style.cursor='default'; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(bfnsBar.mode==='playing') startStep(); }, 950/spd); }
+  });
+  window._bfnsPlay  = function(){ bfnsBar.play(); };
+  window._bfnsStep  = function(){ bfnsBar.step(); };
+  window._bfnsReset = function(){ bfnsBar.reset(); };
+  window._bfnsSpeed = function(mult, idx){ spd=mult; bfnsBar.selectSpeed(idx); };
+  var oOpenBf=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenBf(id,scroll);
+    if(id==='nv1Quadratics' && !rafBf){ stage=0; tween=null; lastTs=0; manualMode=false; dragging=false; bfnsBar.mode='idle'; bfnsBar.update(); attachManual(); rafBf=requestAnimationFrame(frame); }
+  };
+  var oCloseBf=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafBf){ cancelAnimationFrame(rafBf); rafBf=null; }
+    if(playTimer){ clearTimeout(playTimer); playTimer=null; }
+    tween=null; stage=0; manualMode=false; dragging=false;
+    oCloseBf();
+  };
+})();
+
+// ============ CVGALTON: a Galton board building the binomial distribution = Bernstein weights at bias p (read p as t) ============
+(function(){
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var BALL='#e8835c', BAR='#c9cbd1', PMF='#5b9be8', PEG='#dddddd', INK='#ffffff', CNT='#cccccc', FAINT='rgba(255,255,255,0.16)';
+  var W=700, H=440, WARM=25;
+  var n=10, p=0.5;
+  var counts=new Array(n+1).fill(0), total=0;
+  var balls=[];
+  var running=false, rafG=null, lastTs=0, spawnAcc=0;
+  var geo={};
+  function binom(N,k){ if(k<0||k>N) return 0; if(k>N-k) k=N-k; var r=1; for(var i=1;i<=k;i++){ r=r*(N-k+i)/i; } return r; }
+  function pmfArr(){ var a=[]; for(var k=0;k<=n;k++){ a.push(binom(n,k)*Math.pow(p,k)*Math.pow(1-p,n-k)); } return a; }
+  function lgamma(z){
+    var c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+    if(z<0.5){ return Math.log(Math.PI/Math.sin(Math.PI*z)) - lgamma(1-z); }
+    z-=1; var x=c[0]; for(var i=1;i<9;i++){ x+=c[i]/(z+i); }
+    var t=z+7.5; return 0.5*Math.log(2*Math.PI) + (z+0.5)*Math.log(t) - t + Math.log(x);
+  }
+  function binomCont(x){ return Math.exp(lgamma(n+1) - lgamma(x+1) - lgamma(n-x+1) + x*Math.log(p) + (n-x)*Math.log(1-p)); }
+  function layout(){
+    var margin=26, usable=W-2*margin;
+    geo.dx=usable/(n+1.4); geo.cx=W/2; geo.topY=34;
+    geo.boardBottom=Math.round(H*0.50);
+    geo.dy=(geo.boardBottom-geo.topY)/Math.max(1,n);
+    geo.baseY=H-44; geo.barTop=geo.boardBottom+16; geo.Hbar=geo.baseY-geo.barTop;
+    var pm=pmfArr(), mx=0; for(var k=0;k<pm.length;k++){ if(pm[k]>mx) mx=pm[k]; } geo.maxV=mx*1.18;
+  }
+  function pegX(r,i){ return geo.cx+(i-r/2)*geo.dx; }
+  function pegY(r){ return geo.topY+r*geo.dy; }
+  function binX(k){ return geo.cx+(k-n/2)*geo.dx; }
+  function barH(k){ var denom=Math.max(total,WARM), prop=counts[k]/denom, h=prop/geo.maxV*geo.Hbar; return h>geo.Hbar?geo.Hbar:h; }
+  function spawn(fast){ balls.push({ r:-1,k:0,nr:0,nk:0, fx:pegX(0,0), fy:geo.topY-geo.dy-6, tx:pegX(0,0), ty:pegY(0), t:0, dur:geo.dy*(fast?3.0:5.0), done:false }); }
+  function reset(){ counts=new Array(n+1).fill(0); total=0; balls=[]; }
+  function advance(b,dt){
+    b.t+=dt/b.dur; if(b.t<1) return; b.t=0;
+    if(b.r===-1){ b.r=0; b.k=0; } else { b.r=b.nr; b.k=b.nk; }
+    if(b.r>=n){ counts[b.k]++; total++; b.done=true; return; }
+    var right=Math.random()<p;
+    b.nr=b.r+1; b.nk=b.k+(right?1:0);
+    b.fx=b.tx; b.fy=b.ty;
+    if(b.nr<n){ b.tx=pegX(b.nr,b.nk); b.ty=pegY(b.nr); }
+    else { b.tx=binX(b.nk); b.ty=geo.baseY-barH(b.nk)-5; }
+  }
+  function draw(){
+    var cv=document.getElementById('cvGalton'); if(!cv) return;
+    var ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H);
+    var k,i,r;
+    ctx.fillStyle=PEG;
+    for(r=0;r<n;r++){ for(i=0;i<=r;i++){ ctx.beginPath(); ctx.arc(pegX(r,i),pegY(r),2.6,0,Math.PI*2); ctx.fill(); } }
+    ctx.strokeStyle=FAINT; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(binX(0)-geo.dx*0.5,geo.baseY+0.5); ctx.lineTo(binX(n)+geo.dx*0.5,geo.baseY+0.5); ctx.stroke();
+    var bw=geo.dx*0.7;
+    ctx.fillStyle=BAR;
+    for(k=0;k<=n;k++){ var h=barH(k); ctx.fillRect(binX(k)-bw/2, geo.baseY-h, bw, h); }
+    var pm=pmfArr();
+    ctx.strokeStyle=PMF; ctx.lineWidth=2; ctx.beginPath();
+    for(var s=0;s<=240;s++){ var xx=s/240*n, X=geo.cx+(xx-n/2)*geo.dx, Y=geo.baseY-Math.min(geo.Hbar, binomCont(xx)/geo.maxV*geo.Hbar); if(s===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y); }
+    ctx.stroke();
+    ctx.fillStyle=PMF;
+    for(k=0;k<=n;k++){ var yy=geo.baseY-Math.min(geo.Hbar,pm[k]/geo.maxV*geo.Hbar); ctx.beginPath(); ctx.arc(binX(k),yy,2.6,0,Math.PI*2); ctx.fill(); }
+    ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.fillStyle=INK; ctx.font='12px '+FN;
+    for(k=0;k<=n;k++){ ctx.fillText(String(k), binX(k), geo.baseY+6); }
+    ctx.fillStyle=CNT; ctx.font='11px '+FN;
+    for(k=0;k<=n;k++){ ctx.fillText(counts[k].toLocaleString(), binX(k), geo.baseY+22); }
+    ctx.textAlign='left'; ctx.fillStyle=CNT; ctx.font='12px '+FN;
+    ctx.fillText('balls: '+total.toLocaleString(), 14, 12);
+    ctx.fillStyle=BALL;
+    for(var bi=0;bi<balls.length;bi++){ var b=balls[bi], e=b.t, bx=b.fx+(b.tx-b.fx)*e, arc=-7*Math.sin(Math.PI*b.t), by=b.fy+(b.ty-b.fy)*e+arc; ctx.beginPath(); ctx.arc(bx,by,5,0,Math.PI*2); ctx.fill(); }
+  }
+  function frame(ts){
+    if(!lastTs) lastTs=ts; var dt=ts-lastTs; lastTs=ts; if(dt>60) dt=60;
+    if(running){ spawnAcc+=dt; while(spawnAcc>=95){ spawnAcc-=95; if(balls.length<140) spawn(true); } }
+    for(var i=0;i<balls.length;i++){ if(!balls[i].done) advance(balls[i],dt); }
+    var nb=[]; for(var j=0;j<balls.length;j++){ if(!balls[j].done) nb.push(balls[j]); } balls=nb;
+    draw();
+    rafG=requestAnimationFrame(frame);
+  }
+  function setRunBtn(){ var b=document.getElementById('galRun'); if(!b) return; if(running){ b.textContent='Pause'; b.style.background='var(--amber)'; b.style.color='#07070a'; b.style.borderColor='var(--amber)'; } else { b.textContent='Run'; b.style.background=''; b.style.color=''; b.style.borderColor=''; } }
+  window._galDrop=function(){ spawn(false); };
+  window._galRun=function(){ running=!running; spawnAcc=0; setRunBtn(); };
+  window._galReset=function(){ reset(); };
+  window._galSetP=function(v){ p=parseFloat(v); var o=document.getElementById('galPo'); if(o) o.textContent=p.toFixed(2); layout(); reset(); };
+  window._galSetN=function(v){ n=parseInt(v,10); var o=document.getElementById('galNo'); if(o) o.textContent=String(n); counts=new Array(n+1).fill(0); total=0; balls=[]; layout(); };
+  var oOpenG=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenG(id,scroll);
+    if(id==='nv1Quadratics' && !rafG){ n=10; p=0.5; reset(); running=false; lastTs=0; spawnAcc=0; layout(); setTimeout(setRunBtn,60); rafG=requestAnimationFrame(frame); }
+  };
+  var oCloseG=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafG){ cancelAnimationFrame(rafG); rafG=null; }
+    running=false;
+    oCloseG();
   };
 })();
 
@@ -10390,6 +11828,300 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     oCloseF();
   };
 })();
+
+// ============ CVPARAM: parameterization - a point traced by t, then reparameterization ============
+(function(){
+  var rafP=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
+  function E(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var CX=235, CY=224, SC=116, EQX=410;
+  function S(w){ return [CX+w[0]*SC, CY-w[1]*SC]; }                 // world -> screen (y up)
+  function PT(t,ea,eb){ return [ea*Math.cos(t), eb*Math.sin(t)]; } // point on the circle/ellipse
+  function axes(ph,p){ if(ph<3) return [1,1]; if(ph===3){var m=E(Math.min(1,p/0.45));return [1+0.42*m, 1-0.16*m];} return [1.42,0.84]; }
+  var EA=1.42, EB=0.84, MARC=240, ARC=[0];                          // arc-length table of the final ellipse
+  (function(){var acc=0,pa=PT(0,EA,EB),i,pb;for(i=1;i<=MARC;i++){pb=PT(2*Math.PI*i/MARC,EA,EB);acc+=Math.hypot(pb[0]-pa[0],pb[1]-pa[1]);ARC.push(acc);pa=pb;}})();
+  function tAtFrac(f){ var tgt=f*ARC[MARC],i; for(i=1;i<=MARC;i++){ if(ARC[i]>=tgt){ var s=(tgt-ARC[i-1])/((ARC[i]-ARC[i-1])||1); return 2*Math.PI*(i-1+s)/MARC; } } return 2*Math.PI*f; }
+  var NT=16;
+
+  var DUR=[0,2800,3200,3000,2800];
+  var STEP=['A circle.\u2002Could this be written y = f(x)?',
+            'One x, two heights \u2013 a graph cannot trace it.',
+            'Let a parameter drive both: P(t) = (cos t, sin t).',
+            'Equal steps of t crowd where the point creeps.',
+            'Equal steps of distance: same curve, a new schedule.'];
+
+  function dot(ctx,p,r,c){ ctx.beginPath();ctx.arc(p[0],p[1],r,0,7);ctx.fillStyle=c;ctx.fill(); }
+  function TX(ctx,s,x,y,c,f){ ctx.fillStyle=c; if(f)ctx.font=f; ctx.fillText(s,x,y); return x+ctx.measureText(s).width; }
+  function drawAxes(ctx){
+    ctx.save();ctx.strokeStyle='rgba(255,255,255,0.13)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(CX-1.7*SC,CY);ctx.lineTo(CX+1.7*SC,CY);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(CX,CY-1.42*SC);ctx.lineTo(CX,CY+1.42*SC);ctx.stroke();
+    ctx.restore();
+  }
+  function drawCurve(ctx,ea,eb,col,lw){
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();
+    for(var i=0;i<=120;i++){var q=S(PT(2*Math.PI*i/120,ea,eb));if(i===0)ctx.moveTo(q[0],q[1]);else ctx.lineTo(q[0],q[1]);}
+    ctx.closePath();ctx.stroke();ctx.restore();
+  }
+  function drawArc(ctx,ea,eb,t0,t1,col,lw){
+    ctx.save();ctx.strokeStyle=col;ctx.lineWidth=lw;ctx.beginPath();
+    var N=Math.max(2,Math.round(90*(t1-t0)/(2*Math.PI))),i,q;
+    for(i=0;i<=N;i++){q=S(PT(t0+(t1-t0)*i/N,ea,eb));if(i===0)ctx.moveTo(q[0],q[1]);else ctx.lineTo(q[0],q[1]);}
+    ctx.stroke();ctx.restore();
+  }
+
+  function drawFrame(ph,p){
+    var cv=document.getElementById('cvParam');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var pe=E(p), ax=axes(ph,p), ea=ax[0], eb=ax[1];
+    ctx.textBaseline='alphabetic';ctx.textAlign='left';
+    drawAxes(ctx);
+    drawCurve(ctx,ea,eb,(ph===2)?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.85)',(ph===2)?1.4:2);
+
+    if(ph===1){
+      var lx=-1.05+(0.5-(-1.05))*pe, sx=S([lx,0])[0];
+      ctx.save();ctx.strokeStyle='#e8a832';ctx.lineWidth=1.6;ctx.setLineDash([5,4]);
+      ctx.beginPath();ctx.moveTo(sx,CY-1.3*SC);ctx.lineTo(sx,CY+1.3*SC);ctx.stroke();ctx.restore();
+      if(Math.abs(lx)<1){
+        var yy=Math.sqrt(1-lx*lx), up=S([lx,yy]), dn=S([lx,-yy]);
+        dot(ctx,up,5,'#62c46b');dot(ctx,dn,5,'#62c46b');
+        var fa=E(Math.min(1,(p-0.15)/0.5)); if(fa>0){ ctx.globalAlpha=fa;ctx.font='12px '+FN;ctx.fillStyle='#62c46b';
+          ctx.fillText('two heights', up[0]+10, up[1]-8-14*fa); ctx.globalAlpha=1; }
+      }
+      var vv=E(Math.min(1,(p-0.55)/0.4)); if(vv>0){ ctx.globalAlpha=vv;
+        TX(ctx,'y = f(x)',EQX,96,'#ffffff','17px '+FN);
+        ctx.fillStyle='#e25050';ctx.font='20px '+FN;ctx.fillText('\u2717',EQX+88,98);
+        TX(ctx,'one x gives two y',EQX,124,'#dddddd','13px '+FN); ctx.globalAlpha=1; }
+    }
+
+    if(ph===2){
+      var t=2*Math.PI*p;
+      drawArc(ctx,1,1,0,t,'#3ce8b2',2.4);
+      var pt=S(PT(t,1,1));
+      ctx.save();ctx.setLineDash([3,3]);ctx.strokeStyle='rgba(255,255,255,0.35)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(pt[0],pt[1]);ctx.lineTo(pt[0],CY);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(pt[0],pt[1]);ctx.lineTo(CX,pt[1]);ctx.stroke();ctx.restore();
+      dot(ctx,[pt[0],CY],3.5,'#6aa6ff');dot(ctx,[CX,pt[1]],3.5,'#62c46b');dot(ctx,pt,5.5,'#ffffff');
+      ctx.font='12px '+FN;ctx.fillStyle='#ffffff';
+      ctx.fillText('('+Math.cos(t).toFixed(2)+', '+Math.sin(t).toFixed(2)+')', pt[0]+10, pt[1]-8);
+      var dcx=560,dcy=120,dr=42;
+      ctx.save();ctx.strokeStyle='rgba(255,255,255,0.4)';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(dcx,dcy,dr,0,7);ctx.stroke();
+      ctx.strokeStyle='#e8a832';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(dcx,dcy);ctx.lineTo(dcx+dr*Math.cos(t),dcy-dr*Math.sin(t));ctx.stroke();ctx.restore();
+      dot(ctx,[dcx,dcy],2.5,'#e8a832');
+      ctx.textAlign='center';ctx.fillStyle='#e8a832';ctx.font='13px '+FN;ctx.fillText('t = '+t.toFixed(2),dcx,dcy+dr+20);ctx.textAlign='left';
+      TX(ctx,'P(t) = ( cos t , sin t )',EQX,232,'#ffffff','15px '+FN);
+      TX(ctx,'both coordinates depend on t',EQX,258,'#dddddd','12px '+FN);
+    }
+
+    if(ph===3){
+      var rev=Math.max(0,(p-0.45)/0.55);
+      if(rev>0){
+        for(var k=0;k<NT;k++){ var tk=2*Math.PI*k/NT,q=S(PT(tk,ea,eb)); ctx.globalAlpha=E(Math.min(1,rev)); dot(ctx,q,3.6,'#e8a832'); ctx.globalAlpha=1; }
+        var pr=Math.min(1,rev), tv=2*Math.PI*pr, pv=S(PT(tv,ea,eb)), d=[-ea*Math.sin(tv),eb*Math.cos(tv)], dl=Math.hypot(d[0],d[1])||1;
+        var L=18+34*(dl-EB)/(EA-EB);
+        ctx.save();ctx.strokeStyle='#3ce8b2';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(pv[0],pv[1]);ctx.lineTo(pv[0]+d[0]/dl*L,pv[1]-d[1]/dl*L);ctx.stroke();ctx.restore();
+        dot(ctx,pv,4,'#ffffff');
+      }
+      TX(ctx,'\u0394t equal',EQX,96,'#e8a832','15px '+FN);
+      TX(ctx,'speed |P\u2032(t)| varies',EQX,124,'#dddddd','13px '+FN);
+      TX(ctx,'slow at the ends, fast top and bottom',EQX,148,'#dddddd','12px '+FN);
+    }
+
+    if(ph===4){
+      for(var k2=0;k2<NT;k2++){ var tEq=2*Math.PI*k2/NT, tAr=tAtFrac(k2/NT), tt=tEq+(tAr-tEq)*pe, q2=S(PT(tt,ea,eb)); dot(ctx,q2,3.6,'#3ce8b2'); }
+      TX(ctx,'\u0394s equal',EQX,96,'#3ce8b2','15px '+FN);
+      TX(ctx,'even spacing along the curve',EQX,124,'#dddddd','13px '+FN);
+      TX(ctx,'same image \u2013 a different clock',EQX,148,'#dddddd','12px '+FN);
+    }
+
+    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;ctx.fillText(STEP[ph],W/2,H-16);ctx.restore();
+  }
+
+  function startStep(){ if(stage>=4) return; tween={ph:stage+1,t:0}; }
+  function frame(ts){
+    if(!lastTs) lastTs=ts; var dt=ts-lastTs; lastTs=ts;
+    if(tween && (paramBar.mode==='playing'||paramBar.mode==='stepping')){
+      tween.t += dt/DUR[tween.ph]*spd;
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); paramBar.stepDone(); }
+      else drawFrame(tween.ph,tween.t);
+    } else if(tween){ drawFrame(tween.ph,tween.t); }
+    else { drawFrame(stage,1); }
+    rafP=requestAnimationFrame(frame);
+  }
+  var paramBar = new AnimBtnBar({
+    playId:'btnParamPlay', stepId:'btnParamStep',
+    speedIds:['prSpd0','prSpd1','prSpd2'],
+    isDone: function(){ return stage>=4 && !tween; },
+    onStep:  function(){ if(!tween) startStep(); },
+    onPlay:  function(){ if(!tween){ if(stage>=4) stage=0; startStep(); } },
+    onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(paramBar.mode==='playing') startStep(); }, 1100/spd); }
+  });
+  window._paramPlay=function(){ paramBar.play(); };
+  window._paramStep=function(){ paramBar.step(); };
+  window._paramReset=function(){ paramBar.reset(); };
+  window._paramSpeed=function(m,i){ spd=m; paramBar.selectSpeed(i); };
+  var oOpenP=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenP(id,scroll);
+    if(id==='parameterization' && !rafP){ stage=0; tween=null; lastTs=0; paramBar.mode='idle'; paramBar.update(); rafP=requestAnimationFrame(frame); }
+  };
+  var oCloseP=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafP){cancelAnimationFrame(rafP);rafP=null;}
+    if(playTimer){clearTimeout(playTimer);playTimer=null;}
+    oCloseP();
+  };
+})();
+
+
+// ============ CVPARAMSURF: parameterization of surfaces - a height field vs a sphere ============
+(function(){
+  var rafS=null, lastTs=0, stage=0, tween=null, spd=1, playTimer=null;
+  function E(x){x=x<0?0:(x>1?1:x);return x*x*(3-2*x);}
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  function rotY(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0]*c-v[1]*s, v[0]*s+v[1]*c, v[2]];}
+  function rotX(v,A){var c=Math.cos(A),s=Math.sin(A);return [v[0], v[1]*c-v[2]*s, v[1]*s+v[2]*c];}
+  var OX=300, OY=214, SCA=96;
+  function proj(p,yaw,tilt){ var q=rotX(rotY(p,yaw),tilt); return {x:OX+q[0]*SCA, y:OY-q[2]*SCA, z:q[1]}; }
+  function hf(x,y){ return 0.55*Math.exp(-((x*1.05)*(x*1.05)+(y*1.05)*(y*1.05))) + 0.16*Math.sin(2.2*x)*Math.cos(1.7*y); }
+  function sph(u,v){ var sv=Math.sin(v); return [sv*Math.cos(u), sv*Math.sin(u), Math.cos(v)]; }
+  var NG=16;
+
+  var DUR=[0,2600,2600,3400];
+  var STEP=['A surface sits over the ground.',
+            'Height field z = f(x, y): one height per (x, y).',
+            'A sphere has two \u2013 it is not a height field.',
+            'Parameterize: (u, v) \u2192 a point on the sphere.'];
+
+  function dot(ctx,p,r,c){ ctx.beginPath();ctx.arc(p[0],p[1],r,0,7);ctx.fillStyle=c;ctx.fill(); }
+  function TX(ctx,s,x,y,c,f){ ctx.fillStyle=c; if(f)ctx.font=f; ctx.fillText(s,x,y); return x+ctx.measureText(s).width; }
+
+  function drawHeightField(ctx,yaw,tilt,hscale,alpha){
+    if(alpha<=0.01) return;
+    var P=[],a,b;
+    for(a=0;a<=NG;a++){P.push([]);for(b=0;b<=NG;b++){var x=-1+2*a/NG,y=-1+2*b/NG,z=hf(x,y)*hscale;P[a].push(proj([x,y,z],yaw,tilt));}}
+    var faces=[];
+    for(a=0;a<NG;a++)for(b=0;b<NG;b++){var p0=P[a][b],p1=P[a+1][b],p2=P[a+1][b+1],p3=P[a][b+1];
+      var nz=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);
+      faces.push({q:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,nz:nz});}
+    faces.sort(function(A,B){return A.z-B.z;});
+    ctx.save();ctx.globalAlpha=alpha;
+    for(var k=0;k<faces.length;k++){var qq=faces[k].q,sh=0.12+(faces[k].nz>0?0.20:0);
+      ctx.fillStyle='rgba(100,160,255,'+sh+')';ctx.strokeStyle='rgba(255,255,255,0.26)';ctx.lineWidth=0.7;
+      ctx.beginPath();ctx.moveTo(qq[0].x,qq[0].y);ctx.lineTo(qq[1].x,qq[1].y);ctx.lineTo(qq[2].x,qq[2].y);ctx.lineTo(qq[3].x,qq[3].y);ctx.closePath();ctx.fill();ctx.stroke();}
+    ctx.restore();
+  }
+  function drawSphere(ctx,yaw,tilt,alpha,latlong){
+    if(alpha<=0.01) return;
+    var P=[],a,b,NU=24,NV=14;
+    for(a=0;a<=NU;a++){P.push([]);for(b=0;b<=NV;b++){var u=2*Math.PI*a/NU,v=Math.PI*b/NV;P[a].push(proj(sph(u,v),yaw,tilt));}}
+    var faces=[];
+    for(a=0;a<NU;a++)for(b=0;b<NV;b++){var p0=P[a][b],p1=P[a+1][b],p2=P[a+1][b+1],p3=P[a][b+1];
+      var nz=(p1.x-p0.x)*(p2.y-p0.y)-(p1.y-p0.y)*(p2.x-p0.x);
+      faces.push({q:[p0,p1,p2,p3],z:(p0.z+p1.z+p2.z+p3.z)/4,nz:nz, ll:(a%4===0||b%3===0)});}
+    faces.sort(function(A,B){return A.z-B.z;});
+    ctx.save();ctx.globalAlpha=alpha;
+    for(var k=0;k<faces.length;k++){var qq=faces[k].q,sh=0.10+(faces[k].nz>0?0.20:0);
+      ctx.fillStyle='rgba(98,196,107,'+sh+')';
+      ctx.strokeStyle=(latlong&&faces[k].ll)?'rgba(255,255,255,0.55)':'rgba(255,255,255,0.15)';ctx.lineWidth=(latlong&&faces[k].ll)?1.1:0.6;
+      ctx.beginPath();ctx.moveTo(qq[0].x,qq[0].y);ctx.lineTo(qq[1].x,qq[1].y);ctx.lineTo(qq[2].x,qq[2].y);ctx.lineTo(qq[3].x,qq[3].y);ctx.closePath();ctx.fill();ctx.stroke();}
+    ctx.restore();
+  }
+  function vprobe(ctx,yaw,tilt,x0,y0,hits){
+    var lo=proj([x0,y0,-1.15],yaw,tilt), hi=proj([x0,y0,1.15],yaw,tilt);
+    ctx.save();ctx.strokeStyle='#e8a832';ctx.lineWidth=1.6;ctx.setLineDash([5,4]);
+    ctx.beginPath();ctx.moveTo(lo.x,lo.y);ctx.lineTo(hi.x,hi.y);ctx.stroke();ctx.restore();
+    for(var i=0;i<hits.length;i++){var hp=proj([x0,y0,hits[i]],yaw,tilt);dot(ctx,[hp.x,hp.y],5,'#ffffff');}
+  }
+
+  function drawFrame(ph,p){
+    var cv=document.getElementById('cvParamSurf');if(!cv)return;
+    var ctx=cv.getContext('2d'),W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+    var pe=E(p), yaw=performance.now()*0.00038, tilt=0.52;
+    ctx.textBaseline='alphabetic';ctx.textAlign='left';
+
+    if(ph===0){ drawHeightField(ctx,yaw,tilt,0.0,1); }
+    if(ph===1){
+      drawHeightField(ctx,yaw,tilt,pe,1);
+      if(p>0.5){ var x0=0.32,y0=-0.18, hh=hf(x0,y0)*pe; vprobe(ctx,yaw,tilt,x0,y0,[hh]);
+        var fa=E(Math.min(1,(p-0.5)/0.5)); ctx.globalAlpha=fa; var hp=proj([x0,y0,hh],yaw,tilt);
+        ctx.fillStyle='#ffffff';ctx.font='12px '+FN;ctx.fillText('one height', hp.x+9, hp.y-8); ctx.globalAlpha=1; }
+      TX(ctx,'z = f(x, y)',498,84,'#ffffff','16px '+FN);
+      TX(ctx,'one height per (x, y)',498,110,'#dddddd','13px '+FN);
+      TX(ctx,'x, y are the parameters',498,134,'#dddddd','12px '+FN);
+    }
+    if(ph===2){
+      drawHeightField(ctx,yaw,tilt,1,1-pe);
+      drawSphere(ctx,yaw,tilt,pe,false);
+      if(p>0.55){ var x1=0.3,y1=-0.15, r2=Math.sqrt(Math.max(0,1-x1*x1-y1*y1)); vprobe(ctx,yaw,tilt,x1,y1,[r2,-r2]);
+        var fb=E(Math.min(1,(p-0.55)/0.45)); ctx.globalAlpha=fb;
+        TX(ctx,'two heights',498,84,'#e25050','16px '+FN);
+        TX(ctx,'not z = f(x, y)',498,110,'#dddddd','13px '+FN); ctx.globalAlpha=1; }
+    }
+    if(ph===3){
+      drawSphere(ctx,yaw,tilt,1,true);
+      var sx=510, sy=120, sw=160;
+      ctx.save();ctx.strokeStyle='rgba(255,255,255,0.3)';ctx.lineWidth=1;
+      ctx.strokeRect(sx,sy,sw,sw*0.5);
+      var gi; for(gi=1;gi<4;gi++){ ctx.beginPath();ctx.moveTo(sx+sw*gi/4,sy);ctx.lineTo(sx+sw*gi/4,sy+sw*0.5);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(sx,sy+sw*0.5*gi/4);ctx.lineTo(sx+sw,sy+sw*0.5*gi/4);ctx.stroke(); }
+      ctx.restore();
+      ctx.fillStyle='#dddddd';ctx.font='11px '+FN;ctx.fillText('u',sx+sw+5,sy+sw*0.25+4);ctx.fillText('v',sx-3,sy-5);
+      var uu=2*Math.PI*((p*1.3)%1), vv=Math.PI*(0.5+0.42*Math.sin(p*6.283));
+      var mx=sx+sw*(uu/(2*Math.PI)), my=sy+sw*0.5*(vv/Math.PI);
+      dot(ctx,[mx,my],4,'#e8a832');
+      ctx.fillStyle='#e8a832';ctx.font='11px '+FN;ctx.fillText('(u, v)',mx+7,my-6);
+      var sp=proj(sph(uu,vv),yaw,tilt); dot(ctx,[sp.x,sp.y],5.5,'#e8a832');
+      ctx.save();ctx.strokeStyle='rgba(232,168,50,0.5)';ctx.setLineDash([3,3]);ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(mx,my);ctx.lineTo(sp.x,sp.y);ctx.stroke();ctx.restore();
+      ctx.textAlign='center';
+      TX(ctx,'P(u, v) = (sin v cos u, sin v sin u, cos v)',W/2,H-40,'#ffffff','13px '+FN);
+      ctx.textAlign='left';
+    }
+
+    ctx.save();ctx.fillStyle='#e8a832';ctx.textAlign='center';ctx.font='15px '+FN;ctx.fillText(STEP[ph],W/2,H-16);ctx.restore();
+  }
+
+  function startStep(){ if(stage>=3) return; tween={ph:stage+1,t:0}; }
+  function frame(ts){
+    if(!lastTs) lastTs=ts; var dt=ts-lastTs; lastTs=ts;
+    if(tween && (surfBar.mode==='playing'||surfBar.mode==='stepping')){
+      tween.t += dt/DUR[tween.ph]*spd;
+      if(tween.t>=1){ tween.t=1; stage=tween.ph; var done=tween; tween=null; drawFrame(done.ph,1); surfBar.stepDone(); }
+      else drawFrame(tween.ph,tween.t);
+    } else if(tween){ drawFrame(tween.ph,tween.t); }
+    else { drawFrame(stage,1); }
+    rafS=requestAnimationFrame(frame);
+  }
+  var surfBar = new AnimBtnBar({
+    playId:'btnSurfPlay', stepId:'btnSurfStep',
+    speedIds:['suSpd0','suSpd1','suSpd2'],
+    isDone: function(){ return stage>=3 && !tween; },
+    onStep:  function(){ if(!tween) startStep(); },
+    onPlay:  function(){ if(!tween){ if(stage>=3) stage=0; startStep(); } },
+    onPause: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset: function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; },
+    onAdvance: function(){ playTimer=setTimeout(function(){ if(surfBar.mode==='playing') startStep(); }, 1100/spd); }
+  });
+  window._surfPlay=function(){ surfBar.play(); };
+  window._surfStep=function(){ surfBar.step(); };
+  window._surfReset=function(){ surfBar.reset(); };
+  window._surfSpeed=function(m,i){ spd=m; surfBar.selectSpeed(i); };
+  var oOpenS=window._openNotes;
+  window._openNotes=function(id,scroll){
+    oOpenS(id,scroll);
+    if(id==='parameterization' && !rafS){ stage=0; tween=null; lastTs=0; surfBar.mode='idle'; surfBar.update(); rafS=requestAnimationFrame(frame); }
+  };
+  var oCloseS=window._closeNotes;
+  window._closeNotes=function(){
+    if(rafS){cancelAnimationFrame(rafS);rafS=null;}
+    if(playTimer){clearTimeout(playTimer);playTimer=null;}
+    oCloseS();
+  };
+})();
+
 
 // ============ SCANLINE CAR DEMO ============
 (function(){
