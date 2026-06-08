@@ -179,6 +179,29 @@ for nm, r in [
     print(f"  {nm:18s} value={rv!r} (sign {'+' if math.copysign(1.0, rv) > 0 else '-'}) grad={rd!r}  {'OK' if ok else 'FAIL'}")
 
 print()
+print("=== division extreme-magnitude regressions (Class X), with warnings-as-errors ===")
+import warnings as _warnings
+with _warnings.catch_warnings():
+    _warnings.simplefilter("error")  # the structural-zero guard must not leak a numpy warning
+    _cases = [
+        ("seed0 / const",
+         VJet.seed(np.array([1.0]), 0, 2) / VJet.constant(np.array([1e-310]), 2),
+         (math.inf, 0.0)),
+        ("seed0 / seed1",
+         VJet.seed(np.array([1.0]), 0, 2) / VJet.seed(np.array([1e-310]), 1, 2),
+         (math.inf, -math.inf)),
+        ("1.0 / seed0",
+         1.0 / VJet.seed(np.array([1e-310]), 0, 2),
+         (-math.inf, 0.0)),
+    ]
+    for _nm, _r, (_e0, _e1) in _cases:
+        _p = [float(_r.partials[0, 0]), float(_r.partials[0, 1])]
+        _ok = (_p[0] == _e0) and (_p[1] == _e1)
+        if not _ok:
+            fails.append("vjet Class X " + _nm)
+        print(f"  {_nm:14s} partials={_p}  (want [{_e0}, {_e1}])  {'OK' if _ok else 'FAIL'}")
+
+print()
 if fails:
     raise SystemExit(f"FAILED: {fails}")
 print("ALL TESTS PASSED")

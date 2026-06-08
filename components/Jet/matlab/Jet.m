@@ -132,7 +132,21 @@ classdef Jet
             end
             [av, ad, bv, bd] = Jet.binargs(a, b);
             value = av / bv;
-            r = Jet(value, (ad - value * bd) / bv);
+            % Structural-zero guard (Class X): where a denominator partial is 0
+            % (constant operand or inactive direction) the cross-term value*bd is
+            % structurally zero but becomes Inf*0 = NaN once value overflows.
+            % ad ./ bv bypasses the overflowed value there; a genuine NaN in ad
+            % still propagates. Mirrors C++ operator/(Jet,Jet).
+            %
+            % Known limitation (A2): where a denominator partial is nonzero and
+            % the value overflows, an active direction whose true derivative is
+            % finite cannot be recovered here (the general form reuses the
+            % overflowed value). Documented; deferred pending a scaled helper.
+            part = zeros(size(ad));
+            z = (bd == 0);
+            part(z)  = ad(z) ./ bv;
+            part(~z) = (ad(~z) - value .* bd(~z)) ./ bv;
+            r = Jet(value, part);
         end
 
         function r = mrdivide(a, b)

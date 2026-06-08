@@ -207,6 +207,13 @@ template <std::size_t N>
     // suppression rejected in detail::lift: there the zeroed coefficient may be
     // a genuine NaN encoding non-differentiability; here dy == 0 is structural
     // and carries no information. A genuine NaN in dx still propagates.
+    //
+    // Known limitation (A2, general quotient): when the value overflows to inf
+    // and a denominator partial dy is nonzero, an active direction whose true
+    // derivative is finite cannot be recovered here either, because the general
+    // branch reuses the overflowed value (value*dy). This is the same limitation
+    // documented on operator/(double,Jet) - it is a property of the quotient,
+    // not of one overload. Deferred pending an exponent-scaled helper.
     Jet<N> r;
     r.mValue = x.mValue / y.mValue;
     for (std::size_t i = 0; i < N; ++i)

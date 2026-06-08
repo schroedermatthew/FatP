@@ -10,9 +10,9 @@ topics: ["forward-mode automatic differentiation", "gradient", "Jacobian", "seed
 constraints: ["finite-difference error", "derivative maintenance", "scalar-valued jets", "per-operation tuple rebuild", "real-domain NaN"]
 python_equivalent: "autograd / JAX (tracing reverse/forward AD); SymPy (symbolic); numdifftools (finite differences)"
 source_files: ["jet.py", "test_jet.py", "vjet.py", "test_vjet.py", "dubins_jet.py"]
-last_verified: "2026-06-06"
+last_verified: "2026-06-07"
 audience: ["Python developers", "optimization", "robotics / motion planning", "AI assistants"]
-status: "draft"
+status: "complete"
 ---
 
 # User Manual - Jet (Python)
@@ -222,9 +222,9 @@ The class separates two kinds of trouble.
 
 Misuse raises: a direction index outside `0..N-1` or combining Jets whose partial counts differ both raise `ValueError`, and calling the constructor with one argument is an error.
 
-A domain excursion returns NaN rather than raising. `sqrt` and `log` of a negative value, `asin` and `acos` of an argument outside `[-1, 1]`, and a non-positive base for `x ** y` or a constant base raised to a Jet all return a Jet whose value and partials are NaN. This keeps the result on the real line — where the bare `math` functions would raise `ValueError` and `(-2.0) ** 0.5` would return a complex number — and makes the excursion visible: check the value before trusting the gradient. At the edges where a derivative is genuinely infinite — `sqrt` at zero, `asin`/`acos` at `±1`, `log` at zero — the value is finite or `-inf` and the partials carry `inf`, with `0 * inf` appearing as NaN in any direction the variable does not enter. The contract `x ** 0 == 1` is honored with zero partials. The power routine uses `math.pow` so that an integer power of a negative base stays real rather than turning complex.
+A domain excursion returns NaN rather than raising. `sqrt` and `log` of a negative value, and `asin` and `acos` of an argument outside `[-1, 1]`, return a Jet whose value and partials are both NaN. This keeps the result on the real line — where the bare `math` functions would raise `ValueError` — and makes the excursion visible: check the value before trusting the gradient. At the singular boundaries two cases differ. Where the value itself is unbounded — `log` at zero — the value is `-inf` and the partial is `+inf`. Where the value is finite but the slope is unbounded — `asin(1)`, `acos(±1)` — the value is ordinary (`pi/2`, `0`) while the derivative coefficient is infinite, so a seeded direction carries `±inf` and any direction the variable does not enter carries NaN through `inf * 0`; read the value, confirm you are sitting on the edge, and treat that gradient as unusable. By contrast `sqrt` at zero, and `x ** p` for `0 < p < 1` at zero, return a derivative of `0` by a non-poisoning convention — a single singular point does not poison an otherwise finite gradient — so `sqrt(x)` and `x ** 0.5` agree everywhere. Power has two contracts. For `x ** p` with a constant exponent the value and base derivative follow real `math.pow` behavior wherever the real result is defined — a negative base with an integer exponent stays real and differentiates normally (`(-2.0) ** 2.0` gives value `4.0`, derivative `-4.0`), while a negative base with a non-integer constant exponent is off the real line and returns NaN value and NaN partials. The exponent-differentiated forms — `x ** y` and `s ** y` with a Jet exponent `y` — require a positive base for the gradient: on a non-positive base they preserve the real value where it is defined but return NaN partials under that positive-base contract. The contract `x ** 0 == 1` is honored with zero partials.
 
-The overflow guards are inherited from the C++ version: `atan` of a very large argument and `atan2` at very large magnitudes compute the derivative through a reciprocal so the intermediate `x*x` or `x*x + y*y` cannot overflow and round a representable small derivative down to zero, and `hypot` uses `math.hypot` for both the value and the denominator.
+The overflow guards are inherited from the C++ version: `atan` of a very large argument and `atan2` at very large magnitudes compute the derivative through a reciprocal so the intermediate `x*x` or `x*x + y*y` cannot overflow and round a representable small derivative down to zero, and `hypot` uses `math.hypot` for both the value and the denominator. Division mirrors the C++ quotient policy: a structurally-zero direction is guarded under value overflow, but if the quotient value itself overflows while an active denominator partial is nonzero, a finite true derivative may still be returned as infinite.
 
 ---
 
@@ -256,7 +256,7 @@ Remove the second routine. The function written over the scalar type is now the 
 
 ### From the C++ or MATLAB Jet
 
-The semantics match. Seeding is 0-based here, as in C++ (MATLAB's port is 1-based); the partial count `N` is a run-time argument rather than a template parameter; and out-of-domain `sqrt`/`log` and negative-base powers return real NaN. To confirm parity, run the same computation across implementations; `dubins_jet.py` does this for the single-segment Dubins gradient and reproduces the C++ value `dL/dx1 = 0.7071…` to rounding.
+The semantics match. Seeding is 0-based here, as in C++ (MATLAB's port is 1-based); the partial count `N` is a run-time argument rather than a template parameter; out-of-domain `sqrt`/`log` return real NaN; and negative-base powers follow the same contract as C++ — a non-integer constant exponent gives real NaN, while an exponent-differentiated form (a Jet exponent) preserves the real value where defined but returns NaN partials. To confirm parity, run the same computation across implementations; `dubins_jet.py` does this for the single-segment Dubins gradient and reproduces the C++ value `dL/dx1 = 0.7071…` to rounding.
 
 ### From Python's Other Options
 
@@ -272,7 +272,7 @@ The semantics match. Seeding is 0-based here, as in C++ (MATLAB's port is 1-base
 
 **The result is complex, or a bare function raised.** A value left the class as a plain float and went through `math.sqrt`/`log` or `**` directly. Keep the computation in the overloaded operators and the module-level functions; out-of-domain points return real NaN by design.
 
-**The gradient is NaN.** A domain edge or a non-positive base. Check `.value` at the point: `sqrt`/`log` of a negative, `asin`/`acos` outside `[-1, 1]`, or a non-positive base for a power all return NaN gradients.
+**The gradient is NaN.** A domain edge, or a power off the positive-base contract. Check `.value` at the point: `sqrt`/`log` of a negative and `asin`/`acos` outside `[-1, 1]` make both value and gradient NaN; a non-integer constant power of a negative base does the same; a Jet exponent on a non-positive base keeps the real value but makes the gradient NaN.
 
 **`TypeError: unhashable type: 'Jet'`.** Jets compare by value and are intentionally not hashable, so they cannot be dict keys or set members. Use their `.value` if you need a key.
 
@@ -296,7 +296,7 @@ The semantics match. Seeding is 0-based here, as in C++ (MATLAB's port is 1-base
 
 **Elementary functions** (module level, dispatch over `Jet`/`float`) — `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `exp`, `log`, `sqrt`, `hypot`, `atan2`. The `**` operator covers Jet base with constant exponent, constant base with Jet exponent, and Jet base with Jet exponent.
 
-**Real-domain NaN** — returned (value and partials) by `sqrt`/`log` of a negative, `asin`/`acos` outside `[-1, 1]`, and a non-positive base for a power. The contract `x ** 0 == 1` carries zero partials.
+**Real-domain NaN** — value and partials are both NaN for `sqrt`/`log` of a negative, `asin`/`acos` outside `[-1, 1]`, and a non-integer constant power of a negative base. The exponent-differentiated forms (`x ** y`, `s ** y` with a Jet exponent) keep the real value where defined but return NaN partials on a non-positive base. The contract `x ** 0 == 1` carries zero partials.
 
 **Vectorized variant (`vjet.py`, requires NumPy)** — `VJet` with the same surface; value of shape `S`, partials of shape `S + (N,)`; `VJet.seed` / `VJet.variables` / `VJet.constant`; `VJet.jacobian(outputs)` returns values of shape `S + (M,)` and a per-point Jacobian of shape `S + (M, N)`.
 

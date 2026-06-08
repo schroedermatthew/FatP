@@ -378,22 +378,37 @@ FATP_TEST_CASE(divide_intermediate_overflow)
     return true;
 }
 
-// Class A2b (DOCUMENTED OPEN LIMITATION): when the value itself overflows to inf
-// on an ACTIVE direction whose true derivative is finite, double/Jet cannot
-// recover it (the formula reuses the overflowed value). True d ~ -1e300; the
-// result is -inf. Recovering this needs an exponent-scaled helper (deferred).
-// This test PINS the current limitation; if the helper lands, update it to
-// assert the recovered finite value.
+// Class A2 (DOCUMENTED OPEN LIMITATION, general quotient): when the value
+// overflows to inf on an ACTIVE direction whose true derivative is finite, the
+// quotient cannot recover it (the formula reuses the overflowed value). This
+// affects BOTH double/Jet and Jet/Jet (when the denominator carries the tiny
+// active partial) - it is a property of the quotient, not one overload. True
+// d ~ -1e300; the result is -inf. Recovering it needs an exponent-scaled helper
+// (deferred). This test PINS the current limitation in both forms; if the helper
+// lands, update it to assert the recovered finite value.
 FATP_TEST_CASE(divide_active_overflow_open_limitation)
 {
+    // double/Jet: 1.0 / (1e-310 + 1e-320*eps0)
     Jet<2> x;
     x.mValue = 1.0e-310;
     x.mPartials[0] = 1.0e-320;          // active dir; true d/dx0 ~ -1e300 (finite)
     const Jet<2> y = 1.0 / x;
-    FATP_ASSERT_TRUE(std::isinf(y.mValue), "A2b value overflows to inf");
+    FATP_ASSERT_TRUE(std::isinf(y.mValue), "A2 double/Jet value overflows to inf");
     FATP_ASSERT_TRUE(std::isinf(y.mPartials[0]),
-                     "A2b active finite derivative NOT recovered (documented limitation)");
-    FATP_ASSERT_CLOSE(y.mPartials[1], 0.0, "A2b inactive dir still clean (0)");
+                     "A2 double/Jet active finite derivative NOT recovered (limitation)");
+    FATP_ASSERT_CLOSE(y.mPartials[1], 0.0, "A2 double/Jet inactive dir still clean (0)");
+
+    // Jet/Jet: constant numerator over a denominator with a tiny active partial.
+    // Same limitation: the general branch (dy != 0) reuses the overflowed value.
+    Jet<2> num{1.0};
+    Jet<2> den;
+    den.mValue = 1.0e-310;
+    den.mPartials[0] = 1.0e-320;        // active dir; true d/dx0 ~ -1e300 (finite)
+    const Jet<2> z = num / den;
+    FATP_ASSERT_TRUE(std::isinf(z.mValue), "A2 Jet/Jet value overflows to inf");
+    FATP_ASSERT_TRUE(std::isinf(z.mPartials[0]),
+                     "A2 Jet/Jet active finite derivative NOT recovered (limitation)");
+    FATP_ASSERT_CLOSE(z.mPartials[1], 0.0, "A2 Jet/Jet inactive dir still clean (0)");
     return true;
 }
 

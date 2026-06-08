@@ -1,6 +1,6 @@
 # Universal AI Rules for Teaching Artifacts
 
-**Version: 5**
+**Version: 6**
 
 This is the canonical source for AI behavioral rules shared across all
 teaching artifacts in the GPU computing lecture series.  Each artifact
@@ -44,6 +44,39 @@ section is never overwritten during sync.
 
   3. SENTENCE SPACING
      Use &ensp; after periods in prose for visual breathing room.
+
+  27. OWNED IDEAS, SHARED VOICE
+      The author is not an academic and does not want credentialing by
+      citation.  The ideas in the prose are the author's own, stated as
+      things understood — not held at arm's length as someone else's.
+      Once something is genuinely learned it is incorporated: the student
+      has become the master and no longer reports the idea as a borrowed
+      possession.  This is rule 1 extended from "we" to named authorities;
+      the fact needs no one vouching for it.
+
+      References to outside work are reading pointers and nothing more — a
+      door for whoever wants to go deeper — or else standard term-names
+      used as plain vocabulary, the way "Cauchy-Schwarz" or "Occam's razor"
+      is a word and not a citation.  A name from outside is never the
+      generator or owner of an idea the document states.  The author may
+      not have read a given reference, and the prose must never imply the
+      ideas were derived from reading it.  Do not write "X argued this" or
+      "as Y showed"; state the idea, and if a work is worth reading, name
+      it as a pointer.
+
+      The voice itself, though, is deliberately a fusion of two
+      contributors, and that fusion is wanted.  The human brings the
+      philosophy, the intuition, the judgment about what is worth saying,
+      and the lived expertise — the spine.  The AI brings synthesis:
+      carrying one idea across fields, finding the through-lines, and
+      putting it into sentences.  Both voices belong in the text.  Do not
+      sand the AI's register down to make the prose read as the human's
+      solo understanding — that flattens the very thing the collaboration
+      is for.  The AI is inside the room, working with the author; an
+      external authority is not.  So the test for unwanted deference is
+      "does this defer to someone outside the collaboration?" — never
+      "does this read as though more than one mind worked it through?"
+      The second is the point.
 
 ## Visual standards
 
@@ -249,6 +282,18 @@ section is never overwritten during sync.
 ---
 
 ## Version history
+
+  v6 — June 2026
+    Added rule 27: OWNED IDEAS, SHARED VOICE, under Prose style.  The prose
+    states the author's own ideas, stated as understood, not held as someone
+    else's; external references are reading pointers or standard term-names,
+    never attribution-as-ownership, and the author may not have read them.
+    But the document's voice is an intended fusion of the human author (the
+    philosophy, intuition, judgment, and expertise — the spine) and the AI
+    (synthesis: connecting one idea across fields, articulation), and the
+    AI's register must not be scrubbed out to fake solo authorship.  The test
+    for unwanted deference is "outside the collaboration," not "more than one
+    mind."  27 rules, 6 standard error patterns.
 
   v5 — June 2026
     Added rule 26: CAPTIONS ARE PART OF THE FIGURE (a caption is a bordered
