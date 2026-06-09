@@ -2200,6 +2200,23 @@ SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
   v244 (2026-06-07): per author, expanded the Weierstrass passage in the deCasteljau note ("talk about the monster ... provide an animation generating it ... first fractal ... then the polynomial approximation theorem ... in direct contrast, his monster could be tamed"). Replaced the single Weierstrass paragraph + repositioned heading with a three-beat arc under a new h4 "Weierstrass's monster": (1) the 1872 monster &ndash; continuous everywhere, differentiable nowhere, built as W(x)=Sum a^n cos(b^n pi x), a=1/2 b=3, slope growing without bound; (2) fractal/self-similar (one of the first fractals, dim strictly in (1,2)), with Cantor's 1884 devil's-staircase named as an accurate cousin (continuous, rises 0->1, still a.e., climb on the fractal Cantor set); (3) the contrast &ndash; the 1885 approximation theorem proving every continuous function, monsters included, is the uniform limit of infinitely-smooth polynomials (existence only, no construction), which leads into the existing Bernstein 1912 paragraph. Added a NEW animation (cvWeier) between beats 2 and 3 that GENERATES the monster: a sum of cosines with terms added one at a time (Play/Step/Reset/Speed, house AnimBtnBar), each new octave morphing in as a finer ripple; a=0.5 b=3 NMAX=5 (6 terms) SAMP=1600, curY cached, lifecycle chained on id==='deCasteljau' with rafWe guard. Verified: node --check OK; em-dash 0 (rendered body); div 20/20; no duplication (all anchors count 1, old phrase gone); order monster-> construction-> fractal/devil-> cvWeier-> contrast-> 'probability proof'-> Bernstein holds; behavioral harness on the REAL in-file IIFE (ignores other note ids, open chains, Play builds terms 1->6, reset, close clears raf); matplotlib render shows the smooth arch at 1 term roughening into a jagged fractal at 6 terms. NOTE: devil's staircase is a DIFFERENT pathology than the monster (differentiable a.e. with derivative 0, not nowhere-differentiable) &ndash; framed as a cousin, not the same kind.
   v245 (2026-06-07): BUGFIX. The v243 cvConc removal sliced the IIFE region from the CVCONC marker to the CVGALTON marker, but cvVD's IIFE sat BETWEEN those two markers (file order was cvBern -> cvConc -> cvVD -> CVGALTON), so cvVD's code was deleted along with cvConc's. The cvVD canvas remained in the nv1Quadratics note but had no draw loop, so the variation-diminishing animation rendered blank. The v243 "cvVD intact" check was false-positive: it counted the canvas markup (id="cvVD"), not the IIFE. Restored the cvVD IIFE verbatim from backup before CVGALTON (order now cvBern -> cvWeier -> cvVD -> CVGALTON). LESSON: when removing an animation, the IIFE marker range can span a NEIGHBOUR's IIFE; verify the removed byte range and re-check the neighbour's IIFE (not just its canvas) draws. Verified: node --check OK; em-dash 0; div 20/20; cvVD/cvWeier/cvBern IIFEs all present; end-to-end chain harness (real in-file IIFEs nested in file order on a stub base) confirms opening nv1Quadratics fires both cvVD (crossing HUD draws) and cvBern, and opening deCasteljau fires cvWeier.
   v246 (2026-06-07): per author ("let n go up a couple more times ... draw a dashed rectangle around the central part and zoom in to show self-similarity"), extended cvWeier. NMAX 5 -> 7 (8 terms) with SAMP 1600 -> 9000 so the top term (3^7) renders without aliasing in both the full view and the zoom. Added two stages after the build: (1) a dashed rectangle fades in around the central third [1/3,2/3] of the curve (y-range fit to the curve there), then (2) the view tweens from full [0,1]x[-2,2] to that box, magnifying x and y so the boxed piece fills the frame and reads just as jagged as the whole &ndash; self-similarity. View is a generalized {x0,x1,y0,y1} with sx/sy mapping; curve drawn clipped to the plot rect, only the in-view grid subset; box drawn in data coords and faded out as the zoom completes. Stage machine drives AnimBtnBar: stages 0..NMAX build (term morph), NMAX+1 box, NMAX+2 zoom; isDone at NMAX+2; Play after done hard-resets then restarts; lifecycle chained on id==='deCasteljau' with rafWe guard. Caption updated to describe the build-then-zoom. Verified: node --check OK; em-dash 0 (canvas uses \u2013/\u00d7, no \u2014); div 20/20; staged harness (build to terms:8, box appears, zoom HUD 'zoomed 3x', stable when done, reset->terms:1 clears zoom, close clears raf); end-to-end chain harness confirms cvWeier draws on deCasteljau and cvVD/cvBern still draw on nv1Quadratics; matplotlib render shows the full 8-term monster with the dashed central box above the 3x-zoomed view, equally jagged.
+  v247 (2026-06-07): per author, added a new prose section "The basis spans the curve" BEFORE "Why nine control points", as a deliberately well-motivated concrete example for introducing linear algebra (author: many CS/Math readers took an abstract linear course; this is a good place to ground vector space / basis / coordinates / change of basis). Four paragraphs: (1) quadratics are a vector space (closed under add and scale), so a curve is a 'vector' and the space is 3-dimensional; bridges from the cvBern approximation just above (degree-> any shape) to the fixed-degree basis fact. (2) two bases for the same space: monomials 1,t,t^2 (coords (a,b,c)) vs the three Bernstein functions B0,B1,B2 (linearly independent + span, three of them because dim=3). (3) writing a curve as Sum Pi Bi IS giving its coordinates in the Bernstein basis -> control points ARE the coordinates; (a,b,c)->(P0,P1,P2) is a fixed 3x3 change of basis, and convex-hull / variation-diminishing are what this basis buys over the monomials. (4) the count is the dimension: 3 necessary and sufficient, degree-n -> n+1, the net is a coordinate vector; closes by naming the LA payoff for the reader. Then slimmed "Why nine control points": removed its old curve-rederivation paragraph (now covered) and opened the patch paragraph with a bridge "The surface squares the count." so why-nine is the clean tensor-product step (3x3=9). Connects backward to cvBfns (the three basis functions) and forward to the existing tensor-product table. Prose-only for now (offered an optional change-of-basis visual as a follow-up). Verified: node --check OK; em-dash 0; div 20/20; order new-section < why-nine < patch; old curve paragraph gone; decoded the rendered prose to confirm entities (sub/sup, &times;, &ndash;, &rsquo;) read correctly.
+  v248 (2026-06-07): per author ("this contains a lot of facts which are obvious when written down ... lets start with writing out equation, a plot of the 1,t,t^2 and a concrete that sum these"), began the show-don't-tell build for the new basis section. Added a NEW animation (cvMono) between the vector-space paragraph and the basis paragraph of 'The basis spans the curve'. Stage 0 plots the three monomial basis curves 1, t, t^2 (coral/green/blue, the same triad as cvBfns so the two bases read as parallel) with the general equation p(t)=a t^2 + b t + c. Play -> stage 1 morphs each curve to a concrete scale (0.25, 0.5t, 0.5t^2) and the HUD equation goes numeric. Play -> stage 2 sweeps a vertical stacked column left-to-right, stacking the three scaled contributions (c, b*t, a*t^2) up to the amber sum curve p(t)=0.5 t^2 + 0.5 t + 0.25 which draws in behind it -- the literal 'sum these'. House AnimBtnBar (Play/Step/Reset/Speed); handlers _monoPlay/Step/Reset/Speed; ids btnMonoPlay/btnMonoStep/moSpd0-2; lifecycle chained on id==='nv1Quadratics' with rafMo guard. Retied the basis paragraph opening to the animation ('The three curves above are the monomials ...'). This is step 1; author will likely want the Bernstein-basis and change-of-basis pieces next. Verified: node --check OK; em-dash 0 (canvas uses \u00b2, no \u2014); div 20/20; staged harness (ignores other notes; stage0 general eq -> Play -> numeric eq + numeric labels -> reset -> general; close clears raf); 4-animation chain harness confirms cvMono draws on nv1Quadratics alongside cvVD/cvBern and cvWeier still draws on deCasteljau; matplotlib render shows the three states (basis / scaled / summing with the sweeping stack).
+  v249 (2026-06-07): per author, REBUILT cvMono from the stack-sum into a four-step geometric construction of a target parabola from the standard basis, zoomed out (t in [-1,5], y in [-2.5,7]) so the moves are non-trivial. Target = 0.5t^2 - 2t + 3 (vertex (2,1): shifted right and up; leading coeff 0.5 != 1). Four Play steps: (1) reveal the target (dashed white) with a vertex marker + dashed guides to the axes showing right-and-up; (2) lay down t^2 and scale it to 0.5t^2 (vertex at origin, shape/width set); (3) add the line -2t (green) which shears the amber parabola sideways to 0.5t^2-2t, vertex (2,-2), sitting directly below the target (congruent, exactly 3 below); (4) add the constant 3 (coral horizontal line) lifting the parabola straight up by 3 to land on the target. Building curve = q*t^2 + l*B*t + k*Cc with (q,l,k) tweened per step; a moving amber vertex dot traces the slide (0,0)->(2,-2)->(2,1). The HUD builds the equation term by term (0.5t^2 -> 0.5t^2 - 2t -> 0.5t^2 - 2t + 3) under a 'target:' line; curves clipped to the plot rect (the un-shifted 0.5t^2 right arm runs off-top in step 2, as a steep un-placed parabola should). House AnimBtnBar (Play/Step/Reset/Speed; _monoPlay/Step/Reset/Speed; btnMonoPlay/btnMonoStep/moSpd0-2); DUR per step; lifecycle on id==='nv1Quadratics', rafMo guard; stage 0 idle = clean empty axes. Caption rewritten to the four steps (shape, then horizontal place, then height = three independent coefficient moves). Verified: node --check OK; em-dash 0 (canvas minus \u2212, sup \u00b2; caption &minus;/&ndash;); div 20/20; staged harness (idle shows no target; Play -> target eq + final building eq; reset hides; close clears raf); chain harness confirms the _openNotes chain reaches cvMono on nv1Quadratics open and Play yields the target and final eq, with cvVD/cvBern/cvWeier intact; matplotlib 4-panel render confirms target/shape/shear-below/lift-onto.
+  v250 (2026-06-07): per author ("zoom it out"), widened the cvMono coordinate window from t in [-1,5], y in [-2.5,7] to t in [-2.5,6.5], y in [-4.5,12] so the four-step construction sits in a larger field with margin and step 2's un-shifted 0.5t^2 fits better. Surgical one-line change to the T0/T1/Y0/Y1 constants only. Verified: node --check OK; em-dash 0; div 20/20; chain harness confirms cvMono still draws on nv1Quadratics (target + final building eq) with cvVD/cvBern/cvWeier intact; matplotlib render confirms the zoomed-out 4 stages read correctly.
+  v251 (2026-06-07): per author ("I was wrong about the slide ... zoom out more and show the addition happening from left to right so we see the parabola shifting"). Zoomed cvMono further (t in [-3,7], y in [-4.5,15]; canvas 400->460) and rebuilt steps 3 and 4 as a LEFT-TO-RIGHT addition sweep. During step 3 a front sweeps t from -3 to 7: the faint ghost of 0.5t^2 stays put (the 'before'), the bold amber 'after' curve 0.5t^2-2t grows from the left, and a green vertical connector at the front shows exactly the line's height being added there (positive on the left -> lifts; negative on the right -> drops), so the curve visibly transforms and the vertex lands at (2,-2) below the target. Step 4 does the same with the coral constant 3 (connector length 3) lifting onto the target. This replaces the all-at-once l:0->1 morph that misleadingly looked like a pivot/slide; the new framing is honest 'add the basis function's height point by point'. Caption rewritten accordingly (and notes it is not a slide). House AnimBtnBar unchanged; DUR per step with slower sweeps (2.5s/2.1s). Verified: node --check OK; em-dash 0; div 20/20; staged harness (idle->Play->target+final eq->reset->close); chain harness confirms cvMono draws on nv1Quadratics with cvVD/cvBern/cvWeier intact; matplotlib render confirms step-3 mid-sweep (lifting left / dropping right with connector), step-3 done (shifted below target with ghost showing the shift), and step-4 mid-sweep lifting onto target.
+  v252 (2026-06-07): per author ("zoom out more" again), widened cvMono to t in [-4,8], y in [-9,27] and raised the canvas to 700x560 so the parabola now sits in the lower-middle with clear headroom above (arms ~19 well under Y1=27) instead of filling the frame, making the curves smaller in a roomier field. Thinned the horizontal grid to every 2 and y tick labels to every 4 for the wider view. (Earlier same-turn attempt scaled canvas and window together, which kept the parabola the same relative size; this version keeps headroom so it reads as zoomed out.) Verified: node --check OK; em-dash 0; div 20/20; chain harness confirms cvMono draws (target + final eq) with cvVD/cvBern/cvWeier intact; render confirms the parabola has headroom and the left-to-right addition sweeps still read.
+  v253 (2026-06-07): per author ("change x-axis to -8 to 8, slow it down"). Set cvMono window t in [-8,8] (symmetric about the origin, so t^2 is centered and the shift to vertex t=2 reads as a clear rightward move) keeping y in [-9,27]; the target's left arm climbs off the top-left for t<~-5.2, which is inherent to the vertex being at 2 (offered to raise the top/recenter if wanted). Slowed the timing: DUR per step 900/1200/2500/2100 -> 1600/2200/4500/3800 ms and the inter-step pause 440 -> 760 ms (the step-3 sweep is now ~4.5s). Verified: node --check OK; em-dash 0; div 20/20; chain harness confirms cvMono draws (target + final eq) with cvVD/cvBern/cvWeier intact; render confirms the centered -8..8 view.
+  v254 (2026-06-07): per author, replaced one sentence in the 'basis spans the curve' opening that read babyish ("So quadratics are vectors in exactly the sense a linear algebra course means the word, even though each one is a whole curve rather than an arrow.") with the tighter, more confident "Quadratics are therefore vectors, and everything linear algebra proves about vectors applies to them unchanged." Drops the over-explanation and the arrow analogy. Verified: node --check OK; em-dash 0; div 20/20.
+  v255 (2026-06-07): per author, refocused the opening of 'The basis spans the curve' away from the formal vector-space lead toward a concrete, question-first path. Replaced the single opening <p> with: (P-A) the question 'what is all quadratics?' answered concretely &ndash; every a.t2+b.t+c is a triple (a,b,c), a three-number family that stays inside itself under the only two moves used (add two, or scale one); (MATH BOX) a styled div showing p(t)=a.t2+b.t+c, the addition identity, and the scaling identity as EQUATIONS rather than the sentence 'closed under scalar multiplication and vector addition' (author explicitly asked not to use that phrase); (P-B) the degenerate-cases aside (line a=0, constant a=b=0, else t2+(-t2+t)=t slips out), names 'vector space' ONCE as a label for what is already on the table, and sharpens the Bernstein question (can its three polynomials, each scaled then added, hit every triple?). The math box is a div (var(--s2) bg, 3px amber left border, var(--mono), white-space:nowrap+overflow-x:auto) living inside the note body JS string, hence inside <script>, so it does NOT affect the 20/20 rendered-div count. 'closed under' now survives only inside this SESSION LOG comment, not in any rendered prose; 'scalar multiplication' appears nowhere. P2-P4 left intact (P-B's single naming of 'vector space' feeds P2's 'A basis is a smallest set of vectors...'). Verified: node --check OK; em-dash 0 (rendered); div 20/20; box equations decoded correct.
+  v256 (2026-06-07): per author, fixed a conceptual conflation in the 'basis spans the curve' opening. The old first two sentences ('The animation above let the degree climb until the Bernstein form could match any shape. Why can it reach every quadratic?') used the climbing-degree APPROXIMATION limit (Weierstrass/Bernstein, n->inf, approximate, all continuous functions) to motivate the fixed-degree EXACT basis fact (degree-2 Bernstein span = every quadratic, no limit), implying one mechanism when they are completely different theorems. Rewrote to SEPARATE them: first sentence names the approximation as a limit (degree climbs -> approaches any continuous shape); second sentence marks this section's fact as different and exact (one fixed degree, three Bernstein quadratics reproduce every quadratic on the nose, no limit); then 'Why can three fixed curves reach all of them?' -> the unchanged 'what is all quadratics?' question and math box. Verified: node --check OK; em-dash 0; div 20/20.
+  v257 (2026-06-07): per author ('we don't need all these smooth transitions and caveats in the notes ... just start'), replaced the ENTIRE bloated opening of 'The basis spans the curve' (~2140 chars: the approximation-limit vs fixed-degree distinction, the 'what is all quadratics' triples build-up, the closure math box, and the degenerate-cases P-B paragraph) with one direct line: 'All quadratics are a vector space with standard basis 1, t, t^2: every quadratic is a.t^2+b.t+c, and (a,b,c) is its coordinates in that basis.' The closure math box (addition + scaling identities) is GONE. P2-P4 left untouched this turn; NOTE P2 still opens 'A basis is a smallest set of vectors ... The three curves above are the monomials 1,t,t^2 ... (a,b,c) is the curve's coordinates' which now redundantly restates the new opening (and is the 'blatantly definitional' basis bit) plus carries the only textual tie to cvMono ('the three curves above') &ndash; flagged to author for a follow-up trim to start P2 at the Bernstein-contrast sentence. North star confirmed: section marches toward 'every biquadratic is the sum of the 9' (P4 -> 'Why nine control points' tensor-product 3x3=9). Verified: node --check OK; em-dash 0; div 20/20.
+  v258 (2026-06-09): per author ('explore the geometry of the coefficients ... R^3 but also parabolas in the plane, the literal traces ... move the traces around with the affine transformation ... ties back to graphics via homogeneous coordinates'; then 'start drafting ... animations take center stage, don't say equations write them down ... write out the transformations ... give a graph with a slider and apply the operation to the base t^2'). NEW beat 'The coefficients are a transformation' inserted in 'The basis spans the curve' between the v257 opening line and cvMono. Prose: the duality (a quadratic is at once a triple (a,b,c) = a point in R^3 AND its trace in the plane; the correspondence is a linear isomorphism); each coefficient is a vertical motion of the base parabola t^2 (a scales, b shears, c lifts), all vertical because a graph must stay a graph, which is why there are 3 knobs not the 6 of a free plane-affine map. NEW animation cvAffine (700x460, slider-driven, NO AnimBtnBar): base t^2 as a dashed ghost, transformed curve a*t^2+b*t+c in amber, three sliders affSclA/affShrB/affTrnC (a scale red, b shear green, c lift coral, accent-color matched) + Reset (window._affReset), and a live readout div affOut showing the equation y=a.t^2+b.t+c and the 3x3 homogeneous matrix [[1,0,0],[b,a,c],[0,0,1]] with the middle row in amber labeled the coordinate vector. raf loop (rafAff) reads the sliders each frame and rebuilds affOut only on value change (lastKey gate); window._affEval(a,b,c,t) exposed for tests; chains _openNotes/_closeNotes on id==='nv1Quadratics', inserted after CVMONO before CVGALTON. After the animation the three transformation matrices are WRITTEN OUT (scale [[1,0,0],[0,a,0],[0,0,1]], shear [[1,0,0],[b,1,0],[0,0,1]], lift [[1,0,0],[0,1,c],[0,0,1]] as bracketed white-space:pre blocks, labeled/colored red/green/coral), then the composite [[1,0,0],[b,a,c],[0,0,1]] (middle row amber) with the tie: applied to (t,t^2,1) -> (t, a t^2+b t+c, 1) the middle row (b,a,c) IS the coordinate vector (scale diagonal, shear off-diagonal, lift homogeneous column); the lift = the GPU per-vertex move = a model matrix in miniature, handing off to the pipeline. cvMono is now REDUNDANT with cvAffine (both scale/shear/translate a parabola) - FLAGGED for removal/reconciliation (it also carries P2's only 'the three curves above' tie); P2's first two sentences still redundantly restate the v257 opening - both pending author decision. Verified: node --check OK; em-dash 0; div 20/20; harness op counts {cvVD:454,cvMono:356,cvAffine:1240,cvBern:838,cvWeier:9015}; _affEval(0.5,-2,3,2)=1; affOut has equation+matrix+coords; cvAffine transformed-curve max pixel error 0.000 over 261 pts at (0.5,-2,3); chain intact (all 5 IIFEs draw); matplotlib render confirms default(overlap)/scale/shear/full-target.
+  v259 (2026-06-09): per author ('Below [the opening line] put the two formulas for closure under scalar multiplication and vector addition ... just put it there, No words needed'), inserted a centered no-prose display block directly under the v257 opening line (above the cvAffine beat) with the two closure identities: k(a t^2+b t+c)=(ka)t^2+(kb)t+(kc) and (a1 t^2+b1 t+c1)+(a2 t^2+b2 t+c2)=(a1+a2)t^2+(b1+b2)t+(c1+c2). var(--mono), no labels/words. Restores the v255-era closure identities that v257 had removed. Verified: node --check OK; em-dash 0; div 20/20.
+  v260 (2026-06-09): per author ('this is not a caption, so the should be aligned left'), changed the closure-identities display block from text-align:center to text-align:left (it is a statement of fact, not a caption). One-property change. Verified: node --check OK; em-dash 0; div 20/20.
+  v261 (2026-06-09): per author ('this needs a bit more explanation'), expanded the one-line why-vertical/why-three sentence in the cvAffine beat's duality paragraph. Now: t is the parameter and a quadratic is a height over it, so the building motions fix t and act on height; tilting (rotation) breaks graph-ness (vertical line meets twice), while horizontal slide/stretch stays a graph but on a parabola only reproduces a shear/lift/rescale (so vertical handles already reach every quadratic) - corrects the earlier overstated 'a graph must stay a graph' reason; then the dof count: free plane affine map = 6 (2x2 matrix + 2 translations), holding t fixed spends 3, leaving the 3 = a,b,c. Prose only. Verified: node --check OK; em-dash 0; div 20/20.
+  v262 (2026-06-09): per author ('this is great ... Following my question, not necessarily a pedagogic trail ... focus on this geometry ... Put all of this in this section so I come back to it'), added a new sub-section 'The shift in the other corner' after the cvAffine tie-paragraph (before cvMono), capturing the shift-vs-shear exploration. The registration construction (scale, horizontal shift, lift) puts the shift in the upper-right (1,3) corner: matrix [[1,0,h],[0,a,k],[0,0,1]] sends (t,t^2,1)->(t+h,a t^2+k) = vertex form y=a(x-h)^2+k. Side-by-side comparison with the monomial/shear matrix [[1,0,0],[b,a,c],[0,0,1]] (moved entry highlighted: h blue in the corner vs b amber in the block); same curve iff b=-2ah, c=ah^2+k = completing the square (the dictionary between the corners); underlying identity t^2+b t=(t+b/2)^2-b^2/4 written out (shear relocates the parabola untilted to vertex (-b/2,-b^2/4)); tie to the live cvAffine (a=1,c=0: drag b, vertex dives along y=-x^2); off-curve caveat (the matrices differ as plane maps, agree only on this parabola, so one quadratic has both forms); the corner = 'is x still t?' switch (0 forces graph-over-t with placement faked via shear; h frees the points = parametric/untilted/no shear, scale+two translations in the last column = GPU-native; shear form = the price of f(t)). Prose + 2 matrices + 1 identity, no new animation. Verified: node --check OK; em-dash 0; div 20/20.
+  v263 (2026-06-09): per author ('The coefficients are a transformation [heading] ... After this I want a animation with a rectangle and slider for all the 6 affine motions'), added NEW animation cvAff6 directly after the heading, before the duality paragraph - so the section now opens with the full affine group and then narrows to the parabola's three. cvAff6 (700x460, slider-driven, no AnimBtnBar): a centered rectangle (corners +/-2,+/-1) drawn as a dashed grey ghost + an amber translucent-filled transformed copy, each with a dot on the top-right corner to track orientation. Six sliders: x-scale/y-scale (blue, af6sx/af6sy, -1..2 default 1), x-shear/y-shear (green, af6kx/af6ky, -1.5..1.5 default 0), x-move/y-move (coral, af6tx/af6ty, -4..4 default 0) + Reset (_aff6Reset). Equal px/unit (PPU=50, origin-centered) so rotation is undistorted. Live readout af6Out shows the 3x3 affine matrix [[sx,kx,tx],[ky,sy,ty],[0,0,1]] with the six entries colored by group and the bottom row 0 0 1 greyed/locked, plus the note 'lock the top row to 1,0,0 and the six become the parabola's three: b,a,c'. raf loop reads sliders each frame, rebuilds af6Out on change (lastKey6 gate); window._aff6Apply exposed. IIFE inserted after CVAFFINE before CVGALTON, chains _openNotes/_closeNotes on id==='nv1Quadratics' with rafAff6 guard. Caption: full affine group; rotation is not its own knob (blend of scales and shears); locking the top row gives the parabola's three below. Verified: node --check OK; em-dash 0; div 20/20; harness op counts {cvVD:454,cvMono:356,cvAffine:1240,cvAff6:254,cvBern:838,cvWeier:9015}; _aff6Apply(1.5,0.5,1,-0.3,0.8,-1,2,1)=[4.5,-0.8]; af6Out populated; transformed-rectangle corner max pixel error 0.0000 vs the affine map at test coeffs; 6-animation chain intact; matplotlib 6-panel render confirms identity/scales/x-shear/rotate-90(as scale+shear)/translate/harness-case all read correctly.
   v202 (2026-06-07): per author, cvBfns - the combining sub-steps after the fly-down/separate were too
   fast in BOTH worked expansions. Widened those windows and gave the two phases more time, leaving the
   fly-down/break/fly-back at their pace. drawExpandA (phase 2): DUR[2] 5200 -> 6800; window boundaries
@@ -5973,9 +5990,64 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<button id="bnF2" onclick="window._bernFn(2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">wave</button>' +
         '</div>' +
         '<div class="anim-cap">The white curve is a continuous target f.&ensp; The pink control net samples it at the evenly spaced heights f(k/n), and the amber curve is the degree-n Bernstein polynomial built from those samples &ndash; the same weights as the B&eacute;zier curve.&ensp; Press Play and watch n grow: the amber curve stays inside the control net, the convex-hull cage, yet the largest gap to f shrinks toward zero.&ensp; That uniform convergence, for every continuous f, is Bernstein&rsquo;s proof of the Weierstrass approximation theorem.</div>' +
+        '<h4>The basis spans the curve</h4>' +
+        '<p>All quadratics are a vector space with standard basis 1, t, t<sup>2</sup>: every quadratic is a&middot;t<sup>2</sup> + b&middot;t + c, and (a, b, c) is its coordinates in that basis.</p>' +
+        '<div style="text-align:left;font:600 14px var(--mono);color:var(--fg);margin:12px 0 4px;line-height:2.1;">' +
+        '<div>k(a&middot;t<sup>2</sup> + b&middot;t + c) = (ka)&middot;t<sup>2</sup> + (kb)&middot;t + (kc)</div>' +
+        '<div>(a<sub>1</sub>&middot;t<sup>2</sup> + b<sub>1</sub>&middot;t + c<sub>1</sub>) + (a<sub>2</sub>&middot;t<sup>2</sup> + b<sub>2</sub>&middot;t + c<sub>2</sub>) = (a<sub>1</sub> + a<sub>2</sub>)&middot;t<sup>2</sup> + (b<sub>1</sub> + b<sub>2</sub>)&middot;t + (c<sub>1</sub> + c<sub>2</sub>)</div>' +
+        '</div>' +
+        '<h4>The coefficients are a transformation</h4>' +
+        '<canvas id="cvAff6" width="700" height="460" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:14px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:12px 16px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-top:none;align-items:center;">' +
+        '<label style="font:600 11px var(--mono);color:#6eb4ff;display:flex;align-items:center;gap:6px;">x-scale<input id="af6sx" type="range" min="-1" max="2" step="0.1" value="1" style="accent-color:#6eb4ff;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#6eb4ff;display:flex;align-items:center;gap:6px;">y-scale<input id="af6sy" type="range" min="-1" max="2" step="0.1" value="1" style="accent-color:#6eb4ff;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#5cc990;display:flex;align-items:center;gap:6px;">x-shear<input id="af6kx" type="range" min="-1.5" max="1.5" step="0.1" value="0" style="accent-color:#5cc990;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#5cc990;display:flex;align-items:center;gap:6px;">y-shear<input id="af6ky" type="range" min="-1.5" max="1.5" step="0.1" value="0" style="accent-color:#5cc990;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#e8835c;display:flex;align-items:center;gap:6px;">x-move<input id="af6tx" type="range" min="-4" max="4" step="0.1" value="0" style="accent-color:#e8835c;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#e8835c;display:flex;align-items:center;gap:6px;">y-move<input id="af6ty" type="range" min="-4" max="4" step="0.1" value="0" style="accent-color:#e8835c;width:76px;"></label>' +
+        '<button onclick="window._aff6Reset()" class="anim-btn">&#8634; Reset</button>' +
+        '</div>' +
+        '<div id="af6Out" style="padding:11px 12px;background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;min-height:60px;"></div>' +
+        '<div class="anim-cap">A rectangle under the full affine group of the plane.&ensp; Six sliders: the four entries of the 2&#215;2 part (two scales, two shears) and the two translations.&ensp; Rotation is not a knob of its own &ndash; it is a blend of scales and shears.&ensp; Lock the top row to 1, 0, 0 and only three are left, which are the parabola&rsquo;s b, a, c below.</div>' +
+        '<p>The same quadratic is two objects at once: a triple (a, b, c), a point in the coordinate space &#8477;<sup>3</sup>; and a curve, its trace, in the plane.&ensp; The correspondence between the triple (a, b, c) and the curve a&middot;t<sup>2</sup> + b&middot;t + c is a linear isomorphism, so the triple does not <em>label</em> the curve, it <em>is</em> the curve in another guise.&ensp; Read geometrically, each coefficient is a motion of the one base parabola t<sup>2</sup>: a scales it vertically, b shears it, c lifts it.&ensp; All three are vertical, and that follows from what t is.&ensp; t is the parameter and a quadratic is a height read over it, one value for each t, so the motions that build it act on the height and leave t fixed.&ensp; Tilting is out &ndash; rotate the parabola and a vertical line soon meets it twice, so it is no longer a function of t; sliding or stretching sideways stays a graph but, on a parabola, only reproduces a shear, a lift, or a rescale, so the three vertical handles already reach every quadratic.&ensp; The count says the same thing: a free affine map of the plane has six degrees of freedom &ndash; the four entries of its 2&#215;2 matrix and its two translations &ndash; and holding t fixed spends three, leaving exactly the three that on t<sup>2</sup> are a, b, c.</p>' +
+        '<canvas id="cvAffine" width="700" height="460" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-top:none;align-items:center;">' +
+        '<label style="font:600 12px var(--mono);color:#e25050;display:flex;align-items:center;gap:7px;">a scales<input id="affSclA" type="range" min="-1" max="2" step="0.1" value="1" style="accent-color:#e25050;width:88px;"></label>' +
+        '<label style="font:600 12px var(--mono);color:#5cc990;display:flex;align-items:center;gap:7px;">b shears<input id="affShrB" type="range" min="-3" max="3" step="0.1" value="0" style="accent-color:#5cc990;width:88px;"></label>' +
+        '<label style="font:600 12px var(--mono);color:#e8835c;display:flex;align-items:center;gap:7px;">c lifts<input id="affTrnC" type="range" min="-3" max="3" step="0.1" value="0" style="accent-color:#e8835c;width:88px;"></label>' +
+        '<button onclick="window._affReset()" class="anim-btn">&#8634; Reset</button>' +
+        '</div>' +
+        '<div id="affOut" style="padding:11px 12px;background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;min-height:52px;"></div>' +
+        '<div class="anim-cap">The faint dashed curve is the base parabola t<sup>2</sup>; the solid curve is what the coefficients make of it.&ensp; Drag a to scale it, b to shear it, c to lift it &ndash; every quadratic is this one parabola transformed.&ensp; The live matrix is those three moves composed, and its middle row is the coordinate vector (b, a, c).</div>' +
+        '<p>Write those three motions as matrices acting on the lifted point (t, y, 1).&ensp; Scaling and shearing are linear, but translation is not &ndash; it moves the origin, so no 2&#215;2 matrix performs it, and the extra coordinate is what earns it a matrix at all.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;margin:14px 0 4px;"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">0   a   0</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#e25050;">scale (a)</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">b   1   0</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#5cc990;">shear (b)</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">0   1   c</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#e8835c;">lift (c)</div></div></div>' +
+        '<p>Their product is a single matrix whose action is the coefficients themselves:</p>' +
+        '<div style="display:flex;justify-content:center;margin:12px 0;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 12px;font:600 14px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre;color:#e8a832">b   a   c</div><div style="white-space:pre">0   0   1</div></div></div>' +
+        '<p>Applied to the lifted base point (t, t<sup>2</sup>, 1) it returns (t, a&middot;t<sup>2</sup> + b&middot;t + c, 1): the middle row (b, a, c) is the coordinate vector, scale on the diagonal, shear beside it, lift in the homogeneous column.&ensp; That move, one extra coordinate so a translation becomes a multiplication, is the one the GPU runs on every vertex; the parabola riding inside a transformation matrix is a model matrix in miniature, which is where this thread is picked up again at the pipeline.</p>' +
+        '<h4>The shift in the other corner</h4>' +
+        '<p>Here is the same parabola reached a different way, and it is worth sitting with.&ensp; Forget coordinates for a moment and register the base parabola onto a target the way you would line up two shapes: scale it to the right width, slide it left or right until it sits over the target, then lift it to the right height.&ensp; The slide is an honest horizontal translation, and a horizontal translation lives in the upper-right corner of the matrix &ndash; the one slot the monomial construction left empty.</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:34px;align-items:flex-start;justify-content:center;margin:16px 0;"><div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 12px;font:600 14px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   <span style="color:#6eb4ff">h</span></div><div style="white-space:pre">0   a   k</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:var(--fg3);">the shift, in the corner</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:7px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 12px;font:600 14px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre"><span style="color:#e8a832">b</span>   a   c</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:var(--fg3);">the shear, in the block</div></div></div>' +
+        '<p>That left matrix sends (t, t<sup>2</sup>, 1) to (t + h, a&middot;t<sup>2</sup> + k): x is now t + h, and the curve is the vertex form y = a(x &minus; h)<sup>2</sup> + k.&ensp; It is the same parabola as the monomial form y = a&middot;x<sup>2</sup> + b&middot;x + c exactly when b = &minus;2ah and c = a&middot;h<sup>2</sup> + k &ndash; which is just completing the square, the entire dictionary between the two corners.&ensp; The fact underneath it is that a vertical shear of a parabola is a horizontal shift plus a lift, on the parabola itself:</p>' +
+        '<div style="text-align:left;font:600 14px var(--mono);color:var(--fg);margin:10px 0;line-height:2;">t<sup>2</sup> + b&middot;t = (t + b/2)<sup>2</sup> &minus; b<sup>2</sup>/4</div>' +
+        '<p>So the shear never tilts the parabola; it relocates it untilted, vertex at (&minus;b/2, &minus;b<sup>2</sup>/4), and the horizontal placement you would have done with an honest shift is folded into the shear, paid for partly in the constant.&ensp; With a at 1 and c at 0 in the animation above, drag b and watch the vertex refuse to run along the axis &ndash; it dives along y = &minus;x<sup>2</sup>, the signature of a shear and not a slide.&ensp; As maps of the whole plane the two matrices are genuinely different, disagreeing everywhere off the curve and agreeing only on this one parabola, which is exactly why a single quadratic carries both a vertex form and a monomial form at once.</p>' +
+        '<p>The corner you fill is the switch.&ensp; Hold it at zero and you have demanded that x stay t: the result is read as a graph over the original parameter, so any horizontal placement must be smuggled in through the shear.&ensp; Put h in the corner and the points are free to move, x is no longer t, the curve turns parametric and stays untilted, and there is no shear at all &ndash; only a scale and two translations, h and k, both sitting in the last column.&ensp; That is the pipeline&rsquo;s own habit: it moves points with the translation in the last column and never asks whether the result is a function of anything.&ensp; The shift-in-the-corner construction is the GPU-native one; the shear form is the price of insisting on reading the parabola as f(t).</p>' +
+        '<canvas id="cvMono" width="700" height="560" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
+        '<button id="btnMonoPlay" onclick="window._monoPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnMonoStep" onclick="window._monoStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._monoReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="moSpd0" onclick="window._monoSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="moSpd1" onclick="window._monoSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="moSpd2" onclick="window._monoSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div class="anim-cap">Building a target parabola from the standard basis, zoomed out so the moves are real.&ensp; Step one shows the goal, 0.5t<sup>2</sup> &minus; 2t + 3.&ensp; Step two lays down t<sup>2</sup> and scales it by 0.5 to fix the width.&ensp; Steps three and four then sweep left to right, adding the line &minus;2t and then the constant 3 to the curve one point at a time; the coloured connector is the height being added at each t, and the faint curve is where you started.&ensp; Adding the line is not a slide &ndash; it pushes the right side down and lifts the left, carrying the vertex out below the target, and the constant then lifts the whole curve straight up onto it.</div>' +
+        '<p>A <em>basis</em> is a smallest set of vectors whose weighted sums build every member of the space, and a space has many of them.&ensp; The three curves above are the monomials 1, t, t<sup>2</sup>, the course-default basis: write a&middot;t<sup>2</sup> + b&middot;t + c and the triple (a, b, c) is the curve&rsquo;s coordinates in that basis.&ensp; The three Bernstein functions B<sub>0</sub>, B<sub>1</sub>, B<sub>2</sub> we plotted earlier are a <em>different</em> basis for the very same space: they are linearly independent (no one of them is a weighted sum of the other two) and they span it (their weighted sums reach every quadratic), and there are exactly three because the space is three-dimensional.&ensp; One space, two coordinate systems.</p>' +
+        '<p>So writing a curve as P<sub>0</sub> B<sub>0</sub> + P<sub>1</sub> B<sub>1</sub> + P<sub>2</sub> B<sub>2</sub> is nothing more than listing its coordinates in the Bernstein basis &ndash; and those coordinates are the control points.&ensp; A control point is not a mysterious handle; it is the amount of one basis curve in the blend, the geometric cousin of a t<sup>2</sup>-coefficient.&ensp; Passing from (a, b, c) to (P<sub>0</sub>, P<sub>1</sub>, P<sub>2</sub>) is a change of basis, the same fixed 3&times;3 matrix every time, and the properties we have been leaning on &ndash; the curve stays inside the convex hull, it never wiggles more than its net &ndash; are exactly what this basis buys you that the monomials do not.</p>' +
+        '<p>This is also why the count is three and not a matter of taste.&ensp; The dimension of the space is three, so a basis has three elements and a curve has three coordinates: three control points are both necessary (two basis curves cannot reach every quadratic, the space is larger than their span) and sufficient (a fourth would be redundant, already a combination of the others).&ensp; A degree-n curve lives in an (n+1)-dimensional space, so it takes n+1 control points, no more and no less, and the control net is simply its coordinate vector.&ensp; If a linear algebra course ever left <em>vector space</em>, <em>basis</em>, and <em>coordinates</em> feeling abstract, this is the picture to keep: the vectors are curves, the basis is three fixed curves, and the coordinates are points you can grab and drag.</p>' +
         '<h4>Why nine control points</h4>' +
-        '<p>A quadratic <em>curve</em> needs three control points.&ensp; Degree two means a polynomial with three coefficients (a&middot;t<sup>2</sup> + b&middot;t + c), so three knobs; the degree-2 Bernstein basis has exactly three terms, one per control point.&ensp; Three points are the minimum to fix a parabola, just as two fix a line.</p>' +
-        '<p>A <em>patch</em> is the surface version, addressed by two parameters u and v instead of one.&ensp; Making it quadratic in both directions is a tensor product &ndash; a quadratic in u times a quadratic in v &ndash; so the basis is three terms times three terms, giving 3 &times; 3 = 9 control points in a grid.&ensp; Read it as three rows, each a quadratic curve of three control points, with those three curves themselves blended quadratically as v moves.</p>' +
+        '<p>The surface squares the count.&ensp; A <em>patch</em> is the surface version, addressed by two parameters u and v instead of one.&ensp; Making it quadratic in both directions is a tensor product &ndash; a quadratic in u times a quadratic in v &ndash; so the basis is three terms times three terms, giving 3 &times; 3 = 9 control points in a grid.&ensp; Read it as three rows, each a quadratic curve of three control points, with those three curves themselves blended quadratically as v moves.</p>' +
         '<p>The pattern is (degree + 1) per direction:</p>' +
         '<div style="font-family:var(--mono);font-size:15px;color:var(--fg);background:var(--s1);padding:9px 13px;border-radius:4px;margin:10px 0;line-height:1.7;overflow-x:auto">bilinear&nbsp;&nbsp;(degree 1):&ensp; 2 &times; 2 = 4 control points<br>biquadratic (degree 2):&ensp; 3 &times; 3 = 9 control points<br>bicubic&nbsp;&nbsp;&nbsp;(degree 3):&ensp; 4 &times; 4 = 16 control points</div>' +
         '<p>The bicubic, sixteen points, is the patch type behind the Utah teapot from the first section.&ensp; This patch is the degree-2 member of the same family, one notch down in smoothness.</p>' +
@@ -13562,6 +13634,243 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   };
   var oCloseVd=window._closeNotes;
   window._closeNotes=function(){ if(rafVd){ cancelAnimationFrame(rafVd); rafVd=null; } drag=null; oCloseVd(); };
+})();
+
+// ============ CVMONO: building a target parabola from the standard basis - target, t^2 scaled (shape), then a left-to-right sweep ADDING -2t (shifts the parabola) and then +3 (lifts onto target), showing the addition point by point ============
+(function(){
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var W=700, H=560, ML=44, MR=18, MT=22, MB=40, PW=W-ML-MR, plotH=H-MT-MB, top=MT;
+  var T0=-8, T1=8, Y0=-9, Y1=27;
+  var A=0.5, B=-2, Cc=3;                 // target = A t^2 + B t + Cc -> vertex (2,1)
+  var TARG='#dfe7f5', GRN='#5cc990', COR='#e8835c', AMB='#e8a832';
+  var SAMP=360, DUR=[0,1600,2200,4500,3800], spd=1, playTimer=null;
+  var stage=0, tween=null, rafMo=null, lastTs=0;
+  function smooth(x){ x=x<0?0:(x>1?1:x); return x*x*(3-2*x); }
+  function sx(t){ return ML + (t-T0)/(T1-T0)*PW; }
+  function sy(v){ return top + (Y1-v)/(Y1-Y0)*plotH; }
+  function curveR(ctx,fn,a,b,col,lw,alpha){ var n=Math.max(2,Math.round(SAMP*(b-a)/(T1-T0))),k,first=true;
+    ctx.globalAlpha=alpha; ctx.strokeStyle=col; ctx.lineWidth=lw; ctx.beginPath();
+    for(k=0;k<=n;k++){ var t=a+(b-a)*k/n, X=sx(t), Yv=sy(fn(t)); if(first){ctx.moveTo(X,Yv);first=false;} else ctx.lineTo(X,Yv); }
+    ctx.stroke(); ctx.globalAlpha=1; }
+  function draw(){
+    var cv=document.getElementById('cvMono'); if(!cv) return;
+    var ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H); var k;
+    var toS=tween?tween.toStage:stage, e=tween?smooth(tween.u):0;
+    var q = stage>=2?A:1, lineOn = stage>=3, constOn = stage>=4;
+    var aTarget = stage>=1?1:0, aLine = stage>=3?1:0, aConst = stage>=4?1:0, buildA = stage>=2?1:0;
+    var sweepStep=0, front=null;
+    if(tween){ if(toS===1){ aTarget=e; }
+      else if(toS===2){ q=1+(A-1)*e; buildA=Math.min(1,e*2.2); }
+      else if(toS===3){ aLine=Math.min(1,e*2.2); sweepStep=3; front=T0+(T1-T0)*e; }
+      else if(toS===4){ aConst=Math.min(1,e*2.2); sweepStep=4; front=T0+(T1-T0)*e; } }
+    // grid
+    ctx.strokeStyle='#1d1d28'; ctx.lineWidth=1;
+    for(k=Math.ceil(T0);k<=T1;k++){ ctx.beginPath(); ctx.moveTo(sx(k),top); ctx.lineTo(sx(k),top+plotH); ctx.stroke(); }
+    for(k=2*Math.ceil(Y0/2);k<=Y1;k+=2){ ctx.beginPath(); ctx.moveTo(ML,sy(k)); ctx.lineTo(ML+PW,sy(k)); ctx.stroke(); }
+    // axes + ticks
+    ctx.strokeStyle='#4a4a5e'; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(sx(0),top); ctx.lineTo(sx(0),top+plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ML,sy(0)); ctx.lineTo(ML+PW,sy(0)); ctx.stroke();
+    ctx.fillStyle='#8a8a9e'; ctx.font='10px '+FN; ctx.textAlign='center'; ctx.textBaseline='top';
+    for(k=Math.ceil(T0);k<=T1;k++){ if(k!==0) ctx.fillText(k, sx(k), sy(0)+4); }
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(k=Math.ceil(Y0);k<=Y1;k++){ if(k!==0 && k%4===0) ctx.fillText(k, sx(0)-5, sy(k)); }
+    ctx.save(); ctx.beginPath(); ctx.rect(ML,top,PW,plotH); ctx.clip();
+    // target dashed + vertex guides
+    if(aTarget>0){ ctx.setLineDash([6,5]); curveR(ctx,function(t){return A*t*t+B*t+Cc;},T0,T1,TARG,2.0,aTarget*0.95); ctx.setLineDash([]);
+      ctx.globalAlpha=aTarget*0.5; ctx.strokeStyle=TARG; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(sx(2),sy(0)); ctx.lineTo(sx(2),sy(1)); ctx.moveTo(sx(0),sy(1)); ctx.lineTo(sx(2),sy(1)); ctx.stroke(); ctx.globalAlpha=1;
+      ctx.fillStyle=TARG; ctx.globalAlpha=aTarget; ctx.beginPath(); ctx.arc(sx(2),sy(1),3.5,0,7); ctx.fill(); ctx.globalAlpha=1; }
+    // reference basis lines
+    if(aLine>0) curveR(ctx,function(t){return B*t;},T0,T1,GRN,1.8,aLine*(sweepStep===3?0.9:0.5));
+    if(aConst>0){ ctx.globalAlpha=aConst*(sweepStep===4?0.9:0.5); ctx.strokeStyle=COR; ctx.lineWidth=1.8; ctx.beginPath(); ctx.moveTo(ML,sy(Cc)); ctx.lineTo(ML+PW,sy(Cc)); ctx.stroke(); ctx.globalAlpha=1; }
+    // building curve
+    if(buildA>0){
+      if(sweepStep===3 || sweepStep===4){
+        var preFn, postFn, termCol;
+        if(sweepStep===3){ preFn=function(t){return q*t*t;}; postFn=function(t){return q*t*t+B*t;}; termCol=GRN; }
+        else { preFn=function(t){return q*t*t+B*t;}; postFn=function(t){return q*t*t+B*t+Cc;}; termCol=COR; }
+        curveR(ctx,preFn,T0,T1,AMB,1.5,0.30);                 // ghost "before"
+        curveR(ctx,postFn,T0,front,AMB,2.8,1);                // "after" grows from the left
+        var yp=preFn(front), yq=postFn(front);                // connector = the height being added
+        ctx.strokeStyle=termCol; ctx.lineWidth=2.2; ctx.beginPath(); ctx.moveTo(sx(front),sy(yp)); ctx.lineTo(sx(front),sy(yq)); ctx.stroke();
+        ctx.fillStyle=termCol; ctx.beginPath(); ctx.arc(sx(front),sy(yp),3,0,7); ctx.fill();
+        ctx.fillStyle=AMB; ctx.beginPath(); ctx.arc(sx(front),sy(yq),3.5,0,7); ctx.fill();
+      } else {
+        var fn=function(t){return q*t*t + (lineOn?B*t:0) + (constOn?Cc:0);};
+        curveR(ctx,fn,T0,T1,AMB,2.8,1);
+        var l=lineOn?1:0, kk=constOn?1:0, tv=(q!==0)?-(l*B)/(2*q):0, yv=q*tv*tv+l*B*tv+kk*Cc;
+        ctx.fillStyle=AMB; ctx.beginPath(); ctx.arc(sx(tv),sy(yv),4,0,7); ctx.fill();
+      }
+    }
+    ctx.restore();
+    // line labels
+    ctx.font='600 12px '+FN; ctx.textBaseline='middle';
+    if(aLine>0){ ctx.globalAlpha=aLine; ctx.fillStyle=GRN; ctx.textAlign='left'; ctx.fillText('\u22122t', sx(-1.4), sy(B*(-1.4))); ctx.globalAlpha=1; }
+    if(aConst>0){ ctx.globalAlpha=aConst; ctx.fillStyle=COR; ctx.textAlign='left'; ctx.fillText('+3', sx(6.1), sy(Cc)-9); ctx.globalAlpha=1; }
+    // equation HUD
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    if(aTarget>0){ ctx.globalAlpha=Math.max(aTarget,0.6); ctx.fillStyle=TARG; ctx.font='600 13px '+FN; ctx.fillText('target:  0.5t\u00b2 \u2212 2t + 3', ML+6, top+4); ctx.globalAlpha=1; }
+    var be=''; if(stage>=2||(tween&&toS===2)) be='0.5t\u00b2'; if(stage>=3||(tween&&toS===3)) be='0.5t\u00b2 \u2212 2t'; if(stage>=4||(tween&&toS===4)) be='0.5t\u00b2 \u2212 2t + 3';
+    if(be){ ctx.fillStyle=AMB; ctx.font='600 15px '+FN; ctx.fillText(be, ML+6, top+24); }
+  }
+  function startStep(){ if(stage>=4) return; tween={u:0, toStage:stage+1}; }
+  function finishTween(){ stage=tween.toStage; tween=null; monoBar.stepDone(); }
+  function frame(ts){
+    if(!lastTs)lastTs=ts; var dt=ts-lastTs; lastTs=ts; if(dt>50)dt=50;
+    if(tween && (monoBar.mode==='playing'||monoBar.mode==='stepping')){
+      tween.u += dt/DUR[tween.toStage]*spd;
+      if(tween.u>=1){ tween.u=1; finishTween(); }
+    }
+    draw(); rafMo=requestAnimationFrame(frame);
+  }
+  function hardReset(){ if(playTimer){clearTimeout(playTimer);playTimer=null;} tween=null; stage=0; }
+  var monoBar = new AnimBtnBar({
+    playId:'btnMonoPlay', stepId:'btnMonoStep', speedIds:['moSpd0','moSpd1','moSpd2'],
+    isDone:   function(){ return stage>=4 && !tween; },
+    onStep:   function(){ if(!tween) startStep(); },
+    onPlay:   function(){ if(!tween){ if(stage>=4) hardReset(); startStep(); } },
+    onPause:  function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset:  function(){ hardReset(); },
+    onAdvance:function(){ playTimer=setTimeout(function(){ if(monoBar.mode==='playing') startStep(); }, 760/spd); }
+  });
+  window._monoPlay  = function(){ monoBar.play(); };
+  window._monoStep  = function(){ monoBar.step(); };
+  window._monoReset = function(){ monoBar.reset(); };
+  window._monoSpeed = function(mult, idx){ spd=mult; monoBar.selectSpeed(idx); };
+  var oOpenMo=window._openNotes;
+  window._openNotes=function(id,scroll){ oOpenMo(id,scroll);
+    if(id==='nv1Quadratics' && !rafMo){ hardReset(); lastTs=0; monoBar.mode='idle'; monoBar.update(); rafMo=requestAnimationFrame(frame); }
+  };
+  var oCloseMo=window._closeNotes;
+  window._closeNotes=function(){ if(rafMo){ cancelAnimationFrame(rafMo); rafMo=null; } if(playTimer){ clearTimeout(playTimer); playTimer=null; } tween=null; stage=0; oCloseMo(); };
+})();
+
+// ============ CVAFFINE: the base parabola t^2 transformed by the three coefficient operations - sliders a (scale), b (shear), c (lift); the live 3x3 homogeneous matrix middle row is the coordinate vector ============
+(function(){
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var W=700, H=460, ML=44, MR=18, MT=20, MB=36, PW=W-ML-MR, plotH=H-MT-MB, top=MT;
+  var T0=-3, T1=3, Y0=-4, Y1=10;
+  var GHOST='#6b7280', AMB='#e8a832';
+  var rafAff=null, lastKey='';
+  function sx(t){ return ML + (t-T0)/(T1-T0)*PW; }
+  function sy(v){ return top + (Y1-v)/(Y1-Y0)*plotH; }
+  function plot(ctx,fn,col,lw,dash,alpha){ var n=260,k,first=true;
+    ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=col; ctx.lineWidth=lw; if(dash) ctx.setLineDash(dash); ctx.beginPath();
+    for(k=0;k<=n;k++){ var t=T0+(T1-T0)*k/n, X=sx(t), Y=sy(fn(t)); if(first){ctx.moveTo(X,Y);first=false;} else ctx.lineTo(X,Y); }
+    ctx.stroke(); ctx.restore(); }
+  function val(id,d){ var e=document.getElementById(id); return e?parseFloat(e.value):d; }
+  function f1(x){ var s=(Math.round(x*10)/10).toFixed(1); if(s==='-0.0')s='0.0'; return s; }
+  function pad(s){ s=''+s; while(s.length<5) s=' '+s; return s; }
+  function term(v,sym){ var s=v<0?' \u2212 ':' + '; return s+f1(Math.abs(v))+(sym?('\u00b7'+sym):''); }
+  window._affEval=function(a,b,c,t){ return a*t*t+b*t+c; };
+  function updateOut(a,b,c){ var o=document.getElementById('affOut'); if(!o) return;
+    var r1=pad('1')+'  '+pad('0')+'  '+pad('0');
+    var r2=pad(f1(b))+'  '+pad(f1(a))+'  '+pad(f1(c));
+    var r3=pad('0')+'  '+pad('0')+'  '+pad('1');
+    o.innerHTML='<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">'+
+      '<div style="font:600 14px '+FN+';color:'+AMB+';">y = '+f1(a)+'\u00b7t\u00b2'+term(b,'t')+term(c,'')+'</div>'+
+      '<div style="display:flex;flex-direction:column;line-height:1.5;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px '+FN+';color:var(--fg);">'+
+      '<div style="white-space:pre">'+r1+'</div>'+
+      '<div style="white-space:pre;color:'+AMB+'">'+r2+'</div>'+
+      '<div style="white-space:pre">'+r3+'</div>'+
+      '</div>'+
+      '<div style="font:500 11px '+FN+';color:var(--fg3);max-width:190px;">middle row (b, a, c): the coordinate vector</div>'+
+      '</div>';
+  }
+  function draw(){ var cv=document.getElementById('cvAffine'); if(!cv) return;
+    var ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H);
+    var a=val('affSclA',1), b=val('affShrB',0), c=val('affTrnC',0), k;
+    ctx.strokeStyle='#1d1d28'; ctx.lineWidth=1;
+    for(k=Math.ceil(T0);k<=T1;k++){ ctx.beginPath(); ctx.moveTo(sx(k),top); ctx.lineTo(sx(k),top+plotH); ctx.stroke(); }
+    for(k=2*Math.ceil(Y0/2);k<=Y1;k+=2){ ctx.beginPath(); ctx.moveTo(ML,sy(k)); ctx.lineTo(ML+PW,sy(k)); ctx.stroke(); }
+    ctx.strokeStyle='#4a4a5e'; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(sx(0),top); ctx.lineTo(sx(0),top+plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ML,sy(0)); ctx.lineTo(ML+PW,sy(0)); ctx.stroke();
+    ctx.fillStyle='#8a8a9e'; ctx.font='10px '+FN; ctx.textAlign='center'; ctx.textBaseline='top';
+    for(k=Math.ceil(T0);k<=T1;k++){ if(k!==0) ctx.fillText(k,sx(k),sy(0)+4); }
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(k=2*Math.ceil(Y0/2);k<=Y1;k+=2){ if(k!==0) ctx.fillText(k,sx(0)-5,sy(k)); }
+    ctx.save(); ctx.beginPath(); ctx.rect(ML,top,PW,plotH); ctx.clip();
+    plot(ctx,function(t){return t*t;},GHOST,2,[5,5],0.85);
+    plot(ctx,function(t){return a*t*t+b*t+c;},AMB,2.8,null,1);
+    ctx.restore();
+    ctx.font='600 12px '+FN; ctx.textBaseline='middle'; ctx.textAlign='left';
+    ctx.fillStyle=GHOST; ctx.fillText('t\u00b2', sx(-2.75), sy(7.1));
+    ctx.fillStyle=AMB; ctx.fillText('a\u00b7t\u00b2 + b\u00b7t + c', ML+8, top+12);
+    var key=a+'|'+b+'|'+c; if(key!==lastKey){ lastKey=key; updateOut(a,b,c); }
+  }
+  function loop(){ draw(); rafAff=requestAnimationFrame(loop); }
+  window._affReset=function(){ var s;
+    s=document.getElementById('affSclA'); if(s)s.value=1;
+    s=document.getElementById('affShrB'); if(s)s.value=0;
+    s=document.getElementById('affTrnC'); if(s)s.value=0; lastKey=''; };
+  var oOpenAff=window._openNotes;
+  window._openNotes=function(id,scroll){ oOpenAff(id,scroll);
+    if(id==='nv1Quadratics' && !rafAff){ lastKey=''; rafAff=requestAnimationFrame(loop); } };
+  var oCloseAff=window._closeNotes;
+  window._closeNotes=function(){ if(rafAff){ cancelAnimationFrame(rafAff); rafAff=null; } oCloseAff(); };
+})();
+
+// ============ CVAFF6: a rectangle under the full 2D affine group - six sliders (two scales, two shears, two translations); the parabola's three are this with the top row locked to 1 0 0 ============
+(function(){
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var W=700,H=460,ML=44,MR=18,MT=20,MB=36,PW=W-ML-MR,plotH=H-MT-MB,top=MT;
+  var PPU=50, CX=ML+PW/2, CY=top+plotH/2;
+  var GHOST='#6b7280', AMB='#e8a832', BLUE='#6eb4ff', GRN='#5cc990', COR='#e8835c';
+  var rafAff6=null, lastKey6='';
+  var RECT=[[-2,-1],[2,-1],[2,1],[-2,1]];
+  function PX(u){ return CX+u*PPU; }
+  function PY(v){ return CY-v*PPU; }
+  function val(id,d){ var e=document.getElementById(id); return e?parseFloat(e.value):d; }
+  function f1(x){ var s=(Math.round(x*10)/10).toFixed(1); if(s==='-0.0')s='0.0'; return s.replace('-','\u2212'); }
+  function ap(m,x,y){ return [m.sx*x+m.kx*y+m.tx, m.ky*x+m.sy*y+m.ty]; }
+  window._aff6Apply=function(sx,kx,tx,ky,sy,ty,x,y){ return [sx*x+kx*y+tx, ky*x+sy*y+ty]; };
+  function poly(ctx,pts){ var i; ctx.beginPath();
+    for(i=0;i<pts.length;i++){ var X=PX(pts[i][0]),Y=PY(pts[i][1]); if(i===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); } ctx.closePath(); }
+  function updateOut(m){ var o=document.getElementById('af6Out'); if(!o) return;
+    function c(t,col){ return '<span style="display:inline-block;width:3.6em;text-align:right;color:'+col+'">'+t+'</span>'; }
+    var br='border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:1px 10px;';
+    o.innerHTML='<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;font:600 13px '+FN+';">'+
+      '<div style="display:flex;flex-direction:column;line-height:1.7;">'+
+      '<div style="'+br+'">'+c(f1(m.sx),BLUE)+c(f1(m.kx),GRN)+c(f1(m.tx),COR)+'</div>'+
+      '<div style="'+br+'">'+c(f1(m.ky),GRN)+c(f1(m.sy),BLUE)+c(f1(m.ty),COR)+'</div>'+
+      '<div style="'+br+'">'+c('0','var(--fg3)')+c('0','var(--fg3)')+c('1','var(--fg3)')+'</div>'+
+      '</div>'+
+      '<div style="font:500 11px '+FN+';color:var(--fg3);max-width:210px;">lock the top row to 1, 0, 0 and the six become the parabola&rsquo;s three: b, a, c</div>'+
+      '</div>';
+  }
+  function draw(){ var cv=document.getElementById('cvAff6'); if(!cv) return;
+    var ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H); var k;
+    var m={sx:val('af6sx',1),kx:val('af6kx',0),tx:val('af6tx',0),ky:val('af6ky',0),sy:val('af6sy',1),ty:val('af6ty',0)};
+    ctx.strokeStyle='#1d1d28'; ctx.lineWidth=1;
+    for(k=-6;k<=6;k++){ ctx.beginPath(); ctx.moveTo(PX(k),top); ctx.lineTo(PX(k),top+plotH); ctx.stroke(); }
+    for(k=-4;k<=4;k++){ ctx.beginPath(); ctx.moveTo(ML,PY(k)); ctx.lineTo(ML+PW,PY(k)); ctx.stroke(); }
+    ctx.strokeStyle='#4a4a5e'; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(PX(0),top); ctx.lineTo(PX(0),top+plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ML,PY(0)); ctx.lineTo(ML+PW,PY(0)); ctx.stroke();
+    ctx.save(); ctx.beginPath(); ctx.rect(ML,top,PW,plotH); ctx.clip();
+    ctx.setLineDash([5,5]); ctx.strokeStyle=GHOST; ctx.lineWidth=1.8; ctx.globalAlpha=0.85;
+    poly(ctx,RECT); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    var gc=RECT[2]; ctx.fillStyle=GHOST; ctx.beginPath(); ctx.arc(PX(gc[0]),PY(gc[1]),3.5,0,7); ctx.fill();
+    var TP=RECT.map(function(p){return ap(m,p[0],p[1]);});
+    poly(ctx,TP); ctx.fillStyle='rgba(232,168,50,0.14)'; ctx.fill();
+    ctx.strokeStyle=AMB; ctx.lineWidth=2.6; ctx.stroke();
+    var tc=TP[2]; ctx.fillStyle=AMB; ctx.beginPath(); ctx.arc(PX(tc[0]),PY(tc[1]),4,0,7); ctx.fill();
+    ctx.restore();
+    ctx.font='600 12px '+FN; ctx.textBaseline='top'; ctx.textAlign='left';
+    ctx.fillStyle=GHOST; ctx.fillText('base', ML+8, top+plotH-18);
+    ctx.fillStyle=AMB; ctx.fillText('transformed', ML+8, top+8);
+    var key=[m.sx,m.kx,m.tx,m.ky,m.sy,m.ty].join('|'); if(key!==lastKey6){ lastKey6=key; updateOut(m); }
+  }
+  function loop(){ draw(); rafAff6=requestAnimationFrame(loop); }
+  window._aff6Reset=function(){ var d={af6sx:1,af6kx:0,af6tx:0,af6ky:0,af6sy:1,af6ty:0},s,id;
+    for(id in d){ s=document.getElementById(id); if(s)s.value=d[id]; } lastKey6=''; };
+  var oOpen6=window._openNotes;
+  window._openNotes=function(id,scroll){ oOpen6(id,scroll);
+    if(id==='nv1Quadratics' && !rafAff6){ lastKey6=''; rafAff6=requestAnimationFrame(loop); } };
+  var oClose6=window._closeNotes;
+  window._closeNotes=function(){ if(rafAff6){ cancelAnimationFrame(rafAff6); rafAff6=null; } oClose6(); };
 })();
 
 // ============ CVGALTON: a Galton board building the binomial distribution = Bernstein weights at bias p (read p as t) ============
