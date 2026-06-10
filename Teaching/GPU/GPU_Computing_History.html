@@ -55,7 +55,17 @@ Each occurrence earns demerits. The goal is zero.
 │ reason not to, say so. Otherwise     │        │        │         │      │
 │ just do it.                          │        │        │         │      │
 ├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
-│ TOTAL DEMERITS                       │  12    │   0    │    0    │  0   │
+│ FALSE VERIFICATION                   │   1    │        │         │      │
+│ Issuing "verified" claims from       │        │        │         │      │
+│ incomplete checks. The v269 stub     │        │        │         │      │
+│ test asserted slider values survive  │        │        │         │      │
+│ min/max/step changes; real browsers  │        │        │         │      │
+│ re-snap the value to the new step    │        │        │         │      │
+│ grid, so zooming visibly shifted     │        │        │         │      │
+│ x/y-move. Test the platform, not a   │        │        │         │      │
+│ stub of it.                          │        │        │         │      │
+├──────────────────────────────────────┼────────┼────────┼─────────┼──────┤
+│ TOTAL DEMERITS                       │  13    │   0    │    0    │  0   │
 └──────────────────────────────────────┴────────┴────────┴─────────┴──────┘
 
 Rules:
@@ -2217,6 +2227,404 @@ SESSION 10 (June 2026) — Sections 3 and 4 written (PROSE ONLY)
   v261 (2026-06-09): per author ('this needs a bit more explanation'), expanded the one-line why-vertical/why-three sentence in the cvAffine beat's duality paragraph. Now: t is the parameter and a quadratic is a height over it, so the building motions fix t and act on height; tilting (rotation) breaks graph-ness (vertical line meets twice), while horizontal slide/stretch stays a graph but on a parabola only reproduces a shear/lift/rescale (so vertical handles already reach every quadratic) - corrects the earlier overstated 'a graph must stay a graph' reason; then the dof count: free plane affine map = 6 (2x2 matrix + 2 translations), holding t fixed spends 3, leaving the 3 = a,b,c. Prose only. Verified: node --check OK; em-dash 0; div 20/20.
   v262 (2026-06-09): per author ('this is great ... Following my question, not necessarily a pedagogic trail ... focus on this geometry ... Put all of this in this section so I come back to it'), added a new sub-section 'The shift in the other corner' after the cvAffine tie-paragraph (before cvMono), capturing the shift-vs-shear exploration. The registration construction (scale, horizontal shift, lift) puts the shift in the upper-right (1,3) corner: matrix [[1,0,h],[0,a,k],[0,0,1]] sends (t,t^2,1)->(t+h,a t^2+k) = vertex form y=a(x-h)^2+k. Side-by-side comparison with the monomial/shear matrix [[1,0,0],[b,a,c],[0,0,1]] (moved entry highlighted: h blue in the corner vs b amber in the block); same curve iff b=-2ah, c=ah^2+k = completing the square (the dictionary between the corners); underlying identity t^2+b t=(t+b/2)^2-b^2/4 written out (shear relocates the parabola untilted to vertex (-b/2,-b^2/4)); tie to the live cvAffine (a=1,c=0: drag b, vertex dives along y=-x^2); off-curve caveat (the matrices differ as plane maps, agree only on this parabola, so one quadratic has both forms); the corner = 'is x still t?' switch (0 forces graph-over-t with placement faked via shear; h frees the points = parametric/untilted/no shear, scale+two translations in the last column = GPU-native; shear form = the price of f(t)). Prose + 2 matrices + 1 identity, no new animation. Verified: node --check OK; em-dash 0; div 20/20.
   v263 (2026-06-09): per author ('The coefficients are a transformation [heading] ... After this I want a animation with a rectangle and slider for all the 6 affine motions'), added NEW animation cvAff6 directly after the heading, before the duality paragraph - so the section now opens with the full affine group and then narrows to the parabola's three. cvAff6 (700x460, slider-driven, no AnimBtnBar): a centered rectangle (corners +/-2,+/-1) drawn as a dashed grey ghost + an amber translucent-filled transformed copy, each with a dot on the top-right corner to track orientation. Six sliders: x-scale/y-scale (blue, af6sx/af6sy, -1..2 default 1), x-shear/y-shear (green, af6kx/af6ky, -1.5..1.5 default 0), x-move/y-move (coral, af6tx/af6ty, -4..4 default 0) + Reset (_aff6Reset). Equal px/unit (PPU=50, origin-centered) so rotation is undistorted. Live readout af6Out shows the 3x3 affine matrix [[sx,kx,tx],[ky,sy,ty],[0,0,1]] with the six entries colored by group and the bottom row 0 0 1 greyed/locked, plus the note 'lock the top row to 1,0,0 and the six become the parabola's three: b,a,c'. raf loop reads sliders each frame, rebuilds af6Out on change (lastKey6 gate); window._aff6Apply exposed. IIFE inserted after CVAFFINE before CVGALTON, chains _openNotes/_closeNotes on id==='nv1Quadratics' with rafAff6 guard. Caption: full affine group; rotation is not its own knob (blend of scales and shears); locking the top row gives the parabola's three below. Verified: node --check OK; em-dash 0; div 20/20; harness op counts {cvVD:454,cvMono:356,cvAffine:1240,cvAff6:254,cvBern:838,cvWeier:9015}; _aff6Apply(1.5,0.5,1,-0.3,0.8,-1,2,1)=[4.5,-0.8]; af6Out populated; transformed-rectangle corner max pixel error 0.0000 vs the affine map at test coeffs; 6-animation chain intact; matplotlib 6-panel render confirms identity/scales/x-shear/rotate-90(as scale+shear)/translate/harness-case all read correctly.
+  v264 (2026-06-09): per author ('do a careful review' then 'make the fixes'), FULL-DOCUMENT REVIEW PASS.
+  All rendered prose + all 13 note bodies read against the VERIFIED HISTORICAL CLAIMS ledger; embedded
+  harness run; three open items web-verified (Carpenter death, teapot provenance, Voss/1977 book).
+  FIXES APPLIED (errors): (1) Section 6 'crippled twin' mis-baselined the Fermi FP64 cap as 'an eighth
+  of the rate the Tesla could' - the 1:8 is vs the GeForce's OWN FP32 (vs Tesla FP64 the real gap was
+  ~1/3); rewritten per-card and the Kepler 1:24 step restored (see CLAIM #21 NB). (2) Section 6 Fermi
+  'full-rate double precision' -> 'half the single-precision rate - the architectural maximum'; same
+  phrase fixed in CLAIM #21 itself. (3) teapot note squish story: was 'Newell did not correct for
+  non-square pixels'; actual: Blinn scaled to 3/4 during a demo and has DEBUNKED the pixel story
+  (CLAIM #24 NEW); render caption 'from 1975' -> 'from Blinn's demo'. (4) teapot donation: was 'CHM
+  Mountain View in 1984'; actual: Computer Museum BOSTON 1984, moved west later (CLAIM #24); caption
+  'fifty years' -> 'nearly fifty' (2021-1975=46). (5) deCasteljau note attributed a=1/2,b=3 to
+  Weierstrass; his condition was b odd, ab>1+3pi/2 - the drawn parameters are covered by HARDY 1916
+  ab>=1; rewritten, cvWeier untouched (CLAIM #25 NEW). INCONSISTENCIES: (6) RealityEngine standardized
+  to 1992 in Section 1 prose + sgiHistory note (deCasteljau note already 1992); CLAIM #3 reconciled
+  with #14 (hardware 1992, Akeley paper SIGGRAPH '93). (7) Carpenter bookshop: main prose implied 1980
+  ('In 1980... Then, browsing'), carpenter note says 1978; prose re-anchored ('Then, in 1978, browsing
+  a bookshop on University Avenue'), 'July 14 of that year' -> 'July 14, 1980, two years of work
+  later' (CLAIM #1 updated). HARNESS REGRESSION: (8) duplicate IDs pSpd0/1/2 (cvPaths v219 vs Section 1
+  pixel animation; flagged in v233, never fixed) - cvPaths trio renamed paSpd0/1/2 in the 3 button
+  strings AND its speedIds list; pixel animation untouched; harness back to 10/10. ATTRIBUTION
+  REPLACEMENT - AUTHOR VETO POINT: (9) pineda note's 'Stevenson used the same cross-product side test'
+  is unsourceable (Pineda's complete reference list: Bresenham, Foley & Van Dam, Fuchs & Poulton,
+  Fujimoto & Iwata, Whitton - no Stevenson; web searches found no Stevenson in the edge-function
+  lineage). REPLACED with the documented antecedent Pineda himself cites: Fuchs & Poulton's
+  Pixel-Planes (1981) evaluating linear edge expressions per pixel in parallel. If 'Stevenson' had a
+  real referent, restore WITH source (CLAIM #26 NEW, incl. the Tarolli/Giesen source for the Voodoo
+  confirmation and the Lagrange 1773 basis). WORDING: (10) whyIndependent perspective-correction
+  rationale fixed (it fixes ATTRIBUTE variation; lines project straight regardless); (11) blur
+  'rank-deficient' -> 'rank-deficient or so ill-conditioned that inverting it amplifies noise beyond
+  recovery' (honest bridge to ill-posedness); (12) poincare 'loops on the surface' -> 'in the space'
+  (3-manifold); (13) Voodoo 'first 3D accelerator a regular person could afford' + 'that was worth
+  buying' (ViRGE/Rage were cheap and earlier; aligns with CLAIM #4 'first commercially successful');
+  (14) STB 'In 1998 it bought' -> 'In late 1998 it agreed to buy' (announced Dec 1998, closed ~May
+  1999, per CLAIM #4); (15) Section 8 'twenty years earlier' -> 'nearly twenty' (2017-1999=18).
+  LEDGER MAINTENANCE: stale NEEDS VERIFICATION in entries 5/8/9/10 resolved (superseded by #20/#22);
+  #12's stale note title annotated; #1 enriched (bookshop 1978, Voss verified, death-date Dec 21
+  consensus with IONS Dec-20 minority noted); NEW entries #24 (teapot), #25 (Weierstrass/Hardy),
+  #26 (pineda attributions). ARCHITECTURE: bullet 1 'self-contained' reconciled with the ARTIFACTS
+  FOLDER bullet + SHIPPING line added (23 assets; bare HTML circulated without the folder at least
+  once). DELIBERATELY LEFT: 'Ukrainian mathematician' for Bernstein (defensible for Odessa-born,
+  Kharkov-based in 1912; 'Soviet' would be anachronistic for a 1912 paper); Section 3's 'first real
+  movement in twenty years' (rhetorical, not load-bearing); cvWeier caption (describes the drawn
+  function; prose above now carries the Hardy attribution). Verified: harness 10/10 (duplicate-ID
+  FAIL cleared); node --check OK; rendered em-dash 0 (all inserted prose uses ndash entities); div
+  balance unchanged; TOC anchors 18/18; note-key integrity 13/13/13; only remaining pSpd refs belong
+  to the pixel animation.
+  v265 (2026-06-09): per author, integrated the ROTATION SLIDER from the author's standalone reference
+  (affine_rectangle.html) into cvAff6 - just the rotation feature, nothing else from the standalone.
+  Control bar: added a 1px vertical separator span, then a PURPLE (#b78cf0) rotation slider (id af6rot,
+  0..360 step 1, width 104px, inline oninput=window._aff6Rot(this.value)) with a live degree readout
+  (span id af6rotVal, min-width 34px). IIFE: added setRotVal(deg) helper and window._aff6Rot(deg),
+  which converts to radians and DRIVES THE FOUR 2x2 SLIDERS (af6sx=cos, af6sy=cos, af6kx=-sin,
+  af6ky=+sin) then clears lastKey6 - the rotation knob is deliberately NOT a seventh degree of freedom;
+  it demonstrates the caption's claim by visibly moving the scale/shear sliders it is made of.
+  _aff6Reset extended (af6rot:0 in the defaults map + setRotVal(0)). SUPPORTING CHANGE from the same
+  reference: the four 2x2 sliders' step 0.1 -> 0.01 (cos/sin assignments snap to the step; at 0.1 the
+  driven rotation is visibly chunky - e.g. cos 30deg = 0.866 -> 0.9). x-move/y-move stay step 0.1 per
+  the reference. Caption untouched: it already states rotation is not its own knob, and the reference
+  itself keeps the 'Six sliders' wording (the seventh slider is not a degree of freedom). Verified:
+  harness 10/10; node --check OK; ids af6rot/af6rotVal unique; _aff6Rot(90) -> sx=0,kx=-1,ky=1,sy=0
+  maps corner (2,1) to (-1,2), the exact 90deg CCW rotation; _aff6Rot(45) -> 0.71/0.71 under the 0.01
+  step (max corner error vs exact rotation 0.016 units = step quantization only); reset returns all
+  seven controls to identity; rendered em-dash 0; div balance unchanged (additions live inside the
+  note-body JS string).
+  v266 (2026-06-09): per author, HARDENED DRAG INPUT for locked-down/stripped viewers. Author report
+  (diagnosed in a parallel session): in an employer-restricted viewer the SLIDERS and BUTTONS work but
+  DRAGGING is dead. Cause: four canvases bound Pointer Events ONLY (cvCage, cvPaint, cvVD, cvBinom3D);
+  engines without the Pointer Events API (Trident/MSHTML WebViews, stripped 'secure document viewers')
+  never fire pointerdown, so dragging silently no-ops while native <input type=range>/<button> keep
+  working - exactly the observed asymmetry. Three other canvases (cvBez, cvBfns, cvGalton2) already
+  used the mouse+touch idiom and were never affected. FIX (feature detection, NOT dual binding -
+  binding mouse alongside pointer events double-fires in modern browsers because every pointer event
+  re-dispatches a compatibility mouse event): added shared window._dragFallback(cv,down,move,up,cancel)
+  in the cvCage IIFE (first of the four in source order; assigned at load, used lazily by attach()s).
+  It binds the house mouse+touch idiom (cv mousedown/mousemove + window mouseup; cv touchstart/touchmove
+  {passive:false} + window touchend/touchcancel) and wraps every event in a shim giving touch points the
+  handler-expected shape: clientX/clientY from touches[0]||changedTouches[0]||e, pointerId:0 (the
+  guarded setPointerCapture try/catches absorb it), and preventDefault delegating to the REAL event
+  (Touch objects have no preventDefault; cvCage/cvPaint call it unconditionally and would throw).
+  Touch wrappers preventDefault UNCONDITIONALLY before delegating: all four canvases declare
+  touchAction='none', but engines old enough to lack Pointer Events may ignore touch-action, so the
+  wrapper enforces the same no-scroll intent. Each site now: named down/move/end(/onCancel) handlers,
+  then if(window.PointerEvent){ original pointer binding }else{ _dragFallback(...) } - modern-browser
+  behavior is byte-for-byte unchanged. Also: cvPaint was the ONLY draggable canvas missing
+  cv.style.touchAction='none' (sister sites set it); added in initPaint. Verified: harness 10/10;
+  node --check OK; _dragFallback defined once, four call sites with correct handler tuples (regex
+  check); node simulation with a fake no-PointerEvent DOM ran the REAL cvVD drag logic through the
+  fallback: mouse drag picks P[1] and maps client(440,230)->canvas(340,180) exactly, window mouseup
+  ends the drag; touch drag unwraps Touch, clamps to [8,412], unconditional preventDefault fires on
+  touchstart+touchmove, touchend via changedTouches ends, touchcancel routes to cancel||up without
+  throwing.
+  v267 (2026-06-09): per author ('I want to put a selection between the rectangle and a parabola x^2'),
+  added a SHAPE TOGGLE to cvAff6. Control bar now opens with two buttons (house tool-button pattern,
+  copied from pntLine/pntCurve incl. the \\' onclick escaping): af6ShRect 'Rectangle' (default,
+  amber-selected) / af6ShPara 'Parabola', then a 1px separator, then the existing sliders. IIFE: PARA =
+  81 samples of (t, t^2), t in [-2,2] step 0.05 (same +/-2 span as the rectangle); var shape6='rect';
+  poly() gained a closed param (rectangle closes+fills translucent amber as before; parabola draws as
+  an OPEN amber stroke, no fill, no closePath); tracked dot at index 2 for the rectangle (corner 2,1)
+  and the last sample (2,4) for the parabola, ghost and transformed alike; setShapeBtns() copies
+  setToolBtns' on/off amber styling; window._aff6Shape(s) sets and restyles; _openNotes chain calls
+  setShapeBtns() so the default state styles when the panel DOM exists. Reset intentionally does NOT
+  change the shape (a view choice, not a transform value - paint-tool precedent). Caption first
+  sentence: 'A rectangle - or the parabola y = t^2 - under the full affine group of the plane.'; rest
+  untouched. CVAFF6 marker comment updated. WHY THE PARABOLA BELONGS HERE (and a verified teaching
+  fact the toggle exposes): with the parabola selected, of the four 2x2 knobs only sy (=a) and ky (=b)
+  preserve graph-over-t-ness; kx tilts it out (x'=t+kx*t^2 is non-monotone for |t|>1/|kx| - verified
+  numerically at kx=0.5 over the sample range) and so does rotation - the v261 duality paragraph's
+  'tilting is out' made drag-able, and the function-world (3 knobs) vs curve-world (6 knobs) boundary
+  visible per knob. Verified: harness 10/10; node --check OK; PARA 81 points, endpoints (-2,4)/(2,4);
+  90deg rotation maps tracked endpoint (2,4) -> (-4,2) exactly; ids af6ShRect/af6ShPara unique;
+  _aff6Shape wired from both buttons; rectangle path identical to v265 behavior when 'rect' selected.
+  v268 (2026-06-09): per author ('I want a zoom slider so I can zoom out a lot'), added a ZOOM slider
+  to cvAff6. Control bar: separator, then zoom slider (id af6zoom) + live readout (span af6zoomVal,
+  multiplication-sign factor, 2 dec). LOG SCALE: slider value v in [-1.3, 0.301] step 0.01, Z=10^v, so
+  zoom runs x0.05 (20x out, PPU 2.5) .. x1.00 (default, PPU 50) .. x2.00 (PPU 100); PPU is now
+  reassigned at the top of draw() (PPU=50*Z) and PX/PY pick it up via closure. COLOR: deliberately the
+  uncolored knob - label var(--fg3), accent #dddddd (within the rule-4 white palette) - because every
+  COLORED slider maps to a matrix entry (blue scale / green shear / coral move / purple composite) and
+  zoom has NO entry; caption gained one sentence making that the lesson: 'The zoom slider changes only
+  the view, never the shape - it has no entry in the matrix.' SUPPORTING CHANGES the zoom requires to
+  be correct (rule 11): (1) GRID now adaptive - gridStep() picks from the 1/2/5 decade ladder so line
+  spacing stays >=26px (uses Math.log/Math.LN10, not Math.log10, for stripped-engine safety; measured
+  spacing ~50px at every zoom), drawn out to the view half-extents instead of the old fixed -6..6/-4..4;
+  (2) the PARABOLA is no longer a fixed +/-2 stub (a parabola has no edge): static PARA replaced by
+  per-frame paraPts() sampling 161 points over t in +/-max(2, halfW, sqrt(halfH)) so the ghost curve
+  fills the view at any zoom (at x0.05 that is +/-127 units, 4.0px per sample); (3) the tracked dot is
+  now PINNED to the world point (2,4) (ghost) and ap(m,2,4) (transformed) instead of the last sample,
+  so it no longer rides the view edge when the span adapts - rectangle dot logic unchanged (corner
+  index 2). Reset includes af6zoom:0 (continuous view control, rotation precedent - unlike the discrete
+  shape choice, which Reset still leaves alone). Readout updates via lastZoom6 gate in the frame loop
+  (no oninput needed; polled like the six). WHY ZOOM-OUT TEACHES HERE: uniform zoom is NOT a parabola
+  symmetry - zoom out by s and y=t^2 reads as y=s*v^2 in view units, visibly narrower; the parabola's
+  own zoom is the anisotropic (t,y)->(L*t, L^2*y). Set a=0.25 and zoom out to x0.25 to watch the wide
+  parabola become the unit parabola - 'all parabolas are similar', live. Verified: harness 10/10;
+  node --check OK; zoom mapping/grid step/para span/sample spacing all checked numerically (slider
+  -1.3/0/0.301 -> x0.05/x1.00/x2.00, grid spacing 50.1/50.0/50.0 px, span +/-127.3 at full zoom-out);
+  ids af6zoom/af6zoomVal unique; no static PARA remnants; paraPts uses the frame's PPU (Z assigned
+  first in draw); rect behavior identical at x1.00.
+  v269 (2026-06-09): per author ('as we zoom out the slider range needs to increase'), the MOVE
+  sliders' range now tracks the zoom. Interpretation: scales and shears are dimensionless multipliers
+  and keep their visual meaning at any zoom; translations are in WORLD UNITS, so at x0.05 the old +/-4
+  reach was an invisible nudge. setMoveRange(Z): for af6tx/af6ty, R=max(4/Z, |current value|), min/max
+  = +/-R, step = R/40 (so the count of stops and the relative granularity are constant). At x1 that is
+  the original +/-4 step 0.1; at x0.05 it is +/-80 step 2. The 4/Z law keeps the slider's VISUAL reach
+  invariant: R/halfW = 0.627 at every zoom (verified at Z=0.05/0.2/1/2). The max(...,|value|) term is
+  the view-only guarantee: zooming back IN with a large translation set keeps the range wide enough to
+  hold it, so the value is NEVER clamped and zoom never mutates the transform (verified: tx=80 then
+  Z->1 leaves range +/-80, value 80; recentering the slider and the next zoom change restore +/-4).
+  Driven by a lastZ6 gate at the top of draw() (range updates as the zoom slider drags - the move
+  thumbs visibly slide toward center as their range grows); during a move-slider drag Z is constant so
+  the range never remaps mid-drag. Reset calls setMoveRange(1) after restoring values (back to +/-4
+  step 0.1) and sets lastZ6=1. No caption change (ranges are view support, not shape; the existing
+  'changes only the view' sentence remains true and is now load-bearing). Verified: harness 10/10;
+  node --check OK; range/step/preservation/reach-fraction all checked numerically with stub sliders.
+  v270 (2026-06-09): per author ('why are x and y shift changing [as] zoom changes. I think we
+  misunderstood. I just want the limits of the axis to change'), REVERTED v269 IN FULL and applied a
+  DEMERIT. What the author saw: dragging zoom made the shape translate. Root cause: v269 changed the
+  move sliders' min/max/step as Z changed, and real browsers RE-SNAP a range input's value to the new
+  step grid (grid base = min) on attribute change - each zoom tick walked tx/ty to a slightly
+  different grid point, so zoom was MUTATING the transform, the precise thing v269's own invariant
+  claimed to prevent. The v269 'Verified' line was based on stub sliders that did not model value
+  sanitization: FALSE VERIFICATION demerit applied to Claude (new named row in the table, total 12->13;
+  lesson recorded there: test the platform, not a stub of it). Removed: setMoveRange(), the lastZ6
+  gate and declaration, Reset's range restore - move sliders are STATIC +/-4 step 0.1 again (their
+  HTML attributes were never changed, so no markup edit needed). The original v269 request is now read
+  correctly: the ZOOM SLIDER'S OWN range needed to increase - the author wants the axis limits to go
+  further out, nothing else coupled. Zoom min extended -1.3 -> -2: range is now x0.01 (100x out,
+  PPU 0.5) .. x2.00. v268's machinery handles the deeper zoom unchanged (verified at x0.01: grid step
+  100 units = 50px spacing; parabola span +/-638 units at 4.0px per sample; the +/-2 rectangle is 2x1
+  px - small and honest, which is the point of zooming out). At deep zoom the +/-4 translations are
+  visibly tiny because they ARE tiny at that scale; no slider coupling compensates for it. Verified:
+  harness 10/10; node --check OK; setMoveRange/lastZ6 survive only inside this append-only log (lines
+  verified, zero active-code references); zoom drag no longer touches any transform slider attribute,
+  so tx/ty cannot drift.
+  v271 (2026-06-09): per author ('I just want to be able to see more motion, the default is nothing.
+  Make the slider 5 times larger as a start'), the MOVE sliders are now STATICALLY +/-20 (was +/-4),
+  step 0.1 unchanged, value default 0 unchanged. Plain attribute change in the markup, nothing coupled
+  to zoom, no runtime attribute writes (the v269/v270 lesson stands). Author's accompanying
+  observation, recorded as structure not changed: rotation always pivots the shape about its own
+  vertex because in p' = L*p + t the linear part acts BEFORE the translation column - the vertex
+  (origin) maps to exactly (tx,ty) for every L, so it is pinned there and the shape spins around it.
+  Rotation about a different center would be a different composition (translate-then-rotate) and is
+  NOT implemented. Verified: harness 10/10; node --check OK; only the two min/max pairs changed.
+  v272 (2026-06-09): per author, four directives. (1) 'fuck the zoom' - ZOOM REMOVED ENTIRELY (slider,
+  readout, separator, Z/PPU line, lastZoom6, Reset entry); af6zoom/af6zoomVal survive only in this
+  append-only log. Axis limits now FIXED: PPU=20, so y spans +/-10.1 and x +/-16.0 (the requested
+  +/-10 on the short axis; exact +/-10 on BOTH axes is impossible with equal px/unit on a 638x404
+  plot, and equal scale is kept so rotation stays circular per v263). The v268 adaptive grid and
+  paraPts are KEPT (they work at fixed PPU: grid step 2 units = 40px spacing; parabola fills the
+  +/-16 width). Caption's zoom sentence removed. (2) FRAMING CORRECTION from the author, recorded:
+  'a rotation is about the ORIGIN, not about the vertex of the parabola' - v271's vertex-pinning
+  description was sloppy; the correct statement is that the linear part L fixes the origin of the
+  model plane and rotates about IT; the parabola's vertex coincides with that origin, which is the
+  only reason it appears pinned. The structural fact, stated rightly: L acts about the origin,
+  translation then carries the picture. No behavior change. (3) x-move/y-move RENAMED x-shift/y-shift
+  (author: 'these are translations, call shift if you want something short'); ids af6tx/af6ty and the
+  caption's 'two translations' unchanged. (4) SCALE AND SHEAR limits widened for real motion: all four
+  2x2 entries now +/-5 (scales were -1..2, shears +/-1.5), step 0.01 unchanged, defaults unchanged;
+  uniform range means every entry of the 2x2 block has the same reach, and the rotation drive's
+  cos/sin assignments remain comfortably in range. Verified: harness 10/10; node --check OK; zero
+  active-code zoom references; PPU=20 grid spacing 40px; f1 readout fits +/-5.0 and +/-20.0.
+  v273 (2026-06-09): per author ('I want an animation without sliders, lets add the standard buttons
+  ... two operations ... 1,t,t^2 motion ... coefficients in the matrix in the caption are updated ...
+  Next we reset and move the default using scale, x and y translation' + 'we also have a second matrix
+  in the caption of the second transformation'), NEW animation cvTwoWay: TWO ROUTES TO ONE TARGET.
+  Placed at the END of 'The shift in the other corner' sub-section (after the corner-switch paragraph,
+  before cvMono) - it is that sub-section's content set in motion. Target: y = 0.5t^2 - 3t + 6.5 =
+  0.5(t-3)^2 + 2, drawn as a dashed GHOST curve with a grey vertex dot; the moving curve is AMBER with
+  an amber dot riding its vertex. SEVEN STAGES, each one Step: (1-3) route 1, one basis direction per
+  step in the order that makes the monomial triple literal - scale (x a, the t^2 move, valid first
+  because b=c=0), shear (+b*t), lift (+c*1); (4) a 700ms morph back to the default parabola; (5-7)
+  route 2 the pipeline's way - scale, x-shift (t -> t-h), y-shift (+k). CAPTION MATRICES (div twyOut,
+  af6Out border idiom): TWO 3x3 matrices side by side, the monomial form [[1,0,0],[b,a,c],[0,0,1]]
+  (b green, a red, c coral - cvAffine's palette) filling during route 1, and the vertex form
+  [[1,0,h],[0,a,k],[0,0,1]] (h BLUE in the corner per v262's highlight, a red, k coral) filling during
+  route 2; the active route's title is amber; route 1's matrix stays FROZEN at its final values through
+  the reset and route 2, so the end state is the completing-the-square dictionary standing side by
+  side. Buttons: the standard bar copied from cvMono verbatim (Play/Step/Reset + Speed 0.5x/1x/2x,
+  AnimBtnBar with selectSpeed/stepDone, onAdvance setTimeout 760/spd), ids btnTwyPlay/btnTwyStep/
+  twySpd0-2; RAF chained to _openNotes/_closeNotes on nv1Quadratics with rafTwy guard and hardReset on
+  open (cvMono's chain). Internals: every intermediate state is held as a monomial triple (A,B,C) -
+  route 2's mid-states via A=a2, B=-2*a2*h, C=a2*h^2+k; HUD shows the target equation (grey) and the
+  current step label (amber); step labels name the basis element each motion spends. Verified: harness
+  10/10; node --check OK; state machine replicated in node: route-1 end (0.5,-3,6.5) IDENTICAL to
+  route-2 end while m1=[-3,0.5,6.5] vs m2=[0.5,3,2] differ (the punchline, numerically); mid-x-shift
+  vertex at (1.5,0) - slides along the axis before the lift, v262's geometry; mid-reset morph
+  (0.75,-1.5,3.25) with m1 frozen; stage-4 idle = (1,0,0); all 7 new ids unique; no em-dash in the
+  new code or caption.
+  v274 (2026-06-09): per author ('no - you are rotating the object about its center for the rectangle
+  and the vertex of the parabola regardless of where they sit in the plane. the rotation has to be
+  applied to the translation as well'), ROTATION SEMANTICS CHANGED on cvAff6 - v272 item (2) misread a
+  behavioral demand as a framing correction; this fixes the behavior. OLD: the rotation slider WROTE
+  cos/sin into the four 2x2 sliders, so the map was p' = R*p + t and a translated figure stayed pinned
+  at t, spinning in place. NEW: the rotation COMPOSES ON TOP of the whole slider affine,
+  M_eff = R(theta) * M_sliders, so p' = R*(L0*p + t0) - the rotation is applied to the translation
+  column too (tx' = c*tx - s*ty, ty' = s*tx + c*ty) and a shifted shape ORBITS the plane's origin
+  instead of twirling where it is parked. Consequences: (a) the rotation slider NO LONGER overwrites
+  the scale/shear sliders (the v265 write-through removed; _aff6Rot now only updates the degree
+  readout and the angle is read in draw and composed) - rotation now coexists with any scales, shears,
+  and shifts the user has set; (b) the matrix readout af6Out shows the COMPOSED matrix M_eff, i.e. the
+  true map being drawn - drag rotation and ALL SIX entries move, the translation column visibly
+  turning, which is the author's point made visible; (c) caption sentence rewritten: 'Rotation is not
+  a seventh entry - it composes on top of all six, blending the scales and shears and turning the
+  translation column with it, so a shifted shape orbits the origin instead of spinning in place.'
+  Reset unchanged (af6rot:0 already included). Verified: harness 10/10; node --check OK; composed-map
+  math checked numerically: shift (3,0) + rot 90 sends the parabola's vertex (0,0) to (0,3) (orbit)
+  and corner (2,1) to R*(5,1)=(-1,5); zero-shift rotation identical to prior behavior ((2,1)->(-1,2));
+  scale 2 + rot 45 gives 2x2 = 2R; composed (tx,ty) at that setup = (0,3) confirming the translation
+  column rotates in the readout.
+  v275 (2026-06-09): per author ('lets not center the origin. Position it so the parabola takes up
+  more of the canvas and the motions still stay on screen. this is not a zoom, but shift the image
+  down and left'), cvTwoWay VIEW SHIFTED - PPU unchanged at 20 (not a zoom), origin moved from canvas
+  center to CX=ML+279, CY=top+plotH-130: the image moves 40px LEFT and 72px DOWN, window now
+  x [-13.95, 17.95], y [-6.5, 13.7] (was symmetric +/-15.95 / +/-10.1). Rationale: the parabolas open
+  UPWARD and the action sits in x [0..6], so the old centered origin wasted the lower half and the far
+  left; the new window gives the bowls 13.7 units of headroom while keeping every motion on screen -
+  the shear dip vertex (3,-4.5) keeps 2.0 units of clearance above the bottom edge, and the target
+  bowl spans x -1.8..7.8 at the top edge, fully inside. SUPPORTING CHANGES (the old code assumed an
+  origin-centered window): curveQ now samples t over the actual window [x0,x1] derived from CX instead
+  of +/-halfW about 0; the grid loops run Math.ceil(min/gs)*gs..max over the asymmetric extents with
+  an epsilon skip at zero (axes still drawn separately). HUD/labels are canvas-anchored and unmoved.
+  Verified: harness 10/10; node --check OK; window bounds, dip clearance, vertex containment, and
+  top-edge bowl span all checked numerically; origin shift confirmed 40px left / 72px down.
+  v276 (2026-06-09): per author, restructure of 'The coefficients are a transformation'. (1) DELETED
+  the 'All three are vertical...' block (the t-fixed rationale, tilting-is-out, and the 6-3=3 DOF
+  count) - author: 'none of this actually answers a question that I asked. Also, representing tilted
+  parabolas is why the parameterizations are introduced later. I think we can just take this out.'
+  The duality paragraph now ends at '...a scales it vertically, b shears it, c lifts it.' (2) MOVED
+  the duality paragraph ('The same quadratic is two objects at once...') AND the cvAffine animation
+  ABOVE cvAff6 - section order is now: H4, duality paragraph, cvAffine (the three coefficient
+  motions), cvAff6 (the full affine group, rectangle-or-parabola), then 'Write those three motions as
+  matrices...' and onward unchanged. (3) cvAff6 caption pointer updated: 'the parabola's b, a, c
+  below' -> 'above' (cvAffine now sits above it). (4) cvAff6 rectangle DOUBLED: RECT now
+  [[-4,-2],[4,-2],[4,2],[-4,2]] (8x4 units, 160x80 px at PPU 20); tracked corner is (4,2). Verified:
+  harness 10/10; node --check OK; rendered order duality < cvAffine < cvAff6 confirmed by position;
+  the deleted block survives nowhere in rendered text; seam check - the matrices paragraph's 'those
+  three motions' still has its antecedent (duality paragraph + cvAffine), with cvAff6's caption
+  bridging back via 'b, a, c above'.
+  v277 (2026-06-09): per author ('Say something short like this is an example of representation theory
+  under the galileon group and add an N button and lets expand that there. write something up in the
+  note and say get back to this'), NEW NOTE 'galilean' - the document's FOURTEENTH note and the first
+  spawned from inside another note's material. (1) The duality paragraph now ends with one short
+  sentence + a nested N button (parameterization-style escaping): 'This is an example of
+  representation theory - the group at work is the Galilean group. [N]'. Spelling normalized
+  galileon -> Galilean (a galileon is a scalar field in modified gravity; the boost structure here is
+  Galileo's). (2) Note body, four beats: (i) the representation made explicit - the graph-preserving
+  motions as an abstract group staged twice (curve in the plane / 3x3 matrices on R^3), with the
+  non-abelian composition law (b1+a1b2, a1a2, c1+a1c2) restated; (ii) the homogeneous-coordinates
+  technicality - the affine action linearized by the always-1 coordinate, the pipeline's own device,
+  and the 1 in (t,y,1) identified with the constant function in {t^2,t,1}; (iii) WHY GALILEAN - t as
+  time, y as position: shear = Galilean boost, lift = space translation, t-fixed = absolute time;
+  honest scoping: this is a Galilean SIMILITUDE with the clock pinned (no time translation), and the
+  vertex route's corner-shift h is exactly the unpinned clock; the kinematics reading - c launch
+  position, b launch velocity, 2a acceleration, completing the square = free fall (b=-2ah is v0 =
+  -accel x time-to-apex; c=ah^2+k recovers launch height), tying to cvTwoWay; (iv) staging matters -
+  the discriminant cone b^2=4ac flattens to the wall k=0 in the vertex chart; reading pointers as
+  vocabulary (Galilean group, Bargmann central extension, induced representations, Arnold MMCM).
+  Ends with the requested RETURN MARKER ('Get back to this') listing the open threads: time
+  translation's action on triples, reducibility of the 3-dim staging (triangular matrices as the
+  hint), Bargmann, and the cubic case. (3) Registry: 'galilean' added to the topics map (before
+  poincare in source, irrelevant to order), to topicOrder after nv1Quadratics, and to topicSection
+  under Section 2. Verified: harness 10/10; node --check OK; note-key integrity now 14/14/14;
+  data-note=galilean button wired once; kinematics identities re-derived (v0=-g*t_apex from v(t)=
+  v0+g*t at apex; x(0)=k+a*h^2); composition law matches the v273-verified one; no em-dash in the new
+  body (all &ndash;).
+  v278 (2026-06-09): per author ('reverse the positions of A rectangle - or the parabola y = t^2 and
+  The faint dashed curve is the base parabola'), the two animations SWAPPED: section order is now
+  duality paragraph (with the galilean N button), cvAff6 (full affine group, rectangle-or-parabola),
+  cvAffine (the three coefficient motions), then the matrices prose - which restores the original
+  tight seam where 'Write those three motions as matrices' directly follows the three-knob animation.
+  cvAff6's caption pointer reverted 'above' -> 'below' (cvAffine sits below it again; the 'above'
+  string at log line ~2508 is v276 narration, append-only). Verified: harness 10/10; rendered order
+  confirmed by position; the only remaining 'b, a, c above' is in this log.
+  v279 (2026-06-09): per author ('your order of operations on the vertex form is wrong. it should be
+  horizontal translation first'), cvTwoWay ROUTE 2 REORDERED: x-shift, then scale, then y-shift (was
+  scale, x-shift, y-shift). The vertex form reads inside-out - in y = a(t-h)^2 + k the horizontal
+  translation acts on the INPUT first - so the construction should walk that way. Vertical scale and
+  horizontal shift commute as plane maps, so the FINAL matrix and curve are unchanged; only the build
+  order and the intermediates change: stage 5 now slides the UNIT parabola to vertex (3,0) (verified
+  mid-tween: (t-1.5)^2, vertex (1.5,0) on the axis), stage 6 widens the bowl IN PLACE about the
+  pinned vertex (verified: vertex stays (3,0) while a tweens), stage 7 lifts to (3,2). Edits: stateOf
+  swaps which stage fills h vs a2 (curve formula A=a2, B=-2*a2*h, C=a2*h^2+k unchanged - it is
+  general); LBL entries 5/6 swapped; caption order updated to 'x-shift, scale, y-shift'. The vertex
+  matrix in the readout now fills h (the blue corner) FIRST, which is also the better pedagogy: the
+  registration before the shaping. Verified: harness 10/10; node --check OK; route-2 end still
+  (0.5,-3,6.5), identical to route 1; m2 = (0.5, 3, 2).
+  v280 (2026-06-09): per author ('the order in which you listed these matrices also does not follow
+  the order in which you show the transformations'), the THREE-MATRIX DISPLAY REORDERED to lift (c) |
+  shear (b) | scale (a), left to right. The author caught a genuine mathematical error, not a layout
+  preference: matrices act on the point from the right, so the one applied FIRST stands RIGHTMOST.
+  The animations apply scale first, then shear, then lift - so the product that equals the composite
+  is L*H*S; the old left-to-right listing scale|shear|lift, read literally as a product under
+  'Their product is...', is S*H*L, whose middle row is (ab, a, ac), NOT (b, a, c) - verified
+  numerically at (a,b,c)=(0.5,-3,6.5): old order gives (-1.5, 0.5, 3.25), new order gives the correct
+  (-3, 0.5, 6.5). The 'Their product' sentence now states the convention and ties it to the shown
+  order: 'written with the matrix applied first standing rightmost, so reading right to left walks
+  the same order the animation does: scale, then shear, then lift'. Cell markup untouched beyond the
+  swap (colors stay: c coral, b green, a red). Rule 25 in action: the order is structure, not
+  convention to be inherited loosely. Verified: harness 10/10; node --check OK; rendered label order
+  lift|shear|scale confirmed; L*H*S product check passes.
+  v281 (2026-06-09): per author ('correct. we need a note on this topic'), NEW NOTE 'rowColumn' -
+  'Row vectors, column vectors, and who sets the standard' - the FIFTEENTH note, materializing the
+  session's convention discussion that began with the v280 matrix-order correction. N button placed
+  on the product sentence (where the document declares its convention), nested-button escaping as
+  before. Body, four beats: (i) THE FORK - columns/left vs rows/right as exact transposes,
+  (AB)^T = B^T A^T as the dictionary, neither broken, but the declaration load-bearing: in column-land
+  the first-applied matrix stands rightmost (function composition, innermost first), hence this
+  section's lift|shear|scale; in row-land the same construction reads (t,y,1)*S*H*L left to right and
+  the coefficients move to the middle COLUMN; listing order is structure, the world is the convention.
+  (ii) WHO STANDS WHERE - the operator mainstream (analysis/geometry/physics) is column-land and the
+  document lives there ('middle row is the coordinate vector' exists only on that side); the GPU world
+  split: OpenGL columns vs Direct3D rows, with D3D's three real reasons (pipeline reading order,
+  row-major rows = contiguous basis vectors / translation in the bottom row, SIMD broadcast-FMA over
+  rows) plus the older lineage through early graphics texts and coding theory's c = m*G - engineering
+  in source, Bell Labs and Lincoln Laboratory. (iii) FLOW AGAINST OBJECT - operator math acts on
+  completed objects (f(x), inner first); engineering's subject is flows, which read left to right in
+  time order, so engineering keeps rediscovering rows; pure math is not unanimously left-handed
+  (postfix permutation groups, right modules forced by noncommutativity), and the deepest frame is
+  duality: rows are the dual space, transpose an equivalence not a ranking. (iv) THE STANDARD, AND THE
+  SIN - columns declared and kept here (the parabola is an object, not a flow); the pipeline chapters
+  are where to NAME the fork; the sin is mixing handedness silently (the classic GL<->D3D porting
+  bug); 'conventions are declared at the door or they collect their fee inside.' Reading pointers as
+  vocabulary (dual space, right action, storage orders). LEDGER #27 added for the note's factual
+  load (OpenGL/D3D conventions, c=m*G, Shannon 1948 Bell Labs, Hamming ~1950 Bell Labs, Reed-Solomon
+  1960 Lincoln Lab, postfix tradition), honestly marked WELL-ESTABLISHED / no web pull this session,
+  with an instruction to pull sources if anything becomes load-bearing. Registry: topicOrder after
+  'galilean', topicSection Section 2. Verified: harness 10/10; node --check OK; note-key integrity
+  15/15/15; data-note=rowColumn wired once; no em-dash in the new body (all &ndash;).
+  v282 (2026-06-09): per author ('put a note on homogeneous coordinates and call it what it is briefly
+  at the earns-its-matrix'), NEW NOTE 'homogeneous' - 'Homogeneous coordinates, one dimension up' -
+  the SIXTEENTH note. (1) In-text, one brief naming sentence appended to the matrices-intro paragraph
+  right after 'earns it a matrix at all': 'The device has a name - homogeneous coordinates - and it is
+  projective geometry one dimension up.' + nested N button. (2) Note body, four beats: (i) WHAT THE
+  LIFT IS - (t,y,1) as a representative of a line through the origin of R^3; RP^2 = the space of such
+  lines; (w t, w y, w) all name the same point; w=1 is a chosen slice (affine chart) and the section's
+  plane is that slice; projective geometry = stop insisting on the slice. (ii) WHAT THE LIFT BUYS -
+  the three fortunes from the session discussion: CLOSURE (the bespoke semidirect law
+  (b1+a1b2, a1a2, c1+a1c2) already derived in this section vanishes into plain block-matrix
+  multiplication), ASSOCIATIVITY (bake the whole stack into one matrix once; constant per-point cost -
+  the economics of per-vertex transform), UNIFORMITY (one operation type = one circuit;
+  everything-is-a-matrix as a hardware spec), plus the unlocked bottom row absorbing perspective
+  (divide by w) = why graphics is 4x4. (iii) THE PROJECTIVE READING - homographies; affine = the
+  stabilizer of the line at infinity (bottom row (0,0,1)); perspective = the line at infinity moving;
+  w-divide = renormalizing into the chart; the engine conventions verbatim (positions w=1, directions
+  w=0, translation fixes (v,0) - why normals do not translate); horizon = image of the line at
+  infinity; vanishing points; the painters-to-Desargues/Poncelet-to-Mobius/Plucker lineage with
+  graphics re-importing the founders' use case. (iv) THE GIFT FOR THE PARABOLA - all nondegenerate
+  conics are one curve in RP^2, distinguished by their meeting with the line at infinity (ellipse 0,
+  hyperbola 2, parabola TANGENT at one point, its axis direction); the tilted-parabola question is a
+  motion of the tangency point, invisible inside a t-pinned chart; 'the parameterization story stands
+  one dimension up from here' - forward pointer to the existing parameterization note. Reading
+  pointers as vocabulary. (3) LEDGER #28 added (Desargues 1639 / Poncelet 1822 / Mobius 1827 /
+  Plucker; Roberts MIT Lincoln Lab graphics re-import recorded for provenance though unnamed in the
+  note; the conic-classification content marked as textbook mathematics, not historical claim);
+  status honestly WELL-ESTABLISHED / no web pull, same tier as #27. (4) Registry: topicOrder after
+  'rowColumn', topicSection Section 2. Verified: harness 10/10; node --check OK; note-key integrity
+  16/16/16; data-note=homogeneous wired once; no em-dash in the new body.
   v202 (2026-06-07): per author, cvBfns - the combining sub-steps after the fly-down/separate were too
   fast in BOTH worked expansions. Widened those windows and gave the two phases more time, leaving the
   fly-down/break/fly-back at their pace. drawExpandA (phase 2): DUR[2] 5200 -> 6800; window boundaries
@@ -2721,7 +3129,10 @@ timeline. The teaching philosophy:
 ARCHITECTURE
 ══════════════════════════════════════════════════════════════════════════════
 
-  - Single self-contained HTML file, no build system, no linked fonts.
+  - Single HTML file, no build system, no linked fonts; all text, CSS,
+    and JavaScript inline. (Binary assets are the one exception — see
+    ARTIFACTS FOLDER below; the two bullets previously disagreed, with
+    this one claiming "self-contained" unqualified. Reconciled 2026-06-09.)
     System font stacks only (monospace for code, serif for prose).
   - Dark theme only: bright text on dark background.
   - ARTIFACTS FOLDER: images and other binary assets live in an adjacent
@@ -2730,6 +3141,9 @@ ARCHITECTURE
     self-contained as possible — text, CSS, and JavaScript are inline.
     Only binary content that cannot reasonably be inlined goes in artifacts/.
     Each image must have alt text and a figcaption.
+    SHIPPING: the HTML must travel WITH artifacts/ (23 referenced assets,
+    22 images + 1 mp4 as of 2026-06-09) or every figure breaks; the bare
+    HTML circulated at least once without it.
   - ALL TEXT WHITE: --fg:#ffffff, --fg2:#eeeeee, --fg3:#dddddd,
     --fg4:#cccccc. No gray anywhere.
   - Scrolling narrative document, NOT a tabbed dashboard.
@@ -2791,14 +3205,24 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
    - Vol Libre presented at SIGGRAPH July 14, 1980
    - Carpenter was a Boeing Computer Services employee
    - B.S. mathematics 1974, M.S. computer science 1976, U. Washington
-   - Saw Mandelbrot's book "Fractals: Form, Chance and Dimension" (1977) at Seattle bookshop
+   - Saw Mandelbrot's book "Fractals: Form, Chance and Dimension" (1977)
+     at Seattle bookshop in 1978 (carpenter note's date; main prose
+     re-anchored to match, 2026-06-09 — it previously read as 1980)
+   - The 1977 book's fractal-terrain images: "Images for the 1977 and
+     1982 books were mainly by Richard F. Voss" — VERIFIED 2026-06-09
+     (historyofinformation.com, Mandelbrot book entry). Supports the
+     carpenter note's Voss attribution.
    - "I knew at once that I could apply that math to my problem"
    - Technique: recursive midpoint subdivision of triangles
    - Standing ovation; Ed Catmull and Alvy Ray Smith hired him on the spot
    - Genesis effect in Star Trek II: The Wrath of Khan (1982)
-   - Carpenter died December 21, 2025, age 78
+   - Carpenter died December 21, 2025, age 78 — RE-VERIFIED 2026-06-09:
+     Wikipedia, Memory Alpha, Pixar Wiki all say Dec 21; IONS (his last
+     employer) memoriam says Dec 20. Document follows the Dec 21
+     consensus; one-day source discrepancy noted.
    Sources: Wikipedia (Loren Carpenter), IEEE Spectrum "And the Oscar Goes
-   To..." (2001), kottke.org (2009), Memory Alpha, SIGGRAPH history archives
+   To..." (2001), kottke.org (2009), Memory Alpha, SIGGRAPH history archives,
+   noetic.org memoriam (2025), historyofinformation.com (Voss images)
 
 2. NVIDIA founding  [Section 2 — VERIFIED May 2026]
    - Founded 1993 by Jensen Huang, Chris Malachowsky, Curtis Priem
@@ -2828,7 +3252,13 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
      Motorola 68000 at 8 MHz, attached to VAX-11 host
    - IRIS 1400: first standalone workstation, 1984
    - IRIS = Integrated Raster Imaging System
-   - RealityEngine: 1993, >1 million antialiased textured triangles/sec
+   - RealityEngine: hardware INTRODUCED 1992 (same dating as #14's
+     "RealityEngine (1992)", Wikipedia i860/1992); Akeley's primary paper
+     is SIGGRAPH '93 and describes already-shipping hardware. Rendered
+     text previously split 1992/1993 (Section 1 prose + sgiHistory note
+     said 1993; deCasteljau note said 1992); STANDARDIZED to 1992 in all
+     three places, 2026-06-09 review pass. Throughput: >1 million
+     antialiased textured triangles/sec
      (DELIVERED). 500K was the INITIAL DESIGN TARGET, not the shipped
      figure. VERIFIED against the primary source: Kurt Akeley,
      "RealityEngine Graphics," SIGGRAPH '93 — abstract states "Rendering
@@ -2863,7 +3293,9 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
    (Chasing Pixels), The Silicon Underground (dfarq), VOGONS wiki.
 
 5. Programmable shaders / DirectX 8
-   - DirectX 8 released November 2000 — NEEDS VERIFICATION
+   - DirectX 8.0 released Nov 9, 2000 — VERIFIED (session-log S3 pass:
+     Microsoft / Tom's Hardware; earlier NEEDS VERIFICATION flag resolved
+     2026-06-09 review pass)
    - Introduced vertex and pixel shaders (Shader Model 1.0)
 
 6. GeForce 256 (1999)  [Section 2 — VERIFIED May 2026]
@@ -2899,18 +3331,21 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
 
 8. CUDA
    - CUDA 1.0 released with G80 / GeForce 8800 GTX
-   - G80 launched November 2006 — NEEDS VERIFICATION
+   - G80 launched Nov 8, 2006 — VERIFIED, superseded by entry #20
+     (stale NEEDS VERIFICATION flag resolved 2026-06-09 review pass)
    - Ian Buck: BrookGPU at Stanford, then joined NVIDIA
 
 9. AlexNet / ImageNet
    - Alex Krizhevsky, Ilya Sutskever, Geoffrey Hinton
    - Won ImageNet Large Scale Visual Recognition Challenge 2012
    - Trained on two GTX 580 GPUs
-   - Top-5 error rate 15.3% vs second place 26.2% — NEEDS VERIFICATION
+   - Top-5 error rate 15.3% vs second place 26.2% — VERIFIED, superseded
+     by entry #22 (stale flag resolved 2026-06-09 review pass)
 
 10. Tensor Cores
    - First appeared in Volta architecture (V100), 2017
-   - cuDNN released 2014 — NEEDS VERIFICATION of exact date
+   - cuDNN released 2014 — VERIFIED, superseded by entry #22 (stale flag
+     resolved 2026-06-09 review pass)
 
 11. Paul de Casteljau  [Section 2 — VERIFIED June 2026]
    - Paul de Faget de Casteljau, French mathematician/physicist,
@@ -2953,7 +3388,8 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
      an event A whose probability is equal to x." So the polynomials were
      born AS a binomial distribution — the CAD/curve use (de Casteljau
      1959, Bézier) came ~half a century later. Stated in the retitled
-     'deCasteljau' note ("From Weierstrass to Bézier").
+     'deCasteljau' note (titled "From Weierstrass to Bézier" at the time;
+     since retitled "From Weierstrass to the GPU").
    Sources: Wikipedia + HandWiki (Sergei Bernstein, dates + paper cite);
    History of Approximation Theory (Technion, hat.net.technion.ac.il) and
    nonagon.org/ExLibris (paper title/venue, 1885 Weierstrass, Davis quote);
@@ -3214,7 +3650,10 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
 
 21. THE HPC BEACHHEAD / Fermi, Tianhe-1A, Titan, FP64 segmentation  [Section 6 — VERIFIED June 2026]
    - Fermi (2010): NVIDIA's "first complete GPU computing architecture" -
-     full-rate FP64 with FMA (single + double), ECC memory, L1/L2 cache
+     FP64 at HALF the FP32 rate (the architectural maximum; "full-rate"
+     was this entry's earlier loose phrasing, corrected 2026-06-09 along
+     with the same phrase in Section 6 prose) with FMA (single + double),
+     ECC memory, L1/L2 cache
      hierarchy, unified address space / C++ support; Tesla M20xx boards with
      ECC. (NVIDIA Fermi whitepapers; HPCwire "NVIDIA Unleashes Fermi for HPC"
      2009; roboflow CUDA.)
@@ -3237,6 +3676,12 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
      amended to forbid datacenter use (legal limit replacing technical).
      (ArrayFire; Microway; Nicolas Dickenmann "Fifteen Years of FP64
      Segmentation" 2026; ServeTheHome; overclock.net.)
+     NB (2026-06-09): Section 6 prose previously read "a GeForce ran
+     double precision at an eighth of the rate the same generation's
+     Tesla could" — that mis-baselined the 1:8 cap (which is vs the
+     GeForce's OWN FP32; vs Tesla FP64 the real gap was ~1/3: GTX 480
+     ~168 GF vs C2050 ~515 GF). Prose corrected to the per-card framing
+     above and the Kepler 1:24 step restored.
 
 22. THE ACCIDENT / AlexNet + the deliberate AI pivot  [Section 7 — VERIFIED June 2026]
    - AlexNet: Alex Krizhevsky, Ilya Sutskever, Geoffrey Hinton (U. Toronto,
@@ -3278,6 +3723,110 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
      general cores. The matmul-as-the-unifying-operation point ties to the
      nv1Quadratics capstone (CLAIM #17). Reflective synthesis; no new external
      claim beyond the dated architectures above.
+
+24. UTAH TEAPOT provenance (teapot note)  [VERIFIED June 2026]
+   - Martin Newell, Utah PhD student under Ivan Sutherland; wife Sandra's
+     suggestion over tea, 1975; modeled on a Tektronix storage tube; the
+     pot is a Melitta from ZCMI, Salt Lake City. (SLTrib 2016 interview
+     with Newell; Wikipedia Utah teapot; CHM catalog.)
+   - THE SQUISH: Jim Blinn, then a Utah PhD student, scaled the model to
+     3/4 height during a demo; everyone, Newell included, preferred it
+     ("Everybody, including me, liked the teapot squished" — Newell), and
+     the squished data propagated (first published squished in Blinn &
+     Newell, SIGGRAPH 1976). The widely repeated story that Blinn was
+     compensating for non-square pixels is one BLINN HIMSELF HAS DEBUNKED
+     (graphics.cs.utah.edu/teapot, incl. Blinn's SIGGRAPH 2018 reception
+     video; geometrian.com calls the pixel story a myth; older Wikipedia
+     and SLTrib carry the pixel version — do not reintroduce it). The
+     note previously attributed the squish to Newell not correcting for
+     non-square pixels; CORRECTED 2026-06-09.
+   - PATCH COUNTS: original 28 bicubic patches; Crow's "The Origins of
+     the Teapot" (IEEE CG&A, Jan 1987) version adds a 4-patch bottom =
+     32 patches / 512 control points. Matches the note's 28/32.
+   - DONATION: given to the Computer Museum in BOSTON in 1984 (displayed
+     there until 1990); the artifact later moved with the collection to
+     the Computer History Museum, Mountain View, where it is on display
+     (catalog X00398.1984 — the accession number preserves 1984). The
+     note previously said "donated to the Computer History Museum in
+     Mountain View in 1984"; CORRECTED 2026-06-09. (Wikipedia Utah
+     teapot, archived revision with Boston detail; CHM catalog.)
+
+25. WEIERSTRASS FUNCTION parameters (deCasteljau note)  [VERIFIED June 2026]
+   - Weierstrass 1872 (presented to the Berlin Academy; published via du
+     Bois-Reymond 1875): W(x) = Σ aⁿ cos(bⁿπx), with HIS conditions
+     0 < a < 1, b an ODD INTEGER, ab > 1 + 3π/2.
+   - The drawn parameters a = 1/2, b = 3 do NOT satisfy Weierstrass's
+     condition (ab = 1.5); nowhere-differentiability for them follows
+     from G. H. HARDY (1916, Trans. AMS 17, "Weierstrass's
+     non-differentiable function"), who relaxed the condition to ab >= 1
+     (b need not be an integer).
+   - The note previously attributed a = 1/2, b = 3 to Weierstrass's own
+     construction; CORRECTED 2026-06-09 to credit Hardy for the relaxed
+     condition while keeping the drawable parameters in cvWeier.
+   - Box-counting dimension of the graph 2 + log a / log b (≈ 1.37 for
+     a=1/2, b=3) — supports "dimension strictly between a line and the
+     plane" (Hausdorff case settled by Shen 2018).
+
+26. PINEDA-NOTE attributions: Tarolli / Lagrange / Pixel-Planes  [VERIFIED June 2026]
+   - TAROLLI CONFIRMATION: source is Fabian Giesen, "Optimizing the basic
+     rasterizer" (fgiesen.wordpress.com, Feb 2013): Brian Hook (original
+     Glide implementer) connected Giesen with Gary Tarolli, former 3dfx
+     CTO and Voodoo rasterizer designer, who wrote: "Voodoo 1 and 2 used
+     Pineda-style setup and rasterization" (integer in/out, dx/dy
+     increments, any-direction traversal; Voodoo 2 moved more of it into
+     hardware, "exact same math"). The note's sentence is a near-quote of
+     this source.
+   - PINEDA'S OWN REFERENCES (complete list, per SIGGRAPH history page /
+     ACM DL): Bresenham 1965; Foley & Van Dam; Fuchs & Poulton,
+     PIXEL-PLANES (VLSI Design, 1981); Fujimoto & Iwata 1983; Whitton
+     1984. There is NO "Stevenson" in the paper or anywhere in the
+     edge-function lineage that 2026-06-09 web searches could find; the
+     note's "Stevenson used the same cross-product side test in earlier
+     work" was unsourceable and was REPLACED with the documented
+     antecedent: Fuchs & Poulton's Pixel-Planes evaluated linear edge
+     expressions per pixel in parallel, and Pineda cites it. (AUTHOR
+     VETO POINT: if "Stevenson" had a real referent, restore it WITH the
+     source; otherwise the replacement stands.)
+   - LAGRANGE: the signed-area / cross-product attribution rests on
+     Lagrange's 1773 "Solutions analytiques de quelques problèmes sur
+     les pyramides triangulaires," where the component formulas of the
+     cross product first appear (standard history-of-vector-analysis
+     attribution, e.g. Crowe). Retained in the note.
+
+27. ROW/COLUMN CONVENTIONS (rowColumn note)  [WELL-ESTABLISHED - no web pull this session]
+   - OpenGL classic fixed-function convention: column vectors, column-major
+     storage, v' = M*v (OpenGL specification / red-book lineage). Direct3D
+     classic convention (D3DX/HLSL idiom): row vectors, v' = v*M, chains
+     written v*World*View*Projection. Both are API-documentation facts.
+   - Coding theory codeword convention c = m*G (message row vector times
+     generator matrix) is universal in the standard texts.
+   - "Engineering in source": Shannon, A Mathematical Theory of
+     Communication, 1948, Bell Labs; Hamming codes, Bell Labs, circa 1950;
+     Reed & Solomon, Polynomial Codes over Certain Finite Fields, 1960,
+     MIT Lincoln Laboratory. All standard attributions.
+   - Postfix permutation-group notation (x sigma, composition left to
+     right) is a recognized tradition (e.g. the Wielandt school lineage).
+   - STATUS: every item is textbook-tier common knowledge, but none was
+     re-verified against a primary source in this session; if any is ever
+     load-bearing beyond the note's argument, pull sources first.
+
+28. PROJECTIVE GEOMETRY lineage (homogeneous note)  [WELL-ESTABLISHED - no web pull this session]
+   - Names carried in the note without dates: Desargues (Brouillon
+     Project, 1639), Poncelet (Traite des proprietes projectives des
+     figures, 1822, from perspective/projection problems), Mobius
+     (barycentric calculus, 1827), Plucker (homogeneous coordinates,
+     late 1820s-1830s). Perspective-painting origin of projective
+     geometry is the standard account.
+   - Graphics re-import: homogeneous coordinates entered computer
+     graphics through L. G. Roberts (MIT Lincoln Laboratory, mid-1960s);
+     not named in the note, recorded here for provenance.
+   - Mathematical content (affine = stabilizer of the line at infinity;
+     conic classification by intersection with it: ellipse 0, parabola
+     tangent, hyperbola 2) is textbook projective geometry, not
+     historical claim.
+   - STATUS: same tier as #27 - well-established, no primary-source pull
+     this session; pull sources before promoting any name or date into
+     rendered prose.
 
 
 ══════════════════════════════════════════════════════════════════════════════
@@ -3750,7 +4299,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
 
   <p>
     SGI's hardware used custom graphics pipelines built from specialized chips.&ensp; The
-    RealityEngine (1993) could render more than a million lit, textured, antialiased polygons per
+    RealityEngine (1992) could render more than a million lit, textured, antialiased polygons per
     second &ndash; the design target had been half that, and the shipped hardware doubled it.&ensp;
     A staggering number at the time, achieved with dedicated rasterization hardware that did
     one job and did it fast.&ensp; This was not general-purpose computing.&ensp; These chips
@@ -3791,11 +4340,11 @@ button:disabled { opacity:0.35; cursor:default !important; }
   </p>
 
   <p>
-    In 1980, Loren Carpenter was working in Boeing's computer-aided
-    design group, trying to render realistic terrain around airplane models.&ensp; He wanted
+    Loren Carpenter was working in Boeing's computer-aided
+    design group in Seattle, trying to render realistic terrain around airplane models.&ensp; He wanted
     mountains.&ensp; The standard approach &ndash; hand-modeling each peak and valley with
     control points &ndash; was too slow and produced landscapes that looked artificial.&ensp;
-    Then, browsing a bookshop on University Avenue in Seattle, he found Beno&icirc;t Mandelbrot's
+    Then, in 1978, browsing a bookshop on University Avenue, he found Beno&icirc;t Mandelbrot's
     <em>Fractals: Form, Chance and Dimension</em> &ndash; and read it cover to cover, twice. <button class="notes-btn" data-note="carpenter" onclick="window._openNotes('carpenter',false)">N</button>
     &ensp;Fractals.&ensp; Self-similar geometry at every scale.
   </p>
@@ -3814,7 +4363,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
   </p>
 
   <p>
-    On July 14 of that year, Carpenter presented <em>Vol Libre</em>
+    On July 14, 1980, two years of work later, Carpenter presented <em>Vol Libre</em>
     at SIGGRAPH &ndash; a two-minute film of a camera soaring over fractally generated
     mountains, banking and diving like a hang glider, finally coming to rest on a tiny
     Utah teapot sitting on a mountainside.&ensp; The audience of a thousand engineers
@@ -3894,7 +4443,8 @@ button:disabled { opacity:0.35; cursor:default !important; }
   </h2>
 
   <p>
-    In 1996 a small company called 3dfx shipped the first 3D accelerator a regular person could afford:
+    In 1996 a small company called 3dfx shipped the first 3D accelerator a regular person could afford
+    that was worth buying:
     a card called the Voodoo Graphics, which slotted into a home PC and did exactly one job, draw 3D for
     games.&ensp; It cost around $300 and could not draw a single 2D window.&ensp; You kept your existing
     2D card and let the Voodoo take over the instant a game went full-screen.&ensp; By every measure of
@@ -3949,7 +4499,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
   <p>
     A self-inflicted wound finished the proprietary bet.&ensp; For most of its life 3dfx sold chips to board
     makers &ndash; companies like Creative and Diamond &ndash; who designed, built, and sold the actual
-    cards.&ensp; In 1998 it bought one of them, STB Systems, and began making its own cards.&ensp; In one move
+    cards.&ensp; In late 1998 it agreed to buy one of them, STB Systems, and began making its own cards.&ensp; In one move
     it turned its customers into competitors, and they moved their business to the chip
     supplier that did not compete with them.&ensp; By the end of 2000 the company that had introduced consumer
     3D had stopped making cards and sold its remaining technology &ndash; mostly patents &ndash; to NVIDIA.&ensp;
@@ -4282,7 +4832,8 @@ button:disabled { opacity:0.35; cursor:default !important; }
 
   <p>
     NVIDIA answered by building a chip for them.&ensp; Fermi, in 2010, was the first NVIDIA architecture
-    designed as much for computing as for graphics: full-rate double precision with a fused multiply-add,
+    designed as much for computing as for graphics: double precision at half the single-precision rate
+    &ndash; the architectural maximum &ndash; with a fused multiply-add,
     error-correcting memory, a real cache hierarchy, and enough C++ support that programming it felt like
     addressing a computer rather than coaxing a graphics card.&ensp; Sold as the Tesla line &ndash; boards
     with no display output at all, meant only for a rack &ndash; it was a GPU that had stopped pretending to
@@ -4315,8 +4866,9 @@ button:disabled { opacity:0.35; cursor:default !important; }
     a Tesla worth its price sits in the gaming chip too &ndash; often it is the same silicon.&ensp; But
     NVIDIA caps double precision on the consumer cards in firmware and withholds error-correcting memory, so
     the cheap card cannot stand in for the expensive one.&ensp; The gap widened with each generation: on
-    Fermi a GeForce ran double precision at an eighth of the rate the same generation&rsquo;s Tesla could,
-    and later generations cut it to a thirty-second and then a sixty-fourth.&ensp; In 2017 NVIDIA even
+    Fermi a GeForce was capped at one-eighth of its own single-precision rate, where the same silicon
+    sold as a Tesla ran at half; later generations cut the consumer cap to a twenty-fourth, then a
+    thirty-second, and eventually a sixty-fourth.&ensp; In 2017 NVIDIA even
     rewrote the GeForce license to forbid running the cards in a data center, replacing a technical limit
     with a legal one.&ensp; This is worth holding onto, because it returns the moment anyone does real
     numerical work on a consumer GPU.&ensp; When a double-precision routine runs many times slower than the
@@ -4428,7 +4980,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
     &ndash; and when a single operation comes to dominate the workload, all of that flexibility is overhead
     spent doing the same thing over and over.&ensp; At that point it pays to build a unit that does only that
     one operation, with none of the apparatus of choice, far faster and at a fraction of the power.&ensp;
-    This is exactly the logic that put a fixed-function transform-and-lighting unit on the GeForce 256 twenty
+    This is exactly the logic that put a fixed-function transform-and-lighting unit on the GeForce 256 nearly twenty
     years earlier.&ensp; The principle never changed; only the operation worth freezing did.
   </p>
 
@@ -4687,7 +5239,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:8px">Karl Weierstrass (left) proved in 1885 that the approximating polynomial exists; Sergei Bernstein (right) built one in 1912 out of coin-flip probabilities.</figcaption>' +
         '</figure>' +
         '<h4>Weierstrass&rsquo;s monster</h4>' +
-        '<p>These polynomials began as pure mathematics, half a century before anyone drew a curve with them, and the story opens with a scandal.&ensp; Through the early 1800s it was taken almost for granted that a continuous curve &ndash; one you can draw without lifting the pen &ndash; must head in a definite direction at nearly every point, a tangent you could slide along.&ensp; In 1872 Karl Weierstrass destroyed that comfort with a single function: continuous at every point of the line, yet with a derivative at none.&ensp; He built it as an endless sum of cosines, each one half as tall and three times as fast as the one before, W(x) = &Sigma; a<sup>n</sup> cos(b<sup>n</sup> &pi; x) with a = 1/2 and b = 3.&ensp; The heights shrink quickly enough that the sum settles into a continuous curve, but each new term piles on still more slope at a finer scale, so the slope grows without bound and never settles anywhere.&ensp; The graph ends up with a kink at every point and a tangent at none.</p>' +
+        '<p>These polynomials began as pure mathematics, half a century before anyone drew a curve with them, and the story opens with a scandal.&ensp; Through the early 1800s it was taken almost for granted that a continuous curve &ndash; one you can draw without lifting the pen &ndash; must head in a definite direction at nearly every point, a tangent you could slide along.&ensp; In 1872 Karl Weierstrass destroyed that comfort with a single function: continuous at every point of the line, yet with a derivative at none.&ensp; He built it as an endless sum of cosines, W(x) = &Sigma; a<sup>n</sup> cos(b<sup>n</sup> &pi; x).&ensp; His own parameters were steep &ndash; he required b an odd integer with ab &gt; 1 + 3&pi;/2 &ndash; but the gentler curve drawn below, each cosine half as tall and three times as fast as the one before (a = 1/2, b = 3), is nowhere differentiable too, by a 1916 theorem of G. H. Hardy that relaxed the condition to ab &ge; 1.&ensp; The heights shrink quickly enough that the sum settles into a continuous curve, but each new term piles on still more slope at a finer scale, so the slope grows without bound and never settles anywhere.&ensp; The graph ends up with a kink at every point and a tangent at none.</p>' +
         '<p>Add enough terms and it stops resembling a curve and starts resembling a coastline, jagged at every magnification, the same roughness returning however far you zoom in.&ensp; That self-similarity is exactly what we now call a fractal: Weierstrass&rsquo;s monster is one of the first ever drawn, more than a century before Mandelbrot coined the word, and its graph has a dimension strictly between a line and the plane.&ensp; It was not alone in the menagerie &ndash; Georg Cantor&rsquo;s &ldquo;devil&rsquo;s staircase&rdquo; of 1884 is a cousin, a continuous function that rises from 0 to 1 while standing perfectly still almost everywhere, all of its climb hidden on the fractal Cantor set.&ensp; Curves like these forced a generation to rebuild calculus on careful limits rather than pictures, precisely because the pictures could mislead this badly.</p>' +
         '<canvas id="cvWeier" width="700" height="360" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
@@ -4824,9 +5376,10 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'input.&ensp; That invites a natural question: does sharpening undo blurring?&ensp; ' +
         'It does not, and the reason is fundamental.&ensp; Blur is a low-pass filter ' +
         '&ndash; it destroys high-frequency detail by averaging it away.&ensp; That ' +
-        'information is not stored somewhere recoverable; multiple distinct images blur ' +
-        'to the same output.&ensp; In linear algebra terms, the blur matrix is ' +
-        'rank-deficient.&ensp; Sharpen amplifies the edges that survive, but it cannot ' +
+        'information is effectively unrecoverable: distinct images blur ' +
+        'to outputs too close to tell apart.&ensp; In linear algebra terms, the blur matrix is ' +
+        'rank-deficient or so ill-conditioned that inverting it amplifies noise beyond ' +
+        'recovery.&ensp; Sharpen amplifies the edges that survive, but it cannot ' +
         'reconstruct what was lost.&ensp; Recovering the original from a blurred image ' +
         'is the <em>deconvolution</em> problem, and it is famously ill-posed &ndash; one ' +
         'of the deep problems in computational imaging, medical imaging, and astronomy.</p>' +
@@ -4990,7 +5543,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'swim and normals bend incorrectly.&ensp; The hardware automatically applies ' +
         '<em>perspective-correct interpolation</em>, dividing each attribute by the homogeneous ' +
         'w coordinate before interpolating and correcting afterward.&ensp; The math is the same ' +
-        'weighted sum; the weights are adjusted so straight lines in 3D remain straight on screen.</p>' +
+        'weighted sum; the weights are adjusted so attributes vary as they do along the surface ' +
+        'in 3D rather than in screen space.</p>' +
 
         '<p><strong style="color:var(--mint)">Step 4 &ndash; Shading.</strong>&ensp; ' +
         'Use the interpolated attributes to compute a color.&ensp; The surface normal ' +
@@ -5181,7 +5735,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'workstation. IRIS stands for Integrated Raster Imaging System.</p>' +
         '<h4>What they built</h4>' +
         '<p>SGI workstations dominated professional 3D graphics through the late 1980s ' +
-        'and 1990s. The RealityEngine (1993) was the flagship: a multi-board system ' +
+        'and 1990s. The RealityEngine (1992) was the flagship: a multi-board system ' +
         'that could render more than a million lit, textured, antialiased polygons per second with ' +
         'hardware-accelerated depth buffering and texture mapping. Industrial Light &amp; ' +
         'Magic used SGI hardware for Jurassic Park (1993) and Terminator 2 (1991). ' +
@@ -5209,6 +5763,40 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'acquired by Hewlett Packard Enterprise in 2016.</p>' +
         '<p>Jim Clark left SGI in 1994 to co-found Netscape. Even the founder thought ' +
         'the web was a bigger bet than graphics hardware.</p>'
+    },
+    'galilean': {
+      title: 'Representation theory and the Galilean group',
+      body: '<h4>The same group, staged twice</h4>' +
+        '<p>A representation is a group shown as linear maps on a vector space.&ensp; The coefficients section built one without naming it: the graph-preserving motions of the parabola &ndash; scale, shear, lift &ndash; compose as a group, and on the coordinate triples that group acts by the 3&#215;3 matrices.&ensp; The same abstract group appears twice: once as motions of a curve in the plane, once as matrices on &#8477;<sup>3</sup>, and the linear isomorphism between triple and curve is the dictionary between the two stagings.&ensp; The composition law makes it concrete: follow (b<sub>2</sub>, a<sub>2</sub>, c<sub>2</sub>) with (b<sub>1</sub>, a<sub>1</sub>, c<sub>1</sub>) and the result is (b<sub>1</sub> + a<sub>1</sub>b<sub>2</sub>,&ensp;a<sub>1</sub>a<sub>2</sub>,&ensp;c<sub>1</sub> + a<sub>1</sub>c<sub>2</sub>) &ndash; not symmetric in the two, so the group is non-abelian: the scale twists whatever shear and lift come after it.</p>' +
+        '<p>One technicality is the same trick the GPU uses.&ensp; The action y &#8594; a&#183;y + b&#183;t + c is affine, not linear &ndash; the b and c terms add rather than multiply.&ensp; Lifting to (t, y, 1) and writing 3&#215;3 matrices makes it linear: the extra coordinate that always reads 1 is what turns translation into multiplication.&ensp; That is homogeneous coordinates, the pipeline&rsquo;s own device, and it is the standard move for representing affine groups linearly.&ensp; The 1 in the lifted point is the same 1 that sits in the basis {t&sup2;, t, 1}: the constant function, carried along as a dimension so the additive moves have somewhere linear to live.</p>' +
+        '<h4>Why Galilean</h4>' +
+        '<p>Read t as time and y as position, and the three motions become mechanics.&ensp; The shear y &#8594; y + b&#183;t is a <em>Galilean boost</em>: the change to a reference frame moving at constant velocity b.&ensp; The lift is a translation of the spatial origin.&ensp; And the structural constraint of this whole section &ndash; every motion fixes t &ndash; is absolute time, the signature of Galilean spacetime: the slices of constant t map to themselves.&ensp; Strictly, the classical Galilean group in one spatial dimension is boosts plus space and time translations; the graph-preserving group here is boosts, space translations, and a dilation, with time translation excluded by the graph-over-t reading &ndash; a Galilean similitude with the clock pinned.&ensp; The vertex-form route is exactly where the pinned clock gets released: the shift h in the corner is a time translation, the one move the shear presentation forbids.</p>' +
+        '<p>The parabola itself is in on it.&ensp; y = a&#183;t&sup2; + b&#183;t + c is projectile motion read literally: c the launch position, b the launch velocity, 2a the acceleration.&ensp; The three coefficient knobs are: change the strength of gravity, change inertial frame, move the origin.&ensp; And completing the square is kinematics: b = &#8722;2ah says the launch velocity is exactly what the acceleration will have removed by the apex &ndash; velocity equals minus acceleration times time-to-apex &ndash; and c = ah&sup2; + k recovers the launch height from the apex height.&ensp; The dictionary between the two matrices of the two-routes animation above is the free-fall formulas.</p>' +
+        '<h4>Why the staging matters</h4>' +
+        '<p>The applied content of representation theory is that the same object can be easy in one staging and hard in another.&ensp; The root question is the standing example: in (a, b, c) the boundary between two real roots and none is the cone b&sup2; = 4ac; push the same question through the vertex chart (a, h, k) and the boundary is the flat wall k = 0 &ndash; does the apex sit on the axis.&ensp; Nothing about the quadratic changed; the representation did.&ensp; Reading pointers, as vocabulary rather than homework: <em>Galilean group</em>, <em>Bargmann central extension</em> (where mass enters the story), <em>induced representations</em>; Arnold&rsquo;s <em>Mathematical Methods of Classical Mechanics</em> is the shelf this lives on.</p>' +
+        '<p><em>Get back to this.</em>&ensp; Open threads, deliberately left: what time translation does to the coefficient triple once the clock is unpinned; whether the three-dimensional staging splits into smaller invariant pieces or is stuck together (the triangular shape of the matrices is a hint); the Bargmann extension; and how much of this survives for cubics, where the graph-preserving group is the same but its orbit is no longer the whole space.</p>'
+    },
+    'rowColumn': {
+      title: 'Row vectors, column vectors, and who sets the standard',
+      body: '<h4>The fork</h4>' +
+        '<p>Every matrix statement in this document carries a silent declaration: vectors are columns and matrices act from the left, v &#8594; M&#183;v.&ensp; There is a mirror world where vectors are rows and matrices act from the right, v &#8594; v&#183;M.&ensp; The two are exact transposes of each other &ndash; switch worlds and every matrix transposes and every product reverses, with (AB)<sup>T</sup> = B<sup>T</sup>A<sup>T</sup> as the dictionary &ndash; and neither is broken.&ensp; But the declaration is load-bearing.&ensp; In column-land the matrix applied first stands rightmost, because (L&#183;H&#183;S)&#183;v = L&#183;(H&#183;(S&#183;v)) is function composition with the innermost acting first; that is why the three matrices in this section are listed lift, shear, scale.&ensp; In row-land the same construction reads (t, y, 1)&#183;S&#183;H&#183;L, left to right in the order the motions run, and the coefficients move from the middle row to the middle column.&ensp; The listing order is structure; which world you stand in is the convention.</p>' +
+        '<h4>Who stands where</h4>' +
+        '<p>The operator mainstream of mathematics &ndash; analysis, geometry, physics, anywhere transformations act on objects &ndash; is column-land, and this document lives there: the claim that the middle row is the coordinate vector only exists on that side of the transpose.&ensp; The GPU world split down the middle.&ensp; OpenGL&rsquo;s classic convention is column vectors; Direct3D&rsquo;s classic convention is row vectors, so its transform chains read v &#183; World &#183; View &#183; Projection, left to right in pipeline order.&ensp; That was not vandalism; it had reasons.&ensp; Code reads in the order the data flows.&ensp; In C&rsquo;s row-major memory the rows of a row-land matrix are the transformed frame&rsquo;s basis vectors, each one contiguous &ndash; the forward axis or the position is a single clean read, and the translation sits in the bottom row like a struct field.&ensp; And v&#183;M is a linear combination of the matrix&rsquo;s rows &ndash; broadcast one component, multiply-accumulate one contiguous row &ndash; which mapped straight onto early SIMD hardware.&ensp; The row tradition also predates the GPUs: it runs through the early graphics textbooks, and further back through coding theory, where a codeword is m&#183;G, message times generator matrix &ndash; engineering in source, Bell Labs and Lincoln Laboratory, symbols arriving in time and read left to right.</p>' +
+        '<h4>Flow against object</h4>' +
+        '<p>The split tracks subject matter.&ensp; Operator mathematics acts on completed objects &ndash; a vector, a curve, a state &ndash; and writes the action f(x), inner first.&ensp; Engineering&rsquo;s subject is flows: symbols through an encoder, vertices through a pipeline, signal through stages.&ensp; A flow reads left to right in time order, so engineering keeps rediscovering row vectors, independently, for the same ergonomic reason.&ensp; Pure mathematics is not unanimously left-handed either: a long tradition in permutation group theory writes maps postfix, x&#963;, exactly so that &#963;&#964; means &#963; first; right modules are forced rather than chosen once rings stop commuting; and the deepest frame is duality &ndash; row vectors are the dual space, acting on the right is acting on functionals, and the transpose is an equivalence, not a ranking.&ensp; Mathematics does not crown a side; it demands the declaration.</p>' +
+        '<h4>The standard, and the sin</h4>' +
+        '<p>So the standard here is the operator mainstream, columns, declared and kept: the parabola is an object being acted on, not a flow.&ensp; The pipeline chapters are where the other handedness starts whispering, and the right response there is to name the fork, not absorb it.&ensp; The sin was never either convention; it is mixing them in silence &ndash; the bug that bites every port between the two graphics APIs, where one matrix copied across an unmarked border arrives transposed.&ensp; Conventions are declared at the door or they collect their fee inside.&ensp; Reading pointers, as vocabulary: <em>dual space</em>, <em>right action</em>, <em>row-major and column-major storage</em>.</p>'
+    },
+    'homogeneous': {
+      title: 'Homogeneous coordinates, one dimension up',
+      body: '<h4>What the lift is</h4>' +
+        '<p>The lifted point (t, y, 1) is a representative of something larger.&ensp; Take &#8477;<sup>3</sup> and consider not points but lines through the origin: that space of lines is the projective plane, &#8477;P<sup>2</sup>.&ensp; A plane point (t, y) names the line through (t, y, 1), and every nonzero multiple (w&#183;t, w&#183;y, w) names the same line, so the same projective point.&ensp; Insisting that the last coordinate read 1 is choosing a slice through the bundle of lines &ndash; an affine chart &ndash; and the plane this whole section works in is that slice.&ensp; Projective geometry is what remains when the slice is no longer insisted on.</p>' +
+        '<h4>What the lift buys</h4>' +
+        '<p>Three fortunes, paid at once.&ensp; Closure: without the lift an affine map is a pair, matrix plus shift, and pairs compose by the bespoke law this section already derived &ndash; (b<sub>1</sub> + a<sub>1</sub>b<sub>2</sub>,&ensp;a<sub>1</sub>a<sub>2</sub>,&ensp;c<sub>1</sub> + a<sub>1</sub>c<sub>2</sub>), the scale twisting whatever rides after it.&ensp; Lifted, the block matrix multiplies like anything else and that bookkeeping falls out of the bottom row automatically.&ensp; Associativity: once every stage is a matrix, an entire stack of transforms collapses to one matrix computed once, and each point then costs a single multiply no matter how deep the stack &ndash; the economics that makes per-vertex transformation feasible at all.&ensp; Uniformity: hardware cannot cheaply branch on what kind of motion a stage is; one operation type is one circuit, and everything-is-a-matrix is a circuit specification wearing mathematical clothes.&ensp; And the same extra coordinate, with the bottom row unlocked, absorbs perspective &ndash; the divide by w &ndash; which is more than affine and is why graphics runs 4&#215;4.</p>' +
+        '<h4>The projective reading</h4>' +
+        '<p>Invertible 3&#215;3 matrices send lines-through-the-origin to lines-through-the-origin, so they act on &#8477;P<sup>2</sup>; these are the homographies.&ensp; The affine matrices &ndash; bottom row (0, 0, 1) &ndash; are exactly the homographies that preserve the slice, which is the same as fixing the line at infinity: the points with w = 0, directions without locations.&ensp; Affine geometry is the stabilizer of the line at infinity inside projective geometry.&ensp; Unlock the bottom row and that line moves &ndash; that is perspective, and the divide by w afterward is nothing but renormalizing back into the chart.&ensp; The conventions every graphics engine carries are this picture verbatim: positions take w = 1, directions take w = 0, and a translation matrix leaves a (v, 0) vector untouched &ndash; which is why normals and light directions do not translate.&ensp; The horizon in a rendered image is the image of the line at infinity under the camera&rsquo;s homography; parallel lines share a direction, so they share a point at infinity, so they meet at a vanishing point on screen.&ensp; The perspective painters were doing this geometry empirically; Desargues and Poncelet formalized it from their problem, M&ouml;bius and Pl&uuml;cker gave it these coordinates, and computer graphics re-imported the mathematics for the founders&rsquo; original use case &ndash; painting a three-dimensional world onto a canvas.</p>' +
+        '<h4>The gift for the parabola</h4>' +
+        '<p>One dimension up, all nondegenerate conics are a single curve: ellipse, parabola, and hyperbola are the same conic cut by different charts.&ensp; What distinguishes them is their relation to the line at infinity &ndash; the ellipse misses it, the hyperbola crosses it twice (its two asymptotic directions), and the parabola is tangent to it, touching infinity at exactly one point, the direction of its axis.&ensp; That is the projective reason a parabola has one open end, and the reason the tilted-parabola question keeps knocking on this section: tilting only moves which point of the infinity line the curve touches, a motion invisible from inside a chart that has pinned t.&ensp; The parameterization story stands one dimension up from here.&ensp; Reading pointers, as vocabulary: <em>projective plane</em>, <em>line at infinity</em>, <em>homography</em>, <em>affine chart</em>.</p>'
     },
     'poincare': {
       title: 'Poincar&eacute; and Analysis Situs',
@@ -5254,8 +5842,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '&chi; was not enough.&ensp; He discovered a 3-manifold &ndash; now called the ' +
         'Poincar&eacute; homology sphere &ndash; that has the same homology invariants as ' +
         'the ordinary 3-sphere but is topologically different.&ensp; The distinguishing ' +
-        'feature: its <em>fundamental group</em> (the set of distinct loops on the surface) ' +
-        'is nontrivial.&ensp; The 3-sphere has no such loops &ndash; every closed curve on ' +
+        'feature: its <em>fundamental group</em> (the set of distinct loops in the space) ' +
+        'is nontrivial.&ensp; The 3-sphere has no such loops &ndash; every closed curve in ' +
         'it can be continuously shrunk to a point.</p>' +
         '<p>This led Poincar&eacute; to his famous conjecture: a closed 3-manifold where ' +
         'every loop can be shrunk to a point must be the 3-sphere.&ensp; He could not prove ' +
@@ -5355,8 +5943,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 
         '<h4>Left and right</h4>' +
         '<p>The geometric test itself is old &ndash; the signed area of a triangle goes back to ' +
-        'Lagrange, and for computer graphics, Stevenson used the same cross-product side test ' +
-        'in earlier work.&ensp; What Pineda showed in his 1988 SIGGRAPH paper was how to ' +
+        'Lagrange &ndash; and the idea of evaluating linear edge expressions at every pixel in ' +
+        'parallel was already in Fuchs and Poulton&rsquo;s Pixel-Planes hardware (1981), which ' +
+        'Pineda cites.&ensp; What Pineda showed in his 1988 SIGGRAPH paper was how to ' +
         'turn it into an efficient rasterization algorithm.&ensp; The key observation: ' +
         'drive along the edges of the triangle in vertex order.&ensp; If a point is inside the ' +
         'triangle, it is always on the same side of every edge.&ensp; If it is outside, it ' +
@@ -5735,8 +6324,11 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'The same model, four rendering techniques.&ensp; Every algorithm gets tested on the ' +
         'same shape.</figcaption></figure>' +
 
-        '<p>The original data has a famous quirk: the teapot is slightly squished vertically ' +
-        'because Newell&rsquo;s display had non-square pixels and he did not correct for it.&ensp; ' +
+        '<p>The original data has a famous quirk: the standard teapot is squashed.&ensp; ' +
+        'Jim Blinn, then a Utah PhD student, scaled Newell&rsquo;s model to three-quarters height ' +
+        'during a demo; everyone &ndash; Newell included &ndash; preferred the stout version, and it is ' +
+        'the one that propagated.&ensp; (A widely repeated story that Blinn was compensating for ' +
+        'non-square pixels is one Blinn himself has debunked.)&ensp; ' +
         'Most reproductions keep the squish.</p>' +
         '<p>GLUT, the OpenGL utility toolkit, has a built-in ' +
         '<code style="color:var(--mint)">glutSolidTeapot()</code> function.&ensp; No other real-world ' +
@@ -5747,12 +6339,13 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'style="max-width:80%;border-radius:6px;border:1px solid var(--b1)">' +
         '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:8px">' +
         'A modern render &ndash; note the slight vertical squish, ' +
-        'faithfully preserved from 1975.</figcaption></figure>' +
+        'faithfully preserved from Blinn&rsquo;s demo.</figcaption></figure>' +
 
         '<h4>The physical teapot</h4>' +
         '<p>The Newells&rsquo; teapot was a Melitta brand pot, purchased from a ZCMI department store ' +
-        'in Salt Lake City.&ensp; They donated it to the Computer History Museum in Mountain View ' +
-        'in 1984, where it is still on display.</p>' +
+        'in Salt Lake City.&ensp; They donated it to the Computer Museum in Boston ' +
+        'in 1984; when that collection moved west, the pot came with it, and it is on display ' +
+        'today at the Computer History Museum in Mountain View.</p>' +
 
         '<figure style="margin:16px 0;text-align:center">' +
         '<img src="artifacts/RealUtahTeapot.png" alt="The actual Melitta teapot" ' +
@@ -5768,7 +6361,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'style="max-width:100%;border-radius:6px;border:1px solid var(--b1)">' +
         '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:8px">' +
         '<em>Smithfield Utah</em> by Alan Butler (2021).&ensp; A digital test model made physical, ' +
-        'fifty years after a physical teapot was made digital.</figcaption></figure>'
+        'nearly fifty years after a physical teapot was made digital.</figcaption></figure>'
     },
 
     'parameterization': {
@@ -5909,9 +6502,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<button onclick="window._pathsReset()" class="anim-btn">&#8634; Reset</button>' +
         '<span style="width:12px"></span>' +
         '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
-        '<button id="pSpd0" onclick="window._pathsSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
-        '<button id="pSpd1" onclick="window._pathsSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
-        '<button id="pSpd2" onclick="window._pathsSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '<button id="paSpd0" onclick="window._pathsSpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="paSpd1" onclick="window._pathsSpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="paSpd2" onclick="window._pathsSpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
         '</div>' +
         '<div class="anim-cap">The four root-to-bin paths for n = 2.&ensp; Each step multiplies by 1 &minus; p (left) or p (right); paths that land in the same bin add, and the number of paths into bin k is the binomial coefficient <span class="binom"><span>2</span><span>k</span></span>.</div>' +
         '<p>Now let the bias vary across its whole range.&ensp; Each bin of the distribution is a colored dot, with a strip beneath that plots that bin&rsquo;s height as the bias p sweeps from 0 to 1.&ensp; Drag p &ndash; or press Sweep &ndash; and each colored dot traces out its own Bernstein curve B<sub>i</sub>(p).</p>' +
@@ -5997,19 +6590,24 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<div>(a<sub>1</sub>&middot;t<sup>2</sup> + b<sub>1</sub>&middot;t + c<sub>1</sub>) + (a<sub>2</sub>&middot;t<sup>2</sup> + b<sub>2</sub>&middot;t + c<sub>2</sub>) = (a<sub>1</sub> + a<sub>2</sub>)&middot;t<sup>2</sup> + (b<sub>1</sub> + b<sub>2</sub>)&middot;t + (c<sub>1</sub> + c<sub>2</sub>)</div>' +
         '</div>' +
         '<h4>The coefficients are a transformation</h4>' +
+        '<p>The same quadratic is two objects at once: a triple (a, b, c), a point in the coordinate space &#8477;<sup>3</sup>; and a curve, its trace, in the plane.&ensp; The correspondence between the triple (a, b, c) and the curve a&middot;t<sup>2</sup> + b&middot;t + c is a linear isomorphism, so the triple does not <em>label</em> the curve, it <em>is</em> the curve in another guise.&ensp; Read geometrically, each coefficient is a motion of the one base parabola t<sup>2</sup>: a scales it vertically, b shears it, c lifts it.&ensp; This is an example of representation theory &ndash; the group at work is the Galilean group. <button class="notes-btn" data-note="galilean" onclick="window._openNotes(\'galilean\',false)">N</button></p>' +
         '<canvas id="cvAff6" width="700" height="460" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:14px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:12px 16px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-top:none;align-items:center;">' +
-        '<label style="font:600 11px var(--mono);color:#6eb4ff;display:flex;align-items:center;gap:6px;">x-scale<input id="af6sx" type="range" min="-1" max="2" step="0.1" value="1" style="accent-color:#6eb4ff;width:76px;"></label>' +
-        '<label style="font:600 11px var(--mono);color:#6eb4ff;display:flex;align-items:center;gap:6px;">y-scale<input id="af6sy" type="range" min="-1" max="2" step="0.1" value="1" style="accent-color:#6eb4ff;width:76px;"></label>' +
-        '<label style="font:600 11px var(--mono);color:#5cc990;display:flex;align-items:center;gap:6px;">x-shear<input id="af6kx" type="range" min="-1.5" max="1.5" step="0.1" value="0" style="accent-color:#5cc990;width:76px;"></label>' +
-        '<label style="font:600 11px var(--mono);color:#5cc990;display:flex;align-items:center;gap:6px;">y-shear<input id="af6ky" type="range" min="-1.5" max="1.5" step="0.1" value="0" style="accent-color:#5cc990;width:76px;"></label>' +
-        '<label style="font:600 11px var(--mono);color:#e8835c;display:flex;align-items:center;gap:6px;">x-move<input id="af6tx" type="range" min="-4" max="4" step="0.1" value="0" style="accent-color:#e8835c;width:76px;"></label>' +
-        '<label style="font:600 11px var(--mono);color:#e8835c;display:flex;align-items:center;gap:6px;">y-move<input id="af6ty" type="range" min="-4" max="4" step="0.1" value="0" style="accent-color:#e8835c;width:76px;"></label>' +
+        '<button id="af6ShRect" onclick="window._aff6Shape(\'rect\')" style="padding:2px 10px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">Rectangle</button>' +
+        '<button id="af6ShPara" onclick="window._aff6Shape(\'para\')" style="padding:2px 10px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">Parabola</button>' +
+        '<span style="display:inline-block;width:1px;height:24px;background:var(--b1);margin:0 2px;"></span>' +
+        '<label style="font:600 11px var(--mono);color:#6eb4ff;display:flex;align-items:center;gap:6px;">x-scale<input id="af6sx" type="range" min="-5" max="5" step="0.01" value="1" style="accent-color:#6eb4ff;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#6eb4ff;display:flex;align-items:center;gap:6px;">y-scale<input id="af6sy" type="range" min="-5" max="5" step="0.01" value="1" style="accent-color:#6eb4ff;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#5cc990;display:flex;align-items:center;gap:6px;">x-shear<input id="af6kx" type="range" min="-5" max="5" step="0.01" value="0" style="accent-color:#5cc990;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#5cc990;display:flex;align-items:center;gap:6px;">y-shear<input id="af6ky" type="range" min="-5" max="5" step="0.01" value="0" style="accent-color:#5cc990;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#e8835c;display:flex;align-items:center;gap:6px;">x-shift<input id="af6tx" type="range" min="-20" max="20" step="0.1" value="0" style="accent-color:#e8835c;width:76px;"></label>' +
+        '<label style="font:600 11px var(--mono);color:#e8835c;display:flex;align-items:center;gap:6px;">y-shift<input id="af6ty" type="range" min="-20" max="20" step="0.1" value="0" style="accent-color:#e8835c;width:76px;"></label>' +
+        '<span style="display:inline-block;width:1px;height:24px;background:var(--b1);margin:0 2px;"></span>' +
+        '<label style="font:600 11px var(--mono);color:#b78cf0;display:flex;align-items:center;gap:6px;">rotation<input id="af6rot" type="range" min="0" max="360" step="1" value="0" oninput="window._aff6Rot(this.value)" style="accent-color:#b78cf0;width:104px;"><span id="af6rotVal" style="min-width:34px;display:inline-block;">0&deg;</span></label>' +
         '<button onclick="window._aff6Reset()" class="anim-btn">&#8634; Reset</button>' +
         '</div>' +
         '<div id="af6Out" style="padding:11px 12px;background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;min-height:60px;"></div>' +
-        '<div class="anim-cap">A rectangle under the full affine group of the plane.&ensp; Six sliders: the four entries of the 2&#215;2 part (two scales, two shears) and the two translations.&ensp; Rotation is not a knob of its own &ndash; it is a blend of scales and shears.&ensp; Lock the top row to 1, 0, 0 and only three are left, which are the parabola&rsquo;s b, a, c below.</div>' +
-        '<p>The same quadratic is two objects at once: a triple (a, b, c), a point in the coordinate space &#8477;<sup>3</sup>; and a curve, its trace, in the plane.&ensp; The correspondence between the triple (a, b, c) and the curve a&middot;t<sup>2</sup> + b&middot;t + c is a linear isomorphism, so the triple does not <em>label</em> the curve, it <em>is</em> the curve in another guise.&ensp; Read geometrically, each coefficient is a motion of the one base parabola t<sup>2</sup>: a scales it vertically, b shears it, c lifts it.&ensp; All three are vertical, and that follows from what t is.&ensp; t is the parameter and a quadratic is a height read over it, one value for each t, so the motions that build it act on the height and leave t fixed.&ensp; Tilting is out &ndash; rotate the parabola and a vertical line soon meets it twice, so it is no longer a function of t; sliding or stretching sideways stays a graph but, on a parabola, only reproduces a shear, a lift, or a rescale, so the three vertical handles already reach every quadratic.&ensp; The count says the same thing: a free affine map of the plane has six degrees of freedom &ndash; the four entries of its 2&#215;2 matrix and its two translations &ndash; and holding t fixed spends three, leaving exactly the three that on t<sup>2</sup> are a, b, c.</p>' +
+        '<div class="anim-cap">A rectangle &ndash; or the parabola y = t&sup2; &ndash; under the full affine group of the plane.&ensp; Six sliders: the four entries of the 2&#215;2 part (two scales, two shears) and the two translations.&ensp; Rotation is not a seventh entry &ndash; it composes on top of all six, blending the scales and shears and turning the translation column with it, so a shifted shape orbits the origin instead of spinning in place.&ensp; Lock the top row to 1, 0, 0 and only three are left, which are the parabola&rsquo;s b, a, c below.</div>' +
         '<canvas id="cvAffine" width="700" height="460" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:16px;padding:10px 12px;background:var(--s2);border:1px solid var(--b1);border-top:none;align-items:center;">' +
         '<label style="font:600 12px var(--mono);color:#e25050;display:flex;align-items:center;gap:7px;">a scales<input id="affSclA" type="range" min="-1" max="2" step="0.1" value="1" style="accent-color:#e25050;width:88px;"></label>' +
@@ -6019,9 +6617,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '</div>' +
         '<div id="affOut" style="padding:11px 12px;background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;min-height:52px;"></div>' +
         '<div class="anim-cap">The faint dashed curve is the base parabola t<sup>2</sup>; the solid curve is what the coefficients make of it.&ensp; Drag a to scale it, b to shear it, c to lift it &ndash; every quadratic is this one parabola transformed.&ensp; The live matrix is those three moves composed, and its middle row is the coordinate vector (b, a, c).</div>' +
-        '<p>Write those three motions as matrices acting on the lifted point (t, y, 1).&ensp; Scaling and shearing are linear, but translation is not &ndash; it moves the origin, so no 2&#215;2 matrix performs it, and the extra coordinate is what earns it a matrix at all.</p>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;margin:14px 0 4px;"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">0   a   0</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#e25050;">scale (a)</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">b   1   0</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#5cc990;">shear (b)</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">0   1   c</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#e8835c;">lift (c)</div></div></div>' +
-        '<p>Their product is a single matrix whose action is the coefficients themselves:</p>' +
+        '<p>Write those three motions as matrices acting on the lifted point (t, y, 1).&ensp; Scaling and shearing are linear, but translation is not &ndash; it moves the origin, so no 2&#215;2 matrix performs it, and the extra coordinate is what earns it a matrix at all.&ensp; The device has a name &ndash; homogeneous coordinates &ndash; and it is projective geometry one dimension up. <button class="notes-btn" data-note="homogeneous" onclick="window._openNotes(\'homogeneous\',false)">N</button></p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start;margin:14px 0 4px;"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">0   1   c</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#e8835c;">lift (c)</div></div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">b   1   0</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#5cc990;">shear (b)</div></div><div style="display:flex;flex-direction:column;align-items:center;gap:6px;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 10px;font:600 13px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre">0   a   0</div><div style="white-space:pre">0   0   1</div></div><div style="font:600 11px var(--mono);color:#e25050;">scale (a)</div></div>' +
+        '<p>Their product &ndash; written with the matrix applied first standing rightmost, so reading right to left walks the same order the animation does: scale, then shear, then lift &ndash; is a single matrix whose action is the coefficients themselves: <button class="notes-btn" data-note="rowColumn" onclick="window._openNotes(\'rowColumn\',false)">N</button></p>' +
         '<div style="display:flex;justify-content:center;margin:12px 0;"><div style="display:flex;flex-direction:column;line-height:1.6;border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:3px 12px;font:600 14px var(--mono);color:var(--fg);"><div style="white-space:pre">1   0   0</div><div style="white-space:pre;color:#e8a832">b   a   c</div><div style="white-space:pre">0   0   1</div></div></div>' +
         '<p>Applied to the lifted base point (t, t<sup>2</sup>, 1) it returns (t, a&middot;t<sup>2</sup> + b&middot;t + c, 1): the middle row (b, a, c) is the coordinate vector, scale on the diagonal, shear beside it, lift in the homogeneous column.&ensp; That move, one extra coordinate so a translation becomes a multiplication, is the one the GPU runs on every vertex; the parabola riding inside a transformation matrix is a model matrix in miniature, which is where this thread is picked up again at the pipeline.</p>' +
         '<h4>The shift in the other corner</h4>' +
@@ -6031,6 +6629,19 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<div style="text-align:left;font:600 14px var(--mono);color:var(--fg);margin:10px 0;line-height:2;">t<sup>2</sup> + b&middot;t = (t + b/2)<sup>2</sup> &minus; b<sup>2</sup>/4</div>' +
         '<p>So the shear never tilts the parabola; it relocates it untilted, vertex at (&minus;b/2, &minus;b<sup>2</sup>/4), and the horizontal placement you would have done with an honest shift is folded into the shear, paid for partly in the constant.&ensp; With a at 1 and c at 0 in the animation above, drag b and watch the vertex refuse to run along the axis &ndash; it dives along y = &minus;x<sup>2</sup>, the signature of a shear and not a slide.&ensp; As maps of the whole plane the two matrices are genuinely different, disagreeing everywhere off the curve and agreeing only on this one parabola, which is exactly why a single quadratic carries both a vertex form and a monomial form at once.</p>' +
         '<p>The corner you fill is the switch.&ensp; Hold it at zero and you have demanded that x stay t: the result is read as a graph over the original parameter, so any horizontal placement must be smuggled in through the shear.&ensp; Put h in the corner and the points are free to move, x is no longer t, the curve turns parametric and stays untilted, and there is no shear at all &ndash; only a scale and two translations, h and k, both sitting in the last column.&ensp; That is the pipeline&rsquo;s own habit: it moves points with the translation in the last column and never asks whether the result is a function of anything.&ensp; The shift-in-the-corner construction is the GPU-native one; the shear form is the price of insisting on reading the parabola as f(t).</p>' +
+        '<canvas id="cvTwoWay" width="700" height="460" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;align-items:center;">' +
+        '<button id="btnTwyPlay" onclick="window._twyPlay()" class="anim-btn">&#9654; Play</button>' +
+        '<button id="btnTwyStep" onclick="window._twyStep()" class="anim-btn">Step</button>' +
+        '<button onclick="window._twyReset()" class="anim-btn">&#8634; Reset</button>' +
+        '<span style="width:12px"></span>' +
+        '<span style="font:500 11px var(--mono);color:var(--fg3);">Speed:</span>' +
+        '<button id="twySpd0" onclick="window._twySpeed(0.5,0)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">0.5x</button>' +
+        '<button id="twySpd1" onclick="window._twySpeed(1,1)" style="padding:2px 8px;border:2px solid var(--amber);border-radius:3px;background:var(--amber);color:#07070a;cursor:pointer;font:600 12px var(--mono);">1x</button>' +
+        '<button id="twySpd2" onclick="window._twySpeed(2,2)" style="padding:2px 8px;border:2px solid var(--b1);border-radius:3px;background:var(--s3);color:var(--fg);cursor:pointer;font:600 12px var(--mono);">2x</button>' +
+        '</div>' +
+        '<div id="twyOut" style="padding:11px 12px;background:var(--s1);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;min-height:96px;"></div>' +
+        '<div class="anim-cap">Two routes to the same target, y = 0.5t&sup2; &minus; 3t + 6.5 = 0.5(t &minus; 3)&sup2; + 2.&ensp; Route one moves the default parabola one basis direction at a time &ndash; scale (the t&sup2; move), shear (the t move), lift (the 1 move) &ndash; and writes each coefficient into the monomial matrix&rsquo;s middle row as it lands.&ensp; Route two resets and goes the pipeline&rsquo;s way &ndash; x-shift, scale, y-shift &ndash; and writes its own matrix, the shift in the corner.&ensp; The curve ends in the same place both times; the two matrices end different.&ensp; Completing the square is the dictionary between them.</div>' +
         '<canvas id="cvMono" width="700" height="560" style="width:100%;border-radius:4px 4px 0 0;background:var(--s1);display:block;border:1px solid var(--b1);margin-top:18px"></canvas>' +
         '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--b1);border-top:none;border-radius:0 0 4px 4px;align-items:center;">' +
         '<button id="btnMonoPlay" onclick="window._monoPlay()" class="anim-btn">&#9654; Play</button>' +
@@ -6205,6 +6816,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'carpenter',
     'teapot',
     'nv1Quadratics',
+    'galilean',
+    'rowColumn',
+    'homogeneous',
     'parameterization',
     'deCasteljau',
     'transformLighting'
@@ -6221,6 +6835,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     'carpenter': 'Section 1 &ndash; The pixel problem',
     'teapot': 'Section 1 &ndash; The pixel problem',
     'nv1Quadratics': 'Section 2 &ndash; The game engine that ate everything',
+    'galilean': 'Section 2 &ndash; The game engine that ate everything',
+    'rowColumn': 'Section 2 &ndash; The game engine that ate everything',
+    'homogeneous': 'Section 2 &ndash; The game engine that ate everything',
     'parameterization': 'Section 2 &ndash; The game engine that ate everything',
     'deCasteljau': 'Section 2 &ndash; The game engine that ate everything',
     'transformLighting': 'Section 2 &ndash; The game engine that ate everything'
@@ -11970,9 +12587,26 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     if(spinning){ b.innerHTML='&#9208; Spin'; b.style.background='var(--amber)'; b.style.color='#07070a'; b.style.borderColor='var(--amber)'; }
     else { b.innerHTML='&#9654; Spin'; b.style.background=''; b.style.color=''; b.style.borderColor=''; }
   }
+  // Shared fallback for engines WITHOUT Pointer Events (stripped or locked-down viewers):
+  // mouse+touch compatibility binding, same idiom as cvBez/cvBfns/cvGalton2. Used ONLY when
+  // window.PointerEvent is absent - binding both would double-fire in modern browsers
+  // (every pointer event re-dispatches a compatibility mouse event). The shim object gives
+  // touch points the clientX/clientY/preventDefault/pointerId shape the handlers expect.
+  window._dragFallback=function(cv,down,move,up,cancel){
+    function sh(e){ var t=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+      return { clientX:t.clientX, clientY:t.clientY, pointerId:0,
+        preventDefault:function(){ if(e.cancelable&&e.preventDefault) e.preventDefault(); } }; }
+    cv.addEventListener('mousedown', function(e){ down(sh(e)); });
+    cv.addEventListener('mousemove', function(e){ move(sh(e)); });
+    window.addEventListener('mouseup', function(e){ up(sh(e)); });
+    cv.addEventListener('touchstart', function(e){ if(e.cancelable&&e.preventDefault) e.preventDefault(); down(sh(e)); }, {passive:false});
+    cv.addEventListener('touchmove', function(e){ if(e.cancelable&&e.preventDefault) e.preventDefault(); move(sh(e)); }, {passive:false});
+    window.addEventListener('touchend', function(e){ up(sh(e)); });
+    window.addEventListener('touchcancel', function(e){ (cancel||up)(sh(e)); });
+  };
   function attach(){
     var cv=document.getElementById('cvCage'); if(!cv||cv._cgbound) return; cv._cgbound=true; cv.style.touchAction='none'; cv.style.cursor='grab';
-    cv.addEventListener('pointerdown', function(e){
+    function down(e){
       var rect=cv.getBoundingClientRect(), sx=cv.width/rect.width, sy=cv.height/rect.height;
       var mx=(e.clientX-rect.left)*sx, my=(e.clientY-rect.top)*sy, best=1e9, i, j;
       dragK=-1;
@@ -11982,8 +12616,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
       cv.style.cursor=(dragK>=0)?'move':'grabbing';
       if(cv.setPointerCapture){ try{ cv.setPointerCapture(e.pointerId); }catch(err){} }
       e.preventDefault();
-    });
-    cv.addEventListener('pointermove', function(e){ if(!dragging) return;
+    }
+    function move(e){ if(!dragging) return;
       var dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
       if(dragK>=0){ var ct=Math.cos(tilt), i=Math.floor(dragK/3), j=dragK%3;
         var hsl=(dx*dragSx)/curSC, dz=-(dy*dragSy)/(ct*curSC);
@@ -11992,10 +12626,14 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         if(cy[i][j]>2.5)cy[i][j]=2.5; if(cy[i][j]<-2.5)cy[i][j]=-2.5;
         if(cz[i][j]>3.2)cz[i][j]=3.2; if(cz[i][j]<-2.4)cz[i][j]=-2.4; rebuild();
       } else { ang+=dx*0.01; tilt+=dy*0.01; if(tilt<-0.2) tilt=-0.2; if(tilt>1.3) tilt=1.3; }
-    });
+    }
     function end(){ dragging=false; cv.style.cursor='grab'; }
-    cv.addEventListener('pointerup', end);
-    cv.addEventListener('pointercancel', end);
+    if(window.PointerEvent){
+      cv.addEventListener('pointerdown', down);
+      cv.addEventListener('pointermove', move);
+      cv.addEventListener('pointerup', end);
+      cv.addEventListener('pointercancel', end);
+    } else { window._dragFallback(cv, down, move, end); }
   }
   window._cageSpin=function(){ spinning=!spinning; setSpinBtn(); };
   window._cageReset=function(){ resetPts(); rebuild(); ang=0.7; tilt=0.5; spinning=false; activeK=-1; setSpinBtn(); };
@@ -12344,7 +12982,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     rafP=requestAnimationFrame(frame);
   }
   var pathsBar=new AnimBtnBar({
-    playId:'btnPathsPlay', stepId:'btnPathsStep', speedIds:['pSpd0','pSpd1','pSpd2'],
+    playId:'btnPathsPlay', stepId:'btnPathsStep', speedIds:['paSpd0','paSpd1','paSpd2'],
     isDone:function(){ return stage>=6 && !tween; },
     onStep:function(){ if(!tween) startStep(); },
     onPlay:function(){ if(!tween){ if(stage>=6) stage=0; startStep(); } },
@@ -12957,15 +13595,18 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._paintTool=function(t){ tool=t; dragging=false; editing=null; hover=null; setToolBtns(); redraw(); };
   window._paintUndo=function(){ shapes.pop(); dragging=false; editing=null; hover=null; redraw(); };
   window._paintClear=function(){ shapes=[]; dragging=false; editing=null; hover=null; redraw(); };
+  function onCancel(){ dragging=false; editing=null; redraw(); }
   function initPaint(){
     cv=document.getElementById('cvPaint'); if(!cv) return;
     if(cv._pInit) return; cv._pInit=true;
-    ctx=cv.getContext('2d');
+    ctx=cv.getContext('2d'); cv.style.touchAction='none';
     dragging=false; editing=null; hover=null;
-    cv.addEventListener('pointerdown',onDown);
-    cv.addEventListener('pointermove',onMove);
-    cv.addEventListener('pointerup',onUp);
-    cv.addEventListener('pointercancel',function(){ dragging=false; editing=null; redraw(); });
+    if(window.PointerEvent){
+      cv.addEventListener('pointerdown',onDown);
+      cv.addEventListener('pointermove',onMove);
+      cv.addEventListener('pointerup',onUp);
+      cv.addEventListener('pointercancel',onCancel);
+    } else { window._dragFallback(cv,onDown,onMove,onUp,onCancel); }
     setToolBtns();
     redraw();
   }
@@ -13621,11 +14262,15 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   function attach(){
     var cv=document.getElementById('cvVD'); if(!cv||cv._vdbound) return; cv._vdbound=true; cv.style.touchAction='none'; cv.style.cursor='grab';
     function pos(e){ var r=cv.getBoundingClientRect(); return [ (e.clientX-r.left)*(cv.width/r.width), (e.clientY-r.top)*(cv.height/r.height) ]; }
-    cv.addEventListener('pointerdown', function(e){ var p=pos(e); drag=pick(p[0],p[1]); if(drag){ cv.style.cursor='grabbing'; if(cv.setPointerCapture){try{cv.setPointerCapture(e.pointerId);}catch(err){}} e.preventDefault(); } });
-    cv.addEventListener('pointermove', function(e){ if(!drag) return; var p=pos(e), x=clampX(p[0]), y=clampY(p[1]);
-      if(drag.type==='p') P[drag.i]=[x,y]; else if(drag.type==='a') A=[x,y]; else B=[x,y]; });
+    function down(e){ var p=pos(e); drag=pick(p[0],p[1]); if(drag){ cv.style.cursor='grabbing'; if(cv.setPointerCapture){try{cv.setPointerCapture(e.pointerId);}catch(err){}} e.preventDefault(); } }
+    function move(e){ if(!drag) return; var p=pos(e), x=clampX(p[0]), y=clampY(p[1]);
+      if(drag.type==='p') P[drag.i]=[x,y]; else if(drag.type==='a') A=[x,y]; else B=[x,y]; }
     function end(){ drag=null; cv.style.cursor='grab'; }
-    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    if(window.PointerEvent){
+      cv.addEventListener('pointerdown', down);
+      cv.addEventListener('pointermove', move);
+      cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+    } else { window._dragFallback(cv, down, move, end); }
   }
   window._vdReset=function(){ reset(); };
   var oOpenVd=window._openNotes;
@@ -13812,22 +14457,28 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   window._closeNotes=function(){ if(rafAff){ cancelAnimationFrame(rafAff); rafAff=null; } oCloseAff(); };
 })();
 
-// ============ CVAFF6: a rectangle under the full 2D affine group - six sliders (two scales, two shears, two translations); the parabola's three are this with the top row locked to 1 0 0 ============
+// ============ CVAFF6: a rectangle OR the parabola t^2 (shape toggle) under the full 2D affine group - six sliders (two scales, two shears, two translations); the parabola's three are this with the top row locked to 1 0 0 ============
 (function(){
   var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
   var W=700,H=460,ML=44,MR=18,MT=20,MB=36,PW=W-ML-MR,plotH=H-MT-MB,top=MT;
-  var PPU=50, CX=ML+PW/2, CY=top+plotH/2;
+  var PPU=20, CX=ML+PW/2, CY=top+plotH/2;
   var GHOST='#6b7280', AMB='#e8a832', BLUE='#6eb4ff', GRN='#5cc990', COR='#e8835c';
   var rafAff6=null, lastKey6='';
-  var RECT=[[-2,-1],[2,-1],[2,1],[-2,1]];
+  var RECT=[[-4,-2],[4,-2],[4,2],[-4,2]];
+  var shape6='rect';
+  function paraPts(){ var halfW=(PW/2)/PPU, halfH=(plotH/2)/PPU,
+      S=Math.max(2, halfW, Math.sqrt(Math.max(0,halfH))), p=[], i, N=160, t;
+    for(i=0;i<=N;i++){ t=-S+2*S*i/N; p.push([t,t*t]); } return p; }
+  function gridStep(){ var minPx=26, raw=minPx/PPU, p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), q=raw/p;
+    return (q<=1?1:(q<=2?2:(q<=5?5:10)))*p; }
   function PX(u){ return CX+u*PPU; }
   function PY(v){ return CY-v*PPU; }
   function val(id,d){ var e=document.getElementById(id); return e?parseFloat(e.value):d; }
   function f1(x){ var s=(Math.round(x*10)/10).toFixed(1); if(s==='-0.0')s='0.0'; return s.replace('-','\u2212'); }
   function ap(m,x,y){ return [m.sx*x+m.kx*y+m.tx, m.ky*x+m.sy*y+m.ty]; }
   window._aff6Apply=function(sx,kx,tx,ky,sy,ty,x,y){ return [sx*x+kx*y+tx, ky*x+sy*y+ty]; };
-  function poly(ctx,pts){ var i; ctx.beginPath();
-    for(i=0;i<pts.length;i++){ var X=PX(pts[i][0]),Y=PY(pts[i][1]); if(i===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); } ctx.closePath(); }
+  function poly(ctx,pts,closed){ var i; ctx.beginPath();
+    for(i=0;i<pts.length;i++){ var X=PX(pts[i][0]),Y=PY(pts[i][1]); if(i===0)ctx.moveTo(X,Y); else ctx.lineTo(X,Y); } if(closed) ctx.closePath(); }
   function updateOut(m){ var o=document.getElementById('af6Out'); if(!o) return;
     function c(t,col){ return '<span style="display:inline-block;width:3.6em;text-align:right;color:'+col+'">'+t+'</span>'; }
     var br='border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:1px 10px;';
@@ -13843,34 +14494,163 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   function draw(){ var cv=document.getElementById('cvAff6'); if(!cv) return;
     var ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H); var k;
     var m={sx:val('af6sx',1),kx:val('af6kx',0),tx:val('af6tx',0),ky:val('af6ky',0),sy:val('af6sy',1),ty:val('af6ty',0)};
+    var th=val('af6rot',0)*Math.PI/180, cR=Math.cos(th), sR=Math.sin(th);
+    var me={ sx:cR*m.sx-sR*m.ky, kx:cR*m.kx-sR*m.sy, tx:cR*m.tx-sR*m.ty,
+             ky:sR*m.sx+cR*m.ky, sy:sR*m.kx+cR*m.sy, ty:sR*m.tx+cR*m.ty };
+    var gs=gridStep(), halfW=(PW/2)/PPU, halfH=(plotH/2)/PPU;
     ctx.strokeStyle='#1d1d28'; ctx.lineWidth=1;
-    for(k=-6;k<=6;k++){ ctx.beginPath(); ctx.moveTo(PX(k),top); ctx.lineTo(PX(k),top+plotH); ctx.stroke(); }
-    for(k=-4;k<=4;k++){ ctx.beginPath(); ctx.moveTo(ML,PY(k)); ctx.lineTo(ML+PW,PY(k)); ctx.stroke(); }
+    for(k=gs;k<=halfW;k+=gs){ ctx.beginPath(); ctx.moveTo(PX(k),top); ctx.lineTo(PX(k),top+plotH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PX(-k),top); ctx.lineTo(PX(-k),top+plotH); ctx.stroke(); }
+    for(k=gs;k<=halfH;k+=gs){ ctx.beginPath(); ctx.moveTo(ML,PY(k)); ctx.lineTo(ML+PW,PY(k)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ML,PY(-k)); ctx.lineTo(ML+PW,PY(-k)); ctx.stroke(); }
     ctx.strokeStyle='#4a4a5e'; ctx.lineWidth=1.3;
     ctx.beginPath(); ctx.moveTo(PX(0),top); ctx.lineTo(PX(0),top+plotH); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(ML,PY(0)); ctx.lineTo(ML+PW,PY(0)); ctx.stroke();
     ctx.save(); ctx.beginPath(); ctx.rect(ML,top,PW,plotH); ctx.clip();
+    var SH=(shape6==='para')?paraPts():RECT, CL=(shape6!=='para');
     ctx.setLineDash([5,5]); ctx.strokeStyle=GHOST; ctx.lineWidth=1.8; ctx.globalAlpha=0.85;
-    poly(ctx,RECT); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
-    var gc=RECT[2]; ctx.fillStyle=GHOST; ctx.beginPath(); ctx.arc(PX(gc[0]),PY(gc[1]),3.5,0,7); ctx.fill();
-    var TP=RECT.map(function(p){return ap(m,p[0],p[1]);});
-    poly(ctx,TP); ctx.fillStyle='rgba(232,168,50,0.14)'; ctx.fill();
+    poly(ctx,SH,CL); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha=1;
+    var gc=CL?SH[2]:[2,4]; ctx.fillStyle=GHOST; ctx.beginPath(); ctx.arc(PX(gc[0]),PY(gc[1]),3.5,0,7); ctx.fill();
+    var TP=SH.map(function(p){return ap(me,p[0],p[1]);});
+    poly(ctx,TP,CL); if(CL){ ctx.fillStyle='rgba(232,168,50,0.14)'; ctx.fill(); }
     ctx.strokeStyle=AMB; ctx.lineWidth=2.6; ctx.stroke();
-    var tc=TP[2]; ctx.fillStyle=AMB; ctx.beginPath(); ctx.arc(PX(tc[0]),PY(tc[1]),4,0,7); ctx.fill();
+    var tc=CL?TP[2]:ap(me,2,4); ctx.fillStyle=AMB; ctx.beginPath(); ctx.arc(PX(tc[0]),PY(tc[1]),4,0,7); ctx.fill();
     ctx.restore();
     ctx.font='600 12px '+FN; ctx.textBaseline='top'; ctx.textAlign='left';
     ctx.fillStyle=GHOST; ctx.fillText('base', ML+8, top+plotH-18);
     ctx.fillStyle=AMB; ctx.fillText('transformed', ML+8, top+8);
-    var key=[m.sx,m.kx,m.tx,m.ky,m.sy,m.ty].join('|'); if(key!==lastKey6){ lastKey6=key; updateOut(m); }
+    var key=[me.sx,me.kx,me.tx,me.ky,me.sy,me.ty].join('|'); if(key!==lastKey6){ lastKey6=key; updateOut(me); }
   }
   function loop(){ draw(); rafAff6=requestAnimationFrame(loop); }
-  window._aff6Reset=function(){ var d={af6sx:1,af6kx:0,af6tx:0,af6ky:0,af6sy:1,af6ty:0},s,id;
-    for(id in d){ s=document.getElementById(id); if(s)s.value=d[id]; } lastKey6=''; };
+  function setRotVal(deg){ var e=document.getElementById('af6rotVal'); if(e) e.innerHTML=Math.round(deg)+'&deg;'; }
+  window._aff6Rot=function(deg){ setRotVal(deg); lastKey6=''; };
+  window._aff6Reset=function(){ var d={af6sx:1,af6kx:0,af6tx:0,af6ky:0,af6sy:1,af6ty:0,af6rot:0},s,id;
+    for(id in d){ s=document.getElementById(id); if(s)s.value=d[id]; } setRotVal(0); lastKey6=''; };
+  function setShapeBtns(){ var R=document.getElementById('af6ShRect'), Pb=document.getElementById('af6ShPara');
+    function on(b){ if(b){b.style.borderColor='var(--amber)';b.style.background='var(--amber)';b.style.color='#07070a';} }
+    function off(b){ if(b){b.style.borderColor='var(--b1)';b.style.background='var(--s3)';b.style.color='var(--fg)';} }
+    if(shape6==='rect'){ on(R);off(Pb); } else { off(R);on(Pb); } }
+  window._aff6Shape=function(s){ shape6=s; setShapeBtns(); };
   var oOpen6=window._openNotes;
   window._openNotes=function(id,scroll){ oOpen6(id,scroll);
-    if(id==='nv1Quadratics' && !rafAff6){ lastKey6=''; rafAff6=requestAnimationFrame(loop); } };
+    if(id==='nv1Quadratics' && !rafAff6){ lastKey6=''; setShapeBtns(); rafAff6=requestAnimationFrame(loop); } };
   var oClose6=window._closeNotes;
   window._closeNotes=function(){ if(rafAff6){ cancelAnimationFrame(rafAff6); rafAff6=null; } oClose6(); };
+})();
+
+// ============ CVTWOWAY: two routes to one target parabola - route 1 (scale, shear, lift) fills the monomial matrix's middle row; route 2 (scale, x-shift, y-shift) fills the vertex matrix, shift in the corner; same final curve, different matrices = completing the square in motion ============
+(function(){
+  var FN='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+  var W=700,H=460,ML=44,MR=18,MT=20,MB=36,PW=W-ML-MR,plotH=H-MT-MB,top=MT;
+  var PPU=20, CX=ML+279, CY=top+plotH-130;   // origin shifted left+down: window x [-13.95,17.95], y [-6.5,13.7]
+  var GHOST='#6b7280', AMB='#e8a832', RED='#e25050', GRN='#5cc990', COR='#e8835c', BLUE='#6eb4ff';
+  var TA=0.5, TB=-3, TC=6.5, TH=3, TK=2;
+  var DUR=[0,1400,1400,1400,700,1400,1400,1400];
+  var LBL=['','route 1 \u2013 scale: \u00d7a on t\u00b2','route 1 \u2013 shear: + b\u00b7t','route 1 \u2013 lift: + c\u00b71',
+           'reset to the default parabola','route 2 \u2013 x-shift: t \u2192 t \u2212 h','route 2 \u2013 scale: \u00d7a','route 2 \u2013 y-shift: + k'];
+  var stage=0, tween=null, rafTwy=null, lastTs=0, spd=1, playTimer=null, lastOutKey='';
+  function PX(u){ return CX+u*PPU; } function PY(v){ return CY-v*PPU; }
+  function ease(u){ return u*u*(3-2*u); }
+  function lerp(p,q,s){ return p+(q-p)*s; }
+  function f1(x){ var s=(Math.round(x*10)/10).toFixed(1); if(s==='-0.0')s='0.0'; return s.replace('-','\u2212'); }
+  function stateOf(){
+    var s=tween?ease(tween.u):0;
+    function v(n,from,to){ return stage>=n ? to : (tween&&tween.toStage===n ? lerp(from,to,s) : from); }
+    var a1=v(1,1,TA), b1=v(2,0,TB), c1=v(3,0,TC);
+    var h=v(5,0,TH), a2=v(6,1,TA), k=v(7,0,TK);
+    var A,B,C;
+    if(tween&&tween.toStage===4){ A=lerp(TA,1,s); B=lerp(TB,0,s); C=lerp(TC,0,s); }
+    else if(stage>=4){ A=a2; B=-2*a2*h; C=a2*h*h+k; }
+    else { A=a1; B=b1; C=c1; }
+    return {A:A,B:B,C:C, m1:[b1,a1,c1], m2:[a2,h,k]};
+  }
+  function gridStep(){ var minPx=26, raw=minPx/PPU, p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), q=raw/p;
+    return (q<=1?1:(q<=2?2:(q<=5?5:10)))*p; }
+  function curveQ(ctx,A,B,C,col,wid,dash){ var x0=-(CX-ML)/PPU, x1=(ML+PW-CX)/PPU, N=160, i, t, y;
+    ctx.beginPath();
+    for(i=0;i<=N;i++){ t=x0+(x1-x0)*i/N; y=A*t*t+B*t+C; if(i===0)ctx.moveTo(PX(t),PY(y)); else ctx.lineTo(PX(t),PY(y)); }
+    if(dash)ctx.setLineDash([5,5]); ctx.strokeStyle=col; ctx.lineWidth=wid; ctx.stroke(); ctx.setLineDash([]); }
+  function cell(t,col){ return '<span style="display:inline-block;width:3.6em;text-align:right;color:'+col+'">'+t+'</span>'; }
+  function matBlock(title,rows,active){
+    var br='border-left:2px solid var(--fg3);border-right:2px solid var(--fg3);padding:1px 10px;', i, html;
+    html='<div><div style="font:600 11px '+FN+';color:'+(active?AMB:'var(--fg3)')+';margin-bottom:4px;">'+title+'</div>'+
+         '<div style="display:flex;flex-direction:column;line-height:1.7;font:600 13px '+FN+';">';
+    for(i=0;i<3;i++){ html+='<div style="'+br+'">'+rows[i]+'</div>'; }
+    return html+'</div></div>';
+  }
+  function updateOut(st,activeOp){
+    var o=document.getElementById('twyOut'); if(!o) return;
+    var F3='var(--fg3)';
+    var r1=[ cell('1',F3)+cell('0',F3)+cell('0',F3),
+             cell(f1(st.m1[0]),GRN)+cell(f1(st.m1[1]),RED)+cell(f1(st.m1[2]),COR),
+             cell('0',F3)+cell('0',F3)+cell('1',F3) ];
+    var r2=[ cell('1',F3)+cell('0',F3)+cell(f1(st.m2[1]),BLUE),
+             cell('0',F3)+cell(f1(st.m2[0]),RED)+cell(f1(st.m2[2]),COR),
+             cell('0',F3)+cell('0',F3)+cell('1',F3) ];
+    o.innerHTML='<div style="display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;">'+
+      matBlock('monomial form &ensp; y = a&middot;t&sup2; + b&middot;t + c', r1, activeOp===1)+
+      matBlock('vertex form &ensp; y = a(t &minus; h)&sup2; + k', r2, activeOp===2)+
+      '</div>';
+  }
+  function draw(){
+    var cv=document.getElementById('cvTwoWay'); if(!cv) return;
+    var ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H); var k2;
+    var st=stateOf();
+    var gs=gridStep(), xMin=-(CX-ML)/PPU, xMax=(ML+PW-CX)/PPU, yMin=-(top+plotH-CY)/PPU, yMax=(CY-top)/PPU;
+    ctx.strokeStyle='#1d1d28'; ctx.lineWidth=1;
+    for(k2=Math.ceil(xMin/gs)*gs;k2<=xMax;k2+=gs){ if(Math.abs(k2)<1e-9) continue;
+      ctx.beginPath(); ctx.moveTo(PX(k2),top); ctx.lineTo(PX(k2),top+plotH); ctx.stroke(); }
+    for(k2=Math.ceil(yMin/gs)*gs;k2<=yMax;k2+=gs){ if(Math.abs(k2)<1e-9) continue;
+      ctx.beginPath(); ctx.moveTo(ML,PY(k2)); ctx.lineTo(ML+PW,PY(k2)); ctx.stroke(); }
+    ctx.strokeStyle='#4a4a5e'; ctx.lineWidth=1.3;
+    ctx.beginPath(); ctx.moveTo(PX(0),top); ctx.lineTo(PX(0),top+plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ML,PY(0)); ctx.lineTo(ML+PW,PY(0)); ctx.stroke();
+    ctx.save(); ctx.beginPath(); ctx.rect(ML,top,PW,plotH); ctx.clip();
+    ctx.globalAlpha=0.85; curveQ(ctx,TA,TB,TC,GHOST,1.8,true); ctx.globalAlpha=1;
+    ctx.fillStyle=GHOST; ctx.beginPath(); ctx.arc(PX(TH),PY(TK),3.5,0,7); ctx.fill();
+    curveQ(ctx,st.A,st.B,st.C,AMB,2.6,false);
+    var tv=-st.B/(2*st.A), yv=st.C-st.B*st.B/(4*st.A);
+    ctx.fillStyle=AMB; ctx.beginPath(); ctx.arc(PX(tv),PY(yv),4,0,7); ctx.fill();
+    ctx.restore();
+    ctx.font='600 12px '+FN; ctx.textBaseline='top'; ctx.textAlign='left';
+    ctx.fillStyle=GHOST; ctx.fillText('target:  0.5t\u00b2 \u2212 3t + 6.5  =  0.5(t \u2212 3)\u00b2 + 2', ML+8, top+6);
+    var lbl = tween ? LBL[tween.toStage] : (stage>=7 ? 'same curve \u2013 two matrices' : (stage>0 ? LBL[stage] : ''));
+    if(lbl){ ctx.fillStyle=AMB; ctx.font='600 13px '+FN; ctx.fillText(lbl, ML+8, top+24); }
+    ctx.fillStyle=GHOST; ctx.font='600 12px '+FN; ctx.fillText('target', ML+8, top+plotH-18);
+    var activeOp = tween ? (tween.toStage<=3?1:(tween.toStage>=5?2:0)) : (stage>=5?2:(stage>=1?1:0));
+    var key=st.m1.concat(st.m2).map(f1).join('|')+'|'+activeOp;
+    if(key!==lastOutKey){ lastOutKey=key; updateOut(st,activeOp); }
+  }
+  function startStep(){ if(stage>=7) return; tween={u:0,toStage:stage+1}; }
+  function finishTween(){ stage=tween.toStage; tween=null; twyBar.stepDone(); }
+  function frame(ts){
+    if(!lastTs)lastTs=ts; var dt=ts-lastTs; lastTs=ts; if(dt>50)dt=50;
+    if(tween && (twyBar.mode==='playing'||twyBar.mode==='stepping')){
+      tween.u += dt/DUR[tween.toStage]*spd;
+      if(tween.u>=1){ tween.u=1; finishTween(); }
+    }
+    draw(); rafTwy=requestAnimationFrame(frame);
+  }
+  function hardReset(){ if(playTimer){clearTimeout(playTimer);playTimer=null;} tween=null; stage=0; lastOutKey=''; }
+  var twyBar = new AnimBtnBar({
+    playId:'btnTwyPlay', stepId:'btnTwyStep', speedIds:['twySpd0','twySpd1','twySpd2'],
+    isDone:   function(){ return stage>=7 && !tween; },
+    onStep:   function(){ if(!tween) startStep(); },
+    onPlay:   function(){ if(!tween){ if(stage>=7) hardReset(); startStep(); } },
+    onPause:  function(){ if(playTimer){ clearTimeout(playTimer); playTimer=null; } },
+    onReset:  function(){ hardReset(); },
+    onAdvance:function(){ playTimer=setTimeout(function(){ if(twyBar.mode==='playing') startStep(); }, 760/spd); }
+  });
+  window._twyPlay  = function(){ twyBar.play(); };
+  window._twyStep  = function(){ twyBar.step(); };
+  window._twyReset = function(){ twyBar.reset(); };
+  window._twySpeed = function(mult, idx){ spd=mult; twyBar.selectSpeed(idx); };
+  var oOpenTwy=window._openNotes;
+  window._openNotes=function(id,scroll){ oOpenTwy(id,scroll);
+    if(id==='nv1Quadratics' && !rafTwy){ hardReset(); lastTs=0; twyBar.mode='idle'; twyBar.update(); rafTwy=requestAnimationFrame(frame); }
+  };
+  var oCloseTwy=window._closeNotes;
+  window._closeNotes=function(){ if(rafTwy){ cancelAnimationFrame(rafTwy); rafTwy=null; } oCloseTwy(); };
 })();
 
 // ============ CVGALTON: a Galton board building the binomial distribution = Bernstein weights at bias p (read p as t) ============
@@ -14127,10 +14907,15 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
   function setSpinBtn(){ var b=document.getElementById('b3Spin'); if(!b) return; if(spinning){ b.textContent='\u23f8 Spin'; b.style.background='var(--amber)'; b.style.color='#07070a'; b.style.borderColor='var(--amber)'; } else { b.textContent='\u25b6 Spin'; b.style.background=''; b.style.color=''; b.style.borderColor=''; } }
   function attach(){
     var cv=document.getElementById('cvBinom3D'); if(!cv || cv._b3bound) return; cv._b3bound=true; cv.style.touchAction='none'; cv.style.cursor='grab';
-    cv.addEventListener('pointerdown', function(e){ dragging=true; snapTarget=null; lastX=e.clientX; lastY=e.clientY; cv.style.cursor='grabbing'; if(cv.setPointerCapture){ try{ cv.setPointerCapture(e.pointerId); }catch(err){} } e.preventDefault(); });
-    cv.addEventListener('pointermove', function(e){ if(!dragging) return; var dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; ang+=dx*0.01; tilt+=dy*0.01; if(tilt<-0.2) tilt=-0.2; if(tilt>1.3) tilt=1.3; });
-    cv.addEventListener('pointerup', function(e){ dragging=false; cv.style.cursor='grab'; });
-    cv.addEventListener('pointercancel', function(e){ dragging=false; cv.style.cursor='grab'; });
+    function down(e){ dragging=true; snapTarget=null; lastX=e.clientX; lastY=e.clientY; cv.style.cursor='grabbing'; if(cv.setPointerCapture){ try{ cv.setPointerCapture(e.pointerId); }catch(err){} } e.preventDefault(); }
+    function move(e){ if(!dragging) return; var dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY; ang+=dx*0.01; tilt+=dy*0.01; if(tilt<-0.2) tilt=-0.2; if(tilt>1.3) tilt=1.3; }
+    function end(){ dragging=false; cv.style.cursor='grab'; }
+    if(window.PointerEvent){
+      cv.addEventListener('pointerdown', down);
+      cv.addEventListener('pointermove', move);
+      cv.addEventListener('pointerup', end);
+      cv.addEventListener('pointercancel', end);
+    } else { window._dragFallback(cv, down, move, end); }
   }
   window._b3Spin=function(){ spinning=!spinning; if(spinning) snapTarget=null; setSpinBtn(); updateSnapBtns(); };
   window._b3View=function(){ ang=0.72; tilt=0.50; snapTarget=null; };
