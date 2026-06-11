@@ -1,6 +1,6 @@
 # Universal AI Rules for Teaching Artifacts
 
-**Version: 6**
+**Version: 7**
 
 This is the canonical source for AI behavioral rules shared across all
 teaching artifacts in the GPU computing lecture series.  Each artifact
@@ -202,6 +202,41 @@ section is never overwritten during sync.
       needs an inline definition.  Some are left as natural prompts
       for the reader to ask about in context.
 
+## Collaborative learning model
+
+  This is how these artifacts are built and how they are meant to be
+  extended.  The human author may not be a domain expert.  The artifact
+  is produced by sitting with an AI (the synthesis engine) and co-writing:
+
+    - The AI drafts prose and animations.
+    - The human reshapes, cuts, steers, and asks questions.
+    - Questions spawn notes — rabbit holes fossilized in the file.
+    - Inside each note, prose and animations are iterated until the
+      human judges that another person would find the idea completely
+      obvious with some effort (Play, Step, re-read).
+
+  The main scroll stays thin: hooks, names, claims.  The NOTE is where
+  the teaching happens.  Success is NOT making the note unnecessary by
+  absorbing it into the main text.  Success is obviousness inside the
+  note itself.
+
+  Notes do not need to be coherent as essays.  They are records of
+  exploration — the paradigm of AI-assisted learning.  Local obviousness
+  at each animation matters more than narrative polish across the whole
+  note.  A note may chain many beats because each prior beat was not
+  obvious enough yet.
+
+  Reference implementation: the Pineda note.  Scanline car (sequential
+  CRT order) vs Pineda car (drive triangle edges in vertex order) makes
+  the inside/outside test visible; cross-vector and determinant beats
+  follow because "left = positive" was still not obvious; hardware
+  schematic comes after the geometry is felt.
+
+  Embedded guidelines in the artifact (these rules, session log, verified
+  claims, demerits) exist so a future reader and their AI can continue
+  the same loop: ingest the file, reshape, spawn their own notes, log
+  their session.
+
 ## Mathematical integrity
 
   25. SIGNS FOLLOW FROM STRUCTURE, NOT CONVENTION
@@ -226,10 +261,14 @@ section is never overwritten during sync.
 
 ## Note system
 
-  22. THE NOTE BUTTON IS FOR DEPTH
-      The narrative keeps moving.  A reader who wants deeper detail
-      can pop open the note.  A reader who does not is never forced
-      to stop.  Notes expand the experience without breaking the flow.
+  22. NOTES ARE EXPLORATION-AND-OBVIOUSNESS LABS
+      The narrative keeps moving; the main text points at questions.
+      A note is not optional enrichment or a polished sidebar.  It is
+      where a rabbit-hole was explored and animations were iterated
+      until obviousness was achieved (see Collaborative learning model).
+      The reader who does not open a note is never forced to stop; the
+      reader who does is entering the lab where the idea was actually
+      learned.  Future readers may spawn their own notes the same way.
 
 ## Demerit system
 
@@ -282,6 +321,14 @@ section is never overwritten during sync.
 ---
 
 ## Version history
+
+  v7 — June 2026
+    Added section: Collaborative learning model (non-expert human + AI
+    co-writing; notes as rabbit-hole traces iterated to obviousness inside
+    the note, not absorbed into main text; coherence optional; Pineda car
+    as reference).  Replaced rule 22: NOTES ARE EXPLORATION-AND-OBVIOUSNESS
+    LABS (was THE NOTE BUTTON IS FOR DEPTH).  27 rules, 6 standard error
+    patterns.
 
   v6 — June 2026
     Added rule 27: OWNED IDEAS, SHARED VOICE, under Prose style.  The prose
