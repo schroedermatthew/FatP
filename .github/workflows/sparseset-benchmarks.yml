@@ -51,7 +51,7 @@ jobs:
         version: [12, 13, 14]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install GCC and system dependencies
         run: |
@@ -59,14 +59,14 @@ jobs:
           sudo apt-get install -y g++-${{ matrix.version }}
 
       - name: Restore header-only deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
           restore-keys: fatp-bench-deps-headeronly-v1-
 
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
@@ -108,7 +108,7 @@ jobs:
         run: ./bench_sparseset 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SparseSet-gcc${{ matrix.version }}
           path: |
@@ -127,21 +127,21 @@ jobs:
         version: [16, 17]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Clang and system dependencies
         run: |
           sudo apt-get install -y clang-${{ matrix.version }}
 
       - name: Restore header-only deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
           restore-keys: fatp-bench-deps-headeronly-v1-
 
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1
@@ -184,7 +184,7 @@ jobs:
         run: ./bench_sparseset 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SparseSet-clang${{ matrix.version }}
           path: |
@@ -199,7 +199,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -207,7 +207,7 @@ jobs:
           arch: x64
 
       - name: Restore vcpkg cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
@@ -258,7 +258,7 @@ jobs:
           .\bench_sparseset.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SparseSet-msvc
           path: |
@@ -275,7 +275,7 @@ jobs:
     if: always()
     steps:
       - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: bench-SparseSet-*
           path: all-benchmarks
@@ -316,7 +316,7 @@ jobs:
           cat summary.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload combined results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SparseSet-summary
           path: |

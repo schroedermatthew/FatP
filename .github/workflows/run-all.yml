@@ -15,7 +15,7 @@ jobs:
   trigger-all:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Delete all existing workflow runs
         env:

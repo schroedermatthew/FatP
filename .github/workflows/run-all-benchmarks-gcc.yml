@@ -203,7 +203,7 @@ jobs:
             needs_headers: "true"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install system dependencies
         if: matrix.system_deps != ''
@@ -213,7 +213,7 @@ jobs:
 
       - name: Restore header-only deps
         if: matrix.needs_headers == 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
@@ -221,7 +221,7 @@ jobs:
 
       - name: Restore compiled deps
         if: matrix.compiled_libs != ''
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
@@ -280,7 +280,7 @@ jobs:
         run: ./bench_bin 2>&1 | tee benchmark.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-${{ matrix.name }}
           path: |
@@ -297,7 +297,7 @@ jobs:
     if: always()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: bench-*
           path: all-benchmarks
@@ -346,7 +346,7 @@ jobs:
           cat summary.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload combined results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-summary-all
           path: |

@@ -44,7 +44,7 @@ jobs:
           - version: 14
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
@@ -77,7 +77,7 @@ jobs:
           - version: 17
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Clang
         run: |
@@ -114,7 +114,7 @@ jobs:
           - std: 23
             flag: "/std:c++latest"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -134,7 +134,7 @@ jobs:
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build with ASan
         run: |
@@ -154,7 +154,7 @@ jobs:
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build with UBSan
         run: |
@@ -174,7 +174,7 @@ jobs:
     name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build with TSan
         run: |
@@ -197,7 +197,7 @@ jobs:
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Test header compiles standalone
         run: |
@@ -239,7 +239,7 @@ jobs:
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Compile with strict warnings
         run: |

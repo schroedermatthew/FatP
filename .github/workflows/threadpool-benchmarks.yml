@@ -42,13 +42,13 @@ jobs:
       matrix:
         version: [12, 13, 14]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install GCC and TBB
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-${{ matrix.version }} libtbb-dev
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
@@ -79,7 +79,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp20.csv
         run: ./bench_threadpool 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-ThreadPool-gcc${{ matrix.version }}
           path: |
@@ -94,13 +94,13 @@ jobs:
       matrix:
         version: [16, 17]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Clang and TBB
         run: |
           sudo apt-get install -y clang-${{ matrix.version }}
           sudo apt-get install -y libtbb-dev
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1
@@ -131,7 +131,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp20.csv
         run: ./bench_threadpool 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-ThreadPool-clang${{ matrix.version }}
           path: |
@@ -142,12 +142,12 @@ jobs:
     name: MSVC C++20
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
       - name: Restore vcpkg cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
@@ -189,7 +189,7 @@ jobs:
         run: |
           $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
           .\bench_threadpool.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-ThreadPool-msvc
           path: |
@@ -202,7 +202,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: bench-ThreadPool-*
           path: all-benchmarks
@@ -223,7 +223,7 @@ jobs:
             for log in "$dir"/*.log; do [ -f "$log" ] && echo '```' >> summary.md && tail -80 "$log" >> summary.md && echo '```' >> summary.md; done
           done
           cat summary.md >> $GITHUB_STEP_SUMMARY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-ThreadPool-summary
           path: |

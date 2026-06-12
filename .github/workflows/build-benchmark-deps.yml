@@ -124,7 +124,7 @@ jobs:
       - name: Check existing cache
         if: inputs.force_rebuild != 'true'
         id: cache-check
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1-latest
@@ -213,7 +213,7 @@ jobs:
 
       - name: Save cache (even on partial failure)
         if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1-${{ github.run_id }}
@@ -231,7 +231,7 @@ jobs:
       - name: Check existing cache
         if: inputs.force_rebuild != 'true'
         id: cache-check
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1-latest
@@ -458,7 +458,7 @@ jobs:
 
       - name: Save cache (even on partial failure)
         if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1-${{ github.run_id }}
@@ -476,7 +476,7 @@ jobs:
       - name: Check existing cache
         if: inputs.force_rebuild != 'true'
         id: cache-check
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1-latest
@@ -704,7 +704,7 @@ jobs:
 
       - name: Save cache (even on partial failure)
         if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1-${{ github.run_id }}
@@ -722,7 +722,7 @@ jobs:
       - name: Check existing cache
         if: inputs.force_rebuild != 'true'
         id: cache-check
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1-latest
@@ -756,7 +756,7 @@ jobs:
 
       - name: Save cache (even on partial failure)
         if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1-${{ github.run_id }}

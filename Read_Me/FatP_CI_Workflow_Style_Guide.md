@@ -266,7 +266,7 @@ sanitizer-asan:
   name: AddressSanitizer
   runs-on: ubuntu-24.04
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Build with ASan
       run: |
         g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -287,7 +287,7 @@ sanitizer-ubsan:
   name: UndefinedBehaviorSanitizer
   runs-on: ubuntu-24.04
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Build with UBSan
       run: |
         g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -310,7 +310,7 @@ sanitizer-tsan:
   name: ThreadSanitizer
   runs-on: ubuntu-24.04
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Build with TSan
       run: |
         g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -389,7 +389,7 @@ strict-warnings:
   name: Strict Warnings
   runs-on: ubuntu-24.04
   steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Compile with strict warnings
       run: |
         g++-13 -std=c++20 \
@@ -468,7 +468,7 @@ Other components should define their own competitor sets appropriate to the doma
 
 ### 13.3 Third-Party Caching
 
-Third-party competitor libraries MUST be cached using `actions/cache@v4`. Building Abseil, Folly, and LLVM from source takes significant time; caching avoids repeating this on every run.
+Third-party competitor libraries MUST be cached using `actions/cache@v5`. Building Abseil, Folly, and LLVM from source takes significant time; caching avoids repeating this on every run.
 
 **Caching rules:**
 
@@ -485,7 +485,7 @@ Third-party competitor libraries MUST be cached using `actions/cache@v4`. Buildi
 ```yaml
 - name: Cache third-party libraries
   id: cache-deps
-  uses: actions/cache@v4
+  uses: actions/cache@v5
   with:
     path: ~/thirdparty
     key: hashmap-bench-all-gcc${{ matrix.version }}-v2
@@ -521,13 +521,13 @@ Third-party competitor libraries MUST be cached using `actions/cache@v4`. Buildi
 ```yaml
 - name: Cache header-only libraries
   id: cache-headeronly
-  uses: actions/cache@v4
+  uses: actions/cache@v5
   with:
     path: thirdparty
     key: hashmap-bench-headeronly-${{ runner.os }}-v2
 
 - name: Cache vcpkg packages
-  uses: actions/cache@v4
+  uses: actions/cache@v5
   with:
     path: ${{ github.workspace }}/vcpkg_cache
     key: vcpkg-${{ runner.os }}-hashmap-bench-all-v2
@@ -672,7 +672,7 @@ jobs:
           - version: 14
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
       - name: Build tests
@@ -701,7 +701,7 @@ jobs:
           - version: 17
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Clang
         run: |
           wget https://apt.llvm.org/llvm.sh
@@ -730,7 +730,7 @@ jobs:
       matrix:
         std: [20, 23]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
       - name: Build tests
@@ -747,7 +747,7 @@ jobs:
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build with ASan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -764,7 +764,7 @@ jobs:
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build with UBSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -781,7 +781,7 @@ jobs:
     name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build with TSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -801,7 +801,7 @@ jobs:
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test header compiles standalone
         run: |
           echo '#include "${{ env.HEADER }}"' > test_include.cpp
@@ -835,7 +835,7 @@ jobs:
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Compile with strict warnings
         run: |
           g++-13 -std=c++20 \
@@ -909,7 +909,7 @@ Before committing a new benchmark workflow:
 - [ ] `benchmarks-gcc` job with GCC 12/13/14
 - [ ] `benchmarks-clang` job with Clang 16/17
 - [ ] `benchmarks-msvc` job
-- [ ] All competitors cached with `actions/cache@v4`
+- [ ] All competitors cached with `actions/cache@v5`
 - [ ] Cache keys include compiler version (e.g., `gcc14`, `clang17`)
 - [ ] Install/build steps gated on `cache-hit != 'true'`
 - [ ] Runtime link dependencies installed unconditionally

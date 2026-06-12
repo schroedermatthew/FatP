@@ -53,7 +53,7 @@ jobs:
         version: [12, 13, 14]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install GCC
         run: |
@@ -61,13 +61,13 @@ jobs:
           sudo apt-get install -y g++-${{ matrix.version }}
 
       - name: Restore header-only deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
 
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
@@ -106,7 +106,7 @@ jobs:
         run: ./bench_slotmap 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SlotMap-gcc${{ matrix.version }}
           path: |
@@ -125,20 +125,20 @@ jobs:
         version: [16, 17]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Clang
         run: |
           sudo apt-get install -y clang-${{ matrix.version }}
 
       - name: Restore header-only deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
 
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1
@@ -178,7 +178,7 @@ jobs:
         run: ./bench_slotmap 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SlotMap-clang${{ matrix.version }}
           path: |
@@ -193,7 +193,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -201,7 +201,7 @@ jobs:
           arch: x64
 
       - name: Restore vcpkg cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
@@ -251,7 +251,7 @@ jobs:
           .\bench_slotmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-SlotMap-msvc
           path: |
@@ -265,7 +265,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: bench-SlotMap-*
           path: all-benchmarks
@@ -297,7 +297,7 @@ jobs:
           done
           cat summary.md >> $GITHUB_STEP_SUMMARY
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-SlotMap-summary
           path: |

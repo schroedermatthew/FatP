@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kokkos Layout Analysis — Why LayoutLeft Is Wrong</title>
+<style>
+:root {
+    --bg: #0c0e14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --border: #2a2e3e;
+    --text: #c8cdd8;
+    --text-dim: #6b7280;
+    --text-bright: #e8ecf4;
+    --accent: #4f8ff7;
+    --green: #34d399;
+    --red: #f87171;
+    --orange: #fbbf24;
+    --purple: #a78bfa;
+    --code-bg: #1a1e2a;
+    --coalesced: #065f46;
+    --coalesced-text: #6ee7b7;
+    --strided: #7f1d1d;
+    --strided-text: #fca5a5;
+    --thread-highlight: rgba(79, 143, 247, 0.25);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', 'Consolas', monospace;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    padding: 0 0 80px 0;
+}
+.container { max-width: 1100px; margin: 0 auto; padding: 0 32px; }
+h1 {
+    font-size: 1.6rem;
+    color: var(--text-bright);
+    margin: 48px 0 8px 0;
+    letter-spacing: -0.02em;
+}
+h1 .subtitle { display: block; font-size: 0.85rem; color: var(--red); margin-top: 4px; font-weight: 400; }
+h2 {
+    font-size: 1.15rem;
+    color: var(--accent);
+    margin: 48px 0 16px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+h3 { font-size: 0.95rem; color: var(--orange); margin: 32px 0 12px 0; }
+p { margin: 12px 0; font-size: 0.85rem; }
+.emphasis { color: var(--text-bright); font-weight: 600; }
+.bad { color: var(--red); font-weight: 600; }
+.good { color: var(--green); font-weight: 600; }
+code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.82rem;
+}
+pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 0.78rem;
+    line-height: 1.7;
+}
+.keyword { color: var(--purple); }
+.type { color: var(--accent); }
+.comment { color: var(--text-dim); }
+.str { color: var(--green); }
+.num { color: var(--orange); }
+
+/* Memory grid */
+.grid-container {
+    display: flex;
+    gap: 40px;
+    margin: 24px 0;
+    flex-wrap: wrap;
+}
+.grid-panel {
+    flex: 1;
+    min-width: 420px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+}
+.grid-panel h4 {
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+    text-align: center;
+}
+.grid-panel h4.layout-left { color: var(--red); }
+.grid-panel h4.layout-right { color: var(--green); }
+.memory-grid {
+    display: grid;
+    gap: 2px;
+    margin: 8px auto;
+    width: fit-content;
+}
+.memory-cell {
+    width: 52px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    border-radius: 3px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    transition: all 0.15s ease;
+    position: relative;
+    cursor: default;
+}
+.memory-cell.highlighted {
+    background: var(--thread-highlight);
+    color: var(--accent);
+    font-weight: 600;
+    border: 1px solid var(--accent);
+}
+.memory-cell.coalesced {
+    background: var(--coalesced);
+    color: var(--coalesced-text);
+    font-weight: 600;
+}
+.memory-cell.strided {
+    background: var(--strided);
+    color: var(--strided-text);
+    font-weight: 600;
+}
+.memory-cell .addr {
+    font-size: 0.55rem;
+    position: absolute;
+    bottom: 1px;
+    right: 3px;
+    color: var(--text-dim);
+    opacity: 0.6;
+}
+
+/* Labels */
+.grid-labels-row {
+    display: grid;
+    gap: 2px;
+    margin: 0 auto 4px auto;
+    width: fit-content;
+}
+.grid-label {
+    width: 52px;
+    text-align: center;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+}
+.grid-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    width: 52px;
+}
+
+/* Verdict badge */
+.verdict {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-top: 8px;
+}
+.verdict.bad { background: var(--strided); color: var(--strided-text); }
+.verdict.good { background: var(--coalesced); color: var(--coalesced-text); }
+
+/* Kernel selector */
+.kernel-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0 12px 0;
+    flex-wrap: wrap;
+}
+.kernel-tab {
+    padding: 8px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+.kernel-tab:hover { border-color: var(--accent); color: var(--text); }
+.kernel-tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+/* Warp visualization */
+.warp-vis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+}
+.warp-threads {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+}
+.warp-thread {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    border-radius: 3px;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+}
+.address-bar {
+    display: flex;
+    gap: 2px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+}
+.address-cell {
+    min-width: 68px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    border-radius: 3px;
+    font-weight: 500;
+    padding: 0 4px;
+}
+.address-cell.coalesced { background: var(--coalesced); color: var(--coalesced-text); }
+.address-cell.strided { background: var(--strided); color: var(--strided-text); }
+.stride-info {
+    font-size: 0.78rem;
+    margin: 8px 0;
+    padding: 10px 14px;
+    border-radius: 4px;
+}
+.stride-info.bad { background: var(--strided); color: var(--strided-text); }
+.stride-info.good { background: var(--coalesced); color: var(--coalesced-text); }
+
+/* Decision flowchart */
+.decision-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+}
+.decision-step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin: 12px 0;
+}
+.step-num {
+    min-width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.step-text { font-size: 0.82rem; padding-top: 3px; }
+.arrow { text-align: center; color: var(--text-dim); font-size: 1.2rem; margin: 4px 0; }
+
+/* Table */
+.layout-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.78rem;
+}
+.layout-table th, .layout-table td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    text-align: left;
+}
+.layout-table th {
+    background: var(--surface2);
+    color: var(--text-bright);
+    font-weight: 600;
+}
+.layout-table td { background: var(--surface); }
+
+@media (max-width: 900px) {
+    .grid-panel { min-width: 100%; }
+    .grid-container { gap: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<h1>Kokkos Layout Analysis
+<span class="subtitle">Why LayoutLeft Is Wrong for This Pipeline, and How to Get It Right</span>
+</h1>
+
+<p>This document teaches you how to choose the correct Kokkos memory layout for 2D views on GPU.
+It walks through a real mistake — <code>LayoutLeft</code> applied everywhere in a batched pipeline —
+shows you visually why it produces fully uncoalesced memory access, and gives you the three-step
+procedure to get the right answer for your own kernels.</p>
+
+<!-- ================================================================ -->
+<h2>1. What LayoutLeft and LayoutRight Actually Do</h2>
+<!-- ================================================================ -->
+
+<p>For a 2D view <code>V(i, j)</code> with dimensions <code>(4 rows, 8 cols)</code>:</p>
+
+<div class="grid-container" id="layout-demo"></div>
+
+<p><span class="emphasis">LayoutLeft:</span> the leftmost index (i) varies fastest.
+Walking <code>V(i, 0) → V(i, 1) → V(i, 2)</code> for fixed i means jumping by <code>nrows</code> each step.</p>
+
+<p><span class="emphasis">LayoutRight:</span> the rightmost index (j) varies fastest.
+Walking <code>V(i, 0) → V(i, 1) → V(i, 2)</code> for fixed i means stepping by 1 each time.</p>
+
+<p>Neither is inherently better. The question is always:
+<span class="emphasis">which index do adjacent threads in a warp vary?</span></p>
+
+<!-- ================================================================ -->
+<h2>2. How Kokkos Maps Threads on GPU</h2>
+<!-- ================================================================ -->
+
+<p>The <code>MDRangePolicy</code> iteration order is <span class="emphasis">not automatic</span>.
+The <code>Rank</code> template accepts optional iteration-order parameters.
+<span class="bad">The default on CUDA aligns with LayoutLeft</span> (leftmost rank fastest).
+For LayoutRight views, you must explicitly request right iteration order:</p>
+
+<pre><span class="keyword">using</span> <span class="type">mdrange_right_2d</span> = Kokkos::MDRangePolicy&lt;
+    Kokkos::Rank&lt;<span class="num">2</span>, Kokkos::Iterate::Right, Kokkos::Iterate::Right&gt;&gt;;</pre>
+
+<p>With explicit <code>Iterate::Right</code>, adjacent threads in a warp get adjacent values
+of the <span class="emphasis">rightmost</span> index:</p>
+
+<div class="warp-vis">
+<p style="font-size:0.82rem; color:var(--text-bright); margin-bottom:8px;">
+mdrange_right_2d({0,0}, {BATCH, NFREQ}) — 32 threads in one warp:</p>
+<div class="warp-threads" id="warp-display"></div>
+<p style="font-size:0.75rem; margin-top:8px; color:var(--text-dim);">
+With <code>Iterate::Right</code>: all 32 threads share the same window <code>w</code>,
+each gets a consecutive frequency bin <code>j, j+1, j+2, ...</code><br>
+With <span class="bad">default Iterate::Left</span>: threads would vary <code>w</code> instead — wrong for LayoutRight views.</p>
+</div>
+
+<p>For <code>TeamPolicy(BATCH, ORDER+1)</code>: one team per window.
+<code>team_rank()</code> gives consecutive indices within that window.
+This is always right-iteration by construction — no iteration-order parameter needed.</p>
+
+<!-- ================================================================ -->
+<h2>3. The Pipeline's Access Pattern — Kernel by Kernel</h2>
+<!-- ================================================================ -->
+
+<p>Select a kernel to see how 8 threads in a warp access <code>d_xw(w, n)</code> or <code>d_psd(w, j)</code>
+with each layout. The grid shows a small <code>8×8</code> slice of the view.
+<span class="emphasis">Highlighted cells</span> are what one warp touches in one access.</p>
+
+<div class="kernel-tabs">
+    <button class="kernel-tab active" onclick="selectKernel(0)">Hann Windowing</button>
+    <button class="kernel-tab" onclick="selectKernel(1)">Autocovariance</button>
+    <button class="kernel-tab" onclick="selectKernel(2)">PSD Evaluation</button>
+</div>
+
+<div id="kernel-info"></div>
+<div class="grid-container" id="kernel-grids"></div>
+<div id="kernel-addresses"></div>
+
+<!-- ================================================================ -->
+<h2>4. The Address Arithmetic</h2>
+<!-- ================================================================ -->
+
+<p>Here is what the hardware actually sees. For <code>V(w, j)</code> where 8 adjacent threads
+access <code>j = 0..7</code> for the same <code>w = 3</code>,
+with view dimensions <code>(BATCH=65536, NFREQ=256)</code>:</p>
+
+<div id="address-detail"></div>
+
+<!-- ================================================================ -->
+<h2>5. The cuSOLVER Exception</h2>
+<!-- ================================================================ -->
+
+<p>The solver matrices are <span class="emphasis">not</span> stored as 2D views.
+They are flat 1D buffers with explicit index arithmetic:</p>
+
+<pre><span class="type">view_1d</span> d_A(<span class="str">"matrices"</span>, BATCH * ORDER * ORDER);
+
+<span class="comment">// Each matrix is a contiguous block, column-major inside:</span>
+<span class="type">size_t</span> base = w * ORDER * ORDER;
+d_A(base + row + col * ORDER) = value;</pre>
+
+<p>This is correct. cuSOLVER dictates the memory layout — batch-contiguous
+blocks, column-major inside each block. The pointer array references
+these contiguous blocks:</p>
+
+<pre>d_Aptr[k] = raw_A + k * ORDER * ORDER;  <span class="comment">// each pointer → contiguous 32×32 block</span></pre>
+
+<p>Do not convert this to a multidimensional Kokkos view.
+The flat buffer with manual indexing is the right abstraction for vendor
+library interop where the library owns the layout contract.</p>
+
+<!-- ================================================================ -->
+<h2>6. The Rule</h2>
+<!-- ================================================================ -->
+
+<div class="decision-box">
+    <p style="color:var(--text-bright); font-weight:600; margin-bottom:16px;">
+    For every 2D+ Kokkos view accessed inside a parallel dispatch:</p>
+
+    <div class="decision-step">
+        <div class="step-num">1</div>
+        <div class="step-text">Identify the execution policy.
+        <code>MDRangePolicy</code>, <code>TeamPolicy</code>, or nested <code>TeamThreadRange</code>.</div>
+    </div>
+
+    <div class="decision-step">
+        <div class="step-num">2</div>
+        <div class="step-text">Determine which index adjacent threads vary.<br>
+        • <code>MDRangePolicy</code>: depends on <code>Iterate</code> direction.
+        CUDA default is <code>Iterate::Left</code> (leftmost rank fastest).
+        Use explicit <code>Iterate::Right</code> for rightmost rank fastest.<br>
+        • <code>TeamPolicy</code>: <code>team_rank()</code> within one team<br>
+        • Nested <code>TeamThreadRange</code>: the inner range index</div>
+    </div>
+
+    <div class="decision-step">
+        <div class="step-num">3</div>
+        <div class="step-text">Make that index contiguous in memory.<br>
+        • Thread varies the <span class="bad">leftmost</span> index → <code>LayoutLeft</code><br>
+        • Thread varies the <span class="good">rightmost</span> index → <code>LayoutRight</code></div>
+    </div>
+</div>
+
+<table class="layout-table">
+<tr>
+    <th>Data Role</th>
+    <th>View Shape</th>
+    <th>Thread Varies</th>
+    <th>Correct Layout</th>
+</tr>
+<tr>
+    <td>Windowed signal</td>
+    <td><code>(window, sample)</code></td>
+    <td>sample (rightmost)</td>
+    <td><span class="good">LayoutRight</span></td>
+</tr>
+<tr>
+    <td>PSD output</td>
+    <td><code>(window, freq_bin)</code></td>
+    <td>freq_bin (rightmost)</td>
+    <td><span class="good">LayoutRight</span></td>
+</tr>
+<tr>
+    <td>cuSOLVER matrices</td>
+    <td>flat 1D, manual indexing</td>
+    <td>N/A — vendor contract</td>
+    <td>flat <code>view_1d</code></td>
+</tr>
+</table>
+
+<!-- ================================================================ -->
+<h2>7. The Wrong Reasoning Chain</h2>
+<!-- ================================================================ -->
+
+<p>The mistake follows a specific pattern. Every step is individually correct.
+The chain is wrong because it skips the thread mapping analysis.</p>
+
+<div style="background:var(--strided); border-radius:8px; padding:20px; margin:16px 0;">
+<p style="color:var(--strided-text); font-size:0.82rem; margin:0;">
+<strong>The broken chain:</strong><br><br>
+"GPU wants coalescing"<br>
+→ "coalescing means contiguous memory access"<br>
+→ "LayoutLeft makes the first index contiguous"<br>
+→ "therefore LayoutLeft is the GPU layout"<br><br>
+<strong>Missing step:</strong> "which index do adjacent threads vary in MY kernel?"<br><br>
+Without that step, you've mapped a hardware property (coalescing) to a Kokkos type (LayoutLeft)
+without going through the actual thread-to-index mapping. The conclusion can be right or wrong
+depending on the kernel — and you'll never know which because you didn't check.
+</p>
+</div>
+
+<div style="background:var(--coalesced); border-radius:8px; padding:20px; margin:16px 0;">
+<p style="color:var(--coalesced-text); font-size:0.82rem; margin:0;">
+<strong>The correct chain:</strong><br><br>
+"GPU wants coalescing"<br>
+→ "coalescing means adjacent threads access adjacent addresses"<br>
+→ "my pipeline treats each window as a local problem — the local index should vary across threads"<br>
+→ "local index is the rightmost dimension in my views"<br>
+→ "rightmost must be contiguous → <strong>LayoutRight</strong>"<br>
+→ "MDRange default on CUDA is Iterate::Left — must set <strong>Iterate::Right</strong> explicitly"<br>
+→ "layout + iteration order + access pattern all agree"
+</p>
+</div>
+
+<p>The performance difference: coalesced vs fully strided global memory access —
+typically <span class="emphasis">10–30×</span> on bandwidth-bound kernels. Both layouts produce
+correct numerical results. They produce them at very different speeds.</p>
+
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────────────
+// Section 1: Basic layout demo
+// ──────────────────────────────────────────────────────────────────────
+
+function buildLayoutDemo() {
+    const container = document.getElementById('layout-demo');
+    const ROWS = 4, COLS = 8;
+
+    function makeGrid(title, titleClass, getAddr, getId) {
+        const panel = document.createElement('div');
+        panel.className = 'grid-panel';
+        const h = document.createElement('h4');
+        h.className = titleClass;
+        h.textContent = title;
+        panel.appendChild(h);
+
+        // Column labels
+        const colLabels = document.createElement('div');
+        colLabels.className = 'grid-labels-row';
+        colLabels.style.gridTemplateColumns = `52px repeat(${COLS}, 52px)`;
+        const corner = document.createElement('div');
+        corner.className = 'grid-label';
+        corner.textContent = 'i \\ j';
+        colLabels.appendChild(corner);
+        for (let j = 0; j < COLS; j++) {
+            const lbl = document.createElement('div');
+            lbl.className = 'grid-label';
+            lbl.textContent = `j=${j}`;
+            colLabels.appendChild(lbl);
+        }
+        panel.appendChild(colLabels);
+
+        const grid = document.createElement('div');
+        grid.className = 'memory-grid';
+        grid.style.gridTemplateColumns = `52px repeat(${COLS}, 52px)`;
+
+        for (let i = 0; i < ROWS; i++) {
+            const rowLabel = document.createElement('div');
+            rowLabel.className = 'grid-row-label';
+            rowLabel.textContent = `i=${i}`;
+            grid.appendChild(rowLabel);
+
+            for (let j = 0; j < COLS; j++) {
+                const cell = document.createElement('div');
+                cell.className = 'memory-cell';
+                const addr = getAddr(i, j);
+                cell.textContent = `(${i},${j})`;
+                const addrSpan = document.createElement('span');
+                addrSpan.className = 'addr';
+                addrSpan.textContent = addr;
+                cell.appendChild(addrSpan);
+                grid.appendChild(cell);
+            }
+        }
+        panel.appendChild(grid);
+
+        const note = document.createElement('p');
+        note.style.cssText = 'font-size:0.7rem; color:var(--text-dim); margin-top:8px; text-align:center;';
+        note.textContent = `Address = offset from base. Contiguous = adjacent addresses.`;
+        panel.appendChild(note);
+        return panel;
+    }
+
+    container.appendChild(makeGrid(
+        'LayoutLeft — leftmost (i) contiguous', 'layout-left',
+        (i, j) => i + j * ROWS
+    ));
+    container.appendChild(makeGrid(
+        'LayoutRight — rightmost (j) contiguous', 'layout-right',
+        (i, j) => i * COLS + j
+    ));
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Section 2: Warp display
+// ──────────────────────────────────────────────────────────────────────
+
+function buildWarpDisplay() {
+    const container = document.getElementById('warp-display');
+    for (let t = 0; t < 32; t++) {
+        const div = document.createElement('div');
+        div.className = 'warp-thread';
+        div.textContent = `T${t}`;
+        div.title = `Thread ${t}: (w, j+${t})`;
+        container.appendChild(div);
+    }
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Section 3: Kernel-by-kernel analysis
+// ──────────────────────────────────────────────────────────────────────
+
+const kernels = [
+    {
+        name: 'Hann Windowing',
+        policy: 'mdrange_right_2d({0,0}, {BATCH, WLEN})',
+        code: `Kokkos::parallel_for("hann",
+    mdrange_right_2d({0,0}, {BATCH, WLEN}),
+    KOKKOS_LAMBDA(int w, int n) {
+        d_xw(w, n) = d_sig(w*STRIDE + n) * hann;
+    });`,
+        mapping: 'Iterate::Right → rightmost rank (n = sample) fastest across lanes',
+        accessDesc: '8 adjacent threads write d_xw(w=3, n=0..7) — same window, consecutive samples',
+        fixedDim: 3,    // w = 3
+        varyDim: 'col', // n varies 0..7
+        viewName: 'd_xw(w, n)',
+        dimLabels: ['w (window)', 'n (sample)']
+    },
+    {
+        name: 'Autocovariance',
+        policy: 'TeamPolicy(BATCH, ORDER+1)',
+        code: `Kokkos::parallel_for("autocov",
+    TeamPolicy(BATCH, ORDER+1).set_scratch_size(...),
+    KOKKOS_LAMBDA(const team_member& team) {
+        int w   = team.league_rank();
+        int tid = team.team_rank();
+        for (int n = tid; n < WLEN; ++n)
+            rk += d_xw(w, n) * d_xw(w, n - tid);
+    });`,
+        mapping: 'team_rank() gives local index within the window-team',
+        accessDesc: '8 threads in team w=3 read d_xw(3, 0), d_xw(3, 1), ... d_xw(3, 7)',
+        fixedDim: 3,
+        varyDim: 'col',
+        viewName: 'd_xw(w, n)',
+        dimLabels: ['w (window)', 'n (sample)']
+    },
+    {
+        name: 'PSD Evaluation',
+        policy: 'mdrange_right_2d({0,0}, {BATCH, NFREQ})',
+        code: `Kokkos::parallel_for("psd",
+    mdrange_right_2d({0,0}, {BATCH, NFREQ}),
+    KOKKOS_LAMBDA(int w, int j) {
+        d_psd(w, j) = 10.0 * log10(P);
+    });`,
+        mapping: 'Iterate::Right → rightmost rank (j = frequency) fastest across lanes',
+        accessDesc: '8 adjacent threads write d_psd(w=3, j=0..7) — same window, consecutive freq bins',
+        fixedDim: 3,
+        varyDim: 'col',
+        viewName: 'd_psd(w, j)',
+        dimLabels: ['w (window)', 'j (freq bin)']
+    }
+];
+
+let currentKernel = 0;
+const DEMO_ROWS = 8, DEMO_COLS = 8, WARP_SIZE = 8;
+
+function selectKernel(idx) {
+    currentKernel = idx;
+    document.querySelectorAll('.kernel-tab').forEach((t, i) => {
+        t.classList.toggle('active', i === idx);
+    });
+    renderKernelAnalysis();
+}
+
+function renderKernelAnalysis() {
+    const k = kernels[currentKernel];
+
+    // Info section
+    const info = document.getElementById('kernel-info');
+    info.innerHTML = `
+        <pre>${k.code.replace(/</g,'&lt;')}</pre>
+        <p><span class="emphasis">Thread mapping:</span> ${k.mapping}</p>
+        <p><span class="emphasis">Access pattern:</span> ${k.accessDesc}</p>
+    `;
+
+    // Grids
+    const gridsContainer = document.getElementById('kernel-grids');
+    gridsContainer.innerHTML = '';
+
+    function makeKernelGrid(layoutName, isRight) {
+        const panel = document.createElement('div');
+        panel.className = 'grid-panel';
+        const h = document.createElement('h4');
+        h.className = isRight ? 'layout-right' : 'layout-left';
+        h.textContent = `${k.viewName}  —  ${layoutName}`;
+        panel.appendChild(h);
+
+        // Column labels
+        const colLabels = document.createElement('div');
+        colLabels.className = 'grid-labels-row';
+        colLabels.style.gridTemplateColumns = `52px repeat(${DEMO_COLS}, 52px)`;
+        const corner = document.createElement('div');
+        corner.className = 'grid-label';
+        corner.textContent = k.dimLabels.join(' \\ ');
+        corner.style.width = '52px';
+        corner.style.fontSize = '0.5rem';
+        colLabels.appendChild(corner);
+        for (let j = 0; j < DEMO_COLS; j++) {
+            const lbl = document.createElement('div');
+            lbl.className = 'grid-label';
+            lbl.textContent = j;
+            colLabels.appendChild(lbl);
+        }
+        panel.appendChild(colLabels);
+
+        const grid = document.createElement('div');
+        grid.className = 'memory-grid';
+        grid.style.gridTemplateColumns = `52px repeat(${DEMO_COLS}, 52px)`;
+
+        const getAddr = isRight
+            ? (r, c) => r * DEMO_COLS + c
+            : (r, c) => r + c * DEMO_ROWS;
+
+        // Which cells does the warp access?
+        const accessedAddrs = [];
+        for (let t = 0; t < WARP_SIZE; t++) {
+            let r = k.fixedDim, c = t;
+            accessedAddrs.push(getAddr(r, c));
+        }
+        // Check if contiguous
+        let isCoalesced = true;
+        for (let t = 1; t < accessedAddrs.length; t++) {
+            if (accessedAddrs[t] - accessedAddrs[t-1] !== 1) {
+                isCoalesced = false;
+                break;
+            }
+        }
+
+        for (let i = 0; i < DEMO_ROWS; i++) {
+            const rowLabel = document.createElement('div');
+            rowLabel.className = 'grid-row-label';
+            rowLabel.textContent = i;
+            grid.appendChild(rowLabel);
+
+            for (let j = 0; j < DEMO_COLS; j++) {
+                const cell = document.createElement('div');
+                const addr = getAddr(i, j);
+                cell.className = 'memory-cell';
+
+                const isAccessed = (i === k.fixedDim && j < WARP_SIZE);
+                if (isAccessed) {
+                    cell.classList.add(isCoalesced ? 'coalesced' : 'strided');
+                    cell.textContent = `T${j}`;
+                } else {
+                    cell.textContent = `(${i},${j})`;
+                }
+
+                const addrSpan = document.createElement('span');
+                addrSpan.className = 'addr';
+                addrSpan.textContent = addr;
+                cell.appendChild(addrSpan);
+                grid.appendChild(cell);
+            }
+        }
+        panel.appendChild(grid);
+
+        const verdict = document.createElement('div');
+        verdict.className = `verdict ${isCoalesced ? 'good' : 'bad'}`;
+        verdict.textContent = isCoalesced
+            ? '✓ COALESCED — adjacent threads hit adjacent addresses'
+            : `✗ STRIDED — stride of ${DEMO_ROWS} between adjacent threads`;
+        panel.appendChild(verdict);
+
+        return panel;
+    }
+
+    gridsContainer.appendChild(makeKernelGrid('LayoutLeft', false));
+    gridsContainer.appendChild(makeKernelGrid('LayoutRight', true));
+
+    // Address detail
+    const addrContainer = document.getElementById('kernel-addresses');
+    addrContainer.innerHTML = '';
+
+    function makeAddrBar(layoutName, isRight) {
+        const BATCH = 65536;
+        const LOCAL = 256;
+        const w = 3;
+        const div = document.createElement('div');
+        div.style.margin = '12px 0';
+        const title = document.createElement('p');
+        title.style.cssText = 'font-size:0.78rem; margin-bottom:6px;';
+        title.innerHTML = `<strong>${layoutName}</strong> — addresses for ${k.viewName.replace('w','3').replace('n','0..7').replace('j','0..7')} with (BATCH=65536, LOCAL=256):`;
+        div.appendChild(title);
+
+        const bar = document.createElement('div');
+        bar.className = 'address-bar';
+        const addrs = [];
+        for (let t = 0; t < 8; t++) {
+            const addr = isRight ? (w * LOCAL + t) : (w + t * BATCH);
+            addrs.push(addr);
+            const cell = document.createElement('div');
+            cell.className = 'address-cell';
+            const stride = t > 0 ? addrs[t] - addrs[t-1] : 0;
+            const coalesced = t === 0 || stride === 1;
+            cell.classList.add(coalesced && t > 0 ? 'coalesced' : (t > 0 ? 'strided' : 'coalesced'));
+            cell.textContent = `T${t}: ${addr}`;
+            bar.appendChild(cell);
+        }
+        div.appendChild(bar);
+
+        const strideVal = addrs.length > 1 ? addrs[1] - addrs[0] : 0;
+        const info = document.createElement('div');
+        info.className = `stride-info ${strideVal === 1 ? 'good' : 'bad'}`;
+        info.textContent = strideVal === 1
+            ? `Stride = 1 — adjacent threads hit adjacent 8-byte slots. One 128-byte cache line serves the whole warp.`
+            : `Stride = ${strideVal.toLocaleString()} — adjacent threads are ${(strideVal * 8).toLocaleString()} bytes apart. Each thread needs its own cache line. ${Math.min(32, strideVal)}× worse bandwidth.`;
+        div.appendChild(info);
+
+        return div;
+    }
+
+    addrContainer.appendChild(makeAddrBar('LayoutLeft', false));
+    addrContainer.appendChild(makeAddrBar('LayoutRight', true));
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Section 4: Full-scale address detail (already part of kernel render)
+// ──────────────────────────────────────────────────────────────────────
+
+function buildAddressDetail() {
+    const container = document.getElementById('address-detail');
+    const BATCH = 65536;
+    const NFREQ = 256;
+    const w = 3;
+
+    function makeSection(name, isRight) {
+        const div = document.createElement('div');
+        div.style.margin = '16px 0';
+        const h = document.createElement('h3');
+        h.textContent = name;
+        h.style.color = isRight ? 'var(--green)' : 'var(--red)';
+        div.appendChild(h);
+
+        const bar = document.createElement('div');
+        bar.className = 'address-bar';
+        const addrs = [];
+        for (let j = 0; j < 8; j++) {
+            const addr = isRight ? (w * NFREQ + j) : (w + j * BATCH);
+            addrs.push(addr);
+            const cell = document.createElement('div');
+            cell.className = `address-cell ${isRight ? 'coalesced' : 'strided'}`;
+            cell.textContent = `T${j}: [${addr.toLocaleString()}]`;
+            bar.appendChild(cell);
+        }
+        div.appendChild(bar);
+
+        const stride = addrs[1] - addrs[0];
+        const note = document.createElement('div');
+        note.className = `stride-info ${isRight ? 'good' : 'bad'}`;
+        if (isRight) {
+            note.innerHTML = `Stride = <strong>1</strong>. Addresses: ${addrs[0]}, ${addrs[1]}, ${addrs[2]}, ${addrs[3]}, ... — contiguous. One cache line transaction.`;
+        } else {
+            note.innerHTML = `Stride = <strong>${stride.toLocaleString()}</strong>. Addresses: ${addrs[0].toLocaleString()}, ${addrs[1].toLocaleString()}, ${addrs[2].toLocaleString()}, ${addrs[3].toLocaleString()}, ... — each thread ${(stride * 8).toLocaleString()} bytes from the next. 32 separate cache line transactions.`;
+        }
+        div.appendChild(note);
+        return div;
+    }
+
+    container.appendChild(makeSection('LayoutLeft: V(3, j) — what the warp actually hits', false));
+    container.appendChild(makeSection('LayoutRight: V(3, j) — what the warp should hit', true));
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Init
+// ──────────────────────────────────────────────────────────────────────
+
+buildLayoutDemo();
+buildWarpDisplay();
+renderKernelAnalysis();
+buildAddressDetail();
+</script>
+
+</body>
+</html>

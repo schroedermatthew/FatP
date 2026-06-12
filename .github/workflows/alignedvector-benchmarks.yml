@@ -38,19 +38,19 @@ jobs:
       matrix:
         version: [12, 13, 14]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install GCC
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-${{ matrix.version }}
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-gcc-v1
           restore-keys: fatp-bench-deps-gcc-v1-
       - name: Restore header-only deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
@@ -78,7 +78,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_gcc${{ matrix.version }}_cpp20.csv
         run: ./bench_alignedvector 2>&1 | tee benchmark_gcc${{ matrix.version }}_cpp20.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-AlignedVector-gcc${{ matrix.version }}
           path: |
@@ -93,18 +93,18 @@ jobs:
       matrix:
         version: [16, 17]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Clang
         run: |
           sudo apt-get install -y clang-${{ matrix.version }}
       - name: Restore compiled deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
           key: fatp-bench-deps-clang-v1
           restore-keys: fatp-bench-deps-clang-v1-
       - name: Restore header-only deps
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
@@ -133,7 +133,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_clang${{ matrix.version }}_cpp20.csv
         run: ./bench_alignedvector 2>&1 | tee benchmark_clang${{ matrix.version }}_cpp20.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-AlignedVector-clang${{ matrix.version }}
           path: |
@@ -144,12 +144,12 @@ jobs:
     name: MSVC C++20
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
       - name: Restore vcpkg cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
@@ -188,7 +188,7 @@ jobs:
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results_msvc_cpp20.csv
         run: .\bench_alignedvector.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-AlignedVector-msvc
           path: |
@@ -201,7 +201,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: bench-AlignedVector-*
           path: all-benchmarks
@@ -222,7 +222,7 @@ jobs:
             for log in "$dir"/*.log; do [ -f "$log" ] && echo '```' >> summary.md && tail -80 "$log" >> summary.md && echo '```' >> summary.md; done
           done
           cat summary.md >> $GITHUB_STEP_SUMMARY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: bench-AlignedVector-summary
           path: |

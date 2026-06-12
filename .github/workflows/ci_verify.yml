@@ -19,7 +19,7 @@ jobs:
     name: Verify Layer Dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check FATP_META.layer fields present
         run: |
@@ -141,7 +141,7 @@ jobs:
     name: Scan Forbidden Dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check for forbidden includes
         run: |

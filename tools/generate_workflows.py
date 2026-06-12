@@ -27,6 +27,9 @@ import os
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".github", "workflows")
 
+# GitHub-hosted runners use Node 24 for JavaScript actions (Node 20 deprecated 2026).
+# checkout@v6+, cache@v5+, upload/download-artifact@v5+ run on Node 24.
+
 # =============================================================================
 # Component definitions
 # =============================================================================
@@ -427,7 +430,7 @@ jobs:
           - version: 14
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
@@ -463,7 +466,7 @@ def generate_linux_clang_job():
           - version: 17
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Clang
         run: |
@@ -504,7 +507,7 @@ def generate_windows_msvc_job(test_src):
           - std: 23
             flag: "/std:c++latest"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -527,7 +530,7 @@ def generate_sanitizers():
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build with ASan
         run: |
@@ -547,7 +550,7 @@ def generate_sanitizers():
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build with UBSan
         run: |
@@ -567,7 +570,7 @@ def generate_sanitizers():
     name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Build with TSan
         run: |
@@ -593,7 +596,7 @@ def generate_header_check(component, header):
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Test header compiles standalone
         run: |
@@ -638,7 +641,7 @@ def generate_strict_warnings():
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Compile with strict warnings
         run: |
@@ -672,7 +675,7 @@ def generate_benchmark_jobs(component, bench_src):
             std: 23
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{{{ matrix.version }}}}
@@ -701,7 +704,7 @@ def generate_benchmark_jobs(component, bench_src):
         run: ./bench_bin 2>&1 | tee benchmark_gcc${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-gcc${{{{ matrix.version }}}}-cpp${{{{ matrix.std }}}}
           path: |
@@ -725,7 +728,7 @@ def generate_benchmark_jobs(component, bench_src):
             std: 23
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Clang
         run: |
@@ -757,7 +760,7 @@ def generate_benchmark_jobs(component, bench_src):
         run: ./bench_bin 2>&1 | tee benchmark_clang${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-clang${{{{ matrix.version }}}}-cpp${{{{ matrix.std }}}}
           path: |
@@ -781,7 +784,7 @@ def generate_benchmark_jobs(component, bench_src):
             flag: "/std:c++latest"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -802,7 +805,7 @@ def generate_benchmark_jobs(component, bench_src):
           .\\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{{{ matrix.std }}}}.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-msvc-cpp${{{{ matrix.std }}}}
           path: |
@@ -819,7 +822,7 @@ def generate_benchmark_jobs(component, bench_src):
     if: ${{{{ always() && inputs.run_benchmarks }}}}
     steps:
       - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: benchmark-*
           path: all-benchmarks
@@ -858,7 +861,7 @@ def generate_benchmark_jobs(component, bench_src):
           cat summary.md
 
       - name: Upload combined results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-summary
           path: |

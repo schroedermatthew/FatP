@@ -212,7 +212,7 @@ jobs:
             exe_name: bench_workqueue
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
@@ -221,7 +221,7 @@ jobs:
 
       - name: Restore vcpkg cache
         if: matrix.vcpkg_deps != ''
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
@@ -276,7 +276,7 @@ jobs:
           .\${{ matrix.exe_name }}.exe 2>&1 | Tee-Object -FilePath benchmark.log
 
       - name: Upload results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: bench-msvc-${{ matrix.name }}
           path: |
@@ -293,7 +293,7 @@ jobs:
     if: always()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           pattern: bench-msvc-*
           path: all-benchmarks
@@ -342,7 +342,7 @@ jobs:
           cat summary.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload combined results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: benchmark-summary-all-msvc
           path: |

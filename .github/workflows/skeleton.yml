@@ -66,7 +66,7 @@ jobs:
           - version: 14
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
       - name: Build and run test_Skeleton
@@ -103,7 +103,7 @@ jobs:
           - version: 17
             std: 23
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install Clang
         run: |
           wget https://apt.llvm.org/llvm.sh
@@ -141,7 +141,7 @@ jobs:
       matrix:
         std: [20, 23]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
       - name: Build and run test_Skeleton
@@ -162,7 +162,7 @@ jobs:
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build and run test_Skeleton with ASan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -184,7 +184,7 @@ jobs:
     name: UndefinedBehaviorSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build and run test_Skeleton with UBSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -206,7 +206,7 @@ jobs:
     name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build and run test_Skeleton with TSan
         run: |
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
@@ -231,7 +231,7 @@ jobs:
     name: Header Self-Containment
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Compile test_Skeleton_HeaderSelfContained.cpp
         run: |
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
@@ -309,7 +309,7 @@ jobs:
     name: Strict Warnings
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Compile test_Skeleton with strict warnings
         run: |
           g++-13 -std=c++20 \
@@ -338,7 +338,7 @@ jobs:
     name: Compile-Fail Contracts
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Reject wrong enum type at depth 1
         run: |
           if g++-13 -std=c++20 -I./include/fat_p \
