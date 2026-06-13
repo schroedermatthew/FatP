@@ -31,7 +31,9 @@ FATP_META:
 
 #include <array>
 #include <atomic>
+#include <functional>
 #include <iostream>
+#include <memory>
 #include <optional>
 #include <string>
 #include <thread>
@@ -75,6 +77,26 @@ Expected<void, std::string> validate_age(int age)
         return unexpected{"Invalid age"};
     }
     return {};
+}
+
+Expected<int, std::string> succeed_int(int v)
+{
+    return v;
+}
+
+Expected<int, std::string> fail_int(const std::string& msg)
+{
+    return unexpected{msg};
+}
+
+Expected<void, std::string> succeed_void()
+{
+    return {};
+}
+
+Expected<void, std::string> fail_void(const std::string& msg)
+{
+    return unexpected{msg};
 }
 
 // ============================================================================
@@ -762,6 +784,762 @@ FATP_TEST_CASE(std_expected_integration)
 #endif
 
 // ============================================================================
+// Coverage Gap Tests — bad_expected_access
+// ============================================================================
+
+FATP_TEST_CASE(bad_expected_access_from_value)
+{
+    Expected<int, std::string> e(unexpected{"access denied"});
+    bool caught = false;
+    try
+    {
+        (void)e.value();
+    }
+    catch (const bad_expected_access<std::string>& ex)
+    {
+        caught = true;
+        FATP_ASSERT_EQ(ex.error(), std::string("access denied"),
+                        "Exception must preserve the error payload");
+        FATP_ASSERT_TRUE(ex.what() != nullptr, "what() must return non-null");
+    }
+    FATP_ASSERT_TRUE(caught, "value() on error state must throw bad_expected_access");
+    return true;
+}
+
+FATP_TEST_CASE(bad_expected_access_rvalue_error)
+{
+    Expected<int, std::string> e(unexpected{"moveable"});
+    bool caught = false;
+    try
+    {
+        (void)std::move(e).value();
+    }
+    catch (bad_expected_access<std::string>& ex)
+    {
+        caught = true;
+        std::string moved_out = std::move(ex).error();
+        FATP_ASSERT_EQ(moved_out, std::string("moveable"),
+                        "Rvalue error() on exception must yield the payload");
+    }
+    FATP_ASSERT_TRUE(caught, "Rvalue value() on error state must throw");
+    return true;
+}
+
+FATP_TEST_CASE(bad_expected_access_void)
+{
+    Expected<void, std::string> e(unexpected{"void access"});
+    bool caught = false;
+    try
+    {
+        e.value();
+    }
+    catch (const bad_expected_access<std::string>& ex)
+    {
+        caught = true;
+        FATP_ASSERT_EQ(ex.error(), std::string("void access"),
+                        "Void Expected value() must throw with error");
+    }
+    FATP_ASSERT_TRUE(caught, "Void Expected value() on error state must throw");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — FATP_EXPECTED_TRY / TRY_VOID
+// ============================================================================
+
+FATP_TEST_CASE(expected_try_success)
+{
+    auto outer = []() -> Expected<int, std::string> {
+        FATP_EXPECTED_TRY(a, succeed_int(10));
+        FATP_EXPECTED_TRY(b, succeed_int(20));
+        return a + b;
+    };
+
+    auto result = outer();
+    FATP_ASSERT_TRUE(result.has_value(), "TRY success path should yield value");
+    FATP_ASSERT_EQ(*result, 30, "TRY should bind both variables");
+    return true;
+}
+
+FATP_TEST_CASE(expected_try_propagates_error)
+{
+    auto outer = []() -> Expected<int, std::string> {
+        FATP_EXPECTED_TRY(a, succeed_int(10));
+        FATP_EXPECTED_TRY(b, fail_int("second failed"));
+        return a + b;
+    };
+
+    auto result = outer();
+    FATP_ASSERT_TRUE(!result.has_value(), "TRY must propagate error");
+    FATP_ASSERT_EQ(result.error(), std::string("second failed"),
+                    "TRY must forward the original error message");
+    return true;
+}
+
+FATP_TEST_CASE(expected_try_void_success)
+{
+    int side_effect = 0;
+    auto void_work = [&]() -> Expected<void, std::string> {
+        side_effect = 99;
+        return {};
+    };
+
+    auto outer = [&]() -> Expected<int, std::string> {
+        FATP_EXPECTED_TRY_VOID(void_work());
+        return side_effect;
+    };
+
+    auto result = outer();
+    FATP_ASSERT_TRUE(result.has_value(), "TRY_VOID success path should continue");
+    FATP_ASSERT_EQ(*result, 99, "Side effect should have executed");
+    return true;
+}
+
+FATP_TEST_CASE(expected_try_void_propagates_error)
+{
+    auto outer = []() -> Expected<int, std::string> {
+        FATP_EXPECTED_TRY_VOID(fail_void("void failed"));
+        return 42;
+    };
+
+    auto result = outer();
+    FATP_ASSERT_TRUE(!result.has_value(), "TRY_VOID must propagate error");
+    FATP_ASSERT_EQ(result.error(), std::string("void failed"),
+                    "TRY_VOID must forward the original error");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — value_or_else
+// ============================================================================
+
+FATP_TEST_CASE(value_or_else_value_path)
+{
+    int factory_calls = 0;
+    auto factory = [&]() {
+        ++factory_calls;
+        return -1;
+    };
+
+    Expected<int, std::string> v(42);
+    int result = v.value_or_else(factory);
+    FATP_ASSERT_EQ(result, 42, "value_or_else returns value when present");
+    FATP_ASSERT_EQ(factory_calls, 0, "Factory must not be called on value path");
+    return true;
+}
+
+FATP_TEST_CASE(value_or_else_error_path)
+{
+    int factory_calls = 0;
+    auto factory = [&]() {
+        ++factory_calls;
+        return 999;
+    };
+
+    Expected<int, std::string> e(unexpected{"err"});
+    int result = e.value_or_else(factory);
+    FATP_ASSERT_EQ(result, 999, "value_or_else returns factory result on error");
+    FATP_ASSERT_EQ(factory_calls, 1, "Factory must be called exactly once");
+    return true;
+}
+
+FATP_TEST_CASE(value_or_else_rvalue)
+{
+    auto result = Expected<std::string, int>(unexpected{-1}).value_or_else([]() {
+        return std::string("fallback");
+    });
+    FATP_ASSERT_EQ(result, std::string("fallback"),
+                    "Rvalue value_or_else should work");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Void Specialization
+// ============================================================================
+
+FATP_TEST_CASE(void_emplace)
+{
+    Expected<void, std::string> e(unexpected{"was error"});
+    FATP_ASSERT_TRUE(e.has_error(), "Precondition: error state");
+
+    e.emplace();
+    FATP_ASSERT_TRUE(e.has_value(), "emplace() must transition to value state");
+    return true;
+}
+
+FATP_TEST_CASE(void_swap)
+{
+    Expected<void, std::string> v;
+    Expected<void, std::string> e(unexpected{"swap me"});
+
+    v.swap(e);
+    FATP_ASSERT_TRUE(!v.has_value(), "After swap, v should hold error");
+    FATP_ASSERT_TRUE(e.has_value(), "After swap, e should hold value");
+    FATP_ASSERT_EQ(v.error(), std::string("swap me"), "Error payload preserved");
+
+    Expected<void, std::string> e1(unexpected{"alpha"});
+    Expected<void, std::string> e2(unexpected{"beta"});
+    e1.swap(e2);
+    FATP_ASSERT_EQ(e1.error(), std::string("beta"), "Error-error swap A");
+    FATP_ASSERT_EQ(e2.error(), std::string("alpha"), "Error-error swap B");
+    return true;
+}
+
+FATP_TEST_CASE(void_copy_assignment)
+{
+    Expected<void, std::string> v;
+    Expected<void, std::string> e(unexpected{"assign me"});
+
+    v = e;
+    FATP_ASSERT_TRUE(!v.has_value(), "Copy assignment value->error");
+    FATP_ASSERT_EQ(v.error(), std::string("assign me"), "Error preserved");
+
+    Expected<void, std::string> v2;
+    e = v2;
+    FATP_ASSERT_TRUE(e.has_value(), "Copy assignment error->value");
+    return true;
+}
+
+FATP_TEST_CASE(void_move_assignment)
+{
+    Expected<void, std::string> v;
+    Expected<void, std::string> e(unexpected{"move me"});
+
+    v = std::move(e);
+    FATP_ASSERT_TRUE(!v.has_value(), "Move assignment value->error");
+    FATP_ASSERT_EQ(v.error(), std::string("move me"), "Error preserved");
+    return true;
+}
+
+FATP_TEST_CASE(void_and_then)
+{
+    Expected<void, std::string> v;
+    auto result = v.and_then([]() -> Expected<int, std::string> {
+        return 42;
+    });
+    FATP_ASSERT_TRUE(result.has_value(), "void and_then should invoke on value");
+    FATP_ASSERT_EQ(*result, 42, "void and_then should return continuation result");
+
+    Expected<void, std::string> e(unexpected{"blocked"});
+    auto err_result = e.and_then([]() -> Expected<int, std::string> {
+        return 42;
+    });
+    FATP_ASSERT_TRUE(!err_result.has_value(), "void and_then should propagate error");
+    FATP_ASSERT_EQ(err_result.error(), std::string("blocked"), "Error preserved");
+    return true;
+}
+
+FATP_TEST_CASE(void_or_else)
+{
+    Expected<void, std::string> e(unexpected{"recover me"});
+    auto recovered = e.or_else([](const std::string&) -> Expected<void, std::string> {
+        return {};
+    });
+    FATP_ASSERT_TRUE(recovered.has_value(), "void or_else should recover");
+
+    Expected<void, std::string> v;
+    auto pass = v.or_else([](const std::string&) -> Expected<void, std::string> {
+        return unexpected{"should not happen"};
+    });
+    FATP_ASSERT_TRUE(pass.has_value(), "void or_else should pass-through value");
+    return true;
+}
+
+FATP_TEST_CASE(void_map_error)
+{
+    Expected<void, std::string> e(unexpected{"original"});
+    auto transformed = e.map_error([](const std::string& s) {
+        return static_cast<int>(s.size());
+    });
+    FATP_ASSERT_TRUE(!transformed.has_value(), "map_error should keep error state");
+    FATP_ASSERT_EQ(transformed.error(), 8, "map_error should transform error value");
+
+    Expected<void, std::string> v;
+    auto pass = v.map_error([](const std::string&) {
+        return -1;
+    });
+    FATP_ASSERT_TRUE(pass.has_value(), "map_error should pass-through value");
+    return true;
+}
+
+FATP_TEST_CASE(void_inspect)
+{
+    int value_inspections = 0;
+    int error_inspections = 0;
+
+    Expected<void, std::string> v;
+    v.inspect([&]() { ++value_inspections; });
+    v.inspect_error([&](const std::string&) { ++error_inspections; });
+
+    FATP_ASSERT_EQ(value_inspections, 1, "inspect should fire on value state");
+    FATP_ASSERT_EQ(error_inspections, 0, "inspect_error should not fire on value state");
+
+    Expected<void, std::string> e(unexpected{"err"});
+    e.inspect([&]() { ++value_inspections; });
+    e.inspect_error([&](const std::string&) { ++error_inspections; });
+
+    FATP_ASSERT_EQ(value_inspections, 1, "inspect should not fire on error state");
+    FATP_ASSERT_EQ(error_inspections, 1, "inspect_error should fire on error state");
+    return true;
+}
+
+FATP_TEST_CASE(void_fold)
+{
+    Expected<void, std::string> v;
+    int r1 = v.fold(
+        []() { return 1; },
+        [](const std::string&) { return -1; });
+    FATP_ASSERT_EQ(r1, 1, "void fold value path");
+
+    Expected<void, std::string> e(unexpected{"err"});
+    int r2 = e.fold(
+        []() { return 1; },
+        [](const std::string&) { return -1; });
+    FATP_ASSERT_EQ(r2, -1, "void fold error path");
+    return true;
+}
+
+FATP_TEST_CASE(void_error_or_else)
+{
+    int factory_calls = 0;
+    auto factory = [&]() {
+        ++factory_calls;
+        return std::string("computed");
+    };
+
+    Expected<void, std::string> v;
+    std::string r1 = v.error_or_else(factory);
+    FATP_ASSERT_EQ(r1, std::string("computed"), "error_or_else computes for value");
+    FATP_ASSERT_EQ(factory_calls, 1, "Factory called once");
+
+    factory_calls = 0;
+    Expected<void, std::string> e(unexpected{"actual"});
+    std::string r2 = e.error_or_else(factory);
+    FATP_ASSERT_EQ(r2, std::string("actual"), "error_or_else returns error");
+    FATP_ASSERT_EQ(factory_calls, 0, "Factory not called for error");
+    return true;
+}
+
+FATP_TEST_CASE(void_comparison)
+{
+    Expected<void, std::string> v1;
+    Expected<void, std::string> v2;
+    Expected<void, std::string> e1(unexpected{"a"});
+    Expected<void, std::string> e2(unexpected{"a"});
+    Expected<void, std::string> e3(unexpected{"b"});
+
+    FATP_ASSERT_TRUE(v1 == v2, "Two void values are equal");
+    FATP_ASSERT_TRUE(!(v1 == e1), "Void value != error");
+    FATP_ASSERT_TRUE(e1 == e2, "Same errors are equal");
+    FATP_ASSERT_TRUE(!(e1 == e3), "Different errors are not equal");
+    FATP_ASSERT_TRUE(e1 == unexpected{"a"}, "Void Expected == unexpected");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Rvalue-qualified Accessors
+// ============================================================================
+
+FATP_TEST_CASE(rvalue_value_access)
+{
+    auto val = Expected<std::string, int>("rvalue test").value();
+    FATP_ASSERT_EQ(val, std::string("rvalue test"), "Rvalue value() returns correctly");
+
+    auto val2 = *Expected<std::string, int>("deref test");
+    FATP_ASSERT_EQ(val2, std::string("deref test"), "Rvalue operator* returns correctly");
+
+    auto val3 = Expected<std::string, int>(unexpected{-1}).value_or("fallback");
+    FATP_ASSERT_EQ(val3, std::string("fallback"), "Rvalue value_or returns default");
+
+    auto val4 = Expected<std::string, int>("unchecked").value_unchecked();
+    FATP_ASSERT_EQ(val4, std::string("unchecked"), "Rvalue value_unchecked works");
+    return true;
+}
+
+FATP_TEST_CASE(rvalue_error_access)
+{
+    auto err = Expected<int, std::string>(unexpected{"rvalue err"}).error();
+    FATP_ASSERT_EQ(err, std::string("rvalue err"), "Rvalue error() returns correctly");
+
+    auto err2 = Expected<int, std::string>(42).error_or("default");
+    FATP_ASSERT_EQ(err2, std::string("default"), "Rvalue error_or returns default");
+    return true;
+}
+
+FATP_TEST_CASE(rvalue_move_semantics)
+{
+    auto exp = Expected<std::unique_ptr<int>, std::string>(
+        std::in_place, std::make_unique<int>(77));
+    FATP_ASSERT_TRUE(exp.has_value(), "Precondition: has value");
+
+    auto ptr = std::move(exp).value();
+    FATP_ASSERT_TRUE(ptr != nullptr, "Moved-out ptr should be valid");
+    FATP_ASSERT_EQ(*ptr, 77, "Moved-out value should be 77");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — operator bool
+// ============================================================================
+
+FATP_TEST_CASE(explicit_bool_conversion)
+{
+    Expected<int, std::string> v(42);
+    Expected<int, std::string> e(unexpected{"err"});
+    Expected<void, std::string> vv;
+    Expected<void, std::string> ve(unexpected{"err"});
+
+    FATP_ASSERT_TRUE(static_cast<bool>(v), "Value Expected is true");
+    FATP_ASSERT_TRUE(!static_cast<bool>(e), "Error Expected is false");
+    FATP_ASSERT_TRUE(static_cast<bool>(vv), "Void value Expected is true");
+    FATP_ASSERT_TRUE(!static_cast<bool>(ve), "Void error Expected is false");
+
+    if (v) { /* OK */ }
+    else
+    {
+        FATP_ASSERT_TRUE(false, "Value should be truthy in if-statement");
+    }
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Monadic Aliases
+// ============================================================================
+
+FATP_TEST_CASE(transform_alias)
+{
+    auto result = Expected<int, std::string>(5).transform([](int x) {
+        return x * 3;
+    });
+    FATP_ASSERT_TRUE(result.has_value(), "transform should work like map");
+    FATP_ASSERT_EQ(*result, 15, "transform result correct");
+
+    auto err = Expected<int, std::string>(unexpected{"e"}).transform([](int x) {
+        return x * 3;
+    });
+    FATP_ASSERT_TRUE(!err.has_value(), "transform should propagate error");
+    return true;
+}
+
+FATP_TEST_CASE(flat_map_alias)
+{
+    auto result = Expected<int, std::string>(10).flat_map([](int x) -> Expected<int, std::string> {
+        return x + 5;
+    });
+    FATP_ASSERT_TRUE(result.has_value(), "flat_map should work like and_then");
+    FATP_ASSERT_EQ(*result, 15, "flat_map result correct");
+
+    auto err = Expected<int, std::string>(unexpected{"e"}).flat_map([](int x) -> Expected<int, std::string> {
+        return x + 5;
+    });
+    FATP_ASSERT_TRUE(!err.has_value(), "flat_map should propagate error");
+    return true;
+}
+
+FATP_TEST_CASE(map_error_direct)
+{
+    auto result = Expected<int, std::string>(unexpected{"err"}).map_error([](const std::string& e) {
+        return static_cast<int>(e.size());
+    });
+    FATP_ASSERT_TRUE(!result.has_value(), "map_error keeps error state");
+    FATP_ASSERT_EQ(result.error(), 3, "map_error transforms error");
+
+    auto pass = Expected<int, std::string>(42).map_error([](const std::string&) {
+        return -1;
+    });
+    FATP_ASSERT_TRUE(pass.has_value(), "map_error passes through value");
+    FATP_ASSERT_EQ(*pass, 42, "map_error preserves value");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — unexpected Standalone Operations
+// ============================================================================
+
+FATP_TEST_CASE(unexpected_standalone_ops)
+{
+    unexpected<std::string> u("test");
+    FATP_ASSERT_EQ(u.value(), std::string("test"), "Lvalue value()");
+
+    const unexpected<std::string> cu("const");
+    FATP_ASSERT_EQ(cu.value(), std::string("const"), "Const lvalue value()");
+
+    auto rv = unexpected<std::string>("rval").value();
+    FATP_ASSERT_EQ(rv, std::string("rval"), "Rvalue value()");
+
+    unexpected<std::string> a("alpha");
+    unexpected<std::string> b("beta");
+    a.swap(b);
+    FATP_ASSERT_EQ(a.value(), std::string("beta"), "swap a");
+    FATP_ASSERT_EQ(b.value(), std::string("alpha"), "swap b");
+
+    unexpected<int> x(1);
+    unexpected<int> y(1);
+    unexpected<int> z(2);
+    FATP_ASSERT_TRUE(x == y, "Equal unexpected values compare equal");
+    FATP_ASSERT_TRUE(!(x == z), "Different unexpected values not equal");
+
+    swap(a, b);
+    FATP_ASSERT_EQ(a.value(), std::string("alpha"), "Free swap a");
+    FATP_ASSERT_EQ(b.value(), std::string("beta"), "Free swap b");
+    return true;
+}
+
+FATP_TEST_CASE(make_unexpected_factory)
+{
+    auto u = make_unexpected(42);
+    static_assert(std::is_same_v<decltype(u), unexpected<int>>,
+                  "make_unexpected should deduce unexpected<int>");
+    FATP_ASSERT_EQ(u.value(), 42, "make_unexpected preserves value");
+
+    auto us = make_unexpected(std::string("factory"));
+    FATP_ASSERT_EQ(us.value(), std::string("factory"), "make_unexpected string");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — CTAD Deduction Guides
+// ============================================================================
+
+FATP_TEST_CASE(ctad_deduction)
+{
+    ExpectedImpl value_exp(42);
+    static_assert(std::is_same_v<decltype(value_exp),
+                                  ExpectedImpl<int, std::string, UnionStorage>>,
+                  "CTAD from value should deduce <int, string, UnionStorage>");
+    FATP_ASSERT_TRUE(value_exp.has_value(), "CTAD value has value");
+    FATP_ASSERT_EQ(*value_exp, 42, "CTAD value correct");
+
+    ExpectedImpl error_exp(unexpected{-1});
+    static_assert(std::is_same_v<decltype(error_exp),
+                                  ExpectedImpl<void, int, UnionStorage>>,
+                  "CTAD from unexpected should deduce <void, int, UnionStorage>");
+    FATP_ASSERT_TRUE(!error_exp.has_value(), "CTAD error has error");
+    FATP_ASSERT_EQ(error_exp.error(), -1, "CTAD error correct");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Initializer-List Constructors
+// ============================================================================
+
+FATP_TEST_CASE(initializer_list_value_construction)
+{
+    Expected<std::vector<int>, std::string> exp(std::in_place, {1, 2, 3});
+    FATP_ASSERT_TRUE(exp.has_value(), "Init-list in_place should construct value");
+    FATP_ASSERT_EQ(exp->size(), 3u, "Vector should have 3 elements");
+    FATP_ASSERT_EQ((*exp)[0], 1, "First element correct");
+    FATP_ASSERT_EQ((*exp)[2], 3, "Third element correct");
+    return true;
+}
+
+FATP_TEST_CASE(initializer_list_error_construction)
+{
+    Expected<int, std::vector<int>> exp(unexpect, {10, 20, 30});
+    FATP_ASSERT_TRUE(!exp.has_value(), "Init-list unexpect should construct error");
+    FATP_ASSERT_EQ(exp.error().size(), 3u, "Error vector should have 3 elements");
+    FATP_ASSERT_EQ(exp.error()[1], 20, "Second error element correct");
+    return true;
+}
+
+FATP_TEST_CASE(initializer_list_emplace)
+{
+    Expected<std::vector<int>, std::string> exp(unexpected{"was error"});
+    exp.emplace({4, 5, 6});
+    FATP_ASSERT_TRUE(exp.has_value(), "Emplace with init-list should set value");
+    FATP_ASSERT_EQ(exp->size(), 3u, "Emplaced vector has 3 elements");
+    FATP_ASSERT_EQ((*exp)[0], 4, "First emplaced element correct");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Assignment from unexpected
+// ============================================================================
+
+FATP_TEST_CASE(unexpected_assignment_nonvoid)
+{
+    Expected<int, std::string> v(42);
+    FATP_ASSERT_TRUE(v.has_value(), "Precondition: value state");
+
+    v = unexpected{"assigned error"};
+    FATP_ASSERT_TRUE(!v.has_value(), "Assignment from unexpected sets error state");
+    FATP_ASSERT_EQ(v.error(), std::string("assigned error"), "Error payload correct");
+
+    v = unexpected{"second error"};
+    FATP_ASSERT_TRUE(!v.has_value(), "Error->error assignment works");
+    FATP_ASSERT_EQ(v.error(), std::string("second error"), "Second error correct");
+    return true;
+}
+
+FATP_TEST_CASE(unexpected_assignment_void)
+{
+    Expected<void, std::string> v;
+    FATP_ASSERT_TRUE(v.has_value(), "Precondition: value state");
+
+    v = unexpected{"void error"};
+    FATP_ASSERT_TRUE(!v.has_value(), "Void assignment from unexpected sets error");
+    FATP_ASSERT_EQ(v.error(), std::string("void error"), "Void error correct");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Hash
+// ============================================================================
+
+FATP_TEST_CASE(hash_error_state)
+{
+    std::hash<Expected<int, std::string>> hasher;
+
+    Expected<int, std::string> v(42);
+    Expected<int, std::string> e(unexpected{"err"});
+
+    size_t vh = hasher(v);
+    size_t eh = hasher(e);
+    FATP_ASSERT_TRUE(vh != eh, "Value hash and error hash should differ");
+
+    Expected<int, std::string> e2(unexpected{"err"});
+    FATP_ASSERT_TRUE(hasher(e) == hasher(e2), "Same errors should hash equal");
+    return true;
+}
+
+FATP_TEST_CASE(hash_void_expected)
+{
+    std::hash<Expected<void, std::string>> hasher;
+
+    Expected<void, std::string> v;
+    Expected<void, std::string> e(unexpected{"err"});
+
+    size_t vh = hasher(v);
+    size_t eh = hasher(e);
+    FATP_ASSERT_TRUE(vh != eh, "Void value and error hash should differ");
+
+    Expected<void, std::string> v2;
+    FATP_ASSERT_TRUE(hasher(v) == hasher(v2), "Two void values hash equal");
+    return true;
+}
+
+FATP_TEST_CASE(hash_unexpected)
+{
+    std::hash<unexpected<int>> hasher;
+
+    unexpected<int> a(42);
+    unexpected<int> b(42);
+    unexpected<int> c(99);
+
+    FATP_ASSERT_TRUE(hasher(a) == hasher(b), "Same unexpected values hash equal");
+    FATP_ASSERT_TRUE(hasher(a) != hasher(c), "Different unexpected values hash differently");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Ordering
+// ============================================================================
+
+FATP_TEST_CASE(ordering_error_vs_value)
+{
+    Expected<int, std::string> v(42);
+    Expected<int, std::string> e(unexpected{"err"});
+
+    FATP_ASSERT_TRUE(e < v, "Error should be less than value");
+    FATP_ASSERT_TRUE(e <= v, "Error should be <= value");
+    FATP_ASSERT_TRUE(v > e, "Value should be greater than error");
+    FATP_ASSERT_TRUE(v >= e, "Value should be >= error");
+    FATP_ASSERT_TRUE(!(v < e), "Value should not be less than error");
+    FATP_ASSERT_TRUE(!(e > v), "Error should not be greater than value");
+    return true;
+}
+
+FATP_TEST_CASE(ordering_error_vs_error)
+{
+    Expected<int, std::string> e1(unexpected{"alpha"});
+    Expected<int, std::string> e2(unexpected{"beta"});
+    Expected<int, std::string> e3(unexpected{"alpha"});
+
+    FATP_ASSERT_TRUE(e1 < e2, "alpha < beta");
+    FATP_ASSERT_TRUE(e2 > e1, "beta > alpha");
+    FATP_ASSERT_TRUE(e1 <= e3, "alpha <= alpha");
+    FATP_ASSERT_TRUE(e1 >= e3, "alpha >= alpha");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Swap
+// ============================================================================
+
+FATP_TEST_CASE(swap_error_error)
+{
+    Expected<int, std::string> e1(unexpected{"one"});
+    Expected<int, std::string> e2(unexpected{"two"});
+
+    e1.swap(e2);
+    FATP_ASSERT_EQ(e1.error(), std::string("two"), "Error-error swap e1");
+    FATP_ASSERT_EQ(e2.error(), std::string("one"), "Error-error swap e2");
+    return true;
+}
+
+FATP_TEST_CASE(swap_free_function)
+{
+    Expected<int, std::string> a(10);
+    Expected<int, std::string> b(20);
+
+    swap(a, b);
+    FATP_ASSERT_EQ(*a, 20, "Free swap a");
+    FATP_ASSERT_EQ(*b, 10, "Free swap b");
+
+    Expected<int, std::string> v(42);
+    Expected<int, std::string> e(unexpected{"err"});
+    swap(v, e);
+    FATP_ASSERT_TRUE(!v.has_value(), "Free cross-state swap v");
+    FATP_ASSERT_TRUE(e.has_value(), "Free cross-state swap e");
+    FATP_ASSERT_EQ(*e, 42, "Free cross-state value preserved");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Inspect Chaining
+// ============================================================================
+
+FATP_TEST_CASE(inspect_chaining)
+{
+    int observed_value = 0;
+
+    auto result = Expected<int, std::string>(7)
+                      .inspect([&](int x) { observed_value = x; })
+                      .map([](int x) { return x * 3; });
+
+    FATP_ASSERT_EQ(observed_value, 7, "inspect should observe before map");
+    FATP_ASSERT_TRUE(result.has_value(), "Chained map should succeed");
+    FATP_ASSERT_EQ(*result, 21, "Chained map result correct");
+
+    int error_calls = 0;
+    auto result2 = Expected<int, std::string>(5)
+                       .inspect_error([&](const std::string&) { ++error_calls; })
+                       .map([](int x) { return x + 1; });
+
+    FATP_ASSERT_EQ(error_calls, 0, "inspect_error should not fire on value");
+    FATP_ASSERT_EQ(*result2, 6, "Chain after inspect_error works");
+    return true;
+}
+
+// ============================================================================
+// Coverage Gap Tests — Emplace Value-to-Value
+// ============================================================================
+
+FATP_TEST_CASE(emplace_value_to_value)
+{
+    Expected<std::string, int> exp("first");
+    FATP_ASSERT_EQ(*exp, std::string("first"), "Precondition");
+
+    auto& ref = exp.emplace("second");
+    FATP_ASSERT_EQ(*exp, std::string("second"), "Re-emplace should replace value");
+    FATP_ASSERT_EQ(ref, std::string("second"), "emplace returns reference to emplaced");
+
+    ref = "mutated";
+    FATP_ASSERT_EQ(*exp, std::string("mutated"), "Mutating returned ref changes stored value");
+    return true;
+}
+
+// ============================================================================
 // Benchmarks
 // ============================================================================
 // ============================================================================
@@ -834,6 +1612,52 @@ bool test_Expected()
     FATP_RUN_TEST_NS(runner, expected, std_expected_integration);
 #endif
 
+    // Coverage gap tests
+    FATP_RUN_TEST_NS(runner, expected, bad_expected_access_from_value);
+    FATP_RUN_TEST_NS(runner, expected, bad_expected_access_rvalue_error);
+    FATP_RUN_TEST_NS(runner, expected, bad_expected_access_void);
+    FATP_RUN_TEST_NS(runner, expected, expected_try_success);
+    FATP_RUN_TEST_NS(runner, expected, expected_try_propagates_error);
+    FATP_RUN_TEST_NS(runner, expected, expected_try_void_success);
+    FATP_RUN_TEST_NS(runner, expected, expected_try_void_propagates_error);
+    FATP_RUN_TEST_NS(runner, expected, value_or_else_value_path);
+    FATP_RUN_TEST_NS(runner, expected, value_or_else_error_path);
+    FATP_RUN_TEST_NS(runner, expected, value_or_else_rvalue);
+    FATP_RUN_TEST_NS(runner, expected, void_emplace);
+    FATP_RUN_TEST_NS(runner, expected, void_swap);
+    FATP_RUN_TEST_NS(runner, expected, void_copy_assignment);
+    FATP_RUN_TEST_NS(runner, expected, void_move_assignment);
+    FATP_RUN_TEST_NS(runner, expected, void_and_then);
+    FATP_RUN_TEST_NS(runner, expected, void_or_else);
+    FATP_RUN_TEST_NS(runner, expected, void_map_error);
+    FATP_RUN_TEST_NS(runner, expected, void_inspect);
+    FATP_RUN_TEST_NS(runner, expected, void_fold);
+    FATP_RUN_TEST_NS(runner, expected, void_error_or_else);
+    FATP_RUN_TEST_NS(runner, expected, void_comparison);
+    FATP_RUN_TEST_NS(runner, expected, rvalue_value_access);
+    FATP_RUN_TEST_NS(runner, expected, rvalue_error_access);
+    FATP_RUN_TEST_NS(runner, expected, rvalue_move_semantics);
+    FATP_RUN_TEST_NS(runner, expected, explicit_bool_conversion);
+    FATP_RUN_TEST_NS(runner, expected, transform_alias);
+    FATP_RUN_TEST_NS(runner, expected, flat_map_alias);
+    FATP_RUN_TEST_NS(runner, expected, map_error_direct);
+    FATP_RUN_TEST_NS(runner, expected, unexpected_standalone_ops);
+    FATP_RUN_TEST_NS(runner, expected, make_unexpected_factory);
+    FATP_RUN_TEST_NS(runner, expected, ctad_deduction);
+    FATP_RUN_TEST_NS(runner, expected, initializer_list_value_construction);
+    FATP_RUN_TEST_NS(runner, expected, initializer_list_error_construction);
+    FATP_RUN_TEST_NS(runner, expected, initializer_list_emplace);
+    FATP_RUN_TEST_NS(runner, expected, unexpected_assignment_nonvoid);
+    FATP_RUN_TEST_NS(runner, expected, unexpected_assignment_void);
+    FATP_RUN_TEST_NS(runner, expected, hash_error_state);
+    FATP_RUN_TEST_NS(runner, expected, hash_void_expected);
+    FATP_RUN_TEST_NS(runner, expected, hash_unexpected);
+    FATP_RUN_TEST_NS(runner, expected, ordering_error_vs_value);
+    FATP_RUN_TEST_NS(runner, expected, ordering_error_vs_error);
+    FATP_RUN_TEST_NS(runner, expected, swap_error_error);
+    FATP_RUN_TEST_NS(runner, expected, swap_free_function);
+    FATP_RUN_TEST_NS(runner, expected, inspect_chaining);
+    FATP_RUN_TEST_NS(runner, expected, emplace_value_to_value);
 
     return 0 == runner.print_summary();
 }
