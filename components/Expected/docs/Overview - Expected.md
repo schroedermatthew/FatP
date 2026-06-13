@@ -1,276 +1,220 @@
-# Expected: A Fat-P Library Showcase
+# Expected: Explicit Results for Fat-P
 
-## Executive Summary
+## Executive summary
 
-Expected is a **storage-policy-customizable** result type that represents either a success value or an error without exceptions. Unlike C++23's `std::expected` (fixed storage, no customization), fat_p Expected lets you choose between **TrivialStorage** (zero-overhead for trivial types), **UnionStorage** (manual lifetime, minimal overhead), and **VariantStorage** (debug-friendly, bounds-checked). The complete monadic interface (`map`, `and_then`, `or_else`, `transform_error`) enables **railway-oriented programming** where errors propagate automatically through function chains.
+`fat_p::Expected<T, E>` is Fat-P's C++20 result type for functions that can either produce a value or return a typed error. It is intended for code where error flow should be visible at the call site and where exceptions are either disabled, undesirable across a boundary, or too implicit for the domain.
 
----
-
-## The Problem Domain
-
-### What Goes Wrong Without It
+The core header is now intentionally small:
 
 ```cpp
-// Exception-based: hidden control flow
-std::string readConfig(const std::string& path) {
-    std::ifstream file(path);
-    if (!file) throw std::runtime_error("File not found");  // Hidden jump
-    std::string content;
-    if (!(file >> content)) throw std::runtime_error("Read failed");
-    return content;
+#include "Expected.h"
+```
+
+It provides:
+
+- `Expected<T, E>` and `Expected<void, E>`
+- `Result<T>` and `Status` convenience aliases using `std::string` errors
+- `unexpected<E>` / `make_unexpected`
+- monadic operations: `map`, `and_then`, `or_else`, `transform_error`, `inspect`, `inspect_error`, and `fold`
+- lazy fallbacks: `value_or_else` and `error_or_else`
+- `FATP_EXPECTED_TRY`, `FATP_EXPECTED_TRY_VOID`, and `FATP_EXPECTED_ASSIGN_OR_RETURN`
+- selectable storage policies: `UnionStorage`, `VariantStorage`, and `TrivialStorage`
+- optional C++23 conversion helpers for `std::expected`
+
+Async support has been split out so normal users of `Expected` do not pay for `<future>` and related dependencies:
+
+```cpp
+#include "ExpectedAsyncTask.h" // only when AsyncTask is needed
+```
+
+## What problem it solves
+
+Exceptions hide error flow:
+
+```cpp
+Config load_config(const Path& path); // may throw; not visible in the type
+```
+
+Error codes separate success values from error state:
+
+```cpp
+int load_config(const Path& path, Config* out); // caller must coordinate two channels
+```
+
+`Expected` keeps the result and the error in one value:
+
+```cpp
+fat_p::Expected<Config, ConfigError> load_config(const Path& path);
+```
+
+A caller can then choose explicit branching:
+
+```cpp
+auto cfg = load_config(path);
+if (!cfg) {
+    log(cfg.error());
+    return fat_p::unexpected(cfg.error());
+}
+use(*cfg);
+```
+
+or pipeline-style composition:
+
+```cpp
+return read_file(path)
+    .and_then(parse_config)
+    .and_then(validate_config)
+    .map(build_runtime_config);
+```
+
+## Design principles
+
+### 1. Visible failure at API boundaries
+
+A function returning `Expected<T, E>` states in its signature that failure is expected and recoverable. This is different from contract violations, programmer errors, or invariant failures, which should use the project's contract/enforcement layer.
+
+### 2. No async dependency in the core result type
+
+The core `Expected.h` header does not include `ExpectedAsyncTask.h`. This keeps the foundation result type usable in low-dependency headers, hot paths, and build-sensitive code.
+
+Use `ExpectedAsyncTask.h` only when you need the `std::future`-backed async wrapper.
+
+### 3. Storage policy is explicit
+
+The default `Expected<T, E>` uses the configured default storage policy. By default, that is `UnionStorage`.
+
+Explicit aliases are available when the storage choice matters:
+
+```cpp
+fat_p::ExpectedUnion<T, E>      // force manual union storage
+fat_p::TrivialExpected<T, E>    // trivially copyable hot-path form
+// fat_p::ExpectedVariant<T, E> // available when USE_VARIANT_STORAGE is enabled
+```
+
+`USE_VARIANT_STORAGE` switches the default `Expected<T, E>` to `VariantStorage`. Variant storage is useful for debug or non-hot paths. It is not the default because it adds the overhead and dependency profile of `std::variant`.
+
+### 4. `Expected<void, E>` is a status type
+
+Use `Expected<void, E>` or `Status` when the only success information is “the operation completed.”
+
+```cpp
+fat_p::Status save_file(const Path& path, const Buffer& data);
+```
+
+### 5. `TrivialExpected` is for simple ABI-oriented hot paths
+
+`TrivialExpected<T, E>` is intended for trivially copyable `T` and `E`, such as integer values and small error codes. It is designed for cases where passing a small result in registers matters.
+
+Use it deliberately. For general application/domain errors, prefer normal `Expected<T, E>`.
+
+## C++ standard support
+
+Fat-P requires C++20. `Expected` uses C++20 language/library features such as concepts and three-way comparison support.
+
+C++23 adds optional `std::expected` conversion helpers when the standard library provides `std::expected`:
+
+```cpp
+auto std_exp = fat_p::to_std_expected(my_expected);
+auto fatp_exp = fat_p::from_std_expected(std_exp);
+```
+
+The conversion helpers are interop utilities. Monadic callbacks should return `fat_p::Expected` / `fat_p::ExpectedImpl` so error propagation uses Fat-P's `unexpected` tag and storage policies.
+
+## What it is not
+
+`Expected` is not an ownership type. It owns either the value or the error, but it does not solve lifetime issues for references. `Expected<T&, E>` is intentionally unsupported.
+
+`Expected` is not a replacement for contract checks. Use it for recoverable domain failures, not for impossible states or caller contract violations.
+
+`Expected` is not a blanket exception-elimination tool. It is best used at clear recoverable-error boundaries. Internal code may still use contracts, assertions, or exceptions if that is the component's chosen model.
+
+## Example: explicit branching
+
+```cpp
+fat_p::Expected<int, std::string> divide(int a, int b)
+{
+    if (b == 0) {
+        return fat_p::unexpected<std::string>("division by zero");
+    }
+    return a / b;
 }
 
-void processConfig() {
-    auto config = readConfig("app.cfg");  // Can throw—invisible at call site!
-}
+fat_p::Status run()
+{
+    auto result = divide(10, 2);
+    if (!result) {
+        return fat_p::unexpected(result.error());
+    }
 
-// Error code: manual propagation, out-parameters
-int readConfig(const std::string& path, std::string* out) {
-    std::ifstream file(path);
-    if (!file) return -1;  // Caller must check
-    if (!(file >> *out)) return -2;  // Caller must check
-    return 0;
-}
-// Problem: Easy to forget checks. No composition. Ugly out-parameters.
-```
-
-| Issue | HPC Impact |
-|-------|------------|
-| Exception overhead | Stack unwinding costs 1000x normal return in hot paths |
-| Hidden control flow | Can't reason about throw points without reading all code |
-| Error code tedium | Manual propagation, out-parameters, forgotten checks |
-| No composition | Can't chain fallible operations elegantly |
-
-### The Standard's Limitation
-
-C++23's `std::expected` provides monadic operations but:
-- **No storage policy customization**—implementation-defined
-- **No `inspect()`**—can't peek at value without extracting
-- **No `value_or_else()`**—must write verbose conditionals
-- **No trivial storage optimization**—may waste space for trivial types
-
----
-
-## Architecture: Policy-Based Storage
-
-### The Mechanism: Compile-Time Storage Selection
-
-```cpp
-template<typename T, typename E, 
-         template<typename, typename> class StoragePolicy = AutoStorage>
-class Expected {
-    StoragePolicy<T, E> storage_;
-    bool has_value_;
-    
-    // AutoStorage selects:
-    // - TrivialStorage for trivially copyable T and E
-    // - UnionStorage otherwise
-};
-
-// Storage policies
-template<typename T, typename E>
-struct TrivialStorage {
-    union { T value; E error; };  // Zero overhead for trivial types
-};
-
-template<typename T, typename E>
-struct UnionStorage {
-    union { T value; E error; };
-    // Manual placement new/destroy for non-trivial types
-};
-
-template<typename T, typename E>
-struct VariantStorage {
-    std::variant<T, E> data;  // Debug-friendly, bounds-checked
-};
-```
-
-**Why storage policies matter:**
-
-| Policy | Size | Debug | Use Case |
-|--------|------|-------|----------|
-| TrivialStorage | `sizeof(T) + 1` | Minimal | Hot paths with POD types |
-| UnionStorage | `max(sizeof(T), sizeof(E)) + 1` | Minimal | General production |
-| VariantStorage | `sizeof(variant<T,E>)` | Full bounds checking | Debug builds |
-
-### Memory Layout
-
-```cpp
-Expected<int, Error> result;  // TrivialStorage
-
-// sizeof(Expected<int, Error>) == max(sizeof(int), sizeof(Error)) + 1 (bool)
-// Contrast: std::optional<std::variant<int, Error>> adds variant overhead
-```
-
----
-
-## Feature Inventory
-
-### 1. Value-or-Error Construction
-
-```cpp
-Expected<int, std::string> success{42};
-Expected<int, std::string> failure{unexpect, "File not found"};
-
-// In-place construction
-Expected<std::vector<int>, Error> vec{std::in_place, {1, 2, 3}};
-Expected<int, ComplexError> err{unexpect, std::in_place, arg1, arg2};
-```
-
-### 2. Monadic Operations: Railway-Oriented Programming
-
-```cpp
-Expected<Config, Error> loadConfig(const std::string& path);
-Expected<Settings, Error> parseConfig(const Config& cfg);
-Expected<App, Error> createApp(const Settings& s);
-
-// Chain operations—errors propagate automatically
-auto result = loadConfig("app.cfg")
-    .and_then(parseConfig)      // Only runs if loadConfig succeeded
-    .and_then(createApp);       // Only runs if parseConfig succeeded
-
-// result is Expected<App, Error>
-// If any step failed, result contains that error
-```
-
-**The Operations:**
-
-| Operation | Signature | Behavior |
-|-----------|-----------|----------|
-| `map(f)` | `(T→U) → Expected<U,E>` | Transform value, propagate error |
-| `and_then(f)` | `(T→Expected<U,E>) → Expected<U,E>` | Chain fallible operations |
-| `or_else(f)` | `(E→Expected<T,E>) → Expected<T,E>` | Recover from error |
-| `transform_error(f)` | `(E→E2) → Expected<T,E2>` | Transform error type |
-
-### 3. Safe Value Access
-
-```cpp
-Expected<int, Error> result = compute();
-
-// Pattern 1: Check and access
-if (result) {
     use(*result);
+    return {};
 }
-
-// Pattern 2: Default value
-int value = result.value_or(42);
-
-// Pattern 3: Lazy default
-int value = result.value_or_else([] { return expensive_default(); });
-
-// Pattern 4: Inspect without extraction (fat_p extension)
-result.inspect([](int v) { log("Got value:", v); });
-result.inspect_error([](Error e) { log("Got error:", e); });
 ```
 
-### 4. Expected<void, E> for Status-Only Operations
+## Example: monadic pipeline
 
 ```cpp
-Expected<void, Error> validateInput(const Input& input) {
-    if (!input.valid()) return {unexpect, Error::InvalidInput};
-    return {};  // Success with no value
-}
+fat_p::Expected<TokenStream, ParseError> tokenize(std::string_view text);
+fat_p::Expected<Ast, ParseError> parse(TokenStream tokens);
+fat_p::Expected<CheckedAst, ParseError> type_check(Ast ast);
 
-auto result = validateInput(input)
-    .and_then([&] { return processInput(input); })  // Returns Expected<Output, Error>
-    .map([](Output o) { return formatOutput(o); }); // Returns Expected<string, Error>
+fat_p::Expected<CheckedAst, ParseError> compile_frontend(std::string_view text)
+{
+    return tokenize(text)
+        .and_then(parse)
+        .and_then(type_check);
+}
 ```
 
-### 5. Reference Support
+## Example: early-return macro
 
 ```cpp
-Expected<int&, Error> getRef();
-
-auto result = getRef();
-if (result) {
-    *result = 42;  // Modifies referenced int
+fat_p::Expected<Config, ConfigError> load_config(const Path& path)
+{
+    FATP_EXPECTED_TRY(bytes, read_file(path));
+    FATP_EXPECTED_TRY(json, parse_json(bytes));
+    return decode_config(json);
 }
 ```
 
----
+`FATP_EXPECTED_TRY(name, expr)` evaluates `expr`, returns its error if it failed, and binds the success value to `name`.
 
-## Why Not Alternatives?
+For `Expected<void, E>` expressions, use:
 
-| If You Need... | Why Not std::expected (C++23) | Why Not std::optional | Why Not Error Codes | Fat-P Advantage |
-|----------------|------------------------------|----------------------|---------------------|-----------------|
-| Storage policy | ❌ Implementation-defined | N/A | N/A | ✅ Three policies |
-| `inspect()` | ❌ Not available | ❌ Not available | N/A | ✅ Peek without extract |
-| `value_or_else()` | ❌ Not available | ❌ Not available | N/A | ✅ Lazy default |
-| C++17 support | ❌ C++23 required | ✅ C++17 | ✅ Always | ✅ C++17 |
-| Monadic ops | ✅ Has them | ❌ Limited | ❌ None | ✅ Full set |
-| `Expected<void, E>` | ✅ Has it | N/A | N/A | ✅ Has it |
-
-**The Sweet Spot:** Fat-P Expected is the only option combining storage policies, extended operations (`inspect`, `value_or_else`), C++17 support, and full monadic interface.
-
----
-
-## The "Forever Stuck" Reality
-
-**Standard Reality:** C++23's `std::expected` is finalized. It will **never** gain:
-- Storage policy customization (ABI stability)
-- `inspect()` / `inspect_error()` (not proposed)
-- `value_or_else()` with lazy evaluation (not proposed)
-
-These are architectural decisions, not oversights. Fat-P Expected provides these capabilities permanently for codebases that need them.
-
-**Compiler Lock-in:** Many HPC codebases are locked to C++17 for 5+ years due to driver compatibility. Fat-P Expected provides C++23-style error handling **today** on C++17.
-
----
-
-## Performance Characteristics
-
-| Operation | Mechanism | Cost Driver |
-|-----------|-----------|-------------|
-| Construction (value) | Placement new into discriminated union | Same cost as constructing T — no heap, no indirection |
-| Construction (error) | Placement new into discriminated union | Same cost as constructing E |
-| `has_value()` check | Boolean read | Single branch — zero overhead beyond a comparison |
-| `value()` access | Direct member access | No indirection — equivalent to accessing a struct field |
-| `map()` | Conditional + construction of new Expected | Function call cost + one branch + one placement new |
-| `and_then()` | Conditional + construction of new Expected | Function call cost + one branch + one placement new |
-
-See `components/Expected/results/` for current platform-specific benchmark data.
-
-### Where Fat-P Wins
-- Error-handling hot paths where exceptions are too expensive
-- Monadic composition of fallible operations
-- APIs that need explicit error visibility
-
-### Where Fat-P Loses (Honesty Builds Trust)
-- Simple success/failure with no error data → `std::optional` is simpler
-- Truly exceptional conditions → exceptions may be clearer
-- C++23 codebases → `std::expected` is standard
-
----
-
-## Integration Points
-
-```
-Expected.h
-    ↓ uses
-TypeTraits.h           (SFINAE helpers, C++ version detection)
-    ↓ used by
-CheckedArithmetic.h    (ReturnExpectedPolicy)
-IdGenerator.h          (Expected<Id, IdError>)
-JsonLite.h             (Expected<Value, ParseError>)
+```cpp
+FATP_EXPECTED_TRY_VOID(flush_output());
 ```
 
----
+## AsyncTask split
 
-## Final Assessment
+Async support now lives in `ExpectedAsyncTask.h`:
 
-Expected delivers on the fat_p promise through three pillars:
+```cpp
+#include "ExpectedAsyncTask.h"
 
-### 1. Permanence
-C++23's `std::expected` will never gain storage policies or extended operations due to ABI stability. Fat-P Expected provides these permanently—and works on C++17 today.
+auto task = fat_p::async_task([]() -> fat_p::Expected<int, std::string> {
+    return 42;
+});
 
-### 2. Specialization
-Storage policies let you choose between zero-overhead production builds (TrivialStorage/UnionStorage) and debug-friendly development (VariantStorage). The automatic policy selection (AutoStorage) picks optimally based on type traits.
+auto ready = task.poll();
+if (!ready) {
+    // not ready yet
+}
+```
 
-### 3. Control
-Three storage policies, extended operations (`inspect`, `value_or_else`), and full monadic interface give you control over error handling architecture. No runtime dispatch—policies resolve at compile time.
+`poll()` returns `std::optional<Expected<T, E>>`:
 
-**Architectural Verdict:** Expected transforms error handling from **hidden exceptions** or **tedious error codes** to **visible, composable, type-safe** result types. The monadic interface enables railway-oriented programming where errors propagate automatically through operation chains.
+- `std::nullopt` means the task is not ready
+- `Expected<T, E>` means the task completed, either successfully or with a domain error
 
----
+This avoids inventing a fake domain error such as `"Not ready"`.
 
-*Expected.h — Fat-P Library*
+## Current maturity
+
+The core API is broad and intended for real use, but the right mental model is still practical rather than magical:
+
+- keep `T` and `E` reasonably movable/copyable for the paths you use;
+- do not use unchecked accessors unless the state was externally verified;
+- use `TrivialExpected` only for trivially copyable hot-path types;
+- include `ExpectedAsyncTask.h` only where async is required.
+
