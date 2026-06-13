@@ -15,7 +15,7 @@ FATP_META:
   related:
     docs_search: "AsyncOperations"
     headers:
-      - include/fat_p/Expected.h
+      - include/fat_p/ExpectedAsyncTask.h
       - include/fat_p/FatPTest.h
   hygiene:
     pragma_once: false
@@ -34,7 +34,7 @@ FATP_META:
 #include <string>
 #include <thread>
 
-#include "Expected.h"
+#include "ExpectedAsyncTask.h"
 #include "FatPTest.h"
 
 namespace fat_p::testing::asyncoperations
@@ -127,10 +127,38 @@ FATP_TEST_CASE(poll)
     });
 
     auto early_result = task.poll();
-    // May or may not be ready depending on timing
+    if (early_result)
+    {
+        FATP_ASSERT_TRUE(early_result->has_value(), "Ready poll should contain the task result");
+    }
 
     auto final_result = task.wait();
     FATP_ASSERT_TRUE(final_result.has_value(), "Final wait should succeed");
+
+    return true;
+}
+
+FATP_TEST_CASE(poll_with_non_string_error)
+{
+    enum class Err
+    {
+        Failed
+    };
+
+    auto task = async_task([]() -> Expected<int, Err> {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        return 7;
+    });
+
+    auto maybe_result = task.poll();
+    if (maybe_result)
+    {
+        FATP_ASSERT_TRUE(maybe_result->has_value(), "Ready poll should preserve value for enum error type");
+    }
+
+    auto result = task.wait();
+    FATP_ASSERT_TRUE(result.has_value(), "Final wait should succeed for enum error type");
+    FATP_ASSERT_TRUE(*result == 7, "Final value should be preserved");
 
     return true;
 }
@@ -176,6 +204,7 @@ bool test_AsyncOperations()
     FATP_RUN_TEST_NS(runner, asyncoperations, chained_continuations);
     FATP_RUN_TEST_NS(runner, asyncoperations, error_propagation);
     FATP_RUN_TEST_NS(runner, asyncoperations, poll);
+    FATP_RUN_TEST_NS(runner, asyncoperations, poll_with_non_string_error);
     FATP_RUN_TEST_NS(runner, asyncoperations, valid);
 
 

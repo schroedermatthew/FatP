@@ -156,7 +156,7 @@ FATP_META:
  * single-threaded context. Do not run multiple test runners concurrently or
  * execute tests from multiple threads simultaneously.
  *
-cd build * @note This infrastructure provides: assertions, benchmarking, colored output,
+ * @note This infrastructure provides: assertions, benchmarking, colored output,
  *       floating-point comparison, exception testing, and test runners - all
  *       with zero external dependencies beyond the C++ standard library.
  */
@@ -3437,9 +3437,10 @@ public:
      * within the timeout period, it's marked as failed. Uses std::async for
      * portable timeout support across platforms.
      *
-     * IMPORTANT LIMITATION: On timeout, the test thread continues running in the
-     * background. This is a fundamental C++ limitation - there is no safe, portable
-     * way to kill threads. Thread cancellation violates RAII principles and can
+     * IMPORTANT LIMITATION: Timeout is detected for reporting, but std::future
+     * destruction may still wait for the async work to finish. Treat this as a
+     * hang detector, not as a hard wall-clock bound. There is no safe, portable
+     * way to kill threads; thread cancellation violates RAII principles and can
      * corrupt process state.
      *
      * GUIDELINES:
@@ -4060,7 +4061,7 @@ inline bool TestRunner::export_to_junit_xml(const std::string& filename, const s
  * @brief Define a test function
  *
  * Usage:
- *   FATP_TEST_CASE("my test")
+ *   FATP_TEST_CASE(my_test)
  *   {
  *       FATP_ASSERT_EQ(1 + 1, 2, "Math works");
  *       return true;
@@ -4072,7 +4073,7 @@ inline bool TestRunner::export_to_junit_xml(const std::string& filename, const s
  * @brief Define a test function with fixture
  *
  * Usage:
- *   FATP_TEST_CASE_F(MyFixture, "my test")
+ *   FATP_TEST_CASE_F(MyFixture, my_test)
  *   {
  *       FATP_ASSERT_NOT_NULLPTR(fixture.db, "Database initialized");
  *       return true;

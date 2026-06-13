@@ -7,7 +7,7 @@ FATP_META:
   path: include/fat_p/Expected.h
   namespace: fat_p
   layer: Foundation
-  summary: "Public header for Expected. Includes AsyncTask (formerly AsyncOperations)."
+  summary: "Public header for Expected core."
   api_stability: in_work
   related:
     docs_search: "Expected"
@@ -31,12 +31,12 @@ FATP_META:
 
 /**
  * @file Expected.h
- * @brief Production-ready Expected<T,E> with complete monadic operations and AsyncTask
+ * @brief Expected<T,E> core with monadic operations and storage policies
  *
  *
  *
  * @section features Key Features
- * - Complete monadic interface (map, and_then, or_else, transform_error)
+ * - Monadic interface (map, and_then, or_else, transform_error)
  * - value_or_else() for lazy defaults
  * - Ordering operators (<, <=, >, >=)
  * - Three-way comparison (C++20)
@@ -45,7 +45,6 @@ FATP_META:
  * - Rebind template for type transformations
  * - Storage policies (Union/Variant)
  * - Comprehensive noexcept specifications
- * - AsyncTask with monadic continuations (.then, .error, .poll)
  * - C++20 minimum, C++23 enhanced
  *
  * @section cpp_versions C++ Version Support
@@ -86,20 +85,22 @@ FATP_META:
  * **Safe:** Multiple threads reading same Expected (const operations)
  * **Unsafe:** Concurrent writes or mixing reads/writes (requires synchronization)
  *
- * Use std::atomic<Expected>, std::shared_mutex, or ConcurrencyPolicies.h
- * for thread-safe shared Expected objects.
+ * Use external synchronization such as std::shared_mutex, or ConcurrencyPolicies.h
+ * for shared Expected objects. std::atomic only applies to types that satisfy
+ * the standard atomic requirements, such as selected TrivialExpected instantiations.
  *
  * @section complexity Complexity: O(1) for all operations except functors
- * @section exception_safety Exception Safety: Strong guarantee
+ * @section exception_safety Exception Safety: basic guarantee unless T/E operations provide stronger guarantees
  */
 
 #include <cassert>     // For assert
+#include <compare>     // For std::strong_ordering, std::weak_ordering
 #include <concepts>    // For std::constructible_from, std::same_as, etc.
+#include <cstddef>     // For std::size_t
 #include <exception>   // Base for bad_expected_access
 #include <functional>  // For std::hash
-#include <future>      // For std::async, std::future (AsyncTask support)
-#include <memory>      // For std::shared_ptr (AsyncTask support)
-#include <optional>    // For std::optional (AsyncTask cached results)
+#include <initializer_list> // For std::initializer_list
+#include <new>        // For placement new
 #include <stdexcept>   // For std::logic_error
 #include <string>      // Default error type
 #include <type_traits> // For std::is_constructible, std::is_same, etc.
@@ -111,8 +112,7 @@ FATP_META:
 #include <variant> // For VariantStorage policy (conditional use)
 #endif
 
-// C++20 three-way comparison support (always available)
-#include <compare> // For std::strong_ordering, std::weak_ordering
+// C++20 three-way comparison support is required and included above.
 
 // C++23 std::expected integration
 #if FATP_HAS_EXPECTED
@@ -427,23 +427,27 @@ private:
 #endif
     void destroy_active() noexcept
     {
-        if (mInitialized)
+        if (!mInitialized)
         {
-            if (mHasValue)
+            return;
+        }
+
+        if (mHasValue)
+        {
+            if constexpr (!std::is_trivially_destructible_v<T>)
             {
-                if constexpr (!std::is_trivially_destructible_v<T>)
-                {
-                    mValue.~T();
-                }
-            }
-            else
-            {
-                if constexpr (!std::is_trivially_destructible_v<E>)
-                {
-                    mError.~E();
-                }
+                mValue.~T();
             }
         }
+        else
+        {
+            if constexpr (!std::is_trivially_destructible_v<E>)
+            {
+                mError.~E();
+            }
+        }
+
+        mInitialized = false;
     }
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
@@ -482,7 +486,9 @@ public:
     void store_value(Args&&... args)
     {
         destroy_active();
-        // Construct new value (placement new required to start object lifetime)
+        // Construct new value (placement new required to start object lifetime).
+        // mInitialized is only restored after construction succeeds, so a
+        // throwing constructor cannot leave a stale active-member flag behind.
         new (&mValue) T(std::forward<Args>(args)...);
         mHasValue = true;
         mInitialized = true;
@@ -497,7 +503,9 @@ public:
     void store_error(Args&&... args)
     {
         destroy_active();
-        // Construct new error (placement new required to start object lifetime)
+        // Construct new error (placement new required to start object lifetime).
+        // mInitialized is only restored after construction succeeds, so a
+        // throwing constructor cannot leave a stale active-member flag behind.
         new (&mError) E(std::forward<Args>(args)...);
         mHasValue = false;
         mInitialized = true;
@@ -783,7 +791,12 @@ private:
     bool mHasValue = true; ///< Discriminator (default to value state)
 
 public:
-    TrivialStorage() = default;
+    constexpr TrivialStorage() noexcept
+        requires std::default_initializable<T>
+        : mValue{}
+        , mHasValue(true)
+    {
+    }
     ~TrivialStorage() = default;
     TrivialStorage(const TrivialStorage&) = default;
     TrivialStorage(TrivialStorage&&) = default;
@@ -868,138 +881,101 @@ public:
 
 /**
  * @struct VariantStorage
- * @brief Policy using std::variant for storage in Expected. Provides automatic
- * lifetime management and type safety at the cost of potential performance
- * overhead in access and visitation. Useful for simplicity in non-critical
- * paths or debugging.
+ * @brief Policy using std::variant for storage in Expected.
  * @tparam T Success value type.
  * @tparam E Error type.
  *
- * Wraps std::variant<T, unexpected<E>> to distinguish value and error states.
- * Delegates most operations to variant's methods.
+ * Uses std::monostate as an explicit uninitialized state so VariantStorage can
+ * support the same non-default-constructible value types as UnionStorage.
  */
 template <typename T, typename E>
 struct VariantStorage
 {
     using Unexpected = unexpected<E>;
-    std::variant<T, Unexpected> mData; ///< Underlying variant storage
+    using Data = std::variant<std::monostate, T, Unexpected>;
+    Data mData; ///< index 0 = uninitialized, 1 = value, 2 = error
 
-    /**
-     * @brief Default constructor: Initializes in value state with default T (if T is default-constructible).
-     */
-    VariantStorage()
-        requires std::default_initializable<T>
-        : mData(T{})
-    {
-    }
+    VariantStorage() = default;
 
-    /**
-     * @brief Stores a value using emplace.
-     * @tparam Args Forwarded arguments for T's constructor.
-     */
     template <typename... Args>
     void store_value(Args&&... args)
     {
-        mData.template emplace<T>(std::forward<Args>(args)...);
+        mData.template emplace<1>(std::forward<Args>(args)...);
     }
 
-    /**
-     * @brief Stores an error using emplace on Unexpected.
-     * @tparam Args Forwarded arguments for E's constructor.
-     */
     template <typename... Args>
     void store_error(Args&&... args)
     {
-        mData.template emplace<Unexpected>(std::forward<Args>(args)...);
+        mData.template emplace<2>(std::in_place, std::forward<Args>(args)...);
     }
 
-    /**
-     * @brief Assigns value directly (without emplacing).
-     */
     template <typename Arg>
     void assign_value(Arg&& arg)
     {
-        assert(mData.index() == 0);
-        std::get<T>(mData) = std::forward<Arg>(arg);
+        assert(mData.index() == 1);
+        std::get<1>(mData) = std::forward<Arg>(arg);
     }
 
-    /**
-     * @brief Assigns error directly (without emplacing).
-     */
     template <typename Arg>
     void assign_error(Arg&& arg)
     {
-        assert(mData.index() == 1);
-        std::get<Unexpected>(mData).mError = std::forward<Arg>(arg);
+        assert(mData.index() == 2);
+        std::get<2>(mData).mError = std::forward<Arg>(arg);
     }
 
-    /**
-     * @brief Checks if value (index 0) is active.
-     * @return bool True if holding T.
-     */
     constexpr bool has_value() const noexcept
     {
-        return mData.index() == 0;
+        return mData.index() == 1;
     }
 
-    /**
-     * @brief Checks if storage has been initialized.
-     * @return bool Always true for VariantStorage (always initialized).
-     */
     constexpr bool is_initialized() const noexcept
     {
-        return true;
+        return mData.index() != 0;
     }
-
-    // --- Accessors ---
 
     T& get_value() &
     {
-        assert(mData.index() == 0);
-        return std::get<T>(mData);
+        assert(mData.index() == 1);
+        return std::get<1>(mData);
     }
     const T& get_value() const&
     {
-        assert(mData.index() == 0);
-        return std::get<T>(mData);
+        assert(mData.index() == 1);
+        return std::get<1>(mData);
     }
     T&& get_value() &&
     {
-        assert(mData.index() == 0);
-        return std::get<T>(std::move(mData));
+        assert(mData.index() == 1);
+        return std::get<1>(std::move(mData));
     }
     const T&& get_value() const&&
     {
-        assert(mData.index() == 0);
-        return std::get<T>(std::move(mData));
+        assert(mData.index() == 1);
+        return std::get<1>(std::move(mData));
     }
 
     E& get_error() &
     {
-        assert(mData.index() == 1);
-        return std::get<Unexpected>(mData).mError;
+        assert(mData.index() == 2);
+        return std::get<2>(mData).mError;
     }
     const E& get_error() const&
     {
-        assert(mData.index() == 1);
-        return std::get<Unexpected>(mData).mError;
+        assert(mData.index() == 2);
+        return std::get<2>(mData).mError;
     }
     E&& get_error() &&
     {
-        assert(mData.index() == 1);
-        return std::get<Unexpected>(std::move(mData)).mError;
+        assert(mData.index() == 2);
+        return std::get<2>(std::move(mData)).mError;
     }
     const E&& get_error() const&&
     {
-        assert(mData.index() == 1);
-        return std::get<Unexpected>(std::move(mData)).mError;
+        assert(mData.index() == 2);
+        return std::get<2>(std::move(mData)).mError;
     }
 
-    /**
-     * @brief Swaps with another VariantStorage instance.
-     * @param other The other storage to swap with.
-     */
-    void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<std::variant<T, Unexpected>>)
+    void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<Data>)
     {
         mData.swap(other.mData);
     }
@@ -1084,6 +1060,9 @@ template <typename T, typename E = std::string, template <typename, typename> cl
 class [[nodiscard]] ExpectedImpl
 {
 private:
+    template <typename, typename, template <typename, typename> class>
+    friend class ExpectedImpl;
+
     StoragePolicy<T, E> mStorage; ///< Policy instance for storage
 
     static_assert(std::is_destructible_v<T> && std::is_destructible_v<E>, "T and E must be destructible");
@@ -1741,8 +1720,16 @@ public:
         using U = std::remove_cvref_t<std::invoke_result_t<F, T&>>;
         if (has_value())
         {
-            return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
-                                                     std::invoke(std::forward<F>(f), mStorage.get_value()));
+            if constexpr (std::is_void_v<U>)
+            {
+                std::invoke(std::forward<F>(f), mStorage.get_value());
+                return ExpectedImpl<void, E, StoragePolicy>();
+            }
+            else
+            {
+                return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
+                                                         std::invoke(std::forward<F>(f), mStorage.get_value()));
+            }
         }
         return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.get_error());
     }
@@ -1753,8 +1740,16 @@ public:
         using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
         if (has_value())
         {
-            return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
-                                                     std::invoke(std::forward<F>(f), mStorage.get_value()));
+            if constexpr (std::is_void_v<U>)
+            {
+                std::invoke(std::forward<F>(f), mStorage.get_value());
+                return ExpectedImpl<void, E, StoragePolicy>();
+            }
+            else
+            {
+                return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
+                                                         std::invoke(std::forward<F>(f), mStorage.get_value()));
+            }
         }
         return ExpectedImpl<U, E, StoragePolicy>(unexpect, mStorage.get_error());
     }
@@ -1762,15 +1757,22 @@ public:
     template <typename F>
     [[nodiscard]] constexpr auto map(F&& f) &&
     {
-        using U = std::invoke_result_t<F, T&&>;
-        static_assert(std::is_constructible_v<U, decltype(std::invoke(std::forward<F>(f), std::declval<T&&>()))>);
+        using U = std::remove_cvref_t<std::invoke_result_t<F, T&&>>;
         if (has_value())
         {
-            return ExpectedImpl<std::decay_t<U>, E, StoragePolicy>(
-                std::in_place,
-                std::invoke(std::forward<F>(f), std::move(mStorage.get_value())));
+            if constexpr (std::is_void_v<U>)
+            {
+                std::invoke(std::forward<F>(f), std::move(mStorage.get_value()));
+                return ExpectedImpl<void, E, StoragePolicy>();
+            }
+            else
+            {
+                return ExpectedImpl<U, E, StoragePolicy>(
+                    std::in_place,
+                    std::invoke(std::forward<F>(f), std::move(mStorage.get_value())));
+            }
         }
-        return ExpectedImpl<std::decay_t<U>, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
+        return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
     }
 
     template <typename F>
@@ -1779,8 +1781,16 @@ public:
         using U = std::remove_cvref_t<std::invoke_result_t<F, const T&&>>;
         if (has_value())
         {
-            return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
-                                                     std::invoke(std::forward<F>(f), std::move(mStorage.get_value())));
+            if constexpr (std::is_void_v<U>)
+            {
+                std::invoke(std::forward<F>(f), std::move(mStorage.get_value()));
+                return ExpectedImpl<void, E, StoragePolicy>();
+            }
+            else
+            {
+                return ExpectedImpl<U, E, StoragePolicy>(std::in_place,
+                                                         std::invoke(std::forward<F>(f), std::move(mStorage.get_value())));
+            }
         }
         return ExpectedImpl<U, E, StoragePolicy>(unexpect, std::move(mStorage.get_error()));
     }
@@ -2181,13 +2191,20 @@ private:
 
     void destroy_active() noexcept
     {
-        if (mInitialized && !mHasValue)
+        if (!mInitialized)
+        {
+            return;
+        }
+
+        if (!mHasValue)
         {
             if constexpr (!std::is_trivially_destructible_v<E>)
             {
                 mError.~E();
             }
         }
+
+        mInitialized = false;
     }
 
 public:
@@ -2214,14 +2231,7 @@ public:
     void store_error(Args&&... args)
     {
         destroy_active();
-        if constexpr (sizeof...(Args) == 0 && std::is_trivially_default_constructible_v<E>)
-        {
-            // No placement new for trivial
-        }
-        else
-        {
-            new (&mError) E(std::forward<Args>(args)...);
-        }
+        new (&mError) E(std::forward<Args>(args)...);
         mHasValue = false;
         mInitialized = true;
     }
@@ -2387,14 +2397,14 @@ struct VariantStorage<void, E>
     template <typename... Args>
     void store_error(Args&&... args)
     {
-        mData.template emplace<Unexpected>(std::forward<Args>(args)...);
+        mData.template emplace<1>(std::in_place, std::forward<Args>(args)...);
     }
 
     template <typename Arg>
     void assign_error(Arg&& arg)
     {
         assert(mData.index() == 1);
-        std::get<Unexpected>(mData).mError = std::forward<Arg>(arg);
+        std::get<1>(mData).mError = std::forward<Arg>(arg);
     }
 
     constexpr bool has_value() const noexcept
@@ -2407,22 +2417,22 @@ struct VariantStorage<void, E>
     E& get_error() &
     {
         assert(mData.index() == 1);
-        return std::get<Unexpected>(mData).mError;
+        return std::get<1>(mData).mError;
     }
     const E& get_error() const&
     {
         assert(mData.index() == 1);
-        return std::get<Unexpected>(mData).mError;
+        return std::get<1>(mData).mError;
     }
     E&& get_error() &&
     {
         assert(mData.index() == 1);
-        return std::get<Unexpected>(std::move(mData)).mError;
+        return std::get<1>(std::move(mData)).mError;
     }
     const E&& get_error() const&&
     {
         assert(mData.index() == 1);
-        return std::get<Unexpected>(std::move(mData)).mError;
+        return std::get<1>(std::move(mData)).mError;
     }
 
     void swap(VariantStorage& other) noexcept(std::is_nothrow_swappable_v<decltype(mData)>)
@@ -2442,6 +2452,9 @@ template <typename E, template <typename, typename> class StoragePolicy>
 class [[nodiscard]] ExpectedImpl<void, E, StoragePolicy>
 {
 private:
+    template <typename, typename, template <typename, typename> class>
+    friend class ExpectedImpl;
+
     StoragePolicy<void, E> mStorage;
 
     static_assert(std::is_destructible_v<E>, "E must be destructible");
@@ -3146,6 +3159,9 @@ class [[nodiscard]] ExpectedImpl<T, E, TrivialStorage>
     static_assert(!std::is_void_v<T>, "Use ExpectedImpl<void, E> for void success");
 
 private:
+    template <typename, typename, template <typename, typename> class>
+    friend class ExpectedImpl;
+
     TrivialStorage<T, E> mStorage;
 
 public:
@@ -3159,7 +3175,9 @@ public:
     };
 
     // --- Trivial Special Members (CRITICAL for ABI) ---
-    constexpr ExpectedImpl() = default;
+    constexpr ExpectedImpl()
+        requires std::default_initializable<T>
+        = default;
     constexpr ExpectedImpl(const ExpectedImpl&) = default;
     constexpr ExpectedImpl(ExpectedImpl&&) = default;
     constexpr ExpectedImpl& operator=(const ExpectedImpl&) = default;
@@ -3356,20 +3374,25 @@ public:
     [[nodiscard]] constexpr auto map(F&& f) const&
     {
         using U = std::remove_cvref_t<std::invoke_result_t<F, const T&>>;
-        if (has_value())
+        if constexpr (std::is_void_v<U>)
         {
-            if constexpr (std::is_void_v<U>)
+            using Result = ExpectedImpl<void, E, UnionStorage>;
+            if (has_value())
             {
                 std::invoke(std::forward<F>(f), mStorage.get_value());
-                return ExpectedImpl<void, E, UnionStorage>();
+                return Result();
             }
-            else
-            {
-                return ExpectedImpl<U, E, TrivialStorage>(std::in_place,
-                                                          std::invoke(std::forward<F>(f), mStorage.get_value()));
-            }
+            return Result(unexpect, mStorage.get_error());
         }
-        return ExpectedImpl<U, E, TrivialStorage>(unexpect, mStorage.get_error());
+        else
+        {
+            using Result = ExpectedImpl<U, E, TrivialStorage>;
+            if (has_value())
+            {
+                return Result(std::in_place, std::invoke(std::forward<F>(f), mStorage.get_value()));
+            }
+            return Result(unexpect, mStorage.get_error());
+        }
     }
 
     template <typename F>
@@ -3820,19 +3843,8 @@ constexpr Expected<void, E> from_std_expected(std::expected<void, E>&& exp)
 
 #endif // FATP_HAS_EXPECTED
 
-// Specialize traits for std::expected compatibility (C++23)
-#if FATP_HAS_EXPECTED
-template <typename V, typename Err>
-struct is_expected_compatible<std::expected<V, Err>, Err> : std::true_type
-{
-};
-
-template <typename Val, typename Err>
-struct is_expected_with_value<std::expected<Val, Err>, Val> : std::true_type
-{
-};
-
-#endif
+// std::expected conversion helpers are provided above. Monadic callbacks should
+// return fat_p::Expected/ExpectedImpl so error propagation uses fat_p::unexpect.
 
 // --- FATP_EXPECTED_TRY Macro ---
 
@@ -3889,157 +3901,7 @@ struct is_expected_with_value<std::expected<Val, Err>, Val> : std::true_type
 // required for the user-facing macros FATP_EXPECTED_TRY, FATP_EXPECTED_TRY_VOID,
 // and FATP_EXPECTED_ASSIGN_OR_RETURN to function correctly.
 
-// ====================================================================
-// Async Operations (Expected-integrated async tasks)
-// ====================================================================
-
-/// @brief Helper to extract value_type from Expected return types.
-template <typename T>
-struct ExtractExpectedValue
-{
-    using type = T;
-};
-
-template <typename T, typename E, template <typename, typename> class SP>
-struct ExtractExpectedValue<ExpectedImpl<T, E, SP>>
-{
-    using type = T;
-};
-
-template <typename T>
-using ExtractExpectedValue_t = typename ExtractExpectedValue<T>::type;
-
-/// @brief Helper to extract error_type from Expected return types.
-template <typename T>
-struct ExtractExpectedError
-{
-    using type = std::string; // Default error type
-};
-
-template <typename T, typename E, template <typename, typename> class SP>
-struct ExtractExpectedError<ExpectedImpl<T, E, SP>>
-{
-    using type = E;
-};
-
-template <typename T>
-using ExtractExpectedError_t = typename ExtractExpectedError<T>::type;
-
-/**
- * @brief Asynchronous task wrapper producing Expected<T, E> results.
- *
- * Wraps std::future with Expected integration, providing monadic
- * continuation (.then), error handling (.error), and non-blocking poll.
- *
- * @tparam T Value type
- * @tparam E Error type (default: std::string)
- */
-template <typename T, typename E = std::string>
-class AsyncTask
-{
-private:
-    std::future<Expected<T, E>> mFuture;
-    std::optional<Expected<T, E>> mCachedResult;
-
-    AsyncTask(std::future<Expected<T, E>> fut)
-        : mFuture(std::move(fut))
-    {
-    }
-
-public:
-    AsyncTask() = delete;
-
-    template <typename Func, typename... Args>
-    static AsyncTask create(Func&& func, Args&&... args)
-    {
-        return AsyncTask(std::async(std::launch::async, std::forward<Func>(func), std::forward<Args>(args)...));
-    }
-
-    Expected<T, E> wait()
-    {
-        if (mCachedResult)
-        {
-            return *mCachedResult;
-        }
-        mCachedResult = mFuture.get();
-        return *mCachedResult;
-    }
-
-    bool valid() const
-    {
-        return mCachedResult.has_value() || mFuture.valid();
-    }
-
-    template <typename Func>
-    auto then(Func&& continuation) -> AsyncTask<ExtractExpectedValue_t<std::invoke_result_t<Func, T>>, E>
-    {
-        using ResultType = std::invoke_result_t<Func, T>;
-        using NewT = ExtractExpectedValue_t<ResultType>;
-
-        return AsyncTask<NewT, E>::create(
-            [fut = std::move(mFuture), cont = std::forward<Func>(continuation)]() mutable -> Expected<NewT, E> {
-                auto result = fut.get();
-                if (!result)
-                {
-                    return unexpected(result.error());
-                }
-                return cont(*result);
-            });
-    }
-
-    template <typename Func>
-    AsyncTask<T, E> error(Func&& error_handler)
-    {
-        return create(
-            [fut = std::move(mFuture), handler = std::forward<Func>(error_handler)]() mutable -> Expected<T, E> {
-                auto result = fut.get();
-                if (result)
-                {
-                    return result;
-                }
-                handler(result.error());
-                return unexpected(result.error());
-            });
-    }
-
-    /// @brief Non-blocking check for result availability.
-    Expected<T, E> poll()
-    {
-        if (mCachedResult)
-        {
-            return *mCachedResult;
-        }
-        if (mFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
-        {
-            mCachedResult = mFuture.get();
-            return *mCachedResult;
-        }
-        return unexpected(notReadyError());
-    }
-
-private:
-    static const E& notReadyError()
-    {
-        static const E kInstance("Not ready");
-        return kInstance;
-    }
-};
-
-/**
- * @brief Factory function for creating async tasks that produce Expected results.
- *
- * @tparam Func Callable returning Expected<T, E>
- * @tparam Args Arguments forwarded to the callable
- */
-template <typename Func, typename... Args>
-auto async_task(Func&& func, Args&&... args)
-{
-    using ResultType = std::invoke_result_t<Func, Args...>;
-    using ValueType = ExtractExpectedValue_t<ResultType>;
-    using ErrorType = ExtractExpectedError_t<ResultType>;
-
-    return AsyncTask<ValueType, ErrorType>::create(std::forward<Func>(func), std::forward<Args>(args)...);
-}
+// AsyncTask was split into ExpectedAsyncTask.h to keep the core Expected header lightweight.
 
 } // namespace fat_p
 

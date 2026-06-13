@@ -55,6 +55,7 @@ FATP_META:
       - include/fat_p/EqualityComparisons.h
       - include/fat_p/EqualityTensor.h
       - include/fat_p/Expected.h
+      - include/fat_p/ExpectedAsyncTask.h
       - include/fat_p/Factory.h
       - include/fat_p/FastHashMap.h
       - include/fat_p/FatPBenchmarkHeader.h
@@ -193,6 +194,7 @@ FATP_META:
 #include "EqualityComparisons.h"
 #include "EqualityTensor.h"
 #include "Expected.h"
+#include "ExpectedAsyncTask.h"
 #include "Factory.h"
 #include "FastHashMap.h"
 #include "FatPBenchmarkHeader.h"

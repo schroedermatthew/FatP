@@ -653,6 +653,66 @@ FATP_TEST_CASE(assign_or_return)
 }
 
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
+
+FATP_TEST_CASE(map_to_void)
+{
+    bool called = false;
+    Expected<int, std::string> value(7);
+    auto mapped = value.map([&](int x) {
+        called = (x == 7);
+    });
+
+    FATP_ASSERT_TRUE(called, "void-returning map should invoke callable for value state");
+    FATP_ASSERT_TRUE(mapped.has_value(), "void-returning map should return successful Expected<void,E>");
+
+    Expected<int, std::string> error(unexpected<std::string>("bad"));
+    auto propagated = error.map([](int) {});
+    FATP_ASSERT_TRUE(propagated.has_error(), "void-returning map should propagate error state");
+    FATP_ASSERT_EQ(propagated.error(), std::string("bad"), "void-returning map should preserve error");
+
+    return true;
+}
+
+FATP_TEST_CASE(void_unexpect_default_error)
+{
+    Expected<void, int> status(unexpect);
+    FATP_ASSERT_TRUE(status.has_error(), "Expected<void,int>(unexpect) should be an error");
+    FATP_ASSERT_EQ(status.error(), 0, "Default-constructed int error should be value-initialized");
+    return true;
+}
+
+FATP_TEST_CASE(converting_constructors)
+{
+    Expected<int, const char*> value(42);
+    Expected<long, std::string> converted_value(value);
+    FATP_ASSERT_TRUE(converted_value.has_value(), "Converted value should remain a value");
+    FATP_ASSERT_EQ(*converted_value, 42L, "Converted value should preserve payload");
+
+    Expected<int, const char*> error(unexpected<const char*>("converted error"));
+    Expected<long, std::string> converted_error(error);
+    FATP_ASSERT_TRUE(converted_error.has_error(), "Converted error should remain an error");
+    FATP_ASSERT_EQ(converted_error.error(), std::string("converted error"), "Converted error should preserve payload");
+
+    return true;
+}
+
+FATP_TEST_CASE(trivial_default_and_void_map)
+{
+    TrivialExpected<int, int> value;
+    FATP_ASSERT_TRUE(value.has_value(), "Default TrivialExpected should hold a value");
+    FATP_ASSERT_EQ(*value, 0, "Default TrivialExpected<int,int> should value-initialize int");
+
+    auto mapped = value.map([](int) {});
+    FATP_ASSERT_TRUE(mapped.has_value(), "TrivialExpected void map should succeed for value state");
+
+    TrivialExpected<int, int> error(unexpect, -7);
+    auto propagated = error.map([](int) {});
+    FATP_ASSERT_TRUE(propagated.has_error(), "TrivialExpected void map should propagate error state");
+    FATP_ASSERT_EQ(propagated.error(), -7, "TrivialExpected void map should preserve error");
+
+    return true;
+}
+
 FATP_TEST_CASE(three_way_comparison)
 {
     Expected<int, std::string> v1(42);
@@ -763,6 +823,10 @@ bool test_Expected()
     FATP_RUN_TEST_NS(runner, expected, assign_or_return);
 
 #if defined(__cpp_lib_three_way_comparison) && __cpp_lib_three_way_comparison >= 201907L
+    FATP_RUN_TEST_NS(runner, expected, map_to_void);
+    FATP_RUN_TEST_NS(runner, expected, void_unexpect_default_error);
+    FATP_RUN_TEST_NS(runner, expected, converting_constructors);
+    FATP_RUN_TEST_NS(runner, expected, trivial_default_and_void_map);
     FATP_RUN_TEST_NS(runner, expected, three_way_comparison);
 #endif
 
