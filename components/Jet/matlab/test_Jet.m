@@ -78,6 +78,14 @@ function test_Jet
     emax = max(abs(J(:) - Jfd(:)));
     note('Jacobian max |AD-FD|', emax, emax < tol, 'over all 6 entries');
 
+    % --- scalar operand contract --------------------------------------------
+    fprintf('-- scalar operand contract --\n');
+    expectErrorId('Jet .* vector', @() Jet.seed(1, 1, 1) .* [1 2], 'Jet:nonScalar');
+    expectErrorId('vector .* Jet', @() [1 2] .* Jet.seed(1, 1, 1), 'Jet:nonScalar');
+    expectErrorId('Jet ./ vector', @() Jet.seed(1, 1, 1) ./ [1 2], 'Jet:nonScalar');
+    expectErrorId('Jet .^ vector', @() Jet.seed(1, 1, 1) .^ [1 2], 'Jet:nonScalar');
+    expectErrorId('vector .^ Jet', @() [1 2] .^ Jet.seed(1, 1, 1), 'Jet:nonScalar');
+
     % --- result --------------------------------------------------------------
     if pass
         fprintf('\nALL TESTS PASSED\n');
@@ -98,5 +106,19 @@ function test_Jet
         pass = pass && ok;
         if ok, s = 'OK'; else, s = 'FAIL'; end
         fprintf('  %-26s = %.3e  (%s)  %s\n', name, val, expect, s);
+    end
+
+    function expectErrorId(name, thunk, id)
+        ok = false;
+        got = '<none>';
+        try
+            thunk();
+        catch ME
+            got = ME.identifier;
+            ok = strcmp(got, id);
+        end
+        pass = pass && ok;
+        if ok, s = 'OK'; else, s = 'FAIL'; end
+        fprintf('  %-18s expected %s, got %s  %s\n', name, id, got, s);
     end
 end

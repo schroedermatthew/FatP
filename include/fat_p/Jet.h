@@ -471,6 +471,12 @@ template <std::size_t N>
 template <std::size_t N>
 [[nodiscard]] Jet<N> hypot(const Jet<N>& x, const Jet<N>& y)
 {
+    if (std::isnan(x.mValue) || std::isnan(y.mValue))
+    {
+        const double n = std::nan("");
+        return detail::lift(n, n, n, x, y); // NaN argument poisons value and partials
+    }
+
     const double h = std::hypot(x.mValue, y.mValue);
     if (std::isnan(h))
     {

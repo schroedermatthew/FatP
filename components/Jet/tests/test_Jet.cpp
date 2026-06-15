@@ -777,6 +777,16 @@ FATP_TEST_CASE(out_of_domain_nan)
     FATP_ASSERT_TRUE(std::isnan(hn.mValue), "hypot(NaN,.) value NaN");
     FATP_ASSERT_TRUE(std::isnan(hn.mPartials[0]), "hypot(NaN,.) gradient NaN");
 
+    Jet<1> hni = hypot(Jet<1>{std::numeric_limits<double>::quiet_NaN()},
+                       Jet<1>{std::numeric_limits<double>::infinity()});
+    FATP_ASSERT_TRUE(std::isnan(hni.mValue), "hypot(NaN,Inf) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(hni.mPartials[0]), "hypot(NaN,Inf) gradient NaN");
+
+    Jet<1> hin = hypot(Jet<1>{std::numeric_limits<double>::infinity()},
+                       Jet<1>{std::numeric_limits<double>::quiet_NaN()});
+    FATP_ASSERT_TRUE(std::isnan(hin.mValue), "hypot(Inf,NaN) value NaN");
+    FATP_ASSERT_TRUE(std::isnan(hin.mPartials[0]), "hypot(Inf,NaN) gradient NaN");
+
     Jet<1> tn = atan2(Jet<1>{std::numeric_limits<double>::quiet_NaN()}, Jet<1>::seed(1.0, 0));
     FATP_ASSERT_TRUE(std::isnan(tn.mValue), "atan2(NaN,.) value NaN");
     FATP_ASSERT_TRUE(std::isnan(tn.mPartials[0]), "atan2(NaN,.) gradient NaN");

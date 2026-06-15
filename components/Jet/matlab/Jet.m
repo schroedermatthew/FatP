@@ -108,10 +108,12 @@ classdef Jet
 
         function r = times(a, b)
             if isa(a, 'Jet') && ~isa(b, 'Jet')       % Jet .* scalar: mirrors C++ Jet*double
+                Jet.requireScalar(b);
                 bv = double(b);
                 r = Jet(a.v * bv, a.d .* bv);
                 return
             elseif isa(b, 'Jet') && ~isa(a, 'Jet')   % scalar .* Jet
+                Jet.requireScalar(a);
                 av = double(a);
                 r = Jet(av * b.v, av .* b.d);
                 return
@@ -126,6 +128,7 @@ classdef Jet
 
         function r = rdivide(a, b)
             if isa(a, 'Jet') && ~isa(b, 'Jet')   % Jet / scalar: dedicated overload, mirrors C++
+                Jet.requireScalar(b);
                 bv = double(b);
                 r = Jet(a.v / bv, a.d ./ bv);
                 return
@@ -157,8 +160,10 @@ classdef Jet
             if isa(a, 'Jet') && isa(b, 'Jet')
                 r = Jet.powJJ(a, b);
             elseif isa(a, 'Jet')
+                Jet.requireScalar(b);
                 r = Jet.powJS(a, double(b));
             else
+                Jet.requireScalar(a);
                 r = Jet.powSJ(double(a), b);
             end
         end
@@ -383,6 +388,12 @@ classdef Jet
     end
 
     methods (Static, Access = private)
+        function requireScalar(x)
+            if ~isscalar(x)
+                error('Jet:nonScalar', 'a Jet may only combine with a scalar');
+            end
+        end
+
         function [av, ad, bv, bd] = binargs(a, b)
             % Promote a scalar operand to a constant Jet and return the value /
             % partial pairs. Mixing Jets of different N, or a Jet with a non-

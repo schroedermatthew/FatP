@@ -90,6 +90,11 @@ g0 = (jet.sin(xi) * yi).partials
 g1 = (jet.sqrt(yi) - jet.atan2(xi, yi)).partials
 check("Jacobian point 0 row 0", J[0, 0], g0)
 check("Jacobian point 0 row 1", J[0, 1], g1)
+empty_values, empty_J = VJet.jacobian([])
+empty_ok = empty_values.shape == (0,) and empty_J.shape == (0, 0)
+if not empty_ok:
+    fails.append("empty jacobian shape")
+print(f"  empty output shape values {empty_values.shape}  J {empty_J.shape}  {'OK' if empty_ok else 'FAIL'}")
 
 print("=== one-pass gradients over a grid (50 points) ===")
 t = np.linspace(0.1, 2.0, 50)

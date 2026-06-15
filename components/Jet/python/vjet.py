@@ -109,6 +109,8 @@ class VJet:
     def jacobian(outputs: Sequence["VJet"]) -> Tuple[np.ndarray, np.ndarray]:
         """Values (shape ``S + (M,)``) and per-point Jacobian (shape ``S + (M, N)``)."""
         outs = list(outputs)
+        if not outs:
+            return np.empty((0,)), np.empty((0, 0))
         values = np.stack([o.value for o in outs], axis=-1)
         jac = np.stack([o.partials for o in outs], axis=-2)
         return values, jac

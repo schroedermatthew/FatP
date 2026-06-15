@@ -4538,10 +4538,12 @@ button:disabled { opacity:0.35; cursor:default !important; }
     Graphics. <button class="notes-btn" data-note="sgiHistory" onclick="window._openNotes('sgiHistory',false)">N</button>
     &ensp;SGI sold workstations that cost more than houses &ndash;
     $100,000 and up &ndash; to Hollywood studios, the military, and aerospace companies.&ensp;
-    Jurassic Park's dinosaurs, flight simulators for the Air Force, crash simulations for
-    automakers &ndash; that was where real-time 3D rendering lived.&ensp; The entire market was
-    professional, the budgets were enormous, and the idea that a $200 consumer card would
-    eventually obliterate this business model was, in 1992, absurd.
+    Hollywood visual effects like Jurassic Park's dinosaurs, flight simulators for the Air Force,
+    crash simulations for automakers &ndash; that was where serious 3D graphics lived.&ensp; Some of
+    that work was offline film rendering, and some was interactive real-time simulation; all of it
+    belonged to expensive professional machines.&ensp; The entire market was professional, the budgets
+    were enormous, and the idea that a $200 consumer card would eventually obliterate this business
+    model was, in 1992, absurd.
   </p>
 
   <p>
@@ -4577,13 +4579,13 @@ button:disabled { opacity:0.35; cursor:default !important; }
   <h3>Why triangles</h3>
 
   <p>
-    Every surface you have ever seen rendered on a computer &ndash; every game character, every
-    CAD model, every animated film &ndash; was built from
-    triangles.
-    Not squares, not arbitrary polygons, not curves.&ensp; Triangles.&ensp; This is not an
-    accident of history or a limitation of early hardware.&ensp; It is a mathematical necessity
-    that was recognized long before computers existed &ndash; and then put to work, with consequences
-    nobody anticipated, by an engineer at a Boeing facility in Seattle.
+    Most real-time 3D surfaces you have seen on commodity graphics hardware &ndash; game characters,
+    CAD models, animated meshes &ndash; were ultimately reduced to triangles before they reached the
+    rasterizer.&ensp; Curves, patches, sprites, volumes, and ray-traced primitives exist, but the
+    triangle became the dominant hardware contract: planar, convex, and defined by three points.&ensp;
+    It is not a law that every surface must be triangular; it is the algorithmic bargain that made
+    raster hardware tractable &ndash; and it was put to work, with consequences nobody anticipated, by
+    an engineer at a Boeing facility in Seattle.
   </p>
 
   <p>
@@ -4729,7 +4731,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
     ideas had found a cheaper home.
   </p>
 
-  <h3>Why open standards beat fast ones</h3>
+  <h3>Why portable APIs beat proprietary speed</h3>
 
   <p>
     A graphics API is the contract between a game and the hardware: the game describes triangles and
@@ -4737,10 +4739,11 @@ button:disabled { opacity:0.35; cursor:default !important; }
     a proprietary interface called Glide, thin and fast because it mapped almost directly onto Voodoo
     silicon.&ensp; For a few years that was a genuine edge: around a hundred and fifty games supported Glide.&ensp;
     But proprietary cuts both ways.&ensp; A game written for Glide ran only on 3dfx cards; a
-    game written for Microsoft&rsquo;s Direct3D or for OpenGL ran on every card from every vendor.&ensp; Once
-    the open standards caught up on quality, that portability decided everything: the sensible target was the
-    API that reached every card, not the one that reached only 3dfx.&ensp; Fast-but-proprietary lost to
-    good-enough-and-everywhere.
+    game written for Microsoft&rsquo;s Direct3D or for OpenGL could target hardware from multiple vendors.&ensp;
+    Direct3D was Microsoft-controlled, not an open standard in the OpenGL sense, but it was not a
+    3dfx-only moat.&ensp; Once the portable APIs caught up on quality, that portability decided
+    everything: the sensible target was the API that reached many cards, not the one that reached only
+    3dfx.&ensp; Fast-but-proprietary lost to good-enough-and-everywhere.
   </p>
 
   <p>
@@ -5079,12 +5082,12 @@ button:disabled { opacity:0.35; cursor:default !important; }
 
   <p>
     NVIDIA answered by building a chip for them.&ensp; Fermi, in 2010, was the first NVIDIA architecture
-    designed as much for computing as for graphics: double precision at half the single-precision rate
-    &ndash; the architectural maximum &ndash; with a fused multiply-add,
-    error-correcting memory, a real cache hierarchy, and enough C++ support that programming it felt like
-    addressing a computer rather than coaxing a graphics card.&ensp; Sold as the Tesla line &ndash; boards
-    with no display output at all, meant only for a rack &ndash; it was a GPU that had stopped pretending to
-    be anything but a parallel processor.
+    designed as much for computing as for graphics.&ensp; In the Tesla/compute configuration, it exposed
+    double precision at up to half the single-precision rate &ndash; the architectural maximum &ndash; with a
+    fused multiply-add, error-correcting memory, a real cache hierarchy, and enough C++ support that
+    programming it felt like addressing a computer rather than coaxing a graphics card.&ensp; Sold as the
+    Tesla line &ndash; boards with no display output at all, meant only for a rack &ndash; it was a GPU that
+    had stopped pretending to be anything but a parallel processor.
   </p>
 
   <p>
@@ -6247,7 +6250,7 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         'Clockwise gives &minus;z, negative.&ensp; One number, one sign &ndash; left or right.</p>' +
 
         '<figure style="margin:16px 0;text-align:center">' +
-        '<img src="artifacts/right_hand_rule.png" alt="Right-hand rule: thumbs down for negative cross product, thumbs up for positive" ' +
+        '<img src="artifacts/right_hand_rule.jpg" alt="Right-hand rule: thumbs down for negative cross product, thumbs up for positive" ' +
         'style="width:100%;border-radius:6px;border:1px solid var(--b1)">' +
         '<figcaption style="font:13px var(--mono);color:var(--fg3);margin-top:6px">' +
         'Same operation a&thinsp;&times;&thinsp;b.&ensp; Left: b is clockwise from a &rarr; negative (&minus;z, thumb down).&ensp; ' +
