@@ -36,10 +36,13 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cassert>
 #include <cmath>
 #include <compare>
 #include <cstddef>
+#include <cstdint>
+#include <limits>
 
 namespace fat_p::autodiff
 {
@@ -147,6 +150,42 @@ struct Jet
 namespace detail
 {
 
+[[nodiscard]] constexpr bool signbit_value(double x) noexcept
+{
+    if constexpr (std::numeric_limits<double>::is_iec559 &&
+                  sizeof(double) == sizeof(std::uint64_t))
+    {
+        return (std::bit_cast<std::uint64_t>(x) & (std::uint64_t{1} << 63)) != 0;
+    }
+    else
+    {
+        return std::signbit(x);
+    }
+}
+
+[[nodiscard]] constexpr bool is_nan_value(double x) noexcept
+{
+    return x != x;
+}
+
+// Division helper used in overloads whose zero-denominator behavior is part of
+// the Jet contract. It returns the same IEEE-style infinities/NaNs as ordinary
+// floating-point division on the supported platforms, but handles an exact zero
+// denominator without spelling a literal division by zero. That keeps MSVC's
+// C4723 warning from firing when tests instantiate e.g. 1.0 / Jet::seed(0.0).
+[[nodiscard]] constexpr double divide_ieee(double numerator, double denominator) noexcept
+{
+    if (denominator != 0.0)
+        return numerator / denominator;
+
+    if (is_nan_value(numerator) || numerator == 0.0)
+        return std::numeric_limits<double>::quiet_NaN();
+
+    const bool negative = signbit_value(numerator) != signbit_value(denominator);
+    return negative ? -std::numeric_limits<double>::infinity()
+                    : std::numeric_limits<double>::infinity();
+}
+
 // y = f(x): value f(a), partials f'(a) * partials.
 template <std::size_t N>
 [[nodiscard]] constexpr Jet<N> lift(double value, double deriv, const Jet<N>& x) noexcept
@@ -215,11 +254,12 @@ template <std::size_t N>
     // documented on operator/(double,Jet) - it is a property of the quotient,
     // not of one overload. Deferred pending an exponent-scaled helper.
     Jet<N> r;
-    r.mValue = x.mValue / y.mValue;
+    r.mValue = detail::divide_ieee(x.mValue, y.mValue);
     for (std::size_t i = 0; i < N; ++i)
-        r.mPartials[i] = (y.mPartials[i] == 0.0)
-                             ? x.mPartials[i] / y.mValue
-                             : (x.mPartials[i] - r.mValue * y.mPartials[i]) / y.mValue;
+        r.mPartials[i] =
+            (y.mPartials[i] == 0.0)
+                ? detail::divide_ieee(x.mPartials[i], y.mValue)
+                : detail::divide_ieee(x.mPartials[i] - r.mValue * y.mPartials[i], y.mValue);
     return r;
 }
 /// Negation.
@@ -245,9 +285,9 @@ template <std::size_t N>
 [[nodiscard]] constexpr Jet<N> operator/(const Jet<N>& x, double s) noexcept
 {
     Jet<N> r;
-    r.mValue = x.mValue / s;
+    r.mValue = detail::divide_ieee(x.mValue, s);
     for (std::size_t i = 0; i < N; ++i)
-        r.mPartials[i] = x.mPartials[i] / s;
+        r.mPartials[i] = detail::divide_ieee(x.mPartials[i], s);
     return r;
 }
 /// Scalar divided by a Jet.
@@ -264,10 +304,11 @@ template <std::size_t N>
     // because the formula reuses the overflowed value. -s*dx/x^2 would need an
     // exponent-scaled helper (cf. hypot/atan2). Deferred; documented.
     Jet<N> r;
-    r.mValue = s / x.mValue;
+    r.mValue = detail::divide_ieee(s, x.mValue);
     for (std::size_t i = 0; i < N; ++i)
-        r.mPartials[i] =
-            (x.mPartials[i] == 0.0) ? 0.0 : -(r.mValue * x.mPartials[i]) / x.mValue;
+        r.mPartials[i] = (x.mPartials[i] == 0.0)
+                             ? 0.0
+                             : -detail::divide_ieee(r.mValue * x.mPartials[i], x.mValue);
     return r;
 }
 /// Adds a scalar to the value.
