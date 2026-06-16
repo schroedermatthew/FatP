@@ -1,6 +1,6 @@
 # Universal AI Rules for Teaching Artifacts
 
-**Version: 8**
+**Version: 9**
 
 This is the canonical source for AI behavioral rules shared across all
 teaching artifacts in the GPU computing lecture series.  Each artifact
@@ -127,6 +127,21 @@ section is never overwritten during sync.
      structure, same CSS, same JavaScript state management, same
      symbols (▶ Play, ↻ Reset), same getElementById pattern.
      Do not guess at colors, layout, or element references.
+
+  36. CODE BLOCKS: COPY COMMANDS, SAVE FILES
+      A teaching artifact with code uses two block types.  Shell
+      commands (pre.cmd) get a Copy button that copies a single-line
+      command to the clipboard — no continuation characters, no manual
+      reassembly.  The rendered form may wrap for readability; the
+      copied form is for pasting into a terminal.  File listings
+      (pre.code with a data-filename attribute) get a Save button
+      labeled with the filename that opens a Save As dialog
+      (showSaveFilePicker where supported, download fallback
+      otherwise).  The dialog remembers the last directory for the
+      page session so the reader can save all files to the same
+      project folder without re-navigating each time.  Code blocks
+      without data-filename get a plain Copy button.  Buttons are
+      always visible, not hover-revealed.
 
 ## AI behavior
 
@@ -393,6 +408,15 @@ section is never overwritten during sync.
 ---
 
 ## Version history
+
+  v9 — June 2026
+    Added rule 36: CODE BLOCKS: COPY COMMANDS, SAVE FILES, under
+    Interactive controls.  Shell commands (pre.cmd) copy as single-line
+    pasteable commands.  File listings (pre.code with data-filename) open
+    a Save As dialog (showSaveFilePicker with lastSaveHandle directory
+    memory, download fallback).  Buttons always visible.  Developed in
+    the Containers teaching artifact.
+    36 rules, 6 standard error patterns.
 
   v8 — June 2026
     Added section: Teaching philosophy — the pedagogical principles
