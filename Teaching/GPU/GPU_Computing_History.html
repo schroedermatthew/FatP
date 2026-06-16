@@ -3101,15 +3101,13 @@ EQUATION LAYOUT:
 
 
 ══════════════════════════════════════════════════════════════════════════════
-UNIVERSAL AI RULES (v7)
+UNIVERSAL AI RULES (v8)
 ══════════════════════════════════════════════════════════════════════════════
 
-Verbatim sync from the canonical ai_teaching_artifact_rules.md (v7). This is
+Verbatim sync from the canonical ai_teaching_artifact_rules.md (v8). This is
 the shared rule set across the GPU computing lecture series. The DOCUMENT
 PHILOSOPHY section below is the document-specific elaboration and is never
-overwritten during sync. [Editorial note: the canonical v4 file has a
-numbering glitch — two rule "8"s and no rule "9". Numbering is normalized to
-1-25 here; fix at the source on the next version bump.]
+overwritten during sync.
 
 Prose style
   1. NO "WE" IN PROSE. Do not use "we" to mean "the community of experts."
@@ -3216,6 +3214,57 @@ Collaborative learning model
   the same loop: ingest the file, reshape, spawn their own notes, log
   their session.
 
+Teaching philosophy
+  These principles govern what the teaching IS - the pedagogy - as
+  distinct from the collaborative learning model (how artifacts are
+  built) and the prose style rules (how sentences are written). They
+  apply to every artifact in the series.
+  28. THE SUBJECT IS THE STAR, NOT THE PLAYERS. The subject matter and ideas
+     are the organizing spine of every section. This is about EMPHASIS, not
+     exclusion. The human context (people, companies, bets, failures) stays
+     as texture that makes the subject concrete and memorable. Lead with
+     the idea; let people and institutions illustrate and humanize it. Do
+     not let biography or corporate saga displace the subject as the point.
+     TEST: a reader should come away understanding the subject and WHY it
+     turned out that way; the names and stories are how that understanding
+     is made vivid and durable, not a substitute for it - and not something
+     to strip out.
+  29. STORIES, NOT TIMELINES. Every section has a narrative arc: a problem,
+     a tension, a resolution. Dates appear when they matter but the
+     structure is causal ("this happened BECAUSE of that"), not
+     chronological ("and then this happened").
+  30. SPECIFIC DETAILS ARE HANDLES ON IDEAS. A bare claim slides off; a
+     concrete, surprising detail sticks. But the detail must serve the
+     subject - illustrate a mechanism, a tradeoff, or the stakes of a
+     decision - not exist for its own narrative color. The detail is the
+     handle on an idea, not the idea.
+  31. EVERY DOCUMENT HAS A THROUGHLINE. A teaching artifact is not a
+     reference manual. It has a recurring tension, a pattern the reader
+     should feel coming back. The throughline is identified in the
+     document-specific philosophy section. A document without a throughline
+     is a list of topics.
+  32. WRONG TURNS MATTER. The paths not taken illuminate the paths that
+     were. Do not write history or explain design as if everything was
+     inevitable. Dead ends, failed bets, and abandoned approaches are
+     where the real constraints become visible.
+  33. CONNECT TO PRACTICE. Teaching artifacts in this series are not
+     background decoration. The history or theory explains WHY the
+     engineering looks the way it does. When the reader later encounters a
+     constraint, a tradeoff, or a counterintuitive default, they should
+     already understand the forces that created it.
+  34. INTRODUCE BEFORE YOU SURPRISE. A term the reader must understand for
+     a sentence to land - especially the proper noun a section opens on,
+     or the term a hook depends on - must be introduced on first use. The
+     human learner cannot be assumed to recognize a product, company, or
+     technical name. Introduce, then surprise - never surprise with an
+     unintroduced name. This does not conflict with rule 21 (LLM-assisted
+     reading); that license is for secondary terms only.
+  35. CLARITY OVER DENSITY. It is fine for the writing not to be dense.
+     Favor clarity and breathing room over packing ideas tightly. Unpack
+     a complex point into separate sentences rather than cramming it into
+     a parenthetical, a run-on, or a comma-heavy clause. A reader
+     following easily beats a clever, compressed line.
+
 Note system
   22. NOTES ARE EXPLORATION-AND-OBVIOUSNESS LABS. The narrative keeps
      moving; the main text points at questions. A note is not optional
@@ -3252,126 +3301,50 @@ TIMELINE PADDING.)
 
 
 ══════════════════════════════════════════════════════════════════════════════
-DOCUMENT PHILOSOPHY — THE TEACHING MODEL
+DOCUMENT PHILOSOPHY — DOCUMENT-SPECIFIC
 ══════════════════════════════════════════════════════════════════════════════
 
 This document teaches the history of GPU computing as a narrative, not as a
-timeline. The collaborative learning model (UNIVERSAL AI RULES v7, above) is
-the author's actual method: non-expert human + AI co-writing; notes as
-exploration-and-obviousness labs, not optional depth. The teaching philosophy:
+timeline. The universal teaching philosophy (rules 28-35 above) governs all
+artifacts in the series. This section contains document-specific applications
+and is never overwritten during sync.
 
-  0. TECHNOLOGY IS THE STAR, NOT THE PLAYERS  [adopted SESSION 7, corrected SESSION 8]
-     The SUBJECT and organizing spine of every section is the technology and the
-     ideas &ndash; how and why the silicon works the way it does.&ensp; This is
-     about EMPHASIS, not exclusion.&ensp; The industry history &ndash; the
-     companies, the founders, the bets, the near-deaths and bankruptcies &ndash;
-     STAYS.&ensp; It is part of the story and it is the texture that makes the
-     technology concrete and memorable.&ensp; Lead with the idea, let the people
-     and companies illustrate and humanize the technical and economic forces, and
-     do not let the corporate saga DISPLACE the technology as the point.&ensp;
-     TEST: a reader should come away understanding the technology and WHY it turned
-     out that way; the names and stories are how that understanding is made vivid
-     and durable, not a substitute for it &ndash; and not something to strip out.
-     (SESSION 7 over-applied this and deleted industry history the author wanted
-     kept; SESSION 8 restored it under the technology-led framing.)
+  THE SUBJECT IS GPU TECHNOLOGY (rule 28 applied)
+     For this document, the subject is the technology and the ideas — how
+     and why the silicon works the way it does. The industry history — the
+     companies, the founders, the bets, the near-deaths and bankruptcies —
+     stays as texture. Lead with the idea, let the people and companies
+     illustrate and humanize the technical and economic forces.
+     LESSON [SESSION 7/8]: SESSION 7 over-applied this and deleted industry
+     history the author wanted kept. SESSION 8 restored it under the
+     technology-led framing. The principle is emphasis, not exclusion.
 
-  1. STORIES, NOT TIMELINES
-     Every section has a narrative arc: a problem, a tension, a resolution.
-     Dates appear when they matter but the structure is causal ("this
-     happened BECAUSE of that"), not chronological ("and then this happened").
-
-  2. SPECIFIC DETAILS MAKE THE TECHNOLOGY STICK
-     A bare claim slides off; a concrete, surprising detail sticks. But under
-     principle 0 the detail must serve the technology &ndash; illustrate a
-     mechanism, a tradeoff, or the stakes of a technical decision &ndash; rather
-     than exist for its own narrative color. The detail is the handle on an
-     idea, not the idea.
-
-  3. THE THROUGHLINE IS THE PENDULUM
+  THE THROUGHLINE IS THE PENDULUM (rule 31 applied)
      The repeating tension between special-purpose and general-purpose
-     hardware is the spine of the document. Fixed-function pipelines gave
+     hardware is the spine of this document. Fixed-function pipelines gave
      way to programmable shaders. Programmable shaders gave way to CUDA.
      CUDA's general-purpose cores now sit next to fixed-function tensor
      cores and RT cores. The reader should feel this pattern recurring.
 
-  4. WRONG TURNS MATTER
+  WRONG TURNS IN GPU HISTORY (rule 32 applied)
      NV1's quadratic texture mapping, 3dfx's vertical integration, ATI's
-     bet on open standards — the paths not taken illuminate the paths that
-     were. Do not write history as if everything was inevitable.
+     bet on open standards — the specific wrong turns in this document.
 
-  5. NOTES ARE EXPLORATION-AND-OBVIOUSNESS LABS  [aligned v7, 2026-06-10]
-     The narrative keeps moving; the main text points at questions. A note
-     is where a rabbit-hole was explored and animations were iterated until
-     the author judged another person would find the idea completely obvious
-     with some effort - not a polished sidebar, not material absorbed into
-     the main text to make the note unnecessary. The Pineda note (scanline
-     car vs edge-traversal car, cross product, hardware) is the reference.
-     Coherence across a whole note is optional; local obviousness at each
-     animation is not. Future readers + their AI may spawn their own notes.
-
-  6. CONNECT TO THE ENGINEERING
+  FIRST LECTURE IN THE SERIES (rule 33 applied)
      This is the first lecture in a GPU computing series. The history is
      not background decoration — it explains WHY GPU architecture makes
      the tradeoffs it does. When the reader later encounters the launch
      overhead problem or the FP64 penalty, they should already understand
      the economic forces that created those constraints.
 
-  7. NO GRAY TEXT, NO LIGHT COLORS
-     All text WHITE: --fg:#ffffff, --fg2:#eeeeee, --fg3:#dddddd,
-     --fg4:#cccccc. No gray text. Every text element must be white or
-     near-white on dark background. Same palette as the companion
-     GPU Offload Training document.
-
-  8. DASHES: SPACED EN-DASHES ONLY
-     No em-dashes. Use &ndash; with spaces throughout rendered text.
-
-  9. DESIGNED FOR LLM-ASSISTED READING
-     The document is one half of a conversation. Not every term needs an
-     inline definition. Some are left as natural prompts for the reader
-     to ask about in context.
-     CAVEAT [SESSION 8]: this license is for SECONDARY terms only. A term
-     the reader must understand for a sentence to land &ndash; especially the
-     proper noun a section opens on, or the term a hook depends on &ndash;
-     must be introduced on first use. The human learner is audience (a) and
-     cannot be assumed to recognize a product or company name. Section 2
-     originally opened "A Voodoo Graphics card cost..." with no idea given of
-     what a Voodoo was; the hook ("a worse machine that won") only works once
-     the reader knows it was the first affordable consumer 3D card. Introduce,
-     then surprise &ndash; never surprise with an unintroduced name.
-
-  10. NO "WE" IN PROSE
-     Do not use "we" to mean "the community of experts" or "people who
-     know this." It is a credentialing gesture — the writer inserting
-     themselves between the fact and the reader. Even from a genuine
-     expert the move is the same: the fact does not need a community
-     vouching for it. State facts directly. "The process is still
-     called rasterization" not "we still call it rasterization."
-
-  11. BUTTON SELECTED COLOR IS AMBER
-     Interactive controls (speed selectors, mode toggles) use --amber
-     for the selected/active state, not --mint. Mint is for structural
-     accents (headings, section labels). Amber is for interactive state.
-
-  12. NO BAND-AID FIXES
-     If the correct fix is known, implement the correct fix. Do not
-     ship partial fixes across multiple iterations when a working
-     reference exists. "Make it like those buttons" means: open the
-     working code, read it, replicate the pattern in one pass. Not:
-     guess at the color, guess at the element references, guess at
-     the layout, then fix each guess separately across five rounds.
-     Minimizing diff size or "making it work for now" is not a valid
-     reason to deliver a lesser fix when the correct one is known.
-
-  13. CLARITY OVER DENSITY  [adopted SESSION 9]
-     It is fine for the writing not to be dense. Favor clarity and breathing
-     room over packing ideas tightly. Unpack a complex point into separate
-     sentences rather than cramming it into a parenthetical, a run-on, or a
-     comma-heavy clause; if a definition or aside is long enough to interrupt
-     a sentence, give it its own sentence. A reader following easily beats a
-     clever, compressed line. This was the through-line behind many SESSION 9
-     prose edits (the overloaded Glide sentence, the parenthetical inside the
-     GeForce 256 sentence, the doubled-up "software rendering"), each fixed by
-     unpacking rather than by trimming words.
+  THE VOODOO LESSON (rule 34 applied)
+     Section 2 originally opened "A Voodoo Graphics card cost..." with no
+     idea given of what a Voodoo was; the hook ("a worse machine that won")
+     only works once the reader knows it was the first affordable consumer
+     3D card. Introduce, then surprise. This is the reference example for
+     rule 34 (INTRODUCE BEFORE YOU SURPRISE) and the SESSION 8 caveat on
+     rule 21 (LLM-ASSISTED READING): that license is for secondary terms
+     only, not for terms the prose depends on.
 
 
 ══════════════════════════════════════════════════════════════════════════════

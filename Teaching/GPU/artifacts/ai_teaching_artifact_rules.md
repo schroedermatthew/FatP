@@ -1,6 +1,6 @@
 # Universal AI Rules for Teaching Artifacts
 
-**Version: 7**
+**Version: 8**
 
 This is the canonical source for AI behavioral rules shared across all
 teaching artifacts in the GPU computing lecture series.  Each artifact
@@ -237,6 +237,78 @@ section is never overwritten during sync.
   the same loop: ingest the file, reshape, spawn their own notes, log
   their session.
 
+## Teaching philosophy
+
+  These principles govern what the teaching IS — the pedagogy — as
+  distinct from the collaborative learning model (how artifacts are
+  built) and the prose style rules (how sentences are written).  They
+  apply to every artifact in the series.
+
+  28. THE SUBJECT IS THE STAR, NOT THE PLAYERS
+      The subject matter and ideas are the organizing spine of every
+      section.  This is about EMPHASIS, not exclusion.  The human
+      context — the people, the companies, the bets, the failures —
+      stays.  It is the texture that makes the subject concrete and
+      memorable.  Lead with the idea; let the people and institutions
+      illustrate and humanize it.  Do not let biography or corporate
+      saga displace the subject as the point.  TEST: a reader should
+      come away understanding the subject and WHY it turned out that
+      way; the names and stories are how that understanding is made
+      vivid and durable, not a substitute for it — and not something
+      to strip out.
+
+  29. STORIES, NOT TIMELINES
+      Every section has a narrative arc: a problem, a tension, a
+      resolution.  Dates appear when they matter but the structure is
+      causal ("this happened BECAUSE of that"), not chronological
+      ("and then this happened").
+
+  30. SPECIFIC DETAILS ARE HANDLES ON IDEAS
+      A bare claim slides off; a concrete, surprising detail sticks.
+      But the detail must serve the subject — illustrate a mechanism,
+      a tradeoff, or the stakes of a decision — rather than exist for
+      its own narrative color.  The detail is the handle on an idea,
+      not the idea.
+
+  31. EVERY DOCUMENT HAS A THROUGHLINE
+      A teaching artifact is not a reference manual.  It has a
+      recurring tension, a pattern the reader should feel coming
+      back.  The throughline is identified in the document-specific
+      philosophy section and is the spine the sections hang from.
+      A document without a throughline is a list of topics.
+
+  32. WRONG TURNS MATTER
+      The paths not taken illuminate the paths that were.  Do not
+      write history or explain design as if everything was inevitable.
+      Dead ends, failed bets, and abandoned approaches are where the
+      real constraints become visible.
+
+  33. CONNECT TO PRACTICE
+      Teaching artifacts in this series are not background decoration.
+      The history or theory explains WHY the engineering looks the way
+      it does.  When the reader later encounters a constraint, a
+      tradeoff, or a counterintuitive default, they should already
+      understand the forces that created it.
+
+  34. INTRODUCE BEFORE YOU SURPRISE
+      A term the reader must understand for a sentence to land —
+      especially the proper noun a section opens on, or the term a
+      hook depends on — must be introduced on first use.  The human
+      learner cannot be assumed to recognize a product, company, or
+      technical name.  Introduce, then surprise — never surprise
+      with an unintroduced name.  This does not conflict with
+      rule 21 (LLM-assisted reading); that license is for secondary
+      terms only, not for terms the prose depends on.
+
+  35. CLARITY OVER DENSITY
+      It is fine for the writing not to be dense.  Favor clarity and
+      breathing room over packing ideas tightly.  Unpack a complex
+      point into separate sentences rather than cramming it into a
+      parenthetical, a run-on, or a comma-heavy clause; if a
+      definition or aside is long enough to interrupt a sentence,
+      give it its own sentence.  A reader following easily beats a
+      clever, compressed line.
+
 ## Mathematical integrity
 
   25. SIGNS FOLLOW FROM STRUCTURE, NOT CONVENTION
@@ -321,6 +393,20 @@ section is never overwritten during sync.
 ---
 
 ## Version history
+
+  v8 — June 2026
+    Added section: Teaching philosophy — the pedagogical principles
+    governing what the teaching is, extracted and generalized from
+    GPU_Computing_History.html's DOCUMENT PHILOSOPHY block.  Eight
+    universal principles (rules 28-35): THE SUBJECT IS THE STAR (emphasis
+    not exclusion), STORIES NOT TIMELINES (causal arc over chronology),
+    SPECIFIC DETAILS ARE HANDLES ON IDEAS, EVERY DOCUMENT HAS A THROUGHLINE,
+    WRONG TURNS MATTER, CONNECT TO PRACTICE, INTRODUCE BEFORE YOU SURPRISE
+    (the SESSION 8 caveat on term introduction, now canonical), CLARITY OVER
+    DENSITY (the SESSION 9 principle, now canonical).  Document-specific
+    content (the pendulum throughline, specific examples, session correction
+    history) stays in each artifact's document-specific section.
+    35 rules, 6 standard error patterns.
 
   v7 — June 2026
     Added section: Collaborative learning model (non-expert human + AI
