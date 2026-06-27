@@ -641,10 +641,9 @@ void test_runner_exception_isolation()
     bool throwing_ran = false;
     bool after_ran = false;
 
-    runner.run_test("throws_runtime_error", [&]() {
+    runner.run_test("throws_runtime_error", [&]() -> bool {
         throwing_ran = true;
         throw std::runtime_error("intentional test exception");
-        return true;
     });
 
     runner.run_test("runs_after_throw", [&]() {
@@ -659,9 +658,8 @@ void test_runner_exception_isolation()
     VERIFY(runner.results()[1].passed, "Following test passed");
 
     runner.clear();
-    runner.run_test("throws_unknown", []() {
+    runner.run_test("throws_unknown", []() -> bool {
         throw 42;
-        return true;
     });
     runner.run_test("runs_after_unknown", []() {
         return true;
