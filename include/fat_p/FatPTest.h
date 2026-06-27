@@ -3299,8 +3299,23 @@ public:
             out.flush();
         }
 
+        bool passed = false;
         auto start = std::chrono::high_resolution_clock::now();
-        bool passed = test_func();
+        try
+        {
+            passed = test_func();
+        }
+        catch (const std::exception& e)
+        {
+            out << colors::red() << colors::bold() << "EXCEPTION: " << colors::reset() << colors::red() << e.what()
+                << colors::reset() << std::endl;
+            passed = false;
+        }
+        catch (...)
+        {
+            out << colors::red() << colors::bold() << "UNKNOWN EXCEPTION" << colors::reset() << std::endl;
+            passed = false;
+        }
         auto end = std::chrono::high_resolution_clock::now();
         double duration = std::chrono::duration<double, std::milli>(end - start).count();
 

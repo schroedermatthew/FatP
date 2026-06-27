@@ -631,6 +631,47 @@ void test_runner()
     VERIFY(failed == 1, "Summary returns failure count");
 }
 
+void test_runner_exception_isolation()
+{
+    TEST_SECTION("Test Runner - Exception Isolation");
+
+    OutputCapture capture;
+    TestRunner runner;
+
+    bool throwing_ran = false;
+    bool after_ran = false;
+
+    runner.run_test("throws_runtime_error", [&]() {
+        throwing_ran = true;
+        throw std::runtime_error("intentional test exception");
+        return true;
+    });
+
+    runner.run_test("runs_after_throw", [&]() {
+        after_ran = true;
+        return true;
+    });
+
+    VERIFY(throwing_ran, "Throwing test was entered");
+    VERIFY(after_ran, "Subsequent test ran after exception");
+    VERIFY(runner.results().size() == 2, "Both tests recorded");
+    VERIFY(!runner.results()[0].passed, "Throwing test marked failed");
+    VERIFY(runner.results()[1].passed, "Following test passed");
+
+    runner.clear();
+    runner.run_test("throws_unknown", []() {
+        throw 42;
+        return true;
+    });
+    runner.run_test("runs_after_unknown", []() {
+        return true;
+    });
+
+    VERIFY(runner.results().size() == 2, "Unknown-exception tests recorded");
+    VERIFY(!runner.results()[0].passed, "Unknown exception marked failed");
+    VERIFY(runner.results()[1].passed, "Test after unknown exception passed");
+}
+
 void test_runner_advanced()
 {
     TEST_SECTION("Test Runner - Advanced");
@@ -875,6 +916,7 @@ bool test_FatPTest()
     fatptest::performance_measurement();
     fatptest::fixtures();
     fatptest::test_runner();
+    fatptest::test_runner_exception_isolation();
     fatptest::test_runner_advanced();
     fatptest::parameterized_tests();
     fatptest::subtest_tracking();
