@@ -145,6 +145,9 @@ STANDARD_COMPONENTS = [
     ("json-stream-lite.yml", "JsonStreamLite", "JsonStreamLite.h",
      "components/Json/tests/test_JsonStreamLite.cpp", None),
 
+    ("xml-lite.yml", "XmlLite", "XmlLite.h",
+     "components/Json/tests/test_XmlLite.cpp", None),
+
     # --- TypeTraits ---
     ("fatp-type-traits.yml", "FatPTypeTraits", "FatPTypeTraits.h",
      "components/TypeTraits/tests/test_FatPTypeTraits.cpp", None),

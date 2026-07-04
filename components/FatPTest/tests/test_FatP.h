@@ -78,6 +78,7 @@ bool test_IdGenerator();
 bool test_IntrusiveList();
 bool test_JsonLite();
 bool test_JsonStreamLite();
+bool test_XmlLite();
 bool test_LockFreeQueue();
 bool test_LockFreeRingBuffer();
 bool test_WorkQueue();

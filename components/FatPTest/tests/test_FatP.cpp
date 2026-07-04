@@ -130,6 +130,7 @@ int main()
     RUN_AND_RECORD(test_IntrusiveList);
     RUN_AND_RECORD(test_JsonLite);
     RUN_AND_RECORD(test_JsonStreamLite);
+    RUN_AND_RECORD(test_XmlLite);
     RUN_AND_RECORD(test_LockFreeQueue);
     RUN_AND_RECORD(test_LockFreeRingBuffer);
     RUN_AND_RECORD(test_WorkQueue);
