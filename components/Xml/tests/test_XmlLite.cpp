@@ -63,6 +63,24 @@ struct InnerListXmlProbe
 };
 FATP_XML_DEFINE_TYPE(InnerListXmlProbe, id)
 
+enum class ModeXmlProbe : int
+{
+    Off = 0,
+    On = 1
+};
+
+enum class TinyEnumXmlProbe : unsigned char
+{
+    A = 0,
+    B = 1
+};
+
+struct ConfigWithEnumXmlProbe
+{
+    ModeXmlProbe mode{ModeXmlProbe::Off};
+};
+FATP_XML_DEFINE_TYPE(ConfigWithEnumXmlProbe, mode)
+
 FATP_TEST_CASE(parse_simple_config)
 {
     const char* xml = R"(<?xml version="1.0" encoding="UTF-8"?>
@@ -212,6 +230,53 @@ FATP_TEST_CASE(deserialize_vector_of_user_struct)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_integer_enum)
+{
+    auto root = parse_xml("<mode>1</mode>");
+    auto mode = from_xml<ModeXmlProbe>(root);
+    FATP_ASSERT_TRUE(mode == ModeXmlProbe::On, "integer enum value");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_enum_struct_field)
+{
+    auto root = parse_xml("<cfg><mode>0</mode></cfg>");
+    auto cfg = from_xml<ConfigWithEnumXmlProbe>(root);
+    FATP_ASSERT_TRUE(cfg.mode == ModeXmlProbe::Off, "enum struct field");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_optional_enum)
+{
+    auto root = parse_xml("<cfg><mode>1</mode></cfg>");
+    std::optional<ModeXmlProbe> mode;
+    from_xml(root.require("mode"), mode);
+    FATP_ASSERT_TRUE(mode.has_value() && *mode == ModeXmlProbe::On, "optional enum");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_vector_of_enums)
+{
+    auto root = parse_xml("<root><mode>0</mode><mode>1</mode></root>");
+    std::vector<ModeXmlProbe> modes;
+    from_xml(root, "mode", modes);
+    FATP_ASSERT_TRUE(modes.size() == 2, "enum vector size");
+    FATP_ASSERT_TRUE(modes[0] == ModeXmlProbe::Off && modes[1] == ModeXmlProbe::On,
+                     "enum vector values");
+    return true;
+}
+
+FATP_TEST_CASE(reject_enum_out_of_range)
+{
+    FATP_ASSERT_THROWS(from_xml<TinyEnumXmlProbe>(parse_xml("<x>300</x>")),
+                       std::runtime_error,
+                       "enum underlying overflow");
+    FATP_ASSERT_THROWS(from_xml<ModeXmlProbe>(parse_xml("<mode>on</mode>")),
+                       std::runtime_error,
+                       "invalid enum text");
+    return true;
+}
+
 } // namespace fat_p::testing::xmllite
 
 namespace fat_p::testing
@@ -239,6 +304,11 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_integer_enum);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_enum_struct_field);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_enum);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_enums);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_enum_out_of_range);
 
     return 0 == runner.print_summary();
 }

@@ -48,6 +48,10 @@ FATP_META:
  * intentional for config XML where elements hold either text or children, not
  * both in sequence.
  *
+ * Enum class types deserialize from integer element text via the underlying
+ * type (e.g. `<mode>2</mode>`). String-token enums require FatPXml.h +
+ * EnumPlus.h; XmlLite does not include string enum policies.
+ *
  * @section example Basic Example
  * @code{.cpp}
  * #include "XmlLite.h"
@@ -599,6 +603,41 @@ inline void from_xml(const XmlNode& node, bool& value)
     if (sv == "true" || sv == "1") { value = true; return; }
     if (sv == "false" || sv == "0") { value = false; return; }
     FATP_XML_ENFORCE(false, "invalid bool in element:", node.tag, "got:", std::string(sv));
+}
+
+/// Extract text content as enum (integer form: underlying numeric value).
+template <typename E>
+    requires std::is_enum_v<E>
+inline void from_xml(const XmlNode& node, E& value)
+{
+    using U = std::underlying_type_t<E>;
+    if constexpr (std::is_same_v<U, bool>)
+    {
+        bool raw{};
+        from_xml(node, raw);
+        value = static_cast<E>(raw);
+    }
+    else if constexpr (std::is_signed_v<U>)
+    {
+        std::int64_t raw{};
+        from_xml(node, raw);
+        FATP_XML_ENFORCE(raw >= static_cast<std::int64_t>(std::numeric_limits<U>::min()) &&
+                             raw <= static_cast<std::int64_t>(std::numeric_limits<U>::max()),
+                         "enum value out of range in element:", node.tag);
+        value = static_cast<E>(static_cast<U>(raw));
+    }
+    else
+    {
+        auto sv = node.trimmedText();
+        FATP_XML_ENFORCE(!sv.empty(), "empty element for enum conversion:", node.tag);
+        unsigned long long raw = 0;
+        auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), raw);
+        FATP_XML_ENFORCE(ec == std::errc{} && ptr == sv.data() + sv.size(),
+                         "invalid enum in element:", node.tag);
+        FATP_XML_ENFORCE(raw <= static_cast<unsigned long long>(std::numeric_limits<U>::max()),
+                         "enum value out of range in element:", node.tag);
+        value = static_cast<E>(static_cast<U>(raw));
+    }
 }
 
 /// Value-returning from_xml.

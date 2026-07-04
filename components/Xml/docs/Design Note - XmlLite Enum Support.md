@@ -74,8 +74,8 @@ Fat-P already solves enum↔string in **EnumPlus** (`EnumStringPolicy`, `named_e
 
 | Header | Role | Dependencies | Enum support |
 |--------|------|--------------|--------------|
-| **XmlLite.h** | Standalone parser + primitives + struct macros | `std` only | No enum support |
-| **FatPXml.h** (new) | Fat-P integrated deserialization | `XmlLite.h` + `EnumPlus.h` | `named_enum` string enums; optional integer enums (PR4) |
+| **XmlLite.h** | Standalone parser + primitives + struct macros | `std` only | Integer-backed `enum class` (`<tag>2</tag>`) |
+| **FatPXml.h** (new) | Fat-P integrated deserialization | `XmlLite.h` + `EnumPlus.h` | `named_enum` string enums |
 
 **Rationale:** XmlLite’s Doxygen still claims zero external dependencies (like JsonLite). FatPJson already owns “ecosystem extensions.” Duplicating that pattern keeps vendored single-file copies honest.
 
@@ -177,9 +177,9 @@ inline void from_xml(const XmlNode& node, E& value)
 
 Value-returning `from_xml<E>(node)` picks this up via the existing template.
 
-### 5.2 Integer enums (optional, FatPXml only)
+### 5.2 Integer enums (in XmlLite.h)
 
-For XML like `<mode>2</mode>`, add to **FatPXml.h** only (not XmlLite — avoids `named_enum` / EnumPlus on the standalone header):
+For XML like `<mode>2</mode>`, **XmlLite.h** provides:
 
 ```cpp
 template <typename E>
