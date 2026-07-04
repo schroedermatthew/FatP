@@ -39,8 +39,9 @@ FATP_META:
 #include "XmlLite.h"
 #include "FatPTest.h"
 
-// FATP_ENUM_STRING_POLICY must live at file scope (not inside fat_p::testing::xmllite).
-// Wrong placement → MSVC C2888: symbol cannot be defined within namespace 'xmllite'.
+// FATP_ENUM_STRING_POLICY must live at global/file scope (not inside any namespace).
+// Inside fat_p::testing::xmllite → MSVC C2888. Inside a user namespace → app::fat_p::xml_detail.
+// For namespaced enums, pass the qualified type: FATP_ENUM_STRING_POLICY(app::Mode, Off, On)
 
 enum class GlobalSchemeXmlProbe
 {
@@ -55,6 +56,16 @@ enum class ModelXmlProbe
     IdentitySensor
 };
 FATP_ENUM_STRING_POLICY(ModelXmlProbe, GaussianSensor, IdentitySensor)
+
+namespace app_xml_probe
+{
+enum class ColorXmlProbe
+{
+    Red,
+    Blue
+};
+}
+FATP_ENUM_STRING_POLICY(app_xml_probe::ColorXmlProbe, Red, Blue)
 
 struct SensorConfigXmlProbe
 {
@@ -472,6 +483,16 @@ FATP_TEST_CASE(deserialize_string_enum_global_namespace)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_string_enum_namespaced_type)
+{
+    const auto root = parse_xml("<color>Blue</color>");
+    const auto color = from_xml<app_xml_probe::ColorXmlProbe>(root);
+    FATP_ASSERT_EQ(static_cast<int>(color),
+                   static_cast<int>(app_xml_probe::ColorXmlProbe::Blue),
+                   "namespaced enum via qualified FATP_ENUM_STRING_POLICY type");
+    return true;
+}
+
 FATP_TEST_CASE(reject_invalid_string_enum)
 {
     FATP_ASSERT_THROWS(from_xml<ModelXmlProbe>(parse_xml("<model>NotASensor</model>")),
@@ -542,6 +563,7 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_struct_field);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_global_namespace);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_namespaced_type);
     FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_string_enum);
 
     return 0 == runner.print_summary();
