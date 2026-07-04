@@ -50,7 +50,7 @@ FATP_META:
  *
  * Enum class types deserialize from integer element text via the underlying
  * type (e.g. `<mode>2</mode>`), or from string tokens when
- * `FATP_ENUM_STRING_POLICY` is defined (e.g. `<mode>On</mode>`).
+ * `FATP_XML_ENUM_STRING_POLICY` is defined (e.g. `<mode>On</mode>`).
  *
  * @section example Basic Example
  * @code{.cpp}
@@ -74,6 +74,7 @@ FATP_META:
 #include <algorithm>
 #include <cctype>
 #include <charconv>
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
@@ -88,8 +89,6 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include "EnumPlus.h"
 
 namespace fat_p
 {
@@ -607,15 +606,32 @@ inline void from_xml(const XmlNode& node, bool& value)
     FATP_XML_ENFORCE(false, "invalid bool in element:", node.tag, "got:", std::string(sv));
 }
 
-/// Extract text content as enum (string form: requires FATP_ENUM_STRING_POLICY).
-template <named_enum E>
+namespace xml_detail
+{
+
+template <typename E>
+struct XmlEnumStringPolicy;
+
+template <typename E>
+concept xml_string_enum =
+    std::is_enum_v<E> &&
+    requires(std::string_view sv)
+    {
+        { XmlEnumStringPolicy<E>::from_string(sv) } -> std::same_as<E>;
+    };
+
+} // namespace xml_detail
+
+/// Extract text content as enum (string form: requires FATP_XML_ENUM_STRING_POLICY).
+template <xml_detail::xml_string_enum E>
 inline void from_xml(const XmlNode& node, E& value)
 {
     const auto sv = node.trimmedText();
     FATP_XML_ENFORCE(!sv.empty(), "empty element for enum conversion:", node.tag);
+
     try
     {
-        value = fat_p::from_string<E>(sv);
+        value = xml_detail::XmlEnumStringPolicy<E>::from_string(sv);
     }
     catch (const std::exception& e)
     {
@@ -628,17 +644,12 @@ inline void from_xml(const XmlNode& node, E& value)
 
 /// Extract text content as enum (integer form: underlying numeric value).
 template <typename E>
-    requires std::is_enum_v<E> && (!named_enum<E>)
+    requires std::is_enum_v<E> && (!xml_detail::xml_string_enum<E>)
 inline void from_xml(const XmlNode& node, E& value)
 {
     using U = std::underlying_type_t<E>;
-    if constexpr (std::is_same_v<U, bool>)
-    {
-        bool raw{};
-        from_xml(node, raw);
-        value = static_cast<E>(raw);
-    }
-    else if constexpr (std::is_signed_v<U>)
+
+    if constexpr (std::is_signed_v<U>)
     {
         std::int64_t raw{};
         from_xml(node, raw);
@@ -651,12 +662,14 @@ inline void from_xml(const XmlNode& node, E& value)
     {
         auto sv = node.trimmedText();
         FATP_XML_ENFORCE(!sv.empty(), "empty element for enum conversion:", node.tag);
+
         unsigned long long raw = 0;
         auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), raw);
         FATP_XML_ENFORCE(ec == std::errc{} && ptr == sv.data() + sv.size(),
                          "invalid enum in element:", node.tag);
         FATP_XML_ENFORCE(raw <= static_cast<unsigned long long>(std::numeric_limits<U>::max()),
                          "enum value out of range in element:", node.tag);
+
         value = static_cast<E>(static_cast<U>(raw));
     }
 }
@@ -815,3 +828,62 @@ inline void from_xml_adl(const XmlNode& node, T& value)
     }
 
 } // namespace fat_p
+
+// ============================================================================
+// FATP_XML_ENUM_STRING_POLICY — XML-local string enum deserialization
+// ============================================================================
+//
+// Call at global or user namespace scope — NOT inside a nested fat_p namespace.
+// Wrong placement (e.g. inside fat_p::testing::xmllite) → MSVC C2888.
+//
+//   enum class Mode { Off, On };
+//   FATP_XML_ENUM_STRING_POLICY(Mode, Off, On)
+
+#define FATP_XML_ENUM_STRING_CASE(EnumType, enumerator)                     \
+    if (sv == #enumerator) return EnumType::enumerator;
+
+#define FATP_XML_ENUM_STRING_APPLY_1(m, EnumType, a) m(EnumType, a)
+#define FATP_XML_ENUM_STRING_APPLY_2(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_1(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_3(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_2(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_4(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_3(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_5(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_4(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_6(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_5(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_7(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_6(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_8(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_7(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_9(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_8(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_10(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_9(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_11(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_10(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_12(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_11(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_13(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_12(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_14(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_13(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_15(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_14(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_16(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_15(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_17(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_16(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_18(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_17(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_19(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_18(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_20(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_19(m, EnumType, __VA_ARGS__))
+
+#define FATP_XML_ENUM_STRING_FOR_EACH(macro, EnumType, ...) \
+    FATP_XML_EXPAND(FATP_XML_CAT(FATP_XML_ENUM_STRING_APPLY_, FATP_XML_ARG_COUNT(__VA_ARGS__))(macro, EnumType, __VA_ARGS__))
+
+#define FATP_XML_ENUM_STRING_POLICY(EnumType, ...)                             \
+    namespace fat_p                                                            \
+    {                                                                          \
+    namespace xml_detail                                                       \
+    {                                                                          \
+    template <>                                                                \
+    struct XmlEnumStringPolicy<EnumType>                                       \
+    {                                                                          \
+        static EnumType from_string(std::string_view sv)                       \
+        {                                                                      \
+            FATP_XML_ENUM_STRING_FOR_EACH(FATP_XML_ENUM_STRING_CASE, EnumType, __VA_ARGS__) \
+            FATP_XML_ENFORCE(false, "invalid XML enum token:", std::string(sv)); \
+        }                                                                      \
+    };                                                                         \
+    }                                                                          \
+    }
+
+#ifndef FATP_ENUM_STRING_POLICY
+#define FATP_ENUM_STRING_POLICY(EnumType, ...) \
+    FATP_XML_ENUM_STRING_POLICY(EnumType, __VA_ARGS__)
+#endif
