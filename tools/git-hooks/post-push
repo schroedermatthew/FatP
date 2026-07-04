@@ -1,0 +1,15 @@
+#!/bin/sh
+# Installed by install-git-hooks.ps1 — syncs Desktop FatP after every git push.
+
+REPO_ROOT=$(git rev-parse --show-toplevel) || exit 0
+SYNC_PS1="$REPO_ROOT/tools/sync-desktop-fatp.ps1"
+
+if [ ! -f "$SYNC_PS1" ]; then
+  exit 0
+fi
+
+if command -v powershell.exe >/dev/null 2>&1; then
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$SYNC_PS1"
+else
+  pwsh -NoProfile -File "$SYNC_PS1"
+fi
