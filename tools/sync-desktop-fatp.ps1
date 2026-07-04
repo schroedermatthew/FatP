@@ -27,19 +27,30 @@ if (-not (Test-Path -LiteralPath (Join-Path $desktop '.git'))) {
     exit 0
 }
 
+Write-Host "Syncing Desktop FatP: $desktop"
+
+git -C $desktop fetch origin main
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+$localSha = git -C $desktop rev-parse HEAD
+$remoteSha = git -C $desktop rev-parse origin/main
+
+if ($localSha -eq $remoteSha) {
+    $shortSha = git -C $desktop rev-parse --short HEAD
+    Write-Host "Desktop FatP is at $shortSha (origin/main)."
+    exit 0
+}
+
 $dirty = git -C $desktop status --porcelain
 if ($dirty -and -not $Force) {
     throw @"
 Desktop FatP has uncommitted changes — sync aborted.
   Path: $desktop
+  Local:  $localSha
+  Remote: $remoteSha
   Fix: commit or stash on Desktop, or re-run with -Force to reset to origin/main.
 "@
 }
-
-Write-Host "Syncing Desktop FatP: $desktop"
-
-git -C $desktop fetch origin main
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 if ($Force -and $dirty) {
     git -C $desktop reset --hard origin/main
