@@ -29,8 +29,10 @@ FATP_META:
     mode: autogen
 */
 
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
@@ -185,6 +187,47 @@ FATP_TEST_CASE(accept_trailing_whitespace_and_comment)
     return true;
 }
 
+FATP_TEST_CASE(parse_utf8_bom)
+{
+    const std::string xml = std::string("\xEF\xBB\xBF") + "<root/>";
+    const auto root = parse_xml(xml);
+    FATP_ASSERT_EQ(root.tag, std::string("root"), "UTF-8 BOM skipped");
+    return true;
+}
+
+FATP_TEST_CASE(reject_non_xml_whitespace_after_root)
+{
+    FATP_ASSERT_THROWS(parse_xml(std::string("<root/>\f")),
+                       std::runtime_error,
+                       "form feed is not XML whitespace");
+    return true;
+}
+
+FATP_TEST_CASE(reject_raw_lt_in_attribute)
+{
+    FATP_ASSERT_THROWS(parse_xml(R"(<root a="<bad>"/>)"),
+                       std::runtime_error,
+                       "raw '<' in attribute");
+    return true;
+}
+
+FATP_TEST_CASE(reject_malformed_or_repeated_xml_declaration)
+{
+    FATP_ASSERT_THROWS(parse_xml("<?xml?><a/>"),
+                       std::runtime_error,
+                       "empty XML declaration");
+
+    FATP_ASSERT_THROWS(parse_xml(R"(<?xml version="1.0"?><?xml version="1.0"?><a/>)"),
+                       std::runtime_error,
+                       "repeated XML declaration");
+
+    FATP_ASSERT_THROWS(parse_xml(R"(<!--c--><?xml version="1.0"?><a/>)"),
+                       std::runtime_error,
+                       "XML declaration after comment");
+
+    return true;
+}
+
 FATP_TEST_CASE(reject_prefixed_element)
 {
     FATP_ASSERT_THROWS(parse_xml("<cfg:port>8080</cfg:port>"),
@@ -298,6 +341,17 @@ FATP_TEST_CASE(query_path_has_path)
     return true;
 }
 
+FATP_TEST_CASE(reject_empty_dotted_path)
+{
+    const auto root = parse_xml("<root/>");
+
+    FATP_ASSERT_THROWS(root.path(""), std::runtime_error, "empty path");
+    FATP_ASSERT_FALSE(root.hasPath(""), "empty path is not present");
+    FATP_ASSERT_THROWS(root.path("a..b"), std::runtime_error, "empty segment");
+
+    return true;
+}
+
 FATP_TEST_CASE(query_attr)
 {
     const auto root = parse_xml(R"(<node id="42" label="probe"/> )");
@@ -308,6 +362,32 @@ FATP_TEST_CASE(query_attr)
 
     const auto missing = root.attr("missing");
     FATP_ASSERT_FALSE(missing.has_value(), "attr returns nullopt when absent");
+
+    return true;
+}
+
+FATP_TEST_CASE(reject_scalar_with_child_element)
+{
+    FATP_ASSERT_THROWS(from_xml<int>(parse_xml("<x>1<y>2</y></x>")),
+                       std::runtime_error,
+                       "int scalar with child");
+
+    FATP_ASSERT_THROWS(from_xml<bool>(parse_xml("<x>true<y>false</y></x>")),
+                       std::runtime_error,
+                       "bool scalar with child");
+
+    return true;
+}
+
+FATP_TEST_CASE(reject_nonfinite_double)
+{
+    FATP_ASSERT_THROWS(from_xml<double>(parse_xml("<x>nan</x>")),
+                       std::runtime_error,
+                       "nan rejected");
+
+    FATP_ASSERT_THROWS(from_xml<double>(parse_xml("<x>inf</x>")),
+                       std::runtime_error,
+                       "inf rejected");
 
     return true;
 }
@@ -390,11 +470,26 @@ FATP_TEST_CASE(reject_missing_required_struct_field)
     return true;
 }
 
+FATP_TEST_CASE(reject_duplicate_required_struct_field)
+{
+    FATP_ASSERT_THROWS(
+        from_xml<ConfigWithEnumXmlProbe>(
+            parse_xml("<cfg><mode>0</mode><mode>1</mode></cfg>")),
+        std::runtime_error,
+        "duplicate required struct field");
+
+    return true;
+}
+
 FATP_TEST_CASE(parse_xml_file_roundtrip)
 {
-    const char* const filename = "xmllite_parse_file_probe.xml";
+    const auto filename =
+        (std::filesystem::temp_directory_path() /
+         ("xmllite_parse_file_probe_" + std::to_string(std::rand()) + ".xml"))
+            .string();
+
     {
-        std::ofstream out{filename};
+        std::ofstream out{filename, std::ios::binary};
         FATP_ASSERT_TRUE(out.is_open(), "temp file should open for write");
         out << "<cfg><value>123</value></cfg>";
     }
@@ -403,7 +498,7 @@ FATP_TEST_CASE(parse_xml_file_roundtrip)
     FATP_ASSERT_EQ(root.tag, std::string("cfg"), "parse_xml_file root tag");
     FATP_ASSERT_EQ(from_xml<int>(root.require("value")), 123, "parse_xml_file content");
 
-    std::remove(filename);
+    std::filesystem::remove(filename);
     return true;
 }
 
@@ -501,6 +596,14 @@ FATP_TEST_CASE(reject_invalid_string_enum)
     return true;
 }
 
+FATP_TEST_CASE(reject_numeric_value_for_string_policy_enum)
+{
+    FATP_ASSERT_THROWS(from_xml<ModelXmlProbe>(parse_xml("<model>0</model>")),
+                       std::runtime_error,
+                       "numeric token rejected for string enum");
+    return true;
+}
+
 } // namespace fat_p::testing::xmllite
 
 // ============================================================================
@@ -522,6 +625,10 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, parse_xml_entities);
     FATP_RUN_TEST_NS(runner, xmllite, mixed_content_joins_text_chunks);
     FATP_RUN_TEST_NS(runner, xmllite, accept_trailing_whitespace_and_comment);
+    FATP_RUN_TEST_NS(runner, xmllite, parse_utf8_bom);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_non_xml_whitespace_after_root);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_raw_lt_in_attribute);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_malformed_or_repeated_xml_declaration);
 
     out << "\n" << colors::blue() << "--- Parser Rejection ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_element);
@@ -539,8 +646,11 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, query_child_has_all);
     FATP_RUN_TEST_NS(runner, xmllite, query_path_has_path);
     FATP_RUN_TEST_NS(runner, xmllite, query_attr);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_empty_dotted_path);
 
     out << "\n" << colors::blue() << "--- Deserialization ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, xmllite, reject_scalar_with_child_element);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_nonfinite_double);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_primitive_types);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_user_struct);
@@ -548,6 +658,7 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, reject_missing_required_struct_field);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_required_struct_field);
 
     out << "\n" << colors::blue() << "--- File I/O ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, parse_xml_file_roundtrip);
@@ -565,6 +676,7 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_global_namespace);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_namespaced_type);
     FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_string_enum);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_numeric_value_for_string_policy_enum);
 
     return 0 == runner.print_summary();
 }

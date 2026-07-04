@@ -17,7 +17,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 31
+    defines_total: 55
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -51,6 +51,17 @@ FATP_META:
  * Enum class types deserialize from integer element text via the underlying
  * type (e.g. `<mode>2</mode>`), or from string tokens when
  * `FATP_XML_ENUM_STRING_POLICY` is defined (e.g. `<mode>On</mode>`).
+ * Enums with a string policy require string tokens; numeric fallback applies
+ * only to enums without `FATP_XML_ENUM_STRING_POLICY`. Integer enum
+ * deserialization checks underlying-type range only, not declared enumerator
+ * membership — use a string policy for strict token validation.
+ *
+ * Scalar `from_xml` requires leaf elements (no child elements). Repeated
+ * child elements use `from_xml(parent, childTag, vector)` or `xml_all`.
+ * `FATP_XML_DEFINE_TYPE` maps one child element per scalar/nested field;
+ * vector fields are not supported by the macro.
+ *
+ * Value-returning `from_xml<T>(node)` requires `T` to be default-constructible.
  *
  * @section example Basic Example
  * @code{.cpp}
@@ -72,8 +83,8 @@ FATP_META:
  */
 
 #include <algorithm>
-#include <cctype>
 #include <charconv>
+#include <cmath>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -97,6 +108,28 @@ namespace xml_detail
 {
 
 using SourceLocation = std::source_location;
+
+[[nodiscard]] inline bool isXmlWhitespace(char ch)
+{
+    return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+}
+
+[[nodiscard]] inline bool isAsciiAlpha(char ch)
+{
+    return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
+}
+
+[[nodiscard]] inline bool isAsciiDigit(char ch)
+{
+    return ch >= '0' && ch <= '9';
+}
+
+inline std::string_view trim(std::string_view sv)
+{
+    while (!sv.empty() && isXmlWhitespace(sv.front())) sv.remove_prefix(1);
+    while (!sv.empty() && isXmlWhitespace(sv.back())) sv.remove_suffix(1);
+    return sv;
+}
 
 template <typename... Args>
 [[noreturn]] inline void enforce_fail(SourceLocation loc, Args&&... args)
@@ -177,11 +210,13 @@ struct XmlNode
     /// Walk a dotted path like "options.A" → require("options").require("A").
     [[nodiscard]] const XmlNode& path(const std::string& dottedPath) const
     {
+        FATP_XML_ENFORCE(!dottedPath.empty(), "empty XML path");
         const XmlNode* cur = this;
         std::string::size_type start = 0;
         while (start < dottedPath.size()) {
             auto dot = dottedPath.find('.', start);
             auto segment = dottedPath.substr(start, dot - start);
+            FATP_XML_ENFORCE(!segment.empty(), "empty XML path segment:", dottedPath);
             cur = &cur->require(segment);
             start = (dot == std::string::npos) ? dottedPath.size() : dot + 1;
         }
@@ -191,11 +226,13 @@ struct XmlNode
     /// Check if a dotted path exists without throwing.
     [[nodiscard]] bool hasPath(const std::string& dottedPath) const
     {
+        if (dottedPath.empty()) return false;
         const XmlNode* cur = this;
         std::string::size_type start = 0;
         while (start < dottedPath.size()) {
             auto dot = dottedPath.find('.', start);
             auto segment = dottedPath.substr(start, dot - start);
+            if (segment.empty()) return false;
             cur = cur->child(segment);
             if (!cur) return false;
             start = (dot == std::string::npos) ? dottedPath.size() : dot + 1;
@@ -206,10 +243,7 @@ struct XmlNode
     /// Get text content, trimmed.
     [[nodiscard]] std::string_view trimmedText() const
     {
-        std::string_view sv = text;
-        while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) sv.remove_prefix(1);
-        while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back()))) sv.remove_suffix(1);
-        return sv;
+        return xml_detail::trim(text);
     }
 
     /// Get attribute value. Returns empty optional if not found.
@@ -228,11 +262,37 @@ struct XmlNode
 namespace xml_detail
 {
 
-inline std::string_view trim(std::string_view sv)
+inline void enforce_leaf_text_node(const XmlNode& node, const char* targetType)
 {
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.front()))) sv.remove_prefix(1);
-    while (!sv.empty() && std::isspace(static_cast<unsigned char>(sv.back()))) sv.remove_suffix(1);
-    return sv;
+    FATP_XML_ENFORCE(node.children.empty(),
+                     "element has child elements during scalar conversion:",
+                     node.tag,
+                     "target type:",
+                     targetType);
+}
+
+inline const XmlNode* unique_child_or_null(const XmlNode& node,
+                                           const std::string& childTag)
+{
+    const XmlNode* found = nullptr;
+    for (const auto& ch : node.children)
+    {
+        if (ch.tag != childTag) continue;
+
+        FATP_XML_ENFORCE(found == nullptr,
+                         "duplicate element:", childTag,
+                         "inside:", node.tag);
+        found = &ch;
+    }
+    return found;
+}
+
+inline const XmlNode& require_unique_child(const XmlNode& node,
+                                           const std::string& childTag)
+{
+    const XmlNode* found = unique_child_or_null(node, childTag);
+    FATP_XML_ENFORCE(found != nullptr, "missing required element:", childTag);
+    return *found;
 }
 
 inline void enforce_no_namespace_prefix(char nextChar, const char* kind, const std::string& name)
@@ -249,12 +309,12 @@ inline void enforce_no_xmlns_attribute(const std::string& attrName)
 
 [[nodiscard]] inline bool isXmlNameStartChar(char ch)
 {
-    return std::isalpha(static_cast<unsigned char>(ch)) || ch == '_';
+    return isAsciiAlpha(ch) || ch == '_';
 }
 
 [[nodiscard]] inline bool isXmlNameChar(char ch)
 {
-    return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_' || ch == '-' || ch == '.';
+    return isAsciiAlpha(ch) || isAsciiDigit(ch) || ch == '_' || ch == '-' || ch == '.';
 }
 
 class XmlParser
@@ -264,6 +324,7 @@ public:
 
     XmlNode parse()
     {
+        skipBom();
         skipProlog();
         XmlNode root = parseElement();
         skipComments();
@@ -296,41 +357,64 @@ private:
 
     void skipWhitespace()
     {
-        while (!atEnd() && std::isspace(static_cast<unsigned char>(mInput[mPos])))
+        while (!atEnd() && isXmlWhitespace(mInput[mPos]))
             ++mPos;
+    }
+
+    void skipBom()
+    {
+        if (mPos == 0 && mInput.size() >= 3 &&
+            static_cast<unsigned char>(mInput[0]) == 0xEF &&
+            static_cast<unsigned char>(mInput[1]) == 0xBB &&
+            static_cast<unsigned char>(mInput[2]) == 0xBF)
+        {
+            mPos = 3;
+        }
     }
 
     // Skip XML declaration (<?xml ... ?>) and comments (<!-- ... -->)
     void skipProlog()
     {
+        bool sawXmlDecl = false;
+        bool sawComment = false;
+
         while (true)
         {
             skipWhitespace();
             if (atEnd()) break;
 
-            // XML declaration (reject <?xml-stylesheet and other PI confusion)
             if (mInput.substr(mPos, 5) == "<?xml")
             {
+                FATP_XML_ENFORCE(!sawComment, "XML declaration after comment");
+                FATP_XML_ENFORCE(!sawXmlDecl, "repeated XML declaration");
+
                 if (mPos + 5 < mInput.size())
                 {
                     char next = mInput[mPos + 5];
-                    if (next != '?' && !std::isspace(static_cast<unsigned char>(next)))
+                    if (next == '?')
+                        FATP_XML_ENFORCE(false, "empty XML declaration");
+                    if (next != '?' && !isXmlWhitespace(next))
                         FATP_XML_ENFORCE(false,
                                          "processing instructions not supported at position",
                                          mPos);
                 }
+
                 auto endPos = mInput.find("?>", mPos);
                 FATP_XML_ENFORCE(endPos != std::string_view::npos, "unterminated XML declaration");
                 mPos = endPos + 2;
+                sawXmlDecl = true;
                 continue;
             }
 
-            // Comment
+            if (mInput.substr(mPos, 2) == "<?")
+                FATP_XML_ENFORCE(false, "processing instructions not supported at position", mPos);
+
             if (mInput.substr(mPos, 4) == "<!--")
             {
                 auto endPos = mInput.find("-->", mPos);
                 FATP_XML_ENFORCE(endPos != std::string_view::npos, "unterminated comment");
                 mPos = endPos + 3;
+                sawComment = true;
                 continue;
             }
 
@@ -372,14 +456,14 @@ private:
         std::string result;
         while (!atEnd() && peek() != quote)
         {
+            FATP_XML_ENFORCE(peek() != '<',
+                             "raw '<' not allowed in attribute value at position",
+                             mPos);
+
             if (peek() == '&')
-            {
                 result += parseEntity();
-            }
             else
-            {
                 result += advance();
-            }
         }
         FATP_XML_ENFORCE(!atEnd(), "unterminated string");
         advance(); // closing quote
@@ -536,10 +620,12 @@ private:
 /// Parse XML from a file.
 [[nodiscard]] inline XmlNode parse_xml_file(const std::string& filename)
 {
-    std::ifstream file{filename};
+    std::ifstream file{filename, std::ios::binary};
     FATP_XML_ENFORCE(file.is_open(), "cannot open file:", filename);
     std::ostringstream ss;
     ss << file.rdbuf();
+    FATP_XML_ENFORCE(file.good() || file.eof(),
+                     "error while reading file:", filename);
     return parse_xml(ss.str());
 }
 
@@ -550,22 +636,27 @@ private:
 /// Extract text content as string.
 inline void from_xml(const XmlNode& node, std::string& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "string");
     value = std::string{node.trimmedText()};
 }
 
 /// Extract text content as double.
 inline void from_xml(const XmlNode& node, double& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "double");
     auto sv = node.trimmedText();
     FATP_XML_ENFORCE(!sv.empty(), "empty element for numeric conversion:", node.tag);
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     FATP_XML_ENFORCE(ec == std::errc{} && ptr == sv.data() + sv.size(),
                      "invalid double in element:", node.tag);
+    FATP_XML_ENFORCE(std::isfinite(value),
+                     "non-finite double in element:", node.tag);
 }
 
 /// Extract text content as int.
 inline void from_xml(const XmlNode& node, int& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "int");
     auto sv = node.trimmedText();
     FATP_XML_ENFORCE(!sv.empty(), "empty element for numeric conversion:", node.tag);
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
@@ -576,6 +667,7 @@ inline void from_xml(const XmlNode& node, int& value)
 /// Extract text content as int64_t.
 inline void from_xml(const XmlNode& node, std::int64_t& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "int64_t");
     auto sv = node.trimmedText();
     FATP_XML_ENFORCE(!sv.empty(), "empty element for numeric conversion:", node.tag);
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
@@ -586,6 +678,7 @@ inline void from_xml(const XmlNode& node, std::int64_t& value)
 /// Extract text content as std::size_t.
 inline void from_xml(const XmlNode& node, std::size_t& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "size_t");
     auto sv = node.trimmedText();
     FATP_XML_ENFORCE(!sv.empty(), "empty element for numeric conversion:", node.tag);
     unsigned long long temp = 0;
@@ -600,6 +693,7 @@ inline void from_xml(const XmlNode& node, std::size_t& value)
 /// Extract text content as bool.
 inline void from_xml(const XmlNode& node, bool& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "bool");
     auto sv = node.trimmedText();
     if (sv == "true" || sv == "1") { value = true; return; }
     if (sv == "false" || sv == "0") { value = false; return; }
@@ -626,6 +720,7 @@ concept xml_string_enum =
 template <xml_detail::xml_string_enum E>
 inline void from_xml(const XmlNode& node, E& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "enum");
     const auto sv = node.trimmedText();
     FATP_XML_ENFORCE(!sv.empty(), "empty element for enum conversion:", node.tag);
 
@@ -647,6 +742,7 @@ template <typename E>
     requires std::is_enum_v<E> && (!xml_detail::xml_string_enum<E>)
 inline void from_xml(const XmlNode& node, E& value)
 {
+    xml_detail::enforce_leaf_text_node(node, "enum");
     using U = std::underlying_type_t<E>;
 
     if constexpr (std::is_signed_v<U>)
@@ -745,10 +841,14 @@ template <typename T>
 //
 // FATP_XML_DEFINE_TYPE(Type, field1, field2, ...)
 //   Generates from_xml(const XmlNode&, Type&) that reads each
-//   field from a child element with the same name. All fields required.
+//   field from exactly one child element with the same name. All fields required.
 //
 // FATP_XML_DEFINE_TYPE_OPTIONAL(Type, field1, field2, ...)
 //   Same but missing fields are silently skipped (struct defaults kept).
+//   At most one child per field; duplicates throw.
+//
+// Vector/repeated fields are not supported by these macros. Use
+// from_xml(parent, childTag, vector) or xml_all(parent, wrapperTag, itemTag).
 //
 // Field deserialization uses from_xml_adl so user-defined types outside
 // namespace fat_p resolve via ADL (nested structs, optional<T>, etc.).
@@ -769,15 +869,13 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 
 #define FATP_XML_FROM_FIELD_REQUIRED(field)                                  \
     {                                                                        \
-        const auto* _node = node.child(#field);                              \
-        FATP_XML_ENFORCE(_node != nullptr,                                   \
-                         "missing required element:", #field);               \
-        ::fat_p::xml_detail::from_xml_adl(*_node, value.field);              \
+        const auto& _node = ::fat_p::xml_detail::require_unique_child(node, #field); \
+        ::fat_p::xml_detail::from_xml_adl(_node, value.field);               \
     }
 
 #define FATP_XML_FROM_FIELD_OPTIONAL(field)                                  \
     {                                                                        \
-        const auto* _node = node.child(#field);                              \
+        const auto* _node = ::fat_p::xml_detail::unique_child_or_null(node, #field); \
         if (_node) ::fat_p::xml_detail::from_xml_adl(*_node, value.field);   \
     }
 
@@ -887,6 +985,7 @@ inline void from_xml_adl(const XmlNode& node, T& value)
         {                                                                      \
             FATP_XML_ENUM_STRING_FOR_EACH(FATP_XML_ENUM_STRING_CASE, EnumType, __VA_ARGS__) \
             FATP_XML_ENFORCE(false, "invalid XML enum token:", std::string(sv)); \
+            return EnumType{};                                                 \
         }                                                                      \
     };                                                                         \
     }                                                                          \
