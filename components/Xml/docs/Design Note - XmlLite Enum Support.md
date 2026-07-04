@@ -1,11 +1,11 @@
 # Design Note — XmlLite Generic `enum class` Support
 
-**Status:** Planned (PR0 parser hardening complete)
+**Status:** Planned (PR0a close-tag hardening complete)
 **Date:** 2026-07-04  
 **Scope:** XmlLite / FatPXml / EnumPlus  
 **Author:** AI-assisted design (review before implementation)
 
-**Prerequisite:** PR0 parser hardening must land before enum work. XmlLite is a config XML reader, not a general XML library.
+**Prerequisite:** PR0 + PR0a parser hardening must land before enum work. XmlLite is a config XML reader, not a general XML library.
 
 ---
 
@@ -19,7 +19,15 @@
 | Mixed content lossy | Documented in XmlLite overview |
 | `size_t` truncation | Guard against values above `size_t` max |
 
-Tests live in `components/Xml/tests/test_XmlLite.cpp` (namespace, trailing content, names, duplicates, mixed content).
+## 0a. PR0a — Close-tag hardening (complete)
+
+| Issue | Fix |
+|-------|-----|
+| Unclosed non-self-closing elements accepted | `parseElement()` enforces `!atEnd()` before close-tag check; requires closing tag |
+| Unchecked `advance()` at EOF | `advance()` and `expect()` throw on unexpected end |
+| `<?xml-stylesheet` slips through prolog | XML declaration requires `<?xml` followed by whitespace or `?>` |
+
+Tests live in `components/Xml/tests/test_XmlLite.cpp` (namespace, trailing content, names, duplicates, mixed content, unclosed elements, processing instructions).
 
 ---
 
@@ -304,6 +312,8 @@ Update `FATP_META.related.tests` on FatPXml and EnumPlus when macros land.
 ```
 PR0: XmlLite parser hardening + expanded tests
   ↓
+PR0a: close-tag hardening (unclosed elements, EOF-safe advance/expect, reject xml-stylesheet)
+  ↓
 PR1: EnumPlus FATP_ENUM_STRING_POLICY + tests
   ↓
 PR2: FatPXml.h from_xml named_enum + test_FatPXml.cpp
@@ -318,6 +328,7 @@ PR5 (optional): migrate internal configs to typed enums
 | PR | Files | Est. size |
 |----|-------|-----------|
 | **PR0** | `XmlLite.h`, `test_XmlLite.cpp` | parser fixes + ~80 lines tests |
+| **PR0a** | `XmlLite.h`, `test_XmlLite.cpp` | unclosed elements, EOF-safe lexer, PI rejection |
 | **PR1** | `EnumPlus.h`, `test_EnumPlus.cpp` | ~120 lines macro + ~80 lines tests |
 | **PR2** | `FatPXml.h` (new), `test_FatPXml.cpp` | ~80 + ~150 |
 | **PR3** | `generate_workflows.py`, workflow yml, meta blocks | ~50 |
@@ -382,4 +393,4 @@ auto cfg = fat_p::from_xml<TargetConfig>(root.require("target"));
 
 **Package layout:** Xml artifacts live under `components/Xml/` only. Do not keep copies under `components/Json/`.
 
-Enum support builds on PR0-hardened XmlLite; it does not replace it.
+Enum support builds on PR0/PR0a-hardened XmlLite; it does not replace it.

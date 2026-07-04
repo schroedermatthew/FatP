@@ -82,6 +82,7 @@ FATP_META:
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace fat_p
@@ -271,7 +272,21 @@ private:
     std::size_t mPos;
 
     [[nodiscard]] char peek() const { return mPos < mInput.size() ? mInput[mPos] : '\0'; }
-    char advance() { return mInput[mPos++]; }
+
+    char advance()
+    {
+        FATP_XML_ENFORCE(!atEnd(), "unexpected end of XML at position", mPos);
+        return mInput[mPos++];
+    }
+
+    template <typename... Args>
+    void expect(char expected, Args&&... args)
+    {
+        FATP_XML_ENFORCE(!atEnd(), "unexpected end of XML at position", mPos);
+        char actual = advance();
+        FATP_XML_ENFORCE(actual == expected, std::forward<Args>(args)...);
+    }
+
     [[nodiscard]] bool atEnd() const { return mPos >= mInput.size(); }
 
     void skipWhitespace()
@@ -288,9 +303,17 @@ private:
             skipWhitespace();
             if (atEnd()) break;
 
-            // XML declaration
+            // XML declaration (reject <?xml-stylesheet and other PI confusion)
             if (mInput.substr(mPos, 5) == "<?xml")
             {
+                if (mPos + 5 < mInput.size())
+                {
+                    char next = mInput[mPos + 5];
+                    if (next != '?' && !std::isspace(static_cast<unsigned char>(next)))
+                        FATP_XML_ENFORCE(false,
+                                         "processing instructions not supported at position",
+                                         mPos);
+                }
                 auto endPos = mInput.find("?>", mPos);
                 FATP_XML_ENFORCE(endPos != std::string_view::npos, "unterminated XML declaration");
                 mPos = endPos + 2;
@@ -428,7 +451,7 @@ private:
             enforce_no_namespace_prefix(peek(), "prefixed attribute name", attrName);
             enforce_no_xmlns_attribute(attrName);
             skipWhitespace();
-            FATP_XML_ENFORCE(advance() == '=', "expected '=' after attribute name");
+            expect('=', "expected '=' after attribute name");
             skipWhitespace();
             std::string attrValue = parseQuotedString();
             FATP_XML_ENFORCE(!node.attributes.contains(attrName),
@@ -440,13 +463,14 @@ private:
         if (peek() == '/')
         {
             advance(); // skip /
-            FATP_XML_ENFORCE(advance() == '>', "expected '>' after '/'");
+            expect('>', "expected '>' after '/'");
             return node;
         }
 
-        FATP_XML_ENFORCE(advance() == '>', "expected '>'");
+        expect('>', "expected '>'");
 
         // Parse content: mixed text and child elements
+        bool closed = false;
         while (true)
         {
             // Collect text before next tag
@@ -462,7 +486,7 @@ private:
             }
 
             skipComments();
-            if (atEnd()) break;
+            FATP_XML_ENFORCE(!atEnd(), "unterminated element:", node.tag);
 
             // Check for closing tag
             std::string closeStr = "</" + node.tag;
@@ -470,7 +494,8 @@ private:
             {
                 mPos += closeStr.size();
                 skipWhitespace();
-                FATP_XML_ENFORCE(advance() == '>', "expected '>' in closing tag for", node.tag);
+                expect('>', "expected '>' in closing tag for", node.tag);
+                closed = true;
                 break;
             }
 
@@ -485,6 +510,7 @@ private:
             }
         }
 
+        FATP_XML_ENFORCE(closed, "unterminated element:", node.tag);
         return node;
     }
 };

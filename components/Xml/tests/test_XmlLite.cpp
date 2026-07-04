@@ -143,6 +143,22 @@ FATP_TEST_CASE(mixed_content_joins_text_chunks)
     return true;
 }
 
+FATP_TEST_CASE(reject_unclosed_elements)
+{
+    FATP_ASSERT_THROWS(parse_xml("<a>text"), std::runtime_error, "unclosed text element");
+    FATP_ASSERT_THROWS(parse_xml("<a><b/>"), std::runtime_error, "unclosed parent element");
+    FATP_ASSERT_THROWS(parse_xml("<a><b></b>"), std::runtime_error, "missing parent close");
+    return true;
+}
+
+FATP_TEST_CASE(reject_xml_stylesheet_processing_instruction)
+{
+    FATP_ASSERT_THROWS(parse_xml(R"(<?xml-stylesheet href="x"?><a/>)"),
+                       std::runtime_error,
+                       "xml-stylesheet processing instruction");
+    return true;
+}
+
 } // namespace fat_p::testing::xmllite
 
 namespace fat_p::testing
@@ -165,6 +181,8 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_name_start);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_attributes);
     FATP_RUN_TEST_NS(runner, xmllite, mixed_content_joins_text_chunks);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_unclosed_elements);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_xml_stylesheet_processing_instruction);
 
     return 0 == runner.print_summary();
 }
