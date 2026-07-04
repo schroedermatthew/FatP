@@ -67,7 +67,7 @@ jobs:
   linux-clang:
 
     name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -81,13 +81,13 @@ jobs:
 
       - name: Install Clang
         run: |
-          sudo apt-get install -y clang-${{ matrix.version }} \
-            libc++-${{ matrix.version }}-dev libc++abi-${{ matrix.version }}-dev
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
 
       - name: Build tests
         run: |
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
-            -stdlib=libc++ \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \

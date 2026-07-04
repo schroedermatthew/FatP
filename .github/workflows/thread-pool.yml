@@ -6,14 +6,12 @@
 # Directory structure:
 #   Headers:    include/fat_p/ThreadPool.h
 #   Tests:      components/ThreadPool/tests/test_ThreadPool.cpp
-# Benchmarks: Run separately via threadpool-benchmarks.yml
 # =============================================================================
 
 name: ThreadPool CI
 
 on:
   workflow_dispatch:
-    inputs:
   push:
     paths:
       - 'include/fat_p/ThreadPool.h'
@@ -254,6 +252,9 @@ jobs:
               -o test_strict ${{ env.TEST_SRC }}
           echo "No warnings"
 
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
   ci-success:
     name: CI Success
     needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]

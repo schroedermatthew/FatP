@@ -3,8 +3,6 @@
 # =============================================================================
 # CI workflow for StringPool component
 #
-# Benchmarks: Run separately via stringpool-benchmarks.yml
-#
 # Directory structure:
 #   Headers:    include/fat_p/StringPool.h
 #   Tests:      components/StringPool/tests/test_StringPool.cpp
@@ -19,13 +17,11 @@ on:
       - 'include/fat_p/StringPool.h'
       - 'components/StringPool/tests/test_StringPool.cpp'
       - '.github/workflows/string-pool.yml'
-      - 'components/StringPool/benchmarks/benchmark_StringPool.cpp'
   pull_request:
     paths:
       - 'include/fat_p/StringPool.h'
       - 'components/StringPool/tests/test_StringPool.cpp'
       - '.github/workflows/string-pool.yml'
-      - 'components/StringPool/benchmarks/benchmark_StringPool.cpp'
 
 env:
   HEADER: StringPool.h

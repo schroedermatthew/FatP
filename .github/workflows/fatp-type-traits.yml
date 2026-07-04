@@ -1,31 +1,31 @@
 # =============================================================================
-# .github/workflows/work-queue.yml
+# .github/workflows/fatp-type-traits.yml
 # =============================================================================
-# CI workflow for WorkQueue component
+# CI workflow for FatPTypeTraits component
 #
 # Directory structure:
-#   Headers:    include/fat_p/WorkQueue.h
-#   Tests:      components/WorkQueue/tests/test_WorkQueue.cpp
+#   Headers:    include/fat_p/FatPTypeTraits.h
+#   Tests:      components/TypeTraits/tests/test_FatPTypeTraits.cpp
 # =============================================================================
 
-name: WorkQueue CI
+name: FatPTypeTraits CI
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'include/fat_p/WorkQueue.h'
-      - 'components/WorkQueue/tests/test_WorkQueue.cpp'
-      - '.github/workflows/work-queue.yml'
+      - 'include/fat_p/FatPTypeTraits.h'
+      - 'components/TypeTraits/tests/test_FatPTypeTraits.cpp'
+      - '.github/workflows/fatp-type-traits.yml'
   pull_request:
     paths:
-      - 'include/fat_p/WorkQueue.h'
-      - 'components/WorkQueue/tests/test_WorkQueue.cpp'
-      - '.github/workflows/work-queue.yml'
+      - 'include/fat_p/FatPTypeTraits.h'
+      - 'components/TypeTraits/tests/test_FatPTypeTraits.cpp'
+      - '.github/workflows/fatp-type-traits.yml'
 
 env:
-  HEADER: WorkQueue.h
-  TEST_SRC: components/WorkQueue/tests/test_WorkQueue.cpp
+  HEADER: FatPTypeTraits.h
+  TEST_SRC: components/TypeTraits/tests/test_FatPTypeTraits.cpp
 
 jobs:
   # ===========================================================================
@@ -121,7 +121,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\WorkQueue\tests\test_WorkQueue.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\TypeTraits\tests\test_FatPTypeTraits.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -213,7 +213,7 @@ jobs:
       - name: Test include order independence
         run: |
           cat > test1.cpp << 'EOF'
-          #include "WorkQueue.h"
+          #include "FatPTypeTraits.h"
           #include <vector>
           #include <algorithm>
           int main() {{ return 0; }}
@@ -222,7 +222,7 @@ jobs:
           cat > test2.cpp << 'EOF'
           #include <algorithm>
           #include <vector>
-          #include "WorkQueue.h"
+          #include "FatPTypeTraits.h"
           int main() {{ return 0; }}
           EOF
 
