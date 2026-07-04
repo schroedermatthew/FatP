@@ -49,8 +49,8 @@ FATP_META:
  * both in sequence.
  *
  * Enum class types deserialize from integer element text via the underlying
- * type (e.g. `<mode>2</mode>`). String-token enums require FatPXml.h +
- * EnumPlus.h; XmlLite does not include string enum policies.
+ * type (e.g. `<mode>2</mode>`), or from string tokens when
+ * `FATP_ENUM_STRING_POLICY` is defined (e.g. `<mode>On</mode>`).
  *
  * @section example Basic Example
  * @code{.cpp}
@@ -88,6 +88,8 @@ FATP_META:
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include "EnumPlus.h"
 
 namespace fat_p
 {
@@ -605,9 +607,28 @@ inline void from_xml(const XmlNode& node, bool& value)
     FATP_XML_ENFORCE(false, "invalid bool in element:", node.tag, "got:", std::string(sv));
 }
 
+/// Extract text content as enum (string form: requires FATP_ENUM_STRING_POLICY).
+template <named_enum E>
+inline void from_xml(const XmlNode& node, E& value)
+{
+    const auto sv = node.trimmedText();
+    FATP_XML_ENFORCE(!sv.empty(), "empty element for enum conversion:", node.tag);
+    try
+    {
+        value = fat_p::from_string<E>(sv);
+    }
+    catch (const std::exception& e)
+    {
+        FATP_XML_ENFORCE(false,
+                         "invalid enum in element:", node.tag,
+                         "value:", std::string(sv),
+                         "error:", e.what());
+    }
+}
+
 /// Extract text content as enum (integer form: underlying numeric value).
 template <typename E>
-    requires std::is_enum_v<E>
+    requires std::is_enum_v<E> && (!named_enum<E>)
 inline void from_xml(const XmlNode& node, E& value)
 {
     using U = std::underlying_type_t<E>;

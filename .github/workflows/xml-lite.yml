@@ -15,11 +15,13 @@ on:
   push:
     paths:
       - 'include/fat_p/XmlLite.h'
+      - 'include/fat_p/EnumPlus.h'
       - 'components/Xml/tests/test_XmlLite.cpp'
       - '.github/workflows/xml-lite.yml'
   pull_request:
     paths:
       - 'include/fat_p/XmlLite.h'
+      - 'include/fat_p/EnumPlus.h'
       - 'components/Xml/tests/test_XmlLite.cpp'
       - '.github/workflows/xml-lite.yml'
 

@@ -74,8 +74,8 @@ Fat-P already solves enum↔string in **EnumPlus** (`EnumStringPolicy`, `named_e
 
 | Header | Role | Dependencies | Enum support |
 |--------|------|--------------|--------------|
-| **XmlLite.h** | Standalone parser + primitives + struct macros | `std` only | Integer-backed `enum class` (`<tag>2</tag>`) |
-| **FatPXml.h** (new) | Fat-P integrated deserialization | `XmlLite.h` + `EnumPlus.h` | `named_enum` string enums |
+| **XmlLite.h** | Parser + primitives + struct macros + enum XML | `std` + `EnumPlus.h` | Integer and string `enum class` |
+| **FatPXml.h** (new, optional) | Thin alias / docs entry | `XmlLite.h` | Deferred — string enums live in XmlLite |
 
 **Rationale:** XmlLite’s Doxygen still claims zero external dependencies (like JsonLite). FatPJson already owns “ecosystem extensions.” Duplicating that pattern keeps vendored single-file copies honest.
 

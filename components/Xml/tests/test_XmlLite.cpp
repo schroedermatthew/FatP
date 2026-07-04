@@ -36,6 +36,26 @@ FATP_META:
 #include "FatPTest.h"
 #include "XmlLite.h"
 
+enum class GlobalSchemeXmlProbe
+{
+    alpha,
+    beta
+};
+FATP_ENUM_STRING_POLICY(GlobalSchemeXmlProbe, alpha, beta)
+
+enum class ModelXmlProbe
+{
+    GaussianSensor,
+    IdentitySensor
+};
+FATP_ENUM_STRING_POLICY(ModelXmlProbe, GaussianSensor, IdentitySensor)
+
+struct SensorConfigXmlProbe
+{
+    ModelXmlProbe model{ModelXmlProbe::GaussianSensor};
+};
+FATP_XML_DEFINE_TYPE(SensorConfigXmlProbe, model)
+
 namespace fat_p::testing::xmllite
 {
 
@@ -277,6 +297,38 @@ FATP_TEST_CASE(reject_enum_out_of_range)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_string_enum)
+{
+    auto root = parse_xml("<model>GaussianSensor</model>");
+    auto model = from_xml<ModelXmlProbe>(root);
+    FATP_ASSERT_TRUE(model == ModelXmlProbe::GaussianSensor, "string enum value");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_string_enum_struct_field)
+{
+    auto root = parse_xml("<sensor><model>IdentitySensor</model></sensor>");
+    auto cfg = from_xml<SensorConfigXmlProbe>(root);
+    FATP_ASSERT_TRUE(cfg.model == ModelXmlProbe::IdentitySensor, "string enum struct field");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_string_enum_global_namespace)
+{
+    auto root = parse_xml("<scheme>beta</scheme>");
+    auto scheme = from_xml<GlobalSchemeXmlProbe>(root);
+    FATP_ASSERT_TRUE(scheme == GlobalSchemeXmlProbe::beta, "global namespace string enum");
+    return true;
+}
+
+FATP_TEST_CASE(reject_invalid_string_enum)
+{
+    FATP_ASSERT_THROWS(from_xml<ModelXmlProbe>(parse_xml("<model>NotASensor</model>")),
+                       std::runtime_error,
+                       "invalid string enum");
+    return true;
+}
+
 } // namespace fat_p::testing::xmllite
 
 namespace fat_p::testing
@@ -309,6 +361,10 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_enum);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_enums);
     FATP_RUN_TEST_NS(runner, xmllite, reject_enum_out_of_range);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_struct_field);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_global_namespace);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_string_enum);
 
     return 0 == runner.print_summary();
 }

@@ -820,3 +820,86 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
 }
 
 } // namespace fat_p
+
+// ============================================================================
+// FATP_ENUM_STRING_POLICY — generate EnumSizeTrait + EnumStringPolicy from tokens
+// ============================================================================
+//
+// Enumerators must be dense 0..N-1. XML/JSON string form defaults to #token spelling.
+// Invoke at global or user namespace scope — not inside a nested fat_p namespace.
+//
+//   enum class Mode { Off, On };
+//   FATP_ENUM_STRING_POLICY(Mode, Off, On)
+
+#define FATP_ENUM_STRING_NAME(n) #n,
+
+#define FATP_ENUM_EXPAND(...) __VA_ARGS__
+#define FATP_ENUM_APPLY_1(m, a) m(a)
+#define FATP_ENUM_APPLY_2(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_1(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_3(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_2(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_4(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_3(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_5(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_4(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_6(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_5(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_7(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_6(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_8(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_7(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_9(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_8(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_10(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_9(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_11(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_10(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_12(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_11(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_13(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_12(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_14(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_13(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_15(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_14(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_16(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_15(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_17(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_16(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_18(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_17(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_19(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_18(m, __VA_ARGS__))
+#define FATP_ENUM_APPLY_20(m, a, ...) m(a) FATP_ENUM_EXPAND(FATP_ENUM_APPLY_19(m, __VA_ARGS__))
+
+#define FATP_ENUM_ARG_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,N,...) N
+#define FATP_ENUM_ARG_COUNT(...) FATP_ENUM_EXPAND(FATP_ENUM_ARG_COUNT_IMPL(__VA_ARGS__,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
+
+#define FATP_ENUM_CAT_IMPL(a, b) a##b
+#define FATP_ENUM_CAT(a, b) FATP_ENUM_CAT_IMPL(a, b)
+
+#define FATP_ENUM_FOR_EACH(macro, ...) \
+    FATP_ENUM_EXPAND(FATP_ENUM_CAT(FATP_ENUM_APPLY_, FATP_ENUM_ARG_COUNT(__VA_ARGS__))(macro, __VA_ARGS__))
+
+#define FATP_ENUM_STRING_POLICY(Enum, ...)                                       \
+    namespace fat_p                                                              \
+    {                                                                            \
+    template <>                                                                  \
+    struct EnumSizeTrait<Enum>                                                   \
+    {                                                                            \
+        static constexpr std::size_t size = FATP_ENUM_ARG_COUNT(__VA_ARGS__);      \
+    };                                                                           \
+    template <>                                                                  \
+    struct EnumStringPolicy<Enum>                                                \
+    {                                                                            \
+    private:                                                                     \
+        static constexpr std::array<std::string_view, EnumSizeTrait<Enum>::size>   \
+            name_table{{FATP_ENUM_FOR_EACH(FATP_ENUM_STRING_NAME, __VA_ARGS__)}}; \
+                                                                                 \
+    public:                                                                      \
+        static std::string_view to_string(Enum value)                            \
+        {                                                                        \
+            const auto idx = static_cast<std::size_t>(value);                    \
+            if (idx >= name_table.size())                                        \
+            {                                                                    \
+                return "Unknown";                                                \
+            }                                                                    \
+            return name_table[idx];                                              \
+        }                                                                        \
+        static Enum from_string(std::string_view str)                            \
+        {                                                                        \
+            for (std::size_t i = 0; i < name_table.size(); ++i)                \
+            {                                                                    \
+                if (str == name_table[i])                                        \
+                {                                                                \
+                    return static_cast<Enum>(i);                                 \
+                }                                                                \
+            }                                                                    \
+            throw std::invalid_argument(                                         \
+                std::string("Invalid ") + #Enum + " string: " + std::string(str)); \
+        }                                                                        \
+    };                                                                           \
+    }
