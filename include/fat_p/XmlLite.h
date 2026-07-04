@@ -834,8 +834,11 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 // ============================================================================
 //
 // Call at global/file scope only — NOT inside any namespace block.
-// Wrong placement inside a user namespace creates app::fat_p::xml_detail instead
-// of ::fat_p::xml_detail. Wrong placement inside fat_p::testing::xmllite → MSVC C2888.
+// The macro opens namespace fat_p::xml_detail relative to the call site.
+// At file scope that is ::fat_p::xml_detail (correct). Inside a user namespace
+// it becomes app::fat_p::xml_detail (wrong). Inside fat_p::testing::xmllite → MSVC C2888.
+// GCC also rejects qualified out-of-namespace specializations
+// (struct ::fat_p::xml_detail::XmlEnumStringPolicy<...>), so file scope is required.
 //
 //   enum class Mode { Off, On };
 //   FATP_XML_ENUM_STRING_POLICY(Mode, Off, On)
@@ -873,15 +876,21 @@ inline void from_xml_adl(const XmlNode& node, T& value)
     FATP_XML_EXPAND(FATP_XML_CAT(FATP_XML_ENUM_STRING_APPLY_, FATP_XML_ARG_COUNT(__VA_ARGS__))(macro, EnumType, __VA_ARGS__))
 
 #define FATP_XML_ENUM_STRING_POLICY(EnumType, ...)                             \
+    namespace fat_p                                                            \
+    {                                                                          \
+    namespace xml_detail                                                       \
+    {                                                                          \
     template <>                                                                \
-    struct ::fat_p::xml_detail::XmlEnumStringPolicy<EnumType>                  \
+    struct XmlEnumStringPolicy<EnumType>                                       \
     {                                                                          \
         static EnumType from_string(std::string_view sv)                       \
         {                                                                      \
             FATP_XML_ENUM_STRING_FOR_EACH(FATP_XML_ENUM_STRING_CASE, EnumType, __VA_ARGS__) \
             FATP_XML_ENFORCE(false, "invalid XML enum token:", std::string(sv)); \
         }                                                                      \
-    };
+    };                                                                         \
+    }                                                                          \
+    }
 
 #ifndef FATP_ENUM_STRING_POLICY
 #define FATP_ENUM_STRING_POLICY(EnumType, ...) \
