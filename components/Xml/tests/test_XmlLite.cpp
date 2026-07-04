@@ -1,6 +1,6 @@
 /**
  * @file test_XmlLite.cpp
- * @brief Unit tests for XmlLite.h
+ * @brief Comprehensive unit tests for XmlLite.h
  */
 /*
 FATP_META:
@@ -29,12 +29,15 @@ FATP_META:
     mode: autogen
 */
 
+#include <cstdint>
+#include <cstdio>
+#include <fstream>
 #include <optional>
 #include <string>
 #include <vector>
 
-#include "FatPTest.h"
 #include "XmlLite.h"
+#include "FatPTest.h"
 
 // FATP_ENUM_STRING_POLICY must live at file scope (not inside fat_p::testing::xmllite).
 // Wrong placement → MSVC C2888: symbol cannot be defined within namespace 'xmllite'.
@@ -61,6 +64,10 @@ FATP_XML_DEFINE_TYPE(SensorConfigXmlProbe, model)
 
 namespace fat_p::testing::xmllite
 {
+
+// ============================================================================
+// Helper Types (specific to this component's tests)
+// ============================================================================
 
 struct InnerXmlProbe
 {
@@ -104,6 +111,16 @@ struct ConfigWithEnumXmlProbe
 };
 FATP_XML_DEFINE_TYPE(ConfigWithEnumXmlProbe, mode)
 
+struct XmlAllItemXmlProbe
+{
+    int id{};
+};
+FATP_XML_DEFINE_TYPE(XmlAllItemXmlProbe, id)
+
+// ============================================================================
+// Tests
+// ============================================================================
+
 FATP_TEST_CASE(parse_simple_config)
 {
     const char* xml = R"(<?xml version="1.0" encoding="UTF-8"?>
@@ -121,14 +138,39 @@ FATP_TEST_CASE(parse_simple_config)
   </sensor>
 </nobs>)";
 
-    auto root = parse_xml(xml);
-    FATP_ASSERT_TRUE(root.tag == "nobs", "root tag");
-    FATP_ASSERT_TRUE(root.require("template").require("classname").text == "SimpleLadderTemplate",
-                     "classname text");
+    const auto root = parse_xml(xml);
+    FATP_ASSERT_EQ(root.tag, std::string("nobs"), "root tag");
+    FATP_ASSERT_EQ(root.require("template").require("classname").text,
+                   std::string("SimpleLadderTemplate"),
+                   "classname text");
     FATP_ASSERT_TRUE(from_xml<bool>(root.require("template").require("CCW")), "CCW bool");
-    FATP_ASSERT_TRUE(from_xml<double>(root.require("sensor").require("options").require("A")) == 0.62,
-                     "sensor A");
+    FATP_ASSERT_CLOSE(from_xml<double>(root.require("sensor").require("options").require("A")),
+                      0.62,
+                      "sensor A");
 
+    return true;
+}
+
+FATP_TEST_CASE(parse_xml_entities)
+{
+    const auto root = parse_xml(R"(<msg>&lt;tag&gt; &amp; &apos;hi&apos; &quot;bye&quot;</msg>)");
+    FATP_ASSERT_EQ(root.text, std::string("<tag> & 'hi' \"bye\""), "predefined entities decoded");
+    return true;
+}
+
+FATP_TEST_CASE(mixed_content_joins_text_chunks)
+{
+    const auto root = parse_xml("<p>Hello <b>world</b> again</p>");
+    FATP_ASSERT_EQ(root.tag, std::string("p"), "mixed content root tag");
+    FATP_ASSERT_EQ(root.text, std::string("Hello again"), "mixed content text joined");
+    FATP_ASSERT_EQ(root.require("b").text, std::string("world"), "child text preserved");
+    return true;
+}
+
+FATP_TEST_CASE(accept_trailing_whitespace_and_comment)
+{
+    const auto root = parse_xml("<a/> <!-- trailing comment --> \n");
+    FATP_ASSERT_EQ(root.tag, std::string("a"), "root tag with trailing comment");
     return true;
 }
 
@@ -178,13 +220,6 @@ FATP_TEST_CASE(reject_multiple_roots)
     return true;
 }
 
-FATP_TEST_CASE(accept_trailing_whitespace_and_comment)
-{
-    auto root = parse_xml("<a/> <!-- trailing comment --> \n");
-    FATP_ASSERT_TRUE(root.tag == "a", "root tag with trailing comment");
-    return true;
-}
-
 FATP_TEST_CASE(reject_invalid_name_start)
 {
     FATP_ASSERT_THROWS(parse_xml("<1bad/>"), std::runtime_error, "digit name start");
@@ -198,15 +233,6 @@ FATP_TEST_CASE(reject_duplicate_attributes)
     FATP_ASSERT_THROWS(parse_xml(R"(<root a="1" a="2"/>)"),
                        std::runtime_error,
                        "duplicate attribute");
-    return true;
-}
-
-FATP_TEST_CASE(mixed_content_joins_text_chunks)
-{
-    auto root = parse_xml("<p>Hello <b>world</b> again</p>");
-    FATP_ASSERT_TRUE(root.tag == "p", "mixed content root tag");
-    FATP_ASSERT_TRUE(root.text == "Hello again", "mixed content text joined");
-    FATP_ASSERT_TRUE(root.require("b").text == "world", "child text preserved");
     return true;
 }
 
@@ -226,66 +252,184 @@ FATP_TEST_CASE(reject_xml_stylesheet_processing_instruction)
     return true;
 }
 
+FATP_TEST_CASE(query_child_has_all)
+{
+    const auto root = parse_xml("<root><a>1</a><b>2</b><a>3</a></root>");
+
+    FATP_ASSERT_NULLPTR(root.child("missing"), "child returns nullptr when absent");
+    FATP_ASSERT_NOT_NULLPTR(root.child("a"), "child returns pointer when present");
+    FATP_ASSERT_EQ(root.child("a")->text, std::string("1"), "first child text");
+
+    FATP_ASSERT_FALSE(root.has("missing"), "has returns false when absent");
+    FATP_ASSERT_TRUE(root.has("b"), "has returns true when present");
+
+    const auto matches = root.all("a");
+    FATP_ASSERT_EQ(matches.size(), size_t(2), "all returns every matching child");
+    FATP_ASSERT_EQ(matches[0]->text, std::string("1"), "first all() match");
+    FATP_ASSERT_EQ(matches[1]->text, std::string("3"), "second all() match");
+
+    return true;
+}
+
+FATP_TEST_CASE(query_path_has_path)
+{
+    const auto root = parse_xml("<root><options><A>0.5</A></options></root>");
+
+    FATP_ASSERT_TRUE(root.hasPath("options.A"), "hasPath returns true for existing dotted path");
+    FATP_ASSERT_FALSE(root.hasPath("options.B"), "hasPath returns false for missing segment");
+
+    FATP_ASSERT_CLOSE(from_xml<double>(root.path("options.A")), 0.5, "path resolves nested element");
+
+    FATP_ASSERT_THROWS(root.path("options.B"),
+                       std::runtime_error,
+                       "path throws when segment missing");
+
+    return true;
+}
+
+FATP_TEST_CASE(query_attr)
+{
+    const auto root = parse_xml(R"(<node id="42" label="probe"/> )");
+
+    const auto id = root.attr("id");
+    FATP_ASSERT_TRUE(id.has_value(), "attr returns value when present");
+    FATP_ASSERT_EQ(*id, std::string("42"), "attr value");
+
+    const auto missing = root.attr("missing");
+    FATP_ASSERT_FALSE(missing.has_value(), "attr returns nullopt when absent");
+
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_primitive_types)
+{
+    const auto root = parse_xml(R"(
+<values>
+  <text>hello</text>
+  <flag>false</flag>
+  <count>17</count>
+  <big>-9223372036854775807</big>
+  <size>99</size>
+</values>)");
+
+    FATP_ASSERT_EQ(from_xml<std::string>(root.require("text")),
+                   std::string("hello"),
+                   "string primitive");
+    FATP_ASSERT_FALSE(from_xml<bool>(root.require("flag")), "bool false primitive");
+    FATP_ASSERT_EQ(from_xml<int>(root.require("count")), 17, "int primitive");
+    FATP_ASSERT_EQ(from_xml<std::int64_t>(root.require("big")),
+                   std::int64_t{-9223372036854775807},
+                   "int64 primitive");
+    FATP_ASSERT_EQ(from_xml<std::size_t>(root.require("size")), size_t(99), "size_t primitive");
+
+    return true;
+}
+
 FATP_TEST_CASE(deserialize_nested_user_struct)
 {
-    auto root = parse_xml("<outer><inner><x>7</x></inner></outer>");
-    auto value = from_xml<OuterXmlProbe>(root);
-    FATP_ASSERT_TRUE(value.inner.x == 7, "nested struct field");
+    const auto root = parse_xml("<outer><inner><x>7</x></inner></outer>");
+    const auto value = from_xml<OuterXmlProbe>(root);
+    FATP_ASSERT_EQ(value.inner.x, 7, "nested struct field");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_optional_nested_user_struct)
 {
-    auto root = parse_xml("<outer><inner><x>9</x></inner></outer>");
-    auto value = from_xml<OuterOptionalXmlProbe>(root);
+    const auto root = parse_xml("<outer><inner><x>9</x></inner></outer>");
+    const auto value = from_xml<OuterOptionalXmlProbe>(root);
     FATP_ASSERT_TRUE(value.inner.has_value(), "optional nested present");
-    FATP_ASSERT_TRUE(value.inner->x == 9, "optional nested field");
+    FATP_ASSERT_EQ(value.inner->x, 9, "optional nested field");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_optional_nested_absent)
+{
+    const auto root = parse_xml("<outer/>");
+    const auto value = from_xml<OuterOptionalXmlProbe>(root);
+    FATP_ASSERT_FALSE(value.inner.has_value(), "optional nested absent keeps nullopt");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_vector_of_user_struct)
 {
-    auto root = parse_xml("<root><item><id>1</id></item><item><id>2</id></item></root>");
+    const auto root = parse_xml("<root><item><id>1</id></item><item><id>2</id></item></root>");
     std::vector<InnerListXmlProbe> items;
     from_xml(root, "item", items);
-    FATP_ASSERT_TRUE(items.size() == 2, "vector size");
-    FATP_ASSERT_TRUE(items[0].id == 1 && items[1].id == 2, "vector of user structs");
+    FATP_ASSERT_EQ(items.size(), size_t(2), "vector size");
+    FATP_ASSERT_EQ(items[0].id, 1, "first vector item");
+    FATP_ASSERT_EQ(items[1].id, 2, "second vector item");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_xml_all_wrapper)
+{
+    const auto root = parse_xml("<root><items><item><id>10</id></item><item><id>20</id></item></items></root>");
+    const auto items = xml_all<XmlAllItemXmlProbe>(root, "items", "item");
+    FATP_ASSERT_EQ(items.size(), size_t(2), "xml_all size");
+    FATP_ASSERT_EQ(items[0].id, 10, "xml_all first item");
+    FATP_ASSERT_EQ(items[1].id, 20, "xml_all second item");
+    return true;
+}
+
+FATP_TEST_CASE(reject_missing_required_struct_field)
+{
+    FATP_ASSERT_THROWS(from_xml<OuterXmlProbe>(parse_xml("<outer/>")),
+                       std::runtime_error,
+                       "missing required struct field");
+    return true;
+}
+
+FATP_TEST_CASE(parse_xml_file_roundtrip)
+{
+    const char* const filename = "xmllite_parse_file_probe.xml";
+    {
+        std::ofstream out{filename};
+        FATP_ASSERT_TRUE(out.is_open(), "temp file should open for write");
+        out << "<cfg><value>123</value></cfg>";
+    }
+
+    const auto root = parse_xml_file(filename);
+    FATP_ASSERT_EQ(root.tag, std::string("cfg"), "parse_xml_file root tag");
+    FATP_ASSERT_EQ(from_xml<int>(root.require("value")), 123, "parse_xml_file content");
+
+    std::remove(filename);
     return true;
 }
 
 FATP_TEST_CASE(deserialize_integer_enum)
 {
-    auto root = parse_xml("<mode>1</mode>");
-    auto mode = from_xml<ModeXmlProbe>(root);
-    FATP_ASSERT_TRUE(mode == ModeXmlProbe::On, "integer enum value");
+    const auto root = parse_xml("<mode>1</mode>");
+    const auto mode = from_xml<ModeXmlProbe>(root);
+    FATP_ASSERT_EQ(static_cast<int>(mode), static_cast<int>(ModeXmlProbe::On), "integer enum value");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_enum_struct_field)
 {
-    auto root = parse_xml("<cfg><mode>0</mode></cfg>");
-    auto cfg = from_xml<ConfigWithEnumXmlProbe>(root);
-    FATP_ASSERT_TRUE(cfg.mode == ModeXmlProbe::Off, "enum struct field");
+    const auto root = parse_xml("<cfg><mode>0</mode></cfg>");
+    const auto cfg = from_xml<ConfigWithEnumXmlProbe>(root);
+    FATP_ASSERT_EQ(static_cast<int>(cfg.mode), static_cast<int>(ModeXmlProbe::Off), "enum struct field");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_optional_enum)
 {
-    auto root = parse_xml("<cfg><mode>1</mode></cfg>");
+    const auto root = parse_xml("<cfg><mode>1</mode></cfg>");
     std::optional<ModeXmlProbe> mode;
     from_xml(root.require("mode"), mode);
-    FATP_ASSERT_TRUE(mode.has_value() && *mode == ModeXmlProbe::On, "optional enum");
+    FATP_ASSERT_TRUE(mode.has_value(), "optional enum present");
+    FATP_ASSERT_EQ(static_cast<int>(*mode), static_cast<int>(ModeXmlProbe::On), "optional enum value");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_vector_of_enums)
 {
-    auto root = parse_xml("<root><mode>0</mode><mode>1</mode></root>");
+    const auto root = parse_xml("<root><mode>0</mode><mode>1</mode></root>");
     std::vector<ModeXmlProbe> modes;
     from_xml(root, "mode", modes);
-    FATP_ASSERT_TRUE(modes.size() == 2, "enum vector size");
-    FATP_ASSERT_TRUE(modes[0] == ModeXmlProbe::Off && modes[1] == ModeXmlProbe::On,
-                     "enum vector values");
+    FATP_ASSERT_EQ(modes.size(), size_t(2), "enum vector size");
+    FATP_ASSERT_EQ(static_cast<int>(modes[0]), static_cast<int>(ModeXmlProbe::Off), "enum vector first value");
+    FATP_ASSERT_EQ(static_cast<int>(modes[1]), static_cast<int>(ModeXmlProbe::On), "enum vector second value");
     return true;
 }
 
@@ -302,25 +446,29 @@ FATP_TEST_CASE(reject_enum_out_of_range)
 
 FATP_TEST_CASE(deserialize_string_enum)
 {
-    auto root = parse_xml("<model>GaussianSensor</model>");
-    auto model = from_xml<ModelXmlProbe>(root);
-    FATP_ASSERT_TRUE(model == ModelXmlProbe::GaussianSensor, "string enum value");
+    const auto root = parse_xml("<model>GaussianSensor</model>");
+    const auto model = from_xml<ModelXmlProbe>(root);
+    FATP_ASSERT_EQ(static_cast<int>(model), static_cast<int>(ModelXmlProbe::GaussianSensor), "string enum value");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_string_enum_struct_field)
 {
-    auto root = parse_xml("<sensor><model>IdentitySensor</model></sensor>");
-    auto cfg = from_xml<SensorConfigXmlProbe>(root);
-    FATP_ASSERT_TRUE(cfg.model == ModelXmlProbe::IdentitySensor, "string enum struct field");
+    const auto root = parse_xml("<sensor><model>IdentitySensor</model></sensor>");
+    const auto cfg = from_xml<SensorConfigXmlProbe>(root);
+    FATP_ASSERT_EQ(static_cast<int>(cfg.model),
+                   static_cast<int>(ModelXmlProbe::IdentitySensor),
+                   "string enum struct field");
     return true;
 }
 
 FATP_TEST_CASE(deserialize_string_enum_global_namespace)
 {
-    auto root = parse_xml("<scheme>beta</scheme>");
-    auto scheme = from_xml<GlobalSchemeXmlProbe>(root);
-    FATP_ASSERT_TRUE(scheme == GlobalSchemeXmlProbe::beta, "global namespace string enum");
+    const auto root = parse_xml("<scheme>beta</scheme>");
+    const auto scheme = from_xml<GlobalSchemeXmlProbe>(root);
+    FATP_ASSERT_EQ(static_cast<int>(scheme),
+                   static_cast<int>(GlobalSchemeXmlProbe::beta),
+                   "global namespace string enum");
     return true;
 }
 
@@ -334,6 +482,10 @@ FATP_TEST_CASE(reject_invalid_string_enum)
 
 } // namespace fat_p::testing::xmllite
 
+// ============================================================================
+// Public Interface
+// ============================================================================
+
 namespace fat_p::testing
 {
 
@@ -342,28 +494,51 @@ bool test_XmlLite()
     FATP_PRINT_HEADER(XML LITE)
 
     TestRunner runner;
+    auto& out = *get_test_config().output;
 
+    out << colors::blue() << "--- Basic Parsing ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, parse_simple_config);
+    FATP_RUN_TEST_NS(runner, xmllite, parse_xml_entities);
+    FATP_RUN_TEST_NS(runner, xmllite, mixed_content_joins_text_chunks);
+    FATP_RUN_TEST_NS(runner, xmllite, accept_trailing_whitespace_and_comment);
+
+    out << "\n" << colors::blue() << "--- Parser Rejection ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_element);
     FATP_RUN_TEST_NS(runner, xmllite, reject_xmlns_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_xmlns_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_trailing_garbage);
     FATP_RUN_TEST_NS(runner, xmllite, reject_multiple_roots);
-    FATP_RUN_TEST_NS(runner, xmllite, accept_trailing_whitespace_and_comment);
     FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_name_start);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_attributes);
-    FATP_RUN_TEST_NS(runner, xmllite, mixed_content_joins_text_chunks);
     FATP_RUN_TEST_NS(runner, xmllite, reject_unclosed_elements);
     FATP_RUN_TEST_NS(runner, xmllite, reject_xml_stylesheet_processing_instruction);
+
+    out << "\n" << colors::blue() << "--- XmlNode Query API ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, xmllite, query_child_has_all);
+    FATP_RUN_TEST_NS(runner, xmllite, query_path_has_path);
+    FATP_RUN_TEST_NS(runner, xmllite, query_attr);
+
+    out << "\n" << colors::blue() << "--- Deserialization ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_primitive_types);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_absent);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_missing_required_struct_field);
+
+    out << "\n" << colors::blue() << "--- File I/O ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, xmllite, parse_xml_file_roundtrip);
+
+    out << "\n" << colors::blue() << "--- Integer Enum Deserialization ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_integer_enum);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_enum_struct_field);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_enum);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_enums);
     FATP_RUN_TEST_NS(runner, xmllite, reject_enum_out_of_range);
+
+    out << "\n" << colors::blue() << "--- String Enum Deserialization ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_struct_field);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_string_enum_global_namespace);
