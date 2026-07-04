@@ -5,7 +5,7 @@
 #
 # Directory structure:
 #   Headers:    include/fat_p/XmlLite.h
-#   Tests:      components/Json/tests/test_XmlLite.cpp
+#   Tests:      components/Xml/tests/test_XmlLite.cpp
 # =============================================================================
 
 name: XmlLite CI
@@ -15,17 +15,17 @@ on:
   push:
     paths:
       - 'include/fat_p/XmlLite.h'
-      - 'components/Json/tests/test_XmlLite.cpp'
+      - 'components/Xml/tests/test_XmlLite.cpp'
       - '.github/workflows/xml-lite.yml'
   pull_request:
     paths:
       - 'include/fat_p/XmlLite.h'
-      - 'components/Json/tests/test_XmlLite.cpp'
+      - 'components/Xml/tests/test_XmlLite.cpp'
       - '.github/workflows/xml-lite.yml'
 
 env:
   HEADER: XmlLite.h
-  TEST_SRC: components/Json/tests/test_XmlLite.cpp
+  TEST_SRC: components/Xml/tests/test_XmlLite.cpp
 
 jobs:
   # ===========================================================================
@@ -121,7 +121,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Json\tests\test_XmlLite.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Xml\tests\test_XmlLite.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe

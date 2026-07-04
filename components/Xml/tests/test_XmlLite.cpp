@@ -7,7 +7,7 @@ FATP_META:
   meta_version: 1
   component: XmlLite
   file_role: test
-  path: components/Json/tests/test_XmlLite.cpp
+  path: components/Xml/tests/test_XmlLite.cpp
   layer: Testing
   namespace: fat_p
   summary: "Unit tests for XmlLite."

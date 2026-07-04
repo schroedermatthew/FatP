@@ -13,7 +13,7 @@ FATP_META:
   related:
     docs_search: "XmlLite"
     tests:
-      - components/Json/tests/test_XmlLite.cpp
+      - components/Xml/tests/test_XmlLite.cpp
   hygiene:
     pragma_once: true
     include_guard: false
