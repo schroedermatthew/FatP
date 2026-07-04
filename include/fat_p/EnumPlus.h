@@ -875,16 +875,15 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
 
 #define FATP_ENUM_STRING_POLICY_IMPL(Enum, ...)                                    \
     template <>                                                                  \
-    struct ::fat_p::EnumSizeTrait<Enum>                                          \
+    struct EnumSizeTrait<Enum>                                                   \
     {                                                                            \
         static constexpr std::size_t size = FATP_ENUM_ARG_COUNT(__VA_ARGS__);    \
     };                                                                           \
     template <>                                                                  \
-    struct ::fat_p::EnumStringPolicy<Enum>                                       \
+    struct EnumStringPolicy<Enum>                                                \
     {                                                                            \
     private:                                                                     \
-        static constexpr std::array<std::string_view,                            \
-                                    ::fat_p::EnumSizeTrait<Enum>::size>          \
+        static constexpr std::array<std::string_view, EnumSizeTrait<Enum>::size> \
             name_table{{FATP_ENUM_FOR_EACH(FATP_ENUM_STRING_NAME, __VA_ARGS__)}}; \
                                                                                  \
     public:                                                                      \
@@ -911,8 +910,11 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
         }                                                                        \
     };
 
-// Specializations are injected into ::fat_p from the caller's namespace.
-// If invoked inside a nested fat_p namespace, compilers reject with C2888 (MSVC)
-// or equivalent — see placement note above.
-#define FATP_ENUM_STRING_POLICY(Enum, ...) \
-    FATP_ENUM_STRING_POLICY_IMPL(Enum, __VA_ARGS__)
+// Opens namespace fat_p at the caller's scope. Use at file or user namespace scope.
+// GCC rejects `struct ::fat_p::EnumSizeTrait<...>` at global scope; MSVC rejects
+// injection from inside nested fat_p namespaces (C2888) — see placement note above.
+#define FATP_ENUM_STRING_POLICY(Enum, ...)                                       \
+    namespace fat_p                                                              \
+    {                                                                            \
+    FATP_ENUM_STRING_POLICY_IMPL(Enum, __VA_ARGS__)                              \
+    }
