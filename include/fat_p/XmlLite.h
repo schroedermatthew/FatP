@@ -676,6 +676,21 @@ template <typename T>
 //
 // FATP_XML_DEFINE_TYPE_OPTIONAL(Type, field1, field2, ...)
 //   Same but missing fields are silently skipped (struct defaults kept).
+//
+// Field deserialization uses from_xml_adl so user-defined types outside
+// namespace fat_p resolve via ADL (nested structs, optional<T>, etc.).
+
+namespace xml_detail
+{
+
+template <typename T>
+inline void from_xml_adl(const XmlNode& node, T& value)
+{
+    using ::fat_p::from_xml;
+    from_xml(node, value);
+}
+
+} // namespace xml_detail
 
 // ---- Internal macro machinery ----
 
@@ -684,13 +699,13 @@ template <typename T>
         const auto* _node = node.child(#field);                              \
         FATP_XML_ENFORCE(_node != nullptr,                                   \
                          "missing required element:", #field);               \
-        ::fat_p::from_xml(*_node, value.field);                              \
+        ::fat_p::xml_detail::from_xml_adl(*_node, value.field);              \
     }
 
 #define FATP_XML_FROM_FIELD_OPTIONAL(field)                                  \
     {                                                                        \
         const auto* _node = node.child(#field);                              \
-        if (_node) ::fat_p::from_xml(*_node, value.field);                   \
+        if (_node) ::fat_p::xml_detail::from_xml_adl(*_node, value.field);   \
     }
 
 // Variadic expansion (reuse the FOR_EACH pattern)

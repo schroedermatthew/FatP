@@ -29,13 +29,39 @@ FATP_META:
     mode: autogen
 */
 
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "FatPTest.h"
 #include "XmlLite.h"
 
 namespace fat_p::testing::xmllite
 {
+
+struct InnerXmlProbe
+{
+    int x{};
+};
+FATP_XML_DEFINE_TYPE(InnerXmlProbe, x)
+
+struct OuterXmlProbe
+{
+    InnerXmlProbe inner{};
+};
+FATP_XML_DEFINE_TYPE(OuterXmlProbe, inner)
+
+struct OuterOptionalXmlProbe
+{
+    std::optional<InnerXmlProbe> inner{};
+};
+FATP_XML_DEFINE_TYPE_OPTIONAL(OuterOptionalXmlProbe, inner)
+
+struct InnerListXmlProbe
+{
+    int id{};
+};
+FATP_XML_DEFINE_TYPE(InnerListXmlProbe, id)
 
 FATP_TEST_CASE(parse_simple_config)
 {
@@ -159,6 +185,33 @@ FATP_TEST_CASE(reject_xml_stylesheet_processing_instruction)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_nested_user_struct)
+{
+    auto root = parse_xml("<outer><inner><x>7</x></inner></outer>");
+    auto value = from_xml<OuterXmlProbe>(root);
+    FATP_ASSERT_TRUE(value.inner.x == 7, "nested struct field");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_optional_nested_user_struct)
+{
+    auto root = parse_xml("<outer><inner><x>9</x></inner></outer>");
+    auto value = from_xml<OuterOptionalXmlProbe>(root);
+    FATP_ASSERT_TRUE(value.inner.has_value(), "optional nested present");
+    FATP_ASSERT_TRUE(value.inner->x == 9, "optional nested field");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_vector_of_user_struct)
+{
+    auto root = parse_xml("<root><item><id>1</id></item><item><id>2</id></item></root>");
+    std::vector<InnerListXmlProbe> items;
+    from_xml(root, "item", items);
+    FATP_ASSERT_TRUE(items.size() == 2, "vector size");
+    FATP_ASSERT_TRUE(items[0].id == 1 && items[1].id == 2, "vector of user structs");
+    return true;
+}
+
 } // namespace fat_p::testing::xmllite
 
 namespace fat_p::testing
@@ -183,6 +236,9 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, mixed_content_joins_text_chunks);
     FATP_RUN_TEST_NS(runner, xmllite, reject_unclosed_elements);
     FATP_RUN_TEST_NS(runner, xmllite, reject_xml_stylesheet_processing_instruction);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_nested_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
 
     return 0 == runner.print_summary();
 }
