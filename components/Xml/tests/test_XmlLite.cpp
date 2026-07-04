@@ -97,6 +97,52 @@ FATP_TEST_CASE(reject_prefixed_attribute)
     return true;
 }
 
+FATP_TEST_CASE(reject_trailing_garbage)
+{
+    FATP_ASSERT_THROWS(parse_xml("<a/>garbage"), std::runtime_error, "trailing garbage");
+    FATP_ASSERT_THROWS(parse_xml("<a><b>1</b></a> junk"), std::runtime_error, "trailing junk");
+    FATP_ASSERT_THROWS(parse_xml("<a></a><!DOCTYPE x>"), std::runtime_error, "post-root doctype");
+    return true;
+}
+
+FATP_TEST_CASE(reject_multiple_roots)
+{
+    FATP_ASSERT_THROWS(parse_xml("<a/><b/>"), std::runtime_error, "multiple roots");
+    return true;
+}
+
+FATP_TEST_CASE(accept_trailing_whitespace_and_comment)
+{
+    auto root = parse_xml("<a/> <!-- trailing comment --> \n");
+    FATP_ASSERT_TRUE(root.tag == "a", "root tag with trailing comment");
+    return true;
+}
+
+FATP_TEST_CASE(reject_invalid_name_start)
+{
+    FATP_ASSERT_THROWS(parse_xml("<1bad/>"), std::runtime_error, "digit name start");
+    FATP_ASSERT_THROWS(parse_xml("<.bad/>"), std::runtime_error, "dot name start");
+    FATP_ASSERT_THROWS(parse_xml("<-bad/>"), std::runtime_error, "dash name start");
+    return true;
+}
+
+FATP_TEST_CASE(reject_duplicate_attributes)
+{
+    FATP_ASSERT_THROWS(parse_xml(R"(<root a="1" a="2"/>)"),
+                       std::runtime_error,
+                       "duplicate attribute");
+    return true;
+}
+
+FATP_TEST_CASE(mixed_content_joins_text_chunks)
+{
+    auto root = parse_xml("<p>Hello <b>world</b> again</p>");
+    FATP_ASSERT_TRUE(root.tag == "p", "mixed content root tag");
+    FATP_ASSERT_TRUE(root.text == "Hello again", "mixed content text joined");
+    FATP_ASSERT_TRUE(root.require("b").text == "world", "child text preserved");
+    return true;
+}
+
 } // namespace fat_p::testing::xmllite
 
 namespace fat_p::testing
@@ -113,6 +159,12 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, reject_xmlns_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_xmlns_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_attribute);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_trailing_garbage);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_multiple_roots);
+    FATP_RUN_TEST_NS(runner, xmllite, accept_trailing_whitespace_and_comment);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_name_start);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_attributes);
+    FATP_RUN_TEST_NS(runner, xmllite, mixed_content_joins_text_chunks);
 
     return 0 == runner.print_summary();
 }

@@ -1,9 +1,25 @@
 # Design Note — XmlLite Generic `enum class` Support
 
-**Status:** Planned  
+**Status:** Planned (PR0 parser hardening complete)
 **Date:** 2026-07-04  
 **Scope:** XmlLite / FatPXml / EnumPlus  
 **Author:** AI-assisted design (review before implementation)
+
+**Prerequisite:** PR0 parser hardening must land before enum work. XmlLite is a config XML reader, not a general XML library.
+
+---
+
+## 0. PR0 — Parser hardening (complete)
+
+| Issue | Fix |
+|-------|-----|
+| Trailing garbage / multiple roots accepted | `parse()` verifies input consumed after root (whitespace/comments allowed) |
+| Invalid name starts (`<1bad/>`, `<.bad/>`) | Name-start must be alpha or `_` |
+| Duplicate attributes silently overwrite | Reject duplicate attribute names |
+| Mixed content lossy | Documented in XmlLite overview |
+| `size_t` truncation | Guard against values above `size_t` max |
+
+Tests live in `components/Xml/tests/test_XmlLite.cpp` (namespace, trailing content, names, duplicates, mixed content).
 
 ---
 
@@ -50,8 +66,8 @@ Fat-P already solves enum↔string in **EnumPlus** (`EnumStringPolicy`, `named_e
 
 | Header | Role | Dependencies | Enum support |
 |--------|------|--------------|--------------|
-| **XmlLite.h** | Standalone parser + primitives + struct macros | `std` only | Integer-backed enums only (optional thin overload) |
-| **FatPXml.h** (new) | Fat-P integrated deserialization | `XmlLite.h` + `EnumPlus.h` | Full `named_enum` string enums |
+| **XmlLite.h** | Standalone parser + primitives + struct macros | `std` only | No enum support |
+| **FatPXml.h** (new) | Fat-P integrated deserialization | `XmlLite.h` + `EnumPlus.h` | `named_enum` string enums; optional integer enums (PR4) |
 
 **Rationale:** XmlLite’s Doxygen still claims zero external dependencies (like JsonLite). FatPJson already owns “ecosystem extensions.” Duplicating that pattern keeps vendored single-file copies honest.
 
@@ -153,9 +169,9 @@ inline void from_xml(const XmlNode& node, E& value)
 
 Value-returning `from_xml<E>(node)` picks this up via the existing template.
 
-### 5.2 Integer enums (optional, XmlLite or FatPXml)
+### 5.2 Integer enums (optional, FatPXml only)
 
-For XML like `<mode>2</mode>`:
+For XML like `<mode>2</mode>`, add to **FatPXml.h** only (not XmlLite — avoids `named_enum` / EnumPlus on the standalone header):
 
 ```cpp
 template <typename E>
@@ -286,23 +302,26 @@ Update `FATP_META.related.tests` on FatPXml and EnumPlus when macros land.
 ## 11. PR plan (DAG)
 
 ```
+PR0: XmlLite parser hardening + expanded tests
+  ↓
 PR1: EnumPlus FATP_ENUM_STRING_POLICY + tests
   ↓
 PR2: FatPXml.h from_xml named_enum + test_FatPXml.cpp
   ↓
-PR3: CI workflow + FATP_META + docs cross-links
+PR3: Docs / workflow / metadata (FatPXml CI entry, XmlLite → FatPXml pointer)
   ↓
-PR4 (optional): integer enum overload in XmlLite
+PR4 (optional): integer enum support in FatPXml only
   ↓
 PR5 (optional): migrate internal configs to typed enums
 ```
 
 | PR | Files | Est. size |
 |----|-------|-----------|
+| **PR0** | `XmlLite.h`, `test_XmlLite.cpp` | parser fixes + ~80 lines tests |
 | **PR1** | `EnumPlus.h`, `test_EnumPlus.cpp` | ~120 lines macro + ~80 lines tests |
 | **PR2** | `FatPXml.h` (new), `test_FatPXml.cpp` | ~80 + ~150 |
 | **PR3** | `generate_workflows.py`, workflow yml, meta blocks | ~50 |
-| **PR4** | `XmlLite.h` integer enum | ~25 |
+| **PR4** | `FatPXml.h` integer enum | ~25 |
 | **PR5** | Application loaders | out of scope unless requested |
 
 Each PR: one commit, tests green locally (MSVC + icx) + CI dispatch.
@@ -336,10 +355,10 @@ auto cfg = fat_p::from_xml<TargetConfig>(root.require("target"));
 
 ## 13. Open decisions (resolve before implementation)
 
-1. **FatPXml.h vs inline in XmlLite.h** — plan recommends split; confirm single-header preference if any.
-2. **Integer enum overload** — v1 or defer?
+1. **FatPXml.h vs inline in XmlLite.h** — **resolved:** split (mirror JsonLite / FatPJson).
+2. **Integer enum overload** — **resolved:** FatPXml only, optional PR4.
 3. **Case-insensitive enum parse** — use `from_string_icase` behind a policy flag, or strict only?
-4. **Test file** — new `test_FatPXml.cpp` vs extend `test_XmlLite.cpp`.
+4. **Test file** — **resolved:** `test_FatPXml.cpp` separate from lite `test_XmlLite.cpp`.
 
 ---
 
@@ -357,7 +376,10 @@ auto cfg = fat_p::from_xml<TargetConfig>(root.require("target"));
 ## 15. Related work (already landed)
 
 - `include/fat_p/XmlLite.h` — parser, `from_xml` primitives, struct macros, namespace rejection
-- `components/Xml/tests/test_XmlLite.cpp` — parse + namespace rejection tests
+- `components/Xml/tests/test_XmlLite.cpp` — lite CI tests
+- `components/Xml/docs/Design Note - XmlLite Enum Support.md` — this document
 - `.github/workflows/xml-lite.yml` — CI for XmlLite lite tests
 
-Enum support builds on this foundation; it does not replace it.
+**Package layout:** Xml artifacts live under `components/Xml/` only. Do not keep copies under `components/Json/`.
+
+Enum support builds on PR0-hardened XmlLite; it does not replace it.

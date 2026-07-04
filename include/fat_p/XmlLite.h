@@ -42,6 +42,12 @@ FATP_META:
  * processing instructions, or entity references beyond the five predefined
  * XML entities (&amp; &lt; &gt; &apos; &quot;).
  *
+ * Mixed content (text interleaved with child elements) is not preserved in
+ * document order. Adjacent text chunks are trimmed and joined with spaces in
+ * the parent element's text field; children are stored separately. This is
+ * intentional for config XML where elements hold either text or children, not
+ * both in sequence.
+ *
  * @section example Basic Example
  * @code{.cpp}
  * #include "XmlLite.h"
@@ -67,6 +73,7 @@ FATP_META:
 #include <cstddef>
 #include <cstdint>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -234,6 +241,16 @@ inline void enforce_no_xmlns_attribute(const std::string& attrName)
         FATP_XML_ENFORCE(false, "namespaces not supported: xmlns attribute");
 }
 
+[[nodiscard]] inline bool isXmlNameStartChar(char ch)
+{
+    return std::isalpha(static_cast<unsigned char>(ch)) || ch == '_';
+}
+
+[[nodiscard]] inline bool isXmlNameChar(char ch)
+{
+    return std::isalnum(static_cast<unsigned char>(ch)) || ch == '_' || ch == '-' || ch == '.';
+}
+
 class XmlParser
 {
 public:
@@ -242,7 +259,11 @@ public:
     XmlNode parse()
     {
         skipProlog();
-        return parseElement();
+        XmlNode root = parseElement();
+        skipComments();
+        skipWhitespace();
+        FATP_XML_ENFORCE(atEnd(), "unexpected trailing content at position", mPos);
+        return root;
     }
 
 private:
@@ -307,12 +328,12 @@ private:
 
     std::string parseName()
     {
+        FATP_XML_ENFORCE(!atEnd(), "expected name at position", mPos);
+        FATP_XML_ENFORCE(isXmlNameStartChar(peek()), "invalid name start at position", mPos);
         std::size_t start = mPos;
-        while (!atEnd() && (std::isalnum(static_cast<unsigned char>(mInput[mPos]))
-               || mInput[mPos] == '_' || mInput[mPos] == '-'
-               || mInput[mPos] == '.'))
+        ++mPos;
+        while (!atEnd() && isXmlNameChar(mInput[mPos]))
             ++mPos;
-        FATP_XML_ENFORCE(mPos > start, "expected element name at position", mPos);
         return std::string{mInput.substr(start, mPos - start)};
     }
 
@@ -410,7 +431,9 @@ private:
             FATP_XML_ENFORCE(advance() == '=', "expected '=' after attribute name");
             skipWhitespace();
             std::string attrValue = parseQuotedString();
-            node.attributes[attrName] = attrValue;
+            FATP_XML_ENFORCE(!node.attributes.contains(attrName),
+                             "duplicate attribute:", attrName);
+            node.attributes.emplace(std::move(attrName), std::move(attrValue));
         }
 
         // Self-closing tag
@@ -538,6 +561,8 @@ inline void from_xml(const XmlNode& node, std::size_t& value)
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), temp);
     FATP_XML_ENFORCE(ec == std::errc{} && ptr == sv.data() + sv.size(),
                      "invalid size_t in element:", node.tag);
+    FATP_XML_ENFORCE(temp <= static_cast<unsigned long long>(std::numeric_limits<std::size_t>::max()),
+                     "size_t overflow in element:", node.tag);
     value = static_cast<std::size_t>(temp);
 }
 
