@@ -826,7 +826,16 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
 // ============================================================================
 //
 // Enumerators must be dense 0..N-1. XML/JSON string form defaults to #token spelling.
-// Invoke at global or user namespace scope — not inside a nested fat_p namespace.
+//
+// Placement: call at global or user namespace scope — NOT inside fat_p::testing::...
+// or any other nested fat_p namespace. C++ requires EnumSizeTrait / EnumStringPolicy
+// specializations to be defined at namespace fat_p scope; nested namespaces cannot
+// inject into ::fat_p.
+//
+// Wrong placement (inside fat_p::testing::xmllite { ... }):
+//   MSVC C2888: 'fat_p::EnumSizeTrait<...>': symbol cannot be defined within
+//               namespace 'xmllite'
+//   Fix: move enum + macro to file scope (see test_XmlLite.cpp).
 //
 //   enum class Mode { Off, On };
 //   FATP_ENUM_STRING_POLICY(Mode, Off, On)
@@ -864,19 +873,18 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
 #define FATP_ENUM_FOR_EACH(macro, ...) \
     FATP_ENUM_EXPAND(FATP_ENUM_CAT(FATP_ENUM_APPLY_, FATP_ENUM_ARG_COUNT(__VA_ARGS__))(macro, __VA_ARGS__))
 
-#define FATP_ENUM_STRING_POLICY(Enum, ...)                                       \
-    namespace fat_p                                                              \
-    {                                                                            \
+#define FATP_ENUM_STRING_POLICY_IMPL(Enum, ...)                                    \
     template <>                                                                  \
-    struct EnumSizeTrait<Enum>                                                   \
+    struct ::fat_p::EnumSizeTrait<Enum>                                          \
     {                                                                            \
-        static constexpr std::size_t size = FATP_ENUM_ARG_COUNT(__VA_ARGS__);      \
+        static constexpr std::size_t size = FATP_ENUM_ARG_COUNT(__VA_ARGS__);    \
     };                                                                           \
     template <>                                                                  \
-    struct EnumStringPolicy<Enum>                                                \
+    struct ::fat_p::EnumStringPolicy<Enum>                                       \
     {                                                                            \
     private:                                                                     \
-        static constexpr std::array<std::string_view, EnumSizeTrait<Enum>::size>   \
+        static constexpr std::array<std::string_view,                            \
+                                    ::fat_p::EnumSizeTrait<Enum>::size>          \
             name_table{{FATP_ENUM_FOR_EACH(FATP_ENUM_STRING_NAME, __VA_ARGS__)}}; \
                                                                                  \
     public:                                                                      \
@@ -891,7 +899,7 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
         }                                                                        \
         static Enum from_string(std::string_view str)                            \
         {                                                                        \
-            for (std::size_t i = 0; i < name_table.size(); ++i)                \
+            for (std::size_t i = 0; i < name_table.size(); ++i)                  \
             {                                                                    \
                 if (str == name_table[i])                                        \
                 {                                                                \
@@ -901,5 +909,10 @@ constexpr bool has_flag(EnumPlusWrapper<E> value, EnumPlusWrapper<E> flag) noexc
             throw std::invalid_argument(                                         \
                 std::string("Invalid ") + #Enum + " string: " + std::string(str)); \
         }                                                                        \
-    };                                                                           \
-    }
+    };
+
+// Specializations are injected into ::fat_p from the caller's namespace.
+// If invoked inside a nested fat_p namespace, compilers reject with C2888 (MSVC)
+// or equivalent — see placement note above.
+#define FATP_ENUM_STRING_POLICY(Enum, ...) \
+    FATP_ENUM_STRING_POLICY_IMPL(Enum, __VA_ARGS__)

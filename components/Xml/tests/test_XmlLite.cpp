@@ -36,6 +36,9 @@ FATP_META:
 #include "FatPTest.h"
 #include "XmlLite.h"
 
+// FATP_ENUM_STRING_POLICY must live at file scope (not inside fat_p::testing::xmllite).
+// Wrong placement → MSVC C2888: symbol cannot be defined within namespace 'xmllite'.
+
 enum class GlobalSchemeXmlProbe
 {
     alpha,
