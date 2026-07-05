@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/SlidingFileWindow.h'
-      - 'components/SlidingFileWindow/tests/test_SlidingFileWindow.cpp'
       - '.github/workflows/sliding-file-window.yml'
   pull_request:
     paths:
       - 'include/fat_p/SlidingFileWindow.h'
-      - 'components/SlidingFileWindow/tests/test_SlidingFileWindow.cpp'
       - '.github/workflows/sliding-file-window.yml'
 
 env:

@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/TensorMath.h'
-      - 'components/Tensor/tests/test_TensorMath.cpp'
       - '.github/workflows/tensor-math.yml'
   pull_request:
     paths:
       - 'include/fat_p/TensorMath.h'
-      - 'components/Tensor/tests/test_TensorMath.cpp'
       - '.github/workflows/tensor-math.yml'
 
 env:

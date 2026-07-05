@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/ExpectedAsyncTask.h'
-      - 'components/Expected/tests/test_AsyncOperations.cpp'
       - '.github/workflows/async-operations.yml'
   pull_request:
     paths:
       - 'include/fat_p/ExpectedAsyncTask.h'
-      - 'components/Expected/tests/test_AsyncOperations.cpp'
       - '.github/workflows/async-operations.yml'
 
 env:

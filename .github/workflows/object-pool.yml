@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/ObjectPool.h'
-      - 'components/ObjectPool/tests/test_ObjectPool.cpp'
       - 'components/ObjectPool/benchmarks/benchmark_ObjectPool.cpp'
       - '.github/workflows/object-pool.yml'
   pull_request:
     paths:
       - 'include/fat_p/ObjectPool.h'
-      - 'components/ObjectPool/tests/test_ObjectPool.cpp'
       - 'components/ObjectPool/benchmarks/benchmark_ObjectPool.cpp'
       - '.github/workflows/object-pool.yml'
 

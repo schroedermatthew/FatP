@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/Stacktrace.h'
-      - 'components/Stacktrace/tests/test_Stacktrace.cpp'
       - 'components/Stacktrace/benchmarks/benchmark_Stacktrace.cpp'
       - '.github/workflows/stacktrace.yml'
   pull_request:
     paths:
       - 'include/fat_p/Stacktrace.h'
-      - 'components/Stacktrace/tests/test_Stacktrace.cpp'
       - 'components/Stacktrace/benchmarks/benchmark_Stacktrace.cpp'
       - '.github/workflows/stacktrace.yml'
 

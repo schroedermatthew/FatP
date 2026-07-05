@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/FatPBinary.h'
-      - 'components/BinarySerialization/tests/test_FatPBinary.cpp'
       - '.github/workflows/fatp-binary.yml'
   pull_request:
     paths:
       - 'include/fat_p/FatPBinary.h'
-      - 'components/BinarySerialization/tests/test_FatPBinary.cpp'
       - '.github/workflows/fatp-binary.yml'
 
 env:

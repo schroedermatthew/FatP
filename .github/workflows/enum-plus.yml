@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/EnumPlus.h'
-      - 'components/EnumPlus/tests/test_EnumPlus.cpp'
       - '.github/workflows/enum-plus.yml'
   pull_request:
     paths:
       - 'include/fat_p/EnumPlus.h'
-      - 'components/EnumPlus/tests/test_EnumPlus.cpp'
       - '.github/workflows/enum-plus.yml'
 
 env:

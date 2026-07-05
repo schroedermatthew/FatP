@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/SlotMap.h'
-      - 'components/SlotMap/tests/test_SlotMap.cpp'
       - 'components/SlotMap/benchmarks/benchmark_SlotMap.cpp'
       - '.github/workflows/slot-map.yml'
   pull_request:
     paths:
       - 'include/fat_p/SlotMap.h'
-      - 'components/SlotMap/tests/test_SlotMap.cpp'
       - 'components/SlotMap/benchmarks/benchmark_SlotMap.cpp'
       - '.github/workflows/slot-map.yml'
 

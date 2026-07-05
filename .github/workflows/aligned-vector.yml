@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/AlignedVector.h'
-      - 'components/AlignedVector/tests/test_AlignedVector.cpp'
       - 'components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp'
       - '.github/workflows/aligned-vector.yml'
   pull_request:
     paths:
       - 'include/fat_p/AlignedVector.h'
-      - 'components/AlignedVector/tests/test_AlignedVector.cpp'
       - 'components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp'
       - '.github/workflows/aligned-vector.yml'
 

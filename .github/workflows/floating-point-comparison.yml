@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/FloatingPointComparison.h'
-      - 'components/FloatingPointComparison/tests/test_FloatingPointComparison.cpp'
       - 'components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp'
       - '.github/workflows/floating-point-comparison.yml'
   pull_request:
     paths:
       - 'include/fat_p/FloatingPointComparison.h'
-      - 'components/FloatingPointComparison/tests/test_FloatingPointComparison.cpp'
       - 'components/FloatingPointComparison/benchmarks/benchmark_FloatingPointComparison.cpp'
       - '.github/workflows/floating-point-comparison.yml'
 

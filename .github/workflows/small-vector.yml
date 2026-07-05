@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/SmallVector.h'
-      - 'components/SmallVector/tests/test_SmallVector.cpp'
       - 'components/SmallVector/benchmarks/benchmark_SmallVector.cpp'
       - '.github/workflows/small-vector.yml'
   pull_request:
     paths:
       - 'include/fat_p/SmallVector.h'
-      - 'components/SmallVector/tests/test_SmallVector.cpp'
       - 'components/SmallVector/benchmarks/benchmark_SmallVector.cpp'
       - '.github/workflows/small-vector.yml'
 

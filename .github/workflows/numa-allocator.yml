@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/NumaAllocator.h'
-      - 'components/NumaAllocator/tests/test_NumaAllocator.cpp'
       - '.github/workflows/numa-allocator.yml'
   pull_request:
     paths:
       - 'include/fat_p/NumaAllocator.h'
-      - 'components/NumaAllocator/tests/test_NumaAllocator.cpp'
       - '.github/workflows/numa-allocator.yml'
 
 env:

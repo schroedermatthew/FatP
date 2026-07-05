@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/SimdVector.h'
-      - 'components/SimdVector/tests/test_SimdVector.cpp'
       - '.github/workflows/simd-vector.yml'
   pull_request:
     paths:
       - 'include/fat_p/SimdVector.h'
-      - 'components/SimdVector/tests/test_SimdVector.cpp'
       - '.github/workflows/simd-vector.yml'
 
 env:

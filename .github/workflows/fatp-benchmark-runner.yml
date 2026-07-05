@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/FatPBenchmarkRunner.h'
-      - 'components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp'
       - '.github/workflows/fatp-benchmark-runner.yml'
   pull_request:
     paths:
       - 'include/fat_p/FatPBenchmarkRunner.h'
-      - 'components/FatPBenchmarkRunner/tests/test_FatPBenchmarkRunner.cpp'
       - '.github/workflows/fatp-benchmark-runner.yml'
 
 env:

@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/ViewLifetimeTracking.h'
-      - 'components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp'
       - '.github/workflows/view-lifetime-tracking.yml'
   pull_request:
     paths:
       - 'include/fat_p/ViewLifetimeTracking.h'
-      - 'components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp'
       - '.github/workflows/view-lifetime-tracking.yml'
 
 env:

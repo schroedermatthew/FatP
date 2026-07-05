@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/Concepts.h'
-      - 'components/Concepts/tests/test_Concepts.cpp'
       - '.github/workflows/concepts.yml'
   pull_request:
     paths:
       - 'include/fat_p/Concepts.h'
-      - 'components/Concepts/tests/test_Concepts.cpp'
       - '.github/workflows/concepts.yml'
 
 env:

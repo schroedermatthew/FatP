@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/CSRMatrixParallel.h'
-      - 'components/CSRMatrix/tests/test_CSRMatrixParallel.cpp'
       - '.github/workflows/csr-matrix-parallel.yml'
   pull_request:
     paths:
       - 'include/fat_p/CSRMatrixParallel.h'
-      - 'components/CSRMatrix/tests/test_CSRMatrixParallel.cpp'
       - '.github/workflows/csr-matrix-parallel.yml'
 
 env:

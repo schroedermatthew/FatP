@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/CacheUtilities.h'
-      - 'components/CacheUtilities/tests/test_CacheUtilities.cpp'
       - '.github/workflows/cache-utilities.yml'
   pull_request:
     paths:
       - 'include/fat_p/CacheUtilities.h'
-      - 'components/CacheUtilities/tests/test_CacheUtilities.cpp'
       - '.github/workflows/cache-utilities.yml'
 
 env:

@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/PolicyIterator.h'
-      - 'components/PolicyIterator/tests/test_PolicyIterator.cpp'
       - 'components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp'
       - '.github/workflows/policy-iterator.yml'
   pull_request:
     paths:
       - 'include/fat_p/PolicyIterator.h'
-      - 'components/PolicyIterator/tests/test_PolicyIterator.cpp'
       - 'components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp'
       - '.github/workflows/policy-iterator.yml'
 

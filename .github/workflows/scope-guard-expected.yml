@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/ScopeGuardExpected.h'
-      - 'components/ScopeGuard/tests/test_ScopeGuardExpected.cpp'
       - '.github/workflows/scope-guard-expected.yml'
   pull_request:
     paths:
       - 'include/fat_p/ScopeGuardExpected.h'
-      - 'components/ScopeGuard/tests/test_ScopeGuardExpected.cpp'
       - '.github/workflows/scope-guard-expected.yml'
 
 env:

@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/Expected.h'
-      - 'components/Expected/tests/test_Expected.cpp'
       - '.github/workflows/expected.yml'
   pull_request:
     paths:
       - 'include/fat_p/Expected.h'
-      - 'components/Expected/tests/test_Expected.cpp'
       - '.github/workflows/expected.yml'
 
 env:

@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/ValueGuard.h'
-      - 'components/ValueGuard/tests/test_ValueGuard.cpp'
       - '.github/workflows/value-guard.yml'
   pull_request:
     paths:
       - 'include/fat_p/ValueGuard.h'
-      - 'components/ValueGuard/tests/test_ValueGuard.cpp'
       - '.github/workflows/value-guard.yml'
 
 env:

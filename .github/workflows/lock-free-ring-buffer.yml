@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/LockFreeRingBuffer.h'
-      - 'components/LockFreeContainers/tests/test_LockFreeRingBuffer.cpp'
       - '.github/workflows/lock-free-ring-buffer.yml'
   pull_request:
     paths:
       - 'include/fat_p/LockFreeRingBuffer.h'
-      - 'components/LockFreeContainers/tests/test_LockFreeRingBuffer.cpp'
       - '.github/workflows/lock-free-ring-buffer.yml'
 
 env:

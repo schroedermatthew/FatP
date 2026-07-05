@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/FlatSet.h'
-      - 'components/FlatMapSet/tests/test_FlatSet.cpp'
       - '.github/workflows/flat-set.yml'
   pull_request:
     paths:
       - 'include/fat_p/FlatSet.h'
-      - 'components/FlatMapSet/tests/test_FlatSet.cpp'
       - '.github/workflows/flat-set.yml'
 
 env:

@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/FlatMap.h'
-      - 'components/FlatMapSet/tests/test_FlatMap.cpp'
       - 'components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp'
       - '.github/workflows/flat-map.yml'
   pull_request:
     paths:
       - 'include/fat_p/FlatMap.h'
-      - 'components/FlatMapSet/tests/test_FlatMap.cpp'
       - 'components/FlatMapSet/benchmarks/benchmark_FlatMapSet.cpp'
       - '.github/workflows/flat-map.yml'
 

@@ -398,10 +398,11 @@ def aggregate_unix_build(compiler_line, extra_flags="", link_setup=""):
 
 def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src):
     """Generate the on: trigger block with push/pull_request path triggers."""
-    # Build path list: header, test file, benchmark file (if any), workflow itself
+    # Unit test .cpp changes are covered by fatp-test-core.yml (aggregate link +
+    # full suite). Listing test_src here too would fire this workflow on every
+    # test edit alongside FatP CI — duplicate Actions runs for the same push.
     paths = [
         f"include/fat_p/{header}",
-        test_src,
     ]
     if bench_src:
         paths.append(bench_src)

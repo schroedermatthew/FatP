@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/LockFreeQueue.h'
-      - 'components/LockFreeContainers/tests/test_LockFreeQueue.cpp'
       - '.github/workflows/lock-free-queue.yml'
   pull_request:
     paths:
       - 'include/fat_p/LockFreeQueue.h'
-      - 'components/LockFreeContainers/tests/test_LockFreeQueue.cpp'
       - '.github/workflows/lock-free-queue.yml'
 
 env:

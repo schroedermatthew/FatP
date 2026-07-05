@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/FatPCbor.h'
-      - 'components/Cbor/tests/test_FatPCbor.cpp'
       - '.github/workflows/fatp-cbor.yml'
   pull_request:
     paths:
       - 'include/fat_p/FatPCbor.h'
-      - 'components/Cbor/tests/test_FatPCbor.cpp'
       - '.github/workflows/fatp-cbor.yml'
 
 env:

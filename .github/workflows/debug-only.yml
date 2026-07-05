@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/DebugOnly.h'
-      - 'components/DebugOnly/tests/test_DebugOnly.cpp'
       - '.github/workflows/debug-only.yml'
   pull_request:
     paths:
       - 'include/fat_p/DebugOnly.h'
-      - 'components/DebugOnly/tests/test_DebugOnly.cpp'
       - '.github/workflows/debug-only.yml'
 
 env:

@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/StrongId.h'
-      - 'components/StrongId/tests/test_StrongId.cpp'
       - 'components/StrongId/benchmarks/benchmark_StrongId.cpp'
       - '.github/workflows/strong-id.yml'
   pull_request:
     paths:
       - 'include/fat_p/StrongId.h'
-      - 'components/StrongId/tests/test_StrongId.cpp'
       - 'components/StrongId/benchmarks/benchmark_StrongId.cpp'
       - '.github/workflows/strong-id.yml'
 

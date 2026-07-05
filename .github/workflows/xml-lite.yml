@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/XmlLite.h'
-      - 'components/Xml/tests/test_XmlLite.cpp'
       - '.github/workflows/xml-lite.yml'
   pull_request:
     paths:
       - 'include/fat_p/XmlLite.h'
-      - 'components/Xml/tests/test_XmlLite.cpp'
       - '.github/workflows/xml-lite.yml'
 
 env:

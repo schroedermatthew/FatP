@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/JsonStreamLite.h'
-      - 'components/Json/tests/test_JsonStreamLite.cpp'
       - '.github/workflows/json-stream-lite.yml'
   pull_request:
     paths:
       - 'include/fat_p/JsonStreamLite.h'
-      - 'components/Json/tests/test_JsonStreamLite.cpp'
       - '.github/workflows/json-stream-lite.yml'
 
 env:

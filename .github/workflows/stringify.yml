@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/Stringify.h'
-      - 'components/Stringify/tests/test_Stringify.cpp'
       - 'components/Stringify/benchmarks/benchmark_Stringify.cpp'
       - '.github/workflows/stringify.yml'
   pull_request:
     paths:
       - 'include/fat_p/Stringify.h'
-      - 'components/Stringify/tests/test_Stringify.cpp'
       - 'components/Stringify/benchmarks/benchmark_Stringify.cpp'
       - '.github/workflows/stringify.yml'
 

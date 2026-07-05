@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/EqualityTensor.h'
-      - 'components/Tensor/tests/test_TensorComparison.cpp'
       - '.github/workflows/tensor-comparison.yml'
   pull_request:
     paths:
       - 'include/fat_p/EqualityTensor.h'
-      - 'components/Tensor/tests/test_TensorComparison.cpp'
       - '.github/workflows/tensor-comparison.yml'
 
 env:

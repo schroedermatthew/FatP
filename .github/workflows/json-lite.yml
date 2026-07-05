@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/JsonLite.h'
-      - 'components/Json/tests/test_JsonLite.cpp'
       - '.github/workflows/json-lite.yml'
   pull_request:
     paths:
       - 'include/fat_p/JsonLite.h'
-      - 'components/Json/tests/test_JsonLite.cpp'
       - '.github/workflows/json-lite.yml'
 
 env:

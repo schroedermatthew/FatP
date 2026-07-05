@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/WorkQueue.h'
-      - 'components/WorkQueue/tests/test_WorkQueue.cpp'
       - '.github/workflows/work-queue.yml'
   pull_request:
     paths:
       - 'include/fat_p/WorkQueue.h'
-      - 'components/WorkQueue/tests/test_WorkQueue.cpp'
       - '.github/workflows/work-queue.yml'
 
 env:

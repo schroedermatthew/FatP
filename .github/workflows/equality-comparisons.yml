@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/EqualityComparisons.h'
-      - 'components/Equality/tests/test_EqualityComparisons.cpp'
       - '.github/workflows/equality-comparisons.yml'
   pull_request:
     paths:
       - 'include/fat_p/EqualityComparisons.h'
-      - 'components/Equality/tests/test_EqualityComparisons.cpp'
       - '.github/workflows/equality-comparisons.yml'
 
 env:

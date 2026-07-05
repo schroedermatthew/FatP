@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/DiagnosticLogger_IO.h'
-      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_ScopeGuard.cpp'
       - '.github/workflows/diagnostic-logger-scopeguard.yml'
   pull_request:
     paths:
       - 'include/fat_p/DiagnosticLogger_IO.h'
-      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_ScopeGuard.cpp'
       - '.github/workflows/diagnostic-logger-scopeguard.yml'
 
 env:

@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/ConcurrencyPolicies.h'
-      - 'components/ConcurrencyPolicies/tests/test_ConcurrencyPolicies.cpp'
       - '.github/workflows/concurrency-policies.yml'
   pull_request:
     paths:
       - 'include/fat_p/ConcurrencyPolicies.h'
-      - 'components/ConcurrencyPolicies/tests/test_ConcurrencyPolicies.cpp'
       - '.github/workflows/concurrency-policies.yml'
 
 env:

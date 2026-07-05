@@ -22,13 +22,11 @@ on:
   push:
     paths:
       - 'include/fat_p/IntrusiveList.h'
-      - 'components/IntrusiveList/tests/test_IntrusiveList.cpp'
       - 'components/IntrusiveList/benchmarks/benchmark_IntrusiveList.cpp'
       - '.github/workflows/intrusive-list.yml'
   pull_request:
     paths:
       - 'include/fat_p/IntrusiveList.h'
-      - 'components/IntrusiveList/tests/test_IntrusiveList.cpp'
       - 'components/IntrusiveList/benchmarks/benchmark_IntrusiveList.cpp'
       - '.github/workflows/intrusive-list.yml'
 

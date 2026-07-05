@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/enforce.h'
-      - 'components/Enforce/tests/test_Enforce.cpp'
       - '.github/workflows/enforce.yml'
   pull_request:
     paths:
       - 'include/fat_p/enforce.h'
-      - 'components/Enforce/tests/test_Enforce.cpp'
       - '.github/workflows/enforce.yml'
 
 env:

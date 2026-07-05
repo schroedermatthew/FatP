@@ -15,12 +15,10 @@ on:
   push:
     paths:
       - 'include/fat_p/DiagnosticLogger_IO.h'
-      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_IO.cpp'
       - '.github/workflows/diagnostic-logger-io.yml'
   pull_request:
     paths:
       - 'include/fat_p/DiagnosticLogger_IO.h'
-      - 'components/DiagnosticLogger/tests/test_DiagnosticLogger_IO.cpp'
       - '.github/workflows/diagnostic-logger-io.yml'
 
 env:
