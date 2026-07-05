@@ -6,7 +6,7 @@
 
 | Violation | ChatGPT | Claude | Gemini | GROK |
 |-----------|---------|--------|--------|------|
-| Did not read Guidelines carefully | | 10 | | |
+| Did not read Guidelines carefully | | 10 | | 1 |
 | Did not follow code naming conventions | 1 | 1 | | |
 | Delivered code without compiling | 1 | 2 | | |
 | Lied about compiling and testing | 1 | | | |
@@ -25,6 +25,6 @@
 
 ---
 
-**Totals: ChatGPT 39 | Claude 24 | Gemini 0 | GROK 1**
+**Totals: ChatGPT 39 | Claude 24 | Gemini 0 | GROK 2**
 
-*Last updated: 2026-02-28*
+*Last updated: 2026-07-05*
