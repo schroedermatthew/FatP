@@ -1,16 +1,13 @@
 # =============================================================================
 # .github/workflows/run-all-benchmarks.yml
 # =============================================================================
-# Runs every component benchmark on GCC, Clang, and MSVC.
+# Dispatches every per-component benchmark workflow (alignedvector-benchmarks.yml,
+# bitset-benchmarks.yml, etc.) so README badge workflows each get a fresh run.
+#
+# Does NOT call the compiler aggregate orchestrators (run-all-benchmarks-gcc/clang/msvc).
+# Each component workflow already runs GCC, Clang, and MSVC internally.
+#
 # Triggers on push/PR (benchmark paths) or manual workflow_dispatch.
-#
-# Dispatches the three compiler-specific orchestrators in parallel:
-#   - run-all-benchmarks-gcc.yml   (GCC-14, ubuntu-24.04)
-#   - run-all-benchmarks-clang.yml (Clang-17, ubuntu-24.04)
-#   - run-all-benchmarks-msvc.yml  (MSVC, windows-latest)
-#
-# Each child workflow ensures benchmark dependencies via build-benchmark-deps.yml
-# and uploads per-component artifacts plus a compiler-specific summary.
 # =============================================================================
 
 name: Run All Benchmarks (All Compilers)
@@ -34,112 +31,83 @@ on:
       - 'components/**/benchmarks/**'
       - 'include/**'
       - 'cmake/**'
-      - '.github/workflows/run-all-benchmarks*.yml'
+      - '.github/workflows/*-benchmarks.yml'
+      - '.github/workflows/run-all-benchmarks.yml'
       - '.github/workflows/build-benchmark-deps.yml'
-      - '.github/workflows/fatp-benchmark-runner.yml'
   pull_request:
     paths:
       - 'components/**/benchmarks/**'
       - 'include/**'
       - 'cmake/**'
-      - '.github/workflows/run-all-benchmarks*.yml'
+      - '.github/workflows/*-benchmarks.yml'
+      - '.github/workflows/run-all-benchmarks.yml'
       - '.github/workflows/build-benchmark-deps.yml'
-      - '.github/workflows/fatp-benchmark-runner.yml'
 
 jobs:
-  gcc:
-    name: GCC Benchmarks
-    uses: ./.github/workflows/run-all-benchmarks-gcc.yml
-    secrets: inherit
-    with:
-      batches: ${{ inputs.batches || '20' }}
-      target_work: ${{ inputs.target_work || '100000' }}
-
-  clang:
-    name: Clang Benchmarks
-    uses: ./.github/workflows/run-all-benchmarks-clang.yml
-    secrets: inherit
-    with:
-      batches: ${{ inputs.batches || '20' }}
-      target_work: ${{ inputs.target_work || '100000' }}
-
-  msvc:
-    name: MSVC Benchmarks
-    uses: ./.github/workflows/run-all-benchmarks-msvc.yml
-    secrets: inherit
-    with:
-      batches: ${{ inputs.batches || '20' }}
-      target_work: ${{ inputs.target_work || '100000' }}
-
-  summary:
-    name: All Compilers Summary
-    needs: [gcc, clang, msvc]
+  trigger-benchmarks:
+    name: Dispatch Component Benchmarks
     runs-on: ubuntu-latest
-    if: always()
     steps:
-      - name: Download GCC summary
-        uses: actions/download-artifact@v5
-        with:
-          name: benchmark-summary-all
-          path: summaries/gcc
-        continue-on-error: true
+      - uses: actions/checkout@v6
 
-      - name: Download Clang summary
-        uses: actions/download-artifact@v5
-        with:
-          name: benchmark-summary-all-clang
-          path: summaries/clang
-        continue-on-error: true
-
-      - name: Download MSVC summary
-        uses: actions/download-artifact@v5
-        with:
-          name: benchmark-summary-all-msvc
-          path: summaries/msvc
-        continue-on-error: true
-
-      - name: Aggregate cross-compiler summary
+      - name: Trigger all component benchmark workflows
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+          BATCHES: ${{ inputs.batches || '20' }}
+          TARGET_WORK: ${{ inputs.target_work || '100000' }}
         run: |
-          echo "# Benchmark Summary — All Compilers" > summary.md
-          echo "" >> summary.md
-          echo "Batches: ${{ inputs.batches || '20' }} | Target work: ${{ inputs.target_work || '100000' }}" >> summary.md
-          echo "" >> summary.md
-          echo "| Compiler | Workflow | Status |" >> summary.md
-          echo "|----------|----------|--------|" >> summary.md
-          echo "| GCC | run-all-benchmarks-gcc | ${{ needs.gcc.result }} |" >> summary.md
-          echo "| Clang | run-all-benchmarks-clang | ${{ needs.clang.result }} |" >> summary.md
-          echo "| MSVC | run-all-benchmarks-msvc | ${{ needs.msvc.result }} |" >> summary.md
-          echo "" >> summary.md
+          set -euo pipefail
+          total=0
+          succeeded=0
+          failed=0
+          triggered=""
 
-          for compiler in gcc clang msvc; do
-            if [ -f "summaries/$compiler/summary.md" ]; then
-              echo "## $compiler" >> summary.md
-              cat "summaries/$compiler/summary.md" >> summary.md
-              echo "" >> summary.md
+          for f in .github/workflows/*-benchmarks.yml; do
+            name=$(basename "$f")
+
+            # This file is the dispatcher, not a component benchmark suite.
+            [ "$name" = "run-all-benchmarks.yml" ] && continue
+
+            total=$((total + 1))
+            echo "[$total] Triggering $name (batches=$BATCHES, target_work=$TARGET_WORK)..."
+
+            if gh workflow run "$name" \
+              -f batches="$BATCHES" \
+              -f target_work="$TARGET_WORK" 2>&1; then
+              succeeded=$((succeeded + 1))
+              triggered="$triggered $name"
+            else
+              echo "::warning::Failed to trigger $name"
+              failed=$((failed + 1))
             fi
+
+            sleep 2
           done
 
-          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          echo ""
+          echo "=============================="
+          echo "  Triggered: $succeeded"
+          echo "  Failed:    $failed"
+          echo "  Total:     $total"
+          echo "=============================="
 
-      - name: Check results
-        run: |
-          if [[ "${{ needs.gcc.result }}" != "success" ]]; then
-            echo "GCC benchmarks failed"
-            exit 1
-          fi
-          if [[ "${{ needs.clang.result }}" != "success" ]]; then
-            echo "Clang benchmarks failed"
-            exit 1
-          fi
-          if [[ "${{ needs.msvc.result }}" != "success" ]]; then
-            echo "MSVC benchmarks failed"
-            exit 1
-          fi
-          echo "All compiler benchmark suites passed"
+          {
+            echo "# Benchmark Dispatch Summary"
+            echo ""
+            echo "Batches: $BATCHES | Target work: $TARGET_WORK"
+            echo ""
+            echo "| Metric | Count |"
+            echo "|--------|-------|"
+            echo "| Dispatched | $succeeded |"
+            echo "| Failed | $failed |"
+            echo "| Total | $total |"
+            echo ""
+            echo "Component workflows triggered:"
+            for wf in $triggered; do
+              echo "- \`$wf\`"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload combined summary
-        if: always()
-        uses: actions/upload-artifact@v5
-        with:
-          name: benchmark-summary-all-compilers
-          path: summary.md
+          if [ "$failed" -gt 0 ]; then
+            exit 1
+          fi
