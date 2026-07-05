@@ -1,7 +1,7 @@
 # =============================================================================
 # .github/workflows/async-operations.yml
 # =============================================================================
-# CI workflow for AsyncOperations component
+# CI workflow for AsyncOperations component (ExpectedAsyncTask.h)
 #
 # Directory structure:
 #   Headers:    include/fat_p/ExpectedAsyncTask.h

@@ -127,7 +127,9 @@ def label(fname: str) -> str:
 
 
 def badge_line(fname: str) -> str:
-    return f"![{label(fname)}]({BASE}/{fname}/badge.svg)"
+    # Pin to main so the badge tracks default-branch runs and busts GitHub's
+    # README image cache when workflows are regenerated.
+    return f"![{label(fname)}]({BASE}/{fname}/badge.svg?branch=main)"
 
 
 def generate_details_block() -> str:
