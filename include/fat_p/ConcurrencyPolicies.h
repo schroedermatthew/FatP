@@ -361,9 +361,14 @@ struct MutexSynchronizationPolicy
 {
     using PolicyTag = void;
 
-    MutexSynchronizationPolicy() = default;
+    MutexSynchronizationPolicy()
+        : mMutex(std::make_unique<std::mutex>())
+    {
+    }
     MutexSynchronizationPolicy(const MutexSynchronizationPolicy&) = delete;
     MutexSynchronizationPolicy& operator=(const MutexSynchronizationPolicy&) = delete;
+    MutexSynchronizationPolicy(MutexSynchronizationPolicy&&) noexcept = default;
+    MutexSynchronizationPolicy& operator=(MutexSynchronizationPolicy&&) noexcept = default;
 
 #if FATP_USE_ATOMIC
 private:
@@ -390,7 +395,7 @@ public:
 
 #if FATP_USE_ATOMIC
         explicit LockGuard(MutexSynchronizationPolicy& policy)
-            : mGuard(policy.mMutex)
+            : mGuard(*policy.mMutex)
         {
             policy.mContention.fetch_add(1, std::memory_order_relaxed);
         }
@@ -422,19 +427,19 @@ public:
     }
     [[nodiscard]] SharedGuard lock_shared() const
     {
-        return SharedGuard(mMutex);
+        return SharedGuard(*mMutex);
     }
 
     [[nodiscard]] bool try_lock()
     {
         // Standard try_lock semantics: on success, the lock is held by the caller.
         // (The caller is responsible for unlocking.)
-        return mMutex.try_lock();
+        return mMutex->try_lock();
     }
 
     std::mutex& getLock() const
     {
-        return mMutex;
+        return *mMutex;
     }
 
     static std::mutex& getStaticLock()
@@ -444,7 +449,7 @@ public:
     }
 
 private:
-    mutable std::mutex mMutex{};
+    std::unique_ptr<std::mutex> mMutex;
 };
 #endif // FATP_USE_MUTEX
 
