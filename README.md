@@ -103,6 +103,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![ValueGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/value-guard.yml/badge.svg)
 ![ViewLifetimeTracking CI](https://github.com/schroedermatthew/FatP/actions/workflows/view-lifetime-tracking.yml/badge.svg)
 ![WorkQueue CI](https://github.com/schroedermatthew/FatP/actions/workflows/work-queue.yml/badge.svg)
+[![XmlLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml/badge.svg)](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml)
 
 #### Benchmarks
 ![AlignedVector Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/alignedvector-benchmarks.yml/badge.svg)
