@@ -272,7 +272,7 @@ inline void enforce_leaf_text_node(const XmlNode& node, const char* targetType)
 }
 
 inline const XmlNode* unique_child_or_null(const XmlNode& node,
-                                           const std::string& childTag)
+                                           std::string_view childTag)
 {
     const XmlNode* found = nullptr;
     for (const auto& ch : node.children)
@@ -288,7 +288,7 @@ inline const XmlNode* unique_child_or_null(const XmlNode& node,
 }
 
 inline const XmlNode& require_unique_child(const XmlNode& node,
-                                           const std::string& childTag)
+                                           std::string_view childTag)
 {
     const XmlNode* found = unique_child_or_null(node, childTag);
     FATP_XML_ENFORCE(found != nullptr, "missing required element:", childTag);
@@ -869,13 +869,15 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 
 #define FATP_XML_FROM_FIELD_REQUIRED(field)                                  \
     {                                                                        \
-        const auto& _node = ::fat_p::xml_detail::require_unique_child(node, #field); \
+        const ::fat_p::XmlNode& _node =                                      \
+            ::fat_p::xml_detail::require_unique_child(node, std::string_view(#field)); \
         ::fat_p::xml_detail::from_xml_adl(_node, value.field);               \
     }
 
 #define FATP_XML_FROM_FIELD_OPTIONAL(field)                                  \
     {                                                                        \
-        const auto* _node = ::fat_p::xml_detail::unique_child_or_null(node, #field); \
+        const ::fat_p::XmlNode* _node =                                      \
+            ::fat_p::xml_detail::unique_child_or_null(node, std::string_view(#field)); \
         if (_node) ::fat_p::xml_detail::from_xml_adl(*_node, value.field);   \
     }
 
