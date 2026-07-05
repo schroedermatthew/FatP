@@ -2,6 +2,24 @@ name: FATP_META Compliance
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/**'
+      - 'components/**'
+      - 'cmake/**'
+      - 'tools/**'
+      - 'tooling/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/fatp_meta_compliance.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/**'
+      - 'components/**'
+      - 'cmake/**'
+      - 'tools/**'
+      - 'tooling/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/fatp_meta_compliance.yml'
 
 permissions:
   contents: read

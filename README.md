@@ -6,7 +6,7 @@ A header-only C++20 utility library. Zero external dependencies.
 
 ![FatP CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-test-core.yml/badge.svg)
 ![Header Hygiene](https://github.com/schroedermatthew/FatP/actions/workflows/header-hygiene.yml/badge.svg)
-![FATP_META Compliance](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml/badge.svg)
+[![FATP_META Compliance](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml/badge.svg)](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml)
 ![Layer & Dependency Verification](https://github.com/schroedermatthew/FatP/actions/workflows/ci_verify.yml/badge.svg)
 
 <details>
@@ -20,7 +20,7 @@ A header-only C++20 utility library. Zero external dependencies.
 
 #### Verification
 ![Layer & Dependency Verification](https://github.com/schroedermatthew/FatP/actions/workflows/ci_verify.yml/badge.svg)
-![FATP_META Compliance](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml/badge.svg)
+[![FATP_META Compliance](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml/badge.svg)](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml)
 ![Header Hygiene](https://github.com/schroedermatthew/FatP/actions/workflows/header-hygiene.yml/badge.svg)
 
 #### Components
