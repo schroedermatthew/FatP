@@ -67,11 +67,14 @@ out/
 build/
 .cmake/
 
-# Local verification scratch (agent/dev one-off runs — not part of the project)
+# Local verification / agent scratch (not part of the project)
 _verify_xmllite/
 _local_test/
-Testing/Temporary/
+Testing/
+_ci_logs*/
 _macro_gen.txt
+Read_Me.zip
+**/results/logs_*.zip
 logs_*.zip
 
 # Misc
