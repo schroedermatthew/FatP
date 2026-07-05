@@ -64,7 +64,7 @@ def main() -> None:
         str(path.relative_to(ROOT)).replace("\\", "/" if not args.msvc else "\\")
         for path in paths
     ]
-    sys.stdout.write(" ".join(rendered))
+    sys.stdout.write("\n".join(rendered))
 
 
 if __name__ == "__main__":

@@ -556,8 +556,8 @@ def generate_windows_msvc_job(test_src, aggregate=False):
         build_step = """      - name: Build tests
         shell: pwsh
         run: |
-          $srcs = python tools/collect_fatp_test_sources.py --msvc
-          cmd /c "cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\\include\\fat_p $srcs /Fe:test_bin.exe /link advapi32.lib\""""
+          python tools/collect_fatp_test_sources.py --msvc | Out-File -Encoding ascii sources.rsp
+          cmd /c "cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\\include\\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib\""""
     else:
         build_step = f"""      - name: Build tests
         shell: cmd

@@ -50,10 +50,6 @@ FATP_META:
 #include "FatPTest.h"
 #include "FeatureManager.h"
 
-#ifndef ENABLE_TEST_APPLICATION
-#include "test_FeatureManager.h"
-#endif
-
 // ============================================================================
 // SECTION 0: Global Enums & Policies (Required for Type-Safe Tests)
 // ============================================================================
