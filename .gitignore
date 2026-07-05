@@ -67,6 +67,13 @@ out/
 build/
 .cmake/
 
+# Local verification scratch (agent/dev one-off runs — not part of the project)
+_verify_xmllite/
+_local_test/
+Testing/Temporary/
+_macro_gen.txt
+logs_*.zip
+
 # Misc
 *.sdf
 *.opensdf
