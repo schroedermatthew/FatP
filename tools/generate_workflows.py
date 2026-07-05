@@ -36,6 +36,11 @@ OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 # Each tuple: (workflow_filename, component_name, header, test_src, bench_src_or_None)
 # For Linux-only components, we use a separate list.
 
+# Extra link libraries for GCC C++23 builds (e.g. std::stacktrace in libstdc++exp).
+COMPONENT_GCC_CPP23_EXTRA_LIBS = {
+    "Stacktrace": "-lstdc++exp",
+}
+
 STANDARD_COMPONENTS = [
     # =========================================================================
     # Components WITH benchmarks
@@ -147,13 +152,6 @@ STANDARD_COMPONENTS = [
 
     ("xml-lite.yml", "XmlLite", "XmlLite.h",
      "components/Xml/tests/test_XmlLite.cpp", None),
-
-    # --- TypeTraits ---
-    ("fatp-type-traits.yml", "FatPTypeTraits", "FatPTypeTraits.h",
-     "components/TypeTraits/tests/test_FatPTypeTraits.cpp", None),
-
-    ("type-traits.yml", "TypeTraits", "TypeTraits.h",
-     "components/TypeTraits/tests/test_TypeTraits.cpp", None),
 
     # --- Tensor (6 test files) ---
     ("tensor.yml", "Tensor", "Tensor.h",
@@ -278,8 +276,8 @@ STANDARD_COMPONENTS = [
      "components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp", None),
 
     # --- Single-test components (previously missing, Gap 2) ---
-    ("async-operations.yml", "AsyncOperations", "AsyncOperations.h",
-     "components/AsyncOperations/tests/test_AsyncOperations.cpp", None),
+    ("async-operations.yml", "AsyncOperations", "ExpectedAsyncTask.h",
+     "components/Expected/tests/test_AsyncOperations.cpp", None),
 
     ("cache-utilities.yml", "CacheUtilities", "CacheUtilities.h",
      "components/CacheUtilities/tests/test_CacheUtilities.cpp", None),
@@ -414,15 +412,21 @@ def generate_env_block(header, test_src, bench_src):
     return "\n".join(lines)
 
 
-def generate_linux_gcc_job():
-    return """
+def generate_linux_gcc_job(gcc_cpp23_extra_libs=""):
+    link_setup = "          LINK_EXTRA=\"\""
+    if gcc_cpp23_extra_libs:
+        link_setup = f"""          LINK_EXTRA=""
+          if [ "${{{{ matrix.std }}}}" = "23" ]; then
+            LINK_EXTRA="{gcc_cpp23_extra_libs}"
+          fi"""
+    return f"""
 jobs:
   # ===========================================================================
   # Linux GCC Builds (C++20/C++23)
   # ===========================================================================
   linux-gcc:
 
-    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    name: Linux GCC-${{{{ matrix.version }}}} C++${{{{ matrix.std }}}}
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -436,16 +440,17 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+        run: sudo apt-get update && sudo apt-get install -y g++-${{{{ matrix.version }}}}
 
       - name: Build tests
         run: |
-          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \\
+{link_setup}
+          g++-${{{{ matrix.version }}}} -std=c++${{{{ matrix.std }}}} \\
             -Wall -Wextra -Wpedantic -Werror \\
             -O2 -DNDEBUG \\
             -DENABLE_TEST_APPLICATION \\
             -I./include/fat_p \\
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{{{ env.TEST_SRC }}}} -o test_bin $LINK_EXTRA
 
       - name: Run tests
         run: ./test_bin"""
@@ -937,7 +942,8 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     parts.append(generate_env_block(header, test_src, bench_src))
 
     # Jobs
-    parts.append(generate_linux_gcc_job())
+    gcc_extra = COMPONENT_GCC_CPP23_EXTRA_LIBS.get(component, "")
+    parts.append(generate_linux_gcc_job(gcc_extra))
     parts.append(generate_linux_clang_job())
 
     if include_msvc:

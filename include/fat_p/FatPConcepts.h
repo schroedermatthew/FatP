@@ -107,10 +107,11 @@ class FlatMap;
 template <typename Key, typename Compare, typename Allocator>
 class FlatSet;
 
-template <typename T>
+template <typename T, typename IndexPolicy>
 class SparseSet;
 
-template <typename T, typename Data>
+template <typename T, typename Data, typename IndexPolicy,
+          template <typename, typename...> class DataContainer>
 class SparseSetWithData;
 
 template <typename T, typename GenerationType, typename Allocator>

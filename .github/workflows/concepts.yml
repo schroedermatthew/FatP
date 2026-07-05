@@ -51,12 +51,13 @@ jobs:
 
       - name: Build tests
         run: |
+          LINK_EXTRA=""
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            ${{ env.TEST_SRC }} -o test_bin $LINK_EXTRA
 
       - name: Run tests
         run: ./test_bin
