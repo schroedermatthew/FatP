@@ -17,7 +17,7 @@ FATP_META:
   hygiene:
     pragma_once: true
     include_guard: false
-    defines_total: 55
+    defines_total: 115
     defines_unprefixed: 0
     undefs_total: 0
     includes_windows_h: false
@@ -59,7 +59,8 @@ FATP_META:
  * Scalar `from_xml` requires leaf elements (no child elements). Repeated
  * child elements use `from_xml(parent, childTag, vector)` or `xml_all`.
  * `FATP_XML_DEFINE_TYPE` maps one child element per scalar/nested field;
- * vector fields are not supported by the macro.
+ * vector fields are not supported by the macro. Struct and enum string
+ * policy macros accept up to 50 fields or enumerator tokens.
  *
  * Value-returning `from_xml<T>(node)` requires `T` to be default-constructible.
  *
@@ -82,7 +83,6 @@ FATP_META:
  * @endcode
  */
 
-#include <algorithm>
 #include <charconv>
 #include <cmath>
 #include <concepts>
@@ -372,6 +372,75 @@ private:
         }
     }
 
+    void parseXmlDeclarationBody()
+    {
+        skipWhitespace();
+
+        bool sawVersion = false;
+        bool sawEncoding = false;
+        bool sawStandalone = false;
+
+        while (!atEnd())
+        {
+            skipWhitespace();
+            if (mInput.substr(mPos, 2) == "?>")
+            {
+                mPos += 2;
+                FATP_XML_ENFORCE(sawVersion, "XML declaration missing version");
+                return;
+            }
+
+            FATP_XML_ENFORCE(isXmlNameStartChar(peek()), "invalid XML declaration attribute");
+            const std::size_t nameStart = mPos;
+            ++mPos;
+            while (!atEnd() && isXmlNameChar(peek()))
+                ++mPos;
+            const std::string name{mInput.substr(nameStart, mPos - nameStart)};
+
+            skipWhitespace();
+            FATP_XML_ENFORCE(peek() == '=', "XML declaration attribute missing '='");
+            advance();
+            skipWhitespace();
+
+            const char quote = peek();
+            FATP_XML_ENFORCE(quote == '"' || quote == '\'',
+                             "XML declaration attribute value must be quoted");
+            advance();
+            const std::size_t valStart = mPos;
+            while (!atEnd() && peek() != quote)
+                advance();
+            FATP_XML_ENFORCE(!atEnd(), "unterminated XML declaration attribute value");
+            const std::string val{mInput.substr(valStart, mPos - valStart)};
+            advance();
+
+            if (name == "version")
+            {
+                FATP_XML_ENFORCE(!sawVersion, "duplicate version in XML declaration");
+                FATP_XML_ENFORCE(val == "1.0", "unsupported XML version:", val);
+                sawVersion = true;
+            }
+            else if (name == "encoding")
+            {
+                FATP_XML_ENFORCE(!sawEncoding, "duplicate encoding in XML declaration");
+                FATP_XML_ENFORCE(val == "UTF-8", "unsupported XML encoding:", val);
+                sawEncoding = true;
+            }
+            else if (name == "standalone")
+            {
+                FATP_XML_ENFORCE(!sawStandalone, "duplicate standalone in XML declaration");
+                FATP_XML_ENFORCE(val == "yes" || val == "no",
+                                 "invalid standalone value:", val);
+                sawStandalone = true;
+            }
+            else
+            {
+                FATP_XML_ENFORCE(false, "unknown XML declaration attribute:", name);
+            }
+        }
+
+        FATP_XML_ENFORCE(false, "unterminated XML declaration");
+    }
+
     // Skip XML declaration (<?xml ... ?>) and comments (<!-- ... -->)
     void skipProlog()
     {
@@ -388,20 +457,19 @@ private:
                 FATP_XML_ENFORCE(!sawComment, "XML declaration after comment");
                 FATP_XML_ENFORCE(!sawXmlDecl, "repeated XML declaration");
 
-                if (mPos + 5 < mInput.size())
+                mPos += 5;
+                if (!atEnd())
                 {
-                    char next = mInput[mPos + 5];
+                    char next = peek();
                     if (next == '?')
                         FATP_XML_ENFORCE(false, "empty XML declaration");
                     if (next != '?' && !isXmlWhitespace(next))
                         FATP_XML_ENFORCE(false,
                                          "processing instructions not supported at position",
-                                         mPos);
+                                         mPos - 5);
                 }
 
-                auto endPos = mInput.find("?>", mPos);
-                FATP_XML_ENFORCE(endPos != std::string_view::npos, "unterminated XML declaration");
-                mPos = endPos + 2;
+                parseXmlDeclarationBody();
                 sawXmlDecl = true;
                 continue;
             }
@@ -793,7 +861,7 @@ template <typename T>
 inline void from_xml(const XmlNode& parent, const std::string& childTag,
                      std::optional<T>& value)
 {
-    const XmlNode* ch = parent.child(childTag);
+    const XmlNode* ch = xml_detail::unique_child_or_null(parent, childTag);
     if (ch)
     {
         T temp{};
@@ -829,7 +897,7 @@ template <typename T>
                                              const std::string& wrapperTag,
                                              const std::string& itemTag)
 {
-    const XmlNode& wrapper = parent.require(wrapperTag);
+    const XmlNode& wrapper = xml_detail::require_unique_child(parent, wrapperTag);
     std::vector<T> result;
     from_xml(wrapper, itemTag, result);
     return result;
@@ -849,6 +917,8 @@ template <typename T>
 //
 // Vector/repeated fields are not supported by these macros. Use
 // from_xml(parent, childTag, vector) or xml_all(parent, wrapperTag, itemTag).
+// Up to 50 fields per FATP_XML_DEFINE_TYPE / _OPTIONAL; up to 50 tokens per
+// FATP_XML_ENUM_STRING_POLICY. Larger schemas need a hand-written from_xml.
 //
 // Field deserialization uses from_xml_adl so user-defined types outside
 // namespace fat_p resolve via ADL (nested structs, optional<T>, etc.).
@@ -903,9 +973,39 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 #define FATP_XML_APPLY_18(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_17(m, __VA_ARGS__))
 #define FATP_XML_APPLY_19(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_18(m, __VA_ARGS__))
 #define FATP_XML_APPLY_20(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_19(m, __VA_ARGS__))
+#define FATP_XML_APPLY_21(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_20(m, __VA_ARGS__))
+#define FATP_XML_APPLY_22(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_21(m, __VA_ARGS__))
+#define FATP_XML_APPLY_23(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_22(m, __VA_ARGS__))
+#define FATP_XML_APPLY_24(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_23(m, __VA_ARGS__))
+#define FATP_XML_APPLY_25(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_24(m, __VA_ARGS__))
+#define FATP_XML_APPLY_26(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_25(m, __VA_ARGS__))
+#define FATP_XML_APPLY_27(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_26(m, __VA_ARGS__))
+#define FATP_XML_APPLY_28(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_27(m, __VA_ARGS__))
+#define FATP_XML_APPLY_29(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_28(m, __VA_ARGS__))
+#define FATP_XML_APPLY_30(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_29(m, __VA_ARGS__))
+#define FATP_XML_APPLY_31(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_30(m, __VA_ARGS__))
+#define FATP_XML_APPLY_32(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_31(m, __VA_ARGS__))
+#define FATP_XML_APPLY_33(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_32(m, __VA_ARGS__))
+#define FATP_XML_APPLY_34(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_33(m, __VA_ARGS__))
+#define FATP_XML_APPLY_35(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_34(m, __VA_ARGS__))
+#define FATP_XML_APPLY_36(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_35(m, __VA_ARGS__))
+#define FATP_XML_APPLY_37(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_36(m, __VA_ARGS__))
+#define FATP_XML_APPLY_38(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_37(m, __VA_ARGS__))
+#define FATP_XML_APPLY_39(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_38(m, __VA_ARGS__))
+#define FATP_XML_APPLY_40(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_39(m, __VA_ARGS__))
+#define FATP_XML_APPLY_41(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_40(m, __VA_ARGS__))
+#define FATP_XML_APPLY_42(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_41(m, __VA_ARGS__))
+#define FATP_XML_APPLY_43(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_42(m, __VA_ARGS__))
+#define FATP_XML_APPLY_44(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_43(m, __VA_ARGS__))
+#define FATP_XML_APPLY_45(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_44(m, __VA_ARGS__))
+#define FATP_XML_APPLY_46(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_45(m, __VA_ARGS__))
+#define FATP_XML_APPLY_47(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_46(m, __VA_ARGS__))
+#define FATP_XML_APPLY_48(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_47(m, __VA_ARGS__))
+#define FATP_XML_APPLY_49(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_48(m, __VA_ARGS__))
+#define FATP_XML_APPLY_50(m, a, ...) m(a) FATP_XML_EXPAND(FATP_XML_APPLY_49(m, __VA_ARGS__))
 
-#define FATP_XML_ARG_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,N,...) N
-#define FATP_XML_ARG_COUNT(...) FATP_XML_EXPAND(FATP_XML_ARG_COUNT_IMPL(__VA_ARGS__,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
+#define FATP_XML_ARG_COUNT_IMPL(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,_23,_24,_25,_26,_27,_28,_29,_30,_31,_32,_33,_34,_35,_36,_37,_38,_39,_40,_41,_42,_43,_44,_45,_46,_47,_48,_49,_50,N,...) N
+#define FATP_XML_ARG_COUNT(...) FATP_XML_EXPAND(FATP_XML_ARG_COUNT_IMPL(__VA_ARGS__,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1))
 
 #define FATP_XML_CAT_IMPL(a, b) a##b
 #define FATP_XML_CAT(a, b) FATP_XML_CAT_IMPL(a, b)
@@ -971,6 +1071,36 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 #define FATP_XML_ENUM_STRING_APPLY_18(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_17(m, EnumType, __VA_ARGS__))
 #define FATP_XML_ENUM_STRING_APPLY_19(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_18(m, EnumType, __VA_ARGS__))
 #define FATP_XML_ENUM_STRING_APPLY_20(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_19(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_21(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_20(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_22(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_21(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_23(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_22(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_24(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_23(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_25(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_24(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_26(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_25(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_27(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_26(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_28(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_27(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_29(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_28(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_30(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_29(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_31(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_30(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_32(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_31(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_33(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_32(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_34(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_33(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_35(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_34(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_36(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_35(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_37(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_36(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_38(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_37(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_39(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_38(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_40(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_39(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_41(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_40(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_42(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_41(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_43(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_42(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_44(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_43(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_45(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_44(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_46(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_45(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_47(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_46(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_48(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_47(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_49(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_48(m, EnumType, __VA_ARGS__))
+#define FATP_XML_ENUM_STRING_APPLY_50(m, EnumType, a, ...) m(EnumType, a) FATP_XML_EXPAND(FATP_XML_ENUM_STRING_APPLY_49(m, EnumType, __VA_ARGS__))
 
 #define FATP_XML_ENUM_STRING_FOR_EACH(macro, EnumType, ...) \
     FATP_XML_EXPAND(FATP_XML_CAT(FATP_XML_ENUM_STRING_APPLY_, FATP_XML_ARG_COUNT(__VA_ARGS__))(macro, EnumType, __VA_ARGS__))

@@ -228,6 +228,31 @@ FATP_TEST_CASE(reject_malformed_or_repeated_xml_declaration)
     return true;
 }
 
+FATP_TEST_CASE(reject_invalid_xml_declaration)
+{
+    FATP_ASSERT_THROWS(parse_xml("<?xml nonsense?><a/>"),
+                       std::runtime_error,
+                       "XML declaration missing version");
+
+    FATP_ASSERT_THROWS(parse_xml(R"(<?xml encoding="UTF-8"?><a/>)"),
+                       std::runtime_error,
+                       "XML declaration missing version");
+
+    FATP_ASSERT_THROWS(parse_xml("<?xml version=1.0?><a/>"),
+                       std::runtime_error,
+                       "XML declaration attribute value must be quoted");
+
+    FATP_ASSERT_THROWS(parse_xml(R"(<?xml version="2.0"?><a/>)"),
+                       std::runtime_error,
+                       "unsupported XML version");
+
+    FATP_ASSERT_THROWS(parse_xml(R"(<?xml version="1.0" bogus="x"?><a/>)"),
+                       std::runtime_error,
+                       "unknown XML declaration attribute");
+
+    return true;
+}
+
 FATP_TEST_CASE(reject_prefixed_element)
 {
     FATP_ASSERT_THROWS(parse_xml("<cfg:port>8080</cfg:port>"),
@@ -462,6 +487,27 @@ FATP_TEST_CASE(deserialize_xml_all_wrapper)
     return true;
 }
 
+FATP_TEST_CASE(reject_duplicate_xml_all_wrapper)
+{
+    const auto root = parse_xml(
+        "<root><items><item><id>1</id></item></items>"
+        "<items><item><id>2</id></item></items></root>");
+    FATP_ASSERT_THROWS(xml_all<XmlAllItemXmlProbe>(root, "items", "item"),
+                       std::runtime_error,
+                       "duplicate xml_all wrapper");
+    return true;
+}
+
+FATP_TEST_CASE(reject_duplicate_optional_child_by_tag)
+{
+    const auto root = parse_xml("<root><x>1</x><x>2</x></root>");
+    std::optional<int> x;
+    FATP_ASSERT_THROWS(from_xml(root, "x", x),
+                       std::runtime_error,
+                       "duplicate optional child");
+    return true;
+}
+
 FATP_TEST_CASE(reject_missing_required_struct_field)
 {
     FATP_ASSERT_THROWS(from_xml<OuterXmlProbe>(parse_xml("<outer/>")),
@@ -629,6 +675,7 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, reject_non_xml_whitespace_after_root);
     FATP_RUN_TEST_NS(runner, xmllite, reject_raw_lt_in_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_malformed_or_repeated_xml_declaration);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_xml_declaration);
 
     out << "\n" << colors::blue() << "--- Parser Rejection ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_element);
@@ -657,6 +704,8 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_absent);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_xml_all_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_optional_child_by_tag);
     FATP_RUN_TEST_NS(runner, xmllite, reject_missing_required_struct_field);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_required_struct_field);
 

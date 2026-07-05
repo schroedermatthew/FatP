@@ -87,7 +87,7 @@ Add `xml_string_enum` concept, `XmlEnumStringPolicy<E>` specialization via `FATP
 | Area | Behavior |
 |------|----------|
 | PR0 / PR0a | Trailing garbage, multiple roots, invalid names, duplicate attributes, unclosed elements, namespace rejection |
-| PR A (parser) | Raw `<` in attributes; XML-specific whitespace; UTF-8 BOM; strict XML declaration; ASCII name chars |
+| PR A (parser) | Raw `<` in attributes; XML-specific whitespace; UTF-8 BOM; strict XML declaration (`version="1.0"` required; optional `encoding="UTF-8"`, `standalone="yes\|no"`); ASCII name chars |
 | PR B (deserialize) | Leaf-only scalars; unique required struct children; duplicate scalar fields throw |
 | PR C (polish) | Non-finite double rejection; path validation; `parse_xml_file` read checks; enum docs in overview |
 | GCC fix | `require_unique_child` / macro use `std::string_view` + explicit `XmlNode&` (CI `77627543586` all green) |
@@ -123,7 +123,9 @@ struct SensorConfig { Mode mode; double gain; };
 FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 ```
 
-**Vectors:** `from_xml(parent, childTag, vector)` and `xml_all` collect repeated siblings. `FATP_XML_DEFINE_TYPE` does **not** support vector fields.
+**Vectors:** `from_xml(parent, childTag, vector)` and `xml_all` collect repeated siblings. `xml_all` requires a unique wrapper element. `from_xml(parent, tag, optional<T>&)` rejects duplicate siblings. `FATP_XML_DEFINE_TYPE` does **not** support vector fields.
+
+**Macro limits:** `FATP_XML_DEFINE_TYPE`, `_OPTIONAL`, and `FATP_XML_ENUM_STRING_POLICY` each support up to **50** fields or enumerator tokens.
 
 **Compatibility alias:** If `FATP_ENUM_STRING_POLICY` is not defined by EnumPlus, XmlLite defines it as an alias to `FATP_XML_ENUM_STRING_POLICY`.
 
@@ -131,7 +133,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 
 | Artifact | Count / status |
 |----------|----------------|
-| `test_XmlLite.cpp` | 44 unit tests (style-guide compliant) |
+| `test_XmlLite.cpp` | 47 unit tests (style-guide compliant) |
 | `test_XmlLite_HeaderSelfContained.cpp` | 2 compile-time checks |
 | `.github/workflows/xml-lite.yml` | 12-job matrix; all passed on `c6b7d2b5` |
 
@@ -153,7 +155,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 
 ### Obligations
 
-- Document vector limitation and macro scope rules in User Manual.
+- Document vector limitation, 50-field macro cap, and macro scope rules in User Manual.
 - Keep header self-containment test when changing macros or includes.
 - Do not reintroduce `EnumPlus.h` into `XmlLite.h` without an explicit architecture change.
 

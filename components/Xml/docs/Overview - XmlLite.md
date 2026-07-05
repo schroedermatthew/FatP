@@ -25,7 +25,7 @@ XmlLite is a **zero-dependency, header-only XML library** for C++20 configuratio
 
 **Component:** XmlLite  
 **Problem solved:** Load hierarchical configuration from XML into typed C++ structs without external libraries or hand-written field extraction.  
-**When to use:** Application config files, simulation parameters, legacy XML configs with simple element nesting, vendored single-header deployments.  
+**When to use:** Application config files, simulation parameters, legacy XML configs with plain element nesting, vendored single-header deployments.  
 **When NOT to use:** Document markup, SOAP/WSDL, XPath queries, namespace-aware schemas, multi-megabyte streaming parse, or round-trip XML authoring (parse-only today).  
 **Key guarantee:** Parse-time rejection of namespaces, trailing garbage, and ambiguous structure; scalar `from_xml` requires leaf elements.  
 **std equivalent:** None (no standard XML DOM or config binding)  
@@ -41,7 +41,7 @@ XmlLite is a **zero-dependency, header-only XML library** for C++20 configuratio
 
 Scientific and engineering applications still ship XML configuration: solver decks, instrument descriptors, mesh metadata. Without a typed binding layer, every loader reimplements the same fragile traversal. A missing element becomes a null pointer dereference; a mistyped enum string becomes a silent default; a permissive parser accepts two root elements and leaves the caller guessing which subtree is authoritative.
 
-The manual approach looks deceptively simple until the config grows:
+The manual approach looks deceptively straightforward until the config grows:
 
 ```cpp
 const fat_p::XmlNode* target = root.child("target");

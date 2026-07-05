@@ -199,7 +199,7 @@ If the file cannot be opened or a read error occurs before EOF, `FATP_XML_ENFORC
 
 ### Prolog, BOM, and comments
 
-UTF-8 BOM at the beginning is skipped. A single `<?xml version="1.0" ...?>` declaration is accepted when well-formed. `<?xml-stylesheet ...?>` and other processing instructions are rejected. Comments and whitespace may trail the root element; other non-whitespace trailing content is rejected.
+UTF-8 BOM at the beginning is skipped. A single `<?xml version="1.0" ...?>` declaration is accepted when it includes a quoted `version="1.0"` or `version='1.0'`, with optional `encoding="UTF-8"` and `standalone="yes"` or `standalone="no"` only. Unknown declaration attributes, missing version, unquoted values, and unsupported version/encoding values throw. `<?xml-stylesheet ...?>` and other processing instructions are rejected. Comments and whitespace may trail the root element; other non-whitespace trailing content is rejected.
 
 ---
 
@@ -318,6 +318,8 @@ std::optional<double> threshold;
 fat_p::from_xml(parent, "threshold", threshold);
 ```
 
+Duplicate sibling tags throw for this overload, matching struct macro duplicate detection.
+
 ---
 
 ## Repeated Elements: Why Macros Stop Short
@@ -338,21 +340,27 @@ std::vector<Item> items;
 fat_p::from_xml(parent.require("items"), "item", items);
 ```
 
-`xml_all` combines wrapper `require` and collection:
+`xml_all` requires a unique wrapper element, then collects repeated item children:
 
 ```cpp
 auto items = fat_p::xml_all<Item>(root, "items", "item");
 ```
 
+Duplicate wrapper siblings throw, matching struct field duplicate detection.
+
 ### Why macros do not cover vectors
 
-`FATP_XML_DEFINE_TYPE` expands one `require_unique_child` per field. Vectors need zero-or-many matches, not zero-or-one. A future `FATP_XML_DEFINE_TYPE_VECTOR` could exist; today the explicit API keeps macro semantics simple and duplicate detection strict for scalar fields.
+`FATP_XML_DEFINE_TYPE` expands one `require_unique_child` per field. Vectors need zero-or-many matches, not zero-or-one. A future `FATP_XML_DEFINE_TYPE_VECTOR` could exist; today the explicit API keeps macro semantics plain and duplicate detection strict for scalar fields.
+
+### Macro argument limits
+
+`FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`, and `FATP_XML_ENUM_STRING_POLICY` each accept up to **50** fields or enumerator tokens. For larger schemas, write a custom `from_xml` overload.
 
 ---
 
 ## Enum Binding: Integer vs String Policy
 
-### Integer enums: fast path, loose validation
+### Integer enums: numeric path, loose validation
 
 Without a string policy, enum binding reads the underlying integer:
 
@@ -440,7 +448,7 @@ XmlLite rejects patterns that full XML allows but config pipelines should treat 
 - Duplicate attributes on one element
 - Raw `<` inside attribute values
 - Invalid name start characters
-- Malformed or repeated XML declarations
+- Malformed, invalid, or repeated XML declarations (strict `version="1.0"` validation)
 
 Mixed content (text interleaved with child elements) is not preserved in order; text chunks trim and join with spaces in the parent `text` field. Design configs as element trees with leaf text values, not inline markup.
 
@@ -461,7 +469,7 @@ Mixed content (text interleaved with child elements) is not preserved in order; 
 
 ### Use XmlLite when
 
-- Loading startup configuration from simple nested XML
+- Loading startup configuration from plain nested XML
 - You need a single vendored header with no Boost/libxml2 dependency
 - You want struct macros and typed enums in the same layer as parsing
 - Invalid config must fail loudly before numerical work begins
@@ -482,7 +490,7 @@ Mixed content (text interleaved with child elements) is not preserved in order; 
 ### Alternatives
 
 - **Boost.PropertyTree** — Path-based access; Boost dependency; permissive readers
-- **pugixml** — Fast, full-featured DOM; manual C++ binding
+- **pugixml** — Broad-feature DOM with mature traversal APIs; manual C++ binding
 - **tinyxml2** — Lightweight DOM; manual traversal
 - **RapidXML** — In-situ parse; destructive to input buffer
 - **JsonLite / FatPJsonLite** — JSON instead of XML; preferred for new greenfield configs
@@ -624,17 +632,17 @@ Cache `XmlNode` references or bind once into structs instead of re-walking dotte
 |-----|-------------|
 | `from_xml(node, T&)` | Populate `T` from node (overload set) |
 | `from_xml<T>(node)` | Value-returning bind |
-| `from_xml(parent, tag, optional<T>&)` | Optional child by tag |
+| `from_xml(parent, tag, optional<T>&)` | Optional child by tag; rejects duplicate siblings |
 | `from_xml(parent, tag, vector<T>&)` | Repeated children |
-| `xml_all<T>(parent, wrapper, item)` | Require wrapper, collect items |
+| `xml_all<T>(parent, wrapper, item)` | Require unique wrapper, collect items |
 
 ### Macros
 
 | Macro | Purpose |
 |-------|---------|
-| `FATP_XML_DEFINE_TYPE(T, fields...)` | Required child per field |
-| `FATP_XML_DEFINE_TYPE_OPTIONAL(T, fields...)` | Optional children per field |
-| `FATP_XML_ENUM_STRING_POLICY(E, enumerators...)` | String token map for enum (file scope) |
+| `FATP_XML_DEFINE_TYPE(T, fields...)` | Required child per field (up to 50 fields) |
+| `FATP_XML_DEFINE_TYPE_OPTIONAL(T, fields...)` | Optional children per field (up to 50 fields) |
+| `FATP_XML_ENUM_STRING_POLICY(E, enumerators...)` | String token map for enum (file scope; up to 50 tokens) |
 
 ### Enforcement
 
