@@ -74,8 +74,15 @@ jobs:
             # Don't trigger ourselves
             [ "$name" = "run-all.yml" ] && continue
 
-            # Don't trigger build-benchmark-deps (run separately before benchmarks)
+            # Don't trigger build-benchmark-deps (benchmark workflows call it via ensure-deps)
             [ "$name" = "build-benchmark-deps.yml" ] && continue
+
+            # Don't trigger individual or orchestrator benchmark workflows
+            case "$name" in
+              *-benchmarks.yml|run-all-benchmarks-*.yml|fatp-benchmark-runner.yml)
+                continue
+                ;;
+            esac
 
             total=$((total + 1))
             echo "[$total] Triggering $name..."

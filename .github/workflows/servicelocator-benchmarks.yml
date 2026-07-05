@@ -57,10 +57,11 @@ jobs:
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
       - name: Verify caches restored
         run: |
           if [ ! -d "$HOME/thirdparty-headers/entt" ]; then
-            echo "::error::Header-only cache missing. Dispatch build-benchmark-deps.yml first."
+            echo "::error::Header-only benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           fi
       - name: Build benchmark
@@ -105,10 +106,11 @@ jobs:
         with:
           path: ~/thirdparty-headers
           key: fatp-bench-deps-headeronly-v1
+          restore-keys: fatp-bench-deps-headeronly-v1-
       - name: Verify caches restored
         run: |
           if [ ! -d "$HOME/thirdparty-headers/entt" ]; then
-            echo "::error::Header-only cache missing. Dispatch build-benchmark-deps.yml first."
+            echo "::error::Header-only benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           fi
       - name: Build benchmark
@@ -150,11 +152,12 @@ jobs:
         with:
           path: ${{ github.workspace }}\vcpkg_cache
           key: fatp-bench-deps-vcpkg-v1
+          restore-keys: fatp-bench-deps-vcpkg-v1-
       - name: Verify cache restored
         shell: pwsh
         run: |
           if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
-            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            Write-Error "vcpkg benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           }
       - name: Install competitors via vcpkg (from cache)

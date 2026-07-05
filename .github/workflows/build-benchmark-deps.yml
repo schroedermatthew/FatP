@@ -9,10 +9,11 @@
 #
 # Cache key strategy:
 #   Save key:    fatp-bench-deps-{name}-v1-{run_id}   (unique per run)
-#   Restore key: fatp-bench-deps-{name}-v1-            (prefix match → latest)
+#   Restore key: fatp-bench-deps-{name}-v1            (primary, rarely exact)
+#                fatp-bench-deps-{name}-v1-           (prefix → latest run)
 #
-# This allows partial saves on failure without blocking future complete saves.
-# Each dispatch creates a new cache entry; GitHub evicts old ones automatically.
+# Skip rebuild when lookup-only restore finds a prefix match (cache-matched-key
+# is set). Saves only after a successful build so partial failures are not cached.
 #
 # Cache prefixes:
 #   fatp-bench-deps-gcc-v1-          Compiled deps (gcc-14, ubuntu-24.04)
@@ -104,12 +105,12 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1-latest
+          key: fatp-bench-deps-headeronly-v1
           restore-keys: fatp-bench-deps-headeronly-v1-
           lookup-only: true
 
       - name: Clone header-only libraries
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           rm -rf $HOME/thirdparty-headers
           mkdir -p $HOME/thirdparty-headers
@@ -179,7 +180,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Verify contents
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "Header-only dependency contents:"
           for dir in $HOME/thirdparty-headers/*/; do
@@ -188,8 +189,8 @@ jobs:
             echo "  $name: $count headers"
           done
 
-      - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
+      - name: Save cache
+        if: success() && (inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == '')
         uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-headers
@@ -209,12 +210,12 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
-          key: fatp-bench-deps-gcc-v1-latest
+          key: fatp-bench-deps-gcc-v1
           restore-keys: fatp-bench-deps-gcc-v1-
           lookup-only: true
 
       - name: Install build tools and system dependencies
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y g++-14 cmake \
@@ -223,7 +224,7 @@ jobs:
             llvm-dev
 
       - name: Build Boost from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           rm -rf $HOME/thirdparty-compiled
           mkdir -p $HOME/thirdparty-compiled
@@ -256,7 +257,7 @@ jobs:
           rm -rf /tmp/boost-src
 
       - name: Build Abseil from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::Abseil clone"
           git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
@@ -278,7 +279,7 @@ jobs:
           rm -rf /tmp/abseil-src /tmp/abseil-build
 
       - name: Build Folly from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::Folly clone"
           git clone --depth 1 \
@@ -319,7 +320,7 @@ jobs:
           rm -rf /tmp/folly-src /tmp/folly-build
 
       - name: Build EASTL from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::EASTL clone"
           git clone --depth 1 --recurse-submodules \
@@ -340,7 +341,7 @@ jobs:
           rm -rf /tmp/eastl-src /tmp/eastl-build
 
       - name: Install LLVM headers and libraries
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           mkdir -p $HOME/thirdparty-compiled/llvm/include \
                    $HOME/thirdparty-compiled/llvm/lib
@@ -387,7 +388,7 @@ jobs:
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
 
       - name: Build CRoaring from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::CRoaring"
           git clone --depth 1 https://github.com/RoaringBitmap/CRoaring.git /tmp/croaring-src
@@ -404,7 +405,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Build foonathan-memory from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::foonathan-memory"
           git clone --depth 1 https://github.com/foonathan/memory.git /tmp/foonathan-memory-src
@@ -421,7 +422,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Verify contents
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "Compiled dependency contents (GCC-14):"
           for dir in $HOME/thirdparty-compiled/*/; do
@@ -431,8 +432,8 @@ jobs:
             echo "  $name: $headers headers, $libs static libs"
           done
 
-      - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
+      - name: Save cache
+        if: success() && (inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == '')
         uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-compiled
@@ -452,12 +453,12 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-compiled
-          key: fatp-bench-deps-clang-v1-latest
+          key: fatp-bench-deps-clang-v1
           restore-keys: fatp-bench-deps-clang-v1-
           lookup-only: true
 
       - name: Install Clang and system dependencies
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-17 cmake \
@@ -466,7 +467,7 @@ jobs:
             llvm-dev
 
       - name: Build Boost from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           rm -rf $HOME/thirdparty-compiled
           mkdir -p $HOME/thirdparty-compiled
@@ -499,7 +500,7 @@ jobs:
           rm -rf /tmp/boost-src
 
       - name: Build Abseil from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::Abseil clone"
           git clone --depth 1 https://github.com/abseil/abseil-cpp.git \
@@ -521,7 +522,7 @@ jobs:
           rm -rf /tmp/abseil-src /tmp/abseil-build
 
       - name: Build Folly from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::Folly clone"
           git clone --depth 1 https://github.com/facebook/folly.git \
@@ -563,7 +564,7 @@ jobs:
           rm -rf /tmp/folly-src /tmp/folly-build
 
       - name: Build EASTL from source
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::EASTL clone"
           git clone --depth 1 --recurse-submodules \
@@ -584,7 +585,7 @@ jobs:
           rm -rf /tmp/eastl-src /tmp/eastl-build
 
       - name: Install LLVM headers and libraries
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           mkdir -p $HOME/thirdparty-compiled/llvm/include \
                    $HOME/thirdparty-compiled/llvm/lib
@@ -631,7 +632,7 @@ jobs:
              $HOME/thirdparty-compiled/llvm/lib/ 2>/dev/null || true
 
       - name: Build CRoaring from source (Clang)
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::CRoaring"
           git clone --depth 1 https://github.com/RoaringBitmap/CRoaring.git /tmp/croaring-src
@@ -648,7 +649,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Build foonathan-memory from source (Clang)
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "::group::foonathan-memory"
           git clone --depth 1 https://github.com/foonathan/memory.git /tmp/foonathan-memory-src
@@ -665,7 +666,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Verify contents
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         run: |
           echo "Compiled dependency contents (Clang-17):"
           for dir in $HOME/thirdparty-compiled/*/; do
@@ -675,8 +676,8 @@ jobs:
             echo "  $name: $headers headers, $libs static libs"
           done
 
-      - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
+      - name: Save cache
+        if: success() && (inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == '')
         uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-compiled
@@ -696,12 +697,12 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache
-          key: fatp-bench-deps-vcpkg-v1-latest
+          key: fatp-bench-deps-vcpkg-v1
           restore-keys: fatp-bench-deps-vcpkg-v1-
           lookup-only: true
 
       - name: Install competitors via vcpkg
-        if: steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true'
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
         shell: cmd
         env:
           VCPKG_DEFAULT_TRIPLET: x64-windows-release
@@ -714,19 +715,30 @@ jobs:
           REM and are only benchmarked on Linux (via distro llvm-dev).
           vcpkg install ^
             abseil:x64-windows-release ^
-            boost-unordered:x64-windows-release ^
-            boost-container:x64-windows-release ^
-            boost-intrusive:x64-windows-release ^
-            boost-lockfree:x64-windows-release ^
-            boost-pool:x64-windows-release ^
+            boost-align:x64-windows-release ^
             boost-asio:x64-windows-release ^
-            folly:x64-windows-release ^
-            fmt:x64-windows-release ^
+            boost-container:x64-windows-release ^
+            boost-dynamic-bitset:x64-windows-release ^
+            boost-flyweight:x64-windows-release ^
+            boost-intrusive:x64-windows-release ^
+            boost-iterator:x64-windows-release ^
+            boost-lockfree:x64-windows-release ^
+            boost-mpl:x64-windows-release ^
+            boost-msm:x64-windows-release ^
+            boost-multi-array:x64-windows-release ^
+            boost-pool:x64-windows-release ^
+            boost-serialization:x64-windows-release ^
+            boost-unordered:x64-windows-release ^
+            concurrentqueue:x64-windows-release ^
+            eastl:x64-windows-release ^
             entt:x64-windows-release ^
+            fmt:x64-windows-release ^
+            folly:x64-windows-release ^
+            readerwriterqueue:x64-windows-release ^
             tbb:x64-windows-release
 
-      - name: Save cache (even on partial failure)
-        if: always() && (steps.cache-check.outputs.cache-hit != 'true' || inputs.force_rebuild == 'true')
+      - name: Save cache
+        if: success() && (inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == '')
         uses: actions/cache/save@v5
         with:
           path: ${{ github.workspace }}\vcpkg_cache

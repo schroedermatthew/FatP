@@ -97,15 +97,15 @@ jobs:
         run: |
           missing=0
           if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
-            echo "::warning::Compiled cache not found. Run build-benchmark-deps.yml first."
+            echo "::warning::Compiled benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             missing=1
           fi
           if [ ! -d "$HOME/thirdparty-headers" ]; then
-            echo "::warning::Header-only cache not found. Run build-benchmark-deps.yml first."
+            echo "::warning::Header-only benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             missing=1
           fi
           if [ "$missing" -eq 1 ]; then
-            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml before running benchmarks."
+            echo "::error::Shared benchmark dependency caches could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           fi
           echo "Caches restored successfully."
@@ -197,15 +197,15 @@ jobs:
         run: |
           missing=0
           if [ ! -d "$HOME/thirdparty-compiled/boost" ]; then
-            echo "::warning::Compiled cache not found. Run build-benchmark-deps.yml first."
+            echo "::warning::Compiled benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             missing=1
           fi
           if [ ! -d "$HOME/thirdparty-headers" ]; then
-            echo "::warning::Header-only cache not found. Run build-benchmark-deps.yml first."
+            echo "::warning::Header-only benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             missing=1
           fi
           if [ "$missing" -eq 1 ]; then
-            echo "::error::Shared caches missing. Dispatch build-benchmark-deps.yml before running benchmarks."
+            echo "::error::Shared benchmark dependency caches could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           fi
           echo "Caches restored successfully."
@@ -283,7 +283,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
-            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            Write-Error "vcpkg benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           }
           Write-Host "vcpkg cache restored successfully."

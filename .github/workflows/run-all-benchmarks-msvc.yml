@@ -241,7 +241,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "${{ github.workspace }}\vcpkg_cache")) {
-            Write-Error "vcpkg cache not found. Run build-benchmark-deps.yml first."
+            Write-Error "vcpkg benchmark dependency cache could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           }
 
