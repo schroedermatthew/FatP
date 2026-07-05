@@ -2120,7 +2120,7 @@ FATP_TEST_CASE(fuzz_filter_iteration)
 // Benchmarks (Release Only)
 // ============================================================================
 
-void run_benchmarks()
+inline void run_benchmarks()
 {
     using namespace fat_p::testing;
 

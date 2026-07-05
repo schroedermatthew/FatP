@@ -852,7 +852,7 @@ FATP_TEST_CASE(depth_reset_after_exceeded)
 // Benchmarks
 // ============================================================================
 
-void run_benchmarks()
+inline void run_benchmarks()
 {
     using namespace fat_p::testing;
 

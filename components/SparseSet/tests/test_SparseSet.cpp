@@ -1762,7 +1762,7 @@ FATP_TEST_CASE(tombstone_sparse_set_erase_also_sets_sentinel)
 // Benchmarks
 // ============================================================================
 
-void run_benchmarks()
+inline void run_benchmarks()
 {
     using namespace fat_p::testing;
 

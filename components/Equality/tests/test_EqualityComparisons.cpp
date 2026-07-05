@@ -1024,7 +1024,7 @@ FATP_TEST_CASE(stress_random_operations)
 // These benchmarks detect gross performance regressions, not micro-optimizations.
 // Actual performance depends on compiler, CPU, and optimization level.
 
-void run_benchmarks()
+inline void run_benchmarks()
 {
     using namespace fat_p::testing;
 

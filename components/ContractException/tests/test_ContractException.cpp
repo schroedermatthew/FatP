@@ -878,7 +878,7 @@ FATP_TEST_CASE(nested_exception_pattern)
 // Benchmarks
 // =============================================================================
 
-void run_benchmarks()
+inline void run_benchmarks()
 {
     using namespace fat_p::testing;
 

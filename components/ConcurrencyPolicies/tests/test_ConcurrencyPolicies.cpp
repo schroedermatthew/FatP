@@ -1388,7 +1388,7 @@ namespace fat_p::testing
 {
 
 
-void run_benchmarks()
+inline void run_benchmarks()
 {
     using namespace fat_p::testing;
 

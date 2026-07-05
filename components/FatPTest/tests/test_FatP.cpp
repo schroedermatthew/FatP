@@ -52,15 +52,17 @@ FATP_META:
 #include "FatPTest.h"
 #include "test_FatPTest.h"
 
-void run_benchmarks()
+namespace fat_p::testing
 {
-    using namespace fat_p::testing;
 
+inline void run_benchmarks()
+{
     auto& out = *get_test_config().output;
     out << "\n" << colors::cyan() << "Sanity Benchmark:" << colors::reset() << "\n";
     out << "  (benchmarks are provided by benchmark executables; unit tests do not run full benchmarks)\n\n";
 }
 
+} // namespace fat_p::testing
 
 int main()
 {

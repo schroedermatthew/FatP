@@ -26,8 +26,11 @@ FATP_META:
     mode: autogen
 */
 
-// Forward declarations for all component test functions
-// Each function returns true on success, false on failure
+// Forward declarations for all component test functions.
+// Implementations live in fat_p::testing (one .cpp per component).
+
+namespace fat_p::testing
+{
 
 bool test_AlignedVector();
 bool test_AllocationStrategies();
@@ -118,3 +121,5 @@ bool test_ThreadPool();
 bool test_ValueGuard();
 bool test_ViewLifetimeTracking();
 bool test_FatPTest();
+
+} // namespace fat_p::testing
