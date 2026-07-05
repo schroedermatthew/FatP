@@ -26,5 +26,9 @@ FATP_META:
     mode: autogen
 */
 
-// Forward declaration for the FatPTest component test
+namespace fat_p::testing
+{
+
 bool test_FatPTest();
+
+} // namespace fat_p::testing
