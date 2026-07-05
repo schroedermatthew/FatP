@@ -59,9 +59,10 @@ FATP_META:
  *
  * Scalar `from_xml` requires leaf elements (no child elements). Repeated
  * child elements use `from_xml(parent, childTag, vector)` or `xml_all`.
- * `FATP_XML_DEFINE_TYPE` maps one child element per scalar/nested field;
- * vector fields are not supported by the macro. Struct and enum string
- * policy macros accept up to 50 fields or enumerator tokens.
+ * `FATP_XML_DEFINE_TYPE` maps one child element per scalar/nested field.
+ * `std::vector` members use a wrapper element named after the field; register
+ * the repeated child tag with `FATP_XML_VECTOR_ITEM_TAG(Type, field, itemTag)`.
+ * Struct and enum string policy macros accept up to 50 fields or enumerator tokens.
  *
  * Value-returning `from_xml<T>(node)` requires `T` to be default-constructible.
  *
@@ -948,8 +949,9 @@ template <typename T>
 //   Same but missing fields are silently skipped (struct defaults kept).
 //   At most one child per field; duplicates throw.
 //
-// Vector/repeated fields are not supported by these macros. Use
-// from_xml(parent, childTag, vector) or xml_all(parent, wrapperTag, itemTag).
+// std::vector members require FATP_XML_VECTOR_ITEM_TAG(Type, field, itemTag)
+// before FATP_XML_DEFINE_TYPE / _OPTIONAL. The wrapper element uses the field
+// name; repeated item elements use itemTag inside the wrapper.
 // Up to 50 fields per FATP_XML_DEFINE_TYPE / _OPTIONAL; up to 50 tokens per
 // FATP_XML_ENUM_STRING_POLICY. Larger schemas need a hand-written from_xml.
 //
@@ -966,23 +968,84 @@ inline void from_xml_adl(const XmlNode& node, T& value)
     from_xml(node, value);
 }
 
+template <typename T>
+struct is_std_vector : std::false_type
+{
+};
+
+template <typename T, typename Alloc>
+struct is_std_vector<std::vector<T, Alloc>> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool is_std_vector_v = is_std_vector<T>::value;
+
+template <typename Struct, auto MemberPtr>
+struct XmlVectorItemTag
+{
+    static constexpr std::string_view value{};
+};
+
+template <auto MemberPtr, typename Struct>
+inline void from_xml_struct_field_required(const XmlNode& node,
+                                           Struct& value,
+                                           std::string_view fieldName)
+{
+    using FieldType = std::remove_cvref_t<decltype(value.*MemberPtr)>;
+
+    if constexpr (is_std_vector_v<FieldType>)
+    {
+        constexpr std::string_view itemTag = XmlVectorItemTag<Struct, MemberPtr>::value;
+        static_assert(!itemTag.empty(),
+                      "std::vector struct fields require "
+                      "FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)");
+        const XmlNode& wrapper = require_unique_child(node, fieldName);
+        from_xml(wrapper, std::string(itemTag), value.*MemberPtr);
+    }
+    else
+    {
+        const XmlNode& child = require_unique_child(node, fieldName);
+        from_xml_adl(child, value.*MemberPtr);
+    }
+}
+
+template <auto MemberPtr, typename Struct>
+inline void from_xml_struct_field_optional(const XmlNode& node,
+                                           Struct& value,
+                                           std::string_view fieldName)
+{
+    using FieldType = std::remove_cvref_t<decltype(value.*MemberPtr)>;
+
+    if constexpr (is_std_vector_v<FieldType>)
+    {
+        constexpr std::string_view itemTag = XmlVectorItemTag<Struct, MemberPtr>::value;
+        static_assert(!itemTag.empty(),
+                      "std::vector struct fields require "
+                      "FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)");
+        const XmlNode* wrapper = unique_child_or_null(node, fieldName);
+        if (wrapper)
+            from_xml(*wrapper, std::string(itemTag), value.*MemberPtr);
+    }
+    else
+    {
+        const XmlNode* child = unique_child_or_null(node, fieldName);
+        if (child)
+            from_xml_adl(*child, value.*MemberPtr);
+    }
+}
+
 } // namespace xml_detail
 
 // ---- Internal macro machinery ----
 
 #define FATP_XML_FROM_FIELD_REQUIRED(field)                                  \
-    {                                                                        \
-        const ::fat_p::XmlNode& _node =                                      \
-            ::fat_p::xml_detail::require_unique_child(node, std::string_view(#field)); \
-        ::fat_p::xml_detail::from_xml_adl(_node, value.field);               \
-    }
+    ::fat_p::xml_detail::from_xml_struct_field_required<&_FatpXmlStruct::field>( \
+        node, value, std::string_view(#field));
 
 #define FATP_XML_FROM_FIELD_OPTIONAL(field)                                  \
-    {                                                                        \
-        const ::fat_p::XmlNode* _node =                                      \
-            ::fat_p::xml_detail::unique_child_or_null(node, std::string_view(#field)); \
-        if (_node) ::fat_p::xml_detail::from_xml_adl(*_node, value.field);   \
-    }
+    ::fat_p::xml_detail::from_xml_struct_field_optional<&_FatpXmlStruct::field>( \
+        node, value, std::string_view(#field));
 
 // Variadic expansion (reuse the FOR_EACH pattern)
 #define FATP_XML_EXPAND(...) __VA_ARGS__
@@ -1051,12 +1114,14 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 #define FATP_XML_DEFINE_TYPE(Type, ...)                                      \
     inline void from_xml(const ::fat_p::XmlNode& node, Type& value)          \
     {                                                                        \
+        using _FatpXmlStruct = Type;                                         \
         FATP_XML_FOR_EACH(FATP_XML_FROM_FIELD_REQUIRED, __VA_ARGS__)         \
     }
 
 #define FATP_XML_DEFINE_TYPE_OPTIONAL(Type, ...)                             \
     inline void from_xml(const ::fat_p::XmlNode& node, Type& value)          \
     {                                                                        \
+        using _FatpXmlStruct = Type;                                         \
         FATP_XML_FOR_EACH(FATP_XML_FROM_FIELD_OPTIONAL, __VA_ARGS__)         \
     }
 
@@ -1160,3 +1225,32 @@ inline void from_xml_adl(const XmlNode& node, T& value)
 #define FATP_ENUM_STRING_POLICY(EnumType, ...) \
     FATP_XML_ENUM_STRING_POLICY(EnumType, __VA_ARGS__)
 #endif
+
+// ============================================================================
+// FATP_XML_VECTOR_ITEM_TAG — repeated child tag for std::vector struct fields
+// ============================================================================
+//
+// Call at global/file scope only (same placement rules as FATP_XML_ENUM_STRING_POLICY).
+// For types declared in a user namespace, pass the qualified struct type name.
+//
+//   struct Config {
+//       std::vector<Item> items;
+//   };
+//   FATP_XML_VECTOR_ITEM_TAG(Config, items, item)
+//   FATP_XML_DEFINE_TYPE(Config, items)
+//
+// XML shape:
+//   <items><item>...</item><item>...</item></items>
+
+#define FATP_XML_VECTOR_ITEM_TAG(Type, field, itemTag)                         \
+    namespace fat_p                                                            \
+    {                                                                          \
+    namespace xml_detail                                                       \
+    {                                                                          \
+    template <>                                                                \
+    struct XmlVectorItemTag<Type, &Type::field>                                \
+    {                                                                          \
+        static constexpr std::string_view value = #itemTag;                    \
+    };                                                                         \
+    }                                                                          \
+    }

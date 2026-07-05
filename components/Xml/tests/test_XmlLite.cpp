@@ -135,6 +135,25 @@ struct OptionalDefaultXmlProbe
 };
 FATP_XML_DEFINE_TYPE_OPTIONAL(OptionalDefaultXmlProbe, maxIter)
 
+struct ConfigListXmlProbe
+{
+    std::string name;
+    std::vector<InnerListXmlProbe> items;
+};
+FATP_XML_DEFINE_TYPE(ConfigListXmlProbe, name, items)
+
+struct ConfigOptionalListXmlProbe
+{
+    std::vector<InnerListXmlProbe> items;
+};
+FATP_XML_DEFINE_TYPE_OPTIONAL(ConfigOptionalListXmlProbe, items)
+
+struct IntListXmlProbe
+{
+    std::vector<int> values;
+};
+FATP_XML_DEFINE_TYPE(IntListXmlProbe, values)
+
 [[nodiscard]] std::string nested_xml(int depth)
 {
     std::string xml;
@@ -547,6 +566,51 @@ FATP_TEST_CASE(deserialize_xml_all_wrapper)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_struct_vector_field)
+{
+    const auto value = from_xml<ConfigListXmlProbe>(parse_xml(
+        "<cfg><name>alpha</name><items><item><id>1</id></item><item><id>2</id></item></items></cfg>"));
+    FATP_ASSERT_EQ(value.name, std::string("alpha"), "struct vector field name");
+    FATP_ASSERT_EQ(value.items.size(), size_t(2), "struct vector field size");
+    FATP_ASSERT_EQ(value.items[0].id, 1, "struct vector field first item");
+    FATP_ASSERT_EQ(value.items[1].id, 2, "struct vector field second item");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_struct_vector_field_empty)
+{
+    const auto value = from_xml<ConfigListXmlProbe>(
+        parse_xml("<cfg><name>beta</name><items/></cfg>"));
+    FATP_ASSERT_EQ(value.name, std::string("beta"), "struct empty vector field name");
+    FATP_ASSERT_EQ(value.items.size(), size_t(0), "struct empty vector field");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_optional_struct_vector_field_absent)
+{
+    const auto value = from_xml<ConfigOptionalListXmlProbe>(parse_xml("<cfg/>"));
+    FATP_ASSERT_EQ(value.items.size(), size_t(0), "optional struct vector absent");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_struct_vector_of_scalars)
+{
+    const auto value = from_xml<IntListXmlProbe>(
+        parse_xml("<cfg><values><value>3</value><value>5</value></values></cfg>"));
+    FATP_ASSERT_EQ(value.values.size(), size_t(2), "struct scalar vector size");
+    FATP_ASSERT_EQ(value.values[0], 3, "struct scalar vector first");
+    FATP_ASSERT_EQ(value.values[1], 5, "struct scalar vector second");
+    return true;
+}
+
+FATP_TEST_CASE(reject_missing_required_struct_vector_field)
+{
+    FATP_ASSERT_THROWS(from_xml<ConfigListXmlProbe>(parse_xml("<cfg><name>only</name></cfg>")),
+                       std::runtime_error,
+                       "missing required struct vector wrapper");
+    return true;
+}
+
 FATP_TEST_CASE(reject_xml_all_missing_wrapper)
 {
     const auto root = parse_xml("<root><item><id>1</id></item></root>");
@@ -736,6 +800,10 @@ FATP_TEST_CASE(reject_numeric_value_for_string_policy_enum)
 
 } // namespace fat_p::testing::xmllite
 
+FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite::ConfigListXmlProbe, items, item)
+FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite::ConfigOptionalListXmlProbe, items, item)
+FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite::IntListXmlProbe, values, value)
+
 // ============================================================================
 // Public Interface
 // ============================================================================
@@ -793,6 +861,11 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_absent);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_field);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_field_empty);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_struct_vector_field_absent);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_of_scalars);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_missing_required_struct_vector_field);
     FATP_RUN_TEST_NS(runner, xmllite, reject_xml_all_missing_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_xml_all_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, optional_macro_keeps_member_default);
