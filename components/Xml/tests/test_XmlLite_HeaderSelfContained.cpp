@@ -68,40 +68,45 @@ bool test_XmlLite_HeaderSelfContained()
 
     using namespace xmllite_header_self_contained;
 
-    bool all_passed = true;
+    int passed = 0;
+    int failed = 0;
+    constexpr int kTotal = 3;
 
     std::cout << "[COMPILE] Running: parse_xml_available ... ";
     {
         const auto root = fat_p::parse_xml("<root><value>42</value></root>");
-        const bool passed = (root.tag == "root");
-        std::cout << (passed ? "PASSED" : "FAILED") << "\n";
-        all_passed = all_passed && passed;
+        const bool ok = (root.tag == "root");
+        std::cout << (ok ? "PASSED" : "FAILED") << "\n";
+        if (ok) ++passed;
+        else ++failed;
     }
 
     std::cout << "[COMPILE] Running: from_xml_struct_macro ... ";
     {
         const auto root = fat_p::parse_xml("<cfg><value>7</value></cfg>");
         const auto cfg = fat_p::from_xml<Probe>(root);
-        const bool passed = (cfg.value == 7);
-        std::cout << (passed ? "PASSED" : "FAILED") << "\n";
-        all_passed = all_passed && passed;
+        const bool ok = (cfg.value == 7);
+        std::cout << (ok ? "PASSED" : "FAILED") << "\n";
+        if (ok) ++passed;
+        else ++failed;
     }
 
     std::cout << "[COMPILE] Running: enum_string_policy ... ";
     {
         const auto root = fat_p::parse_xml("<mode>On</mode>");
         const auto mode = fat_p::from_xml<HeaderProbeMode>(root);
-        const bool passed = (mode == HeaderProbeMode::On);
-        std::cout << (passed ? "PASSED" : "FAILED") << "\n";
-        all_passed = all_passed && passed;
+        const bool ok = (mode == HeaderProbeMode::On);
+        std::cout << (ok ? "PASSED" : "FAILED") << "\n";
+        if (ok) ++passed;
+        else ++failed;
     }
 
     std::cout << "\n=== Test Summary ===\n";
-    std::cout << "Passed: " << (all_passed ? 3 : 0) << "\n";
-    std::cout << "Failed: " << (all_passed ? 0 : 1) << "\n";
-    std::cout << "Total:  3\n";
+    std::cout << "Passed: " << passed << "\n";
+    std::cout << "Failed: " << failed << "\n";
+    std::cout << "Total:  " << kTotal << "\n";
 
-    return all_passed;
+    return failed == 0;
 }
 
 } // namespace fat_p::testing

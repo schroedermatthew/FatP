@@ -29,9 +29,8 @@ FATP_META:
     mode: autogen
 */
 
-#include <cstdlib>
 #include <cstdint>
-#include <cstdio>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -130,6 +129,24 @@ struct XmlAllItemXmlProbe
 };
 FATP_XML_DEFINE_TYPE(XmlAllItemXmlProbe, id)
 
+struct OptionalDefaultXmlProbe
+{
+    int maxIter = 100;
+};
+FATP_XML_DEFINE_TYPE_OPTIONAL(OptionalDefaultXmlProbe, maxIter)
+
+[[nodiscard]] std::string nested_xml(int depth)
+{
+    std::string xml;
+    xml.reserve(static_cast<std::size_t>(depth) * 6u + 4u);
+    for (int i = 0; i < depth; ++i)
+        xml += "<a>";
+    xml += '1';
+    for (int i = 0; i < depth; ++i)
+        xml += "</a>";
+    return xml;
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -225,6 +242,49 @@ FATP_TEST_CASE(reject_malformed_or_repeated_xml_declaration)
                        std::runtime_error,
                        "XML declaration after comment");
 
+    return true;
+}
+
+FATP_TEST_CASE(reject_excessive_nesting_depth)
+{
+    const auto root = parse_xml(nested_xml(200));
+    FATP_ASSERT_EQ(root.tag, std::string("a"), "200-level nesting root tag");
+
+    FATP_ASSERT_THROWS(parse_xml(nested_xml(201)),
+                       std::runtime_error,
+                       "XML nesting depth exceeded");
+    return true;
+}
+
+FATP_TEST_CASE(reject_mismatched_closing_tag)
+{
+    FATP_ASSERT_THROWS(parse_xml("<a>text</b>"),
+                       std::runtime_error,
+                       "invalid name start");
+    return true;
+}
+
+FATP_TEST_CASE(reject_unknown_entity)
+{
+    FATP_ASSERT_THROWS(parse_xml("<a>&bogus;</a>"),
+                       std::runtime_error,
+                       "unknown entity");
+    return true;
+}
+
+FATP_TEST_CASE(interior_comment_joins_text_chunks)
+{
+    const auto root = parse_xml("<a>x <!--c--> y</a>");
+    FATP_ASSERT_EQ(root.text, std::string("x  y"), "comment inside text leaves gap spacing");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_attribute_entity)
+{
+    const auto root = parse_xml(R"(<root a="&quot;x&quot;"/>)");
+    const auto value = root.attr("a");
+    FATP_ASSERT_TRUE(value.has_value(), "attribute should exist");
+    FATP_ASSERT_EQ(*value, std::string("\"x\""), "attribute entity decoded");
     return true;
 }
 
@@ -487,6 +547,15 @@ FATP_TEST_CASE(deserialize_xml_all_wrapper)
     return true;
 }
 
+FATP_TEST_CASE(reject_xml_all_missing_wrapper)
+{
+    const auto root = parse_xml("<root><item><id>1</id></item></root>");
+    FATP_ASSERT_THROWS(xml_all<XmlAllItemXmlProbe>(root, "items", "item"),
+                       std::runtime_error,
+                       "missing required element");
+    return true;
+}
+
 FATP_TEST_CASE(reject_duplicate_xml_all_wrapper)
 {
     const auto root = parse_xml(
@@ -524,6 +593,21 @@ FATP_TEST_CASE(reject_duplicate_required_struct_field)
         std::runtime_error,
         "duplicate required struct field");
 
+    return true;
+}
+
+FATP_TEST_CASE(reject_parse_xml_file_missing)
+{
+    FATP_ASSERT_THROWS(parse_xml_file("xmllite_nonexistent_probe_9f3c2a1b.xml"),
+                       std::runtime_error,
+                       "cannot open file");
+    return true;
+}
+
+FATP_TEST_CASE(optional_macro_keeps_member_default)
+{
+    const auto value = from_xml<OptionalDefaultXmlProbe>(parse_xml("<cfg/>"));
+    FATP_ASSERT_EQ(value.maxIter, 100, "optional macro keeps default when child absent");
     return true;
 }
 
@@ -676,6 +760,9 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, reject_raw_lt_in_attribute);
     FATP_RUN_TEST_NS(runner, xmllite, reject_malformed_or_repeated_xml_declaration);
     FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_xml_declaration);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_excessive_nesting_depth);
+    FATP_RUN_TEST_NS(runner, xmllite, interior_comment_joins_text_chunks);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_attribute_entity);
 
     out << "\n" << colors::blue() << "--- Parser Rejection ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, reject_prefixed_element);
@@ -687,6 +774,8 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_name_start);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_attributes);
     FATP_RUN_TEST_NS(runner, xmllite, reject_unclosed_elements);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_mismatched_closing_tag);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_unknown_entity);
     FATP_RUN_TEST_NS(runner, xmllite, reject_xml_stylesheet_processing_instruction);
 
     out << "\n" << colors::blue() << "--- XmlNode Query API ---" << colors::reset() << "\n";
@@ -704,12 +793,15 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_absent);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_xml_all_missing_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_xml_all_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, optional_macro_keeps_member_default);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_optional_child_by_tag);
     FATP_RUN_TEST_NS(runner, xmllite, reject_missing_required_struct_field);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_required_struct_field);
 
     out << "\n" << colors::blue() << "--- File I/O ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, xmllite, reject_parse_xml_file_missing);
     FATP_RUN_TEST_NS(runner, xmllite, parse_xml_file_roundtrip);
 
     out << "\n" << colors::blue() << "--- Integer Enum Deserialization ---" << colors::reset() << "\n";

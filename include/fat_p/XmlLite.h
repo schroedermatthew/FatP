@@ -40,7 +40,8 @@ FATP_META:
  * and repeated elements. XML namespaces are rejected at parse time (prefixed
  * names and xmlns attributes throw). It does not handle DTDs, CDATA sections,
  * processing instructions, or entity references beyond the five predefined
- * XML entities (&amp; &lt; &gt; &apos; &quot;).
+ * XML entities (&amp; &lt; &gt; &apos; &quot;). Element nesting depth is
+ * capped (200 levels); deeper input throws rather than exhausting stack space.
  *
  * Mixed content (text interleaved with child elements) is not preserved in
  * document order. Adjacent text chunks are trimmed and joined with spaces in
@@ -319,6 +320,15 @@ inline void enforce_no_xmlns_attribute(const std::string& attrName)
 
 class XmlParser
 {
+    static constexpr std::size_t kMaxElementDepth = 200;
+
+    struct DepthScope
+    {
+        std::size_t& depth;
+        explicit DepthScope(std::size_t& d) : depth(d) { ++depth; }
+        ~DepthScope() { --depth; }
+    };
+
 public:
     explicit XmlParser(std::string_view input) : mInput{input}, mPos{0} {}
 
@@ -336,6 +346,7 @@ public:
 private:
     std::string_view mInput;
     std::size_t mPos;
+    std::size_t mDepth = 0;
 
     [[nodiscard]] char peek() const { return mPos < mInput.size() ? mInput[mPos] : '\0'; }
 
@@ -591,6 +602,9 @@ private:
 
     XmlNode parseElement()
     {
+        FATP_XML_ENFORCE(mDepth < kMaxElementDepth, "XML nesting depth exceeded");
+        const DepthScope depthScope{mDepth};
+
         skipComments();
         FATP_XML_ENFORCE(peek() == '<', "expected '<' at position", mPos);
         advance(); // skip <

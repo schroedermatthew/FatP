@@ -133,7 +133,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 
 | Artifact | Count / status |
 |----------|----------------|
-| `test_XmlLite.cpp` | 47 unit tests (style-guide compliant) |
+| `test_XmlLite.cpp` | 55 unit tests (style-guide compliant) |
 | `test_XmlLite_HeaderSelfContained.cpp` | 3 runtime smoke checks |
 | `.github/workflows/xml-lite.yml` | 12-job matrix; all passed on `c6b7d2b5` |
 
@@ -179,7 +179,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 - [x] `FATP_XML_ENUM_STRING_POLICY` — tokens listed once via `#enumerator` stringification
 - [x] `from_xml<Enum>` works for element text (string and integer paths)
 - [x] `FATP_XML_DEFINE_TYPE` struct with enum fields parses without custom code
-- [x] 47 tests pass on full CI matrix (MSVC, GCC, Clang, ASan, UBSan, TSan, strict warnings)
+- [x] 55 tests pass on full CI matrix (MSVC, GCC, Clang, ASan, UBSan, TSan, strict warnings)
 - [x] Header self-containment verified
 - [x] XmlLite standalone story documented (`Overview`, `User Manual`, this note)
 

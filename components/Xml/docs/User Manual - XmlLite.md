@@ -241,7 +241,7 @@ If you need nested structure, define a struct with its own `from_xml` and bind t
 
 ### Supported scalar types
 
-`from_xml` provides overloads for `std::string`, `int`, `std::int64_t`, `std::size_t`, `double`, `bool`, and enums. `double` uses `std::from_chars` and rejects non-finite values. `bool` accepts `true`/`false`/`1`/`0`.
+`from_xml` provides overloads for `std::string`, `int`, `std::int64_t`, `std::size_t`, `double`, `bool`, and enums. Use those exact integer types in struct fields — `long`, `long long`, and `unsigned` are not supported (compile error or platform-dependent typedef matches). `double` uses `std::from_chars` and rejects non-finite values. `bool` accepts `true`/`false`/`1`/`0`.
 
 Value-returning form requires default-constructible `T`:
 
@@ -255,7 +255,7 @@ double sigma = fat_p::from_xml<double>(node.require("sigma"));
 
 ### Required fields
 
-`FATP_XML_DEFINE_TYPE` maps each field name to exactly one child element with that tag. Duplicates throw `duplicate element:`; missing children throw `missing required element:`.
+`FATP_XML_DEFINE_TYPE` maps each field name to exactly one child element with that tag. Duplicates throw `duplicate element:`; missing children throw `missing required element:`. Extra sibling elements with unrecognized tags are ignored (not an error).
 
 ```cpp
 struct SensorConfig {
@@ -393,7 +393,7 @@ FATP_XML_ENUM_STRING_POLICY(app::Mode, Off, On)
 
 **Placement rule:** Do not invoke the macro inside a namespace block. It opens `namespace fat_p { namespace xml_detail { ... } }` relative to the call site; inside user namespaces the specialization lands in the wrong place (GCC/MSVC errors).
 
-`FATP_ENUM_STRING_POLICY` aliases to `FATP_XML_ENUM_STRING_POLICY` when EnumPlus has not already defined it.
+Prefer `FATP_XML_ENUM_STRING_POLICY` in new code. `FATP_ENUM_STRING_POLICY` is defined by XmlLite only when no prior definition exists (`#ifndef` guard). Include XmlLite **before** any header that defines `FATP_ENUM_STRING_POLICY` without a guard, or the build fails with macro redefinition. If another header defines it first, XmlLite's alias is skipped silently — use `FATP_XML_ENUM_STRING_POLICY` to avoid include-order ambiguity. EnumPlus.h does not currently define this macro.
 
 ### Enums inside structs
 
@@ -422,7 +422,7 @@ Behavior does not change under `NDEBUG` for XmlLite enforcement. Failed parses a
 
 ### Typical failure categories
 
-**Parse failures:** malformed tags, namespace prefixes, unclosed elements, trailing garbage.
+**Parse failures:** malformed tags, namespace prefixes, unclosed elements, excessive nesting depth (200-level cap), trailing garbage.
 
 **Structure failures:** `missing required element`, `duplicate element`.
 
@@ -443,7 +443,10 @@ XmlLite rejects patterns that full XML allows but config pipelines should treat 
 - Duplicate attributes on one element
 - Raw `<` inside attribute values
 - Invalid name start characters
-- Malformed, invalid, or repeated XML declarations (strict `version="1.0"` validation)
+- Malformed, invalid, or repeated XML declarations (XmlLite declaration validation: required quoted `version="1.0"`, optional `encoding` / `standalone`)
+- Nesting deeper than 200 element levels
+
+**Known leniencies (config subset, not full XML 1.x grammar):** declaration attributes may appear in any order; whitespace between declaration attributes is not required; CRLF and embedded `\r` in text are not normalized; interior `<!-- ... -->` comments are allowed between children and inside text runs (a comment inside a text run does not split the chunk, so spacing may differ from element-split mixed content).
 
 Mixed content (text interleaved with child elements) is not preserved in order; text chunks trim and join with spaces in the parent `text` field. Design configs as element trees with leaf text values, not inline markup.
 
