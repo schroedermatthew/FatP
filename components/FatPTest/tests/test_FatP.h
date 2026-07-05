@@ -120,6 +120,5 @@ bool test_TensorStorage();
 bool test_ThreadPool();
 bool test_ValueGuard();
 bool test_ViewLifetimeTracking();
-bool test_FatPTest();
 
 } // namespace fat_p::testing

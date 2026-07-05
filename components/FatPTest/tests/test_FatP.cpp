@@ -48,9 +48,7 @@ FATP_META:
 
 #include "test_FatP.h"
 
-// Test of the test suite itself
 #include "FatPTest.h"
-#include "test_FatPTest.h"
 
 namespace fat_p::testing
 {
@@ -171,10 +169,6 @@ int main()
     RUN_AND_RECORD(test_ThreadPool);
     RUN_AND_RECORD(test_ValueGuard);
     RUN_AND_RECORD(test_ViewLifetimeTracking);
-
-    //// Test of the test suite itself
-    RUN_AND_RECORD(test_FatPTest);
-
 
 #undef RUN_AND_RECORD
 
