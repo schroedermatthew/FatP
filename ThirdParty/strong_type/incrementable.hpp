@@ -34,7 +34,7 @@ struct incrementable
         STRONG_CONSTEXPR
         T&
         operator++(T& t)
-        noexcept(noexcept(++value_of(std::declval<type&>())))
+        noexcept(noexcept(++std::declval<type&>().value_of()))
         {
             ++value_of(t);
             return t;
