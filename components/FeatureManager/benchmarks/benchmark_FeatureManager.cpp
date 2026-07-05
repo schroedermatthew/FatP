@@ -1294,87 +1294,76 @@ int main()
           .contract("Entails enable path identical to Implies; disable path ref-counts entailers "
                     "and cascades only when ref-count reaches zero.");
 
-    // Single entailer: enable + disable with cascade (no shared entailers)
-    {
-        FeatureManager<> fmEntailsSimple;
-        (void)fmEntailsSimple.addFeature("EA");
-        (void)fmEntailsSimple.addFeature("EB");
-        (void)fmEntailsSimple.addRelationship("EA", FeatureRelationship::Entails, "EB");
+    // Fixtures must outlive runner.run(); scoped blocks left dangling [&] captures on MSVC.
+    FeatureManager<> fmEntailsSimple;
+    (void)fmEntailsSimple.addFeature("EA");
+    (void)fmEntailsSimple.addFeature("EB");
+    (void)fmEntailsSimple.addRelationship("EA", FeatureRelationship::Entails, "EB");
 
-        runner.add("enable + disable: single Entails edge (cascade both directions)", [&]() {
-            (void)fmEntailsSimple.enable("EA");
-            DoNotOptimize(fmEntailsSimple.isEnabled("EB"));
-            (void)fmEntailsSimple.disable("EA");
-            DoNotOptimize(fmEntailsSimple.isEnabled("EB"));
-        });
-    }
+    runner.add("enable + disable: single Entails edge (cascade both directions)", [&]() {
+        (void)fmEntailsSimple.enable("EA");
+        DoNotOptimize(fmEntailsSimple.isEnabled("EB"));
+        (void)fmEntailsSimple.disable("EA");
+        DoNotOptimize(fmEntailsSimple.isEnabled("EB"));
+    });
 
-    // Shared target: two entailers, disable one (ref-count > 0, no cascade)
-    {
-        FeatureManager<> fmShared;
-        (void)fmShared.addFeature("SA");
-        (void)fmShared.addFeature("SB");
-        (void)fmShared.addFeature("ST");
-        (void)fmShared.addRelationship("SA", FeatureRelationship::Entails, "ST");
-        (void)fmShared.addRelationship("SB", FeatureRelationship::Entails, "ST");
-        (void)fmShared.enable("SA");
-        (void)fmShared.enable("SB");
+    FeatureManager<> fmEntailsShared;
+    (void)fmEntailsShared.addFeature("SA");
+    (void)fmEntailsShared.addFeature("SB");
+    (void)fmEntailsShared.addFeature("ST");
+    (void)fmEntailsShared.addRelationship("SA", FeatureRelationship::Entails, "ST");
+    (void)fmEntailsShared.addRelationship("SB", FeatureRelationship::Entails, "ST");
+    (void)fmEntailsShared.enable("SA");
+    (void)fmEntailsShared.enable("SB");
 
-        runner.add("disable: Entails target survives (second entailer still active)", [&]() {
-            // SA and SB both enabled. Disabling SA leaves ST enabled via SB.
-            (void)fmShared.disable("SA");
-            DoNotOptimize(fmShared.isEnabled("ST")); // must be true
-            (void)fmShared.enable("SA");
-        });
-    }
+    runner.add("disable: Entails target survives (second entailer still active)", [&]() {
+        // SA and SB both enabled. Disabling SA leaves ST enabled via SB.
+        (void)fmEntailsShared.disable("SA");
+        DoNotOptimize(fmEntailsShared.isEnabled("ST")); // must be true
+        (void)fmEntailsShared.enable("SA");
+    });
 
-    // Entails chain: A→B→C, enable A (cascades to B and C), disable A (cascades back)
-    {
-        FeatureManager<> fmChain;
-        (void)fmChain.addFeature("CA");
-        (void)fmChain.addFeature("CB");
-        (void)fmChain.addFeature("CC");
-        (void)fmChain.addRelationship("CA", FeatureRelationship::Entails, "CB");
-        (void)fmChain.addRelationship("CB", FeatureRelationship::Entails, "CC");
+    FeatureManager<> fmEntailsChain;
+    (void)fmEntailsChain.addFeature("CA");
+    (void)fmEntailsChain.addFeature("CB");
+    (void)fmEntailsChain.addFeature("CC");
+    (void)fmEntailsChain.addRelationship("CA", FeatureRelationship::Entails, "CB");
+    (void)fmEntailsChain.addRelationship("CB", FeatureRelationship::Entails, "CC");
 
-        runner.add("enable + disable: Entails chain depth 3 (full cascade)", [&]() {
-            (void)fmChain.enable("CA");
-            DoNotOptimize(fmChain.isEnabled("CC"));
-            (void)fmChain.disable("CA");
-            DoNotOptimize(fmChain.isEnabled("CC"));
-        });
-    }
+    runner.add("enable + disable: Entails chain depth 3 (full cascade)", [&]() {
+        (void)fmEntailsChain.enable("CA");
+        DoNotOptimize(fmEntailsChain.isEnabled("CC"));
+        (void)fmEntailsChain.disable("CA");
+        DoNotOptimize(fmEntailsChain.isEnabled("CC"));
+    });
 
-    // replace() with Entails: swap alert type, shared Entails target stays enabled
-    {
-        FeatureManager<> fmRepl;
-        (void)fmRepl.addFeature("kAlertOverload");
-        (void)fmRepl.addFeature("kAlertLatency");
-        (void)fmRepl.addFeature("kPolicyWorkStealing");
-        (void)fmRepl.addFeature("kPolicyRoundRobin");
-        (void)fmRepl.addFeature("kAdmissionBulkShed");
-        (void)fmRepl.addRelationship("kAlertOverload", FeatureRelationship::MutuallyExclusive, "kAlertLatency");
-        (void)fmRepl.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kPolicyWorkStealing");
-        (void)fmRepl.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kAdmissionBulkShed");
-        (void)fmRepl.addRelationship("kAlertLatency",  FeatureRelationship::Entails, "kPolicyRoundRobin");
-        (void)fmRepl.addRelationship("kAlertLatency",  FeatureRelationship::Entails, "kAdmissionBulkShed");
-        (void)fmRepl.enable("kAlertOverload");
+    FeatureManager<> fmEntailsRepl;
+    (void)fmEntailsRepl.addFeature("kAlertOverload");
+    (void)fmEntailsRepl.addFeature("kAlertLatency");
+    (void)fmEntailsRepl.addFeature("kPolicyWorkStealing");
+    (void)fmEntailsRepl.addFeature("kPolicyRoundRobin");
+    (void)fmEntailsRepl.addFeature("kAdmissionBulkShed");
+    (void)fmEntailsRepl.addRelationship("kAlertOverload", FeatureRelationship::MutuallyExclusive, "kAlertLatency");
+    (void)fmEntailsRepl.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kPolicyWorkStealing");
+    (void)fmEntailsRepl.addRelationship("kAlertOverload", FeatureRelationship::Entails, "kAdmissionBulkShed");
+    (void)fmEntailsRepl.addRelationship("kAlertLatency", FeatureRelationship::Entails, "kPolicyRoundRobin");
+    (void)fmEntailsRepl.addRelationship("kAlertLatency", FeatureRelationship::Entails, "kAdmissionBulkShed");
+    (void)fmEntailsRepl.enable("kAlertOverload");
 
-        bool replDir = true;
-        runner.add("replace: alert swap with shared Entails target (steady-state)", [&]() {
-            if (replDir)
-            {
-                auto r = fmRepl.replace("kAlertOverload", "kAlertLatency");
-                DoNotOptimize(r);
-            }
-            else
-            {
-                auto r = fmRepl.replace("kAlertLatency", "kAlertOverload");
-                DoNotOptimize(r);
-            }
-            replDir = !replDir;
-        });
-    }
+    runner.add("replace: alert swap with shared Entails target (steady-state)", [&]() {
+        static bool replDir = true;
+        if (replDir)
+        {
+            auto r = fmEntailsRepl.replace("kAlertOverload", "kAlertLatency");
+            DoNotOptimize(r);
+        }
+        else
+        {
+            auto r = fmEntailsRepl.replace("kAlertLatency", "kAlertOverload");
+            DoNotOptimize(r);
+        }
+        replDir = !replDir;
+    });
 
     // -------------------------------------------------------------------------
     // 22. Run All Benchmarks

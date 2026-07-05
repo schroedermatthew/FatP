@@ -796,8 +796,11 @@ private:
         return path;
     }
 
-    // Detect cycles in the dependency graph (Requires + Implies).
+    // Detect cycles in the dependency graph (Requires + Implies + Entails).
     // Lock must already be held.
+    //
+    // Iterative DFS avoids recursive std::function frames that can exhaust the
+    // MSVC default stack when validate() runs hundreds of times in benchmarks.
     [[nodiscard]] Expected<void, std::string> detectCyclesUnlocked() const
     {
         enum class VisitState
@@ -807,103 +810,108 @@ private:
             Visited
         };
 
+        enum class WorkKind
+        {
+            Enter,
+            Exit
+        };
+
+        struct WorkItem
+        {
+            WorkKind kind;
+            std::string name;
+            int depth;
+        };
+
+        static constexpr std::array dependencyRels = {
+            FeatureRelationship::Requires,
+            FeatureRelationship::Implies,
+            FeatureRelationship::Entails,
+        };
+
         std::unordered_map<std::string, VisitState> state;
         state.reserve(mFeatures.size());
 
-        std::vector<std::string> stack;
-        stack.reserve(mFeatures.size());
+        std::vector<std::string> path;
+        path.reserve(mFeatures.size());
 
-        auto dfs = [&](auto&& self, const std::string& name, int depth) -> Expected<void, std::string> {
-            if (static_cast<size_t>(depth) > kMaxValidationDepth)
-            {
-                return unexpected("Maximum dependency depth exceeded at feature: " + name);
-            }
+        std::vector<WorkItem> work;
+        work.reserve(mFeatures.size() * 2);
 
-            auto it = state.find(name);
-            if (it != state.end())
-            {
-                if (it->second == VisitState::Visiting)
-                {
-                    return unexpected("Circular dependency detected: " + buildCyclePath(stack, name));
-                }
-                if (it->second == VisitState::Visited)
-                {
-                    return {};
-                }
-            }
-
-            state[name] = VisitState::Visiting;
-            stack.push_back(name);
-
-            auto* nodePtr = mFeatures.find(name);
-            if (!nodePtr)
-            {
-                stack.pop_back();
-                state[name] = VisitState::Visited;
-                return unexpected("Feature not found: " + name);
-            }
-            const FeatureNode& node = *nodePtr;
-
-            auto visitRelationship = [&](FeatureRelationship rel) -> Expected<void, std::string> {
-                const auto& targets = node.relationships[relIdx(rel)];
-                if (targets.empty())
-                {
-                    return {};
-                }
-                for (const auto& dep : targets)
-                {
-                    auto depState = state.find(dep);
-                    if (depState != state.end() && depState->second == VisitState::Visiting)
-                    {
-                        return unexpected("Circular dependency detected: " + buildCyclePath(stack, dep));
-                    }
-                    auto res = self(self, dep, depth + 1);
-                    if (!res)
-                    {
-                        return res;
-                    }
-                }
-                return {};
-            };
-
-            auto reqRes = visitRelationship(FeatureRelationship::Requires);
-            if (!reqRes)
-            {
-                stack.pop_back();
-                state[name] = VisitState::Visited;
-                return reqRes;
-            }
-
-            auto implRes = visitRelationship(FeatureRelationship::Implies);
-            if (!implRes)
-            {
-                stack.pop_back();
-                state[name] = VisitState::Visited;
-                return implRes;
-            }
-
-            auto entailRes = visitRelationship(FeatureRelationship::Entails);
-            if (!entailRes)
-            {
-                stack.pop_back();
-                state[name] = VisitState::Visited;
-                return entailRes;
-            }
-
-            stack.pop_back();
-            state[name] = VisitState::Visited;
-            return {};
-        };
-
-        for (const auto& [name, _] : mFeatures)
+        for (const auto& [startName, _] : mFeatures)
         {
-            auto it = state.find(name);
-            if (it == state.end() || it->second == VisitState::Unvisited)
+            auto startIt = state.find(startName);
+            if (startIt != state.end() && startIt->second != VisitState::Unvisited)
             {
-                auto res = dfs(dfs, name, 0);
-                if (!res)
+                continue;
+            }
+
+            work.clear();
+            work.push_back({WorkKind::Enter, startName, 0});
+
+            while (!work.empty())
+            {
+                WorkItem item = std::move(work.back());
+                work.pop_back();
+
+                if (item.kind == WorkKind::Exit)
                 {
-                    return res;
+                    state[item.name] = VisitState::Visited;
+                    if (!path.empty() && path.back() == item.name)
+                    {
+                        path.pop_back();
+                    }
+                    continue;
+                }
+
+                if (static_cast<size_t>(item.depth) > kMaxValidationDepth)
+                {
+                    return unexpected("Maximum dependency depth exceeded at feature: " + item.name);
+                }
+
+                auto it = state.find(item.name);
+                if (it != state.end())
+                {
+                    if (it->second == VisitState::Visiting)
+                    {
+                        return unexpected("Circular dependency detected: " + buildCyclePath(path, item.name));
+                    }
+                    if (it->second == VisitState::Visited)
+                    {
+                        continue;
+                    }
+                }
+
+                state[item.name] = VisitState::Visiting;
+                path.push_back(item.name);
+
+                auto* nodePtr = mFeatures.find(item.name);
+                if (!nodePtr)
+                {
+                    state[item.name] = VisitState::Visited;
+                    path.pop_back();
+                    return unexpected("Feature not found: " + item.name);
+                }
+                const FeatureNode& node = *nodePtr;
+
+                work.push_back({WorkKind::Exit, item.name, item.depth});
+
+                for (int ri = static_cast<int>(dependencyRels.size()) - 1; ri >= 0; --ri)
+                {
+                    const auto& targets = node.relationships[relIdx(dependencyRels[static_cast<size_t>(ri)])];
+                    for (auto tit = targets.rbegin(); tit != targets.rend(); ++tit)
+                    {
+                        const std::string& dep = *tit;
+                        auto depIt = state.find(dep);
+                        if (depIt != state.end() && depIt->second == VisitState::Visiting)
+                        {
+                            return unexpected("Circular dependency detected: " + buildCyclePath(path, dep));
+                        }
+                        if (depIt == state.end() || depIt->second == VisitState::Unvisited)
+                        {
+                            work.push_back({WorkKind::Enter, dep, item.depth + 1});
+                        }
+                    }
                 }
             }
         }

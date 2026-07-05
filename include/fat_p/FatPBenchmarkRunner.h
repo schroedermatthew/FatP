@@ -1818,7 +1818,7 @@ struct Statistics
             << " " << unit << "  (+/-" << std::setw(6) << stddev << ")";
 
         // Add CI95 if verbose or samples are few
-        if (samples < 30 || stddev / mean > 0.1)
+        if (samples < 30 || (mean > 0.0 && stddev / mean > 0.1))
         {
             out << "  CI95=[" << ci95Low << ", " << ci95High << "]";
         }
