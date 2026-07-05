@@ -1,0 +1,127 @@
+# =============================================================================
+# .github/workflows/run-all-benchmarks.yml
+# =============================================================================
+# One-click trigger: runs every component benchmark on GCC, Clang, and MSVC.
+#
+# Dispatches the three compiler-specific orchestrators in parallel:
+#   - run-all-benchmarks-gcc.yml   (GCC-14, ubuntu-24.04)
+#   - run-all-benchmarks-clang.yml (Clang-17, ubuntu-24.04)
+#   - run-all-benchmarks-msvc.yml  (MSVC, windows-latest)
+#
+# Each child workflow ensures benchmark dependencies via build-benchmark-deps.yml
+# and uploads per-component artifacts plus a compiler-specific summary.
+# =============================================================================
+
+name: Run All Benchmarks (All Compilers)
+
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
+
+jobs:
+  gcc:
+    name: GCC Benchmarks
+    uses: ./.github/workflows/run-all-benchmarks-gcc.yml
+    secrets: inherit
+    with:
+      batches: ${{ inputs.batches }}
+      target_work: ${{ inputs.target_work }}
+
+  clang:
+    name: Clang Benchmarks
+    uses: ./.github/workflows/run-all-benchmarks-clang.yml
+    secrets: inherit
+    with:
+      batches: ${{ inputs.batches }}
+      target_work: ${{ inputs.target_work }}
+
+  msvc:
+    name: MSVC Benchmarks
+    uses: ./.github/workflows/run-all-benchmarks-msvc.yml
+    secrets: inherit
+    with:
+      batches: ${{ inputs.batches }}
+      target_work: ${{ inputs.target_work }}
+
+  summary:
+    name: All Compilers Summary
+    needs: [gcc, clang, msvc]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download GCC summary
+        uses: actions/download-artifact@v5
+        with:
+          name: benchmark-summary-all
+          path: summaries/gcc
+        continue-on-error: true
+
+      - name: Download Clang summary
+        uses: actions/download-artifact@v5
+        with:
+          name: benchmark-summary-all-clang
+          path: summaries/clang
+        continue-on-error: true
+
+      - name: Download MSVC summary
+        uses: actions/download-artifact@v5
+        with:
+          name: benchmark-summary-all-msvc
+          path: summaries/msvc
+        continue-on-error: true
+
+      - name: Aggregate cross-compiler summary
+        run: |
+          echo "# Benchmark Summary — All Compilers" > summary.md
+          echo "" >> summary.md
+          echo "Batches: ${{ inputs.batches }} | Target work: ${{ inputs.target_work }}" >> summary.md
+          echo "" >> summary.md
+          echo "| Compiler | Workflow | Status |" >> summary.md
+          echo "|----------|----------|--------|" >> summary.md
+          echo "| GCC | run-all-benchmarks-gcc | ${{ needs.gcc.result }} |" >> summary.md
+          echo "| Clang | run-all-benchmarks-clang | ${{ needs.clang.result }} |" >> summary.md
+          echo "| MSVC | run-all-benchmarks-msvc | ${{ needs.msvc.result }} |" >> summary.md
+          echo "" >> summary.md
+
+          for compiler in gcc clang msvc; do
+            if [ -f "summaries/$compiler/summary.md" ]; then
+              echo "## $compiler" >> summary.md
+              cat "summaries/$compiler/summary.md" >> summary.md
+              echo "" >> summary.md
+            fi
+          done
+
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check results
+        run: |
+          if [[ "${{ needs.gcc.result }}" != "success" ]]; then
+            echo "GCC benchmarks failed"
+            exit 1
+          fi
+          if [[ "${{ needs.clang.result }}" != "success" ]]; then
+            echo "Clang benchmarks failed"
+            exit 1
+          fi
+          if [[ "${{ needs.msvc.result }}" != "success" ]]; then
+            echo "MSVC benchmarks failed"
+            exit 1
+          fi
+          echo "All compiler benchmark suites passed"
+
+      - name: Upload combined summary
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: benchmark-summary-all-compilers
+          path: summary.md

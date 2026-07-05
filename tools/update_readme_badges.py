@@ -47,6 +47,7 @@ LABELS = {
     "fatp-cbor-stream": "FatPCborStream CI",
     "build-benchmark-deps": "Build Benchmark Deps",
     "run-all": "Run All",
+    "run-all-benchmarks": "Run All Benchmarks (All Compilers)",
     "run-all-benchmarks-clang": "Run All Benchmarks (Clang)",
     "run-all-benchmarks-gcc": "Run All Benchmarks (GCC)",
     "run-all-benchmarks-msvc": "Run All Benchmarks (MSVC)",

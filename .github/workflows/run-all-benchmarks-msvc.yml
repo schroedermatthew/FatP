@@ -37,6 +37,18 @@ on:
         required: false
         default: '100000'
         type: string
+  workflow_call:
+    inputs:
+      batches:
+        description: 'Measured batches per benchmark'
+        required: false
+        default: '20'
+        type: string
+      target_work:
+        description: 'Target ops per batch'
+        required: false
+        default: '100000'
+        type: string
 
 jobs:
   # ===========================================================================

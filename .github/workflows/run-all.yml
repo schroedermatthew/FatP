@@ -79,7 +79,7 @@ jobs:
 
             # Don't trigger individual or orchestrator benchmark workflows
             case "$name" in
-              *-benchmarks.yml|run-all-benchmarks-*.yml|fatp-benchmark-runner.yml)
+              *-benchmarks.yml|run-all-benchmarks.yml|run-all-benchmarks-*.yml|fatp-benchmark-runner.yml)
                 continue
                 ;;
             esac

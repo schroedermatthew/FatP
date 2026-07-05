@@ -20,13 +20,13 @@ A header-only C++20 utility library. Zero external dependencies.
 
 #### Verification
 ![Layer & Dependency Verification](https://github.com/schroedermatthew/FatP/actions/workflows/ci_verify.yml/badge.svg)
-[![FATP_META Compliance](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml/badge.svg)](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml)
+![FATP_META Compliance](https://github.com/schroedermatthew/FatP/actions/workflows/fatp_meta_compliance.yml/badge.svg)
 ![Header Hygiene](https://github.com/schroedermatthew/FatP/actions/workflows/header-hygiene.yml/badge.svg)
 
 #### Components
 ![AlignedVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/aligned-vector.yml/badge.svg)
 ![AllocationStrategies CI](https://github.com/schroedermatthew/FatP/actions/workflows/allocation-strategies.yml/badge.svg)
-[![AsyncOperations CI](https://github.com/schroedermatthew/FatP/actions/workflows/async-operations.yml/badge.svg)](https://github.com/schroedematthew/FatP/actions/workflows/async-operations.yml)
+![AsyncOperations CI](https://github.com/schroedermatthew/FatP/actions/workflows/async-operations.yml/badge.svg)
 ![BinaryLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/binary-lite.yml/badge.svg)
 ![BitSet CI](https://github.com/schroedermatthew/FatP/actions/workflows/bit-set.yml/badge.svg)
 ![CacheUtilities CI](https://github.com/schroedermatthew/FatP/actions/workflows/cache-utilities.yml/badge.svg)
@@ -107,7 +107,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![ValueGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/value-guard.yml/badge.svg)
 ![ViewLifetimeTracking CI](https://github.com/schroedermatthew/FatP/actions/workflows/view-lifetime-tracking.yml/badge.svg)
 ![WorkQueue CI](https://github.com/schroedermatthew/FatP/actions/workflows/work-queue.yml/badge.svg)
-[![XmlLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml/badge.svg)](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml)
+![XmlLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml/badge.svg)
 
 #### Benchmarks
 ![AlignedVector Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/alignedvector-benchmarks.yml/badge.svg)
@@ -122,6 +122,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![LockFreeQueue Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/lockfreequeue-benchmarks.yml/badge.svg)
 ![ObjectPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/objectpool-benchmarks.yml/badge.svg)
 ![PolicyIterator Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/policyiterator-benchmarks.yml/badge.svg)
+![Run All Benchmarks (All Compilers)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks.yml/badge.svg)
 ![ServiceLocator Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/servicelocator-benchmarks.yml/badge.svg)
 ![Skeleton Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/skeleton-benchmarks.yml/badge.svg)
 ![SlotMap Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/slotmap-benchmarks.yml/badge.svg)
@@ -137,6 +138,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Run All Benchmarks (Clang)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-clang.yml/badge.svg)
 ![Run All Benchmarks (GCC)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-gcc.yml/badge.svg)
 ![Run All Benchmarks (MSVC)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-msvc.yml/badge.svg)
+![Run All Benchmarks (All Compilers)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks.yml/badge.svg)
 ![Run All](https://github.com/schroedermatthew/FatP/actions/workflows/run-all.yml/badge.svg)
 
 </details>
