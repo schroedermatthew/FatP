@@ -28,12 +28,13 @@ struct incrementable
     template <typename T>
     class modifier<T, impl::void_t<decltype(++std::declval<std::add_lvalue_reference_t<underlying_type_t<T>>>())>>
     {
+        using type = T;
     public:
         friend
         STRONG_CONSTEXPR
         T&
         operator++(T& t)
-        noexcept(noexcept(++std::declval<std::add_lvalue_reference_t<T>>().value_of()))
+        noexcept(noexcept(++value_of(std::declval<type&>())))
         {
             ++value_of(t);
             return t;
