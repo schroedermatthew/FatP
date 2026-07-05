@@ -68,6 +68,12 @@ struct ListProbe
 };
 FATP_XML_DEFINE_TYPE(ListProbe, items)
 
+struct DoubleListProbe
+{
+    std::vector<double> samplePoints;
+};
+FATP_XML_DEFINE_TYPE(DoubleListProbe, samplePoints)
+
 } // namespace fat_p::testing::xmllite_header_self_contained
 
 namespace fat_p::testing
@@ -84,7 +90,7 @@ bool test_XmlLite_HeaderSelfContained()
 
     int passed = 0;
     int failed = 0;
-    constexpr int kTotal = 4;
+    constexpr int kTotal = 5;
 
     std::cout << "[COMPILE] Running: parse_xml_available ... ";
     {
@@ -121,6 +127,17 @@ bool test_XmlLite_HeaderSelfContained()
             "<cfg><items><item><id>3</id></item><item><id>4</id></item></items></cfg>");
         const auto cfg = fat_p::from_xml<ListProbe>(root);
         const bool ok = (cfg.items.size() == 2u && cfg.items[0].id == 3 && cfg.items[1].id == 4);
+        std::cout << (ok ? "PASSED" : "FAILED") << "\n";
+        if (ok) ++passed;
+        else ++failed;
+    }
+
+    std::cout << "[COMPILE] Running: struct_vector_space_separated_double ... ";
+    {
+        const auto root = fat_p::parse_xml("<cfg><samplePoints>1.5 2.5</samplePoints></cfg>");
+        const auto cfg = fat_p::from_xml<DoubleListProbe>(root);
+        const bool ok = (cfg.samplePoints.size() == 2u &&
+                         cfg.samplePoints[0] == 1.5 && cfg.samplePoints[1] == 2.5);
         std::cout << (ok ? "PASSED" : "FAILED") << "\n";
         if (ok) ++passed;
         else ++failed;

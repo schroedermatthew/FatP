@@ -3,7 +3,7 @@ doc_id: OV-XMLLITE-001
 doc_type: "Overview"
 title: "XmlLite"
 fatp_components: ["XmlLite"]
-topics: ["XML config parsing", "macro struct deserialization", "enum class XML", "header-only parser", "zero dependencies", "strict config XML"]
+topics: ["XML config parsing", "macro struct deserialization", "std::vector fields", "enum class XML", "header-only parser", "zero dependencies", "strict config XML"]
 constraints: ["config XML not full XML", "no namespaces", "mixed content lossy", "exception-based errors", "leaf-only scalar elements"]
 cxx_standard: "C++20"
 std_equivalent: null
@@ -122,7 +122,11 @@ Navigation uses `child`, `require`, `all`, `has`, dotted `path`, and `hasPath`. 
 
 `FATP_XML_DEFINE_TYPE` and `FATP_XML_DEFINE_TYPE_OPTIONAL` generate struct `from_xml` without repeating tag names. Required macros enforce exactly one child per scalar/nested field and one wrapper per `std::vector` field; optional macros skip absent children. Nested structs work when their `from_xml` is visible to ADL.
 
-`std::vector` members need no extra macro — wrapper tag equals the field name. Ad-hoc list binding uses `from_xml(wrapper, vector)`, `from_xml(parent, tag, vector)`, or `xml_all`.
+`std::vector` members need no extra macro — wrapper tag equals the field name. Three binding modes:
+
+1. **Leaf text** — `<samplePoints>1.0 2.0</samplePoints>` for arithmetic vectors (dedicated `vector<double>` overload).
+2. **Wrapper loop** — `from_xml(wrapper, vector)` deserializes every child (struct macro default).
+3. **Filtered tag** — `from_xml(parent, tag, vector)` or `xml_all` when the parent mixes element types.
 
 ### 4. Enum class support (integer and string)
 

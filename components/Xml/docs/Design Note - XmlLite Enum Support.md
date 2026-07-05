@@ -155,7 +155,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 
 ### Obligations
 
-- Document vector deserialization modes and 50-field macro cap in User Manual.
+- [x] Document vector deserialization modes (leaf text, wrapper loop, filtered tag) and 50-field macro cap in User Manual.
 - Keep header self-containment test when changing macros or includes.
 - Do not reintroduce `EnumPlus.h` into `XmlLite.h` without an explicit architecture change.
 

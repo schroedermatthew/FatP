@@ -9,7 +9,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.PropertyTree"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-07-04"
+last_verified: "2026-07-05"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
@@ -319,25 +319,83 @@ Duplicate sibling tags throw for this overload, matching struct macro duplicate 
 
 ## Repeated Elements and Vector Struct Fields
 
-### Wrapper + item pattern
+XmlLite binds `std::vector` members in **three distinct ways** depending on XML shape. Struct macros (`FATP_XML_DEFINE_TYPE`) pick the right overload automatically — no extra registration macro.
 
-Repeated config data usually appears as a **wrapper element** (named after the field) containing repeated **item** children:
+### Mode 1: Space-separated numeric lists (leaf element)
+
+For elements whose text is whitespace-separated numbers:
 
 ```xml
-<items>
-    <item><id>1</id></item>
-    <item><id>2</id></item>
-</items>
+<samplePoints>2.0 3.0</samplePoints>
+<values>3 5 7</values>
 ```
 
-Collect items manually with `from_xml(parent, childTag, vector)`:
+`std::vector<double>` uses a dedicated leaf overload (compiler prefers it over the generic template). Other arithmetic types (`int`, `float`, …) use the generic two-arg overload on an empty-child wrapper:
+
+```cpp
+std::vector<double> pts;
+fat_p::from_xml(node.require("samplePoints"), pts);
+
+std::vector<int> vals;
+fat_p::from_xml(node.require("values"), vals);
+```
+
+- **How it works:** Reads trimmed text, tokenizes on whitespace, parses each token.
+- **Leaf rule:** `std::vector<double>` rejects child elements — use Mode 2 for child-based lists.
+- **Empty element:** `<samplePoints/>` yields an empty vector.
+
+### Mode 2: Wrapper-child structures (two-arg `from_xml`)
+
+For a wrapper containing repeated child elements (tag names are **not** filtered):
+
+```xml
+<extendedStates>
+    <extendedState><samplePoints>1.0 2.0</samplePoints></extendedState>
+    <extendedState><samplePoints>3.0</samplePoints></extendedState>
+</extendedStates>
+```
+
+```cpp
+std::vector<ExtendedState> states;
+fat_p::from_xml(parent.require("extendedStates"), states);
+```
+
+- **How it works:** Treats the node as a wrapper, loops `node.children`, deserializes each child as `T`.
+- **Why it wins:** No item-tag registration. Maps directly to `extendedStates` inside a parent struct.
+
+Struct macros use this mode for every `std::vector` field: the wrapper tag equals the field name (`#field`).
+
+```cpp
+struct ExtendedState {
+    std::vector<double> samplePoints;
+    std::vector<double> sampleWeights;
+};
+FATP_XML_DEFINE_TYPE(ExtendedState, samplePoints, sampleWeights)
+
+struct TargetConfig {
+    std::vector<ExtendedState> extendedStates;
+};
+FATP_XML_DEFINE_TYPE(TargetConfig, extendedStates)
+```
+
+### Mode 3: Filtered siblings (three-arg `from_xml` / `xml_all`)
+
+When the parent mixes element types and you only want one repeated tag:
+
+```xml
+<root>
+    <item><id>1</id></item>
+    <other>metadata</other>
+    <item><id>2</id></item>
+</root>
+```
 
 ```cpp
 std::vector<Item> items;
-fat_p::from_xml(parent.require("items"), "item", items);
+fat_p::from_xml(parent, "item", items);  // ignores <other>
 ```
 
-Or require a unique wrapper at the root with `xml_all`:
+Or require a unique wrapper at the root:
 
 ```cpp
 auto items = fat_p::xml_all<Item>(root, "items", "item");
@@ -345,28 +403,21 @@ auto items = fat_p::xml_all<Item>(root, "items", "item");
 
 Duplicate wrapper siblings throw, matching struct field duplicate detection.
 
+### Choosing a mode
+
+| Feature | Mode 1 (leaf text) | Mode 2 (wrapper loop) | Mode 3 (filtered tag) |
+|---------|-------------------|----------------------|----------------------|
+| XML shape | `<pts>1.0 2.0</pts>` | `<states><state>...</state></states>` | Mixed parent with one repeated tag |
+| API | `from_xml(node, vec)` | `from_xml(wrapper, vec)` | `from_xml(parent, tag, vec)` or `xml_all` |
+| Struct macro | Automatic for arithmetic `T` | Automatic for all `std::vector` fields | Manual / ad-hoc only |
+| Child tag names | N/A (leaf only) | Ignored | Must match `childTag` |
+
 ### `std::vector` members in struct macros
 
-`FATP_XML_DEFINE_TYPE` and `FATP_XML_DEFINE_TYPE_OPTIONAL` detect `std::vector<T>` members automatically. No extra registration macro is required — list the field in the struct macro as usual.
-
-Vectors deserialize in three ways depending on XML shape:
-
-1. **Space-separated leaf text** (arithmetic types, especially `double`):
-   ```xml
-   <samplePoints>2.0 3.0</samplePoints>
-   ```
-2. **Wrapper with child elements** — `from_xml(wrapper, vec)` deserializes every child (tag names ignored):
-   ```xml
-   <extendedStates><extendedState>...</extendedState></extendedStates>
-   ```
-3. **Filtered siblings** — `from_xml(parent, childTag, vec)` or `xml_all` when only one repeated tag is wanted under a mixed parent.
-
-Struct example:
+List vector fields in `FATP_XML_DEFINE_TYPE` as usual:
 
 ```cpp
-struct Item {
-    int id{};
-};
+struct Item { int id{}; };
 FATP_XML_DEFINE_TYPE(Item, id)
 
 struct Config {
@@ -374,7 +425,6 @@ struct Config {
     std::vector<Item> items;
     std::vector<double> samplePoints;
 };
-
 FATP_XML_DEFINE_TYPE(Config, name, items, samplePoints)
 ```
 
@@ -625,6 +675,14 @@ Provide `void from_xml(const fat_p::XmlNode&, T&)` in the same namespace as `T` 
 
 You called scalar `from_xml` on a node with nested elements. Bind a struct type or descend to the leaf child first.
 
+**`vector<double> from text requires leaf element`**
+
+You bound `std::vector<double>` to a wrapper with child elements. Use Mode 2 (`from_xml(wrapper, vec)` with struct child type) or store doubles as repeated child scalars under a non-`double` wrapper path.
+
+**`invalid float token` / `invalid integer token` (space-separated vector)**
+
+Whitespace-separated list in a leaf element contains a non-numeric token. Fix the XML text or switch to child-element lists (Mode 2).
+
 **`duplicate element: field inside: parent`**
 
 `FATP_XML_DEFINE_TYPE` found two siblings with the same scalar/nested field tag, or two wrapper elements for the same `std::vector` field. Remove the duplicate wrapper, or use a single wrapper with repeated item children inside it.
@@ -675,11 +733,13 @@ Cache `XmlNode` references or bind once into structs instead of re-walking dotte
 
 | API | Description |
 |-----|-------------|
-| `from_xml(node, T&)` | Populate `T` from node (overload set) |
+| `from_xml(node, T&)` | Populate `T` from node (scalar / struct / enum overload set) |
 | `from_xml<T>(node)` | Value-returning bind |
+| `from_xml(node, vector<double>&)` | Space-separated leaf text → `vector<double>` |
+| `from_xml(node, vector<T>&)` | Wrapper-child loop, or space-separated leaf for other arithmetic `T` |
 | `from_xml(parent, tag, optional<T>&)` | Optional child by tag; rejects duplicate siblings |
-| `from_xml(parent, tag, vector<T>&)` | Repeated children |
-| `xml_all<T>(parent, wrapper, item)` | Require unique wrapper, collect items |
+| `from_xml(parent, tag, vector<T>&)` | Filtered repeated children matching `tag` |
+| `xml_all<T>(parent, wrapper, item)` | Require unique wrapper, collect items by tag |
 
 ### Macros
 
@@ -687,7 +747,6 @@ Cache `XmlNode` references or bind once into structs instead of re-walking dotte
 |-------|---------|
 | `FATP_XML_DEFINE_TYPE(T, fields...)` | Required child per scalar/nested field; required wrapper per `std::vector` field (up to 50 fields) |
 | `FATP_XML_DEFINE_TYPE_OPTIONAL(T, fields...)` | Optional children per field (up to 50 fields) |
-| `from_xml(node, vector<T>&)` | Wrapper-child loop or space-separated leaf text |
 | `FATP_XML_ENUM_STRING_POLICY(E, enumerators...)` | String token map for enum (file scope; up to 50 tokens) |
 
 ### Enforcement

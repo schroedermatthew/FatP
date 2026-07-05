@@ -160,6 +160,25 @@ struct DoubleListXmlProbe
 };
 FATP_XML_DEFINE_TYPE(DoubleListXmlProbe, samplePoints)
 
+struct IntSpaceListXmlProbe
+{
+    std::vector<int> values;
+};
+FATP_XML_DEFINE_TYPE(IntSpaceListXmlProbe, values)
+
+struct ExtendedStateXmlProbe
+{
+    std::vector<double> samplePoints;
+    std::vector<double> sampleWeights;
+};
+FATP_XML_DEFINE_TYPE(ExtendedStateXmlProbe, samplePoints, sampleWeights)
+
+struct TargetConfigXmlProbe
+{
+    std::vector<ExtendedStateXmlProbe> extendedStates;
+};
+FATP_XML_DEFINE_TYPE(TargetConfigXmlProbe, extendedStates)
+
 [[nodiscard]] std::string nested_xml(int depth)
 {
     std::string xml;
@@ -597,6 +616,112 @@ FATP_TEST_CASE(deserialize_struct_vector_double_space_separated)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_vector_int_space_separated)
+{
+    const auto root = parse_xml("<values>3 5 7</values>");
+    std::vector<int> vals;
+    from_xml(root, vals);
+    FATP_ASSERT_EQ(vals.size(), size_t(3), "space-separated int vector size");
+    FATP_ASSERT_EQ(vals[0], 3, "space-separated int vector first");
+    FATP_ASSERT_EQ(vals[1], 5, "space-separated int vector second");
+    FATP_ASSERT_EQ(vals[2], 7, "space-separated int vector third");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_struct_vector_int_space_separated)
+{
+    const auto value = from_xml<IntSpaceListXmlProbe>(
+        parse_xml("<cfg><values>10 20</values></cfg>"));
+    FATP_ASSERT_EQ(value.values.size(), size_t(2), "struct space-separated int vector size");
+    FATP_ASSERT_EQ(value.values[0], 10, "struct space-separated int vector first");
+    FATP_ASSERT_EQ(value.values[1], 20, "struct space-separated int vector second");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_vector_double_empty_leaf)
+{
+    const auto root = parse_xml("<samplePoints/>");
+    std::vector<double> pts;
+    from_xml(root, pts);
+    FATP_ASSERT_EQ(pts.size(), size_t(0), "empty space-separated vector");
+    return true;
+}
+
+FATP_TEST_CASE(reject_vector_double_with_children)
+{
+    FATP_ASSERT_THROWS(
+        [] {
+            const auto root = parse_xml("<samplePoints><x>1.0</x></samplePoints>");
+            std::vector<double> pts;
+            from_xml(root, pts);
+        }(),
+        std::runtime_error,
+        "vector<double> leaf required");
+    return true;
+}
+
+FATP_TEST_CASE(reject_nonfinite_space_separated_double_vector)
+{
+    FATP_ASSERT_THROWS(
+        [] {
+            const auto root = parse_xml("<samplePoints>1.0 inf</samplePoints>");
+            std::vector<double> pts;
+            from_xml(root, pts);
+        }(),
+        std::runtime_error,
+        "non-finite space-separated double");
+    return true;
+}
+
+FATP_TEST_CASE(reject_invalid_token_space_separated_double_vector)
+{
+    FATP_ASSERT_THROWS(
+        [] {
+            const auto root = parse_xml("<samplePoints>1.0 not-a-number</samplePoints>");
+            std::vector<double> pts;
+            from_xml(root, pts);
+        }(),
+        std::runtime_error,
+        "invalid space-separated double token");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_nested_extended_states_struct)
+{
+    const auto value = from_xml<TargetConfigXmlProbe>(parse_xml(
+        "<target>"
+        "<extendedStates>"
+        "<extendedState>"
+        "<samplePoints>1.0 2.0</samplePoints>"
+        "<sampleWeights>0.25 0.75</sampleWeights>"
+        "</extendedState>"
+        "<extendedState>"
+        "<samplePoints>3.0</samplePoints>"
+        "<sampleWeights>1.0</sampleWeights>"
+        "</extendedState>"
+        "</extendedStates>"
+        "</target>"));
+    FATP_ASSERT_EQ(value.extendedStates.size(), size_t(2), "nested extendedStates size");
+    FATP_ASSERT_EQ(value.extendedStates[0].samplePoints.size(), size_t(2), "first state samplePoints");
+    FATP_ASSERT_CLOSE(value.extendedStates[0].samplePoints[0], 1.0, "first state first point");
+    FATP_ASSERT_CLOSE(value.extendedStates[0].sampleWeights[1], 0.75, "first state second weight");
+    FATP_ASSERT_EQ(value.extendedStates[1].samplePoints.size(), size_t(1), "second state samplePoints");
+    FATP_ASSERT_CLOSE(value.extendedStates[1].samplePoints[0], 3.0, "second state point");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_vector_filtered_siblings)
+{
+    const auto root = parse_xml(
+        "<root><item><id>1</id></item><other>skip</other><item><id>2</id></item></root>");
+    std::vector<InnerListXmlProbe> items;
+    from_xml(root, "item", items);
+    FATP_ASSERT_EQ(items.size(), size_t(2), "filtered sibling vector size");
+    FATP_ASSERT_EQ(items[0].id, 1, "filtered sibling vector first");
+    FATP_ASSERT_EQ(items[1].id, 2, "filtered sibling vector second");
+    return true;
+}
+
 FATP_TEST_CASE(deserialize_xml_all_wrapper)
 {
     const auto root = parse_xml("<root><items><item><id>10</id></item><item><id>20</id></item></items></root>");
@@ -918,10 +1043,20 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_absent);
-    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
-    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_wrapper_all_children);
+
+    out << "\n" << colors::blue() << "--- Vector Deserialization ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_double_space_separated);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_int_space_separated);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_double_empty_leaf);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_vector_double_with_children);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_nonfinite_space_separated_double_vector);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_invalid_token_space_separated_double_vector);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_wrapper_all_children);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_filtered_siblings);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_double_space_separated);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_int_space_separated);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_nested_extended_states_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_field);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_field_empty);

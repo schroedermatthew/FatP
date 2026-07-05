@@ -909,26 +909,6 @@ inline void from_xml(const XmlNode& parent, const std::string& childTag,
     }
 }
 
-/// Space-separated numeric list in a leaf element (e.g. `<samplePoints>2.0 3.0</samplePoints>`).
-inline void from_xml(const XmlNode& node, std::vector<double>& vec)
-{
-    FATP_XML_ENFORCE(node.children.empty(),
-                     "vector<double> from text requires leaf element:",
-                     node.tag);
-    vec.clear();
-    const std::string txt{node.trimmedText()};
-    if (txt.empty()) return;
-
-    std::istringstream iss(txt);
-    double v = 0;
-    while (iss >> v)
-    {
-        FATP_XML_ENFORCE(std::isfinite(v),
-                         "non-finite double in element:", node.tag);
-        vec.push_back(v);
-    }
-}
-
 namespace xml_detail
 {
 
@@ -950,7 +930,17 @@ inline void from_xml_space_separated_leaf(const XmlNode& node, std::vector<T>& v
 
         T parsed{};
         const auto token = txt.substr(start, end - start);
-        if constexpr (std::is_same_v<T, float>)
+        if constexpr (std::is_same_v<T, double>)
+        {
+            double temp = 0;
+            auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), temp);
+            FATP_XML_ENFORCE(ec == std::errc{} && ptr == token.data() + token.size(),
+                             "invalid double token in element:", node.tag);
+            FATP_XML_ENFORCE(std::isfinite(temp),
+                             "non-finite double in element:", node.tag);
+            parsed = temp;
+        }
+        else if constexpr (std::is_same_v<T, float>)
         {
             double temp = 0;
             auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), temp);
@@ -995,6 +985,15 @@ inline void from_xml_space_separated_leaf(const XmlNode& node, std::vector<T>& v
 }
 
 } // namespace xml_detail
+
+/// Space-separated numeric list in a leaf element (e.g. `<samplePoints>2.0 3.0</samplePoints>`).
+inline void from_xml(const XmlNode& node, std::vector<double>& vec)
+{
+    FATP_XML_ENFORCE(node.children.empty(),
+                     "vector<double> from text requires leaf element:",
+                     node.tag);
+    xml_detail::from_xml_space_separated_leaf(node, vec);
+}
 
 /// Wrapper-child vector: deserialize every child element as T (tag names ignored).
 template <typename T>
