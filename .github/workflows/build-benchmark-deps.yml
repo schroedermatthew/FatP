@@ -83,6 +83,23 @@ on:
         options:
           - 'false'
           - 'true'
+  workflow_call:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild even if cache exists'
+        required: false
+        default: 'false'
+        type: string
+      delete_caches:
+        description: 'Delete all existing dep caches before building'
+        required: false
+        default: 'false'
+        type: string
+
+# Serialize concurrent dep builds when many benchmark workflows dispatch together.
+concurrency:
+  group: fatp-bench-deps
+  cancel-in-progress: false
 
 jobs:
   # ===========================================================================
@@ -90,12 +107,12 @@ jobs:
   # ===========================================================================
   purge-caches:
     name: Purge Existing Caches
-    if: inputs.delete_caches == 'true'
     runs-on: ubuntu-latest
     permissions:
       actions: write
     steps:
       - name: Delete all fatp-bench-deps caches
+        if: inputs.delete_caches == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -111,6 +128,9 @@ jobs:
             done
             echo "Done. All fatp-bench-deps caches deleted."
           fi
+      - name: Skip purge
+        if: inputs.delete_caches != 'true'
+        run: echo "Cache purge not requested."
   # ===========================================================================
   # Header-Only External Dependencies (runs once, universal)
   # ===========================================================================
@@ -785,3 +805,14 @@ jobs:
           echo "Rebuild by bumping the version suffix (e.g. v1 → v2) in:" >> $GITHUB_STEP_SUMMARY
           echo "- \`build-benchmark-deps.yml\` (this file)" >> $GITHUB_STEP_SUMMARY
           echo "- All \`*-benchmarks.yml\` workflows that consume these caches" >> $GITHUB_STEP_SUMMARY
+
+          for result in \
+            "${{ needs.header-only.result }}" \
+            "${{ needs.compiled-gcc.result }}" \
+            "${{ needs.compiled-clang.result }}" \
+            "${{ needs.vcpkg-msvc.result }}"; do
+            if [ "$result" != "success" ]; then
+              echo "::error::Benchmark dependency cache build did not succeed (status: $result)."
+              exit 1
+            fi
+          done

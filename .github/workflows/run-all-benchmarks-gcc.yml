@@ -5,7 +5,7 @@
 # Manual-only (workflow_dispatch).
 #
 # Prerequisites:
-#   Shared caches built by build-benchmark-deps.yml (run it first).
+#   ensure-deps job builds/restores shared caches automatically.
 #
 # Structure:
 #   1. Standard benchmarks — matrix job with shared cache deps
@@ -34,9 +34,18 @@ on:
 
 jobs:
   # ===========================================================================
+  # Ensure shared benchmark dependency caches exist
+  # ===========================================================================
+  ensure-deps:
+    name: Ensure Benchmark Dependencies
+    uses: ./.github/workflows/build-benchmark-deps.yml
+    secrets: inherit
+
+  # ===========================================================================
   # All Benchmarks (shared cache + vendored deps)
   # ===========================================================================
   benchmarks:
+    needs: ensure-deps
     name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
     strategy:

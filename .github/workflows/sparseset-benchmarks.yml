@@ -40,9 +40,18 @@ env:
 
 jobs:
   # ===========================================================================
+  # Ensure shared benchmark dependency caches exist
+  # ===========================================================================
+  ensure-deps:
+    name: Ensure Benchmark Dependencies
+    uses: ./.github/workflows/build-benchmark-deps.yml
+    secrets: inherit
+
+  # ===========================================================================
   # Linux GCC Benchmarks
   # ===========================================================================
   benchmarks-gcc:
+    needs: ensure-deps
     name: GCC-${{ matrix.version }} C++20
     runs-on: ubuntu-24.04
     strategy:
@@ -119,6 +128,7 @@ jobs:
   # Linux Clang Benchmarks
   # ===========================================================================
   benchmarks-clang:
+    needs: ensure-deps
     name: Clang-${{ matrix.version }} C++20
     runs-on: ubuntu-24.04
     strategy:
@@ -195,6 +205,7 @@ jobs:
   # Windows MSVC Benchmarks
   # ===========================================================================
   benchmarks-msvc:
+    needs: ensure-deps
     name: MSVC C++20
     runs-on: windows-latest
 

@@ -31,7 +31,16 @@ env:
   BENCH_SRC: components/LockFreeContainers/benchmarks/benchmark_LockFreeQueue.cpp
 
 jobs:
+  # ===========================================================================
+  # Ensure shared benchmark dependency caches exist
+  # ===========================================================================
+  ensure-deps:
+    name: Ensure Benchmark Dependencies
+    uses: ./.github/workflows/build-benchmark-deps.yml
+    secrets: inherit
+
   benchmarks-gcc:
+    needs: ensure-deps
     name: GCC-${{ matrix.version }} C++20
     runs-on: ubuntu-24.04
     strategy:
@@ -89,6 +98,7 @@ jobs:
             benchmark_gcc${{ matrix.version }}_cpp20.log
 
   benchmarks-clang:
+    needs: ensure-deps
     name: Clang-${{ matrix.version }} C++20
     runs-on: ubuntu-24.04
     strategy:
@@ -146,6 +156,7 @@ jobs:
             benchmark_clang${{ matrix.version }}_cpp20.log
 
   benchmarks-msvc:
+    needs: ensure-deps
     name: MSVC C++20
     runs-on: windows-latest
     steps:
