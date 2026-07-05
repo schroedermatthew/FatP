@@ -105,6 +105,12 @@ FATP_META:
 #include <unordered_set>
 #include <vector>
 
+// Vendored strong_type before FatPBenchmarkRunner (pulls windows.h). MSVC cannot
+// parse several strong_type noexcept/friend templates once Win32 macros are live.
+#if __has_include(<strong_type/strong_type.hpp>)
+#include <strong_type/strong_type.hpp>
+#endif
+
 #include "FatPBenchmarkRunner.h"
 #include "FatPBenchmarkHeader.h"
 
