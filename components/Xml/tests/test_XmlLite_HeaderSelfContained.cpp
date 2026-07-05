@@ -36,6 +36,8 @@ FATP_META:
 #include "XmlLite.h"  // Validate idempotence (#pragma once)
 
 #include <iostream>
+#include <string>
+#include <vector>
 
 // FATP_XML_ENUM_STRING_POLICY must be at file scope (not inside any namespace).
 enum class HeaderProbeMode
@@ -54,7 +56,21 @@ struct Probe
 };
 FATP_XML_DEFINE_TYPE(Probe, value)
 
+struct ItemProbe
+{
+    int id{};
+};
+FATP_XML_DEFINE_TYPE(ItemProbe, id)
+
+struct ListProbe
+{
+    std::vector<ItemProbe> items;
+};
+FATP_XML_DEFINE_TYPE(ListProbe, items)
+
 } // namespace fat_p::testing::xmllite_header_self_contained
+
+FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite_header_self_contained::ListProbe, items, item)
 
 namespace fat_p::testing
 {
@@ -70,7 +86,7 @@ bool test_XmlLite_HeaderSelfContained()
 
     int passed = 0;
     int failed = 0;
-    constexpr int kTotal = 3;
+    constexpr int kTotal = 4;
 
     std::cout << "[COMPILE] Running: parse_xml_available ... ";
     {
@@ -96,6 +112,17 @@ bool test_XmlLite_HeaderSelfContained()
         const auto root = fat_p::parse_xml("<mode>On</mode>");
         const auto mode = fat_p::from_xml<HeaderProbeMode>(root);
         const bool ok = (mode == HeaderProbeMode::On);
+        std::cout << (ok ? "PASSED" : "FAILED") << "\n";
+        if (ok) ++passed;
+        else ++failed;
+    }
+
+    std::cout << "[COMPILE] Running: struct_vector_field_macro ... ";
+    {
+        const auto root = fat_p::parse_xml(
+            "<cfg><items><item><id>3</id></item><item><id>4</id></item></items></cfg>");
+        const auto cfg = fat_p::from_xml<ListProbe>(root);
+        const bool ok = (cfg.items.size() == 2u && cfg.items[0].id == 3 && cfg.items[1].id == 4);
         std::cout << (ok ? "PASSED" : "FAILED") << "\n";
         if (ok) ++passed;
         else ++failed;

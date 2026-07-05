@@ -611,6 +611,28 @@ FATP_TEST_CASE(reject_missing_required_struct_vector_field)
     return true;
 }
 
+FATP_TEST_CASE(reject_duplicate_struct_vector_wrapper)
+{
+    FATP_ASSERT_THROWS(
+        from_xml<ConfigListXmlProbe>(parse_xml(
+            "<cfg><name>x</name>"
+            "<items><item><id>1</id></item></items>"
+            "<items><item><id>2</id></item></items></cfg>")),
+        std::runtime_error,
+        "duplicate struct vector wrapper");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_optional_struct_vector_field_present)
+{
+    const auto value = from_xml<ConfigOptionalListXmlProbe>(parse_xml(
+        "<cfg><items><item><id>7</id></item><item><id>8</id></item></items></cfg>"));
+    FATP_ASSERT_EQ(value.items.size(), size_t(2), "optional struct vector present size");
+    FATP_ASSERT_EQ(value.items[0].id, 7, "optional struct vector present first");
+    FATP_ASSERT_EQ(value.items[1].id, 8, "optional struct vector present second");
+    return true;
+}
+
 FATP_TEST_CASE(reject_xml_all_missing_wrapper)
 {
     const auto root = parse_xml("<root><item><id>1</id></item></root>");
@@ -866,6 +888,8 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_struct_vector_field_absent);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_of_scalars);
     FATP_RUN_TEST_NS(runner, xmllite, reject_missing_required_struct_vector_field);
+    FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_struct_vector_wrapper);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_struct_vector_field_present);
     FATP_RUN_TEST_NS(runner, xmllite, reject_xml_all_missing_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, reject_duplicate_xml_all_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, optional_macro_keeps_member_default);

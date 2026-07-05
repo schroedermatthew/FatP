@@ -3,13 +3,13 @@ doc_id: UM-XMLLITE-001
 doc_type: "User Manual"
 title: "XmlLite"
 fatp_components: ["XmlLite"]
-topics: ["XML parsing", "from_xml deserialization", "FATP_XML_DEFINE_TYPE", "FATP_XML_ENUM_STRING_POLICY", "xml_all", "config file I/O", "XmlNode query API", "strict config XML"]
-constraints: ["leaf-only scalar elements", "no vector struct macro fields", "file-scope enum policy macro", "namespaces rejected", "parse-only no to_xml"]
+topics: ["XML parsing", "from_xml deserialization", "FATP_XML_DEFINE_TYPE", "FATP_XML_VECTOR_ITEM_TAG", "FATP_XML_ENUM_STRING_POLICY", "xml_all", "config file I/O", "XmlNode query API", "strict config XML"]
+constraints: ["leaf-only scalar elements", "file-scope vector item-tag and enum policy macros", "namespaces rejected", "parse-only no to_xml"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.PropertyTree"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-07-05"
+last_verified: "2026-07-04"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
@@ -32,10 +32,10 @@ status: "reviewed"
 
 **Component:** XmlLite  
 **Primary use case:** Load application configuration from XML into typed C++ structs at startup  
-**Integration pattern:** `#include "XmlLite.h"`, `parse_xml_file`, `FATP_XML_DEFINE_TYPE`, optional `FATP_XML_ENUM_STRING_POLICY`  
-**Key API:** `parse_xml()`, `parse_xml_file()`, `from_xml()`, `xml_all()`, `FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`, `FATP_XML_ENUM_STRING_POLICY`  
+**Integration pattern:** `#include "XmlLite.h"`, `parse_xml_file`, `FATP_XML_DEFINE_TYPE`, optional `FATP_XML_ENUM_STRING_POLICY` and `FATP_XML_VECTOR_ITEM_TAG`  
+**Key API:** `parse_xml()`, `parse_xml_file()`, `from_xml()`, `xml_all()`, `FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`, `FATP_XML_VECTOR_ITEM_TAG`, `FATP_XML_ENUM_STRING_POLICY`  
 **std equivalent:** None  
-**Common mistakes:** Enum policy inside a namespace; vector fields in struct macros; scalar `from_xml` on elements with children; assuming integer enums validate enumerator names  
+**Common mistakes:** Enum or vector item-tag macro inside a namespace; forgetting `FATP_XML_VECTOR_ITEM_TAG` for `std::vector` members; scalar `from_xml` on elements with children; assuming integer enums validate enumerator names
 **Performance notes:** Single-pass parse into memory-backed tree; suitable for config-sized files. See `components/Xml/benchmarks/` when data exists.
 
 ---
@@ -50,7 +50,7 @@ status: "reviewed"
 6. [Scalar Binding: The Leaf Rule](#scalar-binding-the-leaf-rule)
 7. [Struct Macros: One Element Per Field](#struct-macros-one-element-per-field)
 8. [Optional Fields: Defaults vs Absence](#optional-fields-defaults-vs-absence)
-9. [Repeated Elements: Why Macros Stop Short](#repeated-elements-why-macros-stop-short)
+9. [Repeated Elements and Vector Struct Fields](#repeated-elements-and-vector-struct-fields)
 10. [Enum Binding: Integer vs String Policy](#enum-binding-integer-vs-string-policy)
 11. [Error Handling Model](#error-handling-model)
 12. [Parser Strictness](#parser-strictness)
@@ -280,7 +280,7 @@ Nested structs work when their generated or hand-written `from_xml` is found by 
 
 ### The duplicate sibling distinction
 
-Struct fields reject duplicate child tags because duplicates indicate a schema mistake for scalar/nested fields. **Vectors** (later section) intentionally allow repeated siblings — same XML pattern, different API entry point.
+Scalar and nested struct fields reject duplicate child tags because duplicates indicate a schema mistake. **`std::vector` members** (next section) use a wrapper element named after the field; repeated **item** children inside that wrapper are intentional.
 
 ---
 
@@ -317,11 +317,11 @@ Duplicate sibling tags throw for this overload, matching struct macro duplicate 
 
 ---
 
-## Repeated Elements: Why Macros Stop Short
+## Repeated Elements and Vector Struct Fields
 
-### The vector API
+### Wrapper + item pattern
 
-Repeated siblings share a tag name. Collect them with `from_xml(parent, childTag, vector)`:
+Repeated config data usually appears as a **wrapper element** (named after the field) containing repeated **item** children:
 
 ```xml
 <items>
@@ -330,12 +330,14 @@ Repeated siblings share a tag name. Collect them with `from_xml(parent, childTag
 </items>
 ```
 
+Collect items manually with `from_xml(parent, childTag, vector)`:
+
 ```cpp
 std::vector<Item> items;
 fat_p::from_xml(parent.require("items"), "item", items);
 ```
 
-`xml_all` requires a unique wrapper element, then collects repeated item children:
+Or require a unique wrapper at the root with `xml_all`:
 
 ```cpp
 auto items = fat_p::xml_all<Item>(root, "items", "item");
@@ -343,13 +345,58 @@ auto items = fat_p::xml_all<Item>(root, "items", "item");
 
 Duplicate wrapper siblings throw, matching struct field duplicate detection.
 
-### Why macros do not cover vectors
+### `std::vector` members in struct macros
 
-`FATP_XML_DEFINE_TYPE` expands one `require_unique_child` per field. Vectors need zero-or-many matches, not zero-or-one. A future `FATP_XML_DEFINE_TYPE_VECTOR` could exist; today the explicit API keeps macro semantics plain and duplicate detection strict for scalar fields.
+`FATP_XML_DEFINE_TYPE` and `FATP_XML_DEFINE_TYPE_OPTIONAL` detect `std::vector<T>` members automatically. Register the repeated child tag with `FATP_XML_VECTOR_ITEM_TAG` at **global file scope** (same placement rules as `FATP_XML_ENUM_STRING_POLICY`):
+
+```cpp
+struct Item {
+    int id{};
+};
+FATP_XML_DEFINE_TYPE(Item, id)
+
+struct Config {
+    std::string name;
+    std::vector<Item> items;
+};
+
+FATP_XML_VECTOR_ITEM_TAG(Config, items, item)
+FATP_XML_DEFINE_TYPE(Config, name, items)
+```
+
+```xml
+<config>
+    <name>alpha</name>
+    <items>
+        <item><id>1</id></item>
+        <item><id>2</id></item>
+    </items>
+</config>
+```
+
+```cpp
+Config cfg = fat_p::from_xml<Config>(root.require("config"));
+```
+
+| Macro | Vector wrapper (`<items>`) | Items inside wrapper |
+|-------|---------------------------|----------------------|
+| `FATP_XML_DEFINE_TYPE` | Required (may be empty) | Zero or more `<item>` children |
+| `FATP_XML_DEFINE_TYPE_OPTIONAL` | Optional | Populated when wrapper present |
+
+`std::vector<int>` and other scalar element types work the same way — register the item tag that matches the repeated child element name (e.g. `value` for `<values><value>3</value></values>`).
+
+For structs declared in a user namespace, pass the **qualified type name** to the macro:
+
+```cpp
+namespace app { struct Config { std::vector<Item> items; }; }
+FATP_XML_VECTOR_ITEM_TAG(app::Config, items, item)
+```
+
+Omitting `FATP_XML_VECTOR_ITEM_TAG` for a `std::vector` member is a **compile-time error** with a message pointing at the macro.
 
 ### Macro argument limits
 
-`FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`, and `FATP_XML_ENUM_STRING_POLICY` each accept up to **50** fields or enumerator tokens. For larger schemas, write a custom `from_xml` overload.
+`FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`, `FATP_XML_ENUM_STRING_POLICY`, and `FATP_XML_VECTOR_ITEM_TAG` each accept up to **50** fields or enumerator tokens per macro invocation. For larger schemas, write a custom `from_xml` overload.
 
 ---
 
@@ -580,7 +627,7 @@ You called scalar `from_xml` on a node with nested elements. Bind a struct type 
 
 **`duplicate element: field inside: parent`**
 
-`FATP_XML_DEFINE_TYPE` found two siblings with the same field tag. Remove the duplicate or switch to vector collection API.
+`FATP_XML_DEFINE_TYPE` found two siblings with the same scalar/nested field tag, or two wrapper elements for the same `std::vector` field. Remove the duplicate wrapper, or use a single wrapper with repeated item children inside it.
 
 **`invalid enum in element`**
 
@@ -638,8 +685,9 @@ Cache `XmlNode` references or bind once into structs instead of re-walking dotte
 
 | Macro | Purpose |
 |-------|---------|
-| `FATP_XML_DEFINE_TYPE(T, fields...)` | Required child per field (up to 50 fields) |
+| `FATP_XML_DEFINE_TYPE(T, fields...)` | Required child per scalar/nested field; required wrapper per `std::vector` field (up to 50 fields) |
 | `FATP_XML_DEFINE_TYPE_OPTIONAL(T, fields...)` | Optional children per field (up to 50 fields) |
+| `FATP_XML_VECTOR_ITEM_TAG(T, field, itemTag)` | Repeated child tag for a `std::vector` member (file scope; qualified `T` for namespaced structs) |
 | `FATP_XML_ENUM_STRING_POLICY(E, enumerators...)` | String token map for enum (file scope; up to 50 tokens) |
 
 ### Enforcement
@@ -665,7 +713,7 @@ Config decks in this stack use local tag names. Namespace support adds complexit
 XmlLite policies are XML-local. Tokens can match by convention, but macros are separate unless you standardize spellings manually.
 
 **Does `FATP_XML_DEFINE_TYPE` support `std::vector` fields?**  
-No. Use `from_xml(parent, tag, vec)` or `xml_all`.
+Yes. Add `FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)` at file scope, then list the field in `FATP_XML_DEFINE_TYPE` as usual. For ad-hoc binding outside a struct macro, use `from_xml(parent, tag, vec)` or `xml_all`.
 
 **Integer enum accepted value not in enumerator list — is that a bug?**  
 No. Integer path validates underlying range only. Use string policy for closed token sets.
@@ -686,7 +734,7 @@ XmlLite loads config-shaped XML into typed C++ with one self-contained header:
 2. **Navigate** with `child`, `require`, `path`, `hasPath`
 3. **Bind scalars** under the leaf rule
 4. **Bind structs** with `FATP_XML_DEFINE_TYPE` / `_OPTIONAL`
-5. **Bind lists** with `from_xml` / `xml_all`
+5. **Bind vector struct fields** with `FATP_XML_VECTOR_ITEM_TAG` + struct macros, or ad-hoc `from_xml` / `xml_all`
 6. **Bind enums** with integer underlying type or `FATP_XML_ENUM_STRING_POLICY`
 
 For architectural history (rejected FatPXml split), see `Design Note - XmlLite Enum Support.md`. For positioning vs alternatives, see `Overview - XmlLite.md`.
