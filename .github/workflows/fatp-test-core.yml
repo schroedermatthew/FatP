@@ -16,11 +16,17 @@ on:
     paths:
       - 'include/fat_p/FatPTest.h'
       - 'components/FatPTest/tests/test_FatP.cpp'
+      - 'components/FatPTest/tests/test_FatP.h'
+      - 'components/**/tests/test_*.cpp'
+      - 'tools/collect_fatp_test_sources.py'
       - '.github/workflows/fatp-test-core.yml'
   pull_request:
     paths:
       - 'include/fat_p/FatPTest.h'
       - 'components/FatPTest/tests/test_FatP.cpp'
+      - 'components/FatPTest/tests/test_FatP.h'
+      - 'components/**/tests/test_*.cpp'
+      - 'tools/collect_fatp_test_sources.py'
       - '.github/workflows/fatp-test-core.yml'
 
 env:
@@ -52,12 +58,15 @@ jobs:
       - name: Build tests
         run: |
           LINK_EXTRA=""
+          if [ "${{ matrix.std }}" = "23" ]; then
+            LINK_EXTRA="-lstdc++exp -pthread"
+          fi
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
-            -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin $LINK_EXTRA
+            "${TEST_SRCS[@]}" -o test_bin $LINK_EXTRA
 
       - name: Run tests
         run: ./test_bin
@@ -88,13 +97,14 @@ jobs:
 
       - name: Build tests
         run: |
+          LINK_EXTRA=""
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
-            -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            "${TEST_SRCS[@]}" -o test_bin $LINK_EXTRA
 
       - name: Run tests
         run: ./test_bin
@@ -123,8 +133,10 @@ jobs:
           arch: x64
 
       - name: Build tests
-        shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\FatPTest\tests\test_FatP.cpp /Fe:test_bin.exe /link advapi32.lib
+        shell: pwsh
+        run: |
+          $srcs = python tools/collect_fatp_test_sources.py --msvc
+          cmd /c "cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p $srcs /Fe:test_bin.exe /link advapi32.lib"
 
       - name: Run tests
         run: .\test_bin.exe
@@ -141,11 +153,11 @@ jobs:
 
       - name: Build with ASan
         run: |
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
-            -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            "${TEST_SRCS[@]}" -o test_bin
 
       - name: Run with ASan
         env:
@@ -161,11 +173,11 @@ jobs:
 
       - name: Build with UBSan
         run: |
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
-            -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            "${TEST_SRCS[@]}" -o test_bin
 
       - name: Run with UBSan
         env:
@@ -181,11 +193,11 @@ jobs:
 
       - name: Build with TSan
         run: |
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
-            -DENABLE_TEST_APPLICATION \
             -I./include/fat_p \
-            ${{ env.TEST_SRC }} -o test_bin
+            "${TEST_SRCS[@]}" -o test_bin
 
       - name: Run with TSan
         env:
@@ -246,13 +258,14 @@ jobs:
 
       - name: Compile with strict warnings
         run: |
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           g++-13 -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
               -Werror \
-              -DENABLE_TEST_APPLICATION -I./include/fat_p \
-              -o test_strict ${{ env.TEST_SRC }}
+              -I./include/fat_p \
+              -o test_strict "${TEST_SRCS[@]}"
           echo "No warnings"
 
   # ===========================================================================

@@ -39,7 +39,10 @@ OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 # Extra link libraries for GCC C++23 builds (e.g. std::stacktrace in libstdc++exp).
 COMPONENT_GCC_CPP23_EXTRA_LIBS = {
     "Stacktrace": "-lstdc++exp",
+    "FatP": "-lstdc++exp -pthread",
 }
+
+FATP_AGGREGATE_WORKFLOW = "fatp-test-core.yml"
 
 STANDARD_COMPONENTS = [
     # =========================================================================
@@ -358,6 +361,41 @@ def generate_header_block(filename, component, header, test_src, bench_src):
     return "\n".join(lines)
 
 
+def generate_aggregate_trigger_block(filename):
+    """Trigger when any aggregate test input changes."""
+    paths = [
+        "include/fat_p/FatPTest.h",
+        "components/FatPTest/tests/test_FatP.cpp",
+        "components/FatPTest/tests/test_FatP.h",
+        "components/**/tests/test_*.cpp",
+        "tools/collect_fatp_test_sources.py",
+        f".github/workflows/{filename}",
+    ]
+    path_yaml = "\n".join(f"      - '{p}'" for p in paths)
+    return f"""
+on:
+  workflow_dispatch:
+  push:
+    paths:
+{path_yaml}
+  pull_request:
+    paths:
+{path_yaml}"""
+
+
+def aggregate_unix_build(compiler_line, extra_flags="", link_setup=""):
+    """Build all component tests for test_FatP.cpp without standalone mains."""
+    link_block = link_setup or '          LINK_EXTRA=""'
+    extra = f"            {extra_flags}\n" if extra_flags else ""
+    return f"""{link_block}
+          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
+          {compiler_line} \\
+            -Wall -Wextra -Wpedantic -Werror \\
+{extra}            -O2 -DNDEBUG \\
+            -I./include/fat_p \\
+            "${{TEST_SRCS[@]}}" -o test_bin $LINK_EXTRA"""
+
+
 def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src):
     """Generate the on: trigger block with push/pull_request path triggers."""
     # Build path list: header, test file, benchmark file (if any), workflow itself
@@ -412,13 +450,27 @@ def generate_env_block(header, test_src, bench_src):
     return "\n".join(lines)
 
 
-def generate_linux_gcc_job(gcc_cpp23_extra_libs=""):
+def generate_linux_gcc_job(gcc_cpp23_extra_libs="", aggregate=False):
     link_setup = "          LINK_EXTRA=\"\""
     if gcc_cpp23_extra_libs:
         link_setup = f"""          LINK_EXTRA=""
           if [ "${{{{ matrix.std }}}}" = "23" ]; then
             LINK_EXTRA="{gcc_cpp23_extra_libs}"
           fi"""
+    build_body = (
+        aggregate_unix_build(
+            "g++-${{ matrix.version }} -std=c++${{ matrix.std }}",
+            link_setup=link_setup,
+        )
+        if aggregate
+        else f"""{link_setup}
+          g++-${{{{ matrix.version }}}} -std=c++${{{{ matrix.std }}}} \\
+            -Wall -Wextra -Wpedantic -Werror \\
+            -O2 -DNDEBUG \\
+            -DENABLE_TEST_APPLICATION \\
+            -I./include/fat_p \\
+            ${{{{ env.TEST_SRC }}}} -o test_bin $LINK_EXTRA"""
+    )
     return f"""
 jobs:
   # ===========================================================================
@@ -444,19 +496,27 @@ jobs:
 
       - name: Build tests
         run: |
-{link_setup}
-          g++-${{{{ matrix.version }}}} -std=c++${{{{ matrix.std }}}} \\
-            -Wall -Wextra -Wpedantic -Werror \\
-            -O2 -DNDEBUG \\
-            -DENABLE_TEST_APPLICATION \\
-            -I./include/fat_p \\
-            ${{{{ env.TEST_SRC }}}} -o test_bin $LINK_EXTRA
+{build_body}
 
       - name: Run tests
         run: ./test_bin"""
 
 
-def generate_linux_clang_job():
+def generate_linux_clang_job(aggregate=False):
+    build_body = (
+        aggregate_unix_build(
+            "clang++-${{ matrix.version }} -std=c++${{ matrix.std }}",
+            extra_flags="-Wno-gnu-zero-variadic-macro-arguments \\",
+        )
+        if aggregate
+        else """          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \\
+            -Wall -Wextra -Wpedantic -Werror \\
+            -Wno-gnu-zero-variadic-macro-arguments \\
+            -O2 -DNDEBUG \\
+            -DENABLE_TEST_APPLICATION \\
+            -I./include/fat_p \\
+            ${{ env.TEST_SRC }} -o test_bin"""
+    )
     return """
   # ===========================================================================
   # Linux Clang Builds (C++20/C++23)
@@ -484,20 +544,24 @@ def generate_linux_clang_job():
 
       - name: Build tests
         run: |
-          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \\
-            -Wall -Wextra -Wpedantic -Werror \\
-            -Wno-gnu-zero-variadic-macro-arguments \\
-            -O2 -DNDEBUG \\
-            -DENABLE_TEST_APPLICATION \\
-            -I./include/fat_p \\
-            ${{ env.TEST_SRC }} -o test_bin
+__BUILD_BODY__
 
       - name: Run tests
-        run: ./test_bin"""
+        run: ./test_bin""".replace("__BUILD_BODY__", build_body)
 
 
-def generate_windows_msvc_job(test_src):
+def generate_windows_msvc_job(test_src, aggregate=False):
     bs_test = backslash_path(test_src)
+    if aggregate:
+        build_step = """      - name: Build tests
+        shell: pwsh
+        run: |
+          $srcs = python tools/collect_fatp_test_sources.py --msvc
+          cmd /c "cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\\include\\fat_p $srcs /Fe:test_bin.exe /link advapi32.lib\""""
+    else:
+        build_step = f"""      - name: Build tests
+        shell: cmd
+        run: cl ${{{{ matrix.flag }}}} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_bin.exe /link advapi32.lib"""
     return f"""
   # ===========================================================================
   # Windows MSVC Builds (C++20/C++23)
@@ -522,16 +586,27 @@ def generate_windows_msvc_job(test_src):
         with:
           arch: x64
 
-      - name: Build tests
-        shell: cmd
-        run: cl ${{{{ matrix.flag }}}} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_bin.exe /link advapi32.lib
+{build_step}
 
       - name: Run tests
         run: .\\test_bin.exe"""
 
 
-def generate_sanitizers():
-    return """
+def generate_sanitizers(aggregate=False):
+    build_prefix = (
+        """          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
+            {flags} \\
+            -I./include/fat_p \\
+            "${TEST_SRCS[@]}" -o test_bin"""
+        if aggregate
+        else """          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
+            {flags} \\
+            -DENABLE_TEST_APPLICATION \\
+            -I./include/fat_p \\
+            ${{ env.TEST_SRC }} -o test_bin"""
+    )
+    return f"""
   # ===========================================================================
   # Sanitizers (C++20)
   # ===========================================================================
@@ -544,11 +619,7 @@ def generate_sanitizers():
 
       - name: Build with ASan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
-            -fsanitize=address -fno-omit-frame-pointer \\
-            -DENABLE_TEST_APPLICATION \\
-            -I./include/fat_p \\
-            ${{ env.TEST_SRC }} -o test_bin
+{build_prefix.replace("{flags}", "-fsanitize=address -fno-omit-frame-pointer")}
 
       - name: Run with ASan
         env:
@@ -564,11 +635,7 @@ def generate_sanitizers():
 
       - name: Build with UBSan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
-            -fsanitize=undefined -fno-omit-frame-pointer \\
-            -DENABLE_TEST_APPLICATION \\
-            -I./include/fat_p \\
-            ${{ env.TEST_SRC }} -o test_bin
+{build_prefix.replace("{flags}", "-fsanitize=undefined -fno-omit-frame-pointer")}
 
       - name: Run with UBSan
         env:
@@ -584,11 +651,7 @@ def generate_sanitizers():
 
       - name: Build with TSan
         run: |
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
-            -fsanitize=thread -fno-omit-frame-pointer \\
-            -DENABLE_TEST_APPLICATION \\
-            -I./include/fat_p \\
-            ${{ env.TEST_SRC }} -o test_bin
+{build_prefix.replace("{flags}", "-fsanitize=thread -fno-omit-frame-pointer")}
 
       - name: Run with TSan
         env:
@@ -641,8 +704,25 @@ def generate_header_check(component, header):
           echo "Include order independent\""""
 
 
-def generate_strict_warnings():
-    return """
+def generate_strict_warnings(aggregate=False):
+    if aggregate:
+        build_body = """          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
+          g++-13 -std=c++20 \\
+              -Wall -Wextra -Wpedantic \\
+              -Wconversion -Wsign-conversion \\
+              -Wshadow -Wformat=2 \\
+              -Werror \\
+              -I./include/fat_p \\
+              -o test_strict "${TEST_SRCS[@]}\""""
+    else:
+        build_body = """          g++-13 -std=c++20 \\
+              -Wall -Wextra -Wpedantic \\
+              -Wconversion -Wsign-conversion \\
+              -Wshadow -Wformat=2 \\
+              -Werror \\
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \\
+              -o test_strict ${{ env.TEST_SRC }}"""
+    return f"""
   # ===========================================================================
   # Strict Warnings (C++20)
   # ===========================================================================
@@ -655,13 +735,7 @@ def generate_strict_warnings():
 
       - name: Compile with strict warnings
         run: |
-          g++-13 -std=c++20 \\
-              -Wall -Wextra -Wpedantic \\
-              -Wconversion -Wsign-conversion \\
-              -Wshadow -Wformat=2 \\
-              -Werror \\
-              -DENABLE_TEST_APPLICATION -I./include/fat_p \\
-              -o test_strict ${{ env.TEST_SRC }}
+{build_body}
           echo "No warnings\""""
 
 
@@ -929,6 +1003,7 @@ def generate_ci_gate(include_msvc=True):
 
 def generate_workflow(filename, component, header, test_src, bench_src, include_msvc=True):
     """Generate a complete workflow file."""
+    aggregate = filename == FATP_AGGREGATE_WORKFLOW
     parts = []
 
     # Header comment
@@ -938,22 +1013,25 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     parts.append(f"\nname: {component} CI")
 
     # Trigger
-    parts.append(generate_trigger_block(bench_src is not None, filename, header, test_src, bench_src))
+    if aggregate:
+        parts.append(generate_aggregate_trigger_block(filename))
+    else:
+        parts.append(generate_trigger_block(bench_src is not None, filename, header, test_src, bench_src))
 
     # Env block
     parts.append(generate_env_block(header, test_src, bench_src))
 
     # Jobs
     gcc_extra = COMPONENT_GCC_CPP23_EXTRA_LIBS.get(component, "")
-    parts.append(generate_linux_gcc_job(gcc_extra))
-    parts.append(generate_linux_clang_job())
+    parts.append(generate_linux_gcc_job(gcc_extra, aggregate=aggregate))
+    parts.append(generate_linux_clang_job(aggregate=aggregate))
 
     if include_msvc:
-        parts.append(generate_windows_msvc_job(test_src))
+        parts.append(generate_windows_msvc_job(test_src, aggregate=aggregate))
 
-    parts.append(generate_sanitizers())
+    parts.append(generate_sanitizers(aggregate=aggregate))
     parts.append(generate_header_check(component, header))
-    parts.append(generate_strict_warnings())
+    parts.append(generate_strict_warnings(aggregate=aggregate))
 
     if bench_src:
         parts.append(generate_benchmark_jobs(component, bench_src))
