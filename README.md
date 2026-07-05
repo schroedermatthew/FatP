@@ -26,6 +26,7 @@ A header-only C++20 utility library. Zero external dependencies.
 #### Components
 ![AlignedVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/aligned-vector.yml/badge.svg)
 ![AllocationStrategies CI](https://github.com/schroedermatthew/FatP/actions/workflows/allocation-strategies.yml/badge.svg)
+![AsyncOperations CI](https://github.com/schroedermatthew/FatP/actions/workflows/async-operations.yml/badge.svg)
 ![BinaryLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/binary-lite.yml/badge.svg)
 ![BitSet CI](https://github.com/schroedermatthew/FatP/actions/workflows/bit-set.yml/badge.svg)
 ![CacheUtilities CI](https://github.com/schroedermatthew/FatP/actions/workflows/cache-utilities.yml/badge.svg)
@@ -38,11 +39,12 @@ A header-only C++20 utility library. Zero external dependencies.
 ![ConstexprUtilities CI](https://github.com/schroedermatthew/FatP/actions/workflows/constexpr-utilities.yml/badge.svg)
 ![ContractException CI](https://github.com/schroedermatthew/FatP/actions/workflows/contract-exception.yml/badge.svg)
 ![CoroutineTask CI](https://github.com/schroedermatthew/FatP/actions/workflows/coroutine-task.yml/badge.svg)
-![CSRMatrix CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix.yml/badge.svg)
-![CSRMatrixParallel CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix-parallel.yml/badge.svg)
-![CSRMatrix_HPC CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix-hpc.yml/badge.svg)
 ![CSRMatrix_HPC_Parallel CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix-hpc-parallel.yml/badge.svg)
+![CSRMatrix_HPC CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix-hpc.yml/badge.svg)
+![CSRMatrixParallel CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix-parallel.yml/badge.svg)
+![CSRMatrix CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix.yml/badge.svg)
 ![DebugOnly CI](https://github.com/schroedermatthew/FatP/actions/workflows/debug-only.yml/badge.svg)
+![DiagnosticContext CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-context.yml/badge.svg)
 ![DiagnosticLogger_Core CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-logger-core.yml/badge.svg)
 ![DiagnosticLogger_IO CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-logger-io.yml/badge.svg)
 ![DiagnosticLogger_Json CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-logger-json.yml/badge.svg)
@@ -56,34 +58,36 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Expected CI](https://github.com/schroedermatthew/FatP/actions/workflows/expected.yml/badge.svg)
 ![Factory CI](https://github.com/schroedermatthew/FatP/actions/workflows/factory.yml/badge.svg)
 ![FatPBinary CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-binary.yml/badge.svg)
-![FatPCbor CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-cbor.yml/badge.svg)
 ![FatPCborStream CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-cbor-stream.yml/badge.svg)
+![FatPCbor CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-cbor.yml/badge.svg)
 ![FatPHashMap CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-hash-map.yml/badge.svg)
-![FatPJson CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-json.yml/badge.svg)
 ![FatPJsonStream CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-json-stream.yml/badge.svg)
+![FatPJson CI](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-json.yml/badge.svg)
 ![FeatureManager CI](https://github.com/schroedermatthew/FatP/actions/workflows/feature-manager.yml/badge.svg)
 ![FlatMap CI](https://github.com/schroedermatthew/FatP/actions/workflows/flat-map.yml/badge.svg)
 ![FlatSet CI](https://github.com/schroedermatthew/FatP/actions/workflows/flat-set.yml/badge.svg)
 ![FloatingPointComparison CI](https://github.com/schroedermatthew/FatP/actions/workflows/floating-point-comparison.yml/badge.svg)
-![HpcVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/hpc-vector.yml/badge.svg)
+![HPCVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/hpc-vector.yml/badge.svg)
 ![IdGenerator CI](https://github.com/schroedermatthew/FatP/actions/workflows/id-generator.yml/badge.svg)
 ![IntrusiveList CI](https://github.com/schroedermatthew/FatP/actions/workflows/intrusive-list.yml/badge.svg)
+![Jet CI](https://github.com/schroedermatthew/FatP/actions/workflows/jet.yml/badge.svg)
 ![JsonLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/json-lite.yml/badge.svg)
 ![JsonStreamLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/json-stream-lite.yml/badge.svg)
 ![LockFreeQueue CI](https://github.com/schroedermatthew/FatP/actions/workflows/lock-free-queue.yml/badge.svg)
 ![LockFreeRingBuffer CI](https://github.com/schroedermatthew/FatP/actions/workflows/lock-free-ring-buffer.yml/badge.svg)
 ![MemoryMappedFile CI](https://github.com/schroedermatthew/FatP/actions/workflows/memory-mapped-file.yml/badge.svg)
-![NumaAllocator CI](https://github.com/schroedermatthew/FatP/actions/workflows/numa-allocator.yml/badge.svg)
+![NUMAAllocator CI](https://github.com/schroedermatthew/FatP/actions/workflows/numa-allocator.yml/badge.svg)
 ![ObjectPool CI](https://github.com/schroedermatthew/FatP/actions/workflows/object-pool.yml/badge.svg)
 ![PolicyIterator CI](https://github.com/schroedermatthew/FatP/actions/workflows/policy-iterator.yml/badge.svg)
 ![RateLimiter CI](https://github.com/schroedermatthew/FatP/actions/workflows/rate-limiter.yml/badge.svg)
-![RcuIntegration CI](https://github.com/schroedermatthew/FatP/actions/workflows/rcu-integration.yml/badge.svg)
+![RCUIntegration CI](https://github.com/schroedermatthew/FatP/actions/workflows/rcu-integration.yml/badge.svg)
 ![Reflection CI](https://github.com/schroedermatthew/FatP/actions/workflows/reflection.yml/badge.svg)
-![ScopeGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/scope-guard.yml/badge.svg)
 ![ScopeGuardExpected CI](https://github.com/schroedermatthew/FatP/actions/workflows/scope-guard-expected.yml/badge.svg)
+![ScopeGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/scope-guard.yml/badge.svg)
 ![ServiceLocator CI](https://github.com/schroedermatthew/FatP/actions/workflows/service-locator.yml/badge.svg)
 ![Signal CI](https://github.com/schroedermatthew/FatP/actions/workflows/signal.yml/badge.svg)
-![SimdVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/simd-vector.yml/badge.svg)
+![SIMDVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/simd-vector.yml/badge.svg)
+![Skeleton CI](https://github.com/schroedermatthew/FatP/actions/workflows/skeleton.yml/badge.svg)
 ![SlidingFileWindow CI](https://github.com/schroedermatthew/FatP/actions/workflows/sliding-file-window.yml/badge.svg)
 ![SlotMap CI](https://github.com/schroedermatthew/FatP/actions/workflows/slot-map.yml/badge.svg)
 ![SmallVector CI](https://github.com/schroedermatthew/FatP/actions/workflows/small-vector.yml/badge.svg)
@@ -93,17 +97,17 @@ A header-only C++20 utility library. Zero external dependencies.
 ![StringPool CI](https://github.com/schroedermatthew/FatP/actions/workflows/string-pool.yml/badge.svg)
 ![Stringify CI](https://github.com/schroedermatthew/FatP/actions/workflows/stringify.yml/badge.svg)
 ![StrongId CI](https://github.com/schroedermatthew/FatP/actions/workflows/strong-id.yml/badge.svg)
-![Tensor CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor.yml/badge.svg)
 ![TensorComparison CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-comparison.yml/badge.svg)
 ![TensorEinsum CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-einsum.yml/badge.svg)
 ![TensorMath CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-math.yml/badge.svg)
 ![TensorSerializer CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-serializer.yml/badge.svg)
 ![TensorStorage CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-storage.yml/badge.svg)
+![Tensor CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor.yml/badge.svg)
 ![ThreadPool CI](https://github.com/schroedermatthew/FatP/actions/workflows/thread-pool.yml/badge.svg)
 ![ValueGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/value-guard.yml/badge.svg)
 ![ViewLifetimeTracking CI](https://github.com/schroedermatthew/FatP/actions/workflows/view-lifetime-tracking.yml/badge.svg)
 ![WorkQueue CI](https://github.com/schroedermatthew/FatP/actions/workflows/work-queue.yml/badge.svg)
-[![XmlLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml/badge.svg)](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml)
+![XmlLite CI](https://github.com/schroedermatthew/FatP/actions/workflows/xml-lite.yml/badge.svg)
 
 #### Benchmarks
 ![AlignedVector Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/alignedvector-benchmarks.yml/badge.svg)
@@ -112,25 +116,28 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Build Benchmark Deps](https://github.com/schroedermatthew/FatP/actions/workflows/build-benchmark-deps.yml/badge.svg)
 ![CircularBuffer Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/circularbuffer-benchmarks.yml/badge.svg)
 ![FatPHashMap Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/fatp-hash-map-benchmarks.yml/badge.svg)
+![FeatureManager Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/featuremanager-benchmarks.yml/badge.svg)
 ![FlatMapSet Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/flatmapset-benchmarks.yml/badge.svg)
 ![IntrusiveList Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/intrusivelist-benchmarks.yml/badge.svg)
 ![LockFreeQueue Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/lockfreequeue-benchmarks.yml/badge.svg)
 ![ObjectPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/objectpool-benchmarks.yml/badge.svg)
 ![PolicyIterator Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/policyiterator-benchmarks.yml/badge.svg)
 ![ServiceLocator Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/servicelocator-benchmarks.yml/badge.svg)
+![Skeleton Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/skeleton-benchmarks.yml/badge.svg)
 ![SlotMap Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/slotmap-benchmarks.yml/badge.svg)
 ![SmallVector Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/smallvector-benchmarks.yml/badge.svg)
 ![SparseSet Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/sparseset-benchmarks.yml/badge.svg)
 ![StateMachine Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/statemachine-benchmarks.yml/badge.svg)
+![StringPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/stringpool-benchmarks.yml/badge.svg)
 ![StrongId Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/strongid-benchmarks.yml/badge.svg)
 ![ThreadPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/threadpool-benchmarks.yml/badge.svg)
 ![WorkQueue Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/workqueue-benchmarks.yml/badge.svg)
 
 #### Aggregate Runners
-![Run All](https://github.com/schroedermatthew/FatP/actions/workflows/run-all.yml/badge.svg)
 ![Run All Benchmarks (Clang)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-clang.yml/badge.svg)
 ![Run All Benchmarks (GCC)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-gcc.yml/badge.svg)
 ![Run All Benchmarks (MSVC)](https://github.com/schroedermatthew/FatP/actions/workflows/run-all-benchmarks-msvc.yml/badge.svg)
+![Run All](https://github.com/schroedermatthew/FatP/actions/workflows/run-all.yml/badge.svg)
 
 </details>
 
@@ -146,7 +153,7 @@ All code, architecture, documentation, and governance in this library were autho
 
 The library was developed using a multi-AI collaborative pipeline: independent parallel design, cross-review and synthesis, adversarial review, and context reset cycles. The complete methodology is documented in [Fat-P AI-Collaborative Development Methodology](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md).
 
-23 components have been benchmarked against 50+ competitor implementations from Boost, Abseil, LLVM, EASTL, and others. Most are competitive; some lead on specific operations, some trail. The data — including where FAT-P loses — is in [`benchmark_results/`](benchmark_results/).
+24 components have benchmark suites against 50+ competitor implementations from Boost, Abseil, LLVM, EASTL, and others. Most are competitive; some lead on specific operations, some trail. The data — including where FAT-P loses — is in [`benchmark_results/`](benchmark_results/).
 
 **What this library is not.** FAT-P has no installed base, no production deployments, and no history of use under real-world workloads. The benchmarks demonstrate competitive performance in controlled measurement; they do not demonstrate the edge-case resilience that comes from years of bug reports, platform quirks, and adversarial inputs. Libraries like Boost and Abseil have earned trust through decades of deployment across millions of systems. FAT-P has earned nothing yet except clean benchmarks and green CI. Use it with that understanding.
 
@@ -172,19 +179,22 @@ target_link_libraries(your_target PRIVATE fatp)
 
 ## Components
 
+Per-component tests, benchmarks, and user manuals live under [`components/`](components/). Highlights by area:
+
 ### Containers
 
 | Component | Description |
 |-----------|-------------|
 | SmallVector | Inline-storage vector, zero heap allocation for small sizes |
 | FlatMap / FlatSet | Sorted vector-backed associative containers |
-| FastHashMap | High-performance open-addressing hash map |
+| FastHashMap (`FatPHashMap`) | High-performance open-addressing hash map with policy variants |
 | StableHashMap | Hash map with pointer/reference stability on insert |
 | CircularBuffer | Fixed-capacity ring buffer with O(1) push/pop |
 | IntrusiveList | Intrusive doubly-linked list, zero allocation overhead |
 | SlotMap | Generational index container with stable handles |
 | SparseSet | Sparse set with dense iteration |
 | BitSet | Fixed-size bit set with compiler intrinsics |
+| PolicyIterator | Policy-based iterator utilities for container traversal |
 
 ### Memory and Allocation
 
@@ -192,7 +202,7 @@ target_link_libraries(your_target PRIVATE fatp)
 |-----------|-------------|
 | ObjectPool | Object pool with concurrency policy support |
 | AllocationStrategies | Lightweight allocator policies |
-| NumaAllocator | NUMA-aware memory allocator |
+| NumaAllocator | NUMA-aware memory allocator (Linux CI) |
 | StringPool | String interning with policy-based thread safety |
 | AlignedVector | Cache-aligned vector for HPC workloads |
 | HpcVector | NUMA-local, SIMD-ready vector |
@@ -215,18 +225,24 @@ target_link_libraries(your_target PRIVATE fatp)
 |-----------|-------------|
 | Expected | Monadic error handling (value-or-error type) |
 | Enforce | Design-by-contract macros with customizable predicates |
-| ScopeGuard | RAII scope-exit cleanup |
+| DiagnosticContext | Thread-local context stack for richer contract failures |
+| ScopeGuard / ScopeGuardExpected | RAII scope-exit cleanup (throwing and Expected-based) |
 | ContractException | Exception classes for contract violations |
 | CheckedArithmetic | Overflow-safe arithmetic for integers and floats |
 | EnforcedInit | Wrapper enforcing explicit initialization |
+| EnhancedBoundsChecking | Bounds-checking helpers beyond raw indexing |
 
 ### Serialization
 
 | Component | Description |
 |-----------|-------------|
-| JSON / JsonLite | JSON serialization with lite and streaming variants |
-| CBOR / CborLite | CBOR serialization with lite and streaming variants |
-| Binary | Binary serialization format |
+| JsonLite / JsonStreamLite | Standalone JSON (variant model, struct macros, ADL dispatch) |
+| FatPJson / FatPJsonStream | Expected-based JSON bridge over JsonLite |
+| XmlLite | Standalone XML parser/serializer with struct macros and vector modes |
+| CborLite / CborStreamLite | Low-level CBOR encoder/decoder and streaming parser |
+| FatPCbor / FatPCborStream | Expected-based CBOR bridge |
+| BinaryLite / FatPBinary | Binary serialization (lite and Fat-P integrated) |
+| TensorSerializer | Tensor snapshot encoding/decoding |
 
 ### Math and HPC
 
@@ -236,6 +252,14 @@ target_link_libraries(your_target PRIVATE fatp)
 | CSRMatrix | Compressed Sparse Row matrix with parallel/HPC variants |
 | SimdVector | Universal SIMD wrapper for vectorized operations |
 | FloatingPointComparison | ULP, relative, and absolute float comparison |
+| Jet | Fixed-size forward-mode automatic differentiation scalar |
+
+### Domain
+
+| Component | Description |
+|-----------|-------------|
+| Skeleton | Typed hierarchical item registry (Bone addresses, capability masks) |
+| StateMachine | Type-safe FSM with compile-time transition validation |
 
 ### Diagnostics and Utilities
 
@@ -244,24 +268,23 @@ target_link_libraries(your_target PRIVATE fatp)
 | DiagnosticLogger | Structured logging with JSON output and scope tracking |
 | Stacktrace | Portable stack trace capture |
 | Reflection | Compile-time reflection with unified macro syntax |
-| StateMachine | Type-safe FSM with compile-time transition validation |
 | EnumPlus | Enhanced enums with string conversion and iteration |
 | StrongId | Type-safe ID wrapper preventing cross-domain mixing |
 | FeatureManager | Runtime feature flags with compile-time optimization |
 | ServiceLocator | Policy-based service locator with scoped overrides |
 | IdGenerator | Type-safe unique ID generation with recycling |
 | Stringify | Type-to-string conversion using C++20 concepts |
+| EqualityAny / EqualityComparisons | Type-erased and typed equality helpers |
 | DebugOnly | Debug-only utilities that compile away in release |
 | ConstexprUtilities | Compile-time utility functions |
-| Concepts | C++20 concepts for type constraints |
-| PlatformDetection | Compiler, OS, and architecture detection |
+| Concepts / FatPConcepts | C++20 concepts for type constraints |
+| PlatformDetection / CppFeatureDetection | Compiler, OS, architecture, and feature detection |
 | CacheUtilities | Cache control and prefetching utilities |
 | ValueGuard | Temporary value modification with automatic restoration |
 | ViewLifetimeTracking | Debug-only lifetime tracking for views and references |
-| MemoryMappedFile | Cross-platform memory-mapped file I/O |
-| SlidingFileWindow | Sliding window access to large files |
-| CoroutineTask | C++20 coroutine support with Expected integration |
-| AsyncOperations | Async operation utilities |
+| MemoryMappedFile | Cross-platform memory-mapped file I/O (Linux CI) |
+| SlidingFileWindow | Sliding window access to large files (Linux CI) |
+| CoroutineTask / AsyncOperations | C++20 coroutine and async utilities with Expected integration |
 | Factory | Policy-based factory with compile-time customization |
 
 ### Testing and Benchmarking
@@ -277,10 +300,12 @@ target_link_libraries(your_target PRIVATE fatp)
 FatP/
 ├── include/fat_p/       # Library headers
 ├── components/          # Per-component tests, benchmarks, and docs
+├── ThirdParty/          # Vendored headers used by tests and benchmarks
+├── benchmark_results/   # Published competitive benchmark analysis
 ├── Teaching/            # Guides, case studies, and reference material
 ├── Read_Me/             # Development guidelines and style guides
 ├── tools/               # Build scripts, CI generators, Desktop sync (see tools/README.md)
-└── .github/workflows/   # CI workflows
+└── .github/workflows/   # CI workflows (regenerate with tools/generate_workflows.py)
 ```
 
 ## Building Tests
@@ -293,7 +318,7 @@ ctest --test-dir build
 
 ## Maintainer tools
 
-Build helpers, CI generators, and the **commit → push → sync Desktop** workflow live under [`tools/`](tools/). See [`tools/README.md`](tools/README.md) for full documentation.
+Build helpers, CI generators, and the **commit → push → sync Desktop** workflow live under [`tools/`](tools/). Regenerate README CI badges with `python tools/update_readme_badges.py` after adding workflows. See [`tools/README.md`](tools/README.md) for full documentation.
 
 ## License
 
