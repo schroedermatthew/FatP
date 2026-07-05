@@ -242,13 +242,14 @@ struct is_sparse_set_impl : std::false_type
 {
 };
 
-template <typename T>
-struct is_sparse_set_impl<SparseSet<T>> : std::true_type
+template <typename T, typename IndexPolicy>
+struct is_sparse_set_impl<SparseSet<T, IndexPolicy>> : std::true_type
 {
 };
 
-template <typename T, typename Data>
-struct is_sparse_set_impl<SparseSetWithData<T, Data>> : std::true_type
+template <typename T, typename Data, typename IndexPolicy,
+          template <typename, typename...> class DataContainer>
+struct is_sparse_set_impl<SparseSetWithData<T, Data, IndexPolicy, DataContainer>> : std::true_type
 {
 };
 

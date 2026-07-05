@@ -749,6 +749,14 @@ FATP_TEST_CASE(RCUPolicy)
 {
     std::cout << colors::cyan() << "\nTesting RCUPolicy..." << colors::reset() << std::endl;
 
+#ifdef FATP_TSAN_ACTIVE
+    // libstdc++ atomic<shared_ptr> triggers TSan false positives on both
+    // concurrent reads and destructor teardown (internal refcount mutex).
+    std::cout << colors::blue() << "  [INFO] Skipping RCUPolicy under TSan"
+              << colors::reset() << std::endl;
+    return true;
+#else
+
     RCUPolicy<int> rcu(42);
 
     {
@@ -768,9 +776,6 @@ FATP_TEST_CASE(RCUPolicy)
         FATP_ASSERT_EQ(*guard, 100, "Updated value should be visible");
     }
 
-#ifndef FATP_TSAN_ACTIVE
-    // libstdc++ atomic<shared_ptr>::load uses an internal mutex that TSan
-    // reports as double-lock under concurrent readers (false positive).
     std::atomic<int> read_count{0};
     std::vector<std::thread> readers;
 
@@ -794,16 +799,13 @@ FATP_TEST_CASE(RCUPolicy)
     }
 
     FATP_ASSERT_EQ(read_count.load(), 4000, "All reads should see updated value");
-#else
-    std::cout << colors::blue() << "  [INFO] Skipping concurrent RCU readers under TSan"
-              << colors::reset() << std::endl;
-#endif
 
     std::cout << colors::blue() << "  [INFO] RCU is_lock_free: " << (RCUPolicy<int>::is_lock_free() ? "yes" : "no")
               << colors::reset() << std::endl;
 
     std::cout << colors::green() << "RCUPolicy: Tests passed." << colors::reset() << std::endl;
     return true;
+#endif
 }
 #endif
 
