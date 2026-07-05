@@ -1,7 +1,8 @@
 # =============================================================================
 # .github/workflows/run-all-benchmarks.yml
 # =============================================================================
-# One-click trigger: runs every component benchmark on GCC, Clang, and MSVC.
+# Runs every component benchmark on GCC, Clang, and MSVC.
+# Triggers on push/PR (benchmark paths) or manual workflow_dispatch.
 #
 # Dispatches the three compiler-specific orchestrators in parallel:
 #   - run-all-benchmarks-gcc.yml   (GCC-14, ubuntu-24.04)
@@ -27,6 +28,23 @@ on:
         required: false
         default: '100000'
         type: string
+  push:
+    branches: [main]
+    paths:
+      - 'components/**/benchmarks/**'
+      - 'include/**'
+      - 'cmake/**'
+      - '.github/workflows/run-all-benchmarks*.yml'
+      - '.github/workflows/build-benchmark-deps.yml'
+      - '.github/workflows/fatp-benchmark-runner.yml'
+  pull_request:
+    paths:
+      - 'components/**/benchmarks/**'
+      - 'include/**'
+      - 'cmake/**'
+      - '.github/workflows/run-all-benchmarks*.yml'
+      - '.github/workflows/build-benchmark-deps.yml'
+      - '.github/workflows/fatp-benchmark-runner.yml'
 
 jobs:
   gcc:
@@ -34,24 +52,24 @@ jobs:
     uses: ./.github/workflows/run-all-benchmarks-gcc.yml
     secrets: inherit
     with:
-      batches: ${{ inputs.batches }}
-      target_work: ${{ inputs.target_work }}
+      batches: ${{ inputs.batches || '20' }}
+      target_work: ${{ inputs.target_work || '100000' }}
 
   clang:
     name: Clang Benchmarks
     uses: ./.github/workflows/run-all-benchmarks-clang.yml
     secrets: inherit
     with:
-      batches: ${{ inputs.batches }}
-      target_work: ${{ inputs.target_work }}
+      batches: ${{ inputs.batches || '20' }}
+      target_work: ${{ inputs.target_work || '100000' }}
 
   msvc:
     name: MSVC Benchmarks
     uses: ./.github/workflows/run-all-benchmarks-msvc.yml
     secrets: inherit
     with:
-      batches: ${{ inputs.batches }}
-      target_work: ${{ inputs.target_work }}
+      batches: ${{ inputs.batches || '20' }}
+      target_work: ${{ inputs.target_work || '100000' }}
 
   summary:
     name: All Compilers Summary
@@ -84,7 +102,7 @@ jobs:
         run: |
           echo "# Benchmark Summary — All Compilers" > summary.md
           echo "" >> summary.md
-          echo "Batches: ${{ inputs.batches }} | Target work: ${{ inputs.target_work }}" >> summary.md
+          echo "Batches: ${{ inputs.batches || '20' }} | Target work: ${{ inputs.target_work || '100000' }}" >> summary.md
           echo "" >> summary.md
           echo "| Compiler | Workflow | Status |" >> summary.md
           echo "|----------|----------|--------|" >> summary.md

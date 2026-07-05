@@ -11,6 +11,8 @@ on:
       - 'tooling/**'
       - 'CMakeLists.txt'
       - '.github/workflows/fatp_meta_compliance.yml'
+    paths-ignore:
+      - 'tools/update_readme_badges.py'
   pull_request:
     paths:
       - 'include/fat_p/**'
@@ -20,6 +22,8 @@ on:
       - 'tooling/**'
       - 'CMakeLists.txt'
       - '.github/workflows/fatp_meta_compliance.yml'
+    paths-ignore:
+      - 'tools/update_readme_badges.py'
 
 permissions:
   contents: read
