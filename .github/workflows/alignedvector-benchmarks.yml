@@ -35,9 +35,6 @@ jobs:
   # ===========================================================================
   ensure-deps:
     name: Ensure Benchmark Dependencies
-    permissions:
-      actions: write
-      contents: read
     uses: ./.github/workflows/build-benchmark-deps.yml
     secrets: inherit
 
