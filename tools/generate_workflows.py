@@ -30,6 +30,9 @@ OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file
 # GitHub-hosted runners use Node 24 for JavaScript actions (Node 20 deprecated 2026).
 # checkout@v6+, cache@v5+, upload/download-artifact@v5+ run on Node 24.
 
+# sccache via GHA backend — speeds up FatP aggregate (~90 TU) rebuilds.
+SCCACHE_ACTION = "mozilla-actions/sccache-action@v0.0.9"
+
 # =============================================================================
 # Component definitions
 # =============================================================================
@@ -383,6 +386,19 @@ on:
 {path_yaml}"""
 
 
+def sccache_setup_step():
+    return f"""
+      - name: Setup sccache
+        uses: {SCCACHE_ACTION}"""
+
+
+def sccache_stats_step():
+    return """
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats"""
+
+
 def aggregate_unix_build(compiler_line, extra_flags="", link_setup=""):
     """Build all component tests for test_FatP.cpp without standalone mains."""
     link_block = link_setup or '          LINK_EXTRA=""'
@@ -458,20 +474,21 @@ def generate_linux_gcc_job(gcc_cpp23_extra_libs="", aggregate=False):
           if [ "${{{{ matrix.std }}}}" = "23" ]; then
             LINK_EXTRA="{gcc_cpp23_extra_libs}"
           fi"""
-    build_body = (
-        aggregate_unix_build(
-            "g++-${{ matrix.version }} -std=c++${{ matrix.std }}",
-            link_setup=link_setup,
-        )
-        if aggregate
-        else f"""{link_setup}
+    if aggregate:
+        compiler = "sccache g++-${{ matrix.version }} -std=c++${{ matrix.std }}"
+        build_body = aggregate_unix_build(compiler, link_setup=link_setup)
+        sccache_before = sccache_setup_step()
+        sccache_after = sccache_stats_step()
+    else:
+        build_body = f"""{link_setup}
           g++-${{{{ matrix.version }}}} -std=c++${{{{ matrix.std }}}} \\
             -Wall -Wextra -Wpedantic -Werror \\
             -O2 -DNDEBUG \\
             -DENABLE_TEST_APPLICATION \\
             -I./include/fat_p \\
             ${{{{ env.TEST_SRC }}}} -o test_bin $LINK_EXTRA"""
-    )
+        sccache_before = ""
+        sccache_after = ""
     return f"""
 jobs:
   # ===========================================================================
@@ -491,33 +508,36 @@ jobs:
             std: 23
     steps:
       - uses: actions/checkout@v6
-
+{sccache_before}
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{{{ matrix.version }}}}
 
       - name: Build tests
         run: |
 {build_body}
-
+{sccache_after}
       - name: Run tests
         run: ./test_bin"""
 
 
 def generate_linux_clang_job(aggregate=False):
-    build_body = (
-        aggregate_unix_build(
-            "clang++-${{ matrix.version }} -std=c++${{ matrix.std }}",
+    if aggregate:
+        build_body = aggregate_unix_build(
+            "sccache clang++-${{ matrix.version }} -std=c++${{ matrix.std }}",
             extra_flags="-Wno-gnu-zero-variadic-macro-arguments \\",
         )
-        if aggregate
-        else """          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \\
+        sccache_before = sccache_setup_step()
+        sccache_after = sccache_stats_step()
+    else:
+        build_body = """          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \\
             -Wall -Wextra -Wpedantic -Werror \\
             -Wno-gnu-zero-variadic-macro-arguments \\
             -O2 -DNDEBUG \\
             -DENABLE_TEST_APPLICATION \\
             -I./include/fat_p \\
             ${{ env.TEST_SRC }} -o test_bin"""
-    )
+        sccache_before = ""
+        sccache_after = ""
     return """
   # ===========================================================================
   # Linux Clang Builds (C++20/C++23)
@@ -536,7 +556,7 @@ def generate_linux_clang_job(aggregate=False):
             std: 23
     steps:
       - uses: actions/checkout@v6
-
+__SCCACHE_BEFORE__
       - name: Install Clang
         run: |
           wget https://apt.llvm.org/llvm.sh
@@ -546,19 +566,21 @@ def generate_linux_clang_job(aggregate=False):
       - name: Build tests
         run: |
 __BUILD_BODY__
-
+__SCCACHE_AFTER__
       - name: Run tests
-        run: ./test_bin""".replace("__BUILD_BODY__", build_body)
+        run: ./test_bin""".replace("__BUILD_BODY__", build_body).replace("__SCCACHE_BEFORE__", sccache_before).replace("__SCCACHE_AFTER__", sccache_after)
 
 
 def generate_windows_msvc_job(test_src, aggregate=False):
     bs_test = backslash_path(test_src)
     if aggregate:
-        build_step = """      - name: Build tests
+        build_step = f"""{sccache_setup_step()}
+      - name: Build tests
         shell: pwsh
         run: |
           python tools/collect_fatp_test_sources.py --msvc | Out-File -Encoding ascii sources.rsp
-          cmd /c "cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\\include\\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib\""""
+          cmd /c "sccache cl ${{{{ matrix.flag }}}} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\\include\\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib"
+{sccache_stats_step()}"""
     else:
         build_step = f"""      - name: Build tests
         shell: cmd
@@ -594,12 +616,13 @@ def generate_windows_msvc_job(test_src, aggregate=False):
 
 
 def generate_sanitizers(aggregate=False):
+    compiler = "sccache g++-13 -std=c++20" if aggregate else "g++-13 -std=c++20"
     build_prefix = (
-        """          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
-            {flags} \\
+        f"""          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
+          {compiler} -Wall -Wextra -g -O1 \\
+            {{flags}} \\
             -I./include/fat_p \\
-            "${TEST_SRCS[@]}" -o test_bin"""
+            "${{TEST_SRCS[@]}}" -o test_bin"""
         if aggregate
         else """          g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
             {flags} \\
@@ -607,6 +630,8 @@ def generate_sanitizers(aggregate=False):
             -I./include/fat_p \\
             ${{ env.TEST_SRC }} -o test_bin"""
     )
+    sccache_before = sccache_setup_step() if aggregate else ""
+    sccache_after = sccache_stats_step() if aggregate else ""
     return f"""
   # ===========================================================================
   # Sanitizers (C++20)
@@ -617,11 +642,11 @@ def generate_sanitizers(aggregate=False):
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-
+{sccache_before}
       - name: Build with ASan
         run: |
 {build_prefix.replace("{flags}", "-fsanitize=address -fno-omit-frame-pointer")}
-
+{sccache_after}
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
@@ -633,11 +658,11 @@ def generate_sanitizers(aggregate=False):
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-
+{sccache_before}
       - name: Build with UBSan
         run: |
 {build_prefix.replace("{flags}", "-fsanitize=undefined -fno-omit-frame-pointer")}
-
+{sccache_after}
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
@@ -649,11 +674,11 @@ def generate_sanitizers(aggregate=False):
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-
+{sccache_before}
       - name: Build with TSan
         run: |
 {build_prefix.replace("{flags}", "-fsanitize=thread -fno-omit-frame-pointer")}
-
+{sccache_after}
       - name: Run with TSan
         env:
           TSAN_OPTIONS: halt_on_error=1
@@ -708,13 +733,15 @@ def generate_header_check(component, header):
 def generate_strict_warnings(aggregate=False):
     if aggregate:
         build_body = """          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-13 -std=c++20 \\
+          sccache g++-13 -std=c++20 \\
               -Wall -Wextra -Wpedantic \\
               -Wconversion -Wsign-conversion \\
               -Wshadow -Wformat=2 \\
               -Werror \\
               -I./include/fat_p \\
               -o test_strict "${TEST_SRCS[@]}\""""
+        sccache_before = sccache_setup_step()
+        sccache_after = sccache_stats_step()
     else:
         build_body = """          g++-13 -std=c++20 \\
               -Wall -Wextra -Wpedantic \\
@@ -723,6 +750,9 @@ def generate_strict_warnings(aggregate=False):
               -Werror \\
               -DENABLE_TEST_APPLICATION -I./include/fat_p \\
               -o test_strict ${{ env.TEST_SRC }}"""
+        sccache_before = ""
+        sccache_after = ""
+    echo_line = '          echo "No warnings"'
     return f"""
   # ===========================================================================
   # Strict Warnings (C++20)
@@ -733,11 +763,12 @@ def generate_strict_warnings(aggregate=False):
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
-
+{sccache_before}
       - name: Compile with strict warnings
         run: |
 {build_body}
-          echo "No warnings\""""
+{echo_line}
+{sccache_after}"""
 
 
 def generate_benchmark_jobs(component, bench_src):

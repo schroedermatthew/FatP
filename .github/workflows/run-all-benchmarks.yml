@@ -8,6 +8,10 @@
 # Each component workflow already runs GCC, Clang, and MSVC internally.
 #
 # Triggers on push/PR (benchmark paths) or manual workflow_dispatch.
+#
+# Builds shared benchmark dependency caches ONCE (ensure-deps), then dispatches
+# per-component workflows that restore-only. Avoids 21 concurrent ensure-deps
+# calls racing on build-benchmark-deps concurrency.
 # =============================================================================
 
 name: Run All Benchmarks (All Compilers)
@@ -44,8 +48,14 @@ on:
       - '.github/workflows/build-benchmark-deps.yml'
 
 jobs:
+  ensure-deps:
+    name: Ensure Benchmark Dependencies
+    uses: ./.github/workflows/build-benchmark-deps.yml
+    secrets: inherit
+
   trigger-benchmarks:
     name: Dispatch Component Benchmarks
+    needs: ensure-deps
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

@@ -52,6 +52,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install GCC
         run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
 
@@ -62,12 +64,15 @@ jobs:
             LINK_EXTRA="-lstdc++exp -pthread"
           fi
           mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+          sccache g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -O2 -DNDEBUG \
             -I./include/fat_p \
             "${TEST_SRCS[@]}" -o test_bin $LINK_EXTRA
 
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
       - name: Run tests
         run: ./test_bin
 
@@ -89,6 +94,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install Clang
         run: |
           wget https://apt.llvm.org/llvm.sh
@@ -99,13 +106,16 @@ jobs:
         run: |
           LINK_EXTRA=""
           mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+          sccache clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
             -Wall -Wextra -Wpedantic -Werror \
             -Wno-gnu-zero-variadic-macro-arguments \
             -O2 -DNDEBUG \
             -I./include/fat_p \
             "${TEST_SRCS[@]}" -o test_bin $LINK_EXTRA
 
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
       - name: Run tests
         run: ./test_bin
 
@@ -132,11 +142,18 @@ jobs:
         with:
           arch: x64
 
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Build tests
         shell: pwsh
         run: |
           python tools/collect_fatp_test_sources.py --msvc | Out-File -Encoding ascii sources.rsp
-          cmd /c "cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib"
+          cmd /c "sccache cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib"
+
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
 
       - name: Run tests
         run: .\test_bin.exe
@@ -151,14 +168,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Build with ASan
         run: |
           mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          sccache g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=address -fno-omit-frame-pointer \
             -I./include/fat_p \
             "${TEST_SRCS[@]}" -o test_bin
 
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
@@ -171,14 +193,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Build with UBSan
         run: |
           mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          sccache g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=undefined -fno-omit-frame-pointer \
             -I./include/fat_p \
             "${TEST_SRCS[@]}" -o test_bin
 
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
@@ -191,14 +218,19 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Build with TSan
         run: |
           mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+          sccache g++-13 -std=c++20 -Wall -Wextra -g -O1 \
             -fsanitize=thread -fno-omit-frame-pointer \
             -I./include/fat_p \
             "${TEST_SRCS[@]}" -o test_bin
 
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
       - name: Run with TSan
         env:
           TSAN_OPTIONS: halt_on_error=1
@@ -256,10 +288,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Compile with strict warnings
         run: |
           mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
-          g++-13 -std=c++20 \
+          sccache g++-13 -std=c++20 \
               -Wall -Wextra -Wpedantic \
               -Wconversion -Wsign-conversion \
               -Wshadow -Wformat=2 \
@@ -267,6 +301,10 @@ jobs:
               -I./include/fat_p \
               -o test_strict "${TEST_SRCS[@]}"
           echo "No warnings"
+
+      - name: sccache statistics
+        if: always()
+        run: sccache --show-stats
 
   # ===========================================================================
   # CI Gate

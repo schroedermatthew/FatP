@@ -74,6 +74,9 @@ jobs:
             # Don't trigger ourselves
             [ "$name" = "run-all.yml" ] && continue
 
+            # Cleanup-only utility (delete runs, no triggers)
+            [ "$name" = "delete-all-workflow-runs.yml" ] && continue
+
             # Don't trigger build-benchmark-deps (benchmark workflows call it via ensure-deps)
             [ "$name" = "build-benchmark-deps.yml" ] && continue
 

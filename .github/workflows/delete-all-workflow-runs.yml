@@ -1,0 +1,75 @@
+# =============================================================================
+# .github/workflows/delete-all-workflow-runs.yml
+# =============================================================================
+# Manual-only cleanup: deletes all existing GitHub Actions workflow runs.
+# Does not trigger any workflows afterward.
+#
+# Excluded from run-all.yml so "Run All Workflows" does not dispatch this.
+# =============================================================================
+
+name: Delete All Workflow Runs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  delete-runs:
+    name: Delete Workflow Runs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete all existing workflow runs
+        env:
+          GH_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+        run: |
+          set -euo pipefail
+          echo "Deleting all existing workflow runs..."
+          deleted=0
+          failed=0
+          my_run_id="${{ github.run_id }}"
+
+          while true; do
+            run_ids=$(gh run list --limit 100 --json databaseId --jq '.[].databaseId')
+
+            if [ -z "$run_ids" ]; then
+              break
+            fi
+
+            deleted_this_page=0
+            for id in $run_ids; do
+              if [ "$id" = "$my_run_id" ]; then
+                continue
+              fi
+              if gh run delete "$id" 2>/dev/null; then
+                deleted=$((deleted + 1))
+                deleted_this_page=$((deleted_this_page + 1))
+              else
+                failed=$((failed + 1))
+              fi
+            done
+
+            # Nothing deleted this pass = only our own run remains
+            if [ "$deleted_this_page" -eq 0 ]; then
+              break
+            fi
+
+            sleep 1
+          done
+
+          echo ""
+          echo "=============================="
+          echo "  Deleted: $deleted"
+          echo "  Failed:  $failed"
+          echo "=============================="
+
+          {
+            echo "# Workflow Run Cleanup"
+            echo ""
+            echo "| Metric | Count |"
+            echo "|--------|-------|"
+            echo "| Deleted | $deleted |"
+            echo "| Failed | $failed |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$failed" -gt 0 ]; then
+            echo "::warning::$failed workflow run(s) could not be deleted"
+          fi
