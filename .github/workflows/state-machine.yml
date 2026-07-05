@@ -140,7 +140,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
 
       - name: Build tests
         shell: pwsh
@@ -331,7 +333,9 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
 
       - name: Expected-fail compilation
         shell: pwsh

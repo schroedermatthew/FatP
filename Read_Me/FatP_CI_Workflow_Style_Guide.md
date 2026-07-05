@@ -732,7 +732,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
       - name: Build tests
         run: |
           $stdFlag = if (${{ matrix.std }} -eq 23) { "/std:c++latest" } else { "/std:c++${{ matrix.std }}" }

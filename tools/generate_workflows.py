@@ -518,7 +518,9 @@ def generate_windows_msvc_job(test_src):
       - uses: actions/checkout@v6
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
 
       - name: Build tests
         shell: cmd
@@ -795,7 +797,7 @@ def generate_benchmark_jobs(component, bench_src):
       - uses: actions/checkout@v6
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v4
         with:
           arch: x64
 
