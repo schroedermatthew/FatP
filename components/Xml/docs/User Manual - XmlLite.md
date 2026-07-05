@@ -3,8 +3,8 @@ doc_id: UM-XMLLITE-001
 doc_type: "User Manual"
 title: "XmlLite"
 fatp_components: ["XmlLite"]
-topics: ["XML parsing", "from_xml deserialization", "FATP_XML_DEFINE_TYPE", "FATP_XML_ENUM_STRING_POLICY", "xml_all", "config file I/O", "XmlNode query API"]
-constraints: ["leaf-only scalar elements", "no vector struct macro fields", "file-scope enum policy macro", "namespaces rejected"]
+topics: ["XML parsing", "from_xml deserialization", "FATP_XML_DEFINE_TYPE", "FATP_XML_ENUM_STRING_POLICY", "xml_all", "config file I/O", "XmlNode query API", "strict config XML"]
+constraints: ["leaf-only scalar elements", "no vector struct macro fields", "file-scope enum policy macro", "namespaces rejected", "parse-only no to_xml"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.PropertyTree"
@@ -16,48 +16,134 @@ status: "reviewed"
 
 # User Manual - XmlLite
 
-**Scope:** Parse config XML, navigate `XmlNode`, deserialize primitives/structs/enums/vectors with `from_xml`, and generate struct deserializers with `FATP_XML_DEFINE_TYPE`.
+**Scope:** Parse config XML, navigate `XmlNode`, deserialize primitives, structs, enums, optionals, and vectors with `from_xml`, and generate struct deserializers with `FATP_XML_DEFINE_TYPE` / `_OPTIONAL`.
 
 **Not covered:**
-- XML serialization / round-trip writing (parse-only today)
-- Full XML features (namespaces, DTD, CDATA, XPath)
-- FatPJson or EnumPlus integration (XmlLite is self-contained; see JsonLite docs for JSON)
+- XML serialization or round-trip writing (`to_xml` does not exist today)
+- Full XML (namespaces, DTD, CDATA, XPath, schema validation)
+- Expected-based non-throwing API (XmlLite throws via `FATP_XML_ENFORCE`; see FatPJsonLite for JSON with `Expected`)
+- JSON configuration (see `User Manual - JsonLite.md`)
 
-**Prerequisites:** C++20; familiarity with `enum class` and exceptions for error handling
+**Prerequisites:** C++20; familiarity with `enum class`; comfort with exception-based error handling for config load failures
 
 ---
 
 ## User Manual Card
 
 **Component:** XmlLite  
-**Primary use case:** Load application configuration from XML files or strings into typed C++ structs  
-**Integration pattern:** `#include "XmlLite.h"`, `parse_xml` / `parse_xml_file`, `FATP_XML_DEFINE_TYPE` for structs, `FATP_XML_ENUM_STRING_POLICY` for string enums  
+**Primary use case:** Load application configuration from XML into typed C++ structs at startup  
+**Integration pattern:** `#include "XmlLite.h"`, `parse_xml_file`, `FATP_XML_DEFINE_TYPE`, optional `FATP_XML_ENUM_STRING_POLICY`  
 **Key API:** `parse_xml()`, `parse_xml_file()`, `from_xml()`, `xml_all()`, `FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`, `FATP_XML_ENUM_STRING_POLICY`  
 **std equivalent:** None  
-**Common mistakes:** Putting `FATP_XML_ENUM_STRING_POLICY` inside a namespace; expecting vector fields in `FATP_XML_DEFINE_TYPE`; scalar elements with child nodes; assuming integer enums validate enumerator names  
-**Performance notes:** Single-pass parse into `std::string`-backed tree; suitable for config-sized documents. See `components/Xml/benchmarks/` when benchmarks exist.
+**Common mistakes:** Enum policy inside a namespace; vector fields in struct macros; scalar `from_xml` on elements with children; assuming integer enums validate enumerator names  
+**Performance notes:** Single-pass parse into memory-backed tree; suitable for config-sized files. See `components/Xml/benchmarks/` when data exists.
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
-2. [Parsing](#parsing)
-3. [XmlNode Query API](#xmlnode-query-api)
-4. [Scalar Deserialization](#scalar-deserialization)
-5. [Struct Macros](#struct-macros)
-6. [Optional Fields](#optional-fields)
-7. [Vectors and Repeated Elements](#vectors-and-repeated-elements)
-8. [Enum Deserialization](#enum-deserialization)
-9. [Error Handling](#error-handling)
-10. [Parser Strictness](#parser-strictness)
-11. [Best Practices](#best-practices)
-12. [Troubleshooting](#troubleshooting)
-13. [Summary](#summary)
+1. [The Config XML Story](#the-config-xml-story)
+2. [How XmlLite Works](#how-xml-lite-works)
+3. [Getting Started](#getting-started)
+4. [Parsing: String and File](#parsing-string-and-file)
+5. [The Navigation Dilemma: Probe vs Require](#the-navigation-dilemma-probe-vs-require)
+6. [Scalar Binding: The Leaf Rule](#scalar-binding-the-leaf-rule)
+7. [Struct Macros: One Element Per Field](#struct-macros-one-element-per-field)
+8. [Optional Fields: Defaults vs Absence](#optional-fields-defaults-vs-absence)
+9. [Repeated Elements: Why Macros Stop Short](#repeated-elements-why-macros-stop-short)
+10. [Enum Binding: Integer vs String Policy](#enum-binding-integer-vs-string-policy)
+11. [Error Handling Model](#error-handling-model)
+12. [Parser Strictness](#parser-strictness)
+13. [Performance Rules of Thumb](#performance-rules-of-thumb)
+14. [When to Use XmlLite (and When Not To)](#when-to-use-xmllite-and-when-not-to)
+15. [Migration Guide](#migration-guide)
+16. [Troubleshooting](#troubleshooting)
+17. [API Reference](#api-reference)
+18. [FAQ](#faq)
+19. [Summary](#summary)
+
+---
+
+## The Config XML Story
+
+### XML That Refuses to Die
+
+JSON won the API and greenfield-config wars, but scientific software still boots from XML. Instrument definitions, mesh generators, solver decks, and legacy HPC workflows store parameters in nested elements because XML was the interchange format when those codes were written. Replacing every deck with JSON is a multi-year migration; **reading XML correctly today** remains operational reality.
+
+Full XML processors were built for documents: mixed content, namespaces, external entities, XPath, schemas. Configuration files rarely need that machinery. They need a predictable tree, typed fields, and loud failure when someone hand-edits a tag wrong at 11 PM before a batch submission.
+
+### The Loader Anti-Pattern
+
+Without a binding layer, loaders accumulate defensive code:
+
+```cpp
+const auto* sensor = root.child("sensor");
+if (!sensor) { /* error */ }
+const auto* model = sensor->child("model");
+if (!model) { /* error */ }
+std::string modelText = model->text;
+// still not typed; still no enum validation
+```
+
+Every struct duplicates this pattern. Every new field adds another null check. Enum-like strings scatter across `if (s == "...")` chains that the compiler cannot verify. XmlLite exists to collapse that repetition into `from_xml` overloads and macros while keeping the header dependency-free.
+
+### Where XmlLite Fits
+
+XmlLite is the XML sibling of JsonLite: one public header, exception-based enforcement, macro struct mapping. It deliberately does **not** chase full XML compliance. It chases **config correctness**: typed binding, strict parse rules, and CI-verified self-containment so you can vendor a single file into a restricted environment.
+
+---
+
+## How XmlLite Works
+
+### Two Phases: Parse, Then Bind
+
+Parsing constructs an `XmlNode` tree. Binding walks that tree and fills C++ types. Keeping these phases separate means you can parse once, inspect with the query API, and bind multiple structs from different subtrees.
+
+```mermaid
+flowchart LR
+    A[Input] --> B[parse_xml / parse_xml_file]
+    B --> C[XmlNode root]
+    C --> D[Query child path require]
+    D --> E[from_xml overloads]
+    E --> F[Typed values]
+```
+
+The parser is recursive descent over `std::string_view`. Nodes store `tag`, `text`, `attributes`, and `children` using standard containers. No custom allocators, no DOM interface virtuals.
+
+### How Struct Macros Bind Fields
+
+`FATP_XML_DEFINE_TYPE(SensorConfig, model, gain)` generates:
+
+```cpp
+inline void from_xml(const fat_p::XmlNode& node, SensorConfig& value)
+{
+    // for each field: require_unique_child(node, "model"), from_xml(child, value.model), ...
+}
+```
+
+`require_unique_child` scans direct children, rejects duplicates, and throws if a required tag is missing. `from_xml_adl` dispatches to the correct overload for each field type, including user-defined nested structs via ADL.
+
+### How String Enums Differ From EnumPlus
+
+XmlLite defines `FATP_XML_ENUM_STRING_POLICY` locally. It specializes `fat_p::xml_detail::XmlEnumStringPolicy<E>` with a `from_string(std::string_view)` that compares tokens to `#enumerator` spellings. This keeps the header self-contained. Json/FatP stacks may use EnumPlus policies separately; XmlLite does not require them.
 
 ---
 
 ## Getting Started
+
+### Prerequisites and Integration
+
+XmlLite requires C++20. Add `include/fat_p` to your include path and include the header:
+
+```cpp
+#include "XmlLite.h"
+```
+
+No link step. No code generation. Define structs and macros in the same translation unit that loads config (or a dedicated `config_types.cpp`).
+
+### Your First Complete Program
+
+The example below parses inline XML, binds a struct, and reads a repeated list through `xml_all`:
 
 ```cpp
 #include "XmlLite.h"
@@ -82,84 +168,94 @@ int main()
 
     auto root = fat_p::parse_xml(xml);
     auto targets = fat_p::xml_all<Target>(root, "targets", "target");
-    std::cout << targets[0].sigma << '\n';
+    std::cout << "sigma=" << targets[0].sigma << '\n';
 }
 ```
 
-Each struct field maps to a **child element** whose tag name equals the field name. All fields in `FATP_XML_DEFINE_TYPE` are required.
+Each field in `Target` maps to a child element with the **same name** as the member. `FATP_XML_DEFINE_TYPE` makes all listed fields required.
 
 ---
 
-## Parsing
+## Parsing: String and File
 
-### From string
+### Parsing from memory
 
-```cpp
-auto root = fat_p::parse_xml(std::string_view{R"(<root><item>1</item></root>)"});
-```
-
-### From file
+`parse_xml` accepts `std::string_view`. The view must outlive parsing only for the duration of the call; the tree copies data into `std::string` members.
 
 ```cpp
-auto root = fat_p::parse_xml_file("config.xml");
+std::string_view xml = load_into_string_view_somehow();
+fat_p::XmlNode root = fat_p::parse_xml(xml);
 ```
 
-`parse_xml_file` opens the file in binary mode, reads the full contents, and throws via `FATP_XML_ENFORCE` if the file cannot be opened or read.
+### Parsing from disk
 
-### Prolog and BOM
+`parse_xml_file` reads the entire file in binary mode, checks stream health, then calls `parse_xml`:
 
-- UTF-8 BOM at the start is accepted and skipped.
-- At most one `<?xml ...?>` declaration is allowed; it must be well-formed.
-- `<?xml-stylesheet ...?>` and other processing instructions are rejected.
+```cpp
+auto root = fat_p::parse_xml_file("simulation.xml");
+```
+
+If the file cannot be opened or a read error occurs before EOF, `FATP_XML_ENFORCE` throws with the filename in the message.
+
+### Prolog, BOM, and comments
+
+UTF-8 BOM at the beginning is skipped. A single `<?xml version="1.0" ...?>` declaration is accepted when well-formed. `<?xml-stylesheet ...?>` and other processing instructions are rejected. Comments and whitespace may trail the root element; other non-whitespace trailing content is rejected.
 
 ---
 
-## XmlNode Query API
+## The Navigation Dilemma: Probe vs Require
 
-| Method | Behavior |
-|--------|----------|
-| `child(tag)` | First matching child, or `nullptr` |
-| `require(tag)` | First matching child, or throw |
-| `all(tag)` | All matching children (pointers) |
-| `has(tag)` | Whether any child exists |
-| `path("a.b.c")` | Dotted path via chained `require` |
-| `hasPath("a.b.c")` | Non-throwing dotted path check |
-| `trimmedText()` | Trimmed element text |
-| `attr(name)` | Optional attribute value |
+### Why Two Access Styles Exist
 
-Empty path segments throw (`reject_empty_dotted_path` in tests).
+Config loaders mix **optional sections** with **hard requirements**. Requiring a missing optional subtree throws; probing with `child` returns `nullptr` and pushes null checks into every caller. XmlLite offers both styles so you choose explicit failure vs branching.
+
+`require` throws immediately with `missing required element:` when a direct child tag is absent. Use it when the subtree is mandatory for continued loading.
+
+`child` returns `nullptr` when absent. Use it when you will branch or when an optional macro already handles absence at the struct level.
+
+`hasPath` and `path` implement dotted navigation (`options.advanced.timeout`). `hasPath` returns `false` for empty paths or missing segments; `path` throws on empty segments or missing nodes.
+
+### Example: optional branch vs required core
 
 ```cpp
-const auto& item = root.require("options").require("item");
-if (root.hasPath("options.advanced.flag")) { /* ... */ }
-auto id = root.attr("id");  // std::optional<std::string>
+auto root = fat_p::parse_xml_file("deck.xml");
+auto& run = root.require("simulation");  // mandatory section
+
+if (root.hasPath("diagnostics.verbose")) {
+    const auto& diag = root.path("diagnostics");
+    bool verbose = fat_p::from_xml<bool>(diag.require("verbose"));
+}
+```
+
+For struct-level optionals, prefer `FATP_XML_DEFINE_TYPE_OPTIONAL` instead of manual probing when the whole struct is optional by absence of children.
+
+---
+
+## Scalar Binding: The Leaf Rule
+
+### Why Scalars Reject Child Elements
+
+Configuration values are usually **either** text **or** nested structure, not both interleaved like HTML. Allowing `<gain><value>1</value></gain>` to deserialize as `double` would hide structural mistakes. XmlLite enforces **leaf-only** scalar binding: `enforce_leaf_text_node` requires `children.empty()` before reading `trimmedText()`.
+
+If you need nested structure, define a struct with its own `from_xml` and bind the parent element to that struct type.
+
+### Supported scalar types
+
+`from_xml` provides overloads for `std::string`, `int`, `std::int64_t`, `std::size_t`, `double`, `bool`, and enums. `double` uses `std::from_chars` and rejects non-finite values. `bool` accepts `true`/`false`/`1`/`0`.
+
+Value-returning form requires default-constructible `T`:
+
+```cpp
+double sigma = fat_p::from_xml<double>(node.require("sigma"));
 ```
 
 ---
 
-## Scalar Deserialization
+## Struct Macros: One Element Per Field
 
-Supported leaf types: `std::string`, `int`, `std::int64_t`, `std::size_t`, `double`, `bool`, `enum class`, user types with `from_xml(const XmlNode&, T&)`.
+### Required fields
 
-**Leaf rule:** scalar `from_xml` requires the element to have **no child elements**. Text comes from `trimmedText()`.
-
-```cpp
-double x = fat_p::from_xml<double>(node.require("centerX"));
-```
-
-`double` rejects non-finite values (`nan`, `inf`). `bool` accepts `true`/`false`/`1`/`0`.
-
-Value-returning overload:
-
-```cpp
-auto name = fat_p::from_xml<std::string>(node);  // T must be default-constructible
-```
-
----
-
-## Struct Macros
-
-### Required fields — `FATP_XML_DEFINE_TYPE`
+`FATP_XML_DEFINE_TYPE` maps each field name to exactly one child element with that tag. Duplicates throw `duplicate element:`; missing children throw `missing required element:`.
 
 ```cpp
 struct SensorConfig {
@@ -168,8 +264,6 @@ struct SensorConfig {
 };
 FATP_XML_DEFINE_TYPE(SensorConfig, model, gain)
 ```
-
-XML:
 
 ```xml
 <sensor>
@@ -182,41 +276,55 @@ XML:
 SensorConfig cfg = fat_p::from_xml<SensorConfig>(root.require("sensor"));
 ```
 
-- Exactly **one** child per field; duplicates throw.
-- Missing required child throws.
-- Nested structs work if their `from_xml` is visible (ADL / same TU).
+Nested structs work when their generated or hand-written `from_xml` is found by ADL from the macro expansion site.
 
-### Optional fields — `FATP_XML_DEFINE_TYPE_OPTIONAL`
+### The duplicate sibling distinction
 
-Missing children are skipped; struct member keeps its default value. At most one child per field; duplicates still throw.
-
-**Limitation:** vector/repeated fields are **not** supported. Use the vector API below.
+Struct fields reject duplicate child tags because duplicates indicate a schema mistake for scalar/nested fields. **Vectors** (later section) intentionally allow repeated siblings — same XML pattern, different API entry point.
 
 ---
 
-## Optional Fields
+## Optional Fields: Defaults vs Absence
 
-### `std::optional<T>` as a direct element
+### Macro-level optionals
 
-When the node itself is present, `from_xml` fills the optional:
+`FATP_XML_DEFINE_TYPE_OPTIONAL` skips missing children and leaves default-constructed members:
 
 ```cpp
-std::optional<int> value;
-fat_p::from_xml(node, value);
+struct Options {
+    double tolerance = 1e-6;
+    int maxIter = 100;
+};
+FATP_XML_DEFINE_TYPE_OPTIONAL(Options, tolerance, maxIter)
 ```
 
-### Optional by child tag
+If `<maxIter>` is absent, `maxIter` stays `100`. If `<maxIter>` appears twice, binding still throws.
+
+### `std::optional` members
+
+Use optional field types with the required macro when the element may be present with value semantics:
+
+```cpp
+struct RunConfig {
+    std::optional<double> dt;
+};
+FATP_XML_DEFINE_TYPE(RunConfig, dt)
+```
+
+For optional **child tags** without wrapping the whole struct:
 
 ```cpp
 std::optional<double> threshold;
-fat_p::from_xml(parent, "threshold", threshold);  // nullopt if child absent
+fat_p::from_xml(parent, "threshold", threshold);
 ```
 
 ---
 
-## Vectors and Repeated Elements
+## Repeated Elements: Why Macros Stop Short
 
-Collect repeated sibling elements with the same tag:
+### The vector API
+
+Repeated siblings share a tag name. Collect them with `from_xml(parent, childTag, vector)`:
 
 ```xml
 <items>
@@ -230,19 +338,23 @@ std::vector<Item> items;
 fat_p::from_xml(parent.require("items"), "item", items);
 ```
 
-Convenience wrapper:
+`xml_all` combines wrapper `require` and collection:
 
 ```cpp
 auto items = fat_p::xml_all<Item>(root, "items", "item");
 ```
 
-Duplicate siblings are **allowed** for vector collection (unlike scalar struct fields). Each matching child is deserialized independently.
+### Why macros do not cover vectors
+
+`FATP_XML_DEFINE_TYPE` expands one `require_unique_child` per field. Vectors need zero-or-many matches, not zero-or-one. A future `FATP_XML_DEFINE_TYPE_VECTOR` could exist; today the explicit API keeps macro semantics simple and duplicate detection strict for scalar fields.
 
 ---
 
-## Enum Deserialization
+## Enum Binding: Integer vs String Policy
 
-### Integer form (no policy)
+### Integer enums: fast path, loose validation
+
+Without a string policy, enum binding reads the underlying integer:
 
 ```cpp
 enum class Mode : int { Off = 0, On = 1 };
@@ -252,121 +364,323 @@ enum class Mode : int { Off = 0, On = 1 };
 <mode>1</mode>
 ```
 
-`from_xml` reads the underlying integer. Values outside the underlying type range throw. **Declared enumerator membership is not validated** — any in-range integer is accepted.
+Values outside the underlying type range throw. **Enumerator membership is not validated** — `99` may deserialize if it fits in the underlying type. Use string policies when XML tokens must be a closed set.
 
-### String form — `FATP_XML_ENUM_STRING_POLICY`
+### String policies: strict tokens
 
-Define the policy at **global file scope** (not inside any namespace):
+Define `FATP_XML_ENUM_STRING_POLICY` at **global file scope** after the enum:
 
 ```cpp
 enum class Mode { Off, On };
 FATP_XML_ENUM_STRING_POLICY(Mode, Off, On)
 ```
 
-For enums in a user namespace, pass the qualified type:
+```xml
+<mode>On</mode>
+```
+
+Tokens must match enumerator spelling exactly. After a policy is defined, numeric text like `<mode>1</mode>` throws.
+
+For enums in user namespaces:
 
 ```cpp
 namespace app { enum class Mode { Off, On }; }
 FATP_XML_ENUM_STRING_POLICY(app::Mode, Off, On)
 ```
 
-XML token must match enumerator spelling exactly (`On`, not `on`):
+**Placement rule:** Do not invoke the macro inside a namespace block. It opens `namespace fat_p { namespace xml_detail { ... } }` relative to the call site; inside user namespaces the specialization lands in the wrong place (GCC/MSVC errors).
 
-```xml
-<mode>On</mode>
-```
+`FATP_ENUM_STRING_POLICY` aliases to `FATP_XML_ENUM_STRING_POLICY` when EnumPlus has not already defined it.
 
-Inside structs:
+### Enums inside structs
 
 ```cpp
 struct Config { Mode mode; };
 FATP_XML_DEFINE_TYPE(Config, mode)
 ```
 
-**Alias:** If EnumPlus is not included, `FATP_ENUM_STRING_POLICY` is defined as an alias to `FATP_XML_ENUM_STRING_POLICY`.
-
-**Policy vs integer:** Once `FATP_XML_ENUM_STRING_POLICY` is defined for an enum, numeric text like `<mode>1</mode>` throws.
+No macro changes required once `from_xml` for `Mode` exists.
 
 ---
 
-## Error Handling
+## Error Handling Model
 
-XmlLite uses `FATP_XML_ENFORCE(condition, ...)` which throws `std::runtime_error` with file, line, function, and message context.
+XmlLite is **exception-based**. `FATP_XML_ENFORCE(condition, ...)` throws `std::runtime_error` with:
 
-Typical failure modes:
+- Source file, line, and function from `std::source_location`
+- Stringized condition
+- Additional message fragments (element names, values)
 
-| Situation | Result |
-|-----------|--------|
-| Malformed XML | Parse throw |
-| Missing required element | `missing required element:` |
-| Duplicate struct field child | `duplicate element:` |
-| Scalar element with children | `element has child elements during scalar conversion` |
-| Invalid enum token | `invalid enum in element:` |
-| Invalid numeric text | `invalid double/int in element:` |
+There is no `Expected<T,E>` variant in XmlLite. Config load failures are typically fatal at startup; throwing matches that model. For non-throwing JSON, use FatPJsonLite.
 
-There is no error-code or `Expected` variant in XmlLite today.
+### Debug vs Release
+
+Behavior does not change under `NDEBUG` for XmlLite enforcement. Failed parses and failed binds throw in both build modes. Sanitizer builds in CI (ASan, UBSan, TSan) exercise the same paths.
+
+### Typical failure categories
+
+**Parse failures:** malformed tags, namespace prefixes, unclosed elements, trailing garbage.
+
+**Structure failures:** `missing required element`, `duplicate element`.
+
+**Binding failures:** invalid numeric text, non-finite double, empty enum element, invalid enum token, scalar on non-leaf element.
+
+Catch `std::exception` at the config load boundary and log `what()`; messages are intended for human diagnosis.
 
 ---
 
 ## Parser Strictness
 
-The parser intentionally rejects input that is valid in full XML processors but undesirable for config:
+XmlLite rejects patterns that full XML allows but config pipelines should treat as errors:
 
-- Prefixed element or attribute names (`<ns:tag>`)
-- `xmlns` attributes
-- Multiple root elements or trailing non-comment garbage
-- Unclosed elements
-- Duplicate attribute names on one element
+- Prefixed names and `xmlns` attributes (namespaces not supported)
+- Multiple root elements
+- Non-comment trailing content after root close
+- Unclosed non-self-closing elements
+- Duplicate attributes on one element
 - Raw `<` inside attribute values
-- Non-XML whitespace (e.g. form feed) after root close
+- Invalid name start characters
+- Malformed or repeated XML declarations
 
-Namespaces are not supported. Use local tag names only.
+Mixed content (text interleaved with child elements) is not preserved in order; text chunks trim and join with spaces in the parent `text` field. Design configs as element trees with leaf text values, not inline markup.
 
 ---
 
-## Best Practices
+## Performance Rules of Thumb
 
-1. **Keep config XML simple:** one text value or children per element, not mixed sequences.
-2. **Use string enum policies** when XML tokens must match a fixed vocabulary.
-3. **Use integer enums** only when numeric values are intentional and range checks suffice.
-4. **Place enum policies at file scope** after enum definitions.
-5. **Use `xml_all` for lists**, not struct macros.
-6. **Validate paths** with `hasPath` before optional navigation when control flow should avoid exceptions.
+- **Parse once per file load.** Reuse the `XmlNode` tree for multiple bindings.
+- **Prefer struct macros** over per-field `require` + `from_xml` when the schema is fixed.
+- **Use `hasPath`** before `path` when failure is an expected branch, not a fatal error.
+- **Avoid binding huge repeated lists** through deep nested structs; bind vectors in one `from_xml(parent, tag, vec)` pass.
+- **Config size discipline:** whole-file read is appropriate for kilobyte-to-low-megabyte decks; multi-hundred-megabyte XML needs a streaming parser (pugixml, etc.).
+- **Measured timings:** consult `components/Xml/benchmarks/` when available; do not rely on stale μs figures in prose.
+
+---
+
+## When to Use XmlLite (and When Not To)
+
+### Use XmlLite when
+
+- Loading startup configuration from simple nested XML
+- You need a single vendored header with no Boost/libxml2 dependency
+- You want struct macros and typed enums in the same layer as parsing
+- Invalid config must fail loudly before numerical work begins
+- CI must prove header self-containment (Fat-P `xml-lite.yml` pattern)
+
+### Do not use XmlLite when
+
+- You require namespaces, CDATA, or full XML 1.x compliance
+- You need XPath, XSLT, or schema validation
+- Documents are huge and must stream (SAX/pull parsing)
+- You need round-trip XML writing
+- Throughput-dominated XML services parse millions of messages per second
+
+---
+
+## Migration Guide
+
+### Alternatives
+
+- **Boost.PropertyTree** — Path-based access; Boost dependency; permissive readers
+- **pugixml** — Fast, full-featured DOM; manual C++ binding
+- **tinyxml2** — Lightweight DOM; manual traversal
+- **RapidXML** — In-situ parse; destructive to input buffer
+- **JsonLite / FatPJsonLite** — JSON instead of XML; preferred for new greenfield configs
+- **Manual string parsing** — No dependency; highest bug risk
+
+### Migration from manual traversal
+
+**Before:**
+
+```cpp
+const auto* n = root.child("sensor");
+if (!n) throw ...;
+double gain = std::stod(n->child("gain")->text);
+```
+
+**After:**
+
+```cpp
+struct Sensor { double gain; };
+FATP_XML_DEFINE_TYPE(Sensor, gain)
+Sensor s = fat_p::from_xml<Sensor>(root.require("sensor"));
+```
+
+Semantic difference: XmlLite throws with consistent `FATP_XML_ENFORCE` messages and validates leaf structure during bind.
+
+### Migration from Boost.PropertyTree
+
+| Operation | Boost.PropertyTree | XmlLite |
+|-----------|-------------------|---------|
+| Load file | `read_xml(path, pt)` | `parse_xml_file(path)` |
+| Nested access | `pt.get<double>("sensor.gain")` | `from_xml<Sensor>(root.require("sensor"))` |
+| Optional key | `get_optional` | `hasPath` / `FATP_XML_DEFINE_TYPE_OPTIONAL` |
+| Enum | Manual string compare | `FATP_XML_ENUM_STRING_POLICY` |
+| Namespaces | Supported in XML | Rejected at parse |
+
+**What you lose:** path-string uniformity across INI/JSON/XML in PropertyTree.
+
+**What you gain:** typed struct binding, strict config parse rules, no Boost linkage.
+
+### Migration from pugixml
+
+| Operation | pugixml | XmlLite |
+|-----------|---------|---------|
+| Parse | `doc.load_file` | `parse_xml_file` |
+| Navigate | `node.child("x")` | `node.require("x")` |
+| Typed bind | Manual | `from_xml` + macros |
+| XPath | Yes | No |
+
+Migrate by replacing traversal blocks with struct macros field-by-field. Keep pugixml if you still need XPath on the same files.
+
+### Migration from stringly-typed enums
+
+Replace compare chains with policies:
+
+```cpp
+enum class Scheme { cheb, uniform, linear };
+FATP_XML_ENUM_STRING_POLICY(Scheme, cheb, uniform, linear)
+```
+
+```cpp
+Scheme s = fat_p::from_xml<Scheme>(node.require("scheme"));
+```
+
+Invalid tokens throw at load time with element tag and value in the message.
 
 ---
 
 ## Troubleshooting
 
-### GCC `-Wdangling-reference` on struct macros
+### Compilation Errors
 
-Ensure you are on a revision that passes child tags as `std::string_view` to `require_unique_child` (fixed in `c6b7d2b5`). Update `XmlLite.h` if macros still use `const auto&` with `#field` passed to `const std::string&`.
+**`FATP_XML_ENUM_STRING_POLICY` inside namespace / MSVC C2888**
 
-### `FATP_XML_ENUM_STRING_POLICY` compile errors inside namespace
+Move the macro to global file scope. It must specialize `fat_p::xml_detail::XmlEnumStringPolicy` in the correct namespace.
 
-Move the macro to **file scope**. The macro opens `namespace fat_p { namespace xml_detail { ... } }` relative to the call site; inside a user namespace it creates the wrong specialization target.
+**GCC `-Werror=dangling-reference` on struct macros**
 
-### MSVC C2888 on enum policy in test namespace
+Upgrade to a revision where `require_unique_child` takes `std::string_view` and macros use explicit `const XmlNode&` (Fat-P `c6b7d2b5` and later).
 
-Same fix: file scope only. Do not place the macro inside `fat_p::testing::xmllite` or similar.
+**`from_xml` not found for user type**
 
-### `element has child elements during scalar conversion`
+Provide `void from_xml(const fat_p::XmlNode&, T&)` in the same namespace as `T` or ensure ADL can find it from the macro expansion context.
 
-The element has nested tags but you called scalar `from_xml`. Use struct `from_xml` for nested types, or navigate to the leaf child first.
+### Runtime Errors
 
-### Vector field in struct macro does not compile / misbehaves
+**`element has child elements during scalar conversion`**
 
-`FATP_XML_DEFINE_TYPE` does not support `std::vector` fields. Deserialize the vector in `from_xml` manually or after parsing the parent node.
+You called scalar `from_xml` on a node with nested elements. Bind a struct type or descend to the leaf child first.
+
+**`duplicate element: field inside: parent`**
+
+`FATP_XML_DEFINE_TYPE` found two siblings with the same field tag. Remove the duplicate or switch to vector collection API.
+
+**`invalid enum in element`**
+
+String policy rejected the token. Check spelling and policy enumerator list.
+
+**`missing required element`**
+
+Required macro field or `require()` target absent. Verify XML schema against struct definition.
+
+### Performance Issues
+
+**Slow load on very large XML**
+
+XmlLite reads the entire file and builds a fully materialized tree. Use a streaming parser or split configuration.
+
+**Repeated `path()` walks**
+
+Cache `XmlNode` references or bind once into structs instead of re-walking dotted paths in hot loops (config load should not be hot anyway).
+
+---
+
+## API Reference
+
+### Parse
+
+| API | Description |
+|-----|-------------|
+| `parse_xml(std::string_view)` | Parse XML string to `XmlNode` root |
+| `parse_xml_file(const std::string&)` | Read file, parse to `XmlNode` |
+
+### XmlNode query
+
+| Method | Throws? | Returns |
+|--------|---------|---------|
+| `child(tag)` | No | `const XmlNode*` or null |
+| `require(tag)` | Yes | `const XmlNode&` |
+| `all(tag)` | No | `vector<const XmlNode*>` |
+| `has(tag)` | No | `bool` |
+| `path(dotted)` | Yes | `const XmlNode&` |
+| `hasPath(dotted)` | No | `bool` |
+| `trimmedText()` | No | `string_view` |
+| `attr(name)` | No | `optional<string>` |
+
+### Bind
+
+| API | Description |
+|-----|-------------|
+| `from_xml(node, T&)` | Populate `T` from node (overload set) |
+| `from_xml<T>(node)` | Value-returning bind |
+| `from_xml(parent, tag, optional<T>&)` | Optional child by tag |
+| `from_xml(parent, tag, vector<T>&)` | Repeated children |
+| `xml_all<T>(parent, wrapper, item)` | Require wrapper, collect items |
+
+### Macros
+
+| Macro | Purpose |
+|-------|---------|
+| `FATP_XML_DEFINE_TYPE(T, fields...)` | Required child per field |
+| `FATP_XML_DEFINE_TYPE_OPTIONAL(T, fields...)` | Optional children per field |
+| `FATP_XML_ENUM_STRING_POLICY(E, enumerators...)` | String token map for enum (file scope) |
+
+### Enforcement
+
+| Macro | Behavior |
+|-------|----------|
+| `FATP_XML_ENFORCE(cond, ...)` | Throw `runtime_error` with location if `!cond` |
+
+---
+
+## FAQ
+
+**Does XmlLite support XML serialization?**  
+No. Parse and bind only. For JSON output, use JsonLite.
+
+**Can I use attributes instead of child elements for scalars?**  
+Read attributes via `node.attr("name")` manually. Struct macros map child elements only.
+
+**Why are namespaces rejected?**  
+Config decks in this stack use local tag names. Namespace support adds complexity and silent mismatch risk without benefit for internal configs.
+
+**Can I share enum string policies with EnumPlus / JSON?**  
+XmlLite policies are XML-local. Tokens can match by convention, but macros are separate unless you standardize spellings manually.
+
+**Does `FATP_XML_DEFINE_TYPE` support `std::vector` fields?**  
+No. Use `from_xml(parent, tag, vec)` or `xml_all`.
+
+**Integer enum accepted value not in enumerator list — is that a bug?**  
+No. Integer path validates underlying range only. Use string policy for closed token sets.
+
+**Is XmlLite thread-safe?**  
+Parsed trees are immutable if you do not modify them. `XmlNode` is not synchronized; parse on one thread, then share read-only.
+
+**What compilers are tested?**  
+MSVC C++20/23, GCC-13/14, Clang-16/17 per `xml-lite.yml`, plus strict warnings and sanitizers.
 
 ---
 
 ## Summary
 
-XmlLite provides config-focused XML parsing and deserialization in one self-contained header:
+XmlLite loads config-shaped XML into typed C++ with one self-contained header:
 
-- **Parse:** `parse_xml`, `parse_xml_file`
-- **Navigate:** `XmlNode::child`, `require`, `path`, `attr`
-- **Deserialize:** `from_xml`, `xml_all`
-- **Structs:** `FATP_XML_DEFINE_TYPE`, `FATP_XML_DEFINE_TYPE_OPTIONAL`
-- **Enums:** integer underlying type, or `FATP_XML_ENUM_STRING_POLICY` for string tokens
+1. **Parse** with `parse_xml` / `parse_xml_file`
+2. **Navigate** with `child`, `require`, `path`, `hasPath`
+3. **Bind scalars** under the leaf rule
+4. **Bind structs** with `FATP_XML_DEFINE_TYPE` / `_OPTIONAL`
+5. **Bind lists** with `from_xml` / `xml_all`
+6. **Bind enums** with integer underlying type or `FATP_XML_ENUM_STRING_POLICY`
 
-For design history and rejected FatPXml split, see `Design Note - XmlLite Enum Support.md`.
+For architectural history (rejected FatPXml split), see `Design Note - XmlLite Enum Support.md`. For positioning vs alternatives, see `Overview - XmlLite.md`.
