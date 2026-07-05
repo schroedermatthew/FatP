@@ -26,14 +26,14 @@ struct incrementable
                       "Underlying type must be incrementable");
     };
     template <typename T>
-    class modifier<T, impl::void_t<decltype(++std::declval<underlying_type_t<T>&>())>>
+    class modifier<T, impl::void_t<decltype(++std::declval<std::add_lvalue_reference_t<underlying_type_t<T>>>())>>
     {
     public:
         friend
         STRONG_CONSTEXPR
         T&
         operator++(T& t)
-        noexcept(noexcept(++std::declval<T&>().value_of()))
+        noexcept(noexcept(++std::declval<std::add_lvalue_reference_t<T>>().value_of()))
         {
             ++value_of(t);
             return t;

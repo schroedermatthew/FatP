@@ -35,7 +35,7 @@ struct boolean
         STRONG_CONSTEXPR
         operator bool()
         const
-        noexcept(noexcept(static_cast<bool>(value_of(std::declval<const T&>()))))
+        noexcept(noexcept(static_cast<bool>(value_of(std::declval<std::add_lvalue_reference_t<const T>>()))))
         {
             const auto& self = static_cast<const T&>(*this);
             return static_cast<bool>(value_of(self));

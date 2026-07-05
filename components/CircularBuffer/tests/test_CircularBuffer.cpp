@@ -591,6 +591,15 @@ FATP_TEST_CASE(size_bounded_under_contention)
 
     std::atomic<bool> start{false};
     std::atomic<bool> done{false};
+    std::atomic<size_t> max_size_seen{0};
+
+    auto update_max_size = [&](size_t s) {
+        size_t current = max_size_seen.load(std::memory_order_relaxed);
+        while (s > current
+               && !max_size_seen.compare_exchange_weak(current, s, std::memory_order_relaxed))
+        {
+        }
+    };
 
     std::thread producer([&]() {
         while (!start.load(std::memory_order_acquire))
@@ -602,8 +611,10 @@ FATP_TEST_CASE(size_bounded_under_contention)
         {
             while (!buffer.push(i))
             {
+                update_max_size(buffer.size());
                 std::this_thread::yield();
             }
+            update_max_size(buffer.size());
         }
     });
 
@@ -628,7 +639,6 @@ FATP_TEST_CASE(size_bounded_under_contention)
 
     start.store(true, std::memory_order_release);
 
-    size_t max_size_seen = 0;
     size_t out_of_range_samples = 0;
     while (!done.load(std::memory_order_acquire))
     {
@@ -639,17 +649,15 @@ FATP_TEST_CASE(size_bounded_under_contention)
             break;
         }
 
-        if (s > max_size_seen)
-        {
-            max_size_seen = s;
-        }
+        update_max_size(s);
     }
 
     producer.join();
     consumer.join();
 
     FATP_ASSERT_TRUE(out_of_range_samples == 0, "size() must be bounded by capacity()");
-    FATP_ASSERT_TRUE(max_size_seen > 0, "Test should observe non-zero size during activity");
+    FATP_ASSERT_TRUE(max_size_seen.load(std::memory_order_relaxed) > 0,
+                     "Test should observe non-zero size during activity");
 
     return true;
 }

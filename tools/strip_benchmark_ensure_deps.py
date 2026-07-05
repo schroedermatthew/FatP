@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+# FATP_META:
+#   meta_version: 1
+#   component: Tooling
+#   file_role: tooling
+#   path: tools/strip_benchmark_ensure_deps.py
+#   summary: "Strip ensure-deps job blocks from per-component benchmark workflows."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
+
 """Remove ensure-deps job from per-component *-benchmarks.yml workflows.
 
 Run All Benchmarks builds deps once before dispatching; component workflows
