@@ -7,23 +7,23 @@ on:
       - 'include/fat_p/**'
       - 'components/**'
       - 'cmake/**'
-      - 'tools/**'
+      - 'tools/fatp_meta_*.py'
+      - 'tools/generate_workflows.py'
+      - 'tools/collect_fatp_test_sources.py'
       - 'tooling/**'
       - 'CMakeLists.txt'
       - '.github/workflows/fatp_meta_compliance.yml'
-    paths-ignore:
-      - 'tools/update_readme_badges.py'
   pull_request:
     paths:
       - 'include/fat_p/**'
       - 'components/**'
       - 'cmake/**'
-      - 'tools/**'
+      - 'tools/fatp_meta_*.py'
+      - 'tools/generate_workflows.py'
+      - 'tools/collect_fatp_test_sources.py'
       - 'tooling/**'
       - 'CMakeLists.txt'
       - '.github/workflows/fatp_meta_compliance.yml'
-    paths-ignore:
-      - 'tools/update_readme_badges.py'
 
 permissions:
   contents: read
