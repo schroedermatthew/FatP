@@ -1,10 +1,21 @@
-# Fast-forward Desktop FatP clone to match origin/main (after agent worktree pushes).
-#
-# Usage (from any FatP clone/worktree):
-#   .\tools\sync-desktop-fatp.ps1
-#   .\tools\sync-desktop-fatp.ps1 -Force   # discard Desktop local edits
-#
-# Override path: $env:FATP_DESKTOP_PATH = 'D:\other\FatP'
+# FATP_META:
+#   meta_version: 1
+#   component: Tooling
+#   file_role: tooling
+#   path: tools/sync-desktop-fatp.ps1
+#   summary: "Fast-forward Desktop FatP clone to match origin/main."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
 
 param(
     [switch]$Force

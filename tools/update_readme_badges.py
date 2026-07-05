@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+# FATP_META:
+#   meta_version: 1
+#   component: Tooling
+#   file_role: tooling
+#   path: tools/update_readme_badges.py
+#   summary: "Regenerate README CI badge sections from workflow files."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
+
 """Regenerate README CI badge sections from .github/workflows/*.yml."""
 
 from __future__ import annotations

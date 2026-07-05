@@ -14,6 +14,27 @@
  * standard includes, missing forward declarations, or include-order
  * dependency) -- never in this test file.
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Skeleton
+  file_role: header_self_contained_test
+  path: components/Skeleton/tests/test_Skeleton_HeaderSelfContained.cpp
+  layer: Testing
+  namespace: fat_p
+  summary: "Compile-only self-containment check for Skeleton.h"
+  api_stability: in_work
+  related:
+    headers:
+      - include/fat_p/Skeleton.h
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+*/
 
 // First include: target header must stand alone.
 #include "Skeleton.h"

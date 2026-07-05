@@ -36,7 +36,7 @@ Example
 #   meta_version: 1
 #   component: Jet
 #   file_role: port_module
-#   path: Jet/python/jet.py
+#   path: components/Jet/python/jet.py
 #   language: python
 #   layer: Foundation
 #   summary: Forward-mode AD scalar; Python port of the C++ Jet<N>.

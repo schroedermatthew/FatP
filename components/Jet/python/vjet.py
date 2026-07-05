@@ -28,7 +28,7 @@ True
 #   meta_version: 1
 #   component: Jet
 #   file_role: port_module
-#   path: Jet/python/vjet.py
+#   path: components/Jet/python/vjet.py
 #   language: python
 #   layer: Foundation
 #   summary: Vectorized forward-mode AD over NumPy arrays; companion to the Python Jet.

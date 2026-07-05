@@ -4,7 +4,7 @@
 #   meta_version: 1
 #   component: Jet
 #   file_role: test
-#   path: Jet/python/test_vjet.py
+#   path: components/Jet/python/test_vjet.py
 #   language: python
 #   layer: Foundation
 #   summary: Per-point and broadcasting tests for the vectorized VJet port.

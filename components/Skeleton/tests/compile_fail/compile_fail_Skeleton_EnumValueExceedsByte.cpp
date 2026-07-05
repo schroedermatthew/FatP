@@ -21,6 +21,26 @@
  * The compiler must emit the static_assert diagnostic.
  * If this file compiles, the byte-range safety contract of Bone<> has regressed.
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Skeleton
+  file_role: test
+  path: components/Skeleton/tests/compile_fail/compile_fail_Skeleton_EnumValueExceedsByte.cpp
+  layer: Testing
+  namespace: fat_p
+  summary: "Compile-fail test: Bone level enum values must fit in one byte"
+  api_stability: in_work
+  related:
+    docs_search: "Skeleton"
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+*/
 
 #include "Skeleton.h"
 

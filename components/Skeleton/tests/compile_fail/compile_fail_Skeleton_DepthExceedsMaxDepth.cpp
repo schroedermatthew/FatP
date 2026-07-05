@@ -19,6 +19,26 @@
  * The compiler must emit a constraint-not-satisfied error.
  * If this file compiles, the depth enforcement contract of Bone<> has regressed.
  */
+/*
+FATP_META:
+  meta_version: 1
+  component: Skeleton
+  file_role: test
+  path: components/Skeleton/tests/compile_fail/compile_fail_Skeleton_DepthExceedsMaxDepth.cpp
+  layer: Testing
+  namespace: fat_p
+  summary: "Compile-fail test: Bone depth must not exceed Schema::kMaxDepth"
+  api_stability: in_work
+  related:
+    docs_search: "Skeleton"
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
+*/
 
 #include "Skeleton.h"
 

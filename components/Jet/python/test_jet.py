@@ -4,7 +4,7 @@
 #   meta_version: 1
 #   component: Jet
 #   file_role: test
-#   path: Jet/python/test_jet.py
+#   path: components/Jet/python/test_jet.py
 #   language: python
 #   layer: Foundation
 #   summary: Finite-difference and edge-case tests for the Python Jet port.

@@ -1,10 +1,21 @@
-# git add, commit, push, then fast-forward Desktop FatP. Use from any FatP clone/worktree.
-#
-# Usage (from repo root):
-#   .\tools\commit-push-sync-desktop.ps1 -Message "Fix XmlLite parser"
-#   .\tools\commit-push-sync-desktop.ps1 -Message "Fix XmlLite parser" -All
-#   .\tools\commit-push-sync-desktop.ps1 -Message "Fix XmlLite parser" -Paths include/fat_p/XmlLite.h
-#   .\tools\commit-push-sync-desktop.ps1 -Message "Fix XmlLite parser" origin main
+# FATP_META:
+#   meta_version: 1
+#   component: Tooling
+#   file_role: tooling
+#   path: tools/commit-push-sync-desktop.ps1
+#   summary: "git add, commit, push, then sync Desktop FatP clone."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
 
 param(
     [Parameter(Mandatory = $true)]

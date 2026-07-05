@@ -10,6 +10,21 @@ and gradient dL/d(x1,y1,th1,rho) = (0.70710678, 0.70710678, 0.29289322,
 Run: python3 dubins_jet.py
 """
 
+# FATP_META:
+#   meta_version: 1
+#   component: Jet
+#   file_role: example
+#   path: components/Jet/python/dubins_jet.py
+#   language: python
+#   layer: Foundation
+#   summary: Dubins path cross-check using the Python Jet port.
+#   api_stability: in_work
+#   related:
+#     cpp_source: include/fat_p/Jet.h
+#     docs_search: "Jet"
+#   hygiene:
+#     stdlib_only: true
+
 import math
 
 from jet import Jet, sin, cos, sqrt, hypot, atan2, acos

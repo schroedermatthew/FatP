@@ -1,7 +1,21 @@
-# Copy repo git hook templates into .git/hooks for this clone/worktree.
-#
-# Usage (from repo root):
-#   .\tools\install-git-hooks.ps1
+# FATP_META:
+#   meta_version: 1
+#   component: Tooling
+#   file_role: tooling
+#   path: tools/install-git-hooks.ps1
+#   summary: "Install git hook templates from tools/git-hooks into .git/hooks."
+#   api_stability: in_work
+#   layer: Infrastructure
+#   related:
+#     docs_search: ""
+#     tests: []
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
 
 $ErrorActionPreference = 'Stop'
 

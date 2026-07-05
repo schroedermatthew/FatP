@@ -13,6 +13,13 @@ FATP_META:
       - components/Skeleton/docs/
     tests:
       - components/Skeleton/tests/test_Skeleton.cpp
+  hygiene:
+    pragma_once: false
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
 */
 
 /**

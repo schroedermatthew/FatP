@@ -9,6 +9,17 @@ FATP_META:
   layer: Foundation
   summary: "AsyncTask support for Expected, split from core Expected.h to keep dependencies lean."
   api_stability: in_work
+  related:
+    docs_search: "AsyncOperations"
+    tests:
+      - components/Expected/tests/test_AsyncOperations.cpp
+  hygiene:
+    pragma_once: true
+    include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
 */
 
 /**

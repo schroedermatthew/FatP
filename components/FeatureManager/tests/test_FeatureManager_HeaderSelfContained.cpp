@@ -13,11 +13,19 @@ FATP_META:
   file_role: test
   path: components/FeatureManager/tests/test_FeatureManager_HeaderSelfContained.cpp
   layer: Testing
+  namespace: fat_p
   summary: "Compile-only hygiene test for FeatureManager.h self-containment."
   api_stability: in_work
+  related:
+    headers:
+      - include/fat_p/FeatureManager.h
   hygiene:
     pragma_once: false
     include_guard: false
+    defines_total: 0
+    defines_unprefixed: 0
+    undefs_total: 0
+    includes_windows_h: false
 */
 
 #include "FeatureManager.h"
