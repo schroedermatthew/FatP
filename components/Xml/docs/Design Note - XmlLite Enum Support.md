@@ -1,396 +1,197 @@
-# Design Note — XmlLite Generic `enum class` Support
+---
+doc_id: DN-XMLLITE-001
+doc_type: "Design Note"
+title: "XmlLite Generic enum class Support"
+fatp_components: ["XmlLite"]
+topics: ["XML enum deserialization", "self-contained header", "FATP_XML_ENUM_STRING_POLICY", "config XML", "macro-based struct mapping"]
+constraints: ["zero external dependencies", "GCC dangling-reference warnings", "header self-containment", "standalone vendored copies"]
+cxx_standard: "C++20"
+std_equivalent: null
+boost_equivalent: null
+last_verified: "2026-07-05"
+audience: ["C++ developers", "AI assistants", "library maintainers"]
+status: "final"
+---
 
-**Status:** Planned (PR0a close-tag hardening complete)
-**Date:** 2026-07-04  
-**Scope:** XmlLite / FatPXml / EnumPlus  
-**Author:** AI-assisted design (review before implementation)
+# Design Note - XmlLite Generic enum class Support
 
-**Prerequisite:** PR0 + PR0a parser hardening must land before enum work. XmlLite is a config XML reader, not a general XML library.
+**Status:** Implemented (supersedes planned FatPXml / EnumPlus split)  
+**Decided:** 2026-07-04  
+**Last reviewed:** 2026-07-05  
+**Scope:** `include/fat_p/XmlLite.h`, `components/Xml/tests/test_XmlLite.cpp`
 
 ---
 
-## 0. PR0 — Parser hardening (complete)
+## Design Note Card
 
-| Issue | Fix |
-|-------|-----|
-| Trailing garbage / multiple roots accepted | `parse()` verifies input consumed after root (whitespace/comments allowed) |
-| Invalid name starts (`<1bad/>`, `<.bad/>`) | Name-start must be alpha or `_` |
-| Duplicate attributes silently overwrite | Reject duplicate attribute names |
-| Mixed content lossy | Documented in XmlLite overview |
-| `size_t` truncation | Guard against values above `size_t` max |
-
-## 0a. PR0a — Close-tag hardening (complete)
-
-| Issue | Fix |
-|-------|-----|
-| Unclosed non-self-closing elements accepted | `parseElement()` enforces `!atEnd()` before close-tag check; requires closing tag |
-| Unchecked `advance()` at EOF | `advance()` and `expect()` throw on unexpected end |
-| `<?xml-stylesheet` slips through prolog | XML declaration requires `<?xml` followed by whitespace or `?>` |
-
-Tests live in `components/Xml/tests/test_XmlLite.cpp` (namespace, trailing content, names, duplicates, mixed content, unclosed elements, processing instructions).
+**Decision:** Implement integer and string `enum class` deserialization inside self-contained `XmlLite.h` using XML-local `FATP_XML_ENUM_STRING_POLICY`, not a separate `FatPXml.h` or `EnumPlus.h` dependency.  
+**Context:** Config loaders needed typed enums in `FATP_XML_DEFINE_TYPE` structs without manual string compares.  
+**Options considered:** FatPXml + EnumPlus split (JsonLite pattern); all-in XmlLite with local policy macro.  
+**Chosen option:** Self-contained XmlLite with `XmlEnumStringPolicy` and `FATP_XML_ENUM_STRING_POLICY`.  
+**Rationale:** Keeps the lite header vendorable with std-only deps; enum policy is small and XML-specific; CI header self-containment stays honest.  
+**Implications:** No `FatPXml.h`; `FATP_ENUM_STRING_POLICY` in consumer TUs aliases to `FATP_XML_ENUM_STRING_POLICY` when EnumPlus is not included.
 
 ---
 
-## 1. Problem statement
+## Decision
 
-XmlLite today deserializes primitives and user structs via `from_xml`, but **has no `enum class` path**. Config loaders fall back to `from_xml<std::string>` and manual string compares:
+XmlLite provides `from_xml` for `enum class` types (integer and string forms) and `FATP_XML_ENUM_STRING_POLICY` entirely within `XmlLite.h`, with **no dependency on EnumPlus.h**.
+
+---
+
+## Context
+
+XmlLite deserializes primitives and user structs via `from_xml`, but early versions had no `enum class` path. Application code fell back to `from_xml<std::string>` and manual compares:
 
 ```cpp
-std::string tscheme = fat_p::from_xml<std::string>(tgt.require("scheme"));
-if (tscheme == "cheb") dub_scheme = "cgl";
+std::string scheme = fat_p::from_xml<std::string>(node.require("scheme"));
+if (scheme == "cheb") { /* ... */ }
 ```
 
-Fat-P already solves enum↔string in **EnumPlus** (`EnumStringPolicy`, `named_enum`, `from_string`) and **FatPJson** wires that into `from_json`. XmlLite needs the same hook, plus a way to **define policies without retyping every string literal**.
+Fat-P already has `EnumPlus` string policies for JSON (`FatPJsonLite`) and other serializers. The original design note proposed mirroring JsonLite/FatPJson with a `FatPXml.h` extension header. During implementation, maintaining a strict **std-only self-contained** `XmlLite.h` (verified by CI header self-containment and `test_XmlLite_HeaderSelfContained.cpp`) proved more important than sharing EnumPlus machinery.
 
 ---
 
-## 2. Goals and non-goals
+## Constraints
 
-### Goals
-
-| ID | Goal |
-|----|------|
-| G1 | `from_xml(const XmlNode&, E&)` for `enum class E` with string element text (`<scheme>cheb</scheme>`) |
-| G2 | Works automatically inside `FATP_XML_DEFINE_TYPE` / `_OPTIONAL` (no macro changes) |
-| G3 | User lists enumerator tokens **once**; XML strings default to `#token` stringification |
-| G4 | Error messages include element tag, raw text, and enum type context (match XmlLite `FATP_XML_ENFORCE` style) |
-| G5 | Align with FatPJson enum behavior where possible (same `EnumStringPolicy`) |
-| G6 | Tests + CI coverage on `xml-lite.yml` matrix |
-
-### Non-goals (v1)
-
-- XML **serialization** (`to_xml` / write API) — parse-only today; defer unless round-trip configs are needed
-- **Alias maps** in the parser (`cheb` → `cgl` across codebases) — application/loader concern
-- **Namespaces**, attributes-for-enums, or enum-as-attribute (element text only in v1)
-- Case-insensitive matching by default (optional later via `from_string_icase`)
-- C++26 reflection–based auto-generation
-- Migrating external config loaders in the same PR series (optional follow-up)
+1. **Self-containment:** `XmlLite.h` must compile standalone with only standard headers and `<concepts>`.
+2. **Macro struct fields:** `FATP_XML_DEFINE_TYPE` must deserialize enum fields without macro changes.
+3. **Config XML semantics:** Element text only; namespaces rejected; scalar elements must be leaves.
+4. **Compiler matrix:** MSVC C++20/23, GCC-13/14, Clang-16/17, strict `-Werror` including GCC `-Wdangling-reference`.
+5. **Vendored copies:** Users who copy only `XmlLite.h` out of Fat-P should get parser, primitives, structs, and enums in one file.
 
 ---
 
-## 3. Architecture decision
+## Options Considered
 
-### 3.1 Follow the JsonLite / FatPJson split (recommended)
+### Option A: FatPXml.h + EnumPlus (original plan)
 
-| Header | Role | Dependencies | Enum support |
-|--------|------|--------------|--------------|
-| **XmlLite.h** | Parser + primitives + struct macros + enum XML | `std` + `EnumPlus.h` | Integer and string `enum class` |
-| **FatPXml.h** (new, optional) | Thin alias / docs entry | `XmlLite.h` | Deferred — string enums live in XmlLite |
+Split parser (`XmlLite.h`) from enum support (`FatPXml.h` including `EnumPlus.h`), mirroring JsonLite / FatPJsonLite.
 
-**Rationale:** XmlLite’s Doxygen still claims zero external dependencies (like JsonLite). FatPJson already owns “ecosystem extensions.” Duplicating that pattern keeps vendored single-file copies honest.
+**Pros:** Reuses `EnumStringPolicy` / `named_enum`; one policy definition for JSON and XML.  
+**Cons:** Breaks self-contained lite story; requires second header and EnumPlus in lite CI paths; FatPXml never shipped.
 
-**Alternative (all-in XmlLite.h):** Domain may legally `#include "EnumPlus.h"` (Domain → Foundation). Update the overview to qualify “zero dependencies” as std-only standalone use. Single include is simpler but weakens the lite story.
+### Option B: Self-contained XmlLite with XML-local policy (chosen)
 
-**Recommendation:** implement string enums in **`FatPXml.h`**. Document `#include "FatPXml.h"` as the Fat-P config entry point.
+Add `xml_string_enum` concept, `XmlEnumStringPolicy<E>` specialization via `FATP_XML_ENUM_STRING_POLICY`, integer fallback for enums without a policy.
 
-### 3.2 Enum policy lives in EnumPlus, not XmlLite
-
-XmlLite/FatPXml should **not** own the string table machinery. That belongs in **EnumPlus.h** so Json, Xml, FeatureManager, and future serializers share one definition.
-
-```
-EnumPlus.h    → FATP_ENUM_STRING_POLICY, EnumStringPolicy
-FatPXml.h     → from_xml<named_enum E>
-XmlLite.h     → unchanged primitive/struct API
-FatPJson.h    → already has from_json<named_enum E>
-```
+**Pros:** Single include; CI header check passes; no circular/ecosystem coupling; GCC/MSVC macro placement rules documented in-header.  
+**Cons:** Duplicate policy macro surface vs EnumPlus (mitigated by `FATP_ENUM_STRING_POLICY` alias when EnumPlus is absent).
 
 ---
 
-## 4. EnumPlus prerequisite (PR 1)
+## Implementation Summary
 
-### 4.1 `FATP_ENUM_STRING_POLICY(Enum, ...)`
+### Parser and deserialization hardening (landed)
 
-Generate `EnumSizeTrait<Enum>` and `EnumStringPolicy<Enum>` from a token list:
-
-```cpp
-enum class TargetScheme { cheb, uniform, linear };
-
-FATP_ENUM_STRING_POLICY(TargetScheme, cheb, uniform, linear)
-```
-
-Expands to (conceptually):
-
-- `EnumSizeTrait<>::size == 3`
-- `constexpr std::array<std::string_view, 3> names = {"cheb", "uniform", "linear"}`
-- `to_string(E)` → `names[static_cast<size_t>(e)]` with bounds check
-- `from_string(sv)` → linear search on `names`; throw `std::invalid_argument` with enum type name on miss
-
-**Rules:**
-
-- Enumerators must be **dense 0..N-1** (matches existing `enum_values()` / `EnumSizeTrait` model)
-- String form defaults to **exact enumerator spelling** (XML `cheb` ↔ `TargetScheme::cheb`)
-- Macro uses `#name` stringification — **no quoted string retyping**
-
-### 4.2 Optional: `FATP_ENUM_STRING_POLICY_FROM_LIST(Enum, LIST_MACRO)`
-
-X-macro for a single driving list (enum body + policy from one `LIST_MACRO`):
-
-```cpp
-#define TARGET_SCHEME_LIST(X) \
-    X(cheb) \
-    X(uniform)
-
-enum class TargetScheme {
-#define X(n) n,
-    TARGET_SCHEME_LIST(X)
-#undef X
-};
-
-FATP_ENUM_STRING_POLICY_FROM_LIST(TargetScheme, TARGET_SCHEME_LIST)
-```
-
-### 4.3 Optional: `FATP_ENUM_STRING_ALIAS(Enum, enumerator, "xml_name")`
-
-Only when XML text ≠ enumerator token. Not required for v1.
-
-### 4.4 Tests (`test_EnumPlus.cpp`)
-
-- Round-trip every generated enumerator
-- `from_string` throws on garbage
-- `named_enum` concept satisfied
-- `enum_entries()` consistent with macro
-
----
-
-## 5. XmlLite / FatPXml API (PR 2)
-
-### 5.1 String enums (`named_enum`)
-
-Add to **FatPXml.h** (mirror `FatPJson.h` `from_json<named_enum E>`):
-
-```cpp
-template <named_enum E>
-inline void from_xml(const XmlNode& node, E& value)
-{
-    const auto sv = node.trimmedText();
-    FATP_XML_ENFORCE(!sv.empty(), "empty element for enum conversion:", node.tag);
-    try {
-        value = fat_p::from_string<E>(sv);
-    } catch (const std::exception& e) {
-        FATP_XML_ENFORCE(false,
-            "invalid enum in element:", node.tag,
-            "value:", std::string(sv),
-            "error:", e.what());
-    }
-}
-```
-
-Value-returning `from_xml<E>(node)` picks this up via the existing template.
-
-### 5.2 Integer enums (in XmlLite.h)
-
-For XML like `<mode>2</mode>`, **XmlLite.h** provides:
-
-```cpp
-template <typename E>
-    requires std::is_enum_v<E> && (!named_enum<E>)
-inline void from_xml(const XmlNode& node, E& value)
-{
-    using U = std::underlying_type_t<E>;
-    U raw{};
-    from_xml(node, raw);
-    value = static_cast<E>(raw);
-}
-```
-
-### 5.3 `FATP_XML_DEFINE_TYPE` — no changes
-
-`FATP_XML_FROM_FIELD_REQUIRED` already calls `from_xml(*_node, value.field)`. Once `from_xml` exists for `E`, struct fields typed as enums deserialize automatically:
-
-```cpp
-struct SensorConfig {
-    SensorModel model;
-    PenaltyType penalty;
-};
-FATP_ENUM_STRING_POLICY(SensorModel, GaussianSensor, IdentitySensor)
-FATP_ENUM_STRING_POLICY(PenaltyType, Identity, Gaussian)
-FATP_XML_DEFINE_TYPE(SensorConfig, model, penalty)
-```
-
-### 5.4 Optional / vector — already generic
-
-`from_xml(parent, tag, std::vector<E>&)` and `optional<E>` work via existing templates once `from_xml(node, E&)` exists.
-
----
-
-## 6. Header layout and includes
-
-### FatPXml.h skeleton
-
-```
-#pragma once
-/*
-FATP_META:
-  component: FatPXml
-  layer: Domain
-  related:
-    headers: XmlLite.h, EnumPlus.h
-    tests: components/Xml/tests/test_FatPXml.cpp
-*/
-#include "XmlLite.h"
-#include "EnumPlus.h"
-
-namespace fat_p {
-  // from_xml<named_enum E>
-  // (optional) from_xml<std::is_enum E> integer path
-}
-```
-
-### XmlLite.h doc update (only)
-
-Add note: for `enum class` deserialization via string names, include **FatPXml.h** and define policy with `FATP_ENUM_STRING_POLICY`.
-
-### Standalone vendored copy
-
-Users who copy only `XmlLite.h` out of Fat-P get parser + primitives only. Enum support requires **EnumPlus.h** + **FatPXml.h** (or hand-written `from_xml` overloads in their translation unit).
-
----
-
-## 7. Error-handling contract
-
-| Case | Behavior |
+| Area | Behavior |
 |------|----------|
-| Empty element text | `FATP_XML_ENFORCE` — same as numeric |
-| Unknown string | `FATP_XML_ENFORCE` wrapping `from_string` exception |
-| Wrong type in struct field | Surfaces as missing child or enum error on that element |
+| PR0 / PR0a | Trailing garbage, multiple roots, invalid names, duplicate attributes, unclosed elements, namespace rejection |
+| PR A (parser) | Raw `<` in attributes; XML-specific whitespace; UTF-8 BOM; strict XML declaration; ASCII name chars |
+| PR B (deserialize) | Leaf-only scalars; unique required struct children; duplicate scalar fields throw |
+| PR C (polish) | Non-finite double rejection; path validation; `parse_xml_file` read checks; enum docs in overview |
+| GCC fix | `require_unique_child` / macro use `std::string_view` + explicit `XmlNode&` (CI `77627543586` all green) |
 
-Match FatPJson: throw `std::runtime_error` via `FATP_XML_ENFORCE`, not `Expected` (XmlLite is exception-based today).
+### Enum API (landed)
 
----
+**Integer enums** (no string policy):
 
-## 8. Test plan
-
-**File:** `components/Xml/tests/test_FatPXml.cpp` (recommended separate from `test_XmlLite.cpp` to keep lite CI std-only).
-
-| Test | Input XML | Assert |
-|------|-----------|--------|
-| `enum_round_trip` | `<color>Green</color>` | `from_xml<Color>` == `Color::Green` |
-| `enum_in_struct` | nested config with enum fields | `FATP_XML_DEFINE_TYPE` fills struct |
-| `enum_invalid` | `<color>Magenta</color>` | throws `std::runtime_error` |
-| `enum_empty` | `<color></color>` | throws |
-| `enum_vector` | repeated child elements | vector size + values |
-| `enum_optional_absent` | optional enum child missing | `nullopt` |
-| `enum_optional_present` | optional enum child present | value set |
-
-Define test enums in the test TU with `FATP_ENUM_STRING_POLICY` — do not depend on `test_EnumPlus` anonymous-namespace enums.
-
----
-
-## 9. CI and verification
-
-| Step | Action |
-|------|--------|
-| New workflow | `fatp-xml.yml` or extend `xml-lite.yml` to build `test_FatPXml.cpp` |
-| `generate_workflows.py` | Register `FatPXml` component entry |
-| Local Windows | MSVC C++20 + C++23 + icx (`setvars` + `advapi32.lib`) per SandBox `WORKFLOW.md` |
-| Local Linux repro | gcc/clang via CI — authoritative for MinGW-on-Linux parity |
-
-Build line (same pattern as `xml-lite.yml`):
-
-```text
-g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -DENABLE_TEST_APPLICATION \
-    -I./include/fat_p components/Xml/tests/test_FatPXml.cpp -o test_bin
+```xml
+<mode>2</mode>
 ```
-
-Update `FATP_META.related.tests` on FatPXml and EnumPlus when macros land.
-
----
-
-## 10. Documentation deliverables
-
-| Artifact | Content |
-|----------|---------|
-| FatPXml.h Doxygen | Enum section: macro usage, example XML, `FATP_XML_DEFINE_TYPE` example |
-| XmlLite.h | Pointer to FatPXml for enums |
-| EnumPlus docs | `FATP_ENUM_STRING_POLICY` reference |
-| This design note | Implementation plan and open decisions |
-
----
-
-## 11. PR plan (DAG)
-
-```
-PR0: XmlLite parser hardening + expanded tests
-  ↓
-PR0a: close-tag hardening (unclosed elements, EOF-safe advance/expect, reject xml-stylesheet)
-  ↓
-PR1: EnumPlus FATP_ENUM_STRING_POLICY + tests
-  ↓
-PR2: FatPXml.h from_xml named_enum + test_FatPXml.cpp
-  ↓
-PR3: Docs / workflow / metadata (FatPXml CI entry, XmlLite → FatPXml pointer)
-  ↓
-PR4 (optional): integer enum support in FatPXml only
-  ↓
-PR5 (optional): migrate internal configs to typed enums
-```
-
-| PR | Files | Est. size |
-|----|-------|-----------|
-| **PR0** | `XmlLite.h`, `test_XmlLite.cpp` | parser fixes + ~80 lines tests |
-| **PR0a** | `XmlLite.h`, `test_XmlLite.cpp` | unclosed elements, EOF-safe lexer, PI rejection |
-| **PR1** | `EnumPlus.h`, `test_EnumPlus.cpp` | ~120 lines macro + ~80 lines tests |
-| **PR2** | `FatPXml.h` (new), `test_FatPXml.cpp` | ~80 + ~150 |
-| **PR3** | `generate_workflows.py`, workflow yml, meta blocks | ~50 |
-| **PR4** | `FatPXml.h` integer enum | ~25 |
-| **PR5** | Application loaders | out of scope unless requested |
-
-Each PR: one commit, tests green locally (MSVC + icx) + CI dispatch.
-
----
-
-## 12. Usage end-state (target DX)
 
 ```cpp
-#include "FatPXml.h"
-
-enum class TargetScheme { cheb, uniform };
-FATP_ENUM_STRING_POLICY(TargetScheme, cheb, uniform)
-
-struct TargetConfig {
-    TargetScheme scheme;
-    double M;
-};
-FATP_XML_DEFINE_TYPE(TargetConfig, scheme, M)
-
-// XML:
-// <target><scheme>cheb</scheme><M>15</M></target>
-
-auto cfg = fat_p::from_xml<TargetConfig>(root.require("target"));
-// cfg.scheme == TargetScheme::cheb
+enum class Mode { Off, On };
+// from_xml reads underlying integer; range check only, not enumerator membership
 ```
 
-**Aliases** (e.g. DUB `cgl` vs NewNobby `cheb`) stay in loader code or a dedicated `RemapPolicy` — not in XmlLite.
+**String enums** (`FATP_XML_ENUM_STRING_POLICY` at **file scope only**):
+
+```cpp
+enum class Mode { Off, On };
+FATP_XML_ENUM_STRING_POLICY(Mode, Off, On)
+```
+
+```xml
+<mode>On</mode>
+```
+
+**Struct integration** (unchanged macros):
+
+```cpp
+struct SensorConfig { Mode mode; double gain; };
+FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
+```
+
+**Vectors:** `from_xml(parent, childTag, vector)` and `xml_all` collect repeated siblings. `FATP_XML_DEFINE_TYPE` does **not** support vector fields.
+
+**Compatibility alias:** If `FATP_ENUM_STRING_POLICY` is not defined by EnumPlus, XmlLite defines it as an alias to `FATP_XML_ENUM_STRING_POLICY`.
+
+### Tests and CI
+
+| Artifact | Count / status |
+|----------|----------------|
+| `test_XmlLite.cpp` | 44 unit tests (style-guide compliant) |
+| `test_XmlLite_HeaderSelfContained.cpp` | 2 compile-time checks |
+| `.github/workflows/xml-lite.yml` | 12-job matrix; all passed on `c6b7d2b5` |
 
 ---
 
-## 13. Open decisions (resolve before implementation)
+## Consequences
 
-1. **FatPXml.h vs inline in XmlLite.h** — **resolved:** split (mirror JsonLite / FatPJson).
-2. **Integer enum overload** — **resolved:** FatPXml only, optional PR4.
-3. **Case-insensitive enum parse** — use `from_string_icase` behind a policy flag, or strict only?
-4. **Test file** — **resolved:** `test_FatPXml.cpp` separate from lite `test_XmlLite.cpp`.
+### Positive
+
+- One header for config XML: parse, structs, enums.
+- Enum fields work inside `FATP_XML_DEFINE_TYPE` / `_OPTIONAL` via existing `from_xml_adl` path.
+- Strict warnings and sanitizers build clean after `string_view` child-tag lookup.
+
+### Negative
+
+- String enum policies are separate from EnumPlus policies unless the user unifies them manually.
+- `FATP_XML_ENUM_STRING_POLICY` must be at global/file scope (GCC and MSVC placement rules).
+- Integer enums do not validate declared enumerator membership.
+
+### Obligations
+
+- Document vector limitation and macro scope rules in User Manual.
+- Keep header self-containment test when changing macros or includes.
+- Do not reintroduce `EnumPlus.h` into `XmlLite.h` without an explicit architecture change.
 
 ---
 
-## 14. Success criteria
+## Rejected / Deferred
 
-- [ ] `FATP_ENUM_STRING_POLICY` — no manual string literals for default spelling
-- [ ] `from_xml<Enum>` works for element text
-- [ ] `FATP_XML_DEFINE_TYPE` struct with enum fields parses without custom code
-- [ ] 5+ tests pass on MSVC C++20/23 and icx locally; gcc/clang on Linux CI
-- [ ] `FATP_META` and workflow registered for FatPXml
-- [ ] XmlLite standalone story documented (no silent EnumPlus dependency in lite header)
+| Item | Status |
+|------|--------|
+| `FatPXml.h` | Rejected — functionality merged into XmlLite |
+| `test_FatPXml.cpp` | Not needed — enum tests in `test_XmlLite.cpp` |
+| XML serialization (`to_xml`) | Deferred |
+| `FATP_XML_DEFINE_TYPE_VECTOR` | Deferred |
+| Enum macro reshape (qualified specialization without namespace block) | Deferred — GCC rejected qualified form |
+| Application loader migrations | Out of scope |
 
 ---
 
-## 15. Related work (already landed)
+## Success Criteria
 
-- `include/fat_p/XmlLite.h` — parser, `from_xml` primitives, struct macros, namespace rejection
-- `components/Xml/tests/test_XmlLite.cpp` — lite CI tests
-- `components/Xml/docs/Design Note - XmlLite Enum Support.md` — this document
-- `.github/workflows/xml-lite.yml` — CI for XmlLite lite tests
+- [x] `FATP_XML_ENUM_STRING_POLICY` — tokens listed once via `#enumerator` stringification
+- [x] `from_xml<Enum>` works for element text (string and integer paths)
+- [x] `FATP_XML_DEFINE_TYPE` struct with enum fields parses without custom code
+- [x] 44 tests pass on full CI matrix (MSVC, GCC, Clang, ASan, UBSan, TSan, strict warnings)
+- [x] Header self-containment verified
+- [x] XmlLite standalone story documented (`Overview`, `User Manual`, this note)
 
-**Package layout:** Xml artifacts live under `components/Xml/` only. Do not keep copies under `components/Json/`.
+---
 
-Enum support builds on PR0/PR0a-hardened XmlLite; it does not replace it.
+## Related Artifacts
+
+| Path | Role |
+|------|------|
+| `include/fat_p/XmlLite.h` | Public header |
+| `components/Xml/tests/test_XmlLite.cpp` | Unit tests |
+| `components/Xml/tests/test_XmlLite_HeaderSelfContained.cpp` | Self-containment |
+| `components/Xml/docs/Overview - XmlLite.md` | Orientation |
+| `components/Xml/docs/User Manual - XmlLite.md` | Usage guide |
+| `.github/workflows/xml-lite.yml` | CI |
+
+**Package layout:** Xml artifacts live under `components/Xml/` only.
