@@ -87,7 +87,7 @@ auto root = fat_p::parse_xml(xml_string);
 SensorConfig cfg = fat_p::from_xml<SensorConfig>(root.require("sensor"));
 ```
 
-**The mechanism:** `FATP_XML_DEFINE_TYPE` expands to a `from_xml(const XmlNode&, T&)` that dispatches each field by type. Scalar and nested struct members use `require_unique_child` + `from_xml_adl`; `std::vector` members require `FATP_XML_VECTOR_ITEM_TAG` and deserialize a unique wrapper element plus repeated item children inside it. Field names map to wrapper tag names (`#field` stringification). Duplicate required siblings throw at bind time; the parser itself allows repeated tags for vector collection APIs. Scalar `from_xml` calls `enforce_leaf_text_node` so a `<gain>` element cannot contain nested elements and still deserialize as `double`.
+**The mechanism:** `FATP_XML_DEFINE_TYPE` expands to a `from_xml(const XmlNode&, T&)` that dispatches each field by type. Scalar and nested struct members use `require_unique_child` + `from_xml_adl`; `std::vector` members deserialize a unique wrapper element via two-arg `from_xml(wrapper, vec)` — every child becomes an element, or leaf wrappers parse space-separated arithmetic text. Field names map to wrapper tag names (`#field` stringification). Duplicate required siblings throw at bind time; the parser itself allows repeated tags for vector collection APIs. Scalar `from_xml` calls `enforce_leaf_text_node` so a `<gain>` element cannot contain nested elements and still deserialize as `double`.
 
 Enum binding uses a local `xml_string_enum` concept and `FATP_XML_ENUM_STRING_POLICY` at file scope — XML-local machinery that keeps the header self-contained (verified by CI header self-containment tests).
 
@@ -122,7 +122,7 @@ Navigation uses `child`, `require`, `all`, `has`, dotted `path`, and `hasPath`. 
 
 `FATP_XML_DEFINE_TYPE` and `FATP_XML_DEFINE_TYPE_OPTIONAL` generate struct `from_xml` without repeating tag names. Required macros enforce exactly one child per scalar/nested field and one wrapper per `std::vector` field; optional macros skip absent children. Nested structs work when their `from_xml` is visible to ADL.
 
-`std::vector` members need `FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)` at file scope to name the repeated child tag inside the wrapper. Ad-hoc list binding still uses `from_xml(parent, tag, vector)` or `xml_all`.
+`std::vector` members need no extra macro — wrapper tag equals the field name. Ad-hoc list binding uses `from_xml(wrapper, vector)`, `from_xml(parent, tag, vector)`, or `xml_all`.
 
 ### 4. Enum class support (integer and string)
 
@@ -172,7 +172,7 @@ Integer enums deserialize from underlying numeric text with range checks. String
 | If You Need... | Why Not Alternative | XmlLite Advantage |
 |----------------|---------------------|-------------------|
 | Zero dependencies | pugixml/tinyxml2 are external packages | Single std-only header |
-| Typed struct macros (incl. vectors) | PropertyTree uses string paths | `FATP_XML_DEFINE_TYPE` + `FATP_XML_VECTOR_ITEM_TAG` |
+| Typed struct macros (incl. vectors) | PropertyTree uses string paths | `FATP_XML_DEFINE_TYPE` |
 | Namespace-free config | Full parsers accept xmlns | Rejected at parse time |
 | Self-contained enums without EnumPlus | FatPJson pattern suggested split header | `FATP_XML_ENUM_STRING_POLICY` in XmlLite |
 | XML serialization | XmlLite is parse-only today | Use JsonLite or manual writer |

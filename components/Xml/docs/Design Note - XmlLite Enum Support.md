@@ -123,9 +123,9 @@ struct SensorConfig { Mode mode; double gain; };
 FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 ```
 
-**Vectors:** `from_xml(parent, childTag, vector)` and `xml_all` collect repeated siblings. `xml_all` requires a unique wrapper element. `from_xml(parent, tag, optional<T>&)` rejects duplicate siblings. `std::vector` struct members are supported via `FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)` at file scope plus `FATP_XML_DEFINE_TYPE` / `_OPTIONAL`.
+**Vectors:** Three forms — space-separated leaf text (`std::vector<double>` etc.), wrapper-child two-arg `from_xml(node, vector)`, and filtered three-arg `from_xml(parent, childTag, vector)` / `xml_all`. `xml_all` requires a unique wrapper element. `from_xml(parent, tag, optional<T>&)` rejects duplicate siblings. `std::vector` struct members work with `FATP_XML_DEFINE_TYPE` / `_OPTIONAL` alone (wrapper named after field).
 
-**Macro limits:** `FATP_XML_DEFINE_TYPE`, `_OPTIONAL`, `FATP_XML_ENUM_STRING_POLICY`, and `FATP_XML_VECTOR_ITEM_TAG` each support up to **50** fields or enumerator tokens per invocation.
+**Macro limits:** `FATP_XML_DEFINE_TYPE`, `_OPTIONAL`, and `FATP_XML_ENUM_STRING_POLICY` each support up to **50** fields or enumerator tokens per invocation.
 
 **Compatibility alias:** If `FATP_ENUM_STRING_POLICY` is not defined by EnumPlus, XmlLite defines it as an alias to `FATP_XML_ENUM_STRING_POLICY`.
 
@@ -155,7 +155,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 
 ### Obligations
 
-- Document `FATP_XML_VECTOR_ITEM_TAG`, 50-field macro cap, and file-scope macro placement rules in User Manual.
+- Document vector deserialization modes and 50-field macro cap in User Manual.
 - Keep header self-containment test when changing macros or includes.
 - Do not reintroduce `EnumPlus.h` into `XmlLite.h` without an explicit architecture change.
 
@@ -168,7 +168,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 | `FatPXml.h` | Rejected — functionality merged into XmlLite |
 | `test_FatPXml.cpp` | Not needed — enum tests in `test_XmlLite.cpp` |
 | XML serialization (`to_xml`) | Deferred |
-| `FATP_XML_DEFINE_TYPE_VECTOR` (separate macro) | Superseded — vector fields use `FATP_XML_VECTOR_ITEM_TAG` + existing struct macros |
+| `FATP_XML_DEFINE_TYPE_VECTOR` (separate macro) | Superseded — vector fields use existing struct macros + `from_xml` overloads |
 | Enum macro reshape (qualified specialization without namespace block) | Deferred — GCC rejected qualified form |
 | Application loader migrations | Out of scope |
 
@@ -180,7 +180,7 @@ FATP_XML_DEFINE_TYPE(SensorConfig, mode, gain)
 - [x] `from_xml<Enum>` works for element text (string and integer paths)
 - [x] `FATP_XML_DEFINE_TYPE` struct with enum fields parses without custom code
 - [x] 62 tests pass on full CI matrix (MSVC, GCC, Clang, ASan, UBSan, TSan, strict warnings)
-- [x] `std::vector` struct fields via `FATP_XML_VECTOR_ITEM_TAG` + `FATP_XML_DEFINE_TYPE`
+- [x] `std::vector` struct fields via two-arg `from_xml` + `FATP_XML_DEFINE_TYPE`
 - [x] Header self-containment verified
 - [x] XmlLite standalone story documented (`Overview`, `User Manual`, this note)
 

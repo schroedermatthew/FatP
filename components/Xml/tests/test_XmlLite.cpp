@@ -154,6 +154,12 @@ struct IntListXmlProbe
 };
 FATP_XML_DEFINE_TYPE(IntListXmlProbe, values)
 
+struct DoubleListXmlProbe
+{
+    std::vector<double> samplePoints;
+};
+FATP_XML_DEFINE_TYPE(DoubleListXmlProbe, samplePoints)
+
 [[nodiscard]] std::string nested_xml(int depth)
 {
     std::string xml;
@@ -556,6 +562,41 @@ FATP_TEST_CASE(deserialize_vector_of_user_struct)
     return true;
 }
 
+FATP_TEST_CASE(deserialize_vector_wrapper_all_children)
+{
+    const auto root = parse_xml(
+        "<extendedStates><extendedState><id>1</id></extendedState>"
+        "<extendedState><id>2</id></extendedState></extendedStates>");
+    std::vector<InnerListXmlProbe> states;
+    from_xml(root, states);
+    FATP_ASSERT_EQ(states.size(), size_t(2), "wrapper-child vector size");
+    FATP_ASSERT_EQ(states[0].id, 1, "wrapper-child vector first");
+    FATP_ASSERT_EQ(states[1].id, 2, "wrapper-child vector second");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_vector_double_space_separated)
+{
+    const auto root = parse_xml("<samplePoints>2.0 3.0 4.5</samplePoints>");
+    std::vector<double> pts;
+    from_xml(root, pts);
+    FATP_ASSERT_EQ(pts.size(), size_t(3), "space-separated vector size");
+    FATP_ASSERT_CLOSE(pts[0], 2.0, "space-separated vector first");
+    FATP_ASSERT_CLOSE(pts[1], 3.0, "space-separated vector second");
+    FATP_ASSERT_CLOSE(pts[2], 4.5, "space-separated vector third");
+    return true;
+}
+
+FATP_TEST_CASE(deserialize_struct_vector_double_space_separated)
+{
+    const auto value = from_xml<DoubleListXmlProbe>(
+        parse_xml("<cfg><samplePoints>2.0 3.0</samplePoints></cfg>"));
+    FATP_ASSERT_EQ(value.samplePoints.size(), size_t(2), "struct space-separated vector size");
+    FATP_ASSERT_CLOSE(value.samplePoints[0], 2.0, "struct space-separated vector first");
+    FATP_ASSERT_CLOSE(value.samplePoints[1], 3.0, "struct space-separated vector second");
+    return true;
+}
+
 FATP_TEST_CASE(deserialize_xml_all_wrapper)
 {
     const auto root = parse_xml("<root><items><item><id>10</id></item><item><id>20</id></item></items></root>");
@@ -822,10 +863,6 @@ FATP_TEST_CASE(reject_numeric_value_for_string_policy_enum)
 
 } // namespace fat_p::testing::xmllite
 
-FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite::ConfigListXmlProbe, items, item)
-FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite::ConfigOptionalListXmlProbe, items, item)
-FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite::IntListXmlProbe, values, value)
-
 // ============================================================================
 // Public Interface
 // ============================================================================
@@ -882,6 +919,9 @@ bool test_XmlLite()
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_user_struct);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_optional_nested_absent);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_of_user_struct);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_wrapper_all_children);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_vector_double_space_separated);
+    FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_double_space_separated);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_xml_all_wrapper);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_field);
     FATP_RUN_TEST_NS(runner, xmllite, deserialize_struct_vector_field_empty);

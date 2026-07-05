@@ -70,8 +70,6 @@ FATP_XML_DEFINE_TYPE(ListProbe, items)
 
 } // namespace fat_p::testing::xmllite_header_self_contained
 
-FATP_XML_VECTOR_ITEM_TAG(fat_p::testing::xmllite_header_self_contained::ListProbe, items, item)
-
 namespace fat_p::testing
 {
 

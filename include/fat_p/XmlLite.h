@@ -57,11 +57,12 @@ FATP_META:
  * deserialization checks underlying-type range only, not declared enumerator
  * membership — use a string policy for strict token validation.
  *
- * Scalar `from_xml` requires leaf elements (no child elements). Repeated
- * child elements use `from_xml(parent, childTag, vector)` or `xml_all`.
- * `FATP_XML_DEFINE_TYPE` maps one child element per scalar/nested field.
- * `std::vector` members use a wrapper element named after the field; register
- * the repeated child tag with `FATP_XML_VECTOR_ITEM_TAG(Type, field, itemTag)`.
+ * Scalar `from_xml` requires leaf elements (no child elements). Vectors support
+ * three forms: space-separated leaf text (e.g. `<pts>1.0 2.0</pts>`),
+ * wrapper-child loops (`from_xml(wrapper, vector)` deserializes every child),
+ * and filtered siblings (`from_xml(parent, childTag, vector)` / `xml_all`).
+ * `FATP_XML_DEFINE_TYPE` maps one child element per scalar/nested field; vector
+ * members use a wrapper element named after the field (no extra macros).
  * Struct and enum string policy macros accept up to 50 fields or enumerator tokens.
  *
  * Value-returning `from_xml<T>(node)` requires `T` to be default-constructible.
@@ -908,7 +909,115 @@ inline void from_xml(const XmlNode& parent, const std::string& childTag,
     }
 }
 
-/// Extract a vector of T from repeated child elements.
+/// Space-separated numeric list in a leaf element (e.g. `<samplePoints>2.0 3.0</samplePoints>`).
+inline void from_xml(const XmlNode& node, std::vector<double>& vec)
+{
+    FATP_XML_ENFORCE(node.children.empty(),
+                     "vector<double> from text requires leaf element:",
+                     node.tag);
+    vec.clear();
+    const std::string txt{node.trimmedText()};
+    if (txt.empty()) return;
+
+    std::istringstream iss(txt);
+    double v = 0;
+    while (iss >> v)
+    {
+        FATP_XML_ENFORCE(std::isfinite(v),
+                         "non-finite double in element:", node.tag);
+        vec.push_back(v);
+    }
+}
+
+namespace xml_detail
+{
+
+template <typename T>
+inline void from_xml_space_separated_leaf(const XmlNode& node, std::vector<T>& value)
+{
+    value.clear();
+    const auto txt = node.trimmedText();
+    if (txt.empty()) return;
+
+    std::string::size_type start = 0;
+    while (start < txt.size())
+    {
+        while (start < txt.size() && isXmlWhitespace(txt[start])) ++start;
+        if (start >= txt.size()) break;
+
+        std::string::size_type end = start;
+        while (end < txt.size() && !isXmlWhitespace(txt[end])) ++end;
+
+        T parsed{};
+        const auto token = txt.substr(start, end - start);
+        if constexpr (std::is_same_v<T, float>)
+        {
+            double temp = 0;
+            auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), temp);
+            FATP_XML_ENFORCE(ec == std::errc{} && ptr == token.data() + token.size(),
+                             "invalid float token in element:", node.tag);
+            FATP_XML_ENFORCE(std::isfinite(temp),
+                             "non-finite float in element:", node.tag);
+            parsed = static_cast<float>(temp);
+        }
+        else if constexpr (std::is_integral_v<T> && !std::is_same_v<T, bool>)
+        {
+            if constexpr (std::is_signed_v<T>)
+            {
+                std::int64_t temp = 0;
+                auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), temp);
+                FATP_XML_ENFORCE(ec == std::errc{} && ptr == token.data() + token.size(),
+                                 "invalid integer token in element:", node.tag);
+                FATP_XML_ENFORCE(temp >= static_cast<std::int64_t>(std::numeric_limits<T>::min()) &&
+                                     temp <= static_cast<std::int64_t>(std::numeric_limits<T>::max()),
+                                 "integer token out of range in element:", node.tag);
+                parsed = static_cast<T>(temp);
+            }
+            else
+            {
+                unsigned long long temp = 0;
+                auto [ptr, ec] = std::from_chars(token.data(), token.data() + token.size(), temp);
+                FATP_XML_ENFORCE(ec == std::errc{} && ptr == token.data() + token.size(),
+                                 "invalid integer token in element:", node.tag);
+                FATP_XML_ENFORCE(temp <= static_cast<unsigned long long>(std::numeric_limits<T>::max()),
+                                 "integer token out of range in element:", node.tag);
+                parsed = static_cast<T>(temp);
+            }
+        }
+        else
+        {
+            static_assert(sizeof(T) == 0, "unsupported space-separated vector element type");
+        }
+
+        value.push_back(parsed);
+        start = end;
+    }
+}
+
+} // namespace xml_detail
+
+/// Wrapper-child vector: deserialize every child element as T (tag names ignored).
+template <typename T>
+    requires (!std::is_same_v<T, double>)
+inline void from_xml(const XmlNode& node, std::vector<T>& value)
+{
+    value.clear();
+    if (node.children.empty())
+    {
+        if constexpr (std::is_arithmetic_v<T> && !std::is_same_v<T, bool>)
+            xml_detail::from_xml_space_separated_leaf(node, value);
+        return;
+    }
+
+    for (const auto& child : node.children)
+    {
+        T temp{};
+        from_xml(child, temp);
+        value.push_back(std::move(temp));
+    }
+}
+
+/// Extract a vector of T from repeated child elements matching childTag.
 template <typename T>
 inline void from_xml(const XmlNode& parent, const std::string& childTag,
                      std::vector<T>& value)
@@ -949,9 +1058,9 @@ template <typename T>
 //   Same but missing fields are silently skipped (struct defaults kept).
 //   At most one child per field; duplicates throw.
 //
-// std::vector members require FATP_XML_VECTOR_ITEM_TAG(Type, field, itemTag)
-// before FATP_XML_DEFINE_TYPE / _OPTIONAL. The wrapper element uses the field
-// name; repeated item elements use itemTag inside the wrapper.
+// std::vector members use a wrapper element named after the field. Every child
+// inside the wrapper is deserialized as the element type; leaf wrappers with
+// space-separated text work for arithmetic vectors (see vector<double> overload).
 // Up to 50 fields per FATP_XML_DEFINE_TYPE / _OPTIONAL; up to 50 tokens per
 // FATP_XML_ENUM_STRING_POLICY. Larger schemas need a hand-written from_xml.
 //
@@ -981,12 +1090,6 @@ struct is_std_vector<std::vector<T, Alloc>> : std::true_type
 template <typename T>
 inline constexpr bool is_std_vector_v = is_std_vector<T>::value;
 
-template <typename Struct, auto MemberPtr>
-struct XmlVectorItemTag
-{
-    static constexpr std::string_view value{};
-};
-
 template <auto MemberPtr, typename Struct>
 inline void from_xml_struct_field_required(const XmlNode& node,
                                            Struct& value,
@@ -996,12 +1099,8 @@ inline void from_xml_struct_field_required(const XmlNode& node,
 
     if constexpr (is_std_vector_v<FieldType>)
     {
-        constexpr std::string_view itemTag = XmlVectorItemTag<Struct, MemberPtr>::value;
-        static_assert(!itemTag.empty(),
-                      "std::vector struct fields require "
-                      "FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)");
         const XmlNode& wrapper = require_unique_child(node, fieldName);
-        from_xml(wrapper, std::string(itemTag), value.*MemberPtr);
+        from_xml(wrapper, value.*MemberPtr);
     }
     else
     {
@@ -1019,13 +1118,9 @@ inline void from_xml_struct_field_optional(const XmlNode& node,
 
     if constexpr (is_std_vector_v<FieldType>)
     {
-        constexpr std::string_view itemTag = XmlVectorItemTag<Struct, MemberPtr>::value;
-        static_assert(!itemTag.empty(),
-                      "std::vector struct fields require "
-                      "FATP_XML_VECTOR_ITEM_TAG(Struct, field, itemTag)");
         const XmlNode* wrapper = unique_child_or_null(node, fieldName);
         if (wrapper)
-            from_xml(*wrapper, std::string(itemTag), value.*MemberPtr);
+            from_xml(*wrapper, value.*MemberPtr);
     }
     else
     {
@@ -1226,31 +1321,4 @@ inline void from_xml_struct_field_optional(const XmlNode& node,
     FATP_XML_ENUM_STRING_POLICY(EnumType, __VA_ARGS__)
 #endif
 
-// ============================================================================
-// FATP_XML_VECTOR_ITEM_TAG — repeated child tag for std::vector struct fields
-// ============================================================================
-//
-// Call at global/file scope only (same placement rules as FATP_XML_ENUM_STRING_POLICY).
-// For types declared in a user namespace, pass the qualified struct type name.
-//
-//   struct Config {
-//       std::vector<Item> items;
-//   };
-//   FATP_XML_VECTOR_ITEM_TAG(Config, items, item)
-//   FATP_XML_DEFINE_TYPE(Config, items)
-//
-// XML shape:
-//   <items><item>...</item><item>...</item></items>
 
-#define FATP_XML_VECTOR_ITEM_TAG(Type, field, itemTag)                         \
-    namespace fat_p                                                            \
-    {                                                                          \
-    namespace xml_detail                                                       \
-    {                                                                          \
-    template <>                                                                \
-    struct XmlVectorItemTag<Type, &Type::field>                                \
-    {                                                                          \
-        static constexpr std::string_view value = #itemTag;                    \
-    };                                                                         \
-    }                                                                          \
-    }
