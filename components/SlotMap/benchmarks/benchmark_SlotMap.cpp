@@ -817,6 +817,11 @@ public:
                 }
                 break;
             }
+        }
+        return ops;
+    }
+};
+#endif // HAS_FATP_SLOTMAP
 
 // ============================================================================
 // EnTT Adapter (ECS sparse_set/storage pattern)
