@@ -9,7 +9,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.JSON (different model)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-02-15"
+last_verified: "2026-07-05"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
@@ -32,7 +32,7 @@ status: "reviewed"
 
 **Component:** JsonLite
 **Primary use case:** Parse, build, serialize, and deserialize JSON data with type-safe macros for struct mapping
-**Integration pattern:** Define structs with `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE`, serialize with `to_json(obj)`, deserialize with `from_json<T>(json_value)`
+**Integration pattern:** `#include "JsonLite.h"`, define structs with `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE` in the same namespace as the type, call `fat_p::save_params` / `fat_p::load_params` (ADL via `from_json_adl` — no using-namespace macro)
 **Key API:** `JsonValue`, `to_json()`, `from_json<T>()`, `parseJson()`, `FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE`, `FATP_JSON_DEFINE_TYPE_OPTIONAL`, `JsonPointer`
 **std equivalent:** None
 **Common mistakes:** Using throwing `from_json` without try/catch (use FatPJsonLite for Expected-based API); forgetting macro registration for nested types; assuming JSON numbers map to specific C++ types (JSON has one number type)
@@ -455,53 +455,23 @@ The performance difference is negligible for configuration-sized objects.
 
 ### Integration
 
-JsonLite is a single-header library. Copy `JsonLite.h` to your project and include it:
+JsonLite is a single-header library. Add `include/fat_p` to your include path and include the header:
 
 ```cpp
 #include "JsonLite.h"
-FATP_USING_JSON_LITE()
 ```
 
-The `FATP_USING_JSON_LITE()` macro expands to:
+No link step. No using-namespace import macro is required.
 
-```cpp
-using namespace fat_p;
-using fat_p::to_json;
-using fat_p::from_json;
-```
+Struct macros dispatch nested fields through `json_detail::from_json_adl` / `to_json_adl`
+(the same pattern as XmlLite's `from_xml_adl`). Those helpers bring `fat_p::from_json` /
+`fat_p::to_json` into scope and then apply ADL for user-defined nested types. Define
+`FATP_JSON_DEFINE_TYPE_*` in the **same namespace as the struct** so the generated
+`to_json` / `from_json` overloads are found for your types.
 
-This brings both the fat_p namespace and the serialization functions into scope. The explicit 
-`using` declarations for `to_json` and `from_json` are required for Argument Dependent Lookup 
-(ADL) to work when you define custom serialization for your types.
-
-**Important**: Do NOT use `using namespace fat_p;` without the macro when defining custom 
-serialization, as it won't bring the ADL-required function declarations into scope.
-
-#### Alternative: Selective Usings
-
-If you prefer to avoid `using namespace fat_p`, use the targeted macro that only imports
-the convenience functions:
-
-```cpp
-#include "JsonLite.h"
-FATP_JSONLITE_CONVENIENCE_USINGS()
-```
-
-This expands to:
-
-```cpp
-using fat_p::save_params;
-using fat_p::load_params;
-using fat_p::parse_json;
-using fat_p::to_json_string;
-using fat_p::from_json_string;
-using fat_p::query_json_as;
-using fat_p::query_json_pointer;
-using fat_p::save_params_with_backup;
-```
-
-With this approach, types still need qualification (`fat_p::JsonValue`, `fat_p::JsonObject`),
-but the commonly-used free functions are available without the `fat_p::` prefix.
+Qualify JsonLite types and free functions with `fat_p::` (for example `fat_p::JsonValue`,
+`fat_p::save_params`, `fat_p::parse_json`). Optional `using fat_p::save_params;` declarations
+in a `.cpp` file are fine; avoid `using namespace fat_p` in headers.
 
 ### Compilation
 
@@ -524,8 +494,6 @@ g++ -std=c++17 -g -fsanitize=address,undefined -I/path/to/headers main.cpp -o ap
 
 ```cpp
 #include "JsonLite.h"
-FATP_USING_JSON_LITE()
-
 #include <iostream>
 
 struct Config
@@ -540,9 +508,9 @@ int main()
 {
     Config cfg{8080, "localhost", 30};
     
-    save_params("config.json", cfg);
+    fat_p::save_params("config.json", cfg);
     
-    Config loaded = load_params<Config>("config.json");
+    Config loaded = fat_p::load_params<Config>("config.json");
     
     std::cout << "Port: " << loaded.port << "\n";
     std::cout << "Host: " << loaded.host << "\n";
@@ -2789,7 +2757,7 @@ using json = nlohmann::json;
 
 // After
 #include "JsonLite.h"
-FATP_USING_JSON_LITE()
+// Qualify API with fat_p:: (no using-namespace macro)
 ```
 
 **2. Update struct macros:**
@@ -3255,17 +3223,12 @@ error: no matching function for call to 'from_json'
 
 **Cause:** The serialization functions are not in scope.
 
-**Solution:** Add `FATP_USING_JSON_LITE()` after including the header, or use the targeted 
-`FATP_JSONLITE_CONVENIENCE_USINGS()` macro:
+**Solution:** Qualify calls with the `fat_p::` prefix, or add targeted `using` declarations
+in a `.cpp` file (not in headers):
 
 ```cpp
 #include "JsonLite.h"
-FATP_USING_JSON_LITE()  // In .cpp files only
-```
 
-Or use fully qualified names:
-
-```cpp
 fat_p::save_params("config.json", cfg);
 auto cfg = fat_p::load_params<Config>("config.json");
 ```
@@ -3279,7 +3242,7 @@ error: 'JsonValue' was not declared in this scope
 
 **Cause:** Type names need namespace qualification or using declarations.
 
-**Solution:** Either use `FATP_USING_JSON_LITE()` or qualify the types:
+**Solution:** Qualify the types:
 
 ```cpp
 fat_p::JsonValue j;
@@ -3373,29 +3336,27 @@ JSON Error: Failed to open file for writing - filename: config.json
 
 ### Common Mistakes
 
-#### Forgetting FATP_USING_JSON_LITE() in test files
+#### Forgetting fat_p:: qualification in test files
 
-When writing tests, always include the macro at the top of the test namespace:
+When writing tests outside `namespace fat_p`, qualify JsonLite calls:
 
 ```cpp
 namespace my_tests {
-    FATP_USING_JSON_LITE()  // Required for convenience functions
-    
     void test_config() {
         Config cfg{8080};
-        save_params("test.json", cfg);  // Now works
+        fat_p::save_params("test.json", cfg);
     }
 }
 ```
 
-#### Using FATP_USING_JSON_LITE() in headers
+#### Using using namespace fat_p in headers
 
 **Don't do this:**
 ```cpp
 // my_types.h - BAD!
 #pragma once
 #include "JsonLite.h"
-FATP_USING_JSON_LITE()  // Pollutes every file that includes this header!
+using namespace fat_p;  // Pollutes every file that includes this header!
 ```
 
 **Do this instead:**
@@ -3413,11 +3374,10 @@ namespace my_app {
 ```cpp
 // my_code.cpp - GOOD
 #include "my_types.h"
-FATP_USING_JSON_LITE()  // Safe in .cpp files
 
 int main() {
     my_app::Config cfg{8080};
-    save_params("config.json", cfg);
+    fat_p::save_params("config.json", cfg);
 }
 ```
 

@@ -4330,6 +4330,41 @@ T decode_value(const std::string& json)
 
 } // namespace fat_p::testing::jsonlite
 
+namespace app_json_adl_probe
+{
+
+struct Widget
+{
+    int id{};
+};
+
+struct Panel
+{
+    Widget widget;
+    std::vector<Widget> widgets;
+};
+
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Widget, id)
+FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Panel, widget, widgets)
+
+} // namespace app_json_adl_probe
+
+namespace fat_p::testing::jsonlite
+{
+
+FATP_TEST_CASE(json_lite_adl_user_namespace)
+{
+    const JsonValue j = parse_json(R"({"widget":{"id":7},"widgets":[{"id":1},{"id":2}]})");
+    const auto panel = json_decode<app_json_adl_probe::Panel>(j);
+    FATP_ASSERT_EQ(panel.widget.id, 7, "ADL namespace widget id");
+    FATP_ASSERT_EQ(panel.widgets.size(), size_t(2), "ADL namespace widgets size");
+    FATP_ASSERT_EQ(panel.widgets[0].id, 1, "ADL namespace widgets first");
+    FATP_ASSERT_EQ(panel.widgets[1].id, 2, "ADL namespace widgets second");
+    return true;
+}
+
+} // namespace fat_p::testing::jsonlite
+
 namespace fat_p::testing
 {
 
@@ -4397,6 +4432,7 @@ bool test_JsonLite()
     FATP_RUN_TEST_NS(runner, jsonlite, json_lite_optional_fields);
     FATP_RUN_TEST_NS(runner, jsonlite, json_lite_intrusive_serialization);
     FATP_RUN_TEST_NS(runner, jsonlite, json_lite_nested_structs);
+    FATP_RUN_TEST_NS(runner, jsonlite, json_lite_adl_user_namespace);
     FATP_RUN_TEST_NS(runner, jsonlite, json_lite_complex_nested);
     FATP_RUN_TEST_NS(runner, jsonlite, json_lite_deep_hierarchy);
 

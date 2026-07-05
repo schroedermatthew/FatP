@@ -68,11 +68,13 @@ FATP_META:
  * int main() {
  *     Config cfg{8080, "localhost", 30};
  *     fat_p::save_params("config.json", cfg);
- *
- *     auto loaded = fat_p::load_params<Config>("config.json");
+ *     const auto loaded = fat_p::load_params<Config>("config.json");
  *     return 0;
  * }
  * @endcode
+ *
+ * Struct macros dispatch nested fields through json_detail::from_json_adl / to_json_adl
+ * (same pattern as XmlLite's from_xml_adl). No using-namespace import macro is required.
  *
  * @section conversion_api Two-Style Conversion API
  * @code{.cpp}
@@ -926,6 +928,17 @@ struct JsonValue : std::variant<std::nullptr_t, bool, int64_t, double, std::stri
 
 namespace json_detail
 {
+
+// ADL dispatch for struct macros and containers (defined after primitive to_json/from_json).
+template <typename T>
+void to_json_adl(JsonValue& j, const T& value);
+
+template <typename T>
+void from_json_adl(const JsonValue& j, T& value);
+
+template <typename T>
+JsonValue to_json_value(const T& value);
+
 /**
  * @brief Get human-readable type name from JsonValue
  *
@@ -1749,7 +1762,7 @@ struct JsonDispatcher<T, Policy>
         {
             // User-defined type: delegate to ADL-found to_json, then serialize result
             JsonValue j;
-            to_json(j, obj);
+            json_detail::to_json_adl(j, obj);
             JsonDispatcher<JsonValue, Policy>::dump(os, j, pretty, indent);
         }
         else
@@ -2187,7 +2200,7 @@ inline JsonValue to_json(const JsonValue& value)
 #define FATP_JSON_TO_FIELD(field)                              \
     do                                                         \
     {                                                          \
-        obj[#field] = json_detail::to_json_value(value.field); \
+        obj[#field] = ::fat_p::json_detail::to_json_value(value.field); \
     } while (0)
 
 #define FATP_JSON_FROM_FIELD(field)                                                                        \
@@ -2197,7 +2210,7 @@ inline JsonValue to_json(const JsonValue& value)
         {                                                                                                  \
             try                                                                                            \
             {                                                                                              \
-                from_json(it->second, value.field);                                                        \
+                ::fat_p::json_detail::from_json_adl(it->second, value.field);                              \
             }                                                                                              \
             catch (const std::exception& e)                                                                \
             {                                                                                              \
@@ -2210,13 +2223,13 @@ inline JsonValue to_json(const JsonValue& value)
         }                                                                                                  \
     } while (0)
 
-#define FATP_JSON_FROM_FIELD_OPT(field)                  \
-    do                                                   \
-    {                                                    \
-        if (auto it = obj.find(#field); it != obj.end()) \
-        {                                                \
-            from_json(it->second, value.field);          \
-        }                                                \
+#define FATP_JSON_FROM_FIELD_OPT(field)                                                  \
+    do                                                                                   \
+    {                                                                                    \
+        if (auto it = obj.find(#field); it != obj.end())                                 \
+        {                                                                                \
+            ::fat_p::json_detail::from_json_adl(it->second, value.field);                \
+        }                                                                                \
     } while (0)
 
 /**
@@ -5796,7 +5809,7 @@ template <typename T>
 inline JsonValue json_encode(const T& value)
 {
     JsonValue j;
-    to_json(j, value); // ADL finds the correct overload
+    json_detail::to_json_adl(j, value);
     return j;
 }
 
@@ -5812,7 +5825,7 @@ template <typename T>
 inline T json_decode(const JsonValue& j)
 {
     T result{};
-    from_json(j, result); // ADL finds the correct overload
+    json_detail::from_json_adl(j, result);
     return result;
 }
 
@@ -6115,6 +6128,23 @@ inline void from_json(const JsonValue& j, unsigned short& value)
 
 namespace json_detail
 {
+
+/// Dispatch to_json with fat_p overloads plus ADL for user-defined types.
+template <typename T>
+inline void to_json_adl(JsonValue& j, const T& value)
+{
+    using ::fat_p::to_json;
+    to_json(j, value);
+}
+
+/// Dispatch from_json with fat_p overloads plus ADL for user-defined types.
+template <typename T>
+inline void from_json_adl(const JsonValue& j, T& value)
+{
+    using ::fat_p::from_json;
+    from_json(j, value);
+}
+
 /**
  * @brief Helper to convert any type to JsonValue via ADL to_json
  *
@@ -6126,9 +6156,10 @@ template <typename T>
 JsonValue to_json_value(const T& value)
 {
     JsonValue result;
-    to_json(result, value);
+    to_json_adl(result, value);
     return result;
 }
+
 } // namespace json_detail
 
 // ============================================================================
@@ -6309,7 +6340,7 @@ void to_json(JsonValue& j, const std::optional<T>& opt)
 {
     if (opt.has_value())
     {
-        to_json(j, *opt);
+        json_detail::to_json_adl(j, *opt);
     }
     else
     {
@@ -6478,7 +6509,7 @@ JsonValue to_json(const std::optional<T>& opt)
 {
     if (opt.has_value())
     {
-        return to_json(*opt);
+        return json_detail::to_json_value(*opt);
     }
     return nullptr;
 }
@@ -6523,7 +6554,7 @@ void from_json(const JsonValue& j, std::array<T, N>& arr)
     FATP_JSON_ENFORCE(json_arr.size() == N, "JSON array size mismatch", "expected", N, "got", json_arr.size());
     for (size_t i = 0; i < N; ++i)
     {
-        from_json(json_arr[i], arr[i]);
+        json_detail::from_json_adl(json_arr[i], arr[i]);
     }
 }
 
@@ -6538,7 +6569,7 @@ void from_json(const JsonValue& j, std::vector<T>& vec)
     for (const auto& elem : arr)
     {
         T value;
-        from_json(elem, value);
+        json_detail::from_json_adl(elem, value);
         vec.push_back(std::move(value));
     }
 }
@@ -6558,7 +6589,7 @@ void from_json(const JsonValue& j, std::set<T>& s)
     for (const auto& elem : arr)
     {
         T value;
-        from_json(elem, value);
+        json_detail::from_json_adl(elem, value);
         s.insert(std::move(value));
     }
 }
@@ -6579,7 +6610,7 @@ void from_json(const JsonValue& j, std::unordered_set<T>& s)
     for (const auto& elem : arr)
     {
         T value;
-        from_json(elem, value);
+        json_detail::from_json_adl(elem, value);
         s.insert(std::move(value));
     }
 }
@@ -6599,7 +6630,7 @@ void from_json(const JsonValue& j, std::deque<T>& d)
     for (const auto& elem : arr)
     {
         T value;
-        from_json(elem, value);
+        json_detail::from_json_adl(elem, value);
         d.push_back(std::move(value));
     }
 }
@@ -6619,7 +6650,7 @@ void from_json(const JsonValue& j, std::list<T>& lst)
     for (const auto& elem : arr)
     {
         T value;
-        from_json(elem, value);
+        json_detail::from_json_adl(elem, value);
         lst.push_back(std::move(value));
     }
 }
@@ -6683,7 +6714,7 @@ void from_json(const JsonValue& j, std::map<K, V>& m)
     for (const auto& [key, val] : obj)
     {
         V value;
-        from_json(val, value);
+        json_detail::from_json_adl(val, value);
         if constexpr (std::is_same_v<K, std::string>)
         {
             m[key] = std::move(value);
@@ -6716,7 +6747,7 @@ void from_json(const JsonValue& j, std::unordered_map<K, V>& m)
     for (const auto& [key, val] : obj)
     {
         V value;
-        from_json(val, value);
+        json_detail::from_json_adl(val, value);
         if constexpr (std::is_same_v<K, std::string>)
         {
             m[key] = std::move(value);
@@ -6751,7 +6782,7 @@ void from_json(const JsonValue& j, std::optional<T>& opt)
     else
     {
         T value;
-        from_json(j, value);
+        json_detail::from_json_adl(j, value);
         opt = std::move(value);
     }
 }
@@ -6768,8 +6799,8 @@ void from_json(const JsonValue& j, std::pair<T1, T2>& p)
                       json_detail::typeName(j));
     const auto& arr = std::get<JsonArray>(j);
     FATP_JSON_ENFORCE(arr.size() == 2, "JSON array size mismatch for pair", "expected", 2, "got", arr.size());
-    from_json(arr[0], p.first);
-    from_json(arr[1], p.second);
+    json_detail::from_json_adl(arr[0], p.first);
+    json_detail::from_json_adl(arr[1], p.second);
 }
 
 /// @brief Deserialize JSON array to std::tuple (size must match tuple arity)
@@ -6798,7 +6829,7 @@ template <typename Tuple, std::size_t... I>
 void from_json_tuple_impl(const JsonArray& arr, Tuple& tup, std::index_sequence<I...>)
 {
     // Fold expression: deserialize each element by index
-    (..., from_json(arr[I], std::get<I>(tup)));
+    (..., json_detail::from_json_adl(arr[I], std::get<I>(tup)));
 }
 /** @} */
 
@@ -6826,7 +6857,7 @@ T from_json(const JsonValue& j)
     else
     {
         T result;
-        from_json(j, result);
+        json_detail::from_json_adl(j, result);
         return result;
     }
 }
@@ -6885,7 +6916,7 @@ template <typename T>
 auto to_json(const T& value) -> decltype(to_json(std::declval<JsonValue&>(), value), JsonValue{})
 {
     JsonValue j;
-    to_json(j, value);
+    json_detail::to_json_adl(j, value);
     return j;
 }
 
