@@ -3,7 +3,9 @@
 # =============================================================================
 # Shared dependency cache builder for all FatP benchmark workflows.
 #
-# Manual dispatch only. Builds all competitor libraries and saves them into
+# Manual dispatch or reusable workflow_call from benchmark workflows.
+# Callers must grant `permissions: actions: write` on the ensure-deps job
+# (purge-caches uses it when delete_caches=true). Builds all competitor libraries and saves them into
 # 4 shared caches that individual benchmark workflows restore read-only.
 #
 # Cache key strategy:
