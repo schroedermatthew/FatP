@@ -367,8 +367,8 @@ struct MutexSynchronizationPolicy
     }
     MutexSynchronizationPolicy(const MutexSynchronizationPolicy&) = delete;
     MutexSynchronizationPolicy& operator=(const MutexSynchronizationPolicy&) = delete;
-    MutexSynchronizationPolicy(MutexSynchronizationPolicy&&) noexcept = default;
-    MutexSynchronizationPolicy& operator=(MutexSynchronizationPolicy&&) noexcept = default;
+    MutexSynchronizationPolicy(MutexSynchronizationPolicy&&) = delete;
+    MutexSynchronizationPolicy& operator=(MutexSynchronizationPolicy&&) = delete;
 
 #if FATP_USE_ATOMIC
 private:
