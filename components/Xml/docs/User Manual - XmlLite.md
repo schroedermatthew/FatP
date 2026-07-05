@@ -302,14 +302,9 @@ If `<maxIter>` is absent, `maxIter` stays `100`. If `<maxIter>` appears twice, b
 
 ### `std::optional` members
 
-Use optional field types with the required macro when the element may be present with value semantics:
+A `std::optional<T>` member controls the C++ storage type, not whether the child element may be absent. With `FATP_XML_DEFINE_TYPE`, each listed field still requires exactly one child element — missing `<dt>` throws even when the member type is `std::optional<double>`.
 
-```cpp
-struct RunConfig {
-    std::optional<double> dt;
-};
-FATP_XML_DEFINE_TYPE(RunConfig, dt)
-```
+Use `FATP_XML_DEFINE_TYPE_OPTIONAL` or `from_xml(parent, tag, optional<T>&)` when the child tag may be absent. Use `std::optional<T>` as the member type when you need optional *value* semantics inside a present element (uncommon for config XML).
 
 For optional **child tags** without wrapping the whole struct:
 

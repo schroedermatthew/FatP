@@ -37,6 +37,14 @@ FATP_META:
 
 #include <iostream>
 
+// FATP_XML_ENUM_STRING_POLICY must be at file scope (not inside any namespace).
+enum class HeaderProbeMode
+{
+    Off,
+    On
+};
+FATP_XML_ENUM_STRING_POLICY(HeaderProbeMode, Off, On)
+
 namespace fat_p::testing::xmllite_header_self_contained
 {
 
@@ -79,10 +87,19 @@ bool test_XmlLite_HeaderSelfContained()
         all_passed = all_passed && passed;
     }
 
+    std::cout << "[COMPILE] Running: enum_string_policy ... ";
+    {
+        const auto root = fat_p::parse_xml("<mode>On</mode>");
+        const auto mode = fat_p::from_xml<HeaderProbeMode>(root);
+        const bool passed = (mode == HeaderProbeMode::On);
+        std::cout << (passed ? "PASSED" : "FAILED") << "\n";
+        all_passed = all_passed && passed;
+    }
+
     std::cout << "\n=== Test Summary ===\n";
-    std::cout << "Passed: " << (all_passed ? 2 : 0) << "\n";
+    std::cout << "Passed: " << (all_passed ? 3 : 0) << "\n";
     std::cout << "Failed: " << (all_passed ? 0 : 1) << "\n";
-    std::cout << "Total:  2\n";
+    std::cout << "Total:  3\n";
 
     return all_passed;
 }
