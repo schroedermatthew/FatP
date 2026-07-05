@@ -517,6 +517,24 @@ private:
         }
     }
 
+    void rejectMismatchedCloseTag(const std::string& expectedTag)
+    {
+        if (mInput.substr(mPos, 2) != "</")
+            return;
+
+        const std::size_t nameStart = mPos + 2;
+        FATP_XML_ENFORCE(nameStart < mInput.size() && isXmlNameStartChar(mInput[nameStart]),
+                         "invalid name start at position", mPos);
+
+        std::size_t nameEnd = nameStart;
+        while (nameEnd < mInput.size() && isXmlNameChar(mInput[nameEnd]))
+            ++nameEnd;
+
+        const std::string closeName{mInput.substr(nameStart, nameEnd - nameStart)};
+        FATP_XML_ENFORCE(closeName == expectedTag,
+                         "mismatched closing tag: expected", expectedTag, "got", closeName);
+    }
+
     std::string parseName()
     {
         FATP_XML_ENFORCE(!atEnd(), "expected name at position", mPos);
@@ -673,6 +691,7 @@ private:
             // Must be a child element
             if (peek() == '<')
             {
+                rejectMismatchedCloseTag(node.tag);
                 node.children.push_back(parseElement());
             }
             else

@@ -227,6 +227,20 @@ int main()
 3. Add it as a build target that CI compiles (execution is optional; compilation is the gate).
 4. Treat failures as P0 hygiene regressions: fix the header (missing includes / collisions), not the include test.
 
+**Exemption — vendored lite headers with runtime smoke checks (`test_XmlLite_HeaderSelfContained.cpp`):**
+
+Special-purpose, std-only public headers (today: `XmlLite.h`) may use an extended self-containment
+file that still obeys the hard requirements above (target header first, no other Fat-P headers, double
+include for idempotence). Such files may additionally:
+
+- Include `<iostream>` only *after* all target-header includes (never before — that would mask missing includes).
+- Run a small number of minimal runtime smoke checks (parser entry point, struct macro, enum policy macro).
+- Print a manual pass/fail summary to `stdout` when built with `ENABLE_TEST_APPLICATION`.
+
+The compile gate remains primary: the file must build under strict warnings without `FatPTest.h`.
+Runtime checks are regression guards for macro/surface-area breakage, not a substitute for the main
+unit test suite. Do not copy this pattern unless the header is intentionally vendored and self-contained.
+
 ### Compile-Fail Contract Test Suite
 
 **Example:** `tests/compile_fail/compile_fail_StateMachine_BadInitialIndex.cpp`

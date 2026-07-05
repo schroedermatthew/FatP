@@ -260,7 +260,7 @@ FATP_TEST_CASE(reject_mismatched_closing_tag)
 {
     FATP_ASSERT_THROWS(parse_xml("<a>text</b>"),
                        std::runtime_error,
-                       "invalid name start");
+                       "mismatched closing tag");
     return true;
 }
 
