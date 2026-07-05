@@ -77,6 +77,7 @@ FATP_META:
 //   FATP_BENCH_NO_SCOPE      - Disable Windows priority/affinity changes
 //   FATP_BENCH_NO_STABILIZE  - Disable CPU stabilization wait
 //   FATP_BENCH_NO_COOLDOWN   - Disable cool-down sleeps
+//   FATP_BENCH_QUICK         - CI preset: smaller N, fewer suites, skip MT tests
 //
 // Run:
 //   ./bench_objpool
@@ -2205,6 +2206,12 @@ int main(int argc, char* argv[])
 
     fat_p::bench::print_standard_header(hdr);
 
+    if (g_config.quick)
+    {
+        std::cout << "Quick mode (FATP_BENCH_QUICK): acquire/bulk only, N<=10K, "
+                     "skipping reuse/interleaved/large/multithreaded suites\n";
+    }
+    g_config.print();
 
     // CPU stabilization
     if (!g_config.noStabilize)
@@ -2241,19 +2248,23 @@ int main(int argc, char* argv[])
         adapters.push_back(std::make_unique<PmrPoolAdapter<SmallTrivial>>());
         adapters.push_back(std::make_unique<NewDeleteAdapter<SmallTrivial>>());
 
-        std::vector<size_t> sizes = {1000, 10000, 100000};
+        const std::vector<size_t> sizes =
+            g_config.quick ? std::vector<size_t>{1000, 10000} : std::vector<size_t>{1000, 10000, 100000};
 
         benchmark_acquire_release(adapters, sizes, "SmallTrivial 16B");
         cooling_delay(COOLING_DELAY_SECTION_MS, "before bulk acquire");
         benchmark_bulk_acquire(adapters, sizes, "SmallTrivial 16B");
-        cooling_delay(COOLING_DELAY_SECTION_MS, "before interleaved");
-        benchmark_interleaved(adapters, sizes, "SmallTrivial 16B");
-        cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse");
-        benchmark_pool_reuse(adapters, sizes, "SmallTrivial 16B");
-        cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse with compact");
-        benchmark_pool_reuse_with_compact(adapters, sizes, "SmallTrivial 16B");
-        cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse full cycle");
-        benchmark_pool_reuse_full_cycle(adapters, sizes, "SmallTrivial 16B");
+        if (!g_config.quick)
+        {
+            cooling_delay(COOLING_DELAY_SECTION_MS, "before interleaved");
+            benchmark_interleaved(adapters, sizes, "SmallTrivial 16B");
+            cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse");
+            benchmark_pool_reuse(adapters, sizes, "SmallTrivial 16B");
+            cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse with compact");
+            benchmark_pool_reuse_with_compact(adapters, sizes, "SmallTrivial 16B");
+            cooling_delay(COOLING_DELAY_SECTION_MS, "before pool reuse full cycle");
+            benchmark_pool_reuse_full_cycle(adapters, sizes, "SmallTrivial 16B");
+        }
     }
 
     // Medium objects
@@ -2275,14 +2286,20 @@ int main(int argc, char* argv[])
         adapters.push_back(std::make_unique<PmrPoolAdapter<MediumObject>>());
         adapters.push_back(std::make_unique<NewDeleteAdapter<MediumObject>>());
 
-        std::vector<size_t> sizes = {1000, 10000, 50000};
+        const std::vector<size_t> sizes =
+            g_config.quick ? std::vector<size_t>{1000, 10000} : std::vector<size_t>{1000, 10000, 50000};
 
         benchmark_acquire_release(adapters, sizes, "MediumObject 64B");
-        cooling_delay(COOLING_DELAY_SECTION_MS, "before bulk acquire");
-        benchmark_bulk_acquire(adapters, sizes, "MediumObject 64B");
+        if (!g_config.quick)
+        {
+            cooling_delay(COOLING_DELAY_SECTION_MS, "before bulk acquire");
+            benchmark_bulk_acquire(adapters, sizes, "MediumObject 64B");
+        }
     }
 
     // Large objects
+    if (!g_config.quick)
+    {
     cooling_delay(COOLING_DELAY_SECTION_MS, "before large object benchmarks");
     {
         std::vector<std::unique_ptr<IPoolAdapter<LargeObject>>> adapters;
@@ -2305,18 +2322,20 @@ int main(int argc, char* argv[])
 
         benchmark_acquire_release(adapters, sizes, "LargeObject 256B");
     }
+    }
 
-    // Specialized acquire (fat_p only)
+    if (!g_config.quick)
+    {
 #if HAS_FATP_OBJECTPOOL
-    cooling_delay(COOLING_DELAY_SECTION_MS, "before specialized acquire");
-    benchmark_specialized_acquire();
+        cooling_delay(COOLING_DELAY_SECTION_MS, "before specialized acquire");
+        benchmark_specialized_acquire();
 #endif
 
-    // Multi-threaded contention
 #if HAS_FATP_OBJECTPOOL
-    cooling_delay(COOLING_DELAY_SECTION_MS, "before multithreaded");
-    benchmark_multithreaded();
+        cooling_delay(COOLING_DELAY_SECTION_MS, "before multithreaded");
+        benchmark_multithreaded();
 #endif
+    }
 
     // Memory comparison
     print_memory_comparison();

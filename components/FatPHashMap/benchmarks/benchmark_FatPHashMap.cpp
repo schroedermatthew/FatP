@@ -34,6 +34,7 @@
 //   FATP_BENCH_NO_SCOPE      - Disable Windows priority/affinity changes
 //   FATP_BENCH_NO_STABILIZE  - Disable CPU stabilization wait
 //   FATP_BENCH_NO_COOLDOWN   - Disable cool-down sleeps
+//   FATP_BENCH_QUICK         - CI preset: 10K/100K only, skip miss/pathological
 //
 // Run:
 //   ./bench_hm
@@ -3613,6 +3614,12 @@ int main(int argc, char* argv[])
     
     fat_p::bench::print_standard_header(hdr);
 
+    if (g_config.quick)
+    {
+        std::cout << "Quick mode (FATP_BENCH_QUICK): core sizes 10K/100K only; "
+                     "skipping miss diagnostics and pathological erase\n";
+    }
+    g_config.print();
 
     // Wait for initial CPU stability (unless disabled)
     if (!g_config.noStabilize)
@@ -3627,17 +3634,19 @@ int main(int argc, char* argv[])
         std::cout << "\n";
     }
 
-    // Default sizes
-    std::vector<size_t> core_sizes = {10000, 100000, 1000000};
+    const std::vector<size_t> core_sizes =
+        g_config.quick ? std::vector<size_t>{10000, 100000} : std::vector<size_t>{10000, 100000, 1000000};
 
-    // Run selected benchmarks
     benchmark_core_operations(core_sizes);
 
-    cooling_delay(COOLING_DELAY_SECTION_MS, "before miss diagnostics");
-    benchmark_miss_diagnostics_slim();
+    if (!g_config.quick)
+    {
+        cooling_delay(COOLING_DELAY_SECTION_MS, "before miss diagnostics");
+        benchmark_miss_diagnostics_slim();
 
-    cooling_delay(COOLING_DELAY_SECTION_MS, "before pathological erase");
-    benchmark_pathological_erase();
+        cooling_delay(COOLING_DELAY_SECTION_MS, "before pathological erase");
+        benchmark_pathological_erase();
+    }
     // benchmark_load_factor_sensitivity();
 
     std::cout << "\n";

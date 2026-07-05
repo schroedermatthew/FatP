@@ -24,7 +24,7 @@ on:
       batches:
         description: 'Measured batches per benchmark'
         required: false
-        default: '20'
+        default: '5'
         type: string
       target_work:
         description: 'Target ops per batch'
@@ -36,7 +36,7 @@ on:
       batches:
         description: 'Measured batches per benchmark'
         required: false
-        default: '20'
+        default: '5'
         type: string
       target_work:
         description: 'Target ops per batch'
@@ -296,6 +296,8 @@ jobs:
           FATP_BENCH_WARMUP_RUNS: "3"
           FATP_BENCH_BATCHES: ${{ inputs.batches }}
           FATP_BENCH_TARGET_WORK: ${{ inputs.target_work }}
+          FATP_BENCH_QUICK: "1"
+          FATP_BENCH_NO_COOLDOWN: "1"
           FATP_BENCH_NO_STABILIZE: "1"
           FATP_BENCH_OUTPUT_CSV: results.csv
         run: ./bench_bin 2>&1 | tee benchmark.log

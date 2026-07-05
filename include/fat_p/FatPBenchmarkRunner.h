@@ -1517,6 +1517,9 @@ inline std::uint64_t getEnvUint64(const char* name, std::uint64_t default_value)
  *   FATP_BENCH_NO_SCOPE      - Disable priority/affinity
  *   FATP_BENCH_NO_STABILIZE  - Disable CPU stabilization wait
  *   FATP_BENCH_NO_COOLDOWN   - Disable cool-down sleeps
+ *   FATP_BENCH_QUICK         - CI/smoke preset: smaller workloads, skip heavy
+ *                              sections (benchmark-specific), forces noCooldown
+ *                              and noStabilize
  */
 struct BenchConfig
 {
@@ -1532,6 +1535,7 @@ struct BenchConfig
     std::string outputJson;
 
     // Feature toggles
+    bool quick = false;
     bool noScope = false;
     bool noStabilize = false;
     bool noCooldown = false;
@@ -1560,6 +1564,13 @@ struct BenchConfig
         cfg.noScope = detail::hasEnvVar("FATP_BENCH_NO_SCOPE");
         cfg.noStabilize = detail::hasEnvVar("FATP_BENCH_NO_STABILIZE");
         cfg.noCooldown = detail::hasEnvVar("FATP_BENCH_NO_COOLDOWN");
+        cfg.quick = detail::hasEnvVar("FATP_BENCH_QUICK");
+
+        if (cfg.quick)
+        {
+            cfg.noCooldown = true;
+            cfg.noStabilize = true;
+        }
 
         return cfg;
     }
@@ -1598,6 +1609,10 @@ struct BenchConfig
             << ", minBatchMs=" << minBatchMs << "\n";
 
         out << "  Options:";
+        if (quick)
+        {
+            out << " quick";
+        }
         if (noScope)
         {
             out << " noScope";
