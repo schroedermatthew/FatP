@@ -98,15 +98,17 @@ historical and may describe earlier intermediate states.
 Current package state:
 - Main scroll complete: Sections 1-9.
 - Learning notes currently cover Sections 1-4 (matrixAddition and brookGPU are
-  the Section 4 notes). Sections 5-9 have not had notes added yet.
-- sectionNotes currently contains 24 note bodies.
-- topicRegistry currently contains 24 registered topics. topicOrder is
+  the Section 4 notes), Section 6 (expertResistance), and Section 7 (cudaLuck).
+  Sections 5, 8, and 9 have not had notes added yet.
+- sectionNotes currently contains 26 note bodies.
+- topicRegistry currently contains 26 registered topics. topicOrder is
   derived from topicRegistry, and topicSection is derived from topicRegistry.
-- Active rendered note buttons: 28 total, 24 unique topics. The teapot note
+- Active rendered note buttons: 30 total, 26 unique topics. The teapot note
   is intentionally linked from two places; textureMaps from the first texbem
   in shaderDefinition; fresnel from the Fresnel pair caption in shaderDefinition;
   matrixAddition from &ldquo;But only by lying to it&rdquo; in Section 4;
-  brookGPU from &ldquo;presented Brook for GPUs&rdquo; in Section 4.
+  brookGPU from &ldquo;presented Brook for GPUs&rdquo; in Section 4;
+  expertResistance from &ldquo;None of this was hostility&rdquo; in Section 6.
 - Embedded validate_history.py checks em-dashes in rendered/static text after
   stripping comments, script, and style. It must not fail on JS/CSS source
   comments.
@@ -5360,7 +5362,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
     keep rounding error from swamping the answer.&ensp; The cards had no error-correcting memory, so a stray
     bit flip that a proper server would catch and repair would instead silently corrupt a result &ndash;
     unacceptable on a machine that runs for weeks.&ensp; And the thing was hard to program.&ensp; None of
-    this was hostility.&ensp; It was the ordinary caution of people whose machines have to produce correct
+    this was hostility <button class="notes-btn" data-note="expertResistance" onclick="window._openNotes('expertResistance',false)">N</button>.&ensp; It was the ordinary caution of people whose machines have to produce correct
     numbers.
   </p>
 
@@ -5486,7 +5488,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
   <p>
     There is a long irony in this.&ensp; The company that nearly died betting on the wrong primitive, and
     then spent years on a compute bet with no customer, was rescued and finally made enormous by a use it
-    never designed for and could not have predicted.&ensp; But the new workload would change the silicon in
+    never designed for and could not have predicted. <button class="notes-btn" data-note="cudaLuck" onclick="window._openNotes('cudaLuck',false)">N</button>&ensp; But the new workload would change the silicon in
     its turn.&ensp; With one operation, the matrix multiply, now dominating everything the GPU was asked to
     do, the long swing toward a more general machine was about to reverse.&ensp; It had become worth building
     dedicated hardware again.
@@ -5765,6 +5767,42 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
 (function()
 {
   var sectionNotes = {
+    'expertResistance': {
+      title: 'The politeness of resistance',
+      body: '<p>The section gives the HPC skeptics the fairest possible reading: their objections were technical, their caution was professional, and none of it was personal.&ensp; That reading is worth keeping.&ensp; It is also incomplete.&ensp; Established expertise is often very hostile to change, and the hostility rarely announces itself as hostility.</p>' +
+        '<h4>Why the objections sounded reasonable</h4>' +
+        '<p>Every complaint the supercomputing world raised against early GPU computing was real.&ensp; PCIe bandwidth could erase a speedup.&ensp; Single precision was not enough for much of the code they ran.&ensp; Consumer cards had no ECC.&ensp; CUDA was unfamiliar.&ensp; A center whose mission is correct numbers after weeks of runtime is right to treat those as serious.&ensp; The section is not wrong to call this caution rather than spite.</p>' +
+        '<h4>Confusing the model for reality</h4>' +
+        '<p>The deeper failure mode is not malice but identification.&ensp; A mature field does not only defend its tools; it begins to mistake its formalism for the world.&ensp; Classical mechanics offers the cleanest warning.&ensp; By the nineteenth century, Lagrangian and Hamiltonian reformulations had turned Newton into an elegant, closed mathematical machine: generalized coordinates, variational principles, conserved quantities flowing from symmetries, dynamics written as equations on a phase space.&ensp; If you lived inside that language long enough, physics could look finished &ndash; not because nature had stopped, but because the model had become so beautiful that further novelty felt like vandalism.</p>' +
+        '<p>That mood is what people remember when they say &ldquo;physics is done.&rdquo;&ensp; The honest version is Lord Kelvin&rsquo;s 1900 lecture on &ldquo;two clouds&rdquo; over an otherwise clear sky: two small anomalies in the reigning theory.&ensp; The clouds were not small.&ensp; They became quantum mechanics and relativity.&ensp; The Hamiltonian did not disappear; it absorbed the new physics and kept working.&ensp; What had been wrong was the confidence that the existing formalism had already described everything worth describing.&ensp; The map had been mistaken for the territory.</p>' +
+        '<h4>What expertise protects</h4>' +
+        '<p>But a field that has spent decades building itself is not only evaluating a chip.&ensp; It is evaluating a threat to its own competence.&ensp; The procurement cycles, the staffing models, the training pipelines, the benchmark culture, the grant narratives, the reputations tied to knowing how large CPU clusters behave &ndash; all of that is invested in the incumbent platform.&ensp; When the incumbent is challenged, the challenge feels like an insult to the people who mastered it.&ensp; That is why resistance so often arrives dressed as rigor.</p>' +
+        '<p>Hostility in mature institutions usually does not look like anger.&ensp; It looks like patience.&ensp; It looks like requests for one more pilot, one more peer-reviewed comparison, one more year of bake-off, one more requirement that the newcomer satisfy every old criterion before it is allowed to count.&ensp; It looks like moving the goalposts slowly enough that everyone can call the process responsible.&ensp; The tone stays civil.&ensp; The effect is still exclusion.</p>' +
+        '<h4>When the fight stops being polite</h4>' +
+        '<p>Sometimes the immune response is not polite at all.&ensp; Fundamental physics has spent decades in exactly this louder register.&ensp; For years, string theory held an extraordinary share of prestige, hiring, and graduate-student attention in high-energy theory.&ensp; Critics outside that world &ndash; and some inside it &ndash; began saying the program had gone sterile: too many vacua, too few testable predictions, too much mathematics protecting itself from contact with experiment.&ensp; &ldquo;String theory is dead&rdquo; became a polemical slogan, not a laboratory result.&ensp; Whether you agree with the verdict is beside the point here.&ensp; The sociology is the lesson: once a formalism becomes the identity of a field, declaring the formalism finished is read as declaring the people finished.&ensp; The response is often not careful rebuttal but moral outrage, career blockage, and public contempt.&ensp; The model is being defended as reality.</p>' +
+        '<h4>The GPU case in particular</h4>' +
+        '<p>HPC had built an entire culture around MPI on large CPU clusters.&ensp; Centers had justifications for every rack they owned and every hire they made.&ensp; A gaming card that promised more flops per dollar was not only a technical outlier; it was an indictment of prior spending.&ensp; So the objections that were easiest to defend in public &ndash; bus bandwidth, precision, ECC, programmability &ndash; also happened to be the objections that kept the old machine in place longest.&ensp; Real flaws and institutional self-defense were fused together, and separating them in the moment was nearly impossible.</p>' +
+        '<p>When the evidence finally became undeniable &ndash; Tianhe-1A in 2010, Titan in 2012 &ndash; the resistance did not vanish.&ensp; It changed form.&ensp; Firmware caps on double precision, Tesla-only ECC, and eventually a license forbidding GeForce cards in data centers were no longer arguments that the GPU was unserious.&ensp; They were price lists enforcing who was allowed to benefit.&ensp; The social pattern is familiar: first the newcomer is unfit; then, once fit, it is unfit for <em>you</em>.</p>' +
+        '<h4>Today: open hostility toward AI</h4>' +
+        '<p>We are living through the same pattern again, often with the politeness stripped away.&ensp; Large language models and image generators arrived from outside the institutions that previously owned writing, illustration, programming assistance, and parts of research workflow.&ensp; Some objections are serious and should be taken seriously: copyright, consent, energy use, concentration of power, error modes in high-stakes settings.&ensp; But much of the public fight is not really about those details.&ensp; It is about expertise under threat.</p>' +
+        '<p>Writers call the output plagiarism.&ensp; Artists call it theft.&ensp; Programmers call it autocomplete and dismiss the engineering.&ensp; Professors ban it from coursework.&ensp; Editorial pages demand moratoriums.&ensp; Commentators declare that &ldquo;real intelligence&rdquo; requires what the newcomer lacks, much as Kelvin&rsquo;s generation could not imagine physics outside the Hamiltonian picture they had perfected.&ensp; Sometimes the criticism is fair.&ensp; Often it is the model-identity reflex in plain sight: if the machine can do even a recognizable fraction of the work, then the years spent mastering the old craft feel devalued, and anger is easier than redesigning the craft.&ensp; AI has made the hostility visible because the challenge is aimed at symbolic work &ndash; the kind of labor people use to define who they are.</p>' +
+        '<p>Notice the parallel to this document&rsquo;s own arc.&ensp; The GPU was first dismissed as a toy, then grudgingly accepted for science, then accidentally central to AI.&ensp; Now AI is dismissed as a toy, a trick, or a fraud by many of the same professions that will eventually have to decide what competence means after it.&ensp; The HPC skeptics at least had to speak in the language of ECC, precision, and bus bandwidth.&ensp; Today&rsquo;s skeptics can say openly what institutional resistance usually hides: <em>this should not exist because it threatens us</em>.</p>' +
+        '<h4>The lesson for readers</h4>' +
+        '<p>When an established field says a new platform is not ready, listen to the technical claims and test them.&ensp; Also ask what the field would lose if the claims turned out to be wrong, and whether the speaker is defending nature or defending a formalism.&ensp; Lagrange and Hamilton gave us a magnificent model of mechanics; confusing that model with all of physics delayed recognition of what was coming.&ensp; Expertise is not the enemy of progress, but expertise has a strong immune system, and the immune response is often polite &ndash; until it is not.&ensp; The sentence in the main text is charitable.&ensp; Charity is useful.&ensp; So is noticing when caution has become a strategy for delay, when a beautiful theory has become an identity, and when open hostility is the same defense with the mask removed.</p>'
+    },
+    'cudaLuck': {
+      title: 'The runway and the plane',
+      body: '<h4>Two things the story keeps separate</h4>' +
+        '<p>The claim worth examining is the one the technology industry now tells about itself, and that Jensen Huang tells in his 2025 conversation with Lex Fridman: that conviction shapes reality &ndash; &ldquo;you manifest a future and that future is so convincing, there is no way it will not happen.&rdquo;&ensp; Applied to CUDA it hardens into a tidy origin myth, in which NVIDIA saw the compute future, bet on it, and arrived exactly where it aimed.&ensp; The history above tells it more carefully, and the difference is the whole lesson.</p>' +
+        '<p>CUDA was a real strategic accomplishment.&ensp; Keeping it alive, funding the developer tooling, placing compute silicon on every GeForce, and absorbing years of thinner margins for a customer that did not yet exist &ndash; none of that was luck.&ensp; But the thing that made the bet world-historical was not foresight about neural networks.&ensp; It was that deep learning arrived, from outside, as the workload that happened to fit the platform NVIDIA had already built.</p>' +
+        '<h4>Why the fit was not pure accident</h4>' +
+        '<p>The plane did not find the runway by coincidence.&ensp; Both were built to one specification: dense linear algebra.&ensp; Graphics is matrix arithmetic, scientific computing is matrix arithmetic, and a neural network is, underneath, almost nothing but the matrix multiply &ndash; the very operation Section 8 shows earning its own silicon.&ensp; So CUDA was a runway rated for a whole category of aircraft, and deep learning turned out to be a member of that category.&ensp; That is weaker than destiny and stronger than a fluke.</p>' +
+        '<h4>Where the credit actually belongs</h4>' +
+        '<p>Split the timeline and the myth comes apart cleanly.&ensp; The founding bet of 2006 and 2007 carried no knowledge of deep learning, which barely existed as a field at the time.&ensp; The response to AlexNet in 2012 was the real act of judgment &ndash; cuDNN in 2014, the DGX machines, a roadmap re-pointed at training within a couple of years.&ensp; The luck was the workload appearing.&ensp; The skill was recognizing it within months and driving the whole company through the opening.&ensp; The myth lives in the seam where those two are fused, so that a contingent event is retold as the intended destination.</p>' +
+        '<h4>The danger that was real, and the one that was not</h4>' +
+        '<p>It is tempting to sharpen this into a stronger charge: that without deep learning NVIDIA would have gone bankrupt.&ensp; The record does not support that, and it puts the risk in the wrong decade.&ensp; NVIDIA&rsquo;s true near-death was the NV1 era of the 1990s, described back in Section 2, when the company had about one month of payroll left.&ensp; By the CUDA years it sat on a large and profitable gaming business; the compute bet was a drag on margins and a source of investor impatience, not a threat to its survival.&ensp; Remove deep learning and the likely outcome is a smaller NVIDIA, more exposed to gaming cycles and to AMD, with CUDA as a respected but narrower home for high-performance and scientific computing.&ensp; Diminished, not dead.</p>' +
+        '<p>None of this is hostility toward the achievement.&ensp; It is the section&rsquo;s own claim, stated flatly: the GPU became the engine of modern AI by an accident of structure, not by anyone&rsquo;s plan.&ensp; NVIDIA built the runway and cleared it fast when the plane appeared.&ensp; It did not design the plane &ndash; and the honest telling is the better one, because it shows how much of any world-shaping outcome is a prepared surface meeting an event no one ordered.</p>'
+    },
     'deCasteljau': {
       title: 'From Weierstrass to the GPU',
       body: '<figure style="margin:0 0 18px 0;text-align:center">' +
@@ -8285,7 +8323,9 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     ['textureMaps', 'Section 3 &ndash; The crack in the wall'],
     ['fresnel', 'Section 3 &ndash; The crack in the wall'],
     ['matrixAddition', 'Section 4 &ndash; The era of the hack'],
-    ['brookGPU', 'Section 4 &ndash; The era of the hack']
+    ['brookGPU', 'Section 4 &ndash; The era of the hack'],
+    ['expertResistance', 'Section 6 &ndash; The HPC beachhead'],
+    ['cudaLuck', 'Section 7 &ndash; The accident']
   ];
 
   var topicOrder = topicRegistry.map(function(entry){ return entry[0]; });
