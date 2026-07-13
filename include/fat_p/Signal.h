@@ -37,7 +37,10 @@ FATP_META:
  * heap allocation for the common case (1-4 listeners):
  *
  * 1. Small Object Optimization: Uses SmallVector<Slot, 4> for stack storage
- * 2. Reentrancy Safety: Block-and-deferred-sweep algorithm for mid-emission disconnects
+ * 2. Reentrancy Safety: Block-and-deferred-sweep algorithm for mid-emission
+ *    disconnects (soft-delete tombstones) AND mid-emission connects (a pending
+ *    list activated when the outermost emission completes). A slot connected
+ *    during an emission is never invoked by that emission.
  * 3. Dangling Pointers: RAII ScopedConnection for automatic lifetime management
  *
  * Key Features:
@@ -452,6 +455,18 @@ private:
     std::atomic<size_t> mRecursionDepth{0}; // Emission reentrancy counter
     std::atomic<bool> mNeedsCleanup{false}; // Deferred cleanup flag
 
+    // Connections made while an emission is in progress. Physically inserting
+    // into mSlots would mutate the list emit() is iterating (or self-deadlock
+    // on the write lock from inside a callback), so they are parked here and
+    // activated by performDeferredCleanup() when the outermost emission ends.
+    //
+    // mPendingLock is a dedicated micro-lock, NOT the SyncPolicy lock: deferring
+    // callers already hold the SyncPolicy shared lock (concurrent emissions
+    // coexist under it, so two threads' callbacks can defer simultaneously),
+    // and a shared lock cannot be upgraded. Uncontended cost is one atomic RMW.
+    SlotList mPendingConnects;
+    mutable std::atomic_flag mPendingLock{};
+
     // Alive token for safe ScopedConnection disconnection.
     // ScopedConnections capture a weak_ptr to this token. When the Signal is
     // destroyed, the shared_ptr is released and weak_ptr::lock() returns nullptr,
@@ -478,6 +493,7 @@ public:
         , mNextId(other.mNextId.load(std::memory_order_relaxed))
         , mRecursionDepth(0)
         , mNeedsCleanup(false)
+        , mPendingConnects(std::move(other.mPendingConnects))
         , mAlive(std::move(other.mAlive))
     {
         other.mNextId.store(1, std::memory_order_relaxed);
@@ -489,6 +505,7 @@ public:
         {
             [[maybe_unused]] auto lock = this->lock();
             mSlots = std::move(other.mSlots);
+            mPendingConnects = std::move(other.mPendingConnects);
             mNextId.store(other.mNextId.load(std::memory_order_relaxed), std::memory_order_relaxed);
             mRecursionDepth.store(0, std::memory_order_relaxed);
             mNeedsCleanup.store(false, std::memory_order_relaxed);
@@ -537,22 +554,60 @@ public:
      * @param priority Higher priority slots are called first (default: 0)
      * @return ConnectionId for manual disconnection
      *
+     * @note Safe to call from within a slot callback. A connection made while
+     * an emission is in progress is parked on a pending list and activated
+     * when the outermost emission completes; it is never invoked by the
+     * emission (including nested emissions) it was created inside.
+     *
      * @warning Caller is responsible for calling disconnect() before
      * callback becomes invalid (e.g., captured 'this' pointer destroyed)
      */
     ConnectionId connectManual(Callback callback, int priority = 0)
     {
-        [[maybe_unused]] auto lock = this->lock();
-
         ConnectionId id(mNextId.fetch_add(1, std::memory_order_relaxed));
 
-        // Find insertion point to maintain priority order
-        // Use upper_bound so equal priorities maintain insertion order (FIFO)
-        auto it = std::upper_bound(mSlots.begin(), mSlots.end(), priority, [](int prio, const Slot& slot) {
-            return prio > slot.priority;
-        });
+        // Double-checked pattern for emission-aware connection — the mirror of
+        // disconnect()'s soft-delete path.
+        //
+        // If an emission is in progress (possibly on this very thread, inside a
+        // slot callback), physically inserting would mutate the SlotList that
+        // emit() is iterating, and taking the write lock from a callback would
+        // deadlock on non-recursive shared_mutex. Park the slot instead;
+        // performDeferredCleanup() splices it in when emission ends.
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0)
+        {
+            {
+                [[maybe_unused]] auto lock = this->lock_shared();
+                pendingPush(Slot{id, std::move(callback), priority});
+                mNeedsCleanup.store(true, std::memory_order_release);
+            }
+            // Cross-thread race: the emission may have finished before it could
+            // observe mNeedsCleanup, stranding the pending slot until the next
+            // emission. Drain it ourselves in that case — performDeferredCleanup
+            // re-checks the depth under the write lock, so this is a safe no-op
+            // when an emission is still live (including on this thread, where
+            // the depth is necessarily still > 0).
+            if (mRecursionDepth.load(std::memory_order_acquire) == 0)
+            {
+                performDeferredCleanup();
+            }
+            return id;
+        }
 
-        mSlots.insert(it, Slot{id, std::move(callback), priority});
+        // Not emitting: acquire write lock for immediate insertion
+        [[maybe_unused]] auto lock = this->lock();
+
+        // Re-check under the write lock (mirrors disconnect(); an emission
+        // cannot run concurrently with the write lock, but the stale unlocked
+        // read is corrected here for the same defensive symmetry).
+        if (mRecursionDepth.load(std::memory_order_acquire) > 0)
+        {
+            pendingPush(Slot{id, std::move(callback), priority});
+            mNeedsCleanup.store(true, std::memory_order_release);
+            return id;
+        }
+
+        insertByPriority(mSlots, Slot{id, std::move(callback), priority});
 
         return id;
     }
@@ -629,7 +684,9 @@ public:
                     return true;
                 }
             }
-            return false;
+            // Not live — it may be a connection parked during this emission
+            // (connect-then-disconnect inside a callback).
+            return erasePending(id);
         }
 
         // Not emitting: acquire write lock for immediate removal
@@ -648,7 +705,7 @@ public:
                     return true;
                 }
             }
-            return false;
+            return erasePending(id);
         }
 
         // Safe to physically remove
@@ -660,7 +717,8 @@ public:
                 return true;
             }
         }
-        return false;
+        // A pending slot can outlive its emission briefly (drain not yet run).
+        return erasePending(id);
     }
 
     /**
@@ -676,6 +734,7 @@ public:
             {
                 slot.active.store(false, std::memory_order_relaxed);
             }
+            clearPending();
             mNeedsCleanup.store(true, std::memory_order_release);
             return;
         }
@@ -689,11 +748,13 @@ public:
             {
                 slot.active.store(false, std::memory_order_relaxed);
             }
+            clearPending();
             mNeedsCleanup.store(true, std::memory_order_release);
         }
         else
         {
             mSlots.clear();
+            clearPending();
         }
     }
 
@@ -706,7 +767,11 @@ public:
      *
      * @param args Arguments forwarded to all slot callbacks
      *
-     * @note Reentrancy-safe: slots can connect/disconnect during emission
+     * @note Reentrancy-safe: slots can connect/disconnect during emission.
+     *       A disconnect takes effect immediately (the slot is skipped for the
+     *       rest of the emission). A connect is parked and activated when the
+     *       outermost emission completes — the new slot is never invoked by
+     *       the emission (including nested emissions) it was created inside.
      * @note Exception handling controlled by EmissionPolicy
      */
     void emit(Args... args)
@@ -767,6 +832,9 @@ public:
 
     /**
      * @brief Get number of connected slots (including inactive pending cleanup)
+     *
+     * Connections parked during a live emission are excluded until they are
+     * activated at the end of the outermost emission.
      */
     [[nodiscard]] size_t slotCount() const
     {
@@ -803,6 +871,9 @@ public:
 
     /**
      * @brief Check if a specific connection is still active
+     *
+     * A connection parked during an emission (not yet activated) reports true:
+     * it exists and will participate in future emissions unless disconnected.
      */
     [[nodiscard]] bool isConnected(ConnectionId id) const
     {
@@ -815,7 +886,7 @@ public:
                 return slot.active.load(std::memory_order_relaxed);
             }
         }
-        return false;
+        return pendingContains(id);
     }
 
     // -------------------------------------------------------------------------
@@ -948,10 +1019,13 @@ private:
     // -------------------------------------------------------------------------
 
     /**
-     * @brief Remove tombstoned slots after emission completes
+     * @brief Remove tombstoned slots and activate pending connections after
+     *        emission completes
      *
-     * Uses erase-remove idiom to compact the SmallVector, removing
-     * slots that were soft-deleted during emission.
+     * Uses erase-remove idiom to compact the SmallVector, removing slots that
+     * were soft-deleted during emission, then splices in connections that were
+     * parked by connectManual() while the emission ran (priority-ordered, FIFO
+     * within equal priority — same rule as a direct connect).
      */
     void performDeferredCleanup()
     {
@@ -966,8 +1040,81 @@ private:
                                             return !s.active.load(std::memory_order_relaxed);
                                         }),
                          mSlots.end());
+
+            while (mPendingLock.test_and_set(std::memory_order_acquire)) {}
+            for (auto& slot : mPendingConnects)
+            {
+                insertByPriority(mSlots, std::move(slot));
+            }
+            mPendingConnects.clear();
+            mPendingLock.clear(std::memory_order_release);
+
             mNeedsCleanup.store(false, std::memory_order_release);
         }
+    }
+
+    /// @brief Inserts @p slot into @p slots preserving priority order (FIFO
+    ///        within equal priority). Caller must hold the write lock.
+    static void insertByPriority(SlotList& slots, Slot&& slot)
+    {
+        auto it = std::upper_bound(slots.begin(), slots.end(), slot.priority,
+                                   [](int prio, const Slot& s) {
+                                       return prio > s.priority;
+                                   });
+        slots.insert(it, std::move(slot));
+    }
+
+    /// @brief Parks a connection made during an emission. Callable under the
+    ///        shared lock: mPendingLock serialises concurrent deferrers.
+    void pendingPush(Slot&& slot)
+    {
+        while (mPendingLock.test_and_set(std::memory_order_acquire)) {}
+        mPendingConnects.push_back(std::move(slot));
+        mPendingLock.clear(std::memory_order_release);
+    }
+
+    /// @brief Removes a parked connection by id. The pending list is never
+    ///        iterated by emissions, so physical erasure is always safe here.
+    bool erasePending(ConnectionId id)
+    {
+        while (mPendingLock.test_and_set(std::memory_order_acquire)) {}
+        bool erased = false;
+        for (auto it = mPendingConnects.begin(); it != mPendingConnects.end(); ++it)
+        {
+            if (it->id == id)
+            {
+                mPendingConnects.erase(it);
+                erased = true;
+                break;
+            }
+        }
+        mPendingLock.clear(std::memory_order_release);
+        return erased;
+    }
+
+    /// @brief Discards all parked connections (disconnectAll).
+    void clearPending()
+    {
+        while (mPendingLock.test_and_set(std::memory_order_acquire)) {}
+        mPendingConnects.clear();
+        mPendingLock.clear(std::memory_order_release);
+    }
+
+    /// @brief True if @p id is parked awaiting activation.
+    [[nodiscard]] bool pendingContains(ConnectionId id) const
+    {
+        while (mPendingLock.test_and_set(std::memory_order_acquire)) {}
+        bool found = false;
+        for (const auto& slot : mPendingConnects)
+        {
+            if (slot.id == id)
+            {
+                found = true;
+                break;
+            }
+        }
+        mPendingLock.clear(std::memory_order_release);
+        return found;
     }
 };
 

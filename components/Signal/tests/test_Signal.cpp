@@ -901,6 +901,206 @@ FATP_TEST_CASE(many_slots_performance)
 
     return true;
 }
+
+// =============================================================================
+// Connect-during-emission (deferred activation)
+// =============================================================================
+
+FATP_TEST_CASE(connect_during_emission_not_called_in_current_emission)
+{
+    Signal<void()> sig;
+    int outerCalls = 0;
+    int innerCalls = 0;
+    ScopedConnection inner;
+
+    auto outer = sig.connect([&]() {
+        ++outerCalls;
+        if (!inner.isConnected())
+        {
+            inner = sig.connect([&]() { ++innerCalls; });
+        }
+    });
+
+    sig.emit();
+    FATP_ASSERT_EQ(outerCalls, 1, "Outer slot runs in first emission");
+    FATP_ASSERT_EQ(innerCalls, 0, "Slot connected mid-emission must not run in that emission");
+
+    sig.emit();
+    FATP_ASSERT_EQ(outerCalls, 2, "Outer slot runs in second emission");
+    FATP_ASSERT_EQ(innerCalls, 1, "Deferred slot must be active in the next emission");
+
+    return true;
+}
+
+FATP_TEST_CASE(connect_during_emission_growth_past_inline_capacity)
+{
+    // Regression: connecting from inside a callback used to insert into the
+    // SlotList emit() was iterating; enough insertions force a SmallVector
+    // reallocation under the iterating loop (heap corruption / crash).
+    Signal<void()> sig;   // InlineCapacity 4
+    int adderCalls = 0;
+    int lateCalls  = 0;
+    std::vector<ScopedConnection> late;
+
+    auto adder = sig.connect([&]() {
+        ++adderCalls;
+        for (int i = 0; i < 32; ++i)
+        {
+            late.push_back(sig.connect([&]() { ++lateCalls; }));
+        }
+    });
+
+    sig.emit();
+    FATP_ASSERT_EQ(adderCalls, 1, "Adder slot runs once");
+    FATP_ASSERT_EQ(lateCalls, 0, "None of the 32 deferred slots run in the same emission");
+
+    late.clear();   // disconnect the 32 deferred slots again
+    sig.emit();
+    FATP_ASSERT_EQ(adderCalls, 2, "Adder slot runs in second emission");
+    FATP_ASSERT_EQ(lateCalls, 0, "Disconnected deferred slots never run");
+
+    return true;
+}
+
+FATP_TEST_CASE(connect_during_emission_activates_and_runs_next_time)
+{
+    Signal<void()> sig;
+    int lateCalls = 0;
+    ConnectionId lateId{InvalidConnectionId};
+    bool added = false;
+
+    auto adder = sig.connect([&]() {
+        if (!added)
+        {
+            added = true;
+            lateId = sig.connectManual([&]() { ++lateCalls; });
+        }
+    });
+
+    sig.emit();
+    FATP_ASSERT_TRUE(sig.isConnected(lateId),
+        "A connection parked during emission must report isConnected");
+    FATP_ASSERT_EQ(lateCalls, 0, "Parked slot must not have run yet");
+
+    sig.emit();
+    FATP_ASSERT_EQ(lateCalls, 1, "Parked slot runs after activation");
+
+    FATP_ASSERT_TRUE(sig.disconnect(lateId), "Activated slot must disconnect normally");
+    sig.emit();
+    FATP_ASSERT_EQ(lateCalls, 1, "Disconnected slot must not run again");
+
+    return true;
+}
+
+FATP_TEST_CASE(connect_then_disconnect_same_id_inside_callback)
+{
+    Signal<void()> sig;
+    int  lateCalls = 0;
+    bool connectedInside = false;
+    bool disconnectReturned = false;
+    bool disconnectedAfter = false;
+
+    auto outer = sig.connect([&]() {
+        ConnectionId id = sig.connectManual([&]() { ++lateCalls; });
+        connectedInside    = sig.isConnected(id);
+        disconnectReturned = sig.disconnect(id);
+        disconnectedAfter  = !sig.isConnected(id);
+    });
+
+    sig.emit();
+    FATP_ASSERT_TRUE(connectedInside,
+        "Pending connection must report connected inside the callback");
+    FATP_ASSERT_TRUE(disconnectReturned,
+        "Disconnecting a pending connection inside the callback must succeed");
+    FATP_ASSERT_TRUE(disconnectedAfter,
+        "Erased pending connection must report disconnected");
+
+    sig.emit();
+    FATP_ASSERT_EQ(lateCalls, 0,
+        "A connection created and disconnected inside a callback never runs");
+
+    return true;
+}
+
+FATP_TEST_CASE(connect_during_emission_priority_respected_on_activation)
+{
+    Signal<void()> sig;
+    std::vector<int> order;
+    ScopedConnection high;
+    ScopedConnection low;
+    bool added = false;
+
+    auto normal = sig.connect([&]() {
+        order.push_back(0);
+        if (!added)
+        {
+            added = true;
+            high = sig.connect([&]() { order.push_back(10); }, 10);
+            low  = sig.connect([&]() { order.push_back(-5); }, -5);
+        }
+    }, 0);
+
+    sig.emit();   // only the normal slot; high/low parked
+    order.clear();
+
+    sig.emit();
+    FATP_ASSERT_EQ(order.size(), 3, "All three slots run in the second emission");
+    FATP_ASSERT_EQ(order[0], 10, "Deferred high-priority slot must be first");
+    FATP_ASSERT_EQ(order[1], 0,  "Normal slot in the middle");
+    FATP_ASSERT_EQ(order[2], -5, "Deferred low-priority slot must be last");
+
+    return true;
+}
+
+FATP_TEST_CASE(connect_during_nested_emission_waits_for_outermost)
+{
+    Signal<void()> sig;
+    int lateCalls = 0;
+    int depth = 0;
+    bool added = false;
+
+    auto outer = sig.connect([&]() {
+        ++depth;
+        if (depth == 1)
+        {
+            sig.emit();   // nested emission
+            if (!added)
+            {
+                added = true;
+                (void)sig.connectManual([&]() { ++lateCalls; });
+            }
+        }
+        --depth;
+    });
+
+    sig.emit();
+    FATP_ASSERT_EQ(lateCalls, 0,
+        "Slot parked during the outer emission must not run in it (or nested ones)");
+
+    sig.emit();
+    FATP_ASSERT_TRUE(lateCalls > 0, "Parked slot must participate after outermost completes");
+
+    return true;
+}
+
+FATP_TEST_CASE(disconnect_all_during_emission_discards_pending)
+{
+    Signal<void()> sig;
+    int lateCalls = 0;
+
+    auto outer = sig.connect([&]() {
+        (void)sig.connectManual([&]() { ++lateCalls; });
+        sig.disconnectAll();
+    });
+
+    sig.emit();
+    sig.emit();
+    FATP_ASSERT_EQ(lateCalls, 0,
+        "disconnectAll during emission must also discard pending connections");
+    FATP_ASSERT_EQ(sig.activeSlotCount(), 0, "No slots survive disconnectAll");
+
+    return true;
+}
 } // namespace fat_p::testing::signal
 
 namespace fat_p::testing
@@ -960,6 +1160,13 @@ bool test_Signal()
     FATP_RUN_TEST_NS(runner, signal, move_assignment);
     FATP_RUN_TEST_NS(runner, signal, is_signal_trait);
     FATP_RUN_TEST_NS(runner, signal, many_slots_performance);
+    FATP_RUN_TEST_NS(runner, signal, connect_during_emission_not_called_in_current_emission);
+    FATP_RUN_TEST_NS(runner, signal, connect_during_emission_growth_past_inline_capacity);
+    FATP_RUN_TEST_NS(runner, signal, connect_during_emission_activates_and_runs_next_time);
+    FATP_RUN_TEST_NS(runner, signal, connect_then_disconnect_same_id_inside_callback);
+    FATP_RUN_TEST_NS(runner, signal, connect_during_emission_priority_respected_on_activation);
+    FATP_RUN_TEST_NS(runner, signal, connect_during_nested_emission_waits_for_outermost);
+    FATP_RUN_TEST_NS(runner, signal, disconnect_all_during_emission_discards_pending);
 
 
     return 0 == runner.print_summary();
