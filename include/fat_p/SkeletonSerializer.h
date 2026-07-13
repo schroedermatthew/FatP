@@ -50,8 +50,10 @@ FATP_META:
 //    activates via std::endian.
 //
 // 4. BoneId has dedicated writeBoneId/readBoneId methods that delegate to
-//    BoneId::serialize/deserialize (9-byte canonical form). Application
-//    code should not decompose BoneId into value+depth manually.
+//    BoneId::serialize/deserialize (1 depth byte + 2 bytes per active level,
+//    canonical form). readBoneIdLegacy9 reads the pre-widening 9-byte form
+//    for version-gated migration branches. Application code should not
+//    decompose BoneId into levels manually.
 //
 // 5. String length is stored as uint32_t (not uint64_t). No Loom string
 //    field will exceed 4 GiB. This halves the length prefix cost compared
@@ -209,12 +211,15 @@ public:
 
     // -- BoneId ---------------------------------------------------------------
 
-    // Delegates to BoneId::serialize() — 9 bytes (8 value + 1 depth), canonical.
+    // Delegates to BoneId::serialize() — 1 depth byte + 2 bytes per active
+    // level, canonical. Variable size: 1..BoneId::kMaxSerializedBytes.
     void writeBoneId(BoneId id)
     {
-        std::byte buf[9];
-        id.serialize(std::span<std::byte, 9>{buf});
-        mOut.write(reinterpret_cast<const char*>(buf), 9);
+        std::byte buf[BoneId::kMaxSerializedBytes];
+        const std::size_t used =
+            id.serialize(std::span<std::byte, BoneId::kMaxSerializedBytes>{buf});
+        mOut.write(reinterpret_cast<const char*>(buf),
+                   static_cast<std::streamsize>(used));
     }
 
     // -- Stream access --------------------------------------------------------
@@ -309,17 +314,45 @@ public:
 
     // -- BoneId ---------------------------------------------------------------
 
+    // Reads the current format: 1 depth byte + 2 bytes per active level.
     [[nodiscard]] BoneId readBoneId()
     {
-        std::byte buf[9];
-        mIn.read(reinterpret_cast<char*>(buf), 9);
+        std::byte buf[BoneId::kMaxSerializedBytes];
+        mIn.read(reinterpret_cast<char*>(buf), 1);
+        if (!mIn.good())
+        {
+            throw std::runtime_error("SkeletonSerializer: truncated BoneId read");
+        }
+        const auto depth = std::to_integer<std::uint8_t>(buf[0]);
+        if (depth > BoneId::kMaxDepth)
+        {
+            throw std::runtime_error("SkeletonSerializer: corrupt BoneId depth");
+        }
+        const std::streamsize levelBytes = 2 * static_cast<std::streamsize>(depth);
+        mIn.read(reinterpret_cast<char*>(buf + 1), levelBytes);
+        if (!mIn.good())
+        {
+            throw std::runtime_error("SkeletonSerializer: truncated BoneId read");
+        }
+        return BoneId::deserialize(
+            std::span<const std::byte>{buf, 1u + 2u * static_cast<std::size_t>(depth)});
+    }
+
+    // Reads the legacy 9-byte form (8 x 8-bit levels + depth) written before
+    // the 16x16 widening. Callers select this in version-gated deserialize
+    // branches for payloads saved by older builds.
+    [[nodiscard]] BoneId readBoneIdLegacy9()
+    {
+        std::byte buf[BoneId::kLegacySerializedBytes];
+        mIn.read(reinterpret_cast<char*>(buf), BoneId::kLegacySerializedBytes);
 
         if (!mIn.good())
         {
             throw std::runtime_error("SkeletonSerializer: truncated BoneId read");
         }
 
-        return BoneId::deserialize(std::span<const std::byte, 9>{buf});
+        return BoneId::deserializeLegacy9(
+            std::span<const std::byte, BoneId::kLegacySerializedBytes>{buf});
     }
 
     // -- Stream queries -------------------------------------------------------

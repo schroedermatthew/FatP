@@ -158,6 +158,30 @@ template <typename Schema, auto... Levels>
 inline constexpr bool kLevelsMatchSchema = LevelsMatchSchemaDispatch<Schema, Levels...>::kValue;
 
 // -------------------------------------------------------------------------
+// kLevelFitsSlot -- true when an enum value fits one 16-bit BoneId level.
+//
+// A variable template (not a consteval lambda inside the class-scope
+// static_assert): MSVC does not reliably evaluate a dependent lambda-call
+// static_assert at class instantiation, which silently disabled the previous
+// in-class formulation. The variable-template fold is evaluated eagerly and
+// the compile_fail suite verifies it fires.
+// -------------------------------------------------------------------------
+
+template <auto L>
+inline constexpr bool kLevelFitsSlot = []() consteval {
+    using U = std::underlying_type_t<decltype(L)>;
+    if constexpr (std::is_signed_v<U>)
+    {
+        return static_cast<long long>(static_cast<U>(L)) >= 0LL
+            && static_cast<long long>(static_cast<U>(L)) <= 65535LL;
+    }
+    else
+    {
+        return static_cast<unsigned long long>(static_cast<U>(L)) <= 65535ULL;
+    }
+}();
+
+// -------------------------------------------------------------------------
 // BoneParentFromTuple -- given a tuple of integral_constants and an index
 // sequence selecting all-but-last, produces the parent Bone type.
 // -------------------------------------------------------------------------
@@ -231,22 +255,12 @@ struct Bone
     /// The number of active depth levels in this Bone's path.
     static constexpr std::size_t kDepth = sizeof...(Levels);
 
-    // Reject enum values that don't fit in one byte -- catches silent truncation.
-    static_assert(
-        ([]<auto L>() consteval {
-            using U = std::underlying_type_t<decltype(L)>;
-            if constexpr (std::is_signed_v<U>)
-            {
-                return static_cast<long long>(static_cast<U>(L)) >= 0LL
-                    && static_cast<long long>(static_cast<U>(L)) <= 255LL;
-            }
-            else
-            {
-                return static_cast<unsigned long long>(static_cast<U>(L)) <= 255ULL;
-            }
-        }.template operator()<Levels>() && ...),
-        "Each Bone level enum value must fit in one byte (0..255)"
-    );
+    // Reject enum values that don't fit in one 16-bit level slot -- catches
+    // silent truncation. detail::kLevelFitsSlot is a variable template because
+    // MSVC does not reliably evaluate a dependent lambda-call static_assert at
+    // class instantiation (see its definition).
+    static_assert((detail::kLevelFitsSlot<Levels> && ...),
+        "Each Bone level enum value must fit in one 16-bit level (0..65535)");
 
     /**
      * @brief Returns the compile-time BoneId for this path.
@@ -1100,15 +1114,19 @@ inline SkeletonItem::~SkeletonItem() noexcept
     {
         // Avoid heap allocation (toString()) in noexcept destructor error path.
         // OOM inside a noexcept context would terminate before the diagnostic fires.
-        // Raw value/depth identify the offending item without allocation.
+        // Raw words/depth identify the offending item without allocation.
         std::fprintf(
             stderr,
-            "[Skeleton] FATAL: SkeletonItem \"%s\" at BoneId(value=0x%llx, depth=%u)"
+            "[Skeleton] FATAL: SkeletonItem \"%s\" at"
+            " BoneId(words=0x%llx:%llx:%llx:%llx, depth=%u)"
             " destroyed while still published."
             " Call unpublish() in the most-derived destructor before member teardown."
             " Terminating.\n",
             mName.c_str(),
-            static_cast<unsigned long long>(mBoneId.value()),
+            static_cast<unsigned long long>(mBoneId.words()[0]),
+            static_cast<unsigned long long>(mBoneId.words()[1]),
+            static_cast<unsigned long long>(mBoneId.words()[2]),
+            static_cast<unsigned long long>(mBoneId.words()[3]),
             static_cast<unsigned>(mBoneId.depth())
         );
         std::terminate();

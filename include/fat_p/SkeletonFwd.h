@@ -34,7 +34,7 @@ FATP_META:
  * Bone<>, SkeletonItem, BasicBoneItem<>, or Skeleton template machinery.
  *
  * Defines:
- * - BoneId          -- 64-bit packed hierarchical address (8 levels x 8 bits)
+ * - BoneId          -- 256-bit packed hierarchical address (16 levels x 16 bits)
  * - HierarchySchema -- compile-time binding of depth positions to enum types
  * - SkeletonCapability / SkeletonMask / makeMask()
  * - Forward declarations of Skeleton and SkeletonItem
@@ -43,6 +43,7 @@ FATP_META:
  * - C++20
  */
 
+#include <array>
 #include <bitset>
 #include <concepts>
 #include <cstddef>
@@ -82,11 +83,11 @@ template <auto... Levels>
  * factory sites.
  *
  * BoneIdTag has a private default constructor. Only the types listed as friends
- * can construct a tag value and thus reach the tagged BoneId(tag, value, depth)
+ * can construct a tag value and thus reach the tagged BoneId(tag, words, depth)
  * constructor. External code cannot default-construct BoneIdTag, so forged
  * non-canonical BoneIds are impossible from outside this file. This gate is
  * load-bearing: Skeleton::publish() duplicate detection relies on all BoneIds
- * being in canonical form (inactive bytes zero).
+ * being in canonical form (inactive level slots zero).
  */
 struct BoneIdTag
 {
@@ -102,27 +103,35 @@ private:
 } // namespace detail
 
 /**
- * @brief Concrete 64-bit hierarchical address: 8 levels x 8 bits per level.
+ * @brief Concrete 256-bit hierarchical address: 16 levels x 16 bits per level.
  *
- * Layout: level 0 occupies bits [63:56], level 1 [55:48], ..., level 7 [7:0].
- * Unused levels are always zero (canonical form). Depth tracks how many levels
- * are active.
+ * Layout: four 64-bit words hold four levels each, most-significant level
+ * first. Level i occupies bits [63-16*(i%4) : 48-16*(i%4)] of word i/4, so
+ * level 0 is the top 16 bits of word 0. Unused level slots are always zero
+ * (canonical form). Depth tracks how many levels are active.
  *
- * Limits: 8 levels maximum, 256 values per level (0..255).
- * The 9-byte serialized form (8 value + 1 depth) is suitable for network routing.
+ * The MSB-first packing makes the defaulted member-wise comparison equal to
+ * lexicographic path comparison: a parent orders before its children, and
+ * siblings order by level value. OwnerSkeleton's parent-before-child sorted
+ * traversals depend on this property.
+ *
+ * Limits: 16 levels maximum, 65,536 values per level (0..65535). These are the
+ * starting configuration (BE's ITEM_ID shipped with 16 levels); widening either
+ * dimension is a versioned serialization change, not a breaking one, because
+ * the serialized form stores only the active levels.
  *
  * @par Construction
- * BoneId uses a private-tag constructor to prevent raw BoneId{value, depth}
- * construction outside of the authorised factory sites (child(), parent(),
- * deserialize(), detail::buildBoneId()). All factory sites produce canonical
- * form (inactive bytes zero), which is required for correct equality, hashing,
- * and duplicate detection in Skeleton::publish().
+ * BoneId uses a private-tag constructor to prevent raw construction outside of
+ * the authorised factory sites (child(), parent(), deserialize(),
+ * deserializeLegacy9(), detail::buildBoneId()). All factory sites produce
+ * canonical form (inactive slots zero), which is required for correct equality,
+ * hashing, and duplicate detection in Skeleton::publish().
  *
  * @par Invariants
- * - A default-constructed BoneId is null (depth == 0, value == 0).
- * - Inactive level bytes (index >= depth) are always zero.
+ * - A default-constructed BoneId is null (depth == 0, all words == 0).
+ * - Inactive level slots (index >= depth) are always zero.
  * - parent() is UB when depth == 0. Debug builds assert.
- * - child(index) is UB when depth >= 8. Debug builds assert.
+ * - child(index) is UB when depth >= 16. Debug builds assert.
  *
  * @note Thread-safety: NOT thread-safe. BoneId is a value type; concurrent
  * access to distinct instances is safe without synchronization.
@@ -131,12 +140,29 @@ class BoneId
 {
 public:
     // -------------------------------------------------------------------------
+    // Limits
+    // -------------------------------------------------------------------------
+
+    /// Maximum number of hierarchy levels.
+    static constexpr std::size_t kMaxDepth = 16u;
+
+    /// Number of 64-bit words backing the level slots (4 levels per word).
+    static constexpr std::size_t kWordCount = kMaxDepth / 4u;
+
+    /// Serialized size of the deepest possible BoneId: 1 depth byte + 2 bytes
+    /// per active level. Shallower ids serialize smaller (see serialize()).
+    static constexpr std::size_t kMaxSerializedBytes = 1u + 2u * kMaxDepth;
+
+    /// Size of the legacy 8-level x 8-bit serialized form (8 value + 1 depth).
+    static constexpr std::size_t kLegacySerializedBytes = 9u;
+
+    // -------------------------------------------------------------------------
     // Construction
     // -------------------------------------------------------------------------
 
-    /// Default-constructs the null BoneId (depth == 0, value == 0).
+    /// Default-constructs the null BoneId (depth == 0, all words == 0).
     constexpr BoneId() noexcept
-        : mValue(0u)
+        : mWords{}
         , mDepth(0u)
     {
     }
@@ -145,22 +171,35 @@ public:
     ///
     /// The tag parameter (detail::BoneIdTag) is not publicly constructible,
     /// so this constructor is effectively private to code holding a BoneIdTag.
-    /// All callers must guarantee inactive bytes are zero (canonical form).
-    constexpr BoneId(detail::BoneIdTag, uint64_t v, uint8_t d) noexcept
-        : mValue(v), mDepth(d)
+    /// All callers must guarantee inactive slots are zero (canonical form).
+    constexpr BoneId(detail::BoneIdTag,
+                     const std::array<uint64_t, kWordCount>& words,
+                     uint8_t d) noexcept
+        : mWords(words), mDepth(d)
     {}
 
     // -------------------------------------------------------------------------
     // Accessors
     // -------------------------------------------------------------------------
 
-    /// Returns the raw 64-bit packed path value. Inactive bytes are zero.
-    [[nodiscard]] constexpr uint64_t value() const noexcept
+    /// @brief Returns the level value at depth position @p i.
+    /// @pre i < depth(). UB in release if violated; asserts in debug.
+    [[nodiscard]] constexpr uint16_t level(std::size_t i) const noexcept
     {
-        return mValue;
+        FATP_ENFORCE(i < mDepth, "BoneId::level() index out of range");
+        return levelUnchecked(i);
     }
 
-    /// Returns the number of active depth levels. Range [0, 8]. Zero means null.
+    /// Returns the raw packed words (canonical form: inactive slots zero).
+    /// Intended for hashing and diagnostics, not for level extraction — use
+    /// level() for that.
+    [[nodiscard]] constexpr const std::array<uint64_t, kWordCount>&
+    words() const noexcept
+    {
+        return mWords;
+    }
+
+    /// Returns the number of active depth levels. Range [0, 16]. Zero means null.
     [[nodiscard]] constexpr uint8_t depth() const noexcept
     {
         return mDepth;
@@ -169,6 +208,11 @@ public:
     // -------------------------------------------------------------------------
     // Comparison
     // -------------------------------------------------------------------------
+
+    // Member order (mWords, mDepth) plus MSB-first packing makes these
+    // defaulted operators compare paths lexicographically with parents first:
+    // sibling levels compare by value; a parent ties its child's word prefix
+    // (inactive slots are zero) and resolves first on the shallower depth.
 
     [[nodiscard]] constexpr bool operator==(const BoneId&) const noexcept = default;
     [[nodiscard]] constexpr auto operator<=>(const BoneId&) const noexcept = default;
@@ -198,7 +242,7 @@ public:
      *
      * @param other The BoneId to test as a potential descendant.
      * @return true if this is a strict prefix of @p other's path.
-     * @note Complexity: O(1).
+     * @note Complexity: O(1) (word-count bounded).
      */
     [[nodiscard]] constexpr bool isAncestorOf(BoneId other) const noexcept
     {
@@ -206,9 +250,15 @@ public:
         {
             return false;
         }
-        const uint64_t shiftBits = static_cast<uint64_t>(64u - 8u * mDepth);
-        const uint64_t mask = (~uint64_t{0}) << shiftBits;
-        return (mValue & mask) == (other.mValue & mask);
+        for (std::size_t w = 0u; w < kWordCount; ++w)
+        {
+            const uint64_t mask = wordMaskForDepth(w, mDepth);
+            if ((mWords[w] & mask) != (other.mWords[w] & mask))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -216,7 +266,7 @@ public:
      *
      * @param ancestor The BoneId to test as a potential ancestor.
      * @return true if @p ancestor is a strict prefix of this path.
-     * @note Complexity: O(1).
+     * @note Complexity: O(1) (word-count bounded).
      */
     [[nodiscard]] constexpr bool isDescendantOf(BoneId ancestor) const noexcept
     {
@@ -238,25 +288,26 @@ public:
     {
         FATP_ENFORCE(mDepth > 0u, "BoneId::parent() called on null BoneId");
         const uint8_t newDepth = static_cast<uint8_t>(mDepth - 1u);
-        const uint64_t shift = static_cast<uint64_t>(8u * (8u - mDepth));
-        const uint64_t clearMask = ~(uint64_t{0xFF} << shift);
-        return BoneId{detail::BoneIdTag{}, mValue & clearMask, newDepth};
+        std::array<uint64_t, kWordCount> words = mWords;
+        clearSlot(words, newDepth);
+        return BoneId{detail::BoneIdTag{}, words, newDepth};
     }
 
     /**
      * @brief Returns a child BoneId with @p index appended at the next level.
      *
-     * @pre depth < 8. UB in release if violated; asserts in debug.
-     * @param index The 0-255 value to place at the new depth level.
+     * @pre depth < 16. UB in release if violated; asserts in debug.
+     * @param index The 0-65535 value to place at the new depth level.
      * @return A BoneId with one additional active level.
      * @note Complexity: O(1).
      */
-    [[nodiscard]] constexpr BoneId child(uint8_t index) const noexcept
+    [[nodiscard]] constexpr BoneId child(uint16_t index) const noexcept
     {
-        FATP_ENFORCE(mDepth < 8u, "BoneId::child() called on a BoneId already at maximum depth (8)");
-        const uint64_t shift = static_cast<uint64_t>(8u * (7u - mDepth));
-        const uint64_t newValue = mValue | (static_cast<uint64_t>(index) << shift);
-        return BoneId{detail::BoneIdTag{}, newValue, static_cast<uint8_t>(mDepth + 1u)};
+        FATP_ENFORCE(mDepth < kMaxDepth,
+                     "BoneId::child() called on a BoneId already at maximum depth (16)");
+        std::array<uint64_t, kWordCount> words = mWords;
+        words[wordOf(mDepth)] |= static_cast<uint64_t>(index) << shiftOf(mDepth);
+        return BoneId{detail::BoneIdTag{}, words, static_cast<uint8_t>(mDepth + 1u)};
     }
 
     // -------------------------------------------------------------------------
@@ -268,7 +319,7 @@ public:
      *
      * Intended for dump() output and diagnostics. Not for production paths.
      * @return A bracketed slash-separated string of level values, or "[null]".
-     * @note Complexity: O(depth), bounded by 8.
+     * @note Complexity: O(depth), bounded by 16.
      * @note Thread-safety: NOT thread-safe. BoneId is a value type; safe across distinct instances.
      */
     [[nodiscard]] std::string toString() const
@@ -278,113 +329,157 @@ public:
             return "[null]";
         }
         std::string result = "[";
-        for (uint8_t i = 0u; i < mDepth; ++i)
+        for (std::size_t i = 0u; i < mDepth; ++i)
         {
             if (i > 0u)
             {
                 result += '/';
             }
-            const uint64_t shift = static_cast<uint64_t>(8u * (7u - i));
-            const uint8_t level = static_cast<uint8_t>((mValue >> shift) & 0xFFu);
-            result += std::to_string(level);
+            result += std::to_string(levelUnchecked(i));
         }
         result += ']';
         return result;
     }
 
     // -------------------------------------------------------------------------
-    // Serialization -- 9 bytes (8 value + 1 depth), big-endian value
+    // Serialization -- 1 depth byte + 2 bytes per active level, big-endian
     // -------------------------------------------------------------------------
 
     /**
-     * @brief Serializes into @p out in a stable 9-byte big-endian form.
+     * @brief Serializes into @p out: depth byte, then each active level as a
+     *        big-endian uint16. Shallow ids stay small on disk and on the wire.
      *
-     * @param out Output buffer of exactly 9 bytes.
-     * @note Complexity: O(1).
+     * @param out Output buffer of kMaxSerializedBytes; only the returned count
+     *            is written.
+     * @return Number of bytes written: 1 + 2 * depth().
+     * @note Complexity: O(depth), bounded by 16.
      * @note Thread-safety: NOT thread-safe. BoneId is a value type; safe across distinct instances.
      */
-    void serialize(std::span<std::byte, 9> out) const noexcept
+    std::size_t serialize(std::span<std::byte, kMaxSerializedBytes> out) const noexcept
     {
-        for (std::size_t i = 0; i < 8u; ++i)
+        out[0] = static_cast<std::byte>(mDepth);
+        for (std::size_t i = 0u; i < mDepth; ++i)
         {
-            out[i] = static_cast<std::byte>((mValue >> (56u - 8u * i)) & 0xFFu);
+            const uint16_t v = levelUnchecked(i);
+            out[1u + 2u * i] = static_cast<std::byte>((v >> 8u) & 0xFFu);
+            out[2u + 2u * i] = static_cast<std::byte>(v & 0xFFu);
         }
-        out[8] = static_cast<std::byte>(mDepth);
+        return 1u + 2u * static_cast<std::size_t>(mDepth);
     }
 
     /**
-     * @brief Deserializes from a 9-byte big-endian buffer.
+     * @brief Deserializes from a buffer written by serialize().
      *
-     * The returned BoneId is always in canonical form: bytes below the active
-     * depth are masked to zero, ensuring equality and hash consistency with
-     * all other BoneIds representing the same path. A depth byte > 8 is treated
-     * as a null BoneId.
+     * The returned BoneId is always in canonical form by construction (levels
+     * are placed slot by slot; untouched slots stay zero). A depth byte > 16 or
+     * a buffer too short for the declared depth is treated as a null BoneId
+     * (corrupted input).
      *
-     * @param in Input buffer of exactly 9 bytes.
+     * @param in Input buffer: at least 1 + 2 * depth-byte bytes.
+     * @return The canonical BoneId encoded in the buffer, or null on malformed input.
+     * @note Complexity: O(depth), bounded by 16.
+     */
+    [[nodiscard]] static constexpr BoneId deserialize(std::span<const std::byte> in) noexcept
+    {
+        if (in.size() < 1u)
+        {
+            return BoneId{};
+        }
+        const uint8_t d = std::to_integer<uint8_t>(in[0]);
+        if (d > kMaxDepth || in.size() < 1u + 2u * static_cast<std::size_t>(d))
+        {
+            // Malformed buffer. Documented contract: silently returns null.
+            return BoneId{};
+        }
+        std::array<uint64_t, kWordCount> words{};
+        for (std::size_t i = 0u; i < d; ++i)
+        {
+            const uint16_t hi = std::to_integer<uint8_t>(in[1u + 2u * i]);
+            const uint16_t lo = std::to_integer<uint8_t>(in[2u + 2u * i]);
+            const auto v = static_cast<uint64_t>(static_cast<uint16_t>((hi << 8u) | lo));
+            words[wordOf(i)] |= v << shiftOf(i);
+        }
+        return BoneId{detail::BoneIdTag{}, words, d};
+    }
+
+    /**
+     * @brief Deserializes the legacy 9-byte form (8 x 8-bit levels + depth).
+     *
+     * Migration reader for data written before the 16x16 widening. Each legacy
+     * 8-bit level value maps unchanged into a 16-bit slot, so a legacy id and
+     * its re-serialized form address the same bone. A legacy depth byte > 8 is
+     * treated as a null BoneId, matching the legacy contract.
+     *
+     * @param in Input buffer of exactly 9 bytes (legacy canonical form).
      * @return The canonical BoneId encoded in the buffer.
      * @note Complexity: O(1).
-     * @note Thread-safety: NOT thread-safe. BoneId is a value type; safe across distinct instances.
      */
-    [[nodiscard]] static constexpr BoneId deserialize(std::span<const std::byte, 9> in) noexcept
+    [[nodiscard]] static constexpr BoneId
+    deserializeLegacy9(std::span<const std::byte, kLegacySerializedBytes> in) noexcept
     {
-        uint64_t v = 0u;
-        for (std::size_t i = 0; i < 8u; ++i)
-        {
-            v = (v << 8u) | static_cast<uint64_t>(std::to_integer<uint8_t>(in[i]));
-        }
         const uint8_t d = std::to_integer<uint8_t>(in[8]);
         if (d > 8u)
         {
-            // Depth byte out of range: treat as null BoneId (corrupted buffer).
-            // Documented contract: a depth byte > 8 is silently returned as null.
             return BoneId{};
         }
-        if (d == 0u)
+        std::array<uint64_t, kWordCount> words{};
+        for (std::size_t i = 0u; i < d; ++i)
         {
-            v = 0u;
+            const auto v = static_cast<uint64_t>(std::to_integer<uint8_t>(in[i]));
+            words[wordOf(i)] |= v << shiftOf(i);
         }
-        else if (d < 8u)
-        {
-            const uint64_t shiftBits = static_cast<uint64_t>(8u * (8u - d));
-            const uint64_t mask = (~uint64_t{0}) << shiftBits;
-            v &= mask;
-        }
-        return BoneId{detail::BoneIdTag{}, v, d};
-    }
-
-    /**
-     * @brief Reconstructs a canonical BoneId from a raw value and depth.
-     *
-     * Inactive bytes (index >= depth) are masked to zero, matching the
-     * canonicalisation in deserialize(). A depth > 8 returns the null BoneId.
-     *
-     * @param rawValue The packed 64-bit path value.
-     * @param depth    Number of active depth levels [0, 8].
-     * @return A canonical BoneId, or null if depth > 8.
-     * @note Complexity: O(1).
-     */
-    [[nodiscard]] static constexpr BoneId fromRaw(uint64_t rawValue, uint8_t depth) noexcept
-    {
-        if (depth > 8u)
-        {
-            return BoneId{};
-        }
-        if (depth == 0u)
-        {
-            return BoneId{};
-        }
-        if (depth < 8u)
-        {
-            const uint64_t shiftBits = static_cast<uint64_t>(8u * (8u - depth));
-            const uint64_t mask = (~uint64_t{0}) << shiftBits;
-            rawValue &= mask;
-        }
-        return BoneId{detail::BoneIdTag{}, rawValue, depth};
+        return BoneId{detail::BoneIdTag{}, words, d};
     }
 
 private:
-    uint64_t mValue; ///< Packed path. Level N in bits [63-8N : 56-8N]. Inactive bytes zero.
-    uint8_t  mDepth; ///< Number of active levels [0, 8].
+    /// Word index holding level @p i (4 levels per word).
+    [[nodiscard]] static constexpr std::size_t wordOf(std::size_t i) noexcept
+    {
+        return i / 4u;
+    }
+
+    /// Bit shift of level @p i within its word (MSB-first: level i%4 == 0 is
+    /// the top 16 bits).
+    [[nodiscard]] static constexpr std::size_t shiftOf(std::size_t i) noexcept
+    {
+        return 48u - 16u * (i % 4u);
+    }
+
+    /// Level value at position @p i with no depth check (canonical slots are
+    /// zero, so reading an inactive slot yields 0).
+    [[nodiscard]] constexpr uint16_t levelUnchecked(std::size_t i) const noexcept
+    {
+        return static_cast<uint16_t>((mWords[wordOf(i)] >> shiftOf(i)) & 0xFFFFu);
+    }
+
+    /// Zeroes the level slot at position @p i in @p words.
+    static constexpr void clearSlot(std::array<uint64_t, kWordCount>& words,
+                                    std::size_t i) noexcept
+    {
+        words[wordOf(i)] &= ~(uint64_t{0xFFFFu} << shiftOf(i));
+    }
+
+    /// Mask of word @p w's bits covered by an ancestor of depth @p d: full for
+    /// words wholly within the depth, partial for the boundary word, zero past it.
+    [[nodiscard]] static constexpr uint64_t wordMaskForDepth(std::size_t w,
+                                                             std::size_t d) noexcept
+    {
+        const std::size_t firstLevelOfWord = 4u * w;
+        if (d <= firstLevelOfWord)
+        {
+            return 0u;
+        }
+        const std::size_t levelsInWord = d - firstLevelOfWord;
+        if (levelsInWord >= 4u)
+        {
+            return ~uint64_t{0};
+        }
+        return (~uint64_t{0}) << (64u - 16u * levelsInWord);
+    }
+
+    std::array<uint64_t, kWordCount> mWords; ///< Packed path, 4 levels per word,
+                                             ///< MSB-first. Inactive slots zero.
+    uint8_t mDepth;                          ///< Number of active levels [0, 16].
 };
 
 } // namespace fat_p::skeleton
@@ -398,12 +493,15 @@ struct std::hash<fat_p::skeleton::BoneId>
 {
     [[nodiscard]] std::size_t operator()(const fat_p::skeleton::BoneId& id) const noexcept
     {
-        // Mix depth into a separate lane before the finalisation avalanche.
-        // Depth occupies bits [63:56] in level-0's byte, so XOR-shifting it
-        // there produces structured collisions (e.g. [2] vs [1/0]).
-        // Multiplying by a large odd constant disperses depth bits across the
-        // full 64-bit width before combining with the path value.
-        uint64_t h = id.value();
+        // Fold the four path words and the depth through the same avalanche
+        // used before the widening. Depth is mixed in a separate lane so ids
+        // whose paths tie on words but differ in depth (e.g. [1/0] vs [1/0/0])
+        // still disperse.
+        uint64_t h = 0u;
+        for (const uint64_t w : id.words())
+        {
+            h ^= w + 0x9e3779b97f4a7c15ull + (h << 6u) + (h >> 2u);
+        }
         h ^= static_cast<uint64_t>(id.depth()) * 0x9e3779b97f4a7c15ull;
         h ^= h >> 30u;
         h *= 0xbf58476d1ce4e5b9ull;
@@ -428,30 +526,29 @@ namespace detail
  * @brief Constructs a canonical BoneId from a compile-time sequence of enum values.
  *
  * Each enum value is cast to its underlying type and packed into the appropriate
- * 8-bit slot. All inactive bytes are zero by construction, satisfying the BoneId
+ * 16-bit slot. All inactive slots are zero by construction, satisfying the BoneId
  * canonical-form invariant. Used exclusively by Bone<>::id().
  */
 template <auto... Levels>
 [[nodiscard]] constexpr BoneId buildBoneId() noexcept
 {
     constexpr std::size_t kDepth = sizeof...(Levels);
-    static_assert(kDepth <= 8u, "Bone depth exceeds 8");
+    static_assert(kDepth <= BoneId::kMaxDepth, "Bone depth exceeds 16");
 
-    uint64_t v = 0u;
+    std::array<uint64_t, BoneId::kWordCount> words{};
     std::size_t i = 0u;
     (
         [&]
         {
             const auto raw =
                 static_cast<uint64_t>(static_cast<std::underlying_type_t<decltype(Levels)>>(Levels));
-            const uint64_t shift = static_cast<uint64_t>(8u * (7u - i));
-            v |= (raw & 0xFFu) << shift;
+            words[i / 4u] |= (raw & 0xFFFFu) << (48u - 16u * (i % 4u));
             ++i;
         }(),
         ...
     );
 
-    return BoneId{BoneIdTag{}, v, static_cast<uint8_t>(kDepth)};
+    return BoneId{BoneIdTag{}, words, static_cast<uint8_t>(kDepth)};
 }
 
 } // namespace detail
@@ -463,7 +560,7 @@ template <auto... Levels>
 /**
  * @brief Binds each depth position to its expected enum type.
  *
- * All level types must be enums. The schema depth must not exceed 8, the BoneId
+ * All level types must be enums. The schema depth must not exceed 16, the BoneId
  * physical limit. Schemas are typically defined once per application domain and
  * shared across all Bone instantiations for that domain.
  *
@@ -481,8 +578,8 @@ template <typename... LevelTypes>
 struct HierarchySchema
 {
     static_assert((std::is_enum_v<LevelTypes> && ...), "All HierarchySchema level types must be enums");
-    static_assert(sizeof...(LevelTypes) <= 8u,
-                  "HierarchySchema kMaxDepth cannot exceed 8 (BoneId physical limit)");
+    static_assert(sizeof...(LevelTypes) <= BoneId::kMaxDepth,
+                  "HierarchySchema kMaxDepth cannot exceed 16 (BoneId physical limit)");
 
     /// The enum type expected at depth position @p Depth.
     template <std::size_t Depth>

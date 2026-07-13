@@ -320,7 +320,14 @@ public:
 private:
     std::string mName;
     Skeleton    mSkeleton;
-    FastHashMap<BoneId, std::unique_ptr<SkeletonItem>> mOwnership;
+    // shared_ptr, not unique_ptr: the exchanged interface (and F1 anchors /
+    // datasink↔datasource registrations) co-own a bone so references stay
+    // dangling-safe by construction. Teardown is two-phase — remove()/the dtor
+    // unpublish() a bone deterministically (clearing mSkeleton), then release
+    // the tree's co-ownership. A bone still co-owned by a live interface survives
+    // as an already-unpublished husk and destructs cleanly when the last owner
+    // drops it; the mSkeleton==nullptr terminate-guard is what makes this safe.
+    FastHashMap<BoneId, std::shared_ptr<SkeletonItem>> mOwnership;
     uint32_t    mPropagationDepth{0};   // mutation guard during propagateDown/Up
 
     void assertNotPropagating(const char* ctx) const noexcept;
@@ -363,7 +370,7 @@ inline OwnerSkeleton::~OwnerSkeleton() noexcept
     {
         const BoneId id = (*it)->boneId();
         (*it)->unpublish();     // clears item.mSkeleton
-        mOwnership.erase(id);  // unique_ptr destructs here; mSkeleton == nullptr; no terminate
+        mOwnership.erase(id);  // release tree co-ownership; already unpublished, any surviving husk destructs cleanly
     }
 
     // Both maps are now empty. mSkeleton and mOwnership destruct cleanly.
@@ -377,7 +384,7 @@ T* OwnerSkeleton::emplace(Args&&... args)
     // Check for duplicate ownership before constructing T. Throwing here means
     // no object is ever constructed for a duplicate id -- matches the contract
     // that the first item at that BoneId is never disturbed.
-    auto placeholder = std::make_unique<T>(std::forward<Args>(args)...);
+    auto placeholder = std::make_shared<T>(std::forward<Args>(args)...);
     T*     raw = placeholder.get();
     BoneId id  = raw->boneId();
 
@@ -400,8 +407,8 @@ T* OwnerSkeleton::emplace(Args&&... args)
 
     // Rollback on any exception escaping publish(). insert() succeeded above,
     // so erasing id here is safe. Skeleton::publish() already rolls back its
-    // own registry entry and clears item.mSkeleton, so the unique_ptr destructor
-    // fires with mSkeleton == nullptr; no terminate.
+    // own registry entry and clears item.mSkeleton, so erasing the only owner
+    // here destructs the bone with mSkeleton == nullptr; no terminate.
     auto rollback = makeScopeGuardOnFail([&]() noexcept {
         mOwnership.erase(id);
     });
@@ -420,7 +427,7 @@ inline void OwnerSkeleton::remove(BoneId id)
         "OwnerSkeleton::remove(): BoneId not found in ownership map.");
 
     upptr->get()->unpublish();  // fires onUnpublishing; clears item.mSkeleton
-    mOwnership.erase(id);       // unique_ptr destructs; item.mSkeleton == nullptr; no terminate
+    mOwnership.erase(id);       // release tree co-ownership; a husk co-owned by a live interface is already unpublished, destructs cleanly later
 }
 
 inline void OwnerSkeleton::removeSubtree(BoneId root)

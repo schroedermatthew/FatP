@@ -205,7 +205,8 @@ FATP_TEST_CASE(boneid_default_is_null)
     BoneId id;
     FATP_ASSERT_TRUE(id.isNull(), "Default BoneId must be null");
     FATP_ASSERT_EQ(id.depth(), uint8_t(0), "Default BoneId depth must be 0");
-    FATP_ASSERT_EQ(id.value(), uint64_t(0), "Default BoneId value must be 0");
+    FATP_ASSERT_TRUE((id.words() == std::array<uint64_t, BoneId::kWordCount>{}),
+        "Default BoneId words must all be 0");
     return true;
 }
 
@@ -222,7 +223,7 @@ FATP_TEST_CASE(boneid_non_null_from_bone)
     constexpr BoneId id = Bone<TestSchema, Sys::Root>::id();
     FATP_ASSERT_FALSE(id.isNull(), "Bone-derived BoneId must not be null");
     FATP_ASSERT_EQ(id.depth(), uint8_t(1), "Single-level bone must have depth 1");
-    FATP_ASSERT_NE(id.value(), uint64_t(0), "Single-level bone value must not be 0");
+    FATP_ASSERT_NE(id.words()[0], uint64_t(0), "Single-level bone word 0 must not be 0");
     return true;
 }
 
@@ -412,21 +413,24 @@ FATP_TEST_CASE(boneid_serialize_deserialize_roundtrip)
 {
     constexpr BoneId original = Bone<TestSchema, Sys::Root, Sub::Sensors, Chan::Load>::id();
 
-    std::array<std::byte, 9> buf{};
-    original.serialize(buf);
+    std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+    const std::size_t used = original.serialize(buf);
+    FATP_ASSERT_EQ(used, std::size_t(1u + 2u * original.depth()),
+        "Serialize must write 1 depth byte plus 2 bytes per active level");
 
     BoneId restored = BoneId::deserialize(buf);
     FATP_ASSERT_EQ(restored, original, "Serialize/deserialize roundtrip must preserve BoneId");
     FATP_ASSERT_EQ(restored.depth(), original.depth(), "Roundtrip must preserve depth");
-    FATP_ASSERT_EQ(restored.value(), original.value(), "Roundtrip must preserve value");
+    FATP_ASSERT_TRUE(restored.words() == original.words(), "Roundtrip must preserve words");
     return true;
 }
 
 FATP_TEST_CASE(boneid_deserialize_null_roundtrip)
 {
     BoneId null;
-    std::array<std::byte, 9> buf{};
-    null.serialize(buf);
+    std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+    const std::size_t used = null.serialize(buf);
+    FATP_ASSERT_EQ(used, std::size_t(1), "Null BoneId must serialize to just the depth byte");
     BoneId restored = BoneId::deserialize(buf);
     FATP_ASSERT_EQ(restored, null, "Null BoneId serialize/deserialize roundtrip must produce null");
     FATP_ASSERT_TRUE(restored.isNull(), "Restored null BoneId must report isNull");
@@ -435,30 +439,82 @@ FATP_TEST_CASE(boneid_deserialize_null_roundtrip)
 
 FATP_TEST_CASE(boneid_deserialize_invalid_depth_returns_null)
 {
-    // Depth byte > 8 is treated as null
-    std::array<std::byte, 9> buf{};
-    buf[8] = std::byte{9}; // invalid depth
+    // Depth byte > 16 is treated as null.
+    std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+    buf[0] = std::byte{17}; // invalid depth
     BoneId restored = BoneId::deserialize(buf);
-    FATP_ASSERT_TRUE(restored.isNull(), "Depth > 8 in deserialize must produce null BoneId");
+    FATP_ASSERT_TRUE(restored.isNull(), "Depth > 16 in deserialize must produce null BoneId");
     return true;
 }
 
-FATP_TEST_CASE(boneid_deserialize_canonical_form)
+FATP_TEST_CASE(boneid_deserialize_truncated_returns_null)
 {
-    // Serialized bytes below active depth must be masked to zero after deserialize.
-    // Build a buffer for a depth-1 bone but plant non-zero bytes at inactive levels.
-    constexpr BoneId original = Bone<TestSchema, Sys::Root>::id();
-    std::array<std::byte, 9> buf{};
-    original.serialize(buf);
+    // A buffer shorter than the declared depth requires is treated as null.
+    std::array<std::byte, 3> buf{};
+    buf[0] = std::byte{2};  // declares depth 2 -> needs 5 bytes, only 3 supplied
+    BoneId restored = BoneId::deserialize(std::span<const std::byte>{buf});
+    FATP_ASSERT_TRUE(restored.isNull(), "Truncated buffer must produce null BoneId");
+    return true;
+}
 
-    // Corrupt the inactive levels (bytes [1..7]) with non-zero garbage
-    for (std::size_t i = 1; i < 8; ++i)
+FATP_TEST_CASE(boneid_deserialize_ignores_trailing_garbage)
+{
+    // Deserialize reads only the bytes the depth byte declares; trailing bytes
+    // in a larger buffer must not affect the result (canonical by construction).
+    constexpr BoneId original = Bone<TestSchema, Sys::Root>::id();
+    std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+    const std::size_t used = original.serialize(buf);
+
+    for (std::size_t i = used; i < buf.size(); ++i)
     {
         buf[i] = std::byte{0xFF};
     }
 
     BoneId restored = BoneId::deserialize(buf);
-    FATP_ASSERT_EQ(restored, original, "Deserialize must canonicalize by zeroing inactive level bytes");
+    FATP_ASSERT_EQ(restored, original, "Trailing garbage past the used range must be ignored");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_deserialize_legacy9_matches_child_chain)
+{
+    // The legacy 9-byte form (8 x 8-bit levels + depth) must map onto the same
+    // bone a child() chain addresses: level values carry over unchanged.
+    std::array<std::byte, BoneId::kLegacySerializedBytes> buf{};
+    buf[0] = std::byte{1};
+    buf[1] = std::byte{2};
+    buf[2] = std::byte{3};
+    buf[8] = std::byte{3}; // depth
+    const BoneId restored = BoneId::deserializeLegacy9(buf);
+
+    const BoneId expected = BoneId{}.child(1).child(2).child(3);
+    FATP_ASSERT_EQ(restored, expected, "Legacy 9-byte form must address the same bone");
+    FATP_ASSERT_EQ(restored.depth(), uint8_t(3), "Legacy depth must carry over");
+
+    // Legacy depth > 8 keeps its legacy contract: null.
+    std::array<std::byte, BoneId::kLegacySerializedBytes> bad{};
+    bad[8] = std::byte{9};
+    FATP_ASSERT_TRUE(BoneId::deserializeLegacy9(bad).isNull(),
+        "Legacy depth > 8 must produce null BoneId");
+    return true;
+}
+
+FATP_TEST_CASE(boneid_wide_level_values_roundtrip)
+{
+    // Level values above the legacy 255 cap must construct, order, and
+    // round-trip through serialization.
+    constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
+    BoneId wide = root.child(300).child(65535);
+    FATP_ASSERT_EQ(wide.level(1), uint16_t(300),   "level(1) must read back 300");
+    FATP_ASSERT_EQ(wide.level(2), uint16_t(65535), "level(2) must read back 65535");
+
+    BoneId narrow = root.child(299).child(65535);
+    FATP_ASSERT_TRUE(narrow < wide, "Sibling ordering must follow 16-bit level values");
+    FATP_ASSERT_TRUE(root.isAncestorOf(wide), "root must be ancestor through wide levels");
+
+    std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+    (void)wide.serialize(buf);
+    FATP_ASSERT_EQ(BoneId::deserialize(buf), wide,
+        "Wide level values must survive the serialize roundtrip");
     return true;
 }
 
@@ -1473,35 +1529,35 @@ FATP_TEST_CASE(stress_signal_consistency)
 
 FATP_TEST_CASE(boneid_max_depth_chain)
 {
-    // Build a depth-8 BoneId via child() starting from a depth-1 root.
+    // Build a depth-16 BoneId via child() starting from a depth-1 root.
     // Each call to child() must increment depth by exactly 1.
     constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
 
     BoneId cur = d1;
-    for (uint8_t level = 1; level < 8; ++level)
+    for (uint16_t level = 1; level < 16; ++level)
     {
         cur = cur.child(level); // use level value as the index
         FATP_ASSERT_EQ(cur.depth(), static_cast<uint8_t>(level + 1),
             "Each child() must increment depth by exactly 1");
         FATP_ASSERT_FALSE(cur.isNull(), "Intermediate BoneId must not be null");
     }
-    FATP_ASSERT_EQ(cur.depth(), uint8_t(8), "Maximum depth must be exactly 8");
+    FATP_ASSERT_EQ(cur.depth(), uint8_t(16), "Maximum depth must be exactly 16");
     return true;
 }
 
 FATP_TEST_CASE(boneid_max_depth_parent_chain)
 {
-    // Build depth-8 via child() then walk all the way back with parent().
+    // Build depth-16 via child() then walk all the way back with parent().
     constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
     BoneId cur = d1;
-    for (uint8_t i = 0; i < 7; ++i)
+    for (uint16_t i = 0; i < 15; ++i)
     {
-        cur = cur.child(static_cast<uint8_t>(i + 1));
+        cur = cur.child(static_cast<uint16_t>(i + 1));
     }
-    FATP_ASSERT_EQ(cur.depth(), uint8_t(8), "Must have reached depth 8");
+    FATP_ASSERT_EQ(cur.depth(), uint8_t(16), "Must have reached depth 16");
 
     // Walk back to depth 1 via parent()
-    for (uint8_t expectedDepth = 7; expectedDepth >= 1; --expectedDepth)
+    for (uint8_t expectedDepth = 15; expectedDepth >= 1; --expectedDepth)
     {
         cur = cur.parent();
         FATP_ASSERT_EQ(cur.depth(), expectedDepth,
@@ -1527,14 +1583,14 @@ FATP_TEST_CASE(boneid_child_with_zero_index)
 
 FATP_TEST_CASE(boneid_child_with_max_index)
 {
-    // Level value 255 is the maximum valid index.
+    // Level value 65535 is the maximum valid index.
     constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
-    BoneId child = root.child(255);
-    FATP_ASSERT_EQ(child.depth(), uint8_t(2), "child(255) must produce depth 2");
-    FATP_ASSERT_FALSE(child.isNull(), "child(255) must not be null");
+    BoneId child = root.child(65535);
+    FATP_ASSERT_EQ(child.depth(), uint8_t(2), "child(65535) must produce depth 2");
+    FATP_ASSERT_FALSE(child.isNull(), "child(65535) must not be null");
     // Round-trip
     BoneId back = child.parent();
-    FATP_ASSERT_EQ(back, root, "parent() of child(255) must recover root");
+    FATP_ASSERT_EQ(back, root, "parent() of child(65535) must recover root");
     return true;
 }
 
@@ -1548,43 +1604,54 @@ FATP_TEST_CASE(boneid_child_zero_vs_child_one_are_distinct)
     return true;
 }
 
-FATP_TEST_CASE(boneid_child_255_vs_other_distinct)
+FATP_TEST_CASE(boneid_child_max_vs_other_distinct)
 {
     constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
     BoneId c0   = root.child(0);
-    BoneId c255 = root.child(255);
-    FATP_ASSERT_NE(c0, c255, "child(0) and child(255) must be distinct");
-    bool ordered = (c0 < c255) || (c255 < c0);
-    FATP_ASSERT_TRUE(ordered, "child(0) and child(255) must be totally ordered");
+    BoneId cMax = root.child(65535);
+    FATP_ASSERT_NE(c0, cMax, "child(0) and child(65535) must be distinct");
+    bool ordered = (c0 < cMax) || (cMax < c0);
+    FATP_ASSERT_TRUE(ordered, "child(0) and child(65535) must be totally ordered");
     // Both must be children of root
     FATP_ASSERT_TRUE(root.isAncestorOf(c0),   "root must be ancestor of child(0)");
-    FATP_ASSERT_TRUE(root.isAncestorOf(c255), "root must be ancestor of child(255)");
+    FATP_ASSERT_TRUE(root.isAncestorOf(cMax), "root must be ancestor of child(65535)");
     return true;
 }
 
-FATP_TEST_CASE(boneid_value_bit_layout)
+FATP_TEST_CASE(boneid_word_bit_layout)
 {
-    // Verify the packing: level 0 occupies bits [63:56], level 1 [55:48], etc.
-    // child(1) on a depth-1 bone with level value 1 places 1 at bits [55:48].
+    // Verify the packing: 4 levels per 64-bit word, MSB-first. Level 0 occupies
+    // bits [63:48] of word 0, level 1 bits [47:32], and so on; level 4 starts
+    // word 1 at bits [63:48].
     constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id(); // level 0 = Sys::Root = 1
     BoneId d2 = d1.child(2); // level 1 = 2
 
-    // Level 0 value must be 1 in bits [63:56]
-    uint8_t level0 = static_cast<uint8_t>((d2.value() >> 56u) & 0xFFu);
-    uint8_t level1 = static_cast<uint8_t>((d2.value() >> 48u) & 0xFFu);
-    FATP_ASSERT_EQ(level0, uint8_t(1), "Level 0 must encode Sys::Root (value 1)");
-    FATP_ASSERT_EQ(level1, uint8_t(2), "Level 1 must encode the child index 2");
+    FATP_ASSERT_EQ(d2.level(0), uint16_t(1), "Level 0 must encode Sys::Root (value 1)");
+    FATP_ASSERT_EQ(d2.level(1), uint16_t(2), "Level 1 must encode the child index 2");
+
+    const uint16_t w0Level0 = static_cast<uint16_t>((d2.words()[0] >> 48u) & 0xFFFFu);
+    const uint16_t w0Level1 = static_cast<uint16_t>((d2.words()[0] >> 32u) & 0xFFFFu);
+    FATP_ASSERT_EQ(w0Level0, uint16_t(1), "Word 0 bits [63:48] must hold level 0");
+    FATP_ASSERT_EQ(w0Level1, uint16_t(2), "Word 0 bits [47:32] must hold level 1");
+
+    // Level 4 must land at the top of word 1.
+    BoneId d5 = d2.child(3).child(4).child(5); // levels 2, 3, 4
+    const uint16_t w1Level4 = static_cast<uint16_t>((d5.words()[1] >> 48u) & 0xFFFFu);
+    FATP_ASSERT_EQ(w1Level4, uint16_t(5), "Word 1 bits [63:48] must hold level 4");
     return true;
 }
 
-FATP_TEST_CASE(boneid_inactive_bytes_are_zero)
+FATP_TEST_CASE(boneid_inactive_slots_are_zero)
 {
-    // After a child() call, bytes at inactive levels must be zero.
+    // After a child() call, slots at inactive levels must be zero.
     constexpr BoneId d2 = Bone<TestSchema, Sys::Root, Sub::Sensors>::id();
-    uint64_t v = d2.value();
-    // Bytes at levels 2-7 (bits [47:0]) must all be zero.
-    FATP_ASSERT_EQ(v & uint64_t(0x0000FFFFFFFFFFFFull), uint64_t(0),
-        "Inactive level bytes (levels 2-7) must be zero for a depth-2 BoneId");
+    // Word 0: levels 2-3 (bits [31:0]) must be zero for a depth-2 BoneId.
+    FATP_ASSERT_EQ(d2.words()[0] & uint64_t(0x00000000FFFFFFFFull), uint64_t(0),
+        "Inactive level slots in word 0 must be zero for a depth-2 BoneId");
+    // Words 1-3 (levels 4-15) must be entirely zero.
+    FATP_ASSERT_EQ(d2.words()[1], uint64_t(0), "Word 1 must be zero for a depth-2 BoneId");
+    FATP_ASSERT_EQ(d2.words()[2], uint64_t(0), "Word 2 must be zero for a depth-2 BoneId");
+    FATP_ASSERT_EQ(d2.words()[3], uint64_t(0), "Word 3 must be zero for a depth-2 BoneId");
     return true;
 }
 
@@ -1620,29 +1687,31 @@ FATP_TEST_CASE(boneid_ordering_strict_weak_order_transitivity)
 
 FATP_TEST_CASE(boneid_serialize_all_depths)
 {
-    // Serialize and deserialize BoneIds at every valid depth (0-8).
+    // Serialize and deserialize BoneIds at every valid depth (0-16).
     // Build depth-N by chaining child() calls from a depth-1 root.
     constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
 
     // depth 0: null
     {
         BoneId null;
-        std::array<std::byte, 9> buf{};
-        null.serialize(buf);
+        std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+        (void)null.serialize(buf);
         BoneId restored = BoneId::deserialize(buf);
         FATP_ASSERT_EQ(restored, null, "Depth-0 (null) roundtrip must survive");
     }
 
-    // depths 1-8
+    // depths 1-16
     BoneId cur = d1;
-    for (uint8_t depth = 1; depth <= 8; ++depth)
+    for (uint8_t depth = 1; depth <= 16; ++depth)
     {
         if (depth > 1)
         {
-            cur = cur.child(static_cast<uint8_t>(depth)); // distinct per level
+            cur = cur.child(static_cast<uint16_t>(depth)); // distinct per level
         }
-        std::array<std::byte, 9> buf{};
-        cur.serialize(buf);
+        std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+        const std::size_t used = cur.serialize(buf);
+        FATP_ASSERT_EQ(used, std::size_t(1u + 2u * depth),
+            "Serialized size must be 1 + 2 * depth");
         BoneId restored = BoneId::deserialize(buf);
         FATP_ASSERT_EQ(restored, cur, "Serialize/deserialize roundtrip must hold at all depths");
         FATP_ASSERT_EQ(restored.depth(), depth, "Depth must survive roundtrip");
@@ -1655,16 +1724,16 @@ FATP_TEST_CASE(boneid_ancestor_chain_all_depths)
     // A depth-N BoneId must be an ancestor of every strictly deeper BoneId
     // that shares its prefix.
     constexpr BoneId d1 = Bone<TestSchema, Sys::Root>::id();
-    BoneId chain[8];
+    BoneId chain[16];
     chain[0] = d1;
-    for (int i = 1; i < 8; ++i)
+    for (int i = 1; i < 16; ++i)
     {
-        chain[i] = chain[i - 1].child(static_cast<uint8_t>(i + 1));
+        chain[i] = chain[i - 1].child(static_cast<uint16_t>(i + 1));
     }
 
-    for (int i = 0; i < 7; ++i)
+    for (int i = 0; i < 15; ++i)
     {
-        for (int j = i + 1; j < 8; ++j)
+        for (int j = i + 1; j < 16; ++j)
         {
             FATP_ASSERT_TRUE(chain[i].isAncestorOf(chain[j]),
                 "Each ancestor in the chain must be an ancestor of all deeper members");
@@ -2288,21 +2357,21 @@ FATP_TEST_CASE(fuzz_boneid_child_parent_roundtrip_random)
 {
     // For random depths and index values, child()->parent() must always recover the original.
     std::mt19937 rng(0xDEADBEEFu);
-    std::uniform_int_distribution<uint32_t> idxDist(0, 255);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 65535);
 
     constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
 
     for (int iteration = 0; iteration < 500; ++iteration)
     {
         BoneId cur = root;
-        // Build up to depth 7 (max = 8, root is 1, so 7 more steps)
-        int steps = static_cast<int>(rng() % 7 + 1);
-        std::vector<uint8_t> indices;
+        // Build up to depth 15 more (max = 16, root is 1, so 15 more steps)
+        int steps = static_cast<int>(rng() % 15 + 1);
+        std::vector<uint16_t> indices;
         indices.reserve(static_cast<std::size_t>(steps));
 
         for (int s = 0; s < steps; ++s)
         {
-            uint8_t idx = static_cast<uint8_t>(idxDist(rng));
+            uint16_t idx = static_cast<uint16_t>(idxDist(rng));
             indices.push_back(idx);
             cur = cur.child(idx);
         }
@@ -2331,14 +2400,14 @@ FATP_TEST_CASE(fuzz_boneid_ancestor_structural_invariant)
     // - C.isAncestorOf(A) == false
     // - C.isAncestorOf(B) == false
     std::mt19937 rng(0xCAFEBABEu);
-    std::uniform_int_distribution<uint32_t> idxDist(0, 255);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 65535);
 
     constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
 
     for (int i = 0; i < 300; ++i)
     {
-        uint8_t idxB = static_cast<uint8_t>(idxDist(rng));
-        uint8_t idxC = static_cast<uint8_t>(idxDist(rng));
+        uint16_t idxB = static_cast<uint16_t>(idxDist(rng));
+        uint16_t idxC = static_cast<uint16_t>(idxDist(rng));
 
         BoneId A = root;
         BoneId B = A.child(idxB);
@@ -2358,14 +2427,14 @@ FATP_TEST_CASE(fuzz_boneid_sibling_never_ancestor)
 {
     // Two children of the same parent with different indices are never ancestors of each other.
     std::mt19937 rng(0xFACEFEEDu);
-    std::uniform_int_distribution<uint32_t> idxDist(0, 254); // 0-254 so +1 is always distinct
+    std::uniform_int_distribution<uint32_t> idxDist(0, 65534); // 0-65534 so +1 is always distinct
 
     constexpr BoneId root = Bone<TestSchema, Sys::Root>::id();
 
     for (int i = 0; i < 300; ++i)
     {
-        uint8_t idxA = static_cast<uint8_t>(idxDist(rng));
-        uint8_t idxB = static_cast<uint8_t>(idxA + 1u); // guaranteed distinct
+        uint16_t idxA = static_cast<uint16_t>(idxDist(rng));
+        uint16_t idxB = static_cast<uint16_t>(idxA + 1u); // guaranteed distinct
 
         BoneId sibA = root.child(idxA);
         BoneId sibB = root.child(idxB);
@@ -2379,12 +2448,12 @@ FATP_TEST_CASE(fuzz_boneid_sibling_never_ancestor)
 
 FATP_TEST_CASE(fuzz_serialize_deserialize_all_depths_random_values)
 {
-    // For each depth 0-8, for many random index combinations, serialize and deserialize
+    // For each depth 0-16, for many random index combinations, serialize and deserialize
     // must produce an equal BoneId.
     std::mt19937 rng(0xBEEFC0DEu);
-    std::uniform_int_distribution<uint32_t> idxDist(0, 255);
+    std::uniform_int_distribution<uint32_t> idxDist(0, 65535);
 
-    for (int depth = 0; depth <= 8; ++depth)
+    for (int depth = 0; depth <= 16; ++depth)
     {
         for (int trial = 0; trial < 100; ++trial)
         {
@@ -2396,12 +2465,12 @@ FATP_TEST_CASE(fuzz_serialize_deserialize_all_depths_random_values)
                 cur = root;
                 for (int d = 1; d < depth; ++d)
                 {
-                    cur = cur.child(static_cast<uint8_t>(idxDist(rng)));
+                    cur = cur.child(static_cast<uint16_t>(idxDist(rng)));
                 }
             }
 
-            std::array<std::byte, 9> buf{};
-            cur.serialize(buf);
+            std::array<std::byte, BoneId::kMaxSerializedBytes> buf{};
+            (void)cur.serialize(buf);
             BoneId restored = BoneId::deserialize(buf);
 
             FATP_ASSERT_EQ(restored, cur,
@@ -2757,7 +2826,10 @@ bool test_Skeleton()
     FATP_RUN_TEST_NS(runner, skeleton, boneid_serialize_deserialize_roundtrip);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_deserialize_null_roundtrip);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_deserialize_invalid_depth_returns_null);
-    FATP_RUN_TEST_NS(runner, skeleton, boneid_deserialize_canonical_form);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_deserialize_truncated_returns_null);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_deserialize_ignores_trailing_garbage);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_deserialize_legacy9_matches_child_chain);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_wide_level_values_roundtrip);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_hash_consistency);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_hash_distinct_values);
 
@@ -2861,9 +2933,9 @@ bool test_Skeleton()
     FATP_RUN_TEST_NS(runner, skeleton, boneid_child_with_zero_index);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_child_with_max_index);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_child_zero_vs_child_one_are_distinct);
-    FATP_RUN_TEST_NS(runner, skeleton, boneid_child_255_vs_other_distinct);
-    FATP_RUN_TEST_NS(runner, skeleton, boneid_value_bit_layout);
-    FATP_RUN_TEST_NS(runner, skeleton, boneid_inactive_bytes_are_zero);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_child_max_vs_other_distinct);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_word_bit_layout);
+    FATP_RUN_TEST_NS(runner, skeleton, boneid_inactive_slots_are_zero);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_ordering_strict_weak_order_reflexivity);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_ordering_strict_weak_order_asymmetry);
     FATP_RUN_TEST_NS(runner, skeleton, boneid_ordering_strict_weak_order_transitivity);

@@ -54,7 +54,7 @@ int main()
     fat_p::skeleton::BoneId null;
     (void)null.isNull();
     (void)null.depth();
-    (void)null.value();
+    (void)null.words();
 
     // HierarchySchema instantiation.
     enum class Sys : uint8_t { Root = 1 };
@@ -79,8 +79,8 @@ int main()
     (void)d2.isDescendantOf(d1);
 
     // BoneId serialization.
-    std::array<std::byte, 9> buf{};
-    d2.serialize(buf);
+    std::array<std::byte, fat_p::skeleton::BoneId::kMaxSerializedBytes> buf{};
+    (void)d2.serialize(buf);
     fat_p::skeleton::BoneId restored = fat_p::skeleton::BoneId::deserialize(buf);
     (void)restored;
 
