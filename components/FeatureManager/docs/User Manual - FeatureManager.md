@@ -71,7 +71,7 @@ The map knows what is enabled. It has no idea what enabling something *means*.
 
 At medium scale the problem compounds. Features conflict: `"low_memory_mode"` and `"high_quality_textures"` cannot both be active. Features imply: enabling `"developer_mode"` should automatically bring up `"verbose_logging"`, `"debug_symbols"`, and `"stack_trace_capture"`. Features form exclusive groups: exactly one renderer — Vulkan, OpenGL, or software — may be active at a time. And now there is a new problem: how do you swap one exclusive feature for another without the system passing through a state where neither is active?
 
-FeatureManager is the answer to all of these questions. It models feature dependencies as a directed graph with four relationship types — Requires, Implies, Conflicts, MutuallyExclusive — and resolves every state change through a plan/commit protocol that either succeeds completely or changes nothing. The caller does not manage prerequisites manually. The caller does not check for conflicts manually. The system does it, and when something is wrong, it says exactly what went wrong and where.
+FeatureManager is the answer to all of these questions. It models feature dependencies as a directed graph with six relationship types — Requires, Implies, Conflicts, MutuallyExclusive, Preempts, Entails — and resolves every state change through a plan/commit protocol that either succeeds completely or changes nothing. The caller does not manage prerequisites manually. The caller does not check for conflicts manually. The system does it, and when something is wrong, it says exactly what went wrong and where.
 
 **C++ Standard:** C++20
 **Dependencies:** Expected.h, ConcurrencyPolicies.h, JsonLite.h, ValueGuard.h, Stringify.h, EnumPlus.h, FlatSet.h, Factory.h
@@ -199,14 +199,36 @@ A **feature** is a named capability that can be enabled or disabled. Each featur
 
 ### Relationships
 
-Four types of relationships connect features:
+Six types of relationships connect features:
 
 1. **Requires** - A requires B: Enabling A automatically enables B first. Directional.
 2. **Implies** - A implies B: Enabling A automatically enables B afterward. Directional.
 3. **Conflicts** - A conflicts with B: Both cannot be enabled simultaneously. Bidirectional (automatically adds reverse edge).
 4. **MutuallyExclusive** - Group-level: Only one feature in the set can be enabled. Bidirectional among all members.
+5. **Preempts** - A preempts B: Enabling A forcibly disables B and B's reverse-dependency closure in the same transaction, and B stays inhibited (enable attempts fail with a diagnostic naming A) while A remains enabled. Directional.
+6. **Entails** - A entails B: Enabling A enables B (like Implies); disabling A cascade-disables B *only if* no other currently desired-enabled feature also Entails B — ref-counted shared ownership. Directional.
 
-**Implementation Note:** Relationships are stored as `std::map<FeatureRelationship, std::set<std::string>>` per feature node.
+**Implementation Note:** Relationships are stored per feature node as an array of `FlatSet<std::string>` indexed by relationship type (cache-friendly sorted vectors).
+
+#### Preempts and Entails Semantics
+
+The first four types are static constraints; Preempts and Entails are *state-change cascades*, and their edges carry declaration-time coherence guards:
+
+- **Contradiction guard.** Preempts cannot coexist with Requires, Implies, or Entails on the same directed edge — enabling the source cannot demand the target both ON and OFF. Adding either direction of such a pair fails with a diagnostic.
+- **Preempts cycle guard.** A Preempts cycle (A preempts B preempts … preempts A) is rejected when the closing edge is added.
+- **Latched inhibit.** While a preempting feature is desired-enabled, `enable()` of any preempted target fails: `"Cannot enable 'B': preempted by enabled feature 'A'"`. The inhibit releases when the preemptor is disabled.
+- **Ref-counted release.** Entails ownership is evaluated against *desired* state inside the transaction: disabling the last entailing owner takes the target down in the same atomic plan; disabling one of several owners leaves it up.
+
+```cpp
+// Authoritative shutdown: safe mode force-disables the drive chain and
+// holds it down until safe mode is exited.
+fm.addRelationship("safe_mode", FeatureRelationship::Preempts, "high_power");
+
+// Shared ownership: telemetry stays up while ANY entailing mode is up,
+// and goes down with the last one. No cleanup code at the call sites.
+fm.addRelationship("scan_mode", FeatureRelationship::Entails, "telemetry");
+fm.addRelationship("log_mode",  FeatureRelationship::Entails, "telemetry");
+```
 
 ### Groups
 
@@ -232,7 +254,7 @@ The **FeatureCheckFactory** is a global singleton that maps string keys to callb
 
 ## Architecture Overview
 
-FeatureManager models features as nodes in a directed graph. The node stores state (enabled/disabled), an optional validation callback, and the serialization key for that callback. The edges are relationship records of four types. All state transitions operate on this graph through a two-phase plan/commit protocol.
+FeatureManager models features as nodes in a directed graph. The node stores state (enabled/disabled), an optional validation callback, and the serialization key for that callback. The edges are relationship records of six types. All state transitions operate on this graph through a two-phase plan/commit protocol.
 
 ### Graph Structure
 

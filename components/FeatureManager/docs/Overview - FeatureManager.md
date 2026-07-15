@@ -101,9 +101,9 @@ C++ provides no feature flag facility. `std::map<string, bool>` offers storage b
 
 ## Architecture: Dependency Graph with Plan/Commit Resolution
 
-### The Four Relationship Types
+### The Six Relationship Types
 
-FeatureManager models feature interdependencies using four directed relationship types. The graph below shows a typical graphics configuration — note that **Requires** and **Implies** define the enable closure (what must come up), while **Conflicts** and **MutuallyExclusive** define the constraint surface (what must stay down):
+FeatureManager models feature interdependencies using six directed relationship types. **Requires** and **Implies** define the enable closure (what must come up); **Conflicts** and **MutuallyExclusive** define the constraint surface (what must stay down); **Preempts** defines the authoritative-override surface (what an enable forcibly shuts down and holds down); **Entails** defines ref-counted ownership (what an enable brings up and the *last* owner's disable takes down). The graph below shows a typical graphics configuration using the first four:
 
 ```mermaid
 graph LR
@@ -122,6 +122,24 @@ graph LR
 
 **Requires** means the target must be enabled before the source can reach an enabled state. Enabling `vulkan` automatically triggers the full Requires closure: `rendering` and `shader_compiler` are planned first, and `rendering`'s Implies edge brings up `graphics_context` as well. **Implies** is semantically weaker than Requires — it expresses that enabling the source makes the target sensible to enable, not strictly necessary. **Conflicts** means the two features cannot be simultaneously enabled; the plan phase rejects any transition that would put both in the enabled state. **MutuallyExclusive** declares a group where at most one member may be enabled at a time.
 
+The remaining two types are directional state-change cascades rather than static constraints:
+
+**Preempts** is authoritative shutdown with a latched inhibit. Enabling the source forcibly disables the target *and its reverse-dependency closure* (everything whose Requires chain rests on it) in the same atomic transaction — and while the source remains enabled, any attempt to enable a preempted target fails with a diagnostic naming the preempting feature. Declaration-time guards keep the graph coherent: Preempts cannot coexist with Requires, Implies, or Entails on the same directed edge (an edge cannot demand a feature both ON and OFF), and Preempts cycles are rejected when the edge is added.
+
+```mermaid
+graph LR
+    safe_mode -->|Preempts| high_power
+    high_power -->|Requires| power_stage
+    scan_mode -->|Entails| telemetry
+    log_mode -->|Entails| telemetry
+
+    style safe_mode fill:#d9534f,color:#fff
+    style scan_mode fill:#5cb85c,color:#fff
+    style log_mode fill:#5cb85c,color:#fff
+```
+
+**Entails** is ref-counted ownership. On the enable path it behaves like Implies: enabling the source brings the target up. On the disable path it cascades: disabling the source also disables the target — but *only if no other currently desired-enabled feature also Entails that target*. In the diagram, `telemetry` stays up while either `scan_mode` or `log_mode` is enabled and goes down with the last of them — shared-resource lifetime without any imperative cleanup logic at the call sites.
+
 The key enumeration:
 
 ```cpp
@@ -129,7 +147,9 @@ enum class FeatureRelationship {
     Requires,          // Enabling A plans B first (transitive closure)
     Implies,           // Enabling A also enables B
     Conflicts,         // A and B cannot be simultaneously enabled
-    MutuallyExclusive  // Only one member of the declared group may be enabled
+    MutuallyExclusive, // Only one member of the declared group may be enabled
+    Preempts,          // Enabling A force-disables B + its dependents; latched inhibit
+    Entails            // Enabling A enables B; disabling A drops B when A was its last owner
 };
 ```
 
@@ -214,7 +234,7 @@ fm.addFeature("vulkan", []() -> Expected<void, std::string> {
 
 ### 2. Relationship Declaration
 
-Relationships define the structure of the dependency graph. All four types — Requires, Implies, Conflicts, MutuallyExclusive — are declared through the same `addRelationship` call or, for group membership, through `addMutuallyExclusiveGroup`:
+Relationships define the structure of the dependency graph. All six types — Requires, Implies, Conflicts, MutuallyExclusive, Preempts, Entails — are declared through the same `addRelationship` call or, for group membership, through `addMutuallyExclusiveGroup`:
 
 ```cpp
 // vulkan needs rendering and shader_compiler enabled first
@@ -408,7 +428,7 @@ FeatureManager delivers on the Fat-P promise through three pillars:
 
 1. **Permanence:** C++ will not standardize dependency-aware feature management. This is the solution, not a stopgap.
 2. **Specialization:** Topological dependency resolution, insertion-ordered cycle path reporting, and transactional plan/commit semantics are built for systems where an invalid configuration is a real failure mode — not an inconvenience.
-3. **Control:** Four relationship types model real-world feature graphs. Policy-based thread safety selects overhead at compile time. `replace()` and `forceExclusive()` expose the plan/commit model's full power without adding complexity to simpler call paths.
+3. **Control:** Six relationship types model real-world feature graphs. Policy-based thread safety selects overhead at compile time. `replace()` and `forceExclusive()` expose the plan/commit model's full power without adding complexity to simpler call paths.
 
 FeatureManager transforms feature flags from isolated booleans into a dependency-aware, validated, observable configuration layer. Enable one feature; get its entire dependency tree — with conflict detection, cycle prevention, and atomic transition semantics.
 

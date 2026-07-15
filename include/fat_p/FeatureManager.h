@@ -105,7 +105,7 @@ enum class FeatureRelationship
 /// @brief Number of FeatureRelationship enumerators; used for array-based storage.
 inline constexpr size_t kRelationshipCount = 6;
 
-/// @brief Converts FeatureRelationship enum to array index (0–4).
+/// @brief Converts FeatureRelationship enum to array index (0–5).
 constexpr size_t relIdx(FeatureRelationship r) noexcept
 {
     return static_cast<size_t>(r);
@@ -366,7 +366,7 @@ struct FeatureNode
     FeatureCheck check;
     std::string checkKey; // For serialization: the factory key to restore check on load
 
-    // Relationship storage: fixed-size array indexed by FeatureRelationship (0–4).
+    // Relationship storage: fixed-size array indexed by FeatureRelationship (0–5).
     // Each slot holds a FlatSet of target feature names. Empty slots indicate no
     // relationships of that type. Eliminates map overhead for a fixed 5-key domain.
     std::array<FlatSet<std::string>, kRelationshipCount> relationships;
