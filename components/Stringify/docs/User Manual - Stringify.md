@@ -16,7 +16,7 @@ status: "reviewed"
 
 # User Manual - Stringify
 
-**Scope:** Complete usage guide for `fat_p::stringify()`: built-in type conversion, string and C-string handling, pointer formatting, container formatting, custom type support (method-based, stream operator, enum), formatting options (precision, boolean display, container delimiters, locale), advanced features, and compile-time dispatch mechanism.
+**Scope:** Complete usage guide for `fat_p::toString()`: built-in type conversion, string and C-string handling, pointer formatting, container formatting, custom type support (method-based, stream operator, enum), formatting options (precision, boolean display, container delimiters, locale), advanced features, and compile-time dispatch mechanism.
 
 **Not covered:**
 - JSON serialization (see JsonLite, FatPJsonLite)
@@ -32,10 +32,10 @@ status: "reviewed"
 
 **Component:** Stringify
 **Primary use case:** Convert any type to its string representation using a single function with compile-time dispatch to the best available conversion method
-**Integration pattern:** Call `fat_p::stringify(value)` for any type. Customize output by providing a `.toString()` method, `operator<<`, or template specialization. Pass `StringifyOptions` for formatting control.
-**Key API:** `stringify()`, `StringifyOptions`, `.toString()` method protocol, `operator<<` support, `FATP_ENUM_STRINGIFY` macro
+**Integration pattern:** Call `fat_p::toString(value)` for any type. Customize output by providing a `.toString()` method, `operator<<`, or an enum name-mapping function. Pass `StringifyOptions` for formatting control.
+**Key API:** `toString()`, `StringifyOptions`, `.toString()`/`.to_string()` method protocol, `operator<<` support, `toStringOr()`, `tryToString()`
 **std equivalent:** None
-**Common mistakes:** Defining both `.toString()` and `operator<<` without understanding priority (`.toString()` wins); forgetting that `stringify()` returns `std::string` (allocation); using stringify in hot loops without caching the result
+**Common mistakes:** Defining both `.toString()` and `operator<<` without understanding priority (`.toString()` wins); forgetting that `toString()` returns `std::string` (allocation); using toString in hot loops without caching the result
 **Performance notes:** One allocation per call (returns std::string). Compile-time dispatch selects the optimal conversion path. See `components/Stringify/results/` for current data
 
 ---
@@ -121,7 +121,7 @@ status: "reviewed"
 17. [API Reference](#api-reference)
     - [Core Functions](#core-functions)
     - [Helper Functions](#helper-functions)
-    - [Type Traits](#type-traits)
+    - [Concepts](#concepts)
 18. [Summary](#summary)
 
 ---
@@ -294,7 +294,7 @@ flowchart TB
         P3B -->|No| P3C
         
         P3C{"Is float<br/>with defaults?"}
-        P3C -->|Yes| R3C["Fast path: std::to_string"]
+        P3C -->|Yes| R3C["Fast path: std::format / std::to_chars"]
         P3C -->|No| P4
         
         P4{"Has toString or<br/>to_string method?"}
@@ -326,7 +326,7 @@ flowchart TB
 
 - **Fast Integer Path**: Delegates directly to std::to_string, matching its performance
 - **Fast Boolean Path**: Direct literal return with no stream construction
-- **Fast Float Path**: Delegates directly to std::to_string, matching its performance
+- **Fast Float Path**: Uses std::format (or std::to_chars as fallback) for minimal, round-trippable output without std::to_string's trailing zeros
 - **Container Support**: Automatic stringification of STL containers
 - **Custom Types**: Multiple extension points (methods, operators, traits)
 - **Enum Support**: User-specializable EnumStringifier trait
@@ -486,8 +486,8 @@ classDiagram
         float, double, long double
         Requires default options
         ---
-        std::to_string fast path
-        Matches std::to_string
+        std::format / to_chars fast path
+        Minimal round-trip output
     }
     
     class Priority4_Methods {
@@ -604,20 +604,20 @@ Stringify provides several ways to add support for custom types:
 - **Compatibility**: Works with existing code using operator<<
 - **Gradual adoption**: Start simple, add specialized support later
 
-#### Why std::to_string Fast Path?
+#### Why the Fast Paths?
 
-For integers with default options, Stringify calls std::to_string directly:
+For integers with default options, Stringify calls std::to_string directly. For floating-point with default options, it calls std::format (or std::to_chars as fallback) instead—deliberately avoiding std::to_string, which pads floats with trailing zeros:
 
 ```cpp
 if (opts.float_precision == -1 && !opts.scientific_notation && 
     opts.custom_locale == nullptr) {
-    return std::to_string(value);  // Fast path!
+    return detail::fastFloatToString(value);  // Fast path: std::format / to_chars
 }
 ```
 
 **Performance insight:**
 
-The fast path delegates directly to `std::to_string()`, matching its performance exactly. The stream-based slow path (via `std::ostringstream`) carries substantial overhead from stream object construction, virtual dispatch, locale handling, and buffer management.
+The integer fast path delegates directly to `std::to_string()`, matching its performance exactly. The float fast path uses `std::format`/`std::to_chars` for minimal, round-trippable output. The stream-based slow path (via `std::ostringstream`) carries substantial overhead from stream object construction, virtual dispatch, locale handling, and buffer management.
 
 **Why not always use ostringstream?**
 - Significant performance penalty for the common case (stream construction and virtual dispatch overhead)
@@ -1384,9 +1384,11 @@ struct StringifyOptions {
 
 **Default Precision:**
 ```cpp
-toString(3.14159265359);         // "3.14159" (default precision)
-toString(2.71828182846);         // "2.71828"
+toString(3.14159265359);         // "3.14159265359" (full round-trippable output)
+toString(2.71828182846);         // "2.71828182846"
 ```
+
+With the default `float_precision = -1`, the fast path (`std::format`/`std::to_chars`) emits the shortest representation that round-trips exactly—no truncation and no trailing zeros.
 
 **Custom Precision:**
 ```cpp
@@ -1544,8 +1546,8 @@ flowchart TB
 
     subgraph Limits ["Two Protection Levels"]
         direction TB
-        L1["max_container_depth<br/>User-configurable logical limit<br/>Default: 10"]
-        L2["Hard recursion guard<br/>Safety net at 256<br/>Prevents stack overflow"]
+        L1["max_container_depth<br/>User-configurable logical limit<br/>Default: 3"]
+        L2["Hard recursion guard<br/>Safety net at 100 debug / 200 release<br/>Prevents stack overflow"]
         L1 --> L2
     end
 
@@ -2366,18 +2368,20 @@ else {
 
 **Floating-Point Fast Path Criteria:**
 ```cpp
-// Same criteria as integers
+// Same criteria as integers, different conversion function
 if (opts.float_precision == -1 &&        // Default precision (no rounding)
     !opts.scientific_notation &&         // No scientific notation
     opts.custom_locale == nullptr &&     // No custom locale
     opts.use_classic_locale)             // Using classic locale (default)
 {
-    return std::to_string(value);  // FAST PATH: delegates directly to std::to_string
+    return detail::fastFloatToString(value);  // FAST PATH: std::format / std::to_chars
 }
 else {
     return stringify_with_stream(value, opts);  // SLOW PATH: stream construction + virtual dispatch
 }
 ```
+
+Note the float fast path deliberately avoids `std::to_string`: it uses `std::format` (or `std::to_chars` as fallback) to produce minimal, round-trippable output without `std::to_string`'s trailing zeros.
 
 The following diagram illustrates how Stringify determines which code path to take:
 
@@ -2400,12 +2404,12 @@ flowchart TB
         
         C4{"use_classic_locale<br/>is true?"}
         C4 -->|No| Slow
-        C4 -->|Yes| Fast["FAST PATH<br/>Use std::to_string"]
+        C4 -->|Yes| Fast["FAST PATH<br/>int: std::to_string<br/>float: std::format / to_chars"]
     end
 
     subgraph Performance ["Performance Impact"]
         direction LR
-        FastPerf["Matches std::to_string performance"]
+        FastPerf["Direct conversion, no stream overhead"]
         SlowPerf["Stream construction + virtual dispatch overhead"]
     end
 
@@ -2420,7 +2424,7 @@ flowchart TB
 
 **Performance Comparison:**
 
-The fast path delegates directly to `std::to_string()`, matching its performance. The slow path (via `std::ostringstream`) is dramatically slower due to stream object construction, locale handling, virtual dispatch, and buffer management. See `components/Stringify/results/` for current platform-specific benchmark data.
+The integer fast path delegates directly to `std::to_string()`, matching its performance; the float fast path uses `std::format`/`std::to_chars`. The slow path (via `std::ostringstream`) is dramatically slower due to stream object construction, locale handling, virtual dispatch, and buffer management. See `components/Stringify/results/` for current platform-specific benchmark data.
 
 **Why the Large Difference?**
 
@@ -2469,7 +2473,7 @@ Benchmarks compare toString() against `std::to_string()`, `std::ostringstream`, 
 
 **What the benchmarks measure:**
 
-- **Core type fast paths:** Integer and float fast paths delegate directly to `std::to_string()` and match its performance. Boolean fast paths return literal strings with no allocation.
+- **Core type fast paths:** The integer fast path delegates directly to `std::to_string()` and matches its performance; the float fast path uses `std::format`/`std::to_chars` for minimal round-trippable output. Boolean fast paths return literal strings with no allocation.
 - **Stream-based slow path:** Custom formatting options force the `std::ostringstream` path, which carries significant overhead from stream construction, virtual dispatch, locale handling, and buffer management.
 - **Custom types:** Member function dispatch (`.toString()`, `.to_string()`) adds minimal overhead. `operator<<` dispatch uses the expensive stream path.
 - **Containers:** Cost scales linearly with element count as each element is recursively stringified.
@@ -4027,48 +4031,50 @@ template <typename T>
 - **Throws:** May throw from custom methods
 - **Note:** Placeholders must be ASCII-only
 
-### Type Traits
+### Concepts
 
-**is_ostreamable_v**
+Detection is expressed as C++20 concepts in `fat_p::concepts` (defined in `Concepts.h`), not variable templates.
+
+**streamable**
 ```cpp
 template <typename T>
-inline constexpr bool is_ostreamable_v;
+concept streamable;
 ```
-- Check if type supports `operator<<` with `std::ostringstream`
+- Satisfied if type supports `operator<<` with `std::ostream`
 - **Compile-Time:** Yes
 
-**is_wostreamable_v**
+**wstreamable**
 ```cpp
 template <typename T>
-inline constexpr bool is_wostreamable_v;
+concept wstreamable;
 ```
-- Check if type supports `operator<<` with `std::wostringstream`
+- Satisfied if type supports `operator<<` with `std::wostream`
 - **Compile-Time:** Yes
 
-**has_to_string_method_v**
+**has_to_string_method**
 ```cpp
 template <typename T>
-inline constexpr bool has_to_string_method_v;
+concept has_to_string_method;
 ```
-- Check if type has `toString()` member returning string
+- Satisfied if type has `toString()` member returning string
 - **Compile-Time:** Yes
 
-**has_to_string_snake_method_v**
+**has_to_string_snake_method**
 ```cpp
 template <typename T>
-inline constexpr bool has_to_string_snake_method_v;
+concept has_to_string_snake_method;
 ```
-- Check if type has `to_string()` member returning string
+- Satisfied if type has `to_string()` member returning string
 - **Compile-Time:** Yes
 
-**is_stringifiable_v**
+**stringifiable**
 ```cpp
 template <typename T>
-inline constexpr bool is_stringifiable_v;
+concept stringifiable;
 ```
-- Check if type is stringifiable by any method
+- Satisfied if type is stringifiable by any method
 - **Compile-Time:** Yes
-- **Includes:** Streamable, custom methods, containers, etc.
+- **Includes:** Streamable, custom methods, containers, enums, etc.
 
 ### Extension Points
 

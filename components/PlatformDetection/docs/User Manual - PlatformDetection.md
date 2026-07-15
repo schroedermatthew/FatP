@@ -32,7 +32,7 @@ status: "draft"
 
 **Component:** PlatformDetection
 **Primary use case:** Portable platform-conditional compilation across Fat-P
-**Key API:** `FATP_COMPILER_*`, `FATP_PLATFORM_*`, `FATP_ARCH_*`, `FATP_HAS_NUMA`, `FATP_DEBUG`
+**Key API:** `FATP_COMPILER_*`, `FATP_PLATFORM_*`, `FATP_ARCH_*`, `FATP_HAS_NUMA`, `FATP_CACHE_LINE_SIZE`, `FATP_BUILD_DEBUG` / `FATP_BUILD_RELEASE`
 **Common mistakes:** Using raw `_MSC_VER` instead of `FATP_COMPILER_MSVC`; confusing `FATP_PLATFORM_POSIX` (includes Linux and macOS) with `FATP_PLATFORM_LINUX` (Linux only)
 
 ---
@@ -70,13 +70,28 @@ Detection order: Clang first (Clang defines `__GNUC__`, so GCC check must exclud
 | `FATP_ARCH_X86` | 1 or 0 | 32-bit x86 |
 | `FATP_ARCH_ARM64` | 1 or 0 | AArch64 / ARM64 |
 | `FATP_ARCH_ARM32` | 1 or 0 | 32-bit ARM |
+| `FATP_ARCH_64BIT` | 1 or 0 | 64-bit pointer size |
+| `FATP_ARCH_32BIT` | 1 or 0 | 32-bit pointer size |
 
 ### Hardware and Build Configuration
 
 | Macro | Value | When |
 |---|---|---|
 | `FATP_HAS_NUMA` | 1 or 0 | NUMA-capable system detected |
-| `FATP_DEBUG` | 1 or 0 | Debug build (NDEBUG not defined) |
+| `FATP_CACHE_LINE_SIZE` | Bytes (integer) | Cache line size: 128 on Apple Silicon macOS, 64 elsewhere. User-overridable: define it before including any Fat-P header |
+| `FATP_BUILD_DEBUG` | 1 or 0 | Debug build (NDEBUG not defined) |
+| `FATP_BUILD_RELEASE` | 1 or 0 | Release build (NDEBUG defined) |
+
+### Constexpr Helpers
+
+For use in ordinary code (logging, diagnostics) instead of the preprocessor, the `fat_p` namespace provides:
+
+| Function | Returns |
+|---|---|
+| `compiler_name()` | `const char*` — `FATP_COMPILER_NAME` |
+| `compiler_version()` | `int` — `FATP_COMPILER_VERSION` |
+| `platform_name()` | `const char*` — `FATP_PLATFORM_NAME` |
+| `arch_name()` | `const char*` — `FATP_ARCH_NAME` |
 
 ---
 

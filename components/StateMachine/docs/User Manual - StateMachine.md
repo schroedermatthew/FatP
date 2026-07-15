@@ -37,8 +37,8 @@ status: "reviewed"
 
 **Component:** StateMachine
 **Primary use case:** Define type-safe finite state machines with compile-time validated transitions, entry/exit hooks, and zero-overhead dispatch
-**Integration pattern:** Define states as types, define a transition table, construct `StateMachine<States, Transitions>`, process events with `.process(event)`
-**Key API:** `StateMachine<States..., TransitionTable>`, `.process()`, `.currentState()`, `.is<State>()`, entry/exit hooks, guard functions
+**Integration pattern:** Define states as types with `on_entry`/`on_exit` hooks, define a transition list, construct `StateMachine<Context, TransitionList, Policies..., States...>`, request transitions with `.transition<TargetState>()`
+**Key API:** `StateMachine<Context, TransitionList, TransitionPolicy, ActionPolicy, InitialIndex, States...>`, `.transition<T>()`, `.currentStateIndex()`, `.isInState<T>()`, entry/exit hooks
 **std equivalent:** None
 **Common mistakes:** Defining transitions to states not in the state list (compile error); forgetting entry/exit hooks when state requires initialization/cleanup; using exceptions in noexcept-policy state machines
 **Performance notes:** State dispatch is a compile-time index lookup. Transition validation is entirely at compile time. See `components/StateMachine/results/` for current data
@@ -603,13 +603,13 @@ A good practice is making exit hooks `noexcept` even when using ThrowingActionPo
 
 StateMachine exposes its structure through constexpr members, letting you query the state machine at compile time. This enables static_asserts that verify assumptions, conditional compilation based on state graph structure, and generic code that adapts to any state machine.
 
-The `state_count` member tells you how many states the machine has. The `initial_state_index` member tells you which state it starts in. Both are compile-time constants:
+The `stateCount()` static function tells you how many states the machine has. The `initialStateIndex()` static function tells you which state it starts in. Both are constexpr, so they work in constant expressions:
 
 ```cpp
 using SM = fat_p::StateMachine<Ctx, TL, Policy, ActionPolicy, 0, A, B, C>;
 
-static_assert(SM::state_count == 3);
-static_assert(SM::initial_state_index == 0);
+static_assert(SM::stateCount() == 3);
+static_assert(SM::initialStateIndex() == 0);
 ```
 
 The `contains_state<T>` variable template tells you whether a type is in the state set. This catches errors at compile time:
@@ -985,7 +985,7 @@ Using StrictTransitionPolicy and the requested transition is not declared. Add t
 
 ### on_entry/on_exit not being called
 
-Verify the hook signatures exactly match `void on_entry(Context&)` and `void on_exit(Context&)`. The `StateContract` concept checks these at compile time.
+Verify the hook signatures exactly match `void on_entry(Context&)` and `void on_exit(Context&)`. The `HasEntryExit` concept (and `HasNoexceptEntryExit` for noexcept policies) checks these at compile time.
 
 ### Self-transition does nothing
 
@@ -1025,13 +1025,11 @@ By design. Transitioning to the current state is a no-op (no exit/entry hooks ca
 
 `isInState<TState>()` — Returns true if currently in the specified state. O(1).
 
-`stateCount()` — Returns the number of states. Same as `state_count` but callable at runtime.
-
 **Static Members:**
 
-`state_count` — The number of states (constexpr).
+`stateCount()` — Returns the number of states (static constexpr function).
 
-`initial_state_index` — The initial state's index (constexpr).
+`initialStateIndex()` — Returns the initial state's index (static constexpr function).
 
 `contains_state<T>` — True if T is in the state set (constexpr).
 

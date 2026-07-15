@@ -38,8 +38,8 @@ status: "reviewed"
 
 **Component:** Stacktrace
 **Primary use case:** Capture and format stack traces at runtime for error reporting, logging, and diagnostic purposes
-**Integration pattern:** Call `Stacktrace::capture()` at the point of interest, format with `.toString()` or iterate frames, embed in exception messages or log entries
-**Key API:** `Stacktrace::capture()`, `.frames()`, `.toString()`, `StackFrame`, `.functionName()`, `.fileName()`, `.lineNumber()`
+**Integration pattern:** Call `Stacktrace::current()` at the point of interest (or `Stacktrace::captureRaw()` in signal handlers), format with `.toString()` or iterate frames, embed in exception messages or log entries
+**Key API:** `Stacktrace::current()`, `Stacktrace::captureRaw()`, `.frames()`, `.toString()`, `StackFrame` (data members `function`, `file`, `line`)
 **std equivalent:** std::stacktrace (C++23)
 **Common mistakes:** Capturing stack traces in hot paths (expensive operation); expecting symbol resolution without debug symbols; assuming stack depth is unlimited (default capture depth is bounded)
 **Performance notes:** Capture is expensive (system call + frame walking). Use selectively in error paths, not in hot loops. See `components/Stacktrace/results/` for current data
@@ -281,7 +281,7 @@ Stacktrace is a header-only component. Include and use:
 #include <fat_p/Stacktrace.h>
 ```
 
-Ensure `CppStandardDetection.h` is also accessible (Stacktrace includes it for platform detection).
+Ensure `CppFeatureDetection.h` is also accessible (Stacktrace includes it for platform detection).
 
 ### Basic Capture
 
@@ -950,7 +950,7 @@ class TracedException : public std::runtime_error
 public:
     TracedException(const std::string& msg)
         : std::runtime_error(msg)
-        , trace_(fat_p::Stacktrace::capture())
+        , trace_(fat_p::Stacktrace::current())
     {}
 
     const fat_p::Stacktrace& trace() const { return trace_; }
@@ -962,7 +962,7 @@ private:
 // In catch handler:
 catch (const TracedException& e)
 {
-    log_error("{}\nStack trace:\n{}", e.what(), e.trace().to_string());
+    log_error("{}\nStack trace:\n{}", e.what(), e.trace().toString());
 }
 ```
 
@@ -983,7 +983,7 @@ std::unordered_map<void*, AllocRecord> live_allocations;
 void* tracked_alloc(size_t size)
 {
     void* ptr = malloc(size);
-    live_allocations[ptr] = {ptr, size, fat_p::Stacktrace::capture()};
+    live_allocations[ptr] = {ptr, size, fat_p::Stacktrace::current()};
     return ptr;
 }
 
@@ -992,7 +992,7 @@ void report_leaks()
     for (auto& [ptr, record] : live_allocations)
     {
         log_warning("Leak: {} bytes at {}\n{}", record.size, ptr,
-                    record.trace.to_string());
+                    record.trace.toString());
     }
 }
 ```
@@ -1004,9 +1004,9 @@ Include stack traces in enforce/assertion failures:
 ```cpp
 void custom_enforce_handler(const char* expr, const char* file, int line)
 {
-    auto trace = fat_p::Stacktrace::capture();
+    auto trace = fat_p::Stacktrace::current();
     log_fatal("Assertion failed: {} at {}:{}\n{}", expr, file, line,
-              trace.to_string());
+              trace.toString());
     std::abort();
 }
 ```
@@ -1015,9 +1015,9 @@ void custom_enforce_handler(const char* expr, const char* file, int line)
 
 **Capture sparingly in hot paths.** Stack trace capture is expensive (~1-50 μs depending on depth and backend). Capture on error paths, not on every function call.
 
-**Use skip parameter to omit framework frames.** `capture(skip=2)` omits the capture function itself and its caller, showing the user's code first.
+**Use skip parameter to omit framework frames.** `current(2)` omits the capture function itself and its caller, showing the user's code first.
 
-**Prefer to_string() for logging, frames() for programmatic access.** `to_string()` produces human-readable output. `frames()` returns structured data for filtering or serialization.
+**Prefer toString() for logging, frames() for programmatic access.** `toString()` produces human-readable output. `frames()` returns structured data for filtering or serialization.
 
 ## Expanded Troubleshooting
 
@@ -1025,13 +1025,13 @@ void custom_enforce_handler(const char* expr, const char* file, int line)
 
 Symbol information is not available. On Linux, compile with `-g` and link with `-rdynamic`. On Windows, ensure PDB files are present. On macOS, use `dsymutil` to generate debug symbols.
 
-### capture() returns empty trace
+### current() returns empty trace
 
-The backend may not be available. Check `Stacktrace::backend()` to see which backend is active. If "none", no stack trace support was detected at compile time.
+The backend may not be available. Check `Stacktrace::backendName()` to see which backend is active. If "stub", no stack trace support was detected at compile time.
 
 ### Function names are mangled
 
-The backend returns raw symbol names. Use `to_string()` which runs demangling automatically. For programmatic access, use `abi::__cxa_demangle` (GCC/Clang) or `UnDecorateSymbolName` (MSVC).
+The backend returns raw symbol names. Use `toString()` which runs demangling automatically. For programmatic access, use `abi::__cxa_demangle` (GCC/Clang) or `UnDecorateSymbolName` (MSVC).
 
 ---
 
@@ -1113,7 +1113,7 @@ Use Stacktrace for exception diagnostics, crash handlers, and debug logging. Com
 
 - **[Overview - Stacktrace](Overview_-_Stacktrace.md)** — Executive summary and positioning
 - **[Companion Guide - Stacktrace](Companion_Guide_-_Stacktrace.md)** — Design rationale and case studies
-- **CppStandardDetection.h** — Platform detection macros used by Stacktrace
+- **CppFeatureDetection.h** — Platform detection macros used by Stacktrace
 
 ---
 

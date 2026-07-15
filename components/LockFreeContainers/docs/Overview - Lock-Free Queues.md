@@ -2,10 +2,10 @@
 doc_id: OV-LOCKFREEQUEUE-001
 doc_type: "Overview"
 title: "Lock-Free Queues"
-fatp_components: ["LockFreeQueue", "WorkQueue", "PolicyQueue", "LockFreeRingBuffer"]
+fatp_components: ["LockFreeQueue", "WorkQueue", "LockFreeRingBuffer"]
 topics: ["lock-free programming", "MPMC queues", "SPSC queues", "sequence number coordination", "sharding", "cache contention", "ABA problem"]
 constraints: ["cache line bouncing", "ABA problem", "memory ordering", "bounded capacity", "trivially copyable types"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "boost::lockfree::queue"
 build_modes: ["Debug", "Release"]
@@ -24,7 +24,7 @@ status: "reviewed"
 
 Fat-P provides a family of lock-free bounded queues optimized for different concurrency patterns. Unlike mutex-protected queues that serialize all access through a single lock, these queues use **sequence-number-per-slot coordination** to allow multiple producers and consumers to operate simultaneously without blocking each other. The result is predictable scaling under contention: where mutex-based queues degrade severely at high thread counts, Fat-P's WorkQueue maintains stable per-operation throughput regardless of thread count.
 
-**LockFreeQueue** delivers strict FIFO ordering for general MPMC (Multiple-Producer Multiple-Consumer) use. **WorkQueue** sacrifices global ordering for 3-4× better scaling through sharding—distributing work across independent sub-queues. **PolicyQueue** provides a unified facade for selecting between topologies at compile time. **LockFreeRingBuffer** offers specialized SPSC (Single-Producer Single-Consumer) implementation for dedicated pipelines.
+**LockFreeQueue** delivers strict FIFO ordering for general MPMC (Multiple-Producer Multiple-Consumer) use. **WorkQueue** sacrifices global ordering for 3-4× better scaling through sharding—distributing work across independent sub-queues. **LockFreeRingBuffer** offers specialized SPSC (Single-Producer Single-Consumer) implementation for dedicated pipelines.
 
 The core insight: sequence numbers eliminate the ABA problem without external memory reclamation, hazard pointers, or epoch-based garbage collection. Each slot carries a monotonically increasing counter that distinguishes "same address, different logical state" from "same address, same state." This enables safe lock-free operation with trivially copyable types and zero dynamic allocation after construction.
 
@@ -212,18 +212,13 @@ task_queue.dequeue(consumer_token, received_task);
 
 With 16 shards and 8 threads, contention drops dramatically. Each shard sees roughly one thread on average, approaching the uncontended case. The tradeoff: a task enqueued to shard 5 might be dequeued before a task enqueued earlier to shard 12. For work distribution (thread pools, job systems), this relaxed ordering is acceptable.
 
-### 3. PolicyQueue: Topology Abstraction
+### 3. Topology-Generic Code
 
-PolicyQueue provides a uniform interface over different queue topologies:
+> **Note:** An earlier draft described a `PolicyQueue` facade with SingleTopology/ShardedTopology policies; that was a design sketch and is not part of the library.
+
+LockFreeQueue and WorkQueue share the same `enqueue`/`dequeue` interface, so generic code can simply template on the queue type:
 
 ```cpp
-// Compile-time selection of topology
-using FastQueue = fat_p::PolicyQueue<Task, 
-    fat_p::policy_queue::ShardedTopology<16, 1024>>;
-    
-using FifoQueue = fat_p::PolicyQueue<Task,
-    fat_p::policy_queue::SingleTopology<4096>>;
-
 // Same API regardless of topology
 template <typename Queue>
 void process(Queue& q) {
@@ -234,14 +229,14 @@ void process(Queue& q) {
 }
 ```
 
-This enables writing generic code that works with any queue topology, with the specific choice made at instantiation time based on requirements.
+The specific choice is made at instantiation time based on requirements.
 
 ### 4. LockFreeRingBuffer: Dedicated SPSC
 
 When exactly one producer feeds exactly one consumer, the full MPMC machinery is unnecessary. LockFreeRingBuffer provides a streamlined SPSC implementation:
 
 ```cpp
-fat_p::LockFreeRingBuffer<Sample, 256> audio_buffer;
+fat_p::LockFreeRingBuffer<Sample> audio_buffer(256);  // runtime capacity, rounded up to a power of 2
 
 // Producer thread (audio capture)
 void capture_thread() {
@@ -355,18 +350,13 @@ See `components/LockFreeContainers/results/` and `components/WorkQueue/results/`
 ```
 LockFreeQueue.h
     → uses: FatPConfig.h (configuration macros)
-    → uses: FatPTypeTraits.h (type constraints)
+    → uses: static_asserts (trivially-copyable T, power-of-two capacity)
     → used by: WorkQueue.h (as shard implementation)
     → used by: ThreadPool.h (task distribution)
 
 WorkQueue.h
     → uses: LockFreeQueue.h (shard storage)
     → uses: FatPConfig.h
-    → used by: PolicyQueue.h (sharded topology)
-
-PolicyQueue.h
-    → uses: LockFreeQueue.h (single topology)
-    → uses: WorkQueue.h (sharded topology)
 
 LockFreeRingBuffer.h
     → uses: FatPConfig.h
@@ -374,7 +364,7 @@ LockFreeRingBuffer.h
     → used by: audio/network pipeline components
 ```
 
-No external dependencies. All Fat-P queue headers require only the C++17 standard library.
+No external dependencies. All Fat-P queue headers require only the C++20 standard library.
 
 ---
 
@@ -386,10 +376,10 @@ The Lock-Free Queue family delivers on the Fat-P promise:
 
 **Specialization.** Sequence-number coordination, sharded topology, SPSC optimization—these address the specific patterns of high-performance computing: bounded capacity, trivially-copyable types, predictable latency under contention. General-purpose queues cannot provide these guarantees.
 
-**Control.** Choose LockFreeQueue for strict FIFO, WorkQueue for maximum throughput, PolicyQueue for abstraction, LockFreeRingBuffer for dedicated SPSC. Compile-time topology selection. No runtime overhead for unused features.
+**Control.** Choose LockFreeQueue for strict FIFO, WorkQueue for maximum throughput, LockFreeRingBuffer for dedicated SPSC. No runtime overhead for unused features.
 
 For producer-consumer patterns at scale, Fat-P's lock-free queues transform contention-bound code into throughput-bound code—without external dependencies, without unbounded memory growth, without sacrificing progress guarantees.
 
 ---
 
-*LockFreeQueue.h | WorkQueue.h | PolicyQueue.h | LockFreeRingBuffer.h — Fat-P Library v3.2*
+*LockFreeQueue.h | WorkQueue.h | LockFreeRingBuffer.h — Fat-P Library v3.2*

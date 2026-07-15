@@ -59,22 +59,20 @@ The C++ standard provides no signal/slot mechanism. `std::function` handles sing
 
 ```cpp
 template<typename Signature,
-         typename StoragePolicy = SmallVectorStorage<4>,
-         typename ConcurrencyPolicy = SingleThreadedPolicy,
-         typename ExceptionPolicy = PropagateExceptionPolicy>
+         typename SyncPolicy = SingleThreadedPolicy,
+         typename EmissionPolicy = CatchAndIgnorePolicy,
+         size_t InlineCapacity = 4>
 class Signal;
 
-// SmallVector stores ≤4 slots inline (zero allocation)
-template<size_t InlineCapacity>
-struct SmallVectorStorage {
-    using container_type = SmallVector<Slot, InlineCapacity>;
-};
+// SmallVector stores ≤InlineCapacity slots inline (zero allocation)
+using SlotList = SmallVector<Slot, InlineCapacity>;
 
 // Slots stored as:
 struct Slot {
-    uint64_t id;                        // Connection identifier
-    std::function<void(Args...)> func;  // The callback
-    bool blocked = false;               // Temporarily disabled
+    ConnectionId id;           // Type-safe connection identifier (StrongId)
+    Callback func;             // std::function-based callback
+    int priority = 0;          // Ordering (higher = called first)
+    std::atomic<bool> active;  // Soft-delete flag for reentrancy-safe removal
 };
 ```
 
@@ -88,18 +86,17 @@ Most signals have 1-4 listeners. SmallVector stores these inline:
 ### Thread Safety Policies
 
 ```cpp
-Signal<void()>                                    sig1;  // Single-threaded (zero overhead)
-Signal<void(), SmallVectorStorage<4>, MutexPolicy> sig2;  // Mutex-protected
-Signal<void(), SmallVectorStorage<4>, SharedMutexPolicy> sig3;  // Reader-writer
+Signal<void()>                             sig1;  // Single-threaded (zero overhead)
+Signal<void(), MutexSynchronizationPolicy> sig2;  // Mutex-protected
+Signal<void(), SharedMutexPolicy>          sig3;  // Reader-writer
 ```
 
 ### Exception Policies
 
 ```cpp
-// PropagateExceptionPolicy: First exception propagates (default)
-// CatchAndIgnorePolicy: Log and continue to next slot
-// CatchAndCollectPolicy: Collect all exceptions, throw aggregate
-// TerminatePolicy: std::terminate on any exception
+// CatchAndIgnorePolicy: Swallow exception, continue to next slot (default)
+// PropagateExceptionPolicy: First exception propagates; later slots skipped
+// TerminateOnExceptionPolicy: std::terminate on any exception (noexcept emission)
 ```
 
 ---
@@ -140,6 +137,8 @@ public:
 
 **Mechanism:** `ScopedConnection` stores signal reference and connection ID. Destructor calls `disconnect()`.
 
+**Note:** There is no slot block/unblock API. Disconnection—manual `disconnect(id)` or `ScopedConnection` going out of scope—is the mechanism for stopping delivery to a slot, temporarily or permanently.
+
 ### 3. Reentrancy-Safe Emission
 
 ```cpp
@@ -162,20 +161,20 @@ sig.emit();  // Safe! Uses deferred-sweep algorithm
 
 ```cpp
 // Policy 1: Propagate first exception
-Signal<void(), Storage, Threading, PropagateExceptionPolicy> sig1;
+Signal<void(), SingleThreadedPolicy, PropagateExceptionPolicy> sig1;
 sig1.connect([] { throw std::runtime_error("!"); });
 sig1.connect([] { /* never called */ });
 sig1.emit();  // Throws, second slot skipped
 
-// Policy 2: Catch and continue
-Signal<void(), Storage, Threading, CatchAndIgnorePolicy> sig2;
+// Policy 2: Catch and continue (default)
+Signal<void(), SingleThreadedPolicy, CatchAndIgnorePolicy> sig2;
 sig2.connect([] { throw std::runtime_error("!"); });
 sig2.connect([] { /* still called */ });
-sig2.emit();  // All slots called, exceptions logged
+sig2.emit();  // All slots called, exceptions swallowed
 
-// Policy 3: Collect all exceptions
-Signal<void(), Storage, Threading, CatchAndCollectPolicy> sig3;
-// Throws aggregate_exception with all caught exceptions
+// Policy 3: Terminate on exception (for noexcept emission contexts)
+Signal<void(), SingleThreadedPolicy, TerminateOnExceptionPolicy> sig3;
+// A throwing slot prints a diagnostic to stderr, then std::terminate()
 ```
 
 ### 5. Priority-Based Slot Ordering
@@ -191,20 +190,7 @@ sig.emit();
 // Output order: "Priority 10", "Priority 0", "Priority -5"
 ```
 
-### 6. Slot Blocking
-
-```cpp
-Signal<void(int)> sig;
-auto conn = sig.connect([](int v) { handle(v); });
-
-sig.block(conn);   // Temporarily disable
-sig.emit(42);      // Blocked slot not called
-
-sig.unblock(conn); // Re-enable
-sig.emit(42);      // Slot called
-```
-
-### 7. Result Collection
+### 6. Result Collection
 
 ```cpp
 Signal<int()> compute;
@@ -230,7 +216,7 @@ auto first_positive = compute.emitUntil([](int r) { return r > 0; });
 | No MOC/preprocessing | ✅ Works | ❌ Requires MOC | ✅ Works | ✅ Works |
 | Thread safety options | ❌ None | ❌ Fixed | ✅ Options | ✅ Policy-based |
 | Zero dependencies | ✅ Standard | ❌ Requires Qt | ❌ Requires Boost | ✅ Single header |
-| Exception policies | ❌ None | ❌ Fixed | Limited | ✅ Four policies |
+| Exception policies | ❌ None | ❌ Fixed | Limited | ✅ Three policies |
 
 **The Sweet Spot:** Signal is the only option combining SmallVector storage, policy-based threading/exceptions, RAII connections, and zero external dependencies.
 
@@ -306,4 +292,4 @@ Four axes of customization (storage capacity, threading, exceptions, priority) l
 
 ---
 
-*Signal.h (810 lines) — Fat-P Library*
+*Signal.h (~1160 lines) — Fat-P Library*

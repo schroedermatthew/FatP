@@ -32,7 +32,7 @@ status: "draft"
 
 **Component:** CppFeatureDetection
 **Primary use case:** Gate code on actual C++ library feature availability, not just language standard
-**Key API:** `FATP_CPP20_OR_LATER`, `FATP_CPP23_OR_LATER`, `FATP_HAS_FORMAT`, `FATP_HAS_COROUTINES`, `FATP_HAS_JTHREAD`, `FATP_HAS_ATOMIC_WAIT`, `FATP_HAS_LATCH`, `FATP_HAS_BARRIER`, `FATP_HAS_SEMAPHORE`, `FATP_HAS_MODULES`
+**Key API:** `FATP_CPP20_OR_LATER`, `FATP_CPP23_OR_LATER`, `FATP_HAS_FORMAT`, `FATP_HAS_COROUTINES`, `FATP_HAS_JTHREAD`, `FATP_HAS_ATOMIC_WAIT`, `FATP_HAS_LATCH`, `FATP_HAS_BARRIER`, `FATP_HAS_SEMAPHORE`, `FATP_HAS_MODULES`, `FATP_HAS_EXPECTED`, `FATP_HAS_STACKTRACE`, `FATP_HAS_MDSPAN`, `FATP_HAS_PRINT`
 **Common mistakes:** Checking `__cplusplus` directly (wrong on MSVC without `/Zc:__cplusplus`); assuming C++20 mode means `<format>` is available (it may not be on older libstdc++)
 
 ---
@@ -50,7 +50,7 @@ status: "draft"
 
 Fat-P requires C++20. `FATP_CPP20_OR_LATER` is always 1 in a valid Fat-P build.
 
-### Library Features
+### C++20 Library Features
 
 | Macro | Value | What it detects |
 |---|---|---|
@@ -62,6 +62,29 @@ Fat-P requires C++20. `FATP_CPP20_OR_LATER` is always 1 in a valid Fat-P build.
 | `FATP_HAS_LATCH` | 1 or 0 | `std::latch` (C++20) |
 | `FATP_HAS_BARRIER` | 1 or 0 | `std::barrier` (C++20) |
 | `FATP_HAS_SEMAPHORE` | 1 or 0 | `std::counting_semaphore` (C++20) |
+| `FATP_HAS_ATOMIC_SHARED_PTR` | 1 or 0 | `std::atomic<std::shared_ptr>` (C++20) |
+
+### C++23 Library Features
+
+| Macro | Value | What it detects |
+|---|---|---|
+| `FATP_HAS_EXPECTED` | 1 or 0 | `std::expected` (C++23) |
+| `FATP_HAS_STACKTRACE` | 1 or 0 | `<stacktrace>` (C++23) |
+| `FATP_HAS_MDSPAN` | 1 or 0 | `std::mdspan` (C++23) |
+| `FATP_HAS_PRINT` | 1 or 0 | `std::print` (C++23) |
+
+### C++26 Library Features
+
+| Macro | Value | What it detects |
+|---|---|---|
+| `FATP_HAS_REFLECTION` | 1 or 0 | Reflection (`__cpp_lib_reflection`, C++26) |
+
+### Namespace Utilities
+
+| Symbol | Type | Purpose |
+|---|---|---|
+| `fat_p::cplusplus_value` | `constexpr long` | The normalized `FATP_CPLUSPLUS` value as a constant |
+| `fat_p::cplusplus_string()` | `constexpr const char*` | Human-readable standard name: `"C++20"`, `"C++23"`, or `"C++26"` |
 
 ---
 
@@ -90,7 +113,7 @@ Fat-P requires C++20. `FATP_CPP20_OR_LATER` is always 1 in a valid Fat-P build.
 MSVC reports `__cplusplus` as `199711L` (C++98) by default, regardless of the actual language mode. The actual mode is in `_MSVC_LANG`. CppFeatureDetection normalizes this:
 
 ```cpp
-#ifdef _MSC_VER
+#if defined(_MSVC_LANG)
     #define FATP_CPLUSPLUS _MSVC_LANG
 #else
     #define FATP_CPLUSPLUS __cplusplus

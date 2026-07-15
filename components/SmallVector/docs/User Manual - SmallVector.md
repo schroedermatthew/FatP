@@ -32,7 +32,7 @@ status: "reviewed"
 **Component:** SmallVector
 **Primary use case:** Eliminate heap allocation for small collections that usually contain N or fewer elements, with automatic heap fallback for larger sizes
 **Integration pattern:** Drop-in replacement for `std::vector` where most instances are small; choose N based on typical collection size in your workload
-**Key API:** `SmallVector<T, N>`, `.push_back()`, `.emplace_back()`, `.data()`, `.size()`, `.capacity()`, `.isInline()`, `.reserve()`
+**Key API:** `SmallVector<T, N>`, `.push_back()`, `.emplace_back()`, `.data()`, `.size()`, `.capacity()`, `.reserve()`
 **std equivalent:** std::inplace_vector (C++26)
 **Common mistakes:** Choosing N too large (wastes stack space per instance); choosing N too small (always falls back to heap); assuming SmallVector is always faster than vector (only wins when inline buffer is used)
 **Performance notes:** Inline storage eliminates heap allocation for collections ≤ N elements. Pointer-discriminating storage provides branchless element access. See `components/SmallVector/results/` for current data

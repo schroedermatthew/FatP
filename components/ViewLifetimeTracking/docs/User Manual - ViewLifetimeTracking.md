@@ -20,7 +20,7 @@ status: "draft"
 
 ---
 
-**Scope:** Complete usage guide for the debug-mode lifetime tracking system: `LifetimeTracker<T>`, `TrackedView`, `LifetimeToken`, `ViewGuard`, convenience macros, and `check_weak_ptr()`.
+**Scope:** Complete usage guide for the debug-mode lifetime tracking system: `LifetimeTracker<T>`, `TrackedView`, `LifetimeToken`, `ViewGuard`, convenience macros, and the weak_ptr utilities `checked_lock()` / `safe_lock()`.
 
 **Not covered:** AddressSanitizer (ASan) or Valgrind (complementary tools that detect different classes of memory errors). Ownership semantics of `std::shared_ptr`/`std::unique_ptr`.
 
@@ -33,7 +33,7 @@ status: "draft"
 **Component:** ViewLifetimeTracking
 **Primary use case:** Detect dangling views in debug builds before they cause undefined behavior
 **Integration pattern:** Wrap source with `LifetimeTracker<T>` -> create views via `create_view()` -> views auto-check on access
-**Key API:** `LifetimeTracker<T>`, `TrackedView`, `ViewGuard`, `FATP_TRACKED_VIEW()`, `FATP_VIEW_GUARD()`, `check_weak_ptr()`
+**Key API:** `LifetimeTracker<T>`, `TrackedView`, `ViewGuard`, `FATP_TRACKED_VIEW()`, `FATP_VIEW_GUARD()`, `checked_lock()`, `safe_lock()`
 **std equivalent:** None
 **Common mistakes:** Using TrackedView in release builds expecting overhead (it is a no-op); forgetting that LifetimeTracker is move-only; creating views after tracker is destroyed
 **Performance notes:** Debug: one shared_ptr validity check per view access. Release: zero overhead (compiled away).
@@ -48,7 +48,7 @@ status: "draft"
 4. TrackedView: Checked Access
 5. ViewGuard: Scope-Based Checking
 6. Convenience Macros
-7. check_weak_ptr: std::weak_ptr Safety
+7. checked_lock and safe_lock: std::weak_ptr Safety
 8. Debug vs Release Behavior
 9. Use Case: Tensor View Safety
 10. Use Case: String Pool References
@@ -171,16 +171,26 @@ FATP_VIEW_GUARD(view);
 
 ---
 
-## check_weak_ptr: std::weak_ptr Safety
+## checked_lock and safe_lock: std::weak_ptr Safety
 
-For code that uses `std::weak_ptr`, `check_weak_ptr()` provides a safe dereference with a clear error message:
+For code that uses `std::weak_ptr`, `checked_lock()` provides a throwing lock with a clear error message. It returns the locked `std::shared_ptr<T>` by value, keeping the object alive while you hold it:
 
 ```cpp
 std::weak_ptr<Resource> wp = shared_resource;
 
 // Instead of: auto sp = wp.lock(); if (!sp) { ??? }
-auto& ref = fat_p::check_weak_ptr(wp, "shared_resource");
-// Throws DanglingReferenceError if expired
+auto sp = fat_p::checked_lock(wp, "shared_resource");
+// Throws DanglingReferenceError if expired (debug); std::runtime_error in release
+sp->use();
+```
+
+For a no-throw variant, `safe_lock()` returns the `shared_ptr` or `nullptr` if expired:
+
+```cpp
+if (auto sp = fat_p::safe_lock(wp))
+{
+    sp->use();
+}
 ```
 
 ---
@@ -286,7 +296,8 @@ LifetimeTracker is move-only to prevent accidental token duplication. Use `std::
 | `TrackedView` (nested in LifetimeTracker) | Checked pointer with `operator*`/`->` |
 | `ViewGuard<ViewT>` | Scope-based validity assertion |
 | `DanglingReferenceError` | Exception thrown on invalid access |
-| `check_weak_ptr(wp, name)` | Safe weak_ptr dereference |
+| `checked_lock(wp, name)` | Locks weak_ptr, returns `shared_ptr<T>` by value; throws if expired |
+| `safe_lock(wp)` | No-throw lock; returns `shared_ptr<T>` or `nullptr` if expired |
 | `FATP_TRACKED_VIEW(obj)` | Macro: create tracker (debug) / passthrough (release) |
 | `FATP_VIEW_GUARD(view)` | Macro: create guard (debug) / no-op (release) |
 

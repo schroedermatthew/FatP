@@ -5,7 +5,7 @@ title: "SlotMap Overview"
 fatp_components: ["SlotMap"]
 topics: ["slot map", "handle stability", "generation counters"]
 constraints: ["ABA safety", "dense storage"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
@@ -103,16 +103,14 @@ Valid access              data_[2] = actual Entity
 template<typename T>
 class SlotMap {
     struct Slot {
-        uint32_t generation;    // Incremented on each reuse
+        uint32_t generation;    // Incremented on each insert/erase
         uint32_t data_index;    // Points into data_ when alive
-        uint32_t next_free;     // Free list linkage when dead
-        bool is_alive;
     };
-    
+
     std::vector<Slot> slots_;   // Sparse: indexed by handle.index
     std::vector<T> data_;       // Dense: actual values
     std::vector<uint32_t> erase_map_;  // data_index → slot_index
-    uint32_t free_head_;        // Head of free list
+    std::vector<uint32_t> free_list_;  // Reusable slot indices (LIFO)
 };
 ```
 
@@ -195,7 +193,7 @@ for (auto entry : entities.entries()) {
 |--------|--------|-------------|----------|
 | `get(handle)` | Returns `nullptr` if invalid | Two array lookups + generation compare | General code |
 | `get_unchecked(handle)` | Undefined if invalid | Two array lookups, no validation | Hot paths with pre-validated handles |
-| `operator[](handle)` | Throws if invalid | Two array lookups + generation compare + throw path | When exceptions are appropriate |
+| `at(handle)` | Throws if invalid | Two array lookups + generation compare + throw path | When exceptions are appropriate |
 
 ```cpp
 // Validated: check before use
@@ -317,9 +315,7 @@ See `components/SlotMap/results/` for current platform-specific benchmark data.
 ## Integration Points
 
 ```
-SlotMap.h
-    → uses
-FatPTypeTraits.h   (is_slot_map<T> type trait)
+SlotMap.h   (self-contained: standard library headers only)
     → used by
 Entity-Component Systems (entity storage)
 Resource managers (handle-based access)
@@ -345,4 +341,4 @@ Checked vs. unchecked access lets developers choose their validation/performance
 
 ---
 
-*SlotMap.h (584 lines) — Fat-P Library*
+*SlotMap.h — Fat-P Library*

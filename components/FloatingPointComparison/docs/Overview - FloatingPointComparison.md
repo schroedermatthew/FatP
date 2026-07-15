@@ -190,13 +190,13 @@ fat_p::approximateEqual(1e20, 1e20 + 1.0);  // true: within relative tolerance
 - ✓ Compile-time policy resolution (not runtime)
 - ✓ Complete IEEE 754 edge-case coverage
 - ✓ Zero external dependencies
-- ✓ Header-only, C++17
+- ✓ Header-only, C++20
 
 ---
 
 ## The "Forever Stuck" Reality
 
-**Compiler Reality Check:** Scientific clusters often run RHEL 7/8 with GCC 7.x for driver compatibility. CUDA toolkits lock you to specific compiler versions for years. Even when C++26 offers `std::float_equal` (it won't—the committee cannot pick one strategy), your codebase may be contractually locked to C++17.
+**Standard Library Reality Check:** Even when C++26 offers `std::float_equal` (it won't—the committee cannot pick one strategy), you would still be waiting on toolchain upgrades to get it. FloatingPointComparison requires only C++20 (the public functions use `requires` clauses), which today's mainstream compilers already provide.
 
 FloatingPointComparison bridges this gap **permanently**—not as a temporary shim, but as an architecturally superior solution. The standard will never provide policy-based comparison with compile-time resolution because no single strategy works for all domains.
 
@@ -234,40 +234,38 @@ See `components/FloatingPointComparison/results/` for current platform-specific 
 ```mermaid
 flowchart TB
     subgraph "Dependencies (uses)"
-        CT[ComparisonTolerances.h]
+        CFD[CppFeatureDetection.h]
         DL[DiagnosticLogger_Core.h]
         ST[Stringify.h]
-        TT[TypeTraits.h]
     end
     
     FPC[FloatingPointComparison.h]
     
     subgraph "Dependents (used by)"
-        FT[FatPTest.h]
-        TE[Tensor.h]
         EC[EqualityComparisons.h]
     end
     
-    CT --> FPC
+    CFD --> FPC
     DL --> FPC
     ST --> FPC
-    TT --> ST
+    CFD --> ST
     
-    FPC --> FT
-    FPC --> TE
     FPC --> EC
 ```
 
 ```
 FloatingPointComparison.h
+    (defines kDefaultFloatEpsilon, kDefaultDoubleEpsilon inline —
+     formerly a separate ComparisonTolerances.h)
     -> uses
-ComparisonTolerances.h (kDefaultFloatEpsilon, kDefaultDoubleEpsilon)
+CppFeatureDetection.h (C++ feature/version detection)
 DiagnosticLogger_Core.h (LOG_ERROR for debug diagnostics)
 Stringify.h (toString for error messages)
     -> used by
-FatPTest.h (ASSERT_FLOAT_EQ, ASSERT_NEAR macros)
-Tensor.h (element-wise floating-point comparison)
 EqualityComparisons.h (container equality with floating-point elements)
+
+(FatPTest.h deliberately does NOT depend on this header — it carries its own
+primitive float comparison to avoid a circular dependency.)
 ```
 
 ---

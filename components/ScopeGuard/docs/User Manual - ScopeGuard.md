@@ -17,7 +17,7 @@ status: "reviewed"
 
 # User Manual - ScopeGuard
 
-**Scope:** Complete usage guide for `fat_p::ScopeGuard`: core RAII guard, factory functions (`makeScopeGuard`, `makeScopeExit`), macros (`SCOPE_EXIT`, `SCOPE_FAIL`, `SCOPE_SUCCESS`), exception policies (Nothrow, Terminate, LogAndSwallow, Rethrow), transaction patterns, Expected integration, and nested guard behavior.
+**Scope:** Complete usage guide for `fat_p::ScopeGuard`: core RAII guard, factory functions (`makeScopeGuard`, `makeScopeGuardOnFail`, `makeScopeGuardOnSuccess`), macros (`FATP_SCOPE_EXIT`, `FATP_SCOPE_FAIL`, `FATP_SCOPE_SUCCESS`), exception policies (Nothrow, Terminate, LogAndSwallow, Rethrow), transaction patterns, Expected integration, and nested guard behavior.
 
 **Not covered:**
 - ValueGuard (save-modify-restore pattern; see ValueGuard User Manual)
@@ -32,8 +32,8 @@ status: "reviewed"
 
 **Component:** ScopeGuard
 **Primary use case:** Execute cleanup or rollback actions automatically when a scope exits, with configurable exception handling policy
-**Integration pattern:** Place `auto guard = makeScopeGuard([&]{ cleanup(); });` at the point of acquisition; use `SCOPE_FAIL` for rollback-on-exception patterns; call `guard.dismiss()` on successful commit
-**Key API:** `ScopeGuard<F, Policy>`, `makeScopeGuard()`, `makeScopeExit()`, `SCOPE_EXIT`, `SCOPE_FAIL`, `SCOPE_SUCCESS`, `.dismiss()`
+**Integration pattern:** Place `auto guard = makeScopeGuard([&]{ cleanup(); });` at the point of acquisition; use `FATP_SCOPE_FAIL` for rollback-on-exception patterns; call `guard.dismiss()` on successful commit
+**Key API:** `ScopeGuard<F, Policy>`, `makeScopeGuard()`, `makeScopeGuardOnFail()`, `makeScopeGuardOnSuccess()`, `FATP_SCOPE_EXIT`, `FATP_SCOPE_FAIL`, `FATP_SCOPE_SUCCESS`, `.dismiss()`
 **std equivalent:** std::experimental::scope_exit (TS (Library Fundamentals v3))
 **Common mistakes:** Forgetting to dismiss guards on success in transaction patterns; putting throwing code in Nothrow-policy guards; capturing references to locals that go out of scope before the guard fires
 **Performance notes:** Zero overhead for the guard itself (one bool + function pointer). Policy dispatch is compile-time. See `components/ScopeGuard/results/` for current data
@@ -63,8 +63,8 @@ status: "reviewed"
    - [ScopeGuardLogAndSwallowPolicy](#scopeguardlogandswallowpolicy)
    - [ScopeGuardRethrowPolicy](#scopeguardrethrowpolicy)
 6. [Exception-Aware Guards](#exception-aware-guards-1)
-   - [SCOPE_FAIL](#scope_fail)
-   - [SCOPE_SUCCESS](#scope_success)
+   - [FATP_SCOPE_FAIL](#fatp_scope_fail)
+   - [FATP_SCOPE_SUCCESS](#fatp_scope_success)
    - [Transaction Pattern](#transaction-pattern)
 7. [Advanced Usage](#advanced-usage)
    - [Custom Action Policies](#custom-action-policies)
@@ -159,8 +159,8 @@ fat_p::ScopeGuard provides:
 
 - Zero-overhead RAII cleanup with lambda syntax
 - Policy-based exception handling (compile-time choice)
-- Exception-aware guards (SCOPE_FAIL, SCOPE_SUCCESS)
-- Type trait detection for generic programming
+- Exception-aware guards (FATP_SCOPE_FAIL, FATP_SCOPE_SUCCESS)
+- Concept-based guard detection (`fat_p::scope_guard_type` in FatPConcepts.h) for generic programming
 - Header-only, no external dependencies
 
 **When to use ScopeGuard:**
@@ -282,13 +282,14 @@ C++17 introduced `std::uncaught_exceptions()` which returns the count of excepti
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| C++ Standard | C++17 | C++20 or later |
-| Compiler (GCC) | 7.0 | 15.2+ |
-| Compiler (Clang) | 5.0 | 21.1+ |
-| Compiler (MSVC) | 19.14 (VS 2017 15.7) | 19.50+ (VS 2026 18.0+) |
+| C++ Standard | C++20 | C++20 or later |
+| Compiler (GCC) | 10.0 | 15.2+ |
+| Compiler (Clang) | 10.0 | 21.1+ |
+| Compiler (MSVC) | 19.29 (VS 2019 16.10) | 19.50+ (VS 2026 18.0+) |
 
-**Note:** The library will fail to compile with C++14 or earlier due to use of
-`std::uncaught_exceptions()` (C++17) and other C++17 features.
+**Note:** The library will fail to compile with C++17 or earlier: the headers use
+C++20 `requires` clauses (e.g. on the in-place `ScopeGuard` constructor) in addition
+to `std::uncaught_exceptions()` (C++17).
 
 ### Configuration Macros
 
@@ -308,7 +309,6 @@ ScopeGuard is header-only. Include the header and you're ready:
 Required headers (automatically included):
 
 - ScopeGuardPolicies.h (exception policies)
-- FatPTypeTraits.h (type trait support)
 
 Optional bridge header for Expected integration:
 
@@ -333,17 +333,17 @@ int main()
     }
     
     // Cleanup runs automatically when scope exits
-    SCOPE_EXIT { fclose(file); };
+    FATP_SCOPE_EXIT { fclose(file); };
     
     fprintf(file, "Hello, ScopeGuard!\n");
     
     // Early return? No problem - file still closed
     if (ferror(file))
     {
-        return 1;  // SCOPE_EXIT runs here
+        return 1;  // FATP_SCOPE_EXIT runs here
     }
     
-    return 0;  // SCOPE_EXIT runs here too
+    return 0;  // FATP_SCOPE_EXIT runs here too
 }
 ```
 
@@ -427,11 +427,11 @@ auto commit = fat_p::makeScopeGuardOnSuccess([&] { save_changes(); });
 
 | Macro | Description | Executes When |
 |-------|-------------|---------------|
-| `SCOPE_GUARD` | General cleanup | Always (any exit) |
-| `SCOPE_EXIT` | Alias for SCOPE_GUARD | Always (any exit) |
-| `SCOPE_FAIL` | Rollback on exception | Exception in flight |
-| `SCOPE_SUCCESS` | Commit on success | Normal exit only |
-| `SCOPE_GUARD_EX(Policy)` | Cleanup with explicit policy | Always |
+| `FATP_SCOPE_GUARD` | General cleanup | Always (any exit) |
+| `FATP_SCOPE_EXIT` | Alias for FATP_SCOPE_GUARD | Always (any exit) |
+| `FATP_SCOPE_FAIL` | Rollback on exception | Exception in flight |
+| `FATP_SCOPE_SUCCESS` | Commit on success | Normal exit only |
+| `FATP_SCOPE_GUARD_EX(Policy)` | Cleanup with explicit policy | Always |
 
 **Usage:**
 
@@ -439,16 +439,16 @@ auto commit = fat_p::makeScopeGuardOnSuccess([&] { save_changes(); });
 void example()
 {
     // Always executes
-    SCOPE_EXIT { cleanup(); };
+    FATP_SCOPE_EXIT { cleanup(); };
     
     // Only on exception
-    SCOPE_FAIL { rollback(); };
+    FATP_SCOPE_FAIL { rollback(); };
     
     // Only on success
-    SCOPE_SUCCESS { commit(); };
+    FATP_SCOPE_SUCCESS { commit(); };
     
     // With explicit policy
-    SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) { safe_cleanup(); };
+    FATP_SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) { safe_cleanup(); };
     
     do_work();  // May throw
 }
@@ -458,7 +458,7 @@ void example()
 
 The macros create lambdas, which have different control flow semantics than regular blocks:
 
-| Statement | In Regular Block | In SCOPE_EXIT Lambda |
+| Statement | In Regular Block | In FATP_SCOPE_EXIT Lambda |
 |-----------|------------------|---------------------|
 | `return;` | Returns from function | Returns from lambda only (cleanup continues!) |
 | `return value;` | Returns value from function | Meaningless (lambda is void) |
@@ -471,7 +471,7 @@ The macros create lambdas, which have different control flow semantics than regu
 ```cpp
 void process()
 {
-    SCOPE_EXIT {
+    FATP_SCOPE_EXIT {
         if (already_cleaned) return;  // BUG: Only exits lambda!
         do_cleanup();                  // This STILL executes!
     };
@@ -484,7 +484,7 @@ void process()
 void process()
 {
     bool need_cleanup = true;
-    SCOPE_EXIT {
+    FATP_SCOPE_EXIT {
         if (need_cleanup) do_cleanup();
     };
     
@@ -583,7 +583,7 @@ auto guard = fat_p::makeScopeGuard<fat_p::ScopeGuardRethrowPolicy>(
 
 ## Exception-Aware Guards
 
-### SCOPE_FAIL
+### FATP_SCOPE_FAIL
 
 Executes cleanup only when leaving scope due to an exception:
 
@@ -592,22 +592,22 @@ void transfer(Account& from, Account& to, int amount)
 {
     from.withdraw(amount);
     
-    SCOPE_FAIL { from.deposit(amount); };  // Rollback on exception
+    FATP_SCOPE_FAIL { from.deposit(amount); };  // Rollback on exception
     
     to.deposit(amount);  // May throw
     
     // If to.deposit() throws:
     //   - Stack unwinding begins
-    //   - SCOPE_FAIL detects exception in flight
+    //   - FATP_SCOPE_FAIL detects exception in flight
     //   - from.deposit(amount) executes (rollback)
     
     // If to.deposit() succeeds:
     //   - Normal exit
-    //   - SCOPE_FAIL does NOT execute
+    //   - FATP_SCOPE_FAIL does NOT execute
 }
 ```
 
-### SCOPE_SUCCESS
+### FATP_SCOPE_SUCCESS
 
 Executes cleanup only when leaving scope normally (no exception):
 
@@ -616,8 +616,8 @@ void save_document(Document& doc)
 {
     auto backup = doc.create_backup();
     
-    SCOPE_SUCCESS { backup.discard(); };  // Don't need backup if successful
-    SCOPE_FAIL { backup.restore(); };     // Restore backup on failure
+    FATP_SCOPE_SUCCESS { backup.discard(); };  // Don't need backup if successful
+    FATP_SCOPE_FAIL { backup.restore(); };     // Restore backup on failure
     
     doc.save();  // May throw
 }
@@ -625,15 +625,15 @@ void save_document(Document& doc)
 
 ### Transaction Pattern
 
-Combine SCOPE_FAIL and SCOPE_SUCCESS for complete transaction semantics:
+Combine FATP_SCOPE_FAIL and FATP_SCOPE_SUCCESS for complete transaction semantics:
 
 ```cpp
 void database_transaction()
 {
     db.begin_transaction();
     
-    SCOPE_SUCCESS { db.commit(); };
-    SCOPE_FAIL { db.rollback(); };
+    FATP_SCOPE_SUCCESS { db.commit(); };
+    FATP_SCOPE_FAIL { db.rollback(); };
     
     db.execute("INSERT INTO users ...");
     db.execute("UPDATE accounts ...");
@@ -716,13 +716,13 @@ Guards execute in reverse order of construction (LIFO):
 void acquire_multiple_resources()
 {
     auto* r1 = acquire_resource_1();
-    SCOPE_EXIT { release_resource_1(r1); };  // Executes third
+    FATP_SCOPE_EXIT { release_resource_1(r1); };  // Executes third
     
     auto* r2 = acquire_resource_2();
-    SCOPE_EXIT { release_resource_2(r2); };  // Executes second
+    FATP_SCOPE_EXIT { release_resource_2(r2); };  // Executes second
     
     auto* r3 = acquire_resource_3();
-    SCOPE_EXIT { release_resource_3(r3); };  // Executes first
+    FATP_SCOPE_EXIT { release_resource_3(r3); };  // Executes first
     
     use_resources(r1, r2, r3);
     
@@ -744,7 +744,7 @@ Benchmarks were run on two environments to validate consistency:
 | Processor | Intel Core i7-8850H @ 2.60 GHz |
 | RAM | 32.0 GB |
 | OS | Windows 11 |
-| Compiler | MSVC 2022, /O2 /std:c++17 |
+| Compiler | MSVC 2022, /O2 /std:c++20 |
 
 **Environment 2: Linux (CI/Container)**
 
@@ -753,7 +753,7 @@ Benchmarks were run on two environments to validate consistency:
 | Processor | Virtual CPU @ 2.59 GHz |
 | RAM | 4.0 GB |
 | OS | Ubuntu 24.04 |
-| Compiler | GCC 13.2, -O2 -std=c++17 |
+| Compiler | GCC 13.2, -O2 -std=c++20 |
 
 **Methodology:**
 
@@ -808,23 +808,23 @@ Benchmarks were run on two environments to validate consistency:
 1. **Use NothrowPolicy for hot paths:**
    ```cpp
    // Lowest overhead - use in performance-critical code
-   SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) noexcept { counter--; };
+   FATP_SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) noexcept { counter--; };
    ```
 
 2. **Capture by reference for large objects:**
    ```cpp
    // Good - no copy
-   SCOPE_EXIT { large_object.cleanup(); };
+   FATP_SCOPE_EXIT { large_object.cleanup(); };
    
    // Bad - copies large_object into lambda
-   SCOPE_EXIT { [large_object]{ large_object.cleanup(); }(); };
+   FATP_SCOPE_EXIT { [large_object]{ large_object.cleanup(); }(); };
    ```
 
-3. **Prefer SCOPE_EXIT over explicit factory:**
+3. **Prefer FATP_SCOPE_EXIT over explicit factory:**
    ```cpp
    // Good - concise, same performance
 
-   SCOPE_EXIT { cleanup(); };
+   FATP_SCOPE_EXIT { cleanup(); };
    
    // Verbose - same result
    auto guard = fat_p::makeScopeGuard([&] { cleanup(); });
@@ -839,11 +839,11 @@ Benchmarks were run on two environments to validate consistency:
 | Feature | fat_p::ScopeGuard | Boost.ScopeExit | Folly | GSL finally |
 |---------|-------------------|-----------------|-------|-------------|
 | Header-only | Yes | No | No | Yes |
-| C++17 required | Yes | No (C++03) | Yes | Yes |
+| Minimum C++ standard | C++20 | C++03 | C++17 | C++14 |
 | Exception policies | 4 policies | No | Limited | No |
-| SCOPE_FAIL | Yes | No | Yes | No |
-| SCOPE_SUCCESS | Yes | No | Yes | No |
-| Type traits | Yes | No | No | No |
+| FATP_SCOPE_FAIL | Yes | No | Yes | No |
+| FATP_SCOPE_SUCCESS | Yes | No | Yes | No |
+| Guard-type concept detection | Yes (via FatPConcepts.h) | No | No | No |
 | Custom action policy | Yes | No | No | No |
 | Dismiss/release | Yes | No | Yes | No |
 | External dependencies | None | Boost | Folly | GSL |
@@ -872,7 +872,7 @@ void example()
 void example()
 {
     FILE* file = fopen("test.txt", "r");
-    SCOPE_EXIT { if (file) fclose(file); };
+    FATP_SCOPE_EXIT { if (file) fclose(file); };
     
     // ... use file ...
 }
@@ -909,7 +909,7 @@ void process()
 void process()
 {
     Resource* r = acquire();
-    SCOPE_EXIT { release(r); };
+    FATP_SCOPE_EXIT { release(r); };
     
     step1(r);
     step2(r);
@@ -921,17 +921,17 @@ void process()
 
 | Boost.ScopeExit | fat_p::ScopeGuard |
 |-----------------|-------------------|
-| `BOOST_SCOPE_EXIT(&var) { ... } BOOST_SCOPE_EXIT_END` | `SCOPE_EXIT { ... };` |
-| `BOOST_SCOPE_EXIT_ALL(&) { ... } BOOST_SCOPE_EXIT_END` | `SCOPE_EXIT { ... };` |
-| N/A | `SCOPE_FAIL { ... };` |
-| N/A | `SCOPE_SUCCESS { ... };` |
+| `BOOST_SCOPE_EXIT(&var) { ... } BOOST_SCOPE_EXIT_END` | `FATP_SCOPE_EXIT { ... };` |
+| `BOOST_SCOPE_EXIT_ALL(&) { ... } BOOST_SCOPE_EXIT_END` | `FATP_SCOPE_EXIT { ... };` |
+| N/A | `FATP_SCOPE_FAIL { ... };` |
+| N/A | `FATP_SCOPE_SUCCESS { ... };` |
 
 **Migration steps:**
 
 1. Replace `#include <boost/scope_exit.hpp>` with `#include "ScopeGuard.h"`
-2. Replace `BOOST_SCOPE_EXIT(...) { ... } BOOST_SCOPE_EXIT_END` with `SCOPE_EXIT { ... };`
-3. Add `SCOPE_FAIL` for rollback logic that was manually implemented
-4. Add `SCOPE_SUCCESS` for commit logic that was manually implemented
+2. Replace `BOOST_SCOPE_EXIT(...) { ... } BOOST_SCOPE_EXIT_END` with `FATP_SCOPE_EXIT { ... };`
+3. Add `FATP_SCOPE_FAIL` for rollback logic that was manually implemented
+4. Add `FATP_SCOPE_SUCCESS` for commit logic that was manually implemented
 
 ---
 
@@ -940,13 +940,13 @@ void process()
 **Do:**
 
 ```cpp
-// Use SCOPE_EXIT for cleanup
+// Use FATP_SCOPE_EXIT for cleanup
 FILE* f = fopen(path, "r");
-SCOPE_EXIT { if (f) fclose(f); };
+FATP_SCOPE_EXIT { if (f) fclose(f); };
 
-// Use SCOPE_FAIL for rollback
+// Use FATP_SCOPE_FAIL for rollback
 begin_transaction();
-SCOPE_FAIL { rollback(); };
+FATP_SCOPE_FAIL { rollback(); };
 
 // Use dismiss() for ownership transfer
 auto guard = fat_p::makeScopeGuard([&] { delete ptr; });
@@ -954,24 +954,24 @@ container.take_ownership(ptr);
 guard.dismiss();
 
 // Use noexcept for cleanup when possible
-SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) { counter--; };
+FATP_SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) { counter--; };
 ```
 
 **Don't:**
 
 ```cpp
 // Don't throw in cleanup without appropriate policy
-SCOPE_EXIT { throw Error(); };  // Will terminate!
+FATP_SCOPE_EXIT { throw Error(); };  // Will terminate!
 
 // Don't do I/O in guards (unless necessary)
-SCOPE_EXIT { log_to_database(); };  // Slow, may fail
+FATP_SCOPE_EXIT { log_to_database(); };  // Slow, may fail
 
 // Don't forget dismiss() when transferring ownership
 auto guard = fat_p::makeScopeGuard([&] { delete ptr; });
 return ptr;  // BUG: guard will delete ptr!
 
-// Don't use SCOPE_SUCCESS/FAIL outside of exception-safe code
-SCOPE_SUCCESS { /* this won't save you from logic errors */ };
+// Don't use FATP_SCOPE_SUCCESS/FAIL outside of exception-safe code
+FATP_SCOPE_SUCCESS { /* this won't save you from logic errors */ };
 ```
 
 ---
@@ -1042,20 +1042,20 @@ if (ownership_transferred)
 }
 ```
 
-**Issue: 'return' in SCOPE_EXIT doesn't exit function**
+**Issue: 'return' in FATP_SCOPE_EXIT doesn't exit function**
 
 ```cpp
 // Problem - 'return' only exits the lambda, not the function!
 void process()
 {
-    SCOPE_EXIT {
+    FATP_SCOPE_EXIT {
         if (already_cleaned) return;  // BUG: Only exits lambda!
         do_cleanup();                  // This STILL executes!
     };
 }
 
 // Solution 1: Use conditional logic
-SCOPE_EXIT {
+FATP_SCOPE_EXIT {
     if (!already_cleaned) do_cleanup();
 };
 
@@ -1068,7 +1068,7 @@ if (already_cleaned) guard.dismiss();
 
 ```cpp
 // Problem: No error output visible
-SCOPE_GUARD_EX(fat_p::ScopeGuardLogAndSwallowPolicy) {
+FATP_SCOPE_GUARD_EX(fat_p::ScopeGuardLogAndSwallowPolicy) {
     throw std::runtime_error("error");
 };
 
@@ -1106,8 +1106,8 @@ auto guard = fat_p::makeScopeGuard<fat_p::ScopeGuardLogAndSwallowPolicy>(
 
 - Lambda-based cleanup syntax
 - Four exception handling policies
-- Exception-aware guards (SCOPE_FAIL, SCOPE_SUCCESS)
-- Type trait support for generic programming
+- Exception-aware guards (FATP_SCOPE_FAIL, FATP_SCOPE_SUCCESS)
+- Concept support for generic programming (`fat_p::scope_guard_type` in FatPConcepts.h)
 - No external dependencies
 
 **Quick Reference:**
@@ -1118,16 +1118,16 @@ auto guard = fat_p::makeScopeGuard<fat_p::ScopeGuardLogAndSwallowPolicy>(
 void example()
 {
     // Always cleanup
-    SCOPE_EXIT { cleanup(); };
+    FATP_SCOPE_EXIT { cleanup(); };
     
     // Rollback on exception
-    SCOPE_FAIL { undo(); };
+    FATP_SCOPE_FAIL { undo(); };
     
     // Commit on success
-    SCOPE_SUCCESS { save(); };
+    FATP_SCOPE_SUCCESS { save(); };
     
     // With explicit policy
-    SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) { counter--; };
+    FATP_SCOPE_GUARD_EX(fat_p::ScopeGuardNothrowPolicy) { counter--; };
     
     // Factory function
     auto guard = fat_p::makeScopeGuard([&] { release(); });
@@ -1141,4 +1141,4 @@ void example()
 
 - ScopeGuardPolicies.h - Exception handling policies
 - ScopeGuardExpected.h - Integration with Expected error handling
-- FatPTypeTraits.h - Type trait detection (is_scope_guard_v)
+- FatPConcepts.h - Guard-type detection via the `scope_guard_type` concept

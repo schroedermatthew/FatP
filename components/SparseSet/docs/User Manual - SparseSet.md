@@ -863,7 +863,7 @@ template <typename T,
 class SparseSetWithData;
 ```
 
-The custom container must satisfy the `StorageContainer` concept (defined in `StoragePolicy.h`), which requires: `push_back`, `emplace_back`, `back`, `pop_back`, `operator[]`, `data`, `size`, `begin`, `end`, and a `value_type` alias. Optionally, `shrink_to_fit()` is called if present (detected at compile time via `if constexpr`).
+The `DataContainer` parameter is an unconstrained template-template parameter (no formal concept is applied). The custom container must provide the vector-like operations the implementation actually calls: `push_back`, `emplace_back`, `back`, `pop_back`, `operator[]`, `at`, and `clear`. Optionally, `shrink_to_fit()` is called if present (detected at compile time via `if constexpr`).
 
 ### Usage Pattern
 
@@ -1230,7 +1230,7 @@ You can tolerate **unstable iteration order** across erases.
 
 ### SparseSetWithData\<T, Data, IndexPolicy, DataContainer\>
 
-`IndexPolicy` defaults to `IdentityIndex<T>` (returns key as-is). A custom policy extracts a `sparse_index_type` from `T` for sparse-array addressing. The dense array stores full `T` values regardless of policy. `DataContainer` defaults to `std::vector` and must satisfy the `StorageContainer` concept.
+`IndexPolicy` defaults to `IdentityIndex<T>` (returns key as-is). A custom policy extracts a `sparse_index_type` from `T` for sparse-array addressing. The dense array stores full `T` values regardless of policy. `DataContainer` defaults to `std::vector`; it is an unconstrained template-template parameter that must supply the vector-like operations the implementation uses.
 
 All of the above, plus:
 

@@ -298,7 +298,7 @@ for (float f : span) { /* ... */ }
 
 `MADV_SEQUENTIAL` enables aggressive readahead and frees pages behind the cursor. `MADV_RANDOM` disables readahead. The default (`MADV_NORMAL`) uses moderate readahead.
 
-MemoryMappedFile does not call `madvise()` itself. It provides `data()` so you can call it when you know your access pattern.
+MemoryMappedFile's own `prefetch()` method issues a `MADV_WILLNEED` hint (or `PrefetchVirtualMemory()` on Windows) for the whole mapping. For other advice values like `MADV_SEQUENTIAL` or `MADV_RANDOM`, call `madvise()` on `data()` yourself when you know your access pattern.
 
 ---
 
@@ -337,17 +337,17 @@ sequenceDiagram
     Note over Page: Page marked clean
 ```
 
-This means data written through a mapped pointer may not reach disk for up to 5 seconds. If the process crashes during this window, modifications are lost. For durability guarantees, call `msync()` directly on `data()`:
+This means data written through a mapped pointer may not reach disk for up to 5 seconds. If the process crashes during this window, modifications are lost. For durability guarantees, call `flush()`:
 
 ```cpp
 fat_p::MemoryMappedFile file("critical.bin", fat_p::MemoryMappedFile::Mode::ReadWrite);
 auto data = file.get_span<uint8_t>();
 data[0] = 0xFF;
 
-msync(file.data(), file.size(), MS_SYNC);  // Force to disk
+file.flush();  // Force to disk (msync(MS_SYNC) / FlushViewOfFile under the hood)
 ```
 
-On Windows, the equivalent is `FlushViewOfFile()`.
+Pass `flush(/*async=*/true)` to initiate write-back without waiting for completion.
 
 ---
 
@@ -468,7 +468,7 @@ Page faults on NFS/CIFS go over the network. Latency is unpredictable. Write err
 
 ### Flush Explicitly When Durability Matters
 
-Do not rely on the 5-second writeback timer for data you cannot afford to lose. Call `msync(data, size, MS_SYNC)` after critical writes.
+Do not rely on the 5-second writeback timer for data you cannot afford to lose. Call `flush()` after critical writes.
 
 ---
 
@@ -688,9 +688,9 @@ The mapping's size was fixed at construction time. New data appended after mappi
 
 **No anonymous mappings.** Only file-backed mappings. For shared memory without a file, use `shm_open()` + `mmap()` directly.
 
-**No `msync()` wrapper.** Call `msync()` / `FlushViewOfFile()` directly on `data()` when durability is needed.
+**Flush wrapper is coarse-grained.** `flush(bool async = false)` flushes the entire mapping (`msync()` / `FlushViewOfFile()` under the hood). For flushing a specific byte range, call the OS API directly on `data()`.
 
-**No `madvise()` wrapper.** Call `madvise()` / `PrefetchVirtualMemory()` directly on `data()` for prefetch hints.
+**Prefetch wrapper is coarse-grained.** `prefetch()` hints the whole mapping into memory (`madvise(MADV_WILLNEED)` / `PrefetchVirtualMemory()` under the hood). For other advice (e.g. `MADV_SEQUENTIAL`, `MADV_RANDOM`) or partial ranges, call `madvise()` directly on `data()`.
 
 **No offset/length parameters.** The entire file is always mapped. For partial mapping, use raw `mmap()`.
 
@@ -709,6 +709,8 @@ The mapping's size was fixed at construction time. New data appended after mappi
 | `data()` / `data() const` | Raw pointer to mapped memory |
 | `size()` | File size in bytes |
 | `get_span<T>()` / `get_span<T>() const` | Typed span view |
+| `flush(bool async = false)` | Flush changes to disk (writable mappings); `async` returns without waiting for completion |
+| `prefetch()` | Hint the OS to load the mapped pages into memory |
 | Move constructor/assignment | Transfer ownership; source becomes unmapped |
 
 ---

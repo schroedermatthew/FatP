@@ -262,7 +262,7 @@ while (iter.has_next()) {
 
 ```cpp
 // Check alignment
-bool aligned = fat_p::perf::is_aligned(ptr, 64);
+bool aligned = fat_p::perf::isAligned(ptr, 64);
 
 // Align pointer up
 void* aligned_ptr = fat_p::perf::align_up(ptr, 64);

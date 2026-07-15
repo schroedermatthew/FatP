@@ -71,37 +71,44 @@ C++ RAII handles objects with destructors, but:
 ### The Mechanism: Conditional Destruction
 
 ```cpp
-template<typename Cleanup, typename Policy = ScopeGuardAlwaysPolicy>
+// Unconditional guard: the policy controls exception handling, not when it fires
+template <typename F,
+          typename ThrowingPolicy = ScopeGuardTerminatePolicy,
+          template <typename> class ActionPolicy = DefaultActionPolicy>
 class ScopeGuard {
-    Cleanup cleanup_;
-    bool dismissed_ = false;
-    
+    ActionPolicy<F> mActionStorage;
+    bool mExecute = true;
+
 public:
     ~ScopeGuard() {
-        if (!dismissed_ && Policy::should_execute()) {
-            cleanup_();
+        if (mExecute) {
+            ScopeGuardPolicyExecutor<ActionPolicy<F>, ThrowingPolicy>::execute(mActionStorage);
         }
     }
-    
-    void dismiss() noexcept { dismissed_ = true; }
-};
 
-// Policies
-struct ScopeGuardAlwaysPolicy {
-    static constexpr bool should_execute() { return true; }
+    void dismiss() noexcept { mExecute = false; }
 };
+```
 
-struct ScopeGuardSuccessPolicy {
-    static bool should_execute() { 
-        return std::uncaught_exceptions() == 0; 
-    }
-};
+The policies (defined in `ScopeGuardPolicies.h`) govern what happens if the cleanup action **throws**, not when it runs:
 
-struct ScopeGuardFailurePolicy {
-    static bool should_execute() { 
-        return std::uncaught_exceptions() > 0; 
-    }
-};
+- `ScopeGuardNothrowPolicy` — requires a `noexcept` action (compile-time check)
+- `ScopeGuardTerminatePolicy` — calls `std::terminate()` on exception (**the default**)
+- `ScopeGuardLogAndSwallowPolicy` — logs and suppresses exceptions
+- `ScopeGuardRethrowPolicy` — re-throws (use with caution)
+
+Success/failure conditionality is **not** a policy. It is implemented by two separate guard classes, `ScopeGuardOnFail` and `ScopeGuardOnSuccess`, which compare `std::uncaught_exceptions()` at construction against destruction time:
+
+```cpp
+// ScopeGuardOnFail: runs only during stack unwinding
+~ScopeGuardOnFail() noexcept {
+    if (mActive && std::uncaught_exceptions() > mUncaughtExceptions) { mAction(); }
+}
+
+// ScopeGuardOnSuccess: runs only on normal exit
+~ScopeGuardOnSuccess() noexcept {
+    if (mActive && std::uncaught_exceptions() == mUncaughtExceptions) { mAction(); }
+}
 ```
 
 **Why `std::uncaught_exceptions()` (C++17):**
@@ -111,9 +118,9 @@ Unlike C++11's `std::uncaught_exception()` (boolean), C++17's version returns a 
 ### Factory Functions
 
 ```cpp
-auto guard = makeScopeGuard([&] { cleanup(); });     // Always executes
-auto success = makeScopeSuccess([&] { commit(); });   // Only on success
-auto failure = makeScopeFailure([&] { rollback(); }); // Only on exception
+auto guard = makeScopeGuard([&] { cleanup(); });              // Always executes
+auto success = makeScopeGuardOnSuccess([&] { commit(); });    // Only on success
+auto failure = makeScopeGuardOnFail([&] { rollback(); });     // Only on exception
 ```
 
 ---
@@ -136,12 +143,12 @@ void process() {
 
 **Mechanism:** Destructor always calls cleanup unless `dismiss()` was called.
 
-### 2. Success-Only Execution (ScopeSuccess)
+### 2. Success-Only Execution (ScopeGuardOnSuccess)
 
 ```cpp
 void commit_transaction(Database& db) {
     db.begin();
-    auto commit = makeScopeSuccess([&] { 
+    auto commit = makeScopeGuardOnSuccess([&] { 
         db.commit(); 
         log("Transaction committed");
     });
@@ -155,12 +162,12 @@ void commit_transaction(Database& db) {
 
 **Mechanism:** `std::uncaught_exceptions() == 0` at destruction time.
 
-### 3. Failure-Only Execution (ScopeFailure)
+### 3. Failure-Only Execution (ScopeGuardOnFail)
 
 ```cpp
 void transfer(Account& from, Account& to, int amount) {
     from.withdraw(amount);
-    auto rollback = makeScopeFailure([&] {
+    auto rollback = makeScopeGuardOnFail([&] {
         from.deposit(amount);  // Undo the withdrawal
     });
     
@@ -236,12 +243,12 @@ void complex_operation() {
 | If You Need... | Why Not try/catch | Why Not unique_ptr | Why Not Boost.ScopeExit | Fat-P Advantage |
 |----------------|-------------------|-------------------|------------------------|-----------------|
 | Arbitrary cleanup | ✅ Works but verbose | ❌ Pointers only | ✅ Works | ✅ Clean lambda syntax |
-| Success/failure only | ❌ Manual tracking | ❌ Not supported | Partial | ✅ Three policies |
+| Success/failure only | ❌ Manual tracking | ❌ Not supported | Partial | ✅ Dedicated OnFail/OnSuccess guards |
 | [[nodiscard]] | ❌ No protection | ❌ No protection | ❌ No protection | ✅ Enforced |
 | Zero dependencies | ✅ Works | ✅ Standard | ❌ Requires Boost | ✅ Single header |
 | Correct exception count | N/A | N/A | ❌ C++11 only | ✅ C++17 uncaught_exceptions |
 
-**The Sweet Spot:** ScopeGuard is the only option combining success/failure policies, [[nodiscard]] protection, correct C++17 exception counting, and zero dependencies.
+**The Sweet Spot:** ScopeGuard is the only option combining success/failure guards, [[nodiscard]] protection, correct C++17 exception counting, and zero dependencies.
 
 ---
 
@@ -263,7 +270,7 @@ ScopeGuard provides `finally`/`defer` semantics through RAII, aligning with C++ 
 | Guard creation | Lambda capture — no heap allocation, no virtual dispatch | Equivalent to storing a function pointer + captures on the stack |
 | Guard destruction (executes) | Direct function call to captured lambda | Cleanup function cost only — zero framework overhead |
 | Guard destruction (dismissed) | Single boolean check | One branch — predicted as "dismissed" in typical usage |
-| `std::uncaught_exceptions()` | Thread-local counter read | Single read of a thread-local integer (used by `ScopeFailure`/`ScopeSuccess`) |
+| `std::uncaught_exceptions()` | Thread-local counter read | Single read of a thread-local integer (used by `ScopeGuardOnFail`/`ScopeGuardOnSuccess`) |
 
 **Compiler Optimization:**
 
@@ -291,7 +298,7 @@ auto guard = makeScopeGuard([&] { fclose(file); });
 ```
 ScopeGuard.h
     ↓ components
-ScopeGuardPolicies.h    (Always, Success, Failure policies)
+ScopeGuardPolicies.h    (Nothrow, Terminate, LogAndSwallow, Rethrow exception policies)
     ↓ used by
 SmallVector.h           (transactional reallocation)
 IdGenerator.h           (IdGuard implementation)
@@ -309,7 +316,7 @@ ScopeGuard delivers on the fat_p promise through three pillars:
 C++ will never add `finally` or `defer`—the committee prefers RAII. ScopeGuard provides these semantics permanently through RAII-compatible design.
 
 ### 2. Specialization
-Three policies (Always, Success, Failure) handle different cleanup scenarios. `std::uncaught_exceptions()` enables correct behavior during nested exception handling. [[nodiscard]] prevents the common "accidentally destroyed" bug.
+Four exception-handling policies (Nothrow, Terminate, LogAndSwallow, Rethrow) control destructor behavior, while dedicated `ScopeGuardOnFail`/`ScopeGuardOnSuccess` guards handle success/failure-conditional cleanup. `std::uncaught_exceptions()` enables correct behavior during nested exception handling. [[nodiscard]] prevents the common "accidentally destroyed" bug.
 
 ### 3. Control
 Dismissible execution lets you cancel cleanup when ownership transfers. Move semantics enable guard transfer. Lambda capture handles any cleanup action, not just pointer deletion.

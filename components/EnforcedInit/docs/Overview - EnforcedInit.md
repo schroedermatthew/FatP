@@ -32,7 +32,7 @@ EnforcedInit is a policy-based wrapper that enforces two-phase construction: an 
 **Problem solved:** Preventing access to uninitialized values in two-phase construction patterns
 **When to use:** Dependency injection; config-driven late init; hardware/driver bring-up; service locators; any pattern where "declare now, initialize later" is architecturally necessary
 **When NOT to use:** Values that can be constructed immediately (just use a constructor); optional values that may never be initialized (use `std::optional`); simple lazy-init singletons (use `static` local)
-**Key guarantee:** Accessing an uninitialized EnforcedInit throws or returns an error; double-init is caught; all policies are zero-overhead when unused
+**Key guarantee:** Accessing an uninitialized EnforcedInit throws; `init()` reports failures (including double-init) via `Expected`; all policies are zero-overhead when unused
 **std equivalent:** None. `std::optional` provides the storage but not the access enforcement.
 **Boost equivalent:** None
 **Other alternatives:** `std::optional` (no access enforcement), `std::once_flag` + `std::call_once` (init-once only, no value wrapper)
@@ -104,12 +104,14 @@ config.init(load_config_from_file());
 // Thread 1 wakes up
 ```
 
-### 3. Lazy Init with Factory
+### 3. Init from Factory
+
+`lazy_init(factory)` invokes the factory immediately if the value is not yet initialized (and is a no-op if it is). For init deferred to first access, use the two-argument `get(factory)`:
 
 ```cpp
 fat_p::EnforcedInit<ExpensiveResource> resource;
-resource.lazy_init([]() { return ExpensiveResource::create(); });
-auto& r = resource.get();  // Initialized on first access
+auto& r = resource.get([]() { return ExpensiveResource::create(); });
+// Factory invoked on this first access; later get() calls reuse the value
 ```
 
 ### 4. Reset Support (Policy-Controlled)
@@ -129,7 +131,7 @@ With `NoResetPolicy` (default), calling `reset()` returns an error.
 
 | Aspect | std::optional | EnforcedInit |
 |--------|--------------|--------------|
-| **Access when empty** | UB (operator*) or throws (value()) | Returns error or throws (configurable) |
+| **Access when empty** | UB (operator*) or throws (value()) | Always throws; init() reports errors via Expected |
 | **Thread-safe init** | No | ConditionVarPolicy, AtomicPolicy |
 | **Wait for init** | No | wait_for_init() with timeout |
 | **Reset control** | Always resettable | Policy-controlled |

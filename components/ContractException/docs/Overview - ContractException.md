@@ -240,7 +240,7 @@ ContractException provides a pattern for extending standard exceptions with cust
 | Scenario | Mechanism | Cost Driver |
 |----------|-----------|-------------|
 | No exception thrown | Zero-overhead — no code generated on happy path | None |
-| Exception construction | String allocation + `std::source_location` capture | Heap allocation for message string dominates |
+| Exception construction | String allocation for the prefixed message (source location, when present, is captured by the Enforce macros, not the exception itself) | Heap allocation for message string dominates |
 | Throw + catch | C++ exception unwinding mechanism | Stack unwinding dominates — proportional to call depth |
 | `what()` call | Virtual dispatch + `std::string::c_str()` return | Single virtual call + pointer return |
 | `category()` call | Virtual dispatch + constant return | Single virtual call |

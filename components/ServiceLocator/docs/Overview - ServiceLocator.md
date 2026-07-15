@@ -27,7 +27,7 @@ status: "reviewed"
 - Designing a `TypeKeyPolicy` for DSO/plugin boundaries (see **Foundations - ABI Stability and Module Boundaries**)
 
 **Prerequisites:**
-- C++17+ fundamentals (templates, lambdas, `std::shared_ptr`)
+- C++20 fundamentals (templates, concepts, lambdas, `std::shared_ptr`)
 - Basic ownership concepts (raw pointer vs `shared_ptr`)
 - Familiarity with a “composition root” (where the program wires dependencies) is helpful
 
@@ -35,7 +35,7 @@ status: "reviewed"
 
 ## Overview Card
 
-**Component:** `fat_p::service_locator::ServiceLocator` (aliases: `DefaultServiceLocator`, `ThreadSafeServiceLocator`, `HotLoopServiceLocator`, `ThreadSafeHotLoopServiceLocator`)  
+**Component:** `fat_p::service_locator::ServiceLocator` (aliases: `DefaultServiceLocator`, `ThreadSafeServiceLocator`)  
 **Problem solved:** Centralized runtime wiring plus type-keyed lookup with scoped overrides  
 **When to use:** Composition roots, integration tests, systems that need temporary overrides (feature flags, simulated backends)  
 **When NOT to use:** When you require compile-time dependency graphs, when services are frequently unregistered while pointers are still in use, when type keys must be stable across DSOs/plugins without customization  
@@ -134,15 +134,8 @@ Common aliases:
 
 - `fat_p::service_locator::DefaultServiceLocator` (no internal synchronization)
 - `fat_p::service_locator::ThreadSafeServiceLocator` (shared-mutex protected registry)
-- `fat_p::service_locator::HotLoopServiceLocator` (optional thread-local MRU cache for unnamed resolves)
-- `fat_p::service_locator::ThreadSafeHotLoopServiceLocator` (shared-mutex protected registry + the MRU cache)
 
-Notes:
-
-- The MRU cache is **type-only** and applies only when `name` is empty.
-- Cache hits do not acquire the shared mutex. Treat registration/unregistration/clear as a startup/shutdown operation or quiesce threads first.
-
-Statistics are policy-based as well. When using a concurrency policy that allows concurrent resolves, the statistics policy must provide atomic increments (enforced by `static_assert`).
+Registration behaviour (prevent- vs allow-overwrite) and type keying are likewise selected via the `RegistrationPolicy` and `TypeKeyPolicy` template parameters.
 
 ---
 

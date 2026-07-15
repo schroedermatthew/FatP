@@ -507,9 +507,10 @@ void audio_callback(const float* samples, size_t count) {
 // Processing thread (normal priority)
 void process_audio() {
     while (running) {
-        if (auto sample = sample_buffer.pop()) {
-            apply_effects(*sample);
-            output_sample(*sample);
+        AudioSample sample;
+        if (sample_buffer.pop(sample)) {
+            apply_effects(sample);
+            output_sample(sample);
         } else {
             std::this_thread::yield();
         }
@@ -550,12 +551,12 @@ void on_order_received(const Order& order) {
 // Strategy thread
 void process_orders() {
     while (running) {
-        if (auto* order = order_queue.front()) {
+        if (const auto* order = order_queue.front()) {
+            Order o;
             if (validate_order(*order)) {
-                auto o = order_queue.pop();
-                execute_order(*o);
+                if (order_queue.pop(o)) execute_order(o);
             } else {
-                order_queue.pop();  // Discard invalid
+                (void)order_queue.pop(o);  // Discard invalid
             }
         }
     }
@@ -595,8 +596,9 @@ void log(Level level, const char* msg) {
 void log_writer() {
     std::ofstream file("app.log");
     while (running || !log_buffer.empty()) {
-        if (auto entry = log_buffer.pop()) {
-            file << format(*entry) << "\n";
+        LogEntry entry;
+        if (log_buffer.pop(entry)) {
+            file << format(entry) << "\n";
         } else {
             file.flush();
             std::this_thread::sleep_for(1ms);

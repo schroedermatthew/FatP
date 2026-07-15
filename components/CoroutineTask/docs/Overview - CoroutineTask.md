@@ -3,7 +3,7 @@ doc_id: OV-COROUTINETASK-001
 doc_type: "Overview"
 title: "CoroutineTask"
 fatp_components: ["CoroutineTask"]
-topics: ["coroutine", "co_await", "co_return", "co_yield", "lazy evaluation", "eager evaluation", "generator", "Expected error handling", "task composition", "when_all", "when_any", "cancellation"]
+topics: ["coroutine", "co_await", "co_return", "co_yield", "lazy evaluation", "eager evaluation", "generator", "Expected error handling", "task composition", "when_all", "when_any"]
 constraints: ["coroutine frame allocation", "compiler coroutine support", "suspend/resume overhead", "Expected integration"]
 cxx_standard: "C++20"
 std_equivalent: "std::generator (C++23, partial)"
@@ -23,7 +23,7 @@ status: "draft"
 
 ## Executive Summary
 
-CoroutineTask provides lightweight C++20 coroutine types integrated with Fat-P's Expected error handling. Three main types address different use cases: `CoroutineTask<T, E>` is a lazy coroutine that suspends on creation and executes when awaited, returning `Expected<T, E>` for explicit error propagation without exceptions. `EagerTask<T, E>` starts executing immediately on creation and can be awaited later to collect the result. `Generator<T>` is a lazy sequence producer that yields values one at a time, compatible with range-based for loops. Composition utilities (`when_all`, `when_any`) enable fan-out/fan-in patterns. All types are header-only, zero-allocation on the hot path (compiler HALO optimization), and require no runtime library beyond the C++20 standard library and `Expected.h`.
+CoroutineTask provides lightweight C++20 coroutine types integrated with Fat-P's Expected error handling. Three main types address different use cases: `CoroutineTask<T, E>` is a lazy coroutine that suspends on creation and executes when awaited, returning `Expected<T, E>` for explicit error propagation without exceptions. `EagerTask<T, E>` starts executing immediately on creation; call `result()` later to collect the outcome. `Generator<T>` is a lazy sequence producer that yields values one at a time, compatible with range-based for loops. Composition utilities (`when_all`, `when_any`) enable fan-out/fan-in patterns. All types are header-only, zero-allocation on the hot path (compiler HALO optimization), and require no runtime library beyond the C++20 standard library and `Expected.h`.
 
 ---
 
@@ -52,18 +52,18 @@ flowchart TB
     end
 
     subgraph Composition["Composition"]
-        WA["when_all — fan out, collect all"]
-        WN["when_any — fan out, take first"]
+        WA["when_all — run all, collect vector of results"]
+        WN["when_any — run until first success"]
     end
 
-    subgraph Aliases["Convenience Aliases"]
-        T1["Task<T> = CoroutineTask<T, std::string>"]
-        T2["VoidTask = CoroutineTask<monostate, std::string>"]
+    subgraph Aliases["Convenience Aliases (namespace fat_p::coroutine)"]
+        T1["coroutine::Task<T> = CoroutineTask<T, std::string>"]
+        T2["coroutine::VoidTask = CoroutineTask<monostate, std::string>"]
+        T3["coroutine::TaskResult<T> = Expected<T, std::string>"]
     end
 
     CT --> WA
     CT --> WN
-    ET --> WA
 ```
 
 The key design decision is **Expected integration**. C++20 coroutines normally propagate errors via exceptions (`unhandled_exception()` in the promise type). CoroutineTask captures exceptions internally and converts them to `Expected<T, E>`, giving the caller explicit control over error handling without try-catch blocks.
@@ -78,7 +78,7 @@ The key design decision is **Expected integration**. C++20 coroutines normally p
 fat_p::CoroutineTask<int> compute(int x)
 {
     if (x < 0)
-        co_return fat_p::Unexpected<std::string>("negative input");
+        co_return fat_p::unexpected<std::string>("negative input");
     co_return x * x;
 }
 
@@ -98,7 +98,7 @@ fat_p::EagerTask<int> fetch_data()
 
 auto task = fetch_data();     // Computation begins now
 // ... do other work ...
-auto result = task.await();   // Collect result (may already be done)
+auto result = task.result();  // Collect result (Expected<int, std::string>)
 ```
 
 ### Generator (Lazy Sequence)
@@ -125,9 +125,19 @@ for (int n : fibonacci())
 
 ### Composition
 
+`when_all` and `when_any` are ordinary functions (not awaitables) that operate on a `std::vector` of same-typed tasks:
+
 ```cpp
-auto [a, b, c] = co_await fat_p::when_all(task1, task2, task3);
-auto first = co_await fat_p::when_any(task1, task2, task3);
+std::vector<fat_p::CoroutineTask<int>> tasks;
+tasks.push_back(compute(1));
+tasks.push_back(compute(2));
+tasks.push_back(compute(3));
+
+auto all = fat_p::when_all(tasks);   // Expected<std::vector<int>, std::string>
+                                     // — first error short-circuits
+
+auto any = fat_p::when_any(tasks);   // Expected<int, std::string>
+                                     // — first success; last error if all fail
 ```
 
 ---

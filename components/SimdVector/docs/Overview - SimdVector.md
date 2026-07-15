@@ -160,7 +160,7 @@ auto quot = a / b;
 
 // Compound assignment
 a += b;
-a *= SimdVector<float>::broadcast(2.0f);
+a *= SimdVector<float>(2.0f);  // Broadcast constructor
 
 // Unary operations
 auto neg = -a;
@@ -249,12 +249,12 @@ if (result.has_nan()) {
 ### 7. Factory Functions
 
 ```cpp
-// Broadcast single value to all lanes
-auto v = SimdVector<float>::broadcast(3.14f);  // [3.14, 3.14, 3.14, ...]
+// Broadcast single value to all lanes (explicit constructor)
+auto v = SimdVector<float>(3.14f);             // [3.14, 3.14, 3.14, ...]
 
 // Special values
 auto zeros = SimdVector<float>::zero();        // [0, 0, 0, ...]
-auto ones = SimdVector<float>::one();          // [1, 1, 1, ...]
+auto ones = SimdVector<float>::ones();         // [1, 1, 1, ...]
 auto inf = SimdVector<float>::infinity();      // [+Inf, +Inf, ...]
 auto neg_inf = SimdVector<float>::neg_infinity();
 ```
@@ -280,7 +280,7 @@ auto neg_inf = SimdVector<float>::neg_infinity();
 **Compiler Reality Check:** `std::simd` is C++26 at the earliest. Even then:
 - It won't integrate with checked arithmetic
 - It won't detect NaN/Inf at the vector level
-- HPC clusters will remain on C++17 for CUDA/driver compatibility
+- HPC clusters typically lag years behind the newest standard for CUDA/driver compatibility, putting C++26 far away
 
 SimdVector provides portable SIMD **today**, with safety features the standard will never mandate.
 
@@ -327,7 +327,6 @@ SimdVector provides portable SIMD **today**, with safety features the standard w
 SimdVector.h
     ↓ uses
 enforce.h              (Bounds checking on partial load/store)
-FatPTypeTraits.h       (is_simd_vector trait)
     ↓ integrates with
 AlignedVector.h        (assume_aligned() provides aligned pointers)
 HpcVector.h            (NUMA-local aligned storage for SIMD)

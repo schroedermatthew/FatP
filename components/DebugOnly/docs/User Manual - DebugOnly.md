@@ -31,10 +31,10 @@ status: "reviewed"
 
 **Component:** DebugOnly
 **Primary use case:** Embed diagnostic data (counters, statistics, trace info) in data structures that compiles to zero bytes and zero instructions in release builds
-**Integration pattern:** Replace `#ifdef DEBUG` data members with `DebugOnly<T>` members; use `.exec()` for conditional debug actions; arithmetic operators work transparently in debug, compile away in release
-**Key API:** `DebugOnly<T>`, `.value()`, `.exec(callable)`, `.reset()`, `operator+=`, `operator++`, `operator<<`
+**Integration pattern:** Replace `#ifdef DEBUG` data members with `DebugOnly<T>` members; use `.if_debug()` for conditional debug actions; arithmetic operators work transparently in debug, compile away in release
+**Key API:** `DebugOnly<T>`, `.get()`, `.if_debug(callable)`, `.value_or(default)`, `.reset()`, `operator+=`, `operator++`, `operator<<`
 **std equivalent:** None
-**Common mistakes:** Using `std::optional` instead of DebugOnly (optional still occupies memory in release); accessing `.value()` in release code paths; forgetting that DebugOnly<T> is empty in release (sizeof == 1 without `[[no_unique_address]]`)
+**Common mistakes:** Using `std::optional` instead of DebugOnly (optional still occupies memory in release); accessing `.get()` in release code paths (it exists only in debug builds); forgetting that DebugOnly<T> is empty in release (sizeof == 1 without `[[no_unique_address]]`)
 **Performance notes:** In release builds (`NDEBUG` defined), all operations compile to no-ops. With C++20 `[[no_unique_address]]`, the member occupies zero bytes in the parent struct. See `components/DebugOnly/results/` for current data
 
 ---
@@ -409,7 +409,7 @@ template <typename T>
 struct DebugOnly
 {
     // Literally nothing here
-    // sizeof(DebugOnly<T>) == 1 (C++17) or 0 (C++20 with [[no_unique_address]])
+    // sizeof(DebugOnly<T>) == 1, or 0 as a member with [[no_unique_address]]
 };
 ```
 
@@ -493,7 +493,7 @@ struct Particle
 };
 ```
 
-**Result**: In release builds, all debug fields become empty structs (1 byte each in C++17, 0 bytes with C++20 `[[no_unique_address]]`), and all operations compile to nothing.
+**Result**: In release builds, all debug fields become empty structs (1 byte each as plain members, 0 bytes with `FATP_NO_UNIQUE_ADDRESS`), and all operations compile to nothing.
 
 ---
 
@@ -647,15 +647,16 @@ if (limit.value_or(0) == 0) { ... }  // Works in both modes
 
 | Requirement | Minimum Version |
 |-------------|-----------------|
-| C++ Standard | C++17 |
-| Compiler (GCC) | 7.0+ |
-| Compiler (Clang) | 5.0+ |
-| Compiler (MSVC) | 2017 (19.14+) |
+| C++ Standard | C++20 (concepts/`requires` used for comparison operators) |
+| Compiler (GCC) | 10+ |
+| Compiler (Clang) | 10+ |
+| Compiler (MSVC) | 2019 16.10+ (19.29+) |
 
 ### Dependencies
 
-- `CppStandardDetection.h` (internal)
-- Standard library: `<type_traits>`, `<utility>`, `<functional>`, `<ostream>`
+- `Concepts.h` (internal; provides the `streamable`, `hashable`, `equality_comparable`, and `totally_ordered` concepts)
+- `FatPConfig.h` (internal; provides `FATP_NO_UNIQUE_ADDRESS`)
+- Standard library: `<functional>`, `<ostream>`, `<type_traits>`, `<utility>`
 
 ### Integration
 
@@ -889,9 +890,9 @@ FATP_DEBUG_ONLY_LOG(std::cout, debug_label);
 
 ## C++20 Zero-Overhead
 
-### The C++17 Limitation
+### The Default Layout Limitation
 
-In C++17, empty classes must have at least 1 byte size when used as members:
+By default, empty classes still occupy at least 1 byte when used as members:
 
 ```cpp
 struct Widget
@@ -902,36 +903,35 @@ struct Widget
 };
 ```
 
-### The C++20 Solution
+### The [[no_unique_address]] Solution
 
-Use `[[no_unique_address]]` for true zero overhead:
+C++20's `[[no_unique_address]]` attribute allows an empty member to occupy zero bytes:
 
 ```cpp
 struct Widget
 {
     int data;                           // 4 bytes
-    
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
-    fat_p::DebugOnly<std::string> dbg;  // 0 bytes in C++20 release!
-    
-    // C++20 Total: 4 bytes
-    // C++17 Total: 8 bytes
+
+    FATP_NO_UNIQUE_ADDRESS
+    fat_p::DebugOnly<std::string> dbg;  // 0 bytes in release!
+
+    // Release total with the attribute: 4 bytes
+    // Release total without it: 8 bytes
 };
 ```
 
+Fat-P requires C++20, so the attribute is always available at the language level. The catch is portability: MSVC ignores the standard `[[no_unique_address]]` spelling for ABI-compatibility reasons and requires `[[msvc::no_unique_address]]` instead. That is why Fat-P provides a macro rather than having you write the attribute directly.
+
 ### The FATP_NO_UNIQUE_ADDRESS Macro
 
-To reduce boilerplate, DebugOnly.h provides a helper macro:
+The macro is defined in `FatPConfig.h` (which `DebugOnly.h` includes), with MSVC-aware selection logic:
 
 ```cpp
-// Provided by DebugOnly.h
-#if FATP_HAS_CPP20
-    #define FATP_NO_UNIQUE_ADDRESS [[no_unique_address]]
-#else
-    #define FATP_NO_UNIQUE_ADDRESS
-#endif
+// Provided by FatPConfig.h (simplified)
+// - On MSVC: prefers [[msvc::no_unique_address]] when available
+// - Elsewhere: uses [[no_unique_address]] when __has_cpp_attribute reports support
+// - Fallback: expands to nothing
+#define FATP_NO_UNIQUE_ADDRESS /* toolchain-appropriate attribute */
 ```
 
 **Usage**:
@@ -950,16 +950,13 @@ struct Particle
 };
 ```
 
-This is much cleaner than wrapping every declaration in `#if`:
+This is cleaner and more portable than writing the attribute by hand:
 
 ```cpp
-// Without the macro (verbose)
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
-    fat_p::DebugOnly<size_t> update_count;
+// Without the macro (not portable — MSVC silently ignores this spelling)
+[[no_unique_address]] fat_p::DebugOnly<size_t> update_count;
 
-// With the macro (clean)
+// With the macro (portable, including MSVC)
 FATP_NO_UNIQUE_ADDRESS fat_p::DebugOnly<size_t> update_count;
 ```
 
@@ -993,7 +990,7 @@ struct OptimizedStruct
 
 **Compiler (MSVC 2022, Release):**
 ```
-/std:c++17 /O2 /DNDEBUG /MD /EHsc /W3
+/std:c++20 /O2 /DNDEBUG /MD /EHsc /W3
 /D "NOMINMAX" /D "WIN32_LEAN_AND_MEAN"
 ```
 
@@ -1006,18 +1003,18 @@ In release mode, all `DebugOnly` operations compile to no-ops via `if constexpr`
 | Configuration | `DebugOnly<int>` | `DebugOnly<string>` | Struct with Debug |
 |---------------|------------------|---------------------|-------------------|
 | Debug (any) | 4 bytes | 32 bytes | Full size |
-| Release C++17 | 1 byte | 1 byte | +1 byte + padding |
-| Release C++20 | 1 byte | 1 byte | +0 bytes* |
+| Release (plain member) | 1 byte | 1 byte | +1 byte + padding |
+| Release (with attribute) | 1 byte | 1 byte | +0 bytes* |
 
-*With `[[no_unique_address]]`
+*With `FATP_NO_UNIQUE_ADDRESS` (`[[no_unique_address]]` / `[[msvc::no_unique_address]]`)
 
 ### Interpretation
 
 The release mode times (~0.15-0.3 ns) represent measurement noise, not actual overhead. The operations are optimized away completely by the compiler. For practical purposes:
 
 - **Release overhead: Zero**
-- **Memory overhead C++17: 1 byte + alignment padding**
-- **Memory overhead C++20: Zero (with `[[no_unique_address]]`)**
+- **Memory overhead without the attribute: 1 byte + alignment padding**
+- **Memory overhead with `FATP_NO_UNIQUE_ADDRESS`: Zero**
 
 ---
 
@@ -1093,7 +1090,7 @@ std::optional<std::string> in release:
 └─────────────────────────────────────┘
 Total: 40 bytes
 
-DebugOnly<std::string> in release (C++17):
+DebugOnly<std::string> in release (plain member):
 ┌─────────────────────────────────────┐
 │ empty struct (1 byte)               │
 └─────────────────────────────────────┘
@@ -1446,24 +1443,16 @@ struct Particle
     double charge;
     
     // Debug diagnostics - zero overhead in production
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
+    FATP_NO_UNIQUE_ADDRESS
     fat_p::DebugOnly<size_t> integration_steps;
     
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
+    FATP_NO_UNIQUE_ADDRESS
     fat_p::DebugOnly<double> max_velocity_seen;
     
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
+    FATP_NO_UNIQUE_ADDRESS
     fat_p::DebugOnly<size_t> collision_count;
     
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
+    FATP_NO_UNIQUE_ADDRESS
     fat_p::DebugOnly<std::string> creation_context;
 
     void integrate(double dt)
@@ -1766,10 +1755,8 @@ fat_p::DebugOnly<std::string> debug_name;
 // Use for performance counters
 fat_p::DebugOnly<size_t> operation_count;
 
-// Use [[no_unique_address]] in C++20 for true zero overhead
-#if FATP_HAS_CPP20
-[[no_unique_address]]
-#endif
+// Use FATP_NO_UNIQUE_ADDRESS for true zero overhead (portable across toolchains)
+FATP_NO_UNIQUE_ADDRESS
 fat_p::DebugOnly<Metadata> debug_info;
 
 // Use if_debug() for cross-mode safe access
@@ -1789,9 +1776,7 @@ struct Particle
     double velocity[3];
     
     // Cold debug data last (won't pollute cache in release)
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
+    FATP_NO_UNIQUE_ADDRESS
     fat_p::DebugOnly<DiagnosticInfo> diagnostics;
 };
 ```
@@ -1930,8 +1915,8 @@ debug_val = temp;
 | Metric | Value |
 |--------|-------|
 | Release overhead | Zero |
-| Memory (C++17) | 1 byte + padding |
-| Memory (C++20) | 0 bytes* |
+| Memory (plain member) | 1 byte + padding |
+| Memory (with attribute) | 0 bytes* |
 | Compile time | Negligible |
 
 *With `[[no_unique_address]]`
@@ -1945,9 +1930,7 @@ struct MyClass
 {
     int data;
     
-#if FATP_HAS_CPP20
-    [[no_unique_address]]
-#endif
+    FATP_NO_UNIQUE_ADDRESS
     fat_p::DebugOnly<size_t> debug_counter;
     
     void process()
@@ -1969,8 +1952,8 @@ struct MyClass
 
 | Component | Relationship |
 |-----------|-------------|
-| `TypeTraits.h` | Provides type traits (`is_hashable_v`, `is_streamable_v`, etc.) used internally |
-| `CppStandardDetection.h` | Provides `FATP_HAS_CPP20` for `[[no_unique_address]]` |
+| `Concepts.h` | Provides the concepts (`hashable`, `streamable`, `equality_comparable`, `totally_ordered`) used internally |
+| `FatPConfig.h` | Provides `FATP_NO_UNIQUE_ADDRESS` (MSVC-aware `[[no_unique_address]]` selection) |
 | `enforce.h` | Debug assertions that can use DebugOnly data |
 | `DiagnosticLogger.h` | Logging utilities for debug output |
 

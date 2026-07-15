@@ -22,7 +22,7 @@ status: "reviewed"
 
 
 
-**Scope:** Complete usage guide for `fat_p::StrongId<Tag, T>`: type-safe ID wrappers, phantom type tagging, comparison, hashing, serialization support, and integration with IdGenerator and SlotMap.
+**Scope:** Complete usage guide for `fat_p::StrongId<T, Tag>`: type-safe ID wrappers, phantom type tagging, comparison, hashing, serialization support, and integration with IdGenerator and SlotMap.
 
 **Not covered:**
 - ID generation policies (see IdGenerator User Manual)
@@ -37,8 +37,8 @@ status: "reviewed"
 
 **Component:** StrongId
 **Primary use case:** Prevent accidental mixing of IDs from different domains (e.g., UserID vs OrderID) through compile-time type checking
-**Integration pattern:** Define `using UserId = StrongId<struct UserTag, uint64_t>;`, use `UserId` in APIs instead of raw `uint64_t`; compiler rejects mixing UserIds with OrderIds
-**Key API:** `StrongId<Tag, T>`, `.value()`, comparison operators, `std::hash` specialization, `StrongId::invalid()`
+**Integration pattern:** Define `using UserId = StrongId<uint64_t, struct UserTag>;`, use `UserId` in APIs instead of raw `uint64_t`; compiler rejects mixing UserIds with OrderIds
+**Key API:** `StrongId<T, Tag, CheckPolicy, OpPolicy>`, `.value()`, comparison operators, `std::hash` specialization, `StrongId::invalid()`
 **std equivalent:** None
 **Common mistakes:** Using `.value()` to bypass type safety (defeats the purpose); forgetting to provide `std::hash` specialization for use in hash maps (it's automatic); defining two StrongId types with the same tag (they're the same type)
 **Performance notes:** Zero overhead: same size and layout as the underlying integer type. All operations inline to the underlying type's operations
@@ -469,7 +469,7 @@ std::map<UserId, std::string> ordered_names;
 
 ### AtomicStrongId
 
-`AtomicStrongId` is an alias for `std::atomic<StrongId<...>>`. It preserves type safety for atomic *load/store/exchange* and *compare_exchange* operations.
+`AtomicStrongId` is a standalone wrapper class holding a `std::atomic<StrongId<...>>` member. It preserves type safety for atomic *load/store/exchange* and *compare_exchange* operations, and—unlike raw `std::atomic<StrongId<...>>`—adds arithmetic RMW operations.
 
 ```cpp
 using CounterId = fat_p::StrongId<int, CounterTag>;
@@ -488,7 +488,21 @@ CounterId expected{200};
 bool success = counter.compare_exchange_strong(expected, CounterId{250});
 ```
 
-`std::atomic` does **not** provide `fetch_add()` / `fetch_sub()` for user-defined types (including `StrongId`). For ID generators, prefer an underlying `std::atomic<T>` counter and wrap the returned value:
+### fetch_add and fetch_sub
+
+`std::atomic` only provides `fetch_add()` / `fetch_sub()` for built-in arithmetic types, so `std::atomic<StrongId<...>>` would offer only load/store/exchange/compare_exchange. This is exactly why `AtomicStrongId` exists: it implements `fetch_add` and `fetch_sub` via compare-exchange loops, and the arithmetic goes through the StrongId `OpPolicy`, so overflow checks are respected.
+
+Both operations accept either the underlying type `T` or a `StrongId` value, and return the value *before* the modification:
+
+```cpp
+CounterId prev = counter.fetch_add(1);              // add raw T
+CounterId prev2 = counter.fetch_add(CounterId{5});  // add another StrongId
+
+CounterId prev3 = counter.fetch_sub(1);
+CounterId prev4 = counter.fetch_sub(CounterId{5});
+```
+
+This makes type-safe ID generators direct:
 
 ```cpp
 struct EntityTag {};
@@ -500,29 +514,15 @@ public:
 
     EntityId generate()
     {
-        return EntityId(static_cast<int64_t>(mNext.fetch_add(1)));
+        return mNext.fetch_add(1);  // Returns the previous EntityId
     }
 
 private:
-    std::atomic<int64_t> mNext{1};
+    fat_p::AtomicStrongId<int64_t, EntityTag> mNext{EntityId{1}};
 };
 ```
 
-If you must increment an `AtomicStrongId`, use a CAS loop:
-
-```cpp
-CounterId expected = counter.load();
-for (;;)
-{
-    CounterId desired = expected + 1;
-    if (counter.compare_exchange_weak(expected, desired))
-    {
-        // On success, expected holds the previous value.
-        break;
-    }
-}
-CounterId previous = expected;
-```
+Because the RMW operations are CAS loops, they are lock-free whenever `std::atomic<StrongId<...>>` is lock-free (check `AtomicStrongId::is_always_lock_free` or `.is_lock_free()`).
 
 ---
 
@@ -712,6 +712,15 @@ if (!result) {
 | `get()` | `T` | Underlying value |
 | `value()` | `T` | Alias for `get()` |
 
+### Sentinel and Validity
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `static invalid()` | `StrongId` | Sentinel ID (underlying `std::numeric_limits<T>::max()`) |
+| `isValid()` | `bool` | True if this ID is not equal to `invalid()` |
+| `static min()` | `StrongId` | ID holding the minimum underlying value |
+| `static max()` | `StrongId` | ID holding the maximum underlying value |
+
 ### Comparison
 
 `==`, `!=`, `<`, `<=`, `>`, `>=`, `<=>` (C++20)
@@ -726,7 +735,14 @@ if (!result) {
 
 ### AtomicStrongId
 
-`load()`, `store()`, `exchange()`, `compare_exchange_weak/strong()`
+`load()`, `store()`, `exchange()`, `compare_exchange_weak/strong()`, `is_lock_free()`
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `fetch_add(T arg)` | `StrongId` | Atomically add `arg`; returns previous value (CAS loop, OpPolicy-checked) |
+| `fetch_add(StrongId arg)` | `StrongId` | Atomically add another ID's value; returns previous value |
+| `fetch_sub(T arg)` | `StrongId` | Atomically subtract `arg`; returns previous value (CAS loop, OpPolicy-checked) |
+| `fetch_sub(StrongId arg)` | `StrongId` | Atomically subtract another ID's value; returns previous value |
 
 ---
 
@@ -743,7 +759,7 @@ StrongId provides **compile-time type safety for integer IDs** with:
 
 **Use StrongId when:** Multiple integer ID types cross API boundaries, parameter ordering bugs are a concern, domain invariants need enforcement.
 
-**Don't use StrongId when:** C++11/14 compatibility required, dimensional analysis needed (use type_safe), single ID type with no confusion risk.
+**Don't use StrongId when:** pre-C++20 compatibility required, dimensional analysis needed (use type_safe), single ID type with no confusion risk.
 
 ---
 

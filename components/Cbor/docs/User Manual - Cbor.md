@@ -551,7 +551,7 @@ All decode operations return `CborResult<T>` instead of throwing:
 fat_p::cbor_fatp::CborReader reader(buf);
 auto result = reader.readUint();
 
-if (result.hasValue())
+if (result.has_value())
 {
     uint64_t n = result.value();
 }
@@ -603,9 +603,9 @@ You can specialize `CborTraits<T>` for your own types by providing `encode()` an
 
 ```cpp
 // Strict limits for public API endpoints
-using StrictParser = fat_p::cbor_fatp_stream::FatPStreamParser<
-    fat_p::cbor_fatp_stream::StrictLimitsPolicy,
-    fat_p::cbor_fatp_stream::StrictValidationPolicy
+using StrictParser = fat_p::cbor_stream::FatPStreamParser<
+    fat_p::cbor_stream::StrictLimitsPolicy,
+    fat_p::cbor_stream::StrictValidationPolicy
 >;
 
 StrictParser parser;
@@ -758,7 +758,7 @@ Check for indefinite-length encoding. Python's `cbor2` supports it by default; F
 
 **Types:** `CborError` (struct), `CborResult<T>` (Expected alias), `CborBuffer` (HpcVector alias), `CborWriter<Buffer>` (template class), `CborReader` (class), `CborTraits<T>` (customization point)
 
-### `fat_p::cbor_fatp_stream` Namespace (FatPCborStream.h)
+### `fat_p::cbor_stream` Namespace (FatPCborStream.h)
 
 **Types:** `FatPStreamParser<LimitsPolicy, ValidationPolicy>` (template class), `DefaultLimitsPolicy`, `StrictLimitsPolicy`, `RelaxedLimitsPolicy`, `RuntimeLimitsPolicy`, `NoValidationPolicy`, `Utf8ValidationPolicy`, `StrictValidationPolicy`
 

@@ -392,7 +392,7 @@ Note: EASTL::fixed_pool is fixed-capacity (no auto-grow)—a fundamentally diffe
 ```
 ObjectPool.h
     → uses: ConcurrencyPolicies.h (SingleThreadedPolicy, MutexSynchronizationPolicy)
-    → uses: FatPTypeTraits.h (is_object_pool trait)
+    → uses: FatPConcepts.h (is_object_pool trait)
     → used by: Signal.h (pooled slot storage)
     → used by: ThreadPool.h (task object recycling)
 ```

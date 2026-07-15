@@ -2,7 +2,7 @@
 doc_id: CG-LOCKFREEQUEUE-001
 doc_type: "Companion Guide"
 title: "Lock-Free Queues"
-fatp_components: ["LockFreeQueue", "WorkQueue", "PolicyQueue", "LockFreeRingBuffer"]
+fatp_components: ["LockFreeQueue", "WorkQueue", "LockFreeRingBuffer"]
 topics: ["sequence number coordination", "ABA problem", "sharding strategy", "cache contention", "memory ordering", "lock-free progress", "MPMC algorithms"]
 constraints: ["cache line bouncing", "ABA problem", "memory ordering semantics", "bounded capacity", "trivially copyable types", "progress guarantees"]
 cxx_standard: "C++17"
@@ -1370,6 +1370,6 @@ Industry-standard concurrent queue implementation.
 
 ---
 
-*LockFreeQueue.h | WorkQueue.h | PolicyQueue.h | LockFreeRingBuffer.h — Fat-P Library v3.2*
+*LockFreeQueue.h | WorkQueue.h | LockFreeRingBuffer.h — Fat-P Library v3.2*
 
 *See Overview for component summary, User Manual for API reference*

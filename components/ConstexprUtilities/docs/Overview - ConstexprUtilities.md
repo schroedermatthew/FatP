@@ -54,7 +54,7 @@ C++20 adds `std::bit_ceil`, `std::popcount`, etc., but:
 
 ```cpp
 // FNV-1a hash - computes at compile time
-[[nodiscard]] FATP_CONSTEVAL uint32_t constexpr_hash(std::string_view s) noexcept {
+[[nodiscard]] consteval uint32_t constexpr_hash(std::string_view s) noexcept {
     constexpr uint32_t FNV_PRIME = 16777619U;
     constexpr uint32_t FNV_OFFSET_BASIS = 2166136261U;
     
@@ -66,8 +66,12 @@ C++20 adds `std::bit_ceil`, `std::popcount`, etc., but:
     return hash;
 }
 
-// Usage: compile-time string switch
-switch (constexpr_hash(command)) {
+// Usage: compile-time hashes in case labels.
+// Note: constexpr_hash is consteval, so it cannot hash the runtime
+// `command` in the switch expression — supply a runtime FNV-1a twin
+// with the same constants for that (the library provides only the
+// consteval version).
+switch (fnv1a_runtime(command)) {
     case constexpr_hash("create"): return handleCreate();
     case constexpr_hash("update"): return handleUpdate();
     case constexpr_hash("delete"): return handleDelete();
@@ -75,17 +79,9 @@ switch (constexpr_hash(command)) {
 // All case values computed at compile time → efficient jump table
 ```
 
-**Why `consteval` (C++20) over `constexpr` (C++17):**
+**Why `consteval` over `constexpr`:**
 
-`consteval` guarantees compile-time evaluation. `constexpr` may evaluate at runtime if context isn't constant. The `FATP_CONSTEVAL` macro selects appropriately:
-
-```cpp
-#if __cplusplus >= 202002L
-    #define FATP_CONSTEVAL consteval
-#else
-    #define FATP_CONSTEVAL constexpr
-#endif
-```
+`consteval` guarantees compile-time evaluation. `constexpr` may evaluate at runtime if context isn't constant. The hash functions use raw `consteval` (there is no selection macro), which is why the component requires C++20: a compile-time hash that silently degraded to runtime evaluation would defeat the point.
 
 ### Builtin Acceleration
 
@@ -205,8 +201,8 @@ constexpr auto len = constexpr_strlen("hello");  // 5
 // Compile-time string comparison
 constexpr bool eq = constexpr_strcmp("abc", "abc") == 0;
 
-// Compile-time substring
-constexpr auto sub = constexpr_substr("hello world", 0, 5);  // "hello"
+// Compile-time string equality
+constexpr bool same = constexpr_streq("hello", "hello");  // true
 ```
 
 ---
@@ -216,12 +212,12 @@ constexpr auto sub = constexpr_substr("hello world", 0, 5);  // "hello"
 | If You Need... | Why Not std::hash | Why Not std::bit_* (C++20) | Why Not Manual Loop | Fat-P Advantage |
 |----------------|-------------------|---------------------------|--------------------|-----------------| 
 | Compile-time hash | ❌ Not constexpr | N/A | ✅ Works but verbose | ✅ Clean API |
-| C++17 support | ✅ Works | ❌ C++20 only | ✅ Works | ✅ Works |
+| Guaranteed compile-time eval | ❌ No | Partial | ❌ No | ✅ consteval (C++20) |
 | Builtin acceleration | ❌ Implementation-defined | ✅ Yes | ❌ No | ✅ Yes |
 | String switch | ❌ No | ❌ No | ❌ No | ✅ Hash-based |
 | Overflow detection | ❌ No | ❌ No | Manual | ✅ Built-in |
 
-**The Sweet Spot:** ConstexprUtilities is the only option combining compile-time hashing, builtin-accelerated bit ops, string switches, and C++17 support.
+**The Sweet Spot:** ConstexprUtilities is the only option combining guaranteed compile-time hashing, builtin-accelerated bit ops, and string switches in a single C++20 header.
 
 ---
 
@@ -230,7 +226,7 @@ constexpr auto sub = constexpr_substr("hello world", 0, 5);  // "hello"
 **Standard Reality:** C++20 added `std::bit_ceil`, `std::popcount`, etc., but:
 - `std::hash` is **still not constexpr** (C++26 doesn't change this)
 - String switches via hashing are **not standardized**
-- Many codebases are locked to C++17
+- There is no standard consteval string hash
 
 ConstexprUtilities provides compile-time computation capabilities that the standard doesn't offer and won't offer for years.
 
@@ -285,10 +281,10 @@ ConstexprUtilities delivers on the fat_p promise through three pillars:
 Builtin detection (`__builtin_popcount`, etc.) ensures optimal code generation. FNV-1a hash is tuned for compile-time evaluation with good avalanche properties.
 
 ### 3. Control
-C++17/20 compatibility macros (`FATP_CONSTEVAL`) ensure optimal behavior per standard. Overflow detection in `next_power_of_two` prevents silent wraparound.
+Raw `consteval` on the hash functions guarantees compile-time evaluation — there is no runtime fallback to reason about. Overflow detection in `next_power_of_two` prevents silent wraparound.
 
 **Architectural Verdict:** ConstexprUtilities transforms runtime computations into **compile-time constants**, enabling string switches, zero-cost dispatch tables, and optimal bit manipulation through a clean, portable API.
 
 ---
 
-*ConstexprUtilities.h (1061 lines) — Fat-P Library*
+*ConstexprUtilities.h (umbrella header for ConstexprHash.h, ConstexprBitOps.h, ConstexprStringConversion.h) — Fat-P Library*

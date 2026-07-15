@@ -16,7 +16,7 @@ status: "reviewed"
 
 # User Manual - ContractException
 
-**Scope:** Complete usage guide for `fat_p::ContractViolationError` and the contract exception hierarchy: the dual inheritance model, pre-defined exception types (Precondition, Postcondition, Invariant, Range, Null, Alloc), integration with the Enforce macro system, custom raiser classes, and catch hierarchy patterns.
+**Scope:** Complete usage guide for `fat_p::ContractViolationError` and the contract exception hierarchy: the dual inheritance model, pre-defined exception type aliases (Logic, Runtime, Domain, OutOfRange, InvalidArgument, Overflow, Underflow, Alloc), integration with the Enforce macro system, custom raiser classes, and catch hierarchy patterns.
 
 **Not covered:**
 - Enforce macro system in detail (see Enforce User Manual)
@@ -32,11 +32,11 @@ status: "reviewed"
 
 **Component:** ContractException
 **Primary use case:** Throw semantically rich contract violation exceptions that can be caught by both standard type and contract category
-**Integration pattern:** Use via Enforce macros (`FATP_ENFORCE_PRE`, `FATP_ENFORCE_POST`) which select the appropriate ContractException automatically; catch by `ContractViolationBase&` or by `std::logic_error&`/`std::runtime_error&`
-**Key API:** `ContractViolationError<Base, Category>`, `PreconditionViolation`, `PostconditionViolation`, `InvariantViolation`, `RangeViolation`, `NullViolation`, `AllocContractError`
+**Integration pattern:** Use via Enforce macros (`FATP_ENFORCE`, `FATP_ALWAYS_ENFORCE`) which select the appropriate ContractException automatically; catch by `ContractViolationBase&` or by `std::logic_error&`/`std::runtime_error&`
+**Key API:** `ContractViolationError<T>`, `LogicContractError`, `RuntimeContractError`, `DomainContractError`, `OutOfRangeContractError`, `InvalidArgumentContractError`, `OverflowContractError`, `UnderflowContractError`, `AllocContractError`
 **std equivalent:** None
 **Common mistakes:** Catching by value instead of reference; ordering catch blocks incorrectly (specific before general); throwing ContractException directly instead of using Enforce macros
-**Performance notes:** Zero overhead on the non-throwing path. Exception construction captures source location and formats a diagnostic message. See `components/ContractException/results/` for current data
+**Performance notes:** Zero overhead on the non-throwing path. Exception construction formats a prefixed diagnostic message (the Enforce macros add source-location details before throwing). See `components/ContractException/results/` for current data
 
 ---
 ## Table of Contents
@@ -351,12 +351,12 @@ const char* category() const noexcept override
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| C++ Standard | C++17 | C++20 |
-| Compiler (GCC) | 7.0 | 11+ |
-| Compiler (Clang) | 5.0 | 14+ |
-| Compiler (MSVC) | 19.14 (VS 2017 15.7) | 19.29+ (VS 2019 16.10+) |
+| C++ Standard | C++20 | C++20 |
+| Compiler (GCC) | 10+ | 11+ |
+| Compiler (Clang) | 10+ | 14+ |
+| Compiler (MSVC) | 19.29 (VS 2019 16.10) | 19.29+ (VS 2019 16.10+) |
 
-**Required C++17 features:**
+**Key language features used:**
 
 - `std::is_base_of_v` (type traits variable templates)
 - `std::is_constructible_v` (type traits variable templates)
@@ -370,14 +370,14 @@ ContractException is header-only. Simply include the header:
 #include "ContractException.h"
 ```
 
-No compilation flags required beyond C++17 mode:
+No compilation flags required beyond C++20 mode:
 
 ```bash
 # GCC/Clang
-g++ -std=c++17 your_file.cpp
+g++ -std=c++20 your_file.cpp
 
 # MSVC
-cl /std:c++17 your_file.cpp
+cl /std:c++20 your_file.cpp
 ```
 
 
@@ -655,11 +655,11 @@ ContractException is designed to work with the fat_p Enforce system. The enforce
 
 | Macro | Exception Type | Behavior |
 |-------|---------------|----------|
-| `enforce(condition, ...)` | `LogicContractError` | Debug-only (removed in release) |
-| `always_enforce(condition, ...)` | `LogicContractError` | Always active |
-| `abort_enforce(condition, ...)` | None | Calls `std::abort()` |
-| `enforce_warn(condition, ...)` | None | Logs warning, continues |
-| `noexcept_enforce(condition, ...)` | None | Calls violation handler |
+| `FATP_ENFORCE(condition, ...)` | `LogicContractError` | Debug-only (removed in release) |
+| `FATP_ALWAYS_ENFORCE(condition, ...)` | `LogicContractError` | Always active |
+| `FATP_ABORT_ENFORCE(condition, ...)` | None | Calls `std::abort()` |
+| `FATP_ENFORCE_WARN(condition, ...)` | None | Logs warning, continues |
+| `FATP_NOEXCEPT_ENFORCE(condition, ...)` | None | Calls violation handler |
 
 ```cpp
 #include "enforce.h"
@@ -667,13 +667,13 @@ ContractException is designed to work with the fat_p Enforce system. The enforce
 void process(int* data, size_t size)
 {
     // Debug-only check (compiled out in release)
-    enforce(data != nullptr, "data must not be null");
+    FATP_ENFORCE(data != nullptr, "data must not be null");
     
     // Always-active precondition
-    always_enforce(size > 0, "size must be positive");
+    FATP_ALWAYS_ENFORCE(size > 0, "size must be positive");
     
     // Unrecoverable corruption
-    abort_enforce(internal_state_valid(), "Internal state corrupted");
+    FATP_ABORT_ENFORCE(internal_state_valid(), "Internal state corrupted");
 }
 ```
 
@@ -696,8 +696,8 @@ The Enforce system uses "raiser" classes to determine exception behavior:
 Create custom raisers for application-specific exceptions:
 
 ```cpp
-// Using the DEFINE_CUSTOM_RAISER macro
-DEFINE_CUSTOM_RAISER(MyAppRaiser, fat_p::LogicContractError, "MyApp: ")
+// Using the FATP_DEFINE_CUSTOM_RAISER macro
+FATP_DEFINE_CUSTOM_RAISER(MyAppRaiser, fat_p::LogicContractError, "MyApp: ")
 
 // Or manually:
 struct DatabaseRaiser
@@ -829,12 +829,12 @@ public:
 
 **Compiler flags (GCC):**
 ```
--std=c++17 -O2 -DNDEBUG
+-std=c++20 -O2 -DNDEBUG
 ```
 
 **Compiler flags (MSVC):**
 ```
-/std:c++17 /O2 /DNDEBUG /MD /EHsc /W3
+/std:c++20 /O2 /DNDEBUG /MD /EHsc /W3
 ```
 
 **Methodology:**
@@ -933,7 +933,7 @@ catch (const fat_p::ContractViolationBase& e)
 | Category metadata | No | Custom | Built-in |
 | Stack traces | No | Yes | No |
 | Arbitrary attributes | No | Yes | No |
-| C++17 compatible | Yes | Yes | Yes |
+| C++20 compatible | Yes | Yes | Yes |
 
 ---
 

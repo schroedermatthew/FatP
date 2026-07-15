@@ -33,7 +33,7 @@ status: "draft"
 **Component:** CoroutineTask
 **Primary use case:** Structure async or lazy computation as sequential code with Expected-based error handling
 **Integration pattern:** Write coroutine functions with `co_return`/`co_await` -> call `.await()` from non-coroutine code
-**Key API:** `CoroutineTask<T,E>`, `EagerTask<T,E>`, `Generator<T>`, `when_all()`, `when_any()`, `Task<T>`, `VoidTask`
+**Key API:** `CoroutineTask<T,E>`, `EagerTask<T,E>`, `Generator<T>`, `when_all()`, `when_any()`, `coroutine::Task<T>`, `coroutine::VoidTask`, `coroutine::TaskResult<T>`
 **std equivalent:** `std::generator` (C++23) for Generator; nothing for Task types
 **Common mistakes:** Awaiting a CoroutineTask twice (UB); forgetting CoroutineTask is lazy; using Generator after coroutine finishes
 **Performance notes:** Frame allocation is a single heap allocation (HALO may elide it entirely); resume/suspend manipulates coroutine handles; Generator yield is a suspend plus value store — the lightest coroutine operation. See `components/CoroutineTask/results/` for current platform-specific benchmark data.
@@ -53,7 +53,7 @@ status: "draft"
 9. Convenience Aliases
 10. Use Case: Async Data Pipeline
 11. Use Case: Retry with Exponential Backoff
-12. Use Case: Parallel Fan-Out / Fan-In
+12. Use Case: Fan-Out / Fan-In
 13. Use Case: Infinite Sequence Generation
 14. Best Practices
 15. Advanced Usage
@@ -136,12 +136,12 @@ auto result = task.await();  // Body runs now, returns Expected<int, std::string
 fat_p::CoroutineTask<double> safe_divide(double a, double b)
 {
     if (b == 0.0)
-        co_return fat_p::Unexpected<std::string>("division by zero");
+        co_return fat_p::unexpected<std::string>("division by zero");
     co_return a / b;
 }
 
 auto result = safe_divide(10.0, 0.0).await();
-// result.hasValue() == false
+// result.has_value() == false
 // result.error() == "division by zero"
 ```
 
@@ -153,7 +153,7 @@ Inside a coroutine, `co_await` another CoroutineTask to chain computations:
 fat_p::CoroutineTask<double> compute()
 {
     auto a = co_await safe_divide(10.0, 3.0);
-    if (!a) co_return fat_p::Unexpected(a.error());
+    if (!a) co_return fat_p::unexpected(a.error());
 
     auto b = co_await safe_divide(*a, 2.0);
     co_return b;
@@ -176,7 +176,7 @@ fat_p::EagerTask<int> fetch()
 
 auto task = fetch();       // Computation begins immediately
 do_other_work();           // Concurrent with computation (if on separate thread)
-auto result = task.await();  // Collect result (may already be done)
+auto result = task.result();  // Collect result (the body has already run)
 ```
 
 Use EagerTask when you want computation to begin as soon as the task is created. This is analogous to `std::async(std::launch::async)` but with Expected error handling.
@@ -244,28 +244,33 @@ The alternative---letting exceptions propagate through coroutine suspension poin
 
 ## Composition: when_all and when_any
 
+Both utilities are ordinary functions, not awaitables---call them directly rather than `co_await`ing them. Each takes a `std::vector<CoroutineTask<T, E>>&` (all tasks must share the same value and error types) and awaits the tasks sequentially.
+
 ### when_all
 
-Awaits multiple tasks and returns all results:
+Awaits every task and collects the results into a vector. Returns `Expected<std::vector<T>, E>`; the first task that fails short-circuits and its error is returned:
 
 ```cpp
-fat_p::CoroutineTask<void> parallel_work()
-{
-    auto [a, b, c] = co_await fat_p::when_all(task1(), task2(), task3());
-    // a, b, c are Expected values
-    if (a && b && c)
-        process(*a, *b, *c);
-}
+std::vector<fat_p::CoroutineTask<Data>> tasks;
+tasks.push_back(fetch_a());
+tasks.push_back(fetch_b());
+tasks.push_back(fetch_c());
+
+auto results = fat_p::when_all(tasks);  // Expected<std::vector<Data>, std::string>
+if (results)
+    process((*results)[0], (*results)[1], (*results)[2]);
 ```
 
 ### when_any
 
-Returns the first task to complete:
+Awaits tasks in order until one succeeds. Returns `Expected<T, E>` holding the first successful result, or the last error if every task fails:
 
 ```cpp
-auto first = co_await fat_p::when_any(
-    fetch_from_primary(),
-    fetch_from_backup());
+std::vector<fat_p::CoroutineTask<Payload>> sources;
+sources.push_back(fetch_from_primary());
+sources.push_back(fetch_from_backup());
+
+auto first = fat_p::when_any(sources);  // Expected<Payload, std::string>
 ```
 
 ---
@@ -289,14 +294,24 @@ Useful when composing sync and async operations in the same coroutine.
 
 ## Convenience Aliases
 
+The aliases live in the nested namespace `fat_p::coroutine` (not directly in `fat_p`) to avoid colliding with other Task types such as ThreadPool's:
+
 ```cpp
+namespace fat_p::coroutine
+{
+
 template <typename T>
 using Task = CoroutineTask<T, std::string>;
 
+template <typename T>
+using TaskResult = Expected<T, std::string>;
+
 using VoidTask = CoroutineTask<std::monostate, std::string>;
+
+} // namespace fat_p::coroutine
 ```
 
-`Task<int>` = `CoroutineTask<int, std::string>`. `VoidTask` = side-effect coroutine with no meaningful return value.
+`coroutine::Task<int>` = `CoroutineTask<int, std::string>`. `coroutine::TaskResult<int>` = `Expected<int, std::string>`, the type `Task<int>::await()` returns---useful for declaring variables that hold awaited results. `coroutine::VoidTask` = side-effect coroutine with no meaningful return value.
 
 ---
 
@@ -305,19 +320,19 @@ using VoidTask = CoroutineTask<std::monostate, std::string>;
 A three-stage pipeline: fetch, transform, store. Each stage may fail.
 
 ```cpp
-fat_p::Task<ProcessedData> pipeline(const std::string& source)
+fat_p::coroutine::Task<ProcessedData> pipeline(const std::string& source)
 {
     auto raw = co_await fetch_data(source);
     if (!raw)
-        co_return fat_p::Unexpected("fetch failed: " + raw.error());
+        co_return fat_p::unexpected("fetch failed: " + raw.error());
 
     auto transformed = co_await transform(*raw);
     if (!transformed)
-        co_return fat_p::Unexpected("transform failed: " + transformed.error());
+        co_return fat_p::unexpected("transform failed: " + transformed.error());
 
     auto stored = co_await store(*transformed);
     if (!stored)
-        co_return fat_p::Unexpected("store failed: " + stored.error());
+        co_return fat_p::unexpected("store failed: " + stored.error());
 
     co_return *transformed;
 }
@@ -329,7 +344,7 @@ Each stage is a separate coroutine. Errors propagate explicitly. No callbacks, n
 
 ```cpp
 template <typename F>
-fat_p::Task<typename std::invoke_result_t<F>::value_type>
+fat_p::coroutine::Task<typename std::invoke_result_t<F>::value_type>
 retry(F&& operation, int max_attempts, std::chrono::milliseconds initial_delay)
 {
     auto delay = initial_delay;
@@ -345,26 +360,27 @@ retry(F&& operation, int max_attempts, std::chrono::milliseconds initial_delay)
             delay *= 2;
         }
     }
-    co_return fat_p::Unexpected<std::string>("all retries exhausted");
+    co_return fat_p::unexpected<std::string>("all retries exhausted");
 }
 ```
 
-## Use Case: Parallel Fan-Out / Fan-In
+## Use Case: Fan-Out / Fan-In
 
-Fetch data from multiple sources in parallel, combine results:
+Fetch data from multiple same-typed sources, combine results. `when_all` requires all tasks to share one value type, so fan out over homogeneous work (e.g., shards) and note that the current implementation awaits them sequentially:
 
 ```cpp
-fat_p::Task<CombinedResult> fan_out_fan_in()
+fat_p::coroutine::Task<CombinedResult> fan_out_fan_in()
 {
-    auto [users, products, orders] = co_await fat_p::when_all(
-        fetch_users(),
-        fetch_products(),
-        fetch_orders());
+    std::vector<fat_p::coroutine::Task<Records>> shards;
+    shards.push_back(fetch_shard(0));
+    shards.push_back(fetch_shard(1));
+    shards.push_back(fetch_shard(2));
 
-    if (!users || !products || !orders)
-        co_return fat_p::Unexpected<std::string>("partial failure");
+    auto results = fat_p::when_all(shards);  // Expected<std::vector<Records>, std::string>
+    if (!results)
+        co_return fat_p::unexpected<std::string>("partial failure: " + results.error());
 
-    co_return combine(*users, *products, *orders);
+    co_return combine(*results);
 }
 ```
 
@@ -454,7 +470,7 @@ enum class AppError { NotFound, Timeout, PermissionDenied };
 fat_p::CoroutineTask<User, AppError> find_user(int id)
 {
     if (id <= 0)
-        co_return fat_p::Unexpected(AppError::NotFound);
+        co_return fat_p::unexpected(AppError::NotFound);
     co_return lookup(id);
 }
 ```
@@ -549,13 +565,14 @@ A CoroutineTask that is never awaited and never destroyed leaks its coroutine fr
 | Type / Function | Description |
 |----------------|-------------|
 | `CoroutineTask<T, E>` | Lazy coroutine returning `Expected<T, E>` |
-| `EagerTask<T, E>` | Eager coroutine returning `Expected<T, E>` |
+| `EagerTask<T, E>` | Eager coroutine; collect the `Expected<T, E>` via `result()` |
 | `Generator<T>` | Lazy sequence via `co_yield` |
-| `when_all(tasks...)` | Await all, return tuple of Expected |
-| `when_any(tasks...)` | Await first to complete |
+| `when_all(std::vector<CoroutineTask<T,E>>&)` | Await all sequentially; returns `Expected<std::vector<T>, E>` (first error short-circuits) |
+| `when_any(std::vector<CoroutineTask<T,E>>&)` | Await sequentially until first success; returns `Expected<T, E>` (last error if all fail) |
 | `SyncAwaitable<T>` | Wrap sync value for `co_await` |
-| `Task<T>` | Alias for `CoroutineTask<T, std::string>` |
-| `VoidTask` | Alias for `CoroutineTask<std::monostate, std::string>` |
+| `coroutine::Task<T>` | Alias for `CoroutineTask<T, std::string>` |
+| `coroutine::TaskResult<T>` | Alias for `Expected<T, std::string>` |
+| `coroutine::VoidTask` | Alias for `CoroutineTask<std::monostate, std::string>` |
 
 ---
 

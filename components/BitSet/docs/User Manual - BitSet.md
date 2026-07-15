@@ -307,9 +307,9 @@ Use checked operations for user input (indices from files, network, command line
 ### The Unchecked Path
 
 ```cpp
-bits.set_unchecked(index);     // UB if index >= N
-bits.clear_unchecked(index);   // UB if index >= N
-bits.flip_unchecked(index);    // UB if index >= N
+bits.setUnchecked(index);     // UB if index >= N
+bits.clearUnchecked(index);   // UB if index >= N
+bits.flipUnchecked(index);    // UB if index >= N
 bool b = bits.test_unchecked(index);  // UB if index >= N
 bool b = bits[index];          // Same as test_unchecked
 ```
@@ -321,7 +321,7 @@ The unchecked variants eliminate the comparison-and-branch that bounds checking 
 ```cpp
 // The iterator yields only valid indices
 for (size_t i : source) {
-    dest.set_unchecked(i);  // Safe: i came from source
+    dest.setUnchecked(i);  // Safe: i came from source
 }
 ```
 
@@ -380,7 +380,7 @@ Range operations are BitSet's killer feature. They manipulate contiguous sequenc
 
 ### How Range Operations Work
 
-Consider `set_range(100, 200)`—setting bits 100-199 in a `BitSet<256>`. The bitset uses four 64-bit words:
+Consider `setRange(100, 200)`—setting bits 100-199 in a `BitSet<256>`. The bitset uses four 64-bit words:
 
 ```mermaid
 flowchart TB
@@ -399,9 +399,9 @@ Three OR operations instead of 100 individual set calls. That's where the 200× 
 ### The API
 
 ```cpp
-bits.set_range(start, end);    // Set bits [start, end)
-bits.clear_range(start, end);  // Clear bits [start, end)
-bits.flip_range(start, end);   // Toggle bits [start, end)
+bits.setRange(start, end);    // Set bits [start, end)
+bits.clearRange(start, end);  // Clear bits [start, end)
+bits.flipRange(start, end);   // Toggle bits [start, end)
 size_t n = bits.count_range(start, end);  // Count in range
 ```
 
@@ -415,7 +415,7 @@ Setting 100 contiguous bits:
 |--------|------|
 | `std::bitset` loop | 88.59 ns |
 | `LLVM::BitVector` | 38.20 ns |
-| `fat_p::BitSet::set_range` | **0.19 ns** |
+| `fat_p::BitSet::setRange` | **0.19 ns** |
 
 The gap is enormous because range operations work at word granularity while loops work bit-by-bit.
 
@@ -529,20 +529,20 @@ At 1% density (100 set bits in 10,000):
 
 BitSet provides operations for reasoning about relationships between sets.
 
-### is_subset_of()
+### isSubsetOf()
 
 ```cpp
 fat_p::BitSet<64> user_perms{READ, WRITE};
 fat_p::BitSet<64> required{READ};
 
-if (required.is_subset_of(user_perms)) {
+if (required.isSubsetOf(user_perms)) {
     // User has all required permissions
 }
 ```
 
 Returns true if every bit set in `*this` is also set in `other`.
 
-### intersects() / is_disjoint()
+### intersects() / isDisjoint()
 
 ```cpp
 fat_p::BitSet<64> layer_a{0, 1, 2};
@@ -552,7 +552,7 @@ if (layer_a.intersects(layer_b)) {
     // Collision possible
 }
 
-if (layer_a.is_disjoint(layer_b)) {
+if (layer_a.isDisjoint(layer_b)) {
     // No overlap
 }
 ```
@@ -647,9 +647,9 @@ words[NUM_WORDS - 1] &= LAST_WORD_MASK;
 
 **Graph algorithms.** Track visited nodes. `find_first_zero()` finds the next unvisited node. Sparse iteration processes only visited nodes.
 
-**Memory allocators.** Track used slots. `find_first_zero()` finds free slots. `set_range()` marks bulk allocations.
+**Memory allocators.** Track used slots. `find_first_zero()` finds free slots. `setRange()` marks bulk allocations.
 
-**Permission systems.** Represent permissions as bits. `is_subset_of()` checks authorization. Bitwise AND computes effective permissions.
+**Permission systems.** Represent permissions as bits. `isSubsetOf()` checks authorization. Bitwise AND computes effective permissions.
 
 **Collision layers.** Each layer is a bit. Bitwise AND tests collision eligibility.
 
@@ -714,7 +714,7 @@ size_t first = flags.find_first();
 for (size_t i = 100; i < 200; ++i) flags.set(i);
 
 // After: word-aligned
-flags.set_range(100, 200);
+flags.setRange(100, 200);
 ```
 
 ---
@@ -845,11 +845,11 @@ If bits were set out of range (beyond `size()`), the extra bits in the last word
 |--------|-------------|
 | `set(size_t)` | Set bit (checked) |
 | `set(size_t, bool)` | Set to value (checked) |
-| `set_unchecked(size_t)` | Set bit (unchecked) |
+| `setUnchecked(size_t)` | Set bit (unchecked) |
 | `clear(size_t)` | Clear bit (checked) |
-| `clear_unchecked(size_t)` | Clear bit (unchecked) |
+| `clearUnchecked(size_t)` | Clear bit (unchecked) |
 | `flip(size_t)` | Toggle bit (checked) |
-| `flip_unchecked(size_t)` | Toggle bit (unchecked) |
+| `flipUnchecked(size_t)` | Toggle bit (unchecked) |
 | `test(size_t)` | Test bit (checked) |
 | `test_unchecked(size_t)` | Test bit (unchecked) |
 | `operator[](size_t)` | Test bit (unchecked) |
@@ -868,9 +868,9 @@ If bits were set out of range (beyond `size()`), the extra bits in the last word
 
 | Method | Description |
 |--------|-------------|
-| `set_range(start, end)` | Set bits [start, end) |
-| `clear_range(start, end)` | Clear bits [start, end) |
-| `flip_range(start, end)` | Toggle bits [start, end) |
+| `setRange(start, end)` | Set bits [start, end) |
+| `clearRange(start, end)` | Clear bits [start, end) |
+| `flipRange(start, end)` | Toggle bits [start, end) |
 | `count_range(start, end)` | Count bits in range |
 
 ### Find Operations
@@ -899,10 +899,10 @@ If bits were set out of range (beyond `size()`), the extra bits in the last word
 
 | Method | Description |
 |--------|-------------|
-| `is_subset_of(other)` | True if this ⊆ other |
-| `is_proper_subset_of(other)` | True if this ⊂ other |
+| `isSubsetOf(other)` | True if this ⊆ other |
+| `isProperSubsetOf(other)` | True if this ⊂ other |
 | `intersects(other)` | True if this ∩ other ≠ ∅ |
-| `is_disjoint(other)` | True if this ∩ other = ∅ |
+| `isDisjoint(other)` | True if this ∩ other = ∅ |
 | `hamming_distance(other)` | Count of differing bits |
 
 ### Bitwise Operations

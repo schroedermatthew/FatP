@@ -235,7 +235,7 @@ if (!result) {
 }
 ```
 
-**Mechanism:** `checked_add` from CheckedArithmetic detects overflow before it occurs. Errors propagate via `Expected<IdType, IdError>` without exceptions.
+**Mechanism:** The allocation policy checks against `std::numeric_limits<IdType>::max()` before incrementing, detecting overflow before it occurs. Errors propagate via `Expected<IdType, IdError>` without exceptions.
 
 ---
 
@@ -293,7 +293,7 @@ See `components/IdGenerator/results/` for current platform-specific benchmark da
 | `generate()` | O(1) amortized | Hash insert + counter or queue pop |
 | `release()` | O(1) amortized | Hash erase + queue push |
 | `is_active()` | O(1) average | Hash lookup |
-| `max_active_id()` | O(1) cached | Lazy max computation |
+| Internal max-ID tracking | O(1) cached | Lazy max recomputation in `ActiveIdTracker` |
 | `generate_batch(n)` | O(n) | N × O(1) operations |
 
 ### Where Fat-P Wins

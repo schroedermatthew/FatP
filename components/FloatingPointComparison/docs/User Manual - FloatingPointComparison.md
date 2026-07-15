@@ -32,8 +32,8 @@ status: "reviewed"
 
 **Component:** FloatingPointComparison
 **Primary use case:** Compare floating-point values correctly across different magnitude ranges using the appropriate tolerance strategy
-**Integration pattern:** Choose a strategy (absolute for known-range values, relative for unknown-range, ULP for precision-critical, combined for general use), call the comparison function
-**Key API:** `absoluteEqual()`, `relativeEqual()`, `ulpEqual()`, `combinedEqual()`, `isNearZero()`, `ulpDistance()`
+**Integration pattern:** Call `approximateEqual()` for general use, or pick a policy (Standard for known-range values, Relative for unknown-range, Ulp for precision-critical, Hybrid for general use) via `floatEqual<T, Policy>()`
+**Key API:** `approximateEqual()`, `floatEqual<T, Policy>()`, `getDefaultEpsilon<T>()`, policies `StandardComparisonPolicy`, `RelativeComparisonPolicy`, `UlpComparisonPolicy`, `HybridComparisonPolicy`
 **std equivalent:** None
 **Common mistakes:** Using absolute tolerance for values of very different magnitudes; using relative tolerance near zero (division by near-zero); ignoring NaN (NaN != NaN); assuming tolerance is transitive (a≈b and b≈c does not mean a≈c)
 **Performance notes:** All comparisons are branchless arithmetic. ULP comparison uses bit reinterpretation. See `components/FloatingPointComparison/results/` for current data
@@ -339,13 +339,13 @@ The default `approximateEqual()` function uses Hybrid with sensible defaults: re
 
 ### Prerequisites
 
-FloatingPointComparison requires C++17. It works with GCC 7+, Clang 5+, and MSVC 2019+. If you have C++20, it uses `std::bit_cast` for cleaner ULP implementation; otherwise, it falls back to `memcpy`.
+FloatingPointComparison requires C++20 (the public comparison functions are constrained with `requires` clauses) and uses `std::bit_cast` for the ULP implementation when available. The default epsilon values (formerly a separate `ComparisonTolerances.h`) are defined inline in the header itself.
 
 The library depends on three other Fat-P headers:
 
-- `ComparisonTolerances.h` — default epsilon values
+- `CppFeatureDetection.h` — C++ version/feature detection
 - `Stringify.h` — value formatting for diagnostics
-- `TypeTraits.h` — C++ version detection
+- `DiagnosticLogger_Core.h` — debug diagnostics
 
 All are header-only. Copy them alongside `FloatingPointComparison.h`.
 

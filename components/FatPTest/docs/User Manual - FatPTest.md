@@ -32,10 +32,10 @@ status: "reviewed"
 
 **Component:** FatPTest
 **Primary use case:** Write and run unit tests for Fat-P components with rich assertion messages, parameterized tests, and CI integration
-**Integration pattern:** Include `test_FatP.h`, write `TEST(suite, name)` or `TEST_F(fixture, name)` functions, compile, and run the test executable
-**Key API:** `TEST()`, `TEST_F()`, `ASSERT_EQ`, `ASSERT_NEAR`, `ASSERT_THROWS`, `ASSERT_CONTAINS`, `SUBTEST()`, `PARAMETERIZED_TEST()`
+**Integration pattern:** Include `FatPTest.h`, write `FATP_TEST_CASE(name)` or `FATP_TEST_CASE_F(fixture, name)` functions, register them with `FATP_RUN_TEST(runner, name)`, compile, and run the test executable
+**Key API:** `FATP_TEST_CASE()`, `FATP_TEST_CASE_F()`, `FATP_ASSERT_EQ`, `FATP_ASSERT_CLOSE`, `FATP_ASSERT_THROWS`, `FATP_ASSERT_CONTAINS`, `FATP_SUBTEST()`, `fat_p::testing::run_parameterized_test()`
 **std equivalent:** None
-**Common mistakes:** Using `EXPECT_*` where `ASSERT_*` is needed (EXPECT continues on failure, ASSERT aborts the test); forgetting `return` after a failing ASSERT in a helper function; not filtering tests in CI (running all tests when only a subset changed)
+**Common mistakes:** Expecting GoogleTest-style `EXPECT_*` macros (there are none; `FATP_ASSERT_*` returns false from the enclosing test function on failure); forgetting to `return true` at the end of a test function; not filtering tests in CI (running all tests when only a subset changed)
 **Performance notes:** Header-only framework with minimal compile-time overhead. Assertion evaluation is branch-only on the happy path. See `components/FatPTest/results/` for current data
 
 ---
@@ -135,14 +135,14 @@ FatPTest solves these problems:
 
 bool test_add()
 {
-    ASSERT_EQ(add(2, 3), 5, "Basic addition");
+    FATP_ASSERT_EQ(add(2, 3), 5, "Basic addition");
     return true;
 }
 
 int main()
 {
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, test_add);
+    FATP_RUN_TEST(runner, add);  // Expands to runner.run_test("add", test_add)
     return runner.print_summary();
 }
 ```
@@ -288,13 +288,13 @@ When an assertion fails, the following sequence occurs:
 
 ```mermaid
 flowchart TD
-    A[ASSERT_* macro called] --> B{Condition true?}
+    A[FATP_ASSERT_* macro called] --> B{Condition true?}
     B -->|Yes| C[Continue execution]
     B -->|No| D[Format error message]
     D --> E[Write to error stream]
     E --> F{abort_on_failure?}
     F -->|Yes| G[std::abort]
-    F -->|No| H{Inside SUBTEST?}
+    F -->|No| H{Inside FATP_SUBTEST?}
     H -->|Yes| I[Mark subtest failed]
     I --> J[Continue to next subtest]
     H -->|No| K[return false]
@@ -353,7 +353,7 @@ inline SubtestTracker& get_subtest_tracker()
 Assertions are macros (not functions) to capture file/line information:
 
 ```cpp
-#define ASSERT_EQ(actual, expected, msg) \
+#define FATP_ASSERT_EQ(actual, expected, msg) \
     { \
         auto&& actual_val = (actual); \
         auto&& expected_val = (expected); \
@@ -446,28 +446,28 @@ int sum(const std::vector<int>& vec)
 bool test_sum_empty()
 {
     std::vector<int> empty;
-    ASSERT_EQ(sum(empty), 0, "Empty vector sums to zero");
+    FATP_ASSERT_EQ(sum(empty), 0, "Empty vector sums to zero");
     return true;
 }
 
 bool test_sum_single()
 {
     std::vector<int> single = {42};
-    ASSERT_EQ(sum(single), 42, "Single element vector");
+    FATP_ASSERT_EQ(sum(single), 42, "Single element vector");
     return true;
 }
 
 bool test_sum_multiple()
 {
     std::vector<int> vec = {1, 2, 3, 4, 5};
-    ASSERT_EQ(sum(vec), 15, "Sum of 1..5");
+    FATP_ASSERT_EQ(sum(vec), 15, "Sum of 1..5");
     return true;
 }
 
 bool test_sum_negative()
 {
     std::vector<int> vec = {-1, -2, 3};
-    ASSERT_EQ(sum(vec), 0, "Mixed positive and negative");
+    FATP_ASSERT_EQ(sum(vec), 0, "Mixed positive and negative");
     return true;
 }
 
@@ -475,10 +475,10 @@ int main()
 {
     fat_p::testing::TestRunner runner;
     
-    RUN_TEST(runner, test_sum_empty);
-    RUN_TEST(runner, test_sum_single);
-    RUN_TEST(runner, test_sum_multiple);
-    RUN_TEST(runner, test_sum_negative);
+    FATP_RUN_TEST(runner, sum_empty);
+    FATP_RUN_TEST(runner, sum_single);
+    FATP_RUN_TEST(runner, sum_multiple);
+    FATP_RUN_TEST(runner, sum_negative);
     
     return runner.print_summary();
 }
@@ -560,7 +560,7 @@ FatPTest provides `primitive::are_close()`, a simple, obviously-correct comparis
 auto result = FloatingPointComparison::compare(a, b);
 
 // Test code - use primitive implementation
-ASSERT_CLOSE(a, b, "Values should be close");  // Independent primitive
+FATP_ASSERT_CLOSE(a, b, "Values should be close");  // Independent primitive
 ```
 
 **Why This Matters:**
@@ -574,10 +574,10 @@ FatPTest favors explicit, verbose assertions that clearly communicate intent:
 
 ```cpp
 // Descriptive assertion names
-ASSERT_CLOSE_REL_ABS(a, b, rel_eps, abs_eps, "Hybrid tolerance comparison");
+FATP_ASSERT_CLOSE_REL_ABS(a, b, rel_eps, abs_eps, "Hybrid tolerance comparison");
 
 // Required messages for every assertion
-ASSERT_EQ(actual, expected, "Description of what's being tested");
+FATP_ASSERT_EQ(actual, expected, "Description of what's being tested");
 
 // No magic behavior - everything is predictable
 ```
@@ -604,9 +604,9 @@ While thread-safety overhead would be negligible (~0.03% performance cost), it w
 When assertions fail, FatPTest provides maximum information:
 
 ```cpp
-ASSERT_EQ(actual, expected, "Addition failed");
+FATP_ASSERT_EQ(actual, expected, "Addition failed");
 // Output on failure:
-// ASSERT_EQ FAILED: Addition failed
+// FATP_ASSERT_EQ FAILED: Addition failed
 //   Expected: 42
 //   Actual:   41
 //   at test_math.cpp:123
@@ -761,11 +761,11 @@ FatPTest's single-threaded design is intentional but may not suit all needs:
 
 #include "FatPTest.h"
 
-TEST_CASE(sensor_calibration)
+FATP_TEST_CASE(sensor_calibration)
 {
     Sensor sensor;
     sensor.calibrate();
-    ASSERT_CLOSE(sensor.read(), 23.5, 0.1, "Temperature reading");
+    FATP_ASSERT_CLOSE(sensor.read(), 23.5, 0.1, "Temperature reading");
     return true;
 }
 
@@ -790,11 +790,11 @@ void benchmark_sensor_processing()
 
 #include "FatPTest.h"
 
-TEST_CASE(parse_valid_input)
+FATP_TEST_CASE(parse_valid_input)
 {
     Parser parser;
     auto result = parser.parse("input.csv");
-    ASSERT_TRUE(result.valid, "Valid input parses");
+    FATP_ASSERT_TRUE(result.valid, "Valid input parses");
     return true;
 }
 
@@ -916,13 +916,13 @@ tests/
 
 ## Core Assertions
 
-### SIMPLE_ASSERT
+### FATP_SIMPLE_ASSERT
 
 **Purpose**: Basic assertion that returns false on failure.
 
 **Signature**:
 ```cpp
-SIMPLE_ASSERT(condition, msg)
+FATP_SIMPLE_ASSERT(condition, msg)
 ```
 
 **Parameters**:
@@ -939,8 +939,8 @@ SIMPLE_ASSERT(condition, msg)
 bool test_simple()
 {
     int x = 10;
-    SIMPLE_ASSERT(x > 5, "x should be greater than 5");
-    SIMPLE_ASSERT(x < 20, "x should be less than 20");
+    FATP_SIMPLE_ASSERT(x > 5, "x should be greater than 5");
+    FATP_SIMPLE_ASSERT(x < 20, "x should be less than 20");
     return true;
 }
 ```
@@ -952,13 +952,13 @@ ASSERT FAILED: x should be less than 5 at test.cpp:42
 
 ---
 
-### ASSERT_EQ
+### FATP_ASSERT_EQ
 
 **Purpose**: Assert that two values are equal using `operator==`.
 
 **Signature**:
 ```cpp
-ASSERT_EQ(actual, expected, msg)
+FATP_ASSERT_EQ(actual, expected, msg)
 ```
 
 **Parameters**:
@@ -976,10 +976,10 @@ ASSERT_EQ(actual, expected, msg)
 bool test_equality()
 {
     int result = calculate_sum(2, 3);
-    ASSERT_EQ(result, 5, "2 + 3 should equal 5");
+    FATP_ASSERT_EQ(result, 5, "2 + 3 should equal 5");
     
     std::string name = get_name();
-    ASSERT_EQ(name, "Alice", "Name should be Alice");
+    FATP_ASSERT_EQ(name, "Alice", "Name should be Alice");
     
     return true;
 }
@@ -987,7 +987,7 @@ bool test_equality()
 
 **Output on Failure**:
 ```
-ASSERT_EQ FAILED: 2 + 3 should equal 5
+FATP_ASSERT_EQ FAILED: 2 + 3 should equal 5
   Expected: 5
   Actual:   6
   at test.cpp:15
@@ -998,20 +998,20 @@ ASSERT_EQ FAILED: 2 + 3 should equal 5
 bool test_atomic()
 {
     std::atomic<int> counter{42};
-    ASSERT_EQ(counter.load(), 42, "Counter initialized correctly");
+    FATP_ASSERT_EQ(counter.load(), 42, "Counter initialized correctly");
     return true;
 }
 ```
 
 ---
 
-### ASSERT_NE
+### FATP_ASSERT_NE
 
 **Purpose**: Assert that two values are not equal.
 
 **Signature**:
 ```cpp
-ASSERT_NE(actual, expected, msg)
+FATP_ASSERT_NE(actual, expected, msg)
 ```
 
 **Example**:
@@ -1020,11 +1020,11 @@ bool test_inequality()
 {
     int a = 5;
     int b = 3;
-    ASSERT_NE(a, b, "5 and 3 should not be equal");
+    FATP_ASSERT_NE(a, b, "5 and 3 should not be equal");
     
     std::string s1 = "hello";
     std::string s2 = "world";
-    ASSERT_NE(s1, s2, "Strings should differ");
+    FATP_ASSERT_NE(s1, s2, "Strings should differ");
     
     return true;
 }
@@ -1032,20 +1032,20 @@ bool test_inequality()
 
 **Output on Failure**:
 ```
-ASSERT_NE FAILED: 5 and 3 should not be equal
+FATP_ASSERT_NE FAILED: 5 and 3 should not be equal
   Should not equal: 3
   at test.cpp:22
 ```
 
 ---
 
-### ASSERT_LT
+### FATP_ASSERT_LT
 
 **Purpose**: Assert that actual < expected.
 
 **Signature**:
 ```cpp
-ASSERT_LT(actual, expected, msg)
+FATP_ASSERT_LT(actual, expected, msg)
 ```
 
 **Example**:
@@ -1053,10 +1053,10 @@ ASSERT_LT(actual, expected, msg)
 bool test_less_than()
 {
     int age = 25;
-    ASSERT_LT(age, 30, "Age should be less than 30");
+    FATP_ASSERT_LT(age, 30, "Age should be less than 30");
     
     double temperature = 20.5;
-    ASSERT_LT(temperature, 100.0, "Temperature below boiling point");
+    FATP_ASSERT_LT(temperature, 100.0, "Temperature below boiling point");
     
     return true;
 }
@@ -1064,20 +1064,20 @@ bool test_less_than()
 
 **Output on Failure**:
 ```
-ASSERT_LT FAILED: Age should be less than 30
+FATP_ASSERT_LT FAILED: Age should be less than 30
   Expected: 25 < 20
   at test.cpp:33
 ```
 
 ---
 
-### ASSERT_LE
+### FATP_ASSERT_LE
 
 **Purpose**: Assert that actual <= expected.
 
 **Signature**:
 ```cpp
-ASSERT_LE(actual, expected, msg)
+FATP_ASSERT_LE(actual, expected, msg)
 ```
 
 **Example**:
@@ -1086,7 +1086,7 @@ bool test_less_or_equal()
 {
     int max_capacity = 100;
     int current_load = 100;
-    ASSERT_LE(current_load, max_capacity, "Load within capacity");
+    FATP_ASSERT_LE(current_load, max_capacity, "Load within capacity");
     
     return true;
 }
@@ -1094,13 +1094,13 @@ bool test_less_or_equal()
 
 ---
 
-### ASSERT_GT
+### FATP_ASSERT_GT
 
 **Purpose**: Assert that actual > expected.
 
 **Signature**:
 ```cpp
-ASSERT_GT(actual, expected, msg)
+FATP_ASSERT_GT(actual, expected, msg)
 ```
 
 **Example**:
@@ -1108,10 +1108,10 @@ ASSERT_GT(actual, expected, msg)
 bool test_greater_than()
 {
     double balance = 1000.50;
-    ASSERT_GT(balance, 0.0, "Account has positive balance");
+    FATP_ASSERT_GT(balance, 0.0, "Account has positive balance");
     
     size_t buffer_size = 1024;
-    ASSERT_GT(buffer_size, 512, "Buffer large enough");
+    FATP_ASSERT_GT(buffer_size, 512, "Buffer large enough");
     
     return true;
 }
@@ -1119,13 +1119,13 @@ bool test_greater_than()
 
 ---
 
-### ASSERT_GE
+### FATP_ASSERT_GE
 
 **Purpose**: Assert that actual >= expected.
 
 **Signature**:
 ```cpp
-ASSERT_GE(actual, expected, msg)
+FATP_ASSERT_GE(actual, expected, msg)
 ```
 
 **Example**:
@@ -1134,7 +1134,7 @@ bool test_greater_or_equal()
 {
     int score = 75;
     int passing_grade = 60;
-    ASSERT_GE(score, passing_grade, "Student passed");
+    FATP_ASSERT_GE(score, passing_grade, "Student passed");
     
     return true;
 }
@@ -1142,13 +1142,13 @@ bool test_greater_or_equal()
 
 ---
 
-### ASSERT_TRUE
+### FATP_ASSERT_TRUE
 
 **Purpose**: Assert that a condition is true.
 
 **Signature**:
 ```cpp
-ASSERT_TRUE(condition, msg)
+FATP_ASSERT_TRUE(condition, msg)
 ```
 
 **Example**:
@@ -1156,10 +1156,10 @@ ASSERT_TRUE(condition, msg)
 bool test_boolean_conditions()
 {
     bool is_valid = validate_input("test@example.com");
-    ASSERT_TRUE(is_valid, "Email should be valid");
+    FATP_ASSERT_TRUE(is_valid, "Email should be valid");
     
     std::vector<int> vec = {1, 2, 3};
-    ASSERT_TRUE(!vec.empty(), "Vector should not be empty");
+    FATP_ASSERT_TRUE(!vec.empty(), "Vector should not be empty");
     
     return true;
 }
@@ -1167,13 +1167,13 @@ bool test_boolean_conditions()
 
 ---
 
-### ASSERT_FALSE
+### FATP_ASSERT_FALSE
 
 **Purpose**: Assert that a condition is false.
 
 **Signature**:
 ```cpp
-ASSERT_FALSE(condition, msg)
+FATP_ASSERT_FALSE(condition, msg)
 ```
 
 **Example**:
@@ -1181,10 +1181,10 @@ ASSERT_FALSE(condition, msg)
 bool test_false_conditions()
 {
     bool is_empty = check_empty_database();
-    ASSERT_FALSE(is_empty, "Database should have records");
+    FATP_ASSERT_FALSE(is_empty, "Database should have records");
     
     std::string str = "hello";
-    ASSERT_FALSE(str.empty(), "String should not be empty");
+    FATP_ASSERT_FALSE(str.empty(), "String should not be empty");
     
     return true;
 }
@@ -1192,13 +1192,13 @@ bool test_false_conditions()
 
 ---
 
-### ASSERT_NULLPTR
+### FATP_ASSERT_NULLPTR
 
 **Purpose**: Assert that a pointer is nullptr.
 
 **Signature**:
 ```cpp
-ASSERT_NULLPTR(ptr, msg)
+FATP_ASSERT_NULLPTR(ptr, msg)
 ```
 
 **Example**:
@@ -1206,10 +1206,10 @@ ASSERT_NULLPTR(ptr, msg)
 bool test_null_pointers()
 {
     int* ptr = nullptr;
-    ASSERT_NULLPTR(ptr, "Pointer should be null");
+    FATP_ASSERT_NULLPTR(ptr, "Pointer should be null");
     
     std::unique_ptr<Widget> widget = create_widget(false);
-    ASSERT_NULLPTR(widget.get(), "Widget creation should fail");
+    FATP_ASSERT_NULLPTR(widget.get(), "Widget creation should fail");
     
     return true;
 }
@@ -1217,7 +1217,7 @@ bool test_null_pointers()
 
 **Output on Failure**:
 ```
-ASSERT_NULLPTR FAILED: Pointer should be null
+FATP_ASSERT_NULLPTR FAILED: Pointer should be null
   Expected: nullptr
   Actual:   0x7ffee1234567
   at test.cpp:89
@@ -1225,13 +1225,13 @@ ASSERT_NULLPTR FAILED: Pointer should be null
 
 ---
 
-### ASSERT_NOT_NULLPTR
+### FATP_ASSERT_NOT_NULLPTR
 
 **Purpose**: Assert that a pointer is not nullptr.
 
 **Signature**:
 ```cpp
-ASSERT_NOT_NULLPTR(ptr, msg)
+FATP_ASSERT_NOT_NULLPTR(ptr, msg)
 ```
 
 **Example**:
@@ -1240,10 +1240,10 @@ bool test_non_null_pointers()
 {
     int value = 42;
     int* ptr = &value;
-    ASSERT_NOT_NULLPTR(ptr, "Pointer should be valid");
+    FATP_ASSERT_NOT_NULLPTR(ptr, "Pointer should be valid");
     
     auto resource = allocate_resource();
-    ASSERT_NOT_NULLPTR(resource.get(), "Resource allocation succeeded");
+    FATP_ASSERT_NOT_NULLPTR(resource.get(), "Resource allocation succeeded");
     
     return true;
 }
@@ -1251,13 +1251,13 @@ bool test_non_null_pointers()
 
 ---
 
-### ASSERT_WITH_HANDLER
+### FATP_ASSERT_WITH_HANDLER
 
 **Purpose**: Assert with custom failure handler for cleanup.
 
 **Signature**:
 ```cpp
-ASSERT_WITH_HANDLER(condition, msg, handler)
+FATP_ASSERT_WITH_HANDLER(condition, msg, handler)
 ```
 
 **Parameters**:
@@ -1271,7 +1271,7 @@ bool test_with_cleanup()
 {
     File* file = open_file("data.txt");
     
-    ASSERT_WITH_HANDLER(
+    FATP_ASSERT_WITH_HANDLER(
         file != nullptr,
         "File should open successfully",
         {
@@ -1315,19 +1315,19 @@ FatPTest provides **primitive** floating-point comparison for test infrastructur
 auto comp = FloatingPointComparison::HybridPolicy<double>();
 bool equal = comp.compare(a, b);
 
-// Test code - use ASSERT_CLOSE macros
-ASSERT_CLOSE(a, b, "Values should be close");
+// Test code - use FATP_ASSERT_CLOSE macros
+FATP_ASSERT_CLOSE(a, b, "Values should be close");
 ```
 
 ---
 
-### ASSERT_CLOSE
+### FATP_ASSERT_CLOSE
 
 **Purpose**: Assert floating-point values are approximately equal using default epsilon.
 
 **Signature**:
 ```cpp
-ASSERT_CLOSE(actual, expected, msg)
+FATP_ASSERT_CLOSE(actual, expected, msg)
 ```
 
 **Default Behavior**:
@@ -1342,10 +1342,10 @@ bool test_floating_point()
     double approx_pi = 22.0 / 7.0;  // 3.14285714286
     
     // This will fail - difference too large
-    // ASSERT_CLOSE(pi, approx_pi, "Pi approximation");
+    // FATP_ASSERT_CLOSE(pi, approx_pi, "Pi approximation");
     
     double computed = std::sin(M_PI / 2.0);
-    ASSERT_CLOSE(computed, 1.0, "sin(π/2) = 1");
+    FATP_ASSERT_CLOSE(computed, 1.0, "sin(π/2) = 1");
     
     return true;
 }
@@ -1359,19 +1359,19 @@ bool test_special_floats()
     double inf = std::numeric_limits<double>::infinity();
     
     // NaN never equals anything (including itself)
-    ASSERT_FALSE(
+    FATP_ASSERT_FALSE(
         fat_p::testing::primitive::are_close(nan, nan),
         "NaN != NaN"
     );
     
     // Same-sign infinities are equal
-    ASSERT_TRUE(
+    FATP_ASSERT_TRUE(
         fat_p::testing::primitive::are_close(inf, inf),
         "inf == inf"
     );
     
     // Different-sign infinities are not equal
-    ASSERT_FALSE(
+    FATP_ASSERT_FALSE(
         fat_p::testing::primitive::are_close(inf, -inf),
         "inf != -inf"
     );
@@ -1382,13 +1382,13 @@ bool test_special_floats()
 
 ---
 
-### ASSERT_CLOSE_EPS
+### FATP_ASSERT_CLOSE_EPS
 
 **Purpose**: Assert floating-point values are close with custom epsilon.
 
 **Signature**:
 ```cpp
-ASSERT_CLOSE_EPS(actual, expected, epsilon, msg)
+FATP_ASSERT_CLOSE_EPS(actual, expected, epsilon, msg)
 ```
 
 **Parameters**:
@@ -1402,14 +1402,14 @@ bool test_custom_epsilon()
     double b = 1.0001;
     
     // Tight tolerance - will fail
-    // ASSERT_CLOSE_EPS(a, b, 1e-6, "Very close");
+    // FATP_ASSERT_CLOSE_EPS(a, b, 1e-6, "Very close");
     
     // Loose tolerance - will pass
-    ASSERT_CLOSE_EPS(a, b, 1e-3, "Close enough");
+    FATP_ASSERT_CLOSE_EPS(a, b, 1e-3, "Close enough");
     
     // Comparing near zero
     double tiny = 1e-10;
-    ASSERT_CLOSE_EPS(tiny, 0.0, 1e-9, "Nearly zero");
+    FATP_ASSERT_CLOSE_EPS(tiny, 0.0, 1e-9, "Nearly zero");
     
     return true;
 }
@@ -1422,13 +1422,13 @@ bool test_custom_epsilon()
 
 ---
 
-### ASSERT_CLOSE_REL_ABS
+### FATP_ASSERT_CLOSE_REL_ABS
 
 **Purpose**: Assert floating-point values are close with separate relative and absolute epsilon.
 
 **Signature**:
 ```cpp
-ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg)
+FATP_ASSERT_CLOSE_REL_ABS(actual, expected, rel_eps, abs_eps, msg)
 ```
 
 **Parameters**:
@@ -1442,7 +1442,7 @@ bool test_hybrid_tolerance()
     // Large magnitudes - relative tolerance dominates
     double large_a = 1e6;
     double large_b = 1e6 + 10;  // 10 units difference
-    ASSERT_CLOSE_REL_ABS(
+    FATP_ASSERT_CLOSE_REL_ABS(
         large_a, large_b,
         1e-5,    // 0.001% relative tolerance
         1.0,     // 1 unit absolute tolerance
@@ -1452,7 +1452,7 @@ bool test_hybrid_tolerance()
     // Near zero - absolute tolerance dominates
     double tiny_a = 1e-10;
     double tiny_b = 2e-10;
-    ASSERT_CLOSE_REL_ABS(
+    FATP_ASSERT_CLOSE_REL_ABS(
         tiny_a, tiny_b,
         0.1,     // 10% relative tolerance (loose)
         1e-9,    // 1e-9 absolute tolerance (tight)
@@ -1465,7 +1465,7 @@ bool test_hybrid_tolerance()
 
 **Output on Failure**:
 ```
-ASSERT_CLOSE_REL_ABS FAILED: Large numbers close relatively
+FATP_ASSERT_CLOSE_REL_ABS FAILED: Large numbers close relatively
   Expected: 1000000
   Actual:   1000100
   Rel Eps:  1e-05
@@ -1507,13 +1507,13 @@ std::cout << "JSON: "
 
 ---
 
-### ASSERT_CONTAINS
+### FATP_ASSERT_CONTAINS
 
 **Purpose**: Assert that a string contains a substring.
 
 **Signature**:
 ```cpp
-ASSERT_CONTAINS(str, substr, msg)
+FATP_ASSERT_CONTAINS(str, substr, msg)
 ```
 
 **Example**:
@@ -1521,11 +1521,11 @@ ASSERT_CONTAINS(str, substr, msg)
 bool test_string_contains()
 {
     std::string message = "Hello, World!";
-    ASSERT_CONTAINS(message, "World", "Message contains 'World'");
-    ASSERT_CONTAINS(message, "Hello", "Message contains 'Hello'");
+    FATP_ASSERT_CONTAINS(message, "World", "Message contains 'World'");
+    FATP_ASSERT_CONTAINS(message, "Hello", "Message contains 'Hello'");
     
     std::string path = "/usr/local/bin/myapp";
-    ASSERT_CONTAINS(path, "/bin/", "Path contains bin directory");
+    FATP_ASSERT_CONTAINS(path, "/bin/", "Path contains bin directory");
     
     return true;
 }
@@ -1533,7 +1533,7 @@ bool test_string_contains()
 
 **Output on Failure**:
 ```
-ASSERT_CONTAINS FAILED: Message contains 'Universe'
+FATP_ASSERT_CONTAINS FAILED: Message contains 'Universe'
   String:    "Hello, World!"
   Substring: "Universe" (not found)
   at test.cpp:56
@@ -1541,13 +1541,13 @@ ASSERT_CONTAINS FAILED: Message contains 'Universe'
 
 ---
 
-### ASSERT_NOT_CONTAINS
+### FATP_ASSERT_NOT_CONTAINS
 
 **Purpose**: Assert that a string does not contain a substring.
 
 **Signature**:
 ```cpp
-ASSERT_NOT_CONTAINS(str, substr, msg)
+FATP_ASSERT_NOT_CONTAINS(str, substr, msg)
 ```
 
 **Example**:
@@ -1555,11 +1555,11 @@ ASSERT_NOT_CONTAINS(str, substr, msg)
 bool test_string_not_contains()
 {
     std::string clean_input = "abc123";
-    ASSERT_NOT_CONTAINS(clean_input, "<script>", "No script injection");
-    ASSERT_NOT_CONTAINS(clean_input, "DROP TABLE", "No SQL injection");
+    FATP_ASSERT_NOT_CONTAINS(clean_input, "<script>", "No script injection");
+    FATP_ASSERT_NOT_CONTAINS(clean_input, "DROP TABLE", "No SQL injection");
     
     std::string safe_path = "/home/user/data";
-    ASSERT_NOT_CONTAINS(safe_path, "../", "No path traversal");
+    FATP_ASSERT_NOT_CONTAINS(safe_path, "../", "No path traversal");
     
     return true;
 }
@@ -1567,13 +1567,13 @@ bool test_string_not_contains()
 
 ---
 
-### ASSERT_STARTS_WITH
+### FATP_ASSERT_STARTS_WITH
 
 **Purpose**: Assert that a string starts with a prefix.
 
 **Signature**:
 ```cpp
-ASSERT_STARTS_WITH(str, prefix, msg)
+FATP_ASSERT_STARTS_WITH(str, prefix, msg)
 ```
 
 **Example**:
@@ -1581,10 +1581,10 @@ ASSERT_STARTS_WITH(str, prefix, msg)
 bool test_string_prefix()
 {
     std::string url = "https://example.com/api/v1/users";
-    ASSERT_STARTS_WITH(url, "https://", "URL uses HTTPS");
+    FATP_ASSERT_STARTS_WITH(url, "https://", "URL uses HTTPS");
     
     std::string filename = "test_report_2024.pdf";
-    ASSERT_STARTS_WITH(filename, "test_", "Test report file");
+    FATP_ASSERT_STARTS_WITH(filename, "test_", "Test report file");
     
     return true;
 }
@@ -1592,13 +1592,13 @@ bool test_string_prefix()
 
 ---
 
-### ASSERT_ENDS_WITH
+### FATP_ASSERT_ENDS_WITH
 
 **Purpose**: Assert that a string ends with a suffix.
 
 **Signature**:
 ```cpp
-ASSERT_ENDS_WITH(str, suffix, msg)
+FATP_ASSERT_ENDS_WITH(str, suffix, msg)
 ```
 
 **Example**:
@@ -1606,10 +1606,10 @@ ASSERT_ENDS_WITH(str, suffix, msg)
 bool test_string_suffix()
 {
     std::string filename = "document.pdf";
-    ASSERT_ENDS_WITH(filename, ".pdf", "PDF file");
+    FATP_ASSERT_ENDS_WITH(filename, ".pdf", "PDF file");
     
     std::string command = "git commit -m 'Initial commit'";
-    ASSERT_ENDS_WITH(command, "'", "Command ends with quote");
+    FATP_ASSERT_ENDS_WITH(command, "'", "Command ends with quote");
     
     return true;
 }
@@ -1617,13 +1617,13 @@ bool test_string_suffix()
 
 ---
 
-### ASSERT_MATCHES
+### FATP_ASSERT_MATCHES
 
 **Purpose**: Assert that a string matches a regular expression.
 
 **Signature**:
 ```cpp
-ASSERT_MATCHES(str, pattern, msg)
+FATP_ASSERT_MATCHES(str, pattern, msg)
 ```
 
 **Example**:
@@ -1631,21 +1631,21 @@ ASSERT_MATCHES(str, pattern, msg)
 bool test_regex_matching()
 {
     std::string email = "user@example.com";
-    ASSERT_MATCHES(
+    FATP_ASSERT_MATCHES(
         email,
         R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
         "Valid email format"
     );
     
     std::string phone = "+1-555-1234";
-    ASSERT_MATCHES(
+    FATP_ASSERT_MATCHES(
         phone,
         R"(\+\d{1,3}-\d{3}-\d{4})",
         "Valid phone format"
     );
     
     std::string date = "2024-03-15";
-    ASSERT_MATCHES(
+    FATP_ASSERT_MATCHES(
         date,
         R"(\d{4}-\d{2}-\d{2})",
         "ISO date format"
@@ -1662,7 +1662,7 @@ bool test_invalid_regex()
     std::string text = "hello";
     
     // Invalid regex - caught and reported
-    // ASSERT_MATCHES(text, "[invalid(regex", "Invalid pattern");
+    // FATP_ASSERT_MATCHES(text, "[invalid(regex", "Invalid pattern");
     
     return true;
 }
@@ -1670,7 +1670,7 @@ bool test_invalid_regex()
 
 **Output on Regex Error**:
 ```
-ASSERT_MATCHES ERROR: Invalid pattern
+FATP_ASSERT_MATCHES ERROR: Invalid pattern
   Invalid regex pattern: "[invalid(regex"
   Error: regex_error: unexpected character
   at test.cpp:78
@@ -1678,13 +1678,13 @@ ASSERT_MATCHES ERROR: Invalid pattern
 
 ---
 
-### ASSERT_STR_EQ_IGNORE_CASE
+### FATP_ASSERT_STR_EQ_IGNORE_CASE
 
 **Purpose**: Assert that two strings are equal (case-insensitive).
 
 **Signature**:
 ```cpp
-ASSERT_STR_EQ_IGNORE_CASE(str1, str2, msg)
+FATP_ASSERT_STR_EQ_IGNORE_CASE(str1, str2, msg)
 ```
 
 **Example**:
@@ -1693,11 +1693,11 @@ bool test_case_insensitive()
 {
     std::string input = "Hello World";
     std::string expected = "HELLO WORLD";
-    ASSERT_STR_EQ_IGNORE_CASE(input, expected, "Case-insensitive match");
+    FATP_ASSERT_STR_EQ_IGNORE_CASE(input, expected, "Case-insensitive match");
     
     std::string protocol1 = "HTTP";
     std::string protocol2 = "http";
-    ASSERT_STR_EQ_IGNORE_CASE(protocol1, protocol2, "Protocol comparison");
+    FATP_ASSERT_STR_EQ_IGNORE_CASE(protocol1, protocol2, "Protocol comparison");
     
     return true;
 }
@@ -1707,13 +1707,13 @@ bool test_case_insensitive()
 
 ## Container/Range Assertions
 
-### ASSERT_RANGE_EQ
+### FATP_ASSERT_RANGE_EQ
 
 **Purpose**: Assert that two containers have equal elements.
 
 **Signature**:
 ```cpp
-ASSERT_RANGE_EQ(actual, expected, msg)
+FATP_ASSERT_RANGE_EQ(actual, expected, msg)
 ```
 
 **Features**:
@@ -1728,15 +1728,15 @@ bool test_container_equality()
 {
     std::vector<int> result = {1, 2, 3, 4, 5};
     std::vector<int> expected = {1, 2, 3, 4, 5};
-    ASSERT_RANGE_EQ(result, expected, "Vectors should match");
+    FATP_ASSERT_RANGE_EQ(result, expected, "Vectors should match");
     
     std::list<std::string> names = {"Alice", "Bob", "Charlie"};
     std::list<std::string> expected_names = {"Alice", "Bob", "Charlie"};
-    ASSERT_RANGE_EQ(names, expected_names, "Name lists match");
+    FATP_ASSERT_RANGE_EQ(names, expected_names, "Name lists match");
     
     std::array<double, 3> coords = {1.0, 2.0, 3.0};
     std::array<double, 3> expected_coords = {1.0, 2.0, 3.0};
-    ASSERT_RANGE_EQ(coords, expected_coords, "Coordinates match");
+    FATP_ASSERT_RANGE_EQ(coords, expected_coords, "Coordinates match");
     
     return true;
 }
@@ -1744,7 +1744,7 @@ bool test_container_equality()
 
 **Output on Failure**:
 ```
-ASSERT_RANGE_EQ FAILED: Vectors should match
+FATP_ASSERT_RANGE_EQ FAILED: Vectors should match
   Size mismatch: 5 != 4
   Element [2]: 7 != 3
   Element [4]: 9 != 5
@@ -1771,7 +1771,7 @@ bool test_custom_type_ranges()
 {
     std::vector<Point> path = {{0, 0}, {1, 1}, {2, 2}};
     std::vector<Point> expected_path = {{0, 0}, {1, 1}, {2, 2}};
-    ASSERT_RANGE_EQ(path, expected_path, "Paths match");
+    FATP_ASSERT_RANGE_EQ(path, expected_path, "Paths match");
     
     return true;
 }
@@ -1779,13 +1779,13 @@ bool test_custom_type_ranges()
 
 ---
 
-### ASSERT_RANGE_CLOSE
+### FATP_ASSERT_RANGE_CLOSE
 
 **Purpose**: Assert that two floating-point containers have approximately equal elements.
 
 **Signature**:
 ```cpp
-ASSERT_RANGE_CLOSE(actual, expected, epsilon, msg)
+FATP_ASSERT_RANGE_CLOSE(actual, expected, epsilon, msg)
 ```
 
 **Example**:
@@ -1795,7 +1795,7 @@ bool test_floating_point_ranges()
     std::vector<double> computed = {1.0001, 2.0002, 3.0003};
     std::vector<double> expected = {1.0, 2.0, 3.0};
     
-    ASSERT_RANGE_CLOSE(
+    FATP_ASSERT_RANGE_CLOSE(
         computed, expected, 1e-3,
         "Numerical results close to expected"
     );
@@ -1812,7 +1812,7 @@ bool test_floating_point_ranges()
         0.0f, 0.0f, 1.0f
     };
     
-    ASSERT_RANGE_CLOSE(
+    FATP_ASSERT_RANGE_CLOSE(
         matrix_a, identity, 1e-4,
         "Matrix approximately identity"
     );
@@ -1823,7 +1823,7 @@ bool test_floating_point_ranges()
 
 **Output on Failure**:
 ```
-ASSERT_RANGE_CLOSE FAILED: Numerical results close to expected
+FATP_ASSERT_RANGE_CLOSE FAILED: Numerical results close to expected
   Element [1]: 2.5 != 2.0 (diff: 0.5)
   Element [3]: 4.1 != 4.0 (diff: 0.1)
   Epsilon: 0.001
@@ -1834,13 +1834,13 @@ ASSERT_RANGE_CLOSE FAILED: Numerical results close to expected
 
 ## Exception Assertions
 
-### ASSERT_THROWS
+### FATP_ASSERT_THROWS
 
 **Purpose**: Assert that an expression throws a specific exception type.
 
 **Signature**:
 ```cpp
-ASSERT_THROWS(expression, exception_type, msg)
+FATP_ASSERT_THROWS(expression, exception_type, msg)
 ```
 
 **Features**:
@@ -1853,14 +1853,14 @@ ASSERT_THROWS(expression, exception_type, msg)
 bool test_exception_throwing()
 {
     // Test that division by zero throws
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         divide(10, 0),
         std::runtime_error,
         "Division by zero throws"
     );
     
     // Test invalid argument
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         create_user(""),  // Empty name
         std::invalid_argument,
         "Empty name throws invalid_argument"
@@ -1868,7 +1868,7 @@ bool test_exception_throwing()
     
     // Test out of range access
     std::vector<int> vec = {1, 2, 3};
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         vec.at(10),  // Out of bounds
         std::out_of_range,
         "Out of bounds access throws"
@@ -1880,7 +1880,7 @@ bool test_exception_throwing()
 
 **Output on Failure (No Exception)**:
 ```
-ASSERT_THROWS FAILED: Division by zero throws
+FATP_ASSERT_THROWS FAILED: Division by zero throws
   Expected exception: std::runtime_error
   But no exception was thrown
   at test.cpp:89
@@ -1888,7 +1888,7 @@ ASSERT_THROWS FAILED: Division by zero throws
 
 **Output on Failure (Wrong Exception)**:
 ```
-ASSERT_THROWS FAILED: Empty name throws invalid_argument
+FATP_ASSERT_THROWS FAILED: Empty name throws invalid_argument
   Expected: std::invalid_argument
   Got different exception: std::logic_error: Invalid user name
   at test.cpp:95
@@ -1904,7 +1904,7 @@ public:
 
 bool test_custom_exception()
 {
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         connect_to_database("invalid://url"),
         DatabaseError,
         "Invalid URL throws DatabaseError"
@@ -1916,13 +1916,13 @@ bool test_custom_exception()
 
 ---
 
-### ASSERT_NO_THROW
+### FATP_ASSERT_NO_THROW
 
 **Purpose**: Assert that an expression does not throw any exception.
 
 **Signature**:
 ```cpp
-ASSERT_NO_THROW(expression, msg)
+FATP_ASSERT_NO_THROW(expression, msg)
 ```
 
 **Example**:
@@ -1930,21 +1930,21 @@ ASSERT_NO_THROW(expression, msg)
 bool test_no_exceptions()
 {
     // Test normal operation doesn't throw
-    ASSERT_NO_THROW(
+    FATP_ASSERT_NO_THROW(
         process_valid_input("data.txt"),
         "Valid input processing succeeds"
     );
     
     // Test cleanup doesn't throw
     Resource* res = acquire_resource();
-    ASSERT_NO_THROW(
+    FATP_ASSERT_NO_THROW(
         release_resource(res),
         "Resource cleanup succeeds"
     );
     
     // Test exception-safe code
     std::vector<int> vec;
-    ASSERT_NO_THROW(
+    FATP_ASSERT_NO_THROW(
         vec.push_back(42),
         "Push back doesn't throw"
     );
@@ -1955,14 +1955,14 @@ bool test_no_exceptions()
 
 **Output on Failure**:
 ```
-ASSERT_NO_THROW FAILED: Valid input processing succeeds
+FATP_ASSERT_NO_THROW FAILED: Valid input processing succeeds
   Unexpected exception: std::runtime_error: File not found
   at test.cpp:167
 ```
 
 **Unknown Exception Type**:
 ```
-ASSERT_NO_THROW FAILED: Resource cleanup succeeds
+FATP_ASSERT_NO_THROW FAILED: Resource cleanup succeeds
   Unexpected exception: (unknown exception type)
   at test.cpp:173
 ```
@@ -1971,13 +1971,13 @@ ASSERT_NO_THROW FAILED: Resource cleanup succeeds
 
 ## Test Organization
 
-### TEST_CASE Macro
+### FATP_TEST_CASE Macro
 
 **Purpose**: Define a test function with standardized naming.
 
 **Signature**:
 ```cpp
-TEST_CASE(name)
+FATP_TEST_CASE(name)
 {
     // Test body
     return true;  // or false
@@ -1994,38 +1994,38 @@ bool test_name()
 
 **Example**:
 ```cpp
-TEST_CASE(addition)
+FATP_TEST_CASE(addition)
 {
-    ASSERT_EQ(2 + 2, 4, "Basic addition");
-    ASSERT_EQ(10 + 5, 15, "Larger numbers");
+    FATP_ASSERT_EQ(2 + 2, 4, "Basic addition");
+    FATP_ASSERT_EQ(10 + 5, 15, "Larger numbers");
     return true;
 }
 
-TEST_CASE(subtraction)
+FATP_TEST_CASE(subtraction)
 {
-    ASSERT_EQ(5 - 3, 2, "Basic subtraction");
-    ASSERT_EQ(100 - 50, 50, "Larger numbers");
+    FATP_ASSERT_EQ(5 - 3, 2, "Basic subtraction");
+    FATP_ASSERT_EQ(100 - 50, 50, "Larger numbers");
     return true;
 }
 
 int main()
 {
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, addition);
-    RUN_TEST(runner, subtraction);
+    FATP_RUN_TEST(runner, addition);
+    FATP_RUN_TEST(runner, subtraction);
     return runner.print_summary();
 }
 ```
 
 ---
 
-### RUN_TEST Macro
+### FATP_RUN_TEST Macro
 
 **Purpose**: Run a test case with the test runner.
 
 **Signature**:
 ```cpp
-RUN_TEST(runner, test_name)
+FATP_RUN_TEST(runner, test_name)
 ```
 
 **Example**:
@@ -2034,9 +2034,9 @@ int main()
 {
     fat_p::testing::TestRunner runner;
     
-    RUN_TEST(runner, basic_math);
-    RUN_TEST(runner, string_operations);
-    RUN_TEST(runner, container_tests);
+    FATP_RUN_TEST(runner, basic_math);
+    FATP_RUN_TEST(runner, string_operations);
+    FATP_RUN_TEST(runner, container_tests);
     
     return runner.print_summary();
 }
@@ -2044,13 +2044,13 @@ int main()
 
 ---
 
-### RUN_TEST_NS Macro
+### FATP_RUN_TEST_NS Macro
 
 **Purpose**: Run a test case from a specific namespace. This macro is essential when organizing tests into nested namespaces to avoid linker collisions when multiple test files define functions with the same name (e.g., `test_default_construction`).
 
 **Signature**:
 ```cpp
-RUN_TEST_NS(runner, namespace_name, test_name)
+FATP_RUN_TEST_NS(runner, namespace_name, test_name)
 ```
 
 **Expands to**: `runner.run_test("test_name", namespace_name::test_test_name)`
@@ -2064,18 +2064,18 @@ When multiple test files are linked together, common test names like `test_get_a
 namespace fat_p::testing::strongid
 {
 
-TEST_CASE(default_constructor)
+FATP_TEST_CASE(default_constructor)
 {
     StrongId<int, MyTag> id;
-    ASSERT_EQ(id.get(), 0, "Default should be 0");
+    FATP_ASSERT_EQ(id.get(), 0, "Default should be 0");
     return true;
 }
 
-TEST_CASE(copy_assignment)
+FATP_TEST_CASE(copy_assignment)
 {
     StrongId<int, MyTag> a(42), b;
     b = a;
-    ASSERT_EQ(b.get(), 42, "Copy assignment");
+    FATP_ASSERT_EQ(b.get(), 42, "Copy assignment");
     return true;
 }
 
@@ -2088,8 +2088,8 @@ bool test_StrongId()
 {
     TestRunner runner;
     
-    RUN_TEST_NS(runner, strongid, default_constructor);
-    RUN_TEST_NS(runner, strongid, copy_assignment);
+    FATP_RUN_TEST_NS(runner, strongid, default_constructor);
+    FATP_RUN_TEST_NS(runner, strongid, copy_assignment);
     
     return 0 == runner.print_summary();
 }
@@ -2102,18 +2102,18 @@ bool test_StrongId()
 namespace fat_p::testing::debugonly
 {
 
-TEST_CASE(default_constructor)  // Same name, different namespace - no collision!
+FATP_TEST_CASE(default_constructor)  // Same name, different namespace - no collision!
 {
     DebugOnly<int> val;
-    ASSERT_EQ(val.get(), 0, "Default should be 0");
+    FATP_ASSERT_EQ(val.get(), 0, "Default should be 0");
     return true;
 }
 
-TEST_CASE(copy_assignment)  // Same name, different namespace - no collision!
+FATP_TEST_CASE(copy_assignment)  // Same name, different namespace - no collision!
 {
     DebugOnly<int> a(42), b;
     b = a;
-    ASSERT_EQ(b.get(), 42, "Copy assignment");
+    FATP_ASSERT_EQ(b.get(), 42, "Copy assignment");
     return true;
 }
 
@@ -2126,8 +2126,8 @@ bool test_DebugOnly()
 {
     TestRunner runner;
     
-    RUN_TEST_NS(runner, debugonly, default_constructor);
-    RUN_TEST_NS(runner, debugonly, copy_assignment);
+    FATP_RUN_TEST_NS(runner, debugonly, default_constructor);
+    FATP_RUN_TEST_NS(runner, debugonly, copy_assignment);
     
     return 0 == runner.print_summary();
 }
@@ -2139,19 +2139,19 @@ bool test_DebugOnly()
 
 | Scenario | Use |
 |----------|-----|
-| Single test file or unique test names | `RUN_TEST` |
-| Multiple test files linked together | `RUN_TEST_NS` |
-| Common test names across components | `RUN_TEST_NS` |
+| Single test file or unique test names | `FATP_RUN_TEST` |
+| Multiple test files linked together | `FATP_RUN_TEST_NS` |
+| Common test names across components | `FATP_RUN_TEST_NS` |
 
 ---
 
-### PRINT_HEADER Macro
+### FATP_PRINT_HEADER Macro
 
 **Purpose**: Print formatted section headers for test organization.
 
 **Signature**:
 ```cpp
-PRINT_HEADER(section_name)
+FATP_PRINT_HEADER(section_name)
 ```
 
 **Example**:
@@ -2160,18 +2160,18 @@ int main()
 {
     fat_p::testing::TestRunner runner;
     
-    PRINT_HEADER(BASIC ARITHMETIC);
-    RUN_TEST(runner, addition);
-    RUN_TEST(runner, subtraction);
-    RUN_TEST(runner, multiplication);
+    FATP_PRINT_HEADER(BASIC ARITHMETIC);
+    FATP_RUN_TEST(runner, addition);
+    FATP_RUN_TEST(runner, subtraction);
+    FATP_RUN_TEST(runner, multiplication);
     
-    PRINT_HEADER(STRING OPERATIONS);
-    RUN_TEST(runner, string_concat);
-    RUN_TEST(runner, string_search);
+    FATP_PRINT_HEADER(STRING OPERATIONS);
+    FATP_RUN_TEST(runner, string_concat);
+    FATP_RUN_TEST(runner, string_search);
     
-    PRINT_HEADER(CONTAINER TESTS);
-    RUN_TEST(runner, vector_operations);
-    RUN_TEST(runner, map_operations);
+    FATP_PRINT_HEADER(CONTAINER TESTS);
+    FATP_RUN_TEST(runner, vector_operations);
+    FATP_RUN_TEST(runner, map_operations);
     
     return runner.print_summary();
 }
@@ -2236,28 +2236,28 @@ struct DatabaseFixture : public fat_p::testing::TestFixture
     }
 };
 
-TEST_CASE_F(DatabaseFixture, insert_user)
+FATP_TEST_CASE_F(DatabaseFixture, insert_user)
 {
     fixture.db->execute("INSERT INTO users VALUES (1, 'Alice')");
     int count = fixture.db->count("users");
-    ASSERT_EQ(count, 1, "User inserted");
+    FATP_ASSERT_EQ(count, 1, "User inserted");
     return true;
 }
 
-TEST_CASE_F(DatabaseFixture, delete_user)
+FATP_TEST_CASE_F(DatabaseFixture, delete_user)
 {
     fixture.db->execute("INSERT INTO users VALUES (1, 'Bob')");
     fixture.db->execute("DELETE FROM users WHERE id = 1");
     int count = fixture.db->count("users");
-    ASSERT_EQ(count, 0, "User deleted");
+    FATP_ASSERT_EQ(count, 0, "User deleted");
     return true;
 }
 
 int main()
 {
     fat_p::testing::TestRunner runner;
-    RUN_TEST_F(runner, DatabaseFixture, insert_user);
-    RUN_TEST_F(runner, DatabaseFixture, delete_user);
+    FATP_RUN_TEST_F(runner, DatabaseFixture, insert_user);
+    FATP_RUN_TEST_F(runner, DatabaseFixture, delete_user);
     return runner.print_summary();
 }
 ```
@@ -2285,12 +2285,12 @@ struct FileFixture : public fat_p::testing::TestFixture
     }
 };
 
-TEST_CASE_F(FileFixture, read_file)
+FATP_TEST_CASE_F(FileFixture, read_file)
 {
     std::ifstream file(fixture.test_filename);
     std::string content;
     std::getline(file, content);
-    ASSERT_EQ(content, "Test data", "File content correct");
+    FATP_ASSERT_EQ(content, "Test data", "File content correct");
     return true;
 }
 ```
@@ -2313,7 +2313,7 @@ struct ResourceFixture : public fat_p::testing::TestFixture
     }
 };
 
-TEST_CASE_F(ResourceFixture, might_throw)
+FATP_TEST_CASE_F(ResourceFixture, might_throw)
 {
     // Even if this throws, TearDown() will run
     if (some_condition())
@@ -2326,13 +2326,13 @@ TEST_CASE_F(ResourceFixture, might_throw)
 
 ---
 
-### TEST_CASE_F Macro
+### FATP_TEST_CASE_F Macro
 
 **Purpose**: Define a test function that uses a fixture.
 
 **Signature**:
 ```cpp
-TEST_CASE_F(FixtureType, test_name)
+FATP_TEST_CASE_F(FixtureType, test_name)
 {
     // Access fixture via 'fixture' parameter
     fixture.member_variable;
@@ -2342,13 +2342,13 @@ TEST_CASE_F(FixtureType, test_name)
 
 ---
 
-### RUN_TEST_F Macro
+### FATP_RUN_TEST_F Macro
 
 **Purpose**: Run a test with a fixture.
 
 **Signature**:
 ```cpp
-RUN_TEST_F(runner, FixtureType, test_name)
+FATP_RUN_TEST_F(runner, FixtureType, test_name)
 ```
 
 **Complete Example**:
@@ -2371,25 +2371,25 @@ struct VectorFixture : public fat_p::testing::TestFixture
     }
 };
 
-TEST_CASE_F(VectorFixture, size_test)
+FATP_TEST_CASE_F(VectorFixture, size_test)
 {
-    ASSERT_EQ(fixture.vec.size(), 5, "Vector has 5 elements");
+    FATP_ASSERT_EQ(fixture.vec.size(), 5, "Vector has 5 elements");
     return true;
 }
 
-TEST_CASE_F(VectorFixture, sum_test)
+FATP_TEST_CASE_F(VectorFixture, sum_test)
 {
     int sum = 0;
     for (int x : fixture.vec) sum += x;
-    ASSERT_EQ(sum, 15, "Sum is 15");
+    FATP_ASSERT_EQ(sum, 15, "Sum is 15");
     return true;
 }
 
 int main()
 {
     fat_p::testing::TestRunner runner;
-    RUN_TEST_F(runner, VectorFixture, size_test);
-    RUN_TEST_F(runner, VectorFixture, sum_test);
+    FATP_RUN_TEST_F(runner, VectorFixture, size_test);
+    FATP_RUN_TEST_F(runner, VectorFixture, sum_test);
     return runner.print_summary();
 }
 ```
@@ -2435,7 +2435,7 @@ bool test_addition()
             int expected = std::get<2>(tc.inputs);
             int result = a + b;
             
-            ASSERT_EQ(result, expected, tc.description);
+            FATP_ASSERT_EQ(result, expected, tc.description);
             return true;
         }
     );
@@ -2477,7 +2477,7 @@ bool test_email_validation()
             bool expected_valid = std::get<1>(tc.inputs);
             bool is_valid = validate_email(email);
             
-            ASSERT_EQ(is_valid, expected_valid, tc.description);
+            FATP_ASSERT_EQ(is_valid, expected_valid, tc.description);
             return true;
         }
     );
@@ -2518,7 +2518,7 @@ bool test_matrix_multiplication()
             auto expected = std::get<2>(tc.inputs);
             auto result = multiply_matrices(A, B);
             
-            ASSERT_RANGE_EQ(result, expected, tc.description);
+            FATP_ASSERT_RANGE_EQ(result, expected, tc.description);
             return true;
         }
     );
@@ -2552,47 +2552,47 @@ bool run_parameterized_test(
 
 ## Subtests
 
-### SUBTEST and END_SUBTEST Macros
+### FATP_SUBTEST and FATP_END_SUBTEST Macros
 
 **Purpose**: Break a test into multiple parts that continue even if one fails.
 
 **Signature**:
 ```cpp
-SUBTEST("subtest name") {
+FATP_SUBTEST("subtest name") {
     // Subtest body
 }
-END_SUBTEST
+FATP_END_SUBTEST
 ```
 
-**Important**: SUBTEST and END_SUBTEST must always be paired. Missing END_SUBTEST will cause compilation errors.
+**Important**: FATP_SUBTEST and FATP_END_SUBTEST must always be paired. Missing FATP_END_SUBTEST will cause compilation errors.
 
 **Example - Multi-Stage Initialization**:
 ```cpp
 bool test_system_initialization()
 {
-    SUBTEST("load configuration") {
+    FATP_SUBTEST("load configuration") {
         bool config_loaded = load_config("app.cfg");
-        ASSERT_TRUE(config_loaded, "Configuration loaded");
+        FATP_ASSERT_TRUE(config_loaded, "Configuration loaded");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("initialize database") {
+    FATP_SUBTEST("initialize database") {
         bool db_connected = connect_database();
-        ASSERT_TRUE(db_connected, "Database connected");
+        FATP_ASSERT_TRUE(db_connected, "Database connected");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("start services") {
+    FATP_SUBTEST("start services") {
         bool services_started = start_services();
-        ASSERT_TRUE(services_started, "Services started");
+        FATP_ASSERT_TRUE(services_started, "Services started");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("verify system ready") {
+    FATP_SUBTEST("verify system ready") {
         bool ready = check_system_ready();
-        ASSERT_TRUE(ready, "System ready");
+        FATP_ASSERT_TRUE(ready, "System ready");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
     // Return overall pass/fail
     return fat_p::testing::get_subtest_tracker().all_passed();
@@ -2611,24 +2611,24 @@ bool test_system_initialization()
 ```cpp
 bool test_with_exceptions()
 {
-    SUBTEST("safe operation") {
+    FATP_SUBTEST("safe operation") {
         int result = safe_divide(10, 2);
-        ASSERT_EQ(result, 5, "10 / 2 = 5");
+        FATP_ASSERT_EQ(result, 5, "10 / 2 = 5");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("might throw") {
+    FATP_SUBTEST("might throw") {
         // If this throws, it's caught and recorded as failure
         risky_operation();
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("another safe operation") {
+    FATP_SUBTEST("another safe operation") {
         // This still runs even if previous subtest threw
         int result = add(2, 3);
-        ASSERT_EQ(result, 5, "2 + 3 = 5");
+        FATP_ASSERT_EQ(result, 5, "2 + 3 = 5");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
@@ -2640,32 +2640,32 @@ bool test_data_pipeline()
 {
     std::vector<int> data;
     
-    SUBTEST("data loading") {
+    FATP_SUBTEST("data loading") {
         data = load_data("input.csv");
-        ASSERT_FALSE(data.empty(), "Data loaded");
-        ASSERT_GT(data.size(), 100, "Sufficient data");
+        FATP_ASSERT_FALSE(data.empty(), "Data loaded");
+        FATP_ASSERT_GT(data.size(), 100, "Sufficient data");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("data validation") {
+    FATP_SUBTEST("data validation") {
         bool all_valid = std::all_of(data.begin(), data.end(),
             [](int x) { return x >= 0 && x <= 100; });
-        ASSERT_TRUE(all_valid, "All values in valid range");
+        FATP_ASSERT_TRUE(all_valid, "All values in valid range");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("data transformation") {
+    FATP_SUBTEST("data transformation") {
         transform_data(data);
         double mean = calculate_mean(data);
-        ASSERT_GT(mean, 0.0, "Mean is positive");
+        FATP_ASSERT_GT(mean, 0.0, "Mean is positive");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("data export") {
+    FATP_SUBTEST("data export") {
         bool exported = export_data(data, "output.csv");
-        ASSERT_TRUE(exported, "Data exported successfully");
+        FATP_ASSERT_TRUE(exported, "Data exported successfully");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
@@ -2805,7 +2805,7 @@ bool test_concurrent_increment()
         t.join();
     }
     
-    ASSERT_EQ(counter.load(), 10000, "Counter should be 10000");
+    FATP_ASSERT_EQ(counter.load(), 10000, "Counter should be 10000");
     return true;
 }
 
@@ -2856,7 +2856,7 @@ bool test_cache_timing()
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     
     bool has_key = cache.has("key");
-    ASSERT_FALSE(has_key, "Key should be expired");
+    FATP_ASSERT_FALSE(has_key, "Key should be expired");
     return true;
 }
 
@@ -2899,7 +2899,7 @@ bool test_memory_allocation()
         vec.push_back(i);
     }
     
-    ASSERT_EQ(vec.size(), 10000, "All elements allocated");
+    FATP_ASSERT_EQ(vec.size(), 10000, "All elements allocated");
     return true;
 }
 
@@ -3372,10 +3372,10 @@ int main()
     // Run only tests with "math" in the name
     runner.set_filter("*math*");
     
-    RUN_TEST(runner, basic_math);        // RUNS
-    RUN_TEST(runner, advanced_math);     // RUNS
-    RUN_TEST(runner, string_operations); // SKIPPED
-    RUN_TEST(runner, math_complex);      // RUNS
+    FATP_RUN_TEST(runner, basic_math);        // RUNS
+    FATP_RUN_TEST(runner, advanced_math);     // RUNS
+    FATP_RUN_TEST(runner, string_operations); // SKIPPED
+    FATP_RUN_TEST(runner, math_complex);      // RUNS
     
     return runner.print_summary();
 }
@@ -3390,9 +3390,9 @@ int main()
     // Run only tests starting with "test_"
     runner.set_filter("test_*");
     
-    RUN_TEST(runner, test_addition);     // RUNS
-    RUN_TEST(runner, test_subtraction);  // RUNS
-    RUN_TEST(runner, benchmark_sort);    // SKIPPED
+    FATP_RUN_TEST(runner, test_addition);     // RUNS
+    FATP_RUN_TEST(runner, test_subtraction);  // RUNS
+    FATP_RUN_TEST(runner, benchmark_sort);    // SKIPPED
     
     return runner.print_summary();
 }
@@ -3407,9 +3407,9 @@ int main()
     // Run only slow tests
     runner.set_filter("*_slow");
     
-    RUN_TEST(runner, integration_test_slow);  // RUNS
-    RUN_TEST(runner, unit_test_fast);         // SKIPPED
-    RUN_TEST(runner, benchmark_slow);         // RUNS
+    FATP_RUN_TEST(runner, integration_test_slow);  // RUNS
+    FATP_RUN_TEST(runner, unit_test_fast);         // SKIPPED
+    FATP_RUN_TEST(runner, benchmark_slow);         // RUNS
     
     return runner.print_summary();
 }
@@ -3424,9 +3424,9 @@ int main()
     // Run tests matching "test_????_*" (test_ + 4 chars + anything)
     runner.set_filter("test_????_*");
     
-    RUN_TEST(runner, test_math_addition);       // RUNS (test_math_...)
-    RUN_TEST(runner, test_str_concat);          // SKIPPED (test_str_... only 8 chars)
-    RUN_TEST(runner, test_data_processing);     // RUNS (test_data_...)
+    FATP_RUN_TEST(runner, test_math_addition);       // RUNS (test_math_...)
+    FATP_RUN_TEST(runner, test_str_concat);          // SKIPPED (test_str_... only 8 chars)
+    FATP_RUN_TEST(runner, test_data_processing);     // RUNS (test_data_...)
     
     return runner.print_summary();
 }
@@ -3444,9 +3444,9 @@ int main(int argc, char** argv)
         runner.set_filter(argv[1]);
     }
     
-    RUN_TEST(runner, test_a);
-    RUN_TEST(runner, test_b);
-    RUN_TEST(runner, test_c);
+    FATP_RUN_TEST(runner, test_a);
+    FATP_RUN_TEST(runner, test_b);
+    FATP_RUN_TEST(runner, test_c);
     
     return runner.print_summary();
 }
@@ -3501,7 +3501,7 @@ int main()
     config.colored_output = false;
     
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, my_test);
+    FATP_RUN_TEST(runner, my_test);
     
     return runner.print_summary();
 }
@@ -3523,8 +3523,8 @@ int main()
     config.verbose = true;
     
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, test_1);
-    RUN_TEST(runner, test_2);
+    FATP_RUN_TEST(runner, test_1);
+    FATP_RUN_TEST(runner, test_2);
     
     return runner.print_summary();
 }
@@ -3565,9 +3565,9 @@ int main()
     config.abort_on_failure = true;
     
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, test_that_fails);
+    FATP_RUN_TEST(runner, test_that_fails);
     // Program will abort() before reaching here
-    RUN_TEST(runner, test_that_passes);
+    FATP_RUN_TEST(runner, test_that_passes);
     
     return runner.print_summary();
 }
@@ -3595,7 +3595,7 @@ int main()
     config.error = &log_file;
     
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, my_test);
+    FATP_RUN_TEST(runner, my_test);
     runner.print_summary();
     
     log_file.close();
@@ -3616,7 +3616,7 @@ bool test_runner_output()
     // ... run tests ...
     
     std::string output = capture.str();
-    ASSERT_CONTAINS(output, "PASSED", "Output contains PASSED");
+    FATP_ASSERT_CONTAINS(output, "PASSED", "Output contains PASSED");
     
     return true;
 }
@@ -3645,9 +3645,9 @@ int main()
 {
     fat_p::testing::TestRunner runner;
     
-    RUN_TEST(runner, test_a);
-    RUN_TEST(runner, test_b);
-    RUN_TEST(runner, test_c);
+    FATP_RUN_TEST(runner, test_a);
+    FATP_RUN_TEST(runner, test_b);
+    FATP_RUN_TEST(runner, test_c);
     
     // Export results for CI
     fat_p::testing::export_junit_xml(
@@ -3747,9 +3747,9 @@ All benchmarks use:
 
 | Operation | Time | Notes |
 |-----------|------|-------|
-| `ASSERT_EQ` (passing) | ~2 ns | Comparison + branch |
-| `ASSERT_EQ` (failing) | ~500 ns | Includes error formatting |
-| `SIMPLE_ASSERT` (passing) | ~1 ns | Minimal overhead |
+| `FATP_ASSERT_EQ` (passing) | ~2 ns | Comparison + branch |
+| `FATP_ASSERT_EQ` (failing) | ~500 ns | Includes error formatting |
+| `FATP_SIMPLE_ASSERT` (passing) | ~1 ns | Minimal overhead |
 | Test registration | ~50 ns | Vector push_back |
 | `measure_perf` calibration | ~100 us | 1000-iteration probe |
 | `benchmark` context capture | ~5 us | SystemInfo::capture() |
@@ -3762,12 +3762,12 @@ void benchmark_assertions()
 {
     volatile int a = 42, b = 42;
     
-    fat_p::testing::benchmark("ASSERT_EQ passing", [&]() {
+    fat_p::testing::benchmark("FATP_ASSERT_EQ passing", [&]() {
         // Simulated assertion check (actual macro has file/line overhead)
         if (a != b) { /* would fail */ }
     });
     
-    fat_p::testing::benchmark("SIMPLE_ASSERT passing", [&]() {
+    fat_p::testing::benchmark("FATP_SIMPLE_ASSERT passing", [&]() {
         if (!(a == b)) { /* would fail */ }
     });
 }
@@ -3778,9 +3778,9 @@ void benchmark_assertions()
 | Assertion Type | Time per Check | Overhead vs Raw Comparison |
 |---------------|----------------|---------------------------|
 | Raw comparison | 0.3 ns | baseline |
-| `SIMPLE_ASSERT` | 1.1 ns | 3.7x |
-| `ASSERT_EQ` | 2.2 ns | 7.3x |
-| `ASSERT_CLOSE` | 8.5 ns | 28x (includes FP math) |
+| `FATP_SIMPLE_ASSERT` | 1.1 ns | 3.7x |
+| `FATP_ASSERT_EQ` | 2.2 ns | 7.3x |
+| `FATP_ASSERT_CLOSE` | 8.5 ns | 28x (includes FP math) |
 
 **Interpretation**: Assertion overhead is negligible for typical test suites. A test with 10,000 assertions adds only ~20 microseconds of overhead.
 
@@ -3835,8 +3835,8 @@ TEST(MyTestSuite, TestName) {
 // After (FatPTest)
 bool test_TestName()
 {
-    ASSERT_EQ(actual, expected, "Description");
-    ASSERT_TRUE(condition, "Description");
+    FATP_ASSERT_EQ(actual, expected, "Description");
+    FATP_ASSERT_TRUE(condition, "Description");
     return true;
 }
 ```
@@ -3851,7 +3851,7 @@ bool test_TestName()
 int main()
 {
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, test_TestName);
+    FATP_RUN_TEST(runner, TestName);  // Calls test_TestName
     return runner.print_summary();
 }
 ```
@@ -3860,18 +3860,18 @@ int main()
 
 | GoogleTest | FatPTest | Notes |
 |------------|----------|-------|
-| `EXPECT_EQ(a, b)` | `ASSERT_EQ(a, b, "msg")` | Message required |
-| `ASSERT_EQ(a, b)` | `ASSERT_EQ(a, b, "msg")` | Same behavior |
-| `EXPECT_TRUE(x)` | `ASSERT_TRUE(x, "msg")` | Message required |
-| `EXPECT_FALSE(x)` | `ASSERT_FALSE(x, "msg")` | Message required |
-| `EXPECT_NE(a, b)` | `ASSERT_NE(a, b, "msg")` | Message required |
-| `EXPECT_LT(a, b)` | `ASSERT_LT(a, b, "msg")` | Message required |
-| `EXPECT_LE(a, b)` | `ASSERT_LE(a, b, "msg")` | Message required |
-| `EXPECT_GT(a, b)` | `ASSERT_GT(a, b, "msg")` | Message required |
-| `EXPECT_GE(a, b)` | `ASSERT_GE(a, b, "msg")` | Message required |
-| `EXPECT_NEAR(a, b, eps)` | `ASSERT_CLOSE(a, b, "msg")` | Uses default epsilon |
-| `EXPECT_THROW(stmt, ex)` | `ASSERT_THROWS(stmt, ex, "msg")` | Same behavior |
-| `EXPECT_NO_THROW(stmt)` | `ASSERT_NO_THROW(stmt, "msg")` | Same behavior |
+| `EXPECT_EQ(a, b)` | `FATP_ASSERT_EQ(a, b, "msg")` | Message required |
+| `ASSERT_EQ(a, b)` | `FATP_ASSERT_EQ(a, b, "msg")` | Same behavior |
+| `EXPECT_TRUE(x)` | `FATP_ASSERT_TRUE(x, "msg")` | Message required |
+| `EXPECT_FALSE(x)` | `FATP_ASSERT_FALSE(x, "msg")` | Message required |
+| `EXPECT_NE(a, b)` | `FATP_ASSERT_NE(a, b, "msg")` | Message required |
+| `EXPECT_LT(a, b)` | `FATP_ASSERT_LT(a, b, "msg")` | Message required |
+| `EXPECT_LE(a, b)` | `FATP_ASSERT_LE(a, b, "msg")` | Message required |
+| `EXPECT_GT(a, b)` | `FATP_ASSERT_GT(a, b, "msg")` | Message required |
+| `EXPECT_GE(a, b)` | `FATP_ASSERT_GE(a, b, "msg")` | Message required |
+| `EXPECT_NEAR(a, b, eps)` | `FATP_ASSERT_CLOSE(a, b, "msg")` | Uses default epsilon |
+| `EXPECT_THROW(stmt, ex)` | `FATP_ASSERT_THROWS(stmt, ex, "msg")` | Same behavior |
+| `EXPECT_NO_THROW(stmt)` | `FATP_ASSERT_NO_THROW(stmt, "msg")` | Same behavior |
 
 #### Step 5: Convert Fixtures
 
@@ -3898,7 +3898,7 @@ struct MyFixture : public fat_p::testing::TestFixture {
 
 // In main():
 runner.run_test_with_fixture<MyFixture>("TestName", [](MyFixture& f) {
-    ASSERT_TRUE(f.db->connect(), "Database connects");
+    FATP_ASSERT_TRUE(f.db->connect(), "Database connects");
     return true;
 });
 ```
@@ -3922,7 +3922,7 @@ std::vector<fat_p::testing::TestCase<int>> cases = {
 
 fat_p::testing::run_parameterized_test("IsPositive", cases, [](const auto& tc) {
     int value = std::get<0>(tc.inputs);
-    SIMPLE_ASSERT(value > 0, "Value is positive");
+    FATP_SIMPLE_ASSERT(value > 0, "Value is positive");
     return true;
 });
 ```
@@ -3933,13 +3933,13 @@ fat_p::testing::run_parameterized_test("IsPositive", cases, [](const auto& tc) {
 
 | Catch2 | FatPTest | Notes |
 |--------|----------|-------|
-| `REQUIRE(expr)` | `ASSERT_TRUE(expr, "msg")` | Message required |
-| `CHECK(expr)` | `ASSERT_TRUE(expr, "msg")` | FatPTest doesn't distinguish |
-| `REQUIRE_FALSE(expr)` | `ASSERT_FALSE(expr, "msg")` | Message required |
-| `REQUIRE_THAT(a, Equals(b))` | `ASSERT_EQ(a, b, "msg")` | Simpler syntax |
-| `REQUIRE_THROWS(expr)` | `ASSERT_THROWS_ANY(expr, "msg")` | Any exception |
-| `REQUIRE_THROWS_AS(expr, T)` | `ASSERT_THROWS(expr, T, "msg")` | Specific type |
-| `SECTION("name")` | `SUBTEST("name")` | Similar concept |
+| `REQUIRE(expr)` | `FATP_ASSERT_TRUE(expr, "msg")` | Message required |
+| `CHECK(expr)` | `FATP_ASSERT_TRUE(expr, "msg")` | FatPTest doesn't distinguish |
+| `REQUIRE_FALSE(expr)` | `FATP_ASSERT_FALSE(expr, "msg")` | Message required |
+| `REQUIRE_THAT(a, Equals(b))` | `FATP_ASSERT_EQ(a, b, "msg")` | Simpler syntax |
+| `REQUIRE_THROWS(expr)` | `FATP_ASSERT_THROWS(expr, std::exception, "msg")` | No any-exception variant; name a type |
+| `REQUIRE_THROWS_AS(expr, T)` | `FATP_ASSERT_THROWS(expr, T, "msg")` | Specific type |
+| `SECTION("name")` | `FATP_SUBTEST("name")` | Similar concept |
 
 #### Section to Subtest Conversion
 
@@ -3963,20 +3963,20 @@ TEST_CASE("Vector operations") {
 // After (FatPTest)
 bool test_vector_operations()
 {
-    SUBTEST("push_back") {
+    FATP_SUBTEST("push_back") {
         std::vector<int> v;
         v.push_back(1);
-        SIMPLE_ASSERT(v.size() == 1, "Size is 1 after push_back");
+        FATP_SIMPLE_ASSERT(v.size() == 1, "Size is 1 after push_back");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("clear") {
+    FATP_SUBTEST("clear") {
         std::vector<int> v;
         v.push_back(1);
         v.clear();
-        SIMPLE_ASSERT(v.empty(), "Vector is empty after clear");
+        FATP_SIMPLE_ASSERT(v.empty(), "Vector is empty after clear");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
     return get_subtest_tracker().all_passed();
 }
@@ -4026,19 +4026,19 @@ flowchart TD
 error: 'auto' not allowed in function parameter
 ```
 
-**Cause**: Compiling with C++14 or earlier.
+**Cause**: Compiling with a pre-C++20 standard.
 
-**Solution**: Enable C++17:
+**Solution**: Enable C++20:
 ```bash
-g++ -std=c++17 ...
-cl /std:c++17 ...
+g++ -std=c++20 ...
+cl /std:c++20 ...
 ```
 
-#### Error: "ASSERT_EQ is not declared"
+#### Error: "FATP_ASSERT_EQ is not declared"
 
 **Symptom**:
 ```
-error: 'ASSERT_EQ' was not declared in this scope
+error: 'FATP_ASSERT_EQ' was not declared in this scope
 ```
 
 **Cause**: Missing include or wrong namespace.
@@ -4048,7 +4048,7 @@ error: 'ASSERT_EQ' was not declared in this scope
 #include "FatPTest.h"  // Must include this
 
 // Macros are in global scope after include, no namespace needed
-ASSERT_EQ(a, b, "message");
+FATP_ASSERT_EQ(a, b, "message");
 ```
 
 #### Error: "undefined reference to TestRunner"
@@ -4062,25 +4062,25 @@ undefined reference to `fat_p::testing::TestRunner::TestRunner()'
 
 **Solution**: FatPTest is header-only. Ensure `#include "FatPTest.h"` is in every file that uses it.
 
-#### Error: "return statement in SUBTEST"
+#### Error: "return statement in FATP_SUBTEST"
 
 **Symptom**:
 ```
 error: return-statement with a value, in function returning 'void'
 ```
 
-**Cause**: Using `return false;` inside a SUBTEST block.
+**Cause**: Using `return false;` inside a FATP_SUBTEST block.
 
-**Solution**: Use `SIMPLE_ASSERT` or throw inside SUBTEST, don't use `return`:
+**Solution**: Use `FATP_SIMPLE_ASSERT` or throw inside FATP_SUBTEST, don't use `return`:
 ```cpp
-SUBTEST("example") {
+FATP_SUBTEST("example") {
     // Wrong: return false;
     // Right:
-    SIMPLE_ASSERT(condition, "message");
+    FATP_SIMPLE_ASSERT(condition, "message");
     // or
     if (!condition) throw std::runtime_error("failed");
 }
-END_SUBTEST
+FATP_END_SUBTEST
 ```
 
 ### Runtime Errors
@@ -4152,18 +4152,18 @@ if (!runner.run_test_with_timeout("might_hang", test_func, 5000))
 ```cpp
 bool test_example()
 {
-    ASSERT_EQ(1, 2, "This should fail");
+    FATP_ASSERT_EQ(1, 2, "This should fail");
     return true;  // Don't forget this!
 }
 ```
 
-#### Using ASSERT_* Outside Test Function
+#### Using FATP_ASSERT_* Outside Test Function
 
 **Symptom**: Compilation error or unexpected behavior.
 
-**Cause**: ASSERT macros use `return false;` which only works in functions returning bool.
+**Cause**: FATP_ASSERT_* macros use `return false;` which only works in functions returning bool.
 
-**Solution**: Only use ASSERT macros inside test functions or lambdas that return bool.
+**Solution**: Only use FATP_ASSERT_* macros inside test functions or lambdas that return bool.
 
 #### Modifying Global State Between Tests
 
@@ -4189,14 +4189,14 @@ bool test_with_global()
 
 **Good**: Descriptive, specific messages
 ```cpp
-ASSERT_EQ(user.age(), 25, "User age should be 25 after initialization");
-ASSERT_TRUE(file.is_open(), "Config file should open successfully");
+FATP_ASSERT_EQ(user.age(), 25, "User age should be 25 after initialization");
+FATP_ASSERT_TRUE(file.is_open(), "Config file should open successfully");
 ```
 
 **Bad**: Generic, uninformative messages
 ```cpp
-ASSERT_EQ(user.age(), 25, "Test failed");
-ASSERT_TRUE(file.is_open(), "Error");
+FATP_ASSERT_EQ(user.age(), 25, "Test failed");
+FATP_ASSERT_TRUE(file.is_open(), "Error");
 ```
 
 ---
@@ -4208,14 +4208,14 @@ ASSERT_TRUE(file.is_open(), "Error");
 bool test_addition()
 {
     Calculator calc;
-    ASSERT_EQ(calc.add(2, 3), 5, "2 + 3 = 5");
+    FATP_ASSERT_EQ(calc.add(2, 3), 5, "2 + 3 = 5");
     return true;
 }
 
 bool test_subtraction()
 {
     Calculator calc;  // Fresh instance
-    ASSERT_EQ(calc.subtract(5, 3), 2, "5 - 3 = 2");
+    FATP_ASSERT_EQ(calc.subtract(5, 3), 2, "5 - 3 = 2");
     return true;
 }
 ```
@@ -4261,10 +4261,10 @@ struct DatabaseFixture : public fat_p::testing::TestFixture
     }
 };
 
-TEST_CASE_F(DatabaseFixture, test_query)
+FATP_TEST_CASE_F(DatabaseFixture, test_query)
 {
     auto results = fixture.db->query("SELECT * FROM users");
-    ASSERT_FALSE(results.empty(), "Query returns results");
+    FATP_ASSERT_FALSE(results.empty(), "Query returns results");
     return true;
 }
 ```
@@ -4302,7 +4302,7 @@ bool test_stack_push()
 {
     Stack<int> stack;
     stack.push(1);
-    ASSERT_EQ(stack.size(), 1, "Stack has one element");
+    FATP_ASSERT_EQ(stack.size(), 1, "Stack has one element");
     return true;
 }
 
@@ -4311,8 +4311,8 @@ bool test_stack_pop()
     Stack<int> stack;
     stack.push(1);
     int value = stack.pop();
-    ASSERT_EQ(value, 1, "Pop returns correct value");
-    ASSERT_EQ(stack.size(), 0, "Stack is empty after pop");
+    FATP_ASSERT_EQ(value, 1, "Pop returns correct value");
+    FATP_ASSERT_EQ(stack.size(), 0, "Stack is empty after pop");
     return true;
 }
 ```
@@ -4327,7 +4327,7 @@ bool test_everything()
     stack.push(2);
     stack.pop();
     stack.clear();
-    ASSERT_EQ(stack.size(), 0, "Various operations");
+    FATP_ASSERT_EQ(stack.size(), 0, "Various operations");
     return true;
 }
 ```
@@ -4353,7 +4353,7 @@ bool test_prime_checker()
         [](const auto& tc) {
             int n = std::get<0>(tc.inputs);
             bool expected = std::get<1>(tc.inputs);
-            ASSERT_EQ(is_prime(n), expected, tc.description);
+            FATP_ASSERT_EQ(is_prime(n), expected, tc.description);
             return true;
         }
     );
@@ -4378,7 +4378,7 @@ int main()
 {
     // Run functional tests first
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, test_hash_map_correctness);
+    FATP_RUN_TEST(runner, test_hash_map_correctness);
     
     // Then benchmark critical operations
     fat_p::testing::benchmark_detailed(
@@ -4409,23 +4409,23 @@ bool test_user_registration_flow()
 {
     User user;
     
-    SUBTEST("validate email") {
+    FATP_SUBTEST("validate email") {
         bool valid = user.validate_email("test@example.com");
-        ASSERT_TRUE(valid, "Email valid");
+        FATP_ASSERT_TRUE(valid, "Email valid");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("create account") {
+    FATP_SUBTEST("create account") {
         bool created = user.create_account();
-        ASSERT_TRUE(created, "Account created");
+        FATP_ASSERT_TRUE(created, "Account created");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("send verification") {
+    FATP_SUBTEST("send verification") {
         bool sent = user.send_verification_email();
-        ASSERT_TRUE(sent, "Verification email sent");
+        FATP_ASSERT_TRUE(sent, "Verification email sent");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
@@ -4473,21 +4473,21 @@ int main(int argc, char** argv)
 bool test_error_handling()
 {
     // Test invalid input
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         parse_number("not a number"),
         std::invalid_argument,
         "Invalid input throws"
     );
     
     // Test boundary condition
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         allocate_buffer(-1),
         std::length_error,
         "Negative size throws"
     );
     
     // Test null pointer
-    ASSERT_THROWS(
+    FATP_ASSERT_THROWS(
         process_data(nullptr),
         std::runtime_error,
         "Null pointer throws"
@@ -4506,31 +4506,31 @@ bool test_state_machine()
 {
     StateMachine sm;
     
-    SUBTEST("initial state") {
-        ASSERT_EQ(sm.state(), State::Initial, "Starts in Initial");
+    FATP_SUBTEST("initial state") {
+        FATP_ASSERT_EQ(sm.state(), State::Initial, "Starts in Initial");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("transition to Running") {
+    FATP_SUBTEST("transition to Running") {
         sm.start();
-        ASSERT_EQ(sm.state(), State::Running, "Transitions to Running");
+        FATP_ASSERT_EQ(sm.state(), State::Running, "Transitions to Running");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("transition to Stopped") {
+    FATP_SUBTEST("transition to Stopped") {
         sm.stop();
-        ASSERT_EQ(sm.state(), State::Stopped, "Transitions to Stopped");
+        FATP_ASSERT_EQ(sm.state(), State::Stopped, "Transitions to Stopped");
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
-    SUBTEST("invalid transition") {
-        ASSERT_THROWS(
+    FATP_SUBTEST("invalid transition") {
+        FATP_ASSERT_THROWS(
             sm.start(),  // Can't start from Stopped
             std::logic_error,
             "Invalid transition throws"
         );
     }
-    END_SUBTEST
+    FATP_END_SUBTEST
     
     return fat_p::testing::get_subtest_tracker().all_passed();
 }
@@ -4610,24 +4610,24 @@ int main(int argc, char** argv)
     }
     
     // Basic functionality
-    PRINT_HEADER(BASIC OPERATIONS);
-    RUN_TEST(runner, test_create);
-    RUN_TEST(runner, test_destroy);
-    RUN_TEST(runner, test_copy);
+    FATP_PRINT_HEADER(BASIC OPERATIONS);
+    FATP_RUN_TEST(runner, test_create);
+    FATP_RUN_TEST(runner, test_destroy);
+    FATP_RUN_TEST(runner, test_copy);
     
     // Edge cases
-    PRINT_HEADER(EDGE CASES);
-    RUN_TEST(runner, test_empty_input);
-    RUN_TEST(runner, test_null_pointer);
-    RUN_TEST(runner, test_overflow);
+    FATP_PRINT_HEADER(EDGE CASES);
+    FATP_RUN_TEST(runner, test_empty_input);
+    FATP_RUN_TEST(runner, test_null_pointer);
+    FATP_RUN_TEST(runner, test_overflow);
     
     // Error handling
-    PRINT_HEADER(ERROR HANDLING);
-    RUN_TEST(runner, test_invalid_input);
-    RUN_TEST(runner, test_exception_safety);
+    FATP_PRINT_HEADER(ERROR HANDLING);
+    FATP_RUN_TEST(runner, test_invalid_input);
+    FATP_RUN_TEST(runner, test_exception_safety);
     
     // Performance
-    PRINT_HEADER(PERFORMANCE);
+    FATP_PRINT_HEADER(PERFORMANCE);
     fat_p::testing::benchmark_detailed("critical_path", 
         critical_operation, 100000, 50, true);
     
@@ -4725,7 +4725,7 @@ int main()
 bool test_death()
 {
     int result = std::system("./death_test_helper");
-    ASSERT_NE(result, 0, "Helper should abort");
+    FATP_ASSERT_NE(result, 0, "Helper should abort");
     return true;
 }
 ```
@@ -4762,7 +4762,7 @@ bool test_with_mock()
     
     service.initialize();
     
-    ASSERT_TRUE(mock_db.connect_called, "Database connect called");
+    FATP_ASSERT_TRUE(mock_db.connect_called, "Database connect called");
     return true;
 }
 ```
@@ -4783,7 +4783,7 @@ bool test_with_mock()
 
 **Limitation**: Tests must be manually registered with the test runner.
 
-**Implication**: Each test requires explicit `RUN_TEST()` call.
+**Implication**: Each test requires explicit `FATP_RUN_TEST()` call.
 
 **Mitigation**: Use macros or code generation for large test suites (see Best Practices section for organization strategies).
 
@@ -4862,15 +4862,15 @@ bool test_with_mock()
 
 bool test_example()
 {
-    ASSERT_EQ(1 + 1, 2, "Basic math");
-    ASSERT_TRUE(true, "Truth");
+    FATP_ASSERT_EQ(1 + 1, 2, "Basic math");
+    FATP_ASSERT_TRUE(true, "Truth");
     return true;
 }
 
 int main()
 {
     fat_p::testing::TestRunner runner;
-    RUN_TEST(runner, test_example);
+    FATP_RUN_TEST(runner, example);  // Calls test_example
     return runner.print_summary();
 }
 ```

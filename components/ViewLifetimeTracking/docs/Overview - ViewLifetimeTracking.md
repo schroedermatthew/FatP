@@ -30,7 +30,7 @@ Non-owning views are essential for performance---they avoid copies. But they int
 
 ## Architecture at a Glance
 
-Single header (`ViewLifetimeTracking.h`) in namespace `fat_p`. Types: `LifetimeToken` (shared validity flag), `LifetimeTracker<T>` (source-side RAII), `TrackedView` (view-side checked access), `ViewGuard` (scope-based validity assertion), `DanglingReferenceError` (exception). Also provides `check_weak_ptr()` for `std::weak_ptr` safety.
+Single header (`ViewLifetimeTracking.h`) in namespace `fat_p`. Types: `LifetimeToken` (shared validity flag), `LifetimeTracker<T>` (source-side RAII), `TrackedView` (view-side checked access), `ViewGuard` (scope-based validity assertion), `DanglingReferenceError` (exception). Also provides `checked_lock()` (throwing) and `safe_lock()` (no-throw) for `std::weak_ptr` safety.
 
 ---
 

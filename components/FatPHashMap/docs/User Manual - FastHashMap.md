@@ -534,7 +534,7 @@ for (const auto& entry : load_config_file()) {
 config.freeze();  // No mutations allowed after this
 ```
 
-Any mutation attempt—`insert()`, `emplace()`, `erase()`, `operator[]`, `clear()`—triggers an assertion in debug builds:
+Any mutation attempt—`insert()`, `insert_or_assign()`, `erase()`, `operator[]`, `clear()`—triggers an assertion in debug builds:
 
 ```cpp
 config[99] = new_value;  // Debug: assertion failure
@@ -551,26 +551,24 @@ However, a frozen map can be safely accessed from multiple threads without synch
 
 ---
 
-## The Insert Method Zoo
+## The Insert Methods
 
-### Why Four Methods Exist
+### Why Two Methods Exist
 
 When you insert a key that already exists, what should happen?
 
 Different use cases want different answers:
 
 - **Configuration loading:** "Update the setting to its latest value." You want to overwrite.
-- **Caching:** "Use the cached result if available." You don't want to overwrite—the existing value is correct.
-- **Deduplication:** "Add if new, skip if duplicate." You don't want to overwrite, and you don't want to construct a value you won't use.
-- **Lazy initialization:** "Compute the value only if the key is new." You want to defer construction.
+- **Caching / deduplication:** "Add if new, skip if duplicate." You don't want to overwrite—the existing value is correct.
 
-FastHashMap provides four insert methods to address these patterns. Understanding when to use each prevents subtle bugs.
+FastHashMap provides exactly two insert methods to address these patterns—one that preserves the existing value and one that overwrites. Both take the key and value directly (as perfect-forwarding references), so moves are supported; there are no separate `emplace()`/`try_emplace()` variants.
 
 ### insert(): Add If Missing
 
 ```cpp
-Value* insert(const Key& key, const Value& value);
-Value* insert(Key&& key, Value&& value);
+template<typename K, typename V>
+Value* insert(K&& key, V&& value);
 ```
 
 `insert()` adds the key-value pair only if the key doesn't already exist. If the key exists, the call does nothing and returns `nullptr`.
@@ -586,8 +584,8 @@ This matches `std::unordered_map::insert()` semantics. Use it for deduplication 
 ### insert_or_assign(): Upsert
 
 ```cpp
-std::pair<Value*, bool> insert_or_assign(const Key& key, const Value& value);
-std::pair<Value*, bool> insert_or_assign(Key&& key, Value&& value);
+template<typename K, typename V>
+std::pair<Value*, bool> insert_or_assign(K&& key, V&& value);
 ```
 
 `insert_or_assign()` always stores the value, overwriting any existing value. It returns a pair: pointer to the value, and a boolean indicating whether insertion (true) or assignment (false) occurred.
@@ -602,40 +600,21 @@ auto [ptr2, was_new2] = map.insert_or_assign(1, "second");
 
 Use this for "upsert" patterns where you always want the latest value.
 
-### emplace(): Construct In-Place With Overwrite
+### What About emplace()/try_emplace()?
+
+FastHashMap does not provide `emplace()` or `try_emplace()`. The value is constructed from what you pass to `insert()`/`insert_or_assign()`, and both take forwarding references, so a move-constructed value is cheap:
 
 ```cpp
-template<typename... Args>
-Value* emplace(const Key& key, Args&&... args);
+map.insert(1, make_expensive_value());  // value is moved into the slot
 ```
 
-`emplace()` constructs the value in-place from the provided arguments. If the key exists, **it overwrites the existing value**.
-
-**Warning:** This differs from `std::unordered_map::emplace()`, which does NOT overwrite. This is the most common migration pitfall.
+Note one consequence: because there is no `try_emplace()`, the value argument to `insert()` is always evaluated, even if the key already exists and the call does nothing. If value construction is expensive, guard it with `contains()` first:
 
 ```cpp
-map.emplace(1, "first");
-map.emplace(1, "second");  // OVERWRITES!
-// map[1] == "second"
+if (!map.contains(key)) {
+    map.insert(key, expensive_computation());
+}
 ```
-
-Use `emplace()` when you want `insert_or_assign()` semantics but need in-place construction (e.g., for non-copyable types).
-
-### try_emplace(): Construct If Missing
-
-```cpp
-template<typename... Args>
-std::pair<Value*, bool> try_emplace(const Key& key, Args&&... args);
-```
-
-`try_emplace()` constructs the value in-place only if the key doesn't exist. If the key exists, the arguments are never evaluated.
-
-```cpp
-// expensive_computation() called only if key is new
-auto [ptr, inserted] = map.try_emplace(1, expensive_computation());
-```
-
-Use this for lazy initialization or when value construction is expensive and you want to skip it for duplicates.
 
 ### Decision Table
 
@@ -643,8 +622,7 @@ Use this for lazy initialization or when value construction is expensive and you
 |----------|--------|-------------|---------------------------|
 | Keep first value | `insert()` | No | Yes |
 | Always update | `insert_or_assign()` | Yes | Yes |
-| Update with in-place construction | `emplace()` | Yes | Yes |
-| Lazy initialization | `try_emplace()` | No | No |
+| Lazy initialization | `contains()` check + `insert()` | No | No |
 
 ---
 
@@ -748,21 +726,19 @@ if (ptr) {
 }
 ```
 
-**emplace() OVERWRITES existing values:**
+**No emplace()/try_emplace():**
 
 ```cpp
-// std::unordered_map: emplace ignores duplicates
-std_map.emplace(1, "first");
-std_map.emplace(1, "second");  // IGNORED
-// std_map[1] == "first"
+// std::unordered_map
+std_map.emplace(1, "first");          // Add if missing
+std_map.try_emplace(1, "second");     // Add if missing, args not evaluated
 
-// FastHashMap: emplace OVERWRITES
-fast_map.emplace(1, "first");
-fast_map.emplace(1, "second");  // OVERWRITES!
-// fast_map[1] == "second"
+// FastHashMap: use insert() for add-if-missing semantics
+fast_map.insert(1, "first");
+fast_map.insert(1, "second");  // Returns nullptr, keeps "first"
 ```
 
-Use `try_emplace()` for `std::unordered_map::emplace()` semantics.
+FastHashMap has no in-place construction variants. `insert()` gives you `std::unordered_map::emplace()`'s add-if-missing semantics (the value is moved into the slot, not constructed in place), but unlike `try_emplace()`, the value argument is always evaluated—guard expensive construction with `contains()` first.
 
 **Pointers to values may become dangling:**
 
@@ -853,12 +829,14 @@ A hash map with zero heap allocation after construction:
 
 ```cpp
 fat_p::FastHashMap<int, float, std::hash<int>, std::equal_to<int>,
-    fat_p::FixedBufferAllocator<256>> sensor_map;
+    fat_p::TombstoneDeletion, fat_p::FixedAllocator<256>> sensor_map;
 
 sensor_map.insert(SENSOR_TEMP, 22.5f);
 sensor_map.insert(SENSOR_HUMIDITY, 65.0f);
-// All storage within the fixed 256-slot buffer — no malloc
+// All storage within the fixed 256-byte buffer — no malloc
 ```
+
+The `fat_p::FixedHashMap<K, V, BufferBytes>` alias spells the same thing with less typing.
 
 ## Best Practices
 
@@ -868,7 +846,7 @@ sensor_map.insert(SENSOR_HUMIDITY, 65.0f);
 
 **Reserve capacity upfront.** Rehashing is expensive. If you know the approximate size, `reserve(n)` avoids intermediate rehashes.
 
-**Prefer try_emplace over operator[].** `operator[]` default-constructs the value if missing, then overwrites. `try_emplace` constructs only if missing.
+**Prefer insert over operator[] for add-if-missing.** `operator[]` default-constructs the value if missing, then you assign over it. `insert()` stores the value directly and leaves existing entries untouched.
 
 ## Expanded Troubleshooting
 
@@ -909,10 +887,6 @@ Tombstones accumulate with the default TombstoneDeletion policy. Call `rehash(ca
 `Value* insert(Key, Value)` — Inserts if key missing, returns pointer or nullptr.
 
 `pair<Value*, bool> insert_or_assign(Key, Value)` — Upserts, returns pointer and insertion flag.
-
-`Value* emplace(Key, Args...)` — Constructs in place, overwrites if exists.
-
-`pair<Value*, bool> try_emplace(Key, Args...)` — Constructs if missing.
 
 `bool erase(const Key&)` — Removes element, returns whether found.
 

@@ -22,7 +22,7 @@ status: "reviewed"
 
 
 
-**Scope:** Complete usage guide for `fat_p::CircularBuffer<T, N>`: fixed-capacity ring buffer, push/pop operations, random access, iteration, full/empty detection, and overwrite-on-full behavior.
+**Scope:** Complete usage guide for `fat_p::CircularBuffer<T, N>`: fixed-capacity ring buffer, push/pop operations, non-consuming peek via front(), full/empty detection, and reject-on-full behavior.
 
 **Not covered:**
 - Dynamically-sized ring buffers
@@ -36,11 +36,11 @@ status: "reviewed"
 ## User Manual Card
 
 **Component:** CircularBuffer
-**Primary use case:** Fixed-capacity FIFO buffer that overwrites oldest entries when full, with O(1) push/pop and random access
-**Integration pattern:** Construct `CircularBuffer<T, N>`, push elements, access by index or iterate, oldest elements are overwritten when capacity is reached
-**Key API:** `CircularBuffer<T, N>`, `.push_back()`, `.pop_front()`, `.front()`, `.back()`, `.operator[]()`, `.full()`, `.empty()`, `.size()`
+**Primary use case:** Fixed-capacity wait-free SPSC FIFO buffer with O(1) push/pop; push returns false when full (no overwrite)
+**Integration pattern:** Construct `CircularBuffer<T, N>`, producer thread calls `push()`/`emplace()`, consumer thread calls `pop(T&)`/`front()`; check the bool results for full/empty
+**Key API:** `CircularBuffer<T, N>`, `.push()`, `.emplace()`, `.pop(T&)`, `.front()`, `.full()`, `.empty()`, `.size()`
 **std equivalent:** None
-**Common mistakes:** Assuming push_back fails when full (it overwrites); holding references across push operations (invalidated); using CircularBuffer for unbounded queues (use WorkQueue instead)
+**Common mistakes:** Assuming push overwrites when full (it returns false---check the result); ignoring the `[[nodiscard]]` bool returns; using CircularBuffer for unbounded queues (use WorkQueue instead)
 **Performance notes:** All operations are O(1). Contiguous storage enables cache-friendly iteration. See `components/CircularBuffer/results/` for current data
 
 ---
@@ -98,7 +98,7 @@ int main() {
     std::thread consumer([&]() {
         int sum = 0;
         while (!done.load(std::memory_order_acquire) || !buffer.empty()) {
-            if (auto val = buffer.pop()) sum += *val;
+            if (int val = 0; buffer.pop(val)) sum += val;
         }
         std::cout << "Sum: " << sum << "\n";  // 499500
     });
@@ -119,7 +119,7 @@ CircularBuffer is **strictly single-producer single-consumer**. Exactly one thre
 ```cpp
 // CORRECT
 std::thread producer([&]() { buffer.push(data); });
-std::thread consumer([&]() { buffer.pop(); });
+std::thread consumer([&]() { T v; buffer.pop(v); });
 
 // WRONG - undefined behavior
 std::thread p1([&]() { buffer.push(1); });
@@ -205,29 +205,26 @@ events.emplace(get_time(), EVENT_LOG, "message");
 
 ## Pop Operations
 
-### pop() - Optional Return
+### pop(T&) - The Only Pop
 
 ```cpp
-std::optional<T> pop();
+[[nodiscard]] bool pop(T& out);
 ```
 
+`pop()` moves the front element into `out` and returns `true`, or returns `false` if the buffer is empty. There is no `std::optional`-returning overload; the output-parameter form lets the consumer reuse one object across iterations:
+
 ```cpp
+Message msg;
 while (running) {
-    if (auto msg = inbox.pop()) {
-        process(*msg);
+    if (inbox.pop(msg)) {
+        process(msg);
     } else {
         std::this_thread::yield();
     }
 }
 ```
 
-### pop(T&) - Reference Output
-
-```cpp
-bool pop(T& out);
-```
-
-Useful for reusing objects:
+It is equally useful for avoiding per-pop construction of large objects:
 
 ```cpp
 LargeStruct item;
@@ -243,17 +240,16 @@ while (data.pop(item)) {
 ### front() - Non-Consuming Access
 
 ```cpp
-T* front();
 const T* front() const;
 ```
 
 Inspect without removing:
 
 ```cpp
-if (auto* task = tasks.front()) {
+if (const auto* task = tasks.front()) {
     if (task->priority >= HIGH) {
-        auto t = tasks.pop();
-        execute(*t);
+        Task t;
+        if (tasks.pop(t)) execute(t);
     }
 }
 ```
@@ -261,9 +257,10 @@ if (auto* task = tasks.front()) {
 ### Priority Filtering
 
 ```cpp
-while (auto* msg = buffer.front()) {
+Message m;
+while (const auto* msg = buffer.front()) {
     if (msg->timestamp > deadline) break;
-    process(*buffer.pop());
+    if (buffer.pop(m)) process(m);
 }
 ```
 
@@ -329,7 +326,8 @@ void producer() {
 
 // One consumer thread
 void consumer() {
-    buffer.pop();
+    T value;
+    buffer.pop(value);
     buffer.front();
     buffer.empty();
     buffer.size();
@@ -344,8 +342,8 @@ std::thread([&] { buffer.push(1); });
 std::thread([&] { buffer.push(2); });
 
 // Multiple consumers - UNDEFINED BEHAVIOR
-std::thread([&] { buffer.pop(); });
-std::thread([&] { buffer.pop(); });
+std::thread([&] { int v; buffer.pop(v); });
+std::thread([&] { int v; buffer.pop(v); });
 ```
 
 ---
@@ -388,9 +386,10 @@ while (!shutdown) {
 }
 
 // Consumer
+Work w;
 while (!shutdown || !queue.empty()) {
-    if (auto w = queue.pop()) {
-        process(*w);
+    if (queue.pop(w)) {
+        process(w);
     } else {
         std::this_thread::yield();
     }
@@ -458,7 +457,8 @@ void produce() {
 }
 
 void consume() {
-    if (auto m = queue.pop()) process(*m);
+    Message m;
+    if (queue.pop(m)) process(m);
 }
 ```
 
@@ -468,7 +468,7 @@ void consume() {
 |-------|-------|-------|
 | `push(val)` | `push(val)` | Same |
 | `pop(val&)` | `pop(val&)` | Same |
-| `pop()` | `pop()` | Returns optional |
+| `pop()` | — | Use `pop(val&)` |
 | — | `emplace()` | Fat-P only |
 | — | `front()` | Fat-P only |
 
@@ -504,11 +504,11 @@ while (!buffer.pop(val)) {
 
 ### Resources Not Freed
 
-**Cause:** `clear()` only resets indices.
+**Cause:** For trivially destructible types, `clear()` just resets indices---there are no destructors to run. For non-trivial types (e.g., `shared_ptr`, containers), `clear()` automatically calls `clearAndDestruct()`, so resources are in fact released.
 
-**Fix:** Use `clear_and_destruct()` for RAII types:
+**Fix:** To make destruction explicit regardless of element type, call `clearAndDestruct()` directly:
 ```cpp
-buffer.clear_and_destruct();
+buffer.clearAndDestruct();
 ```
 
 ---
@@ -533,14 +533,13 @@ buffer.clear_and_destruct();
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `pop()` | `optional<T>` | Remove and return front |
-| `pop(T&)` | `bool` | Remove front into reference |
+| `pop(T&)` | `bool` | Move front into reference; false if empty |
 
 ### Observers
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `front()` | `T*` | Pointer to front (nullptr if empty) |
+| `front()` | `const T*` | Pointer to front (nullptr if empty) |
 | `empty()` | `bool` | True if no elements |
 | `full()` | `bool` | True if at capacity |
 | `size()` | `size_t` | Approximate element count |
@@ -550,8 +549,8 @@ buffer.clear_and_destruct();
 
 | Method | Description |
 |--------|-------------|
-| `clear()` | Reset indices (no destructors) |
-| `clear_and_destruct()` | Reset and destroy elements |
+| `clear()` | Reset to empty; automatically destroys elements of non-trivially-destructible types |
+| `clearAndDestruct()` | Pop and destroy every element, then reset indices |
 
 ---
 

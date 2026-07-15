@@ -33,7 +33,7 @@ status: "reviewed"
 **Component:** CacheUtilities
 **Primary use case:** Explicit cache control for HPC hot paths: prefetching, non-temporal stores, false sharing prevention
 **Integration pattern:** Include `CacheUtilities.h` and use `fat_p::cache::` utilities in performance-critical loops; combine with AlignedVector for cache-aligned storage
-**Key API:** `prefetch()`, `cacheLineFlush()`, `streamingStore()`, `CacheAligned<T>`, `cacheLineSize()`, `blockForCache()`
+**Key API:** `prefetch()`, `flush_cache_line()`, `stream_store()`, `CacheAligned<T>`, `CacheInfo::l1_line_size()`, `optimal_block_size()`
 **std equivalent:** None
 **Common mistakes:** Prefetching too early or too late; using streaming stores for data that will be read soon; assuming cache line size is always 64 bytes across all platforms
 **Performance notes:** Prefetching hides memory latency; streaming stores bypass cache for write-only patterns. Effectiveness is workload-dependent. See `components/CacheUtilities/results/` for current data
@@ -228,9 +228,8 @@ CacheUtilities provides compile-time constants for use in `alignas`, template pa
 
 ```cpp
 namespace cache_constants {
-    inline constexpr size_t l1_line_size_v;                    // 64 or 128
     inline constexpr size_t destructive_interference_size_v;   // 64 or 128
-    inline constexpr size_t constructive_interference_size_v;  // 64
+    inline constexpr size_t constructive_interference_size_v;  // 64 or 128
 }
 ```
 
@@ -241,12 +240,12 @@ These are true `constexpr` values, safe to use anywhere a constant expression is
 alignas(cache_constants::destructive_interference_size_v) int shared_data[16];
 
 // Use in templates
-template<size_t N = cache_constants::l1_line_size_v>
+template<size_t N = cache_constants::destructive_interference_size_v>
 struct CacheBlock { char data[N]; };
 
 // Use in array sizing
 constexpr size_t elements_per_line = 
-    cache_constants::l1_line_size_v / sizeof(double);  // 8 doubles per line
+    cache_constants::constructive_interference_size_v / sizeof(double);  // 8 doubles per line
 ```
 
 ### CacheInfo Class
@@ -779,12 +778,12 @@ void matmul_blocked(const double* A, const double* B, double* C,
 ### Checking Alignment
 
 ```cpp
-bool is_aligned(const void* ptr, size_t alignment) noexcept;
+bool isAligned(const void* ptr, size_t alignment) noexcept;
 ```
 
 ```cpp
 int* p = new int[100];
-if (is_aligned(p, 32)) {
+if (isAligned(p, 32)) {
     // Can use AVX instructions safely
 } else {
     // Need unaligned fallback
@@ -1169,7 +1168,7 @@ void transpose_blocked(const double* src, double* dst,
 | Stream copy | `stream_copy(dest, src, size)` |
 | Store fence | `store_fence()` |
 | Prevent false sharing | `CacheAligned<T>` or `CacheLinePadded<T>` |
-| Check alignment | `is_aligned(ptr, alignment)` |
+| Check alignment | `isAligned(ptr, alignment)` |
 | Align pointer | `align_up(ptr, alignment)` |
 | Block size | `optimal_block_size(n, sizeof(T))` |
 | 2D blocking | `BlockIterator2D(rows, cols, br, bc)` |

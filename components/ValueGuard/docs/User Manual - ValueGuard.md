@@ -32,9 +32,9 @@ status: "reviewed"
 **Component:** ValueGuard
 **Primary use case:** Temporarily change a value and guarantee automatic restoration when the scope exits, regardless of exceptions or early returns
 **Integration pattern:** Construct `ValueGuard guard(variable, newValue);` at the point where the temporary change is needed; the original value is restored automatically when `guard` goes out of scope
-**Key API:** `ValueGuard<T>`, constructor (reference, optional new value), `.restore()` (early restoration), `.dismiss()` (cancel restoration)
+**Key API:** `ValueGuard<T>`, constructor (reference, new value), `.release()` (cancel restoration, committing the mutation), `.is_active()`, `.original()`, `.current()` (there is no early-restore method; restoration happens in the destructor)
 **std equivalent:** None
-**Common mistakes:** Creating a ValueGuard for a reference that outlives the guarded scope; dismissing a guard and forgetting to restore manually; guarding non-copyable types without move support
+**Common mistakes:** Creating a ValueGuard for a reference that outlives the guarded scope; releasing a guard and forgetting the mutation becomes permanent; guarding non-copyable types without move support
 **Performance notes:** One copy on construction (save), one copy on destruction (restore). Zero overhead beyond the copies. See `components/ValueGuard/results/` for current data
 
 ---

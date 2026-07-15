@@ -41,7 +41,6 @@ FATP_META:
  * - CoroutineTask<T>: Basic coroutine with Expected error handling
  * - Generator<T>: Lazy generator for sequence production
  * - Task composition utilities (when_all, when_any)
- * - Cancellation support
  * - Zero-overhead abstractions (no virtual dispatch)
  * - Exception-safe by default
  *

@@ -3,8 +3,8 @@ doc_id: UM-TENSOR-001
 doc_type: "User Manual"
 title: "Tensor"
 fatp_components: ["Tensor"]
-topics: ["tensor", "multidimensional array", "shared ownership", "views", "slices", "reshape", "transpose", "arithmetic", "SIMD", "broadcasting", "matmul", "einsum", "iterator policy", "RowMajor", "ColumnMajor", "Strided", "Blocked", "memory layout", "strides", "contiguous", "TensorAllocator", "lazy evaluation", "expression templates"]
-constraints: ["views share storage with source", "reshape requires contiguous data", "matmul requires 2D", "einsum supports limited patterns", "SIMD for float/double only"]
+topics: ["tensor", "multidimensional array", "shared ownership", "views", "slices", "reshape", "transpose", "arithmetic", "SIMD", "broadcasting", "einsum", "iterator policy", "concurrency policy", "RowMajor", "ColumnMajor", "Strided", "Blocked", "memory layout", "strides", "contiguous", "TensorAllocator", "lazy evaluation", "expression templates"]
+constraints: ["views share storage with source", "reshape requires contiguous data", "matrix multiply via einsum (no matmul member on dynamic Tensor)", "einsum supports limited patterns", "SIMD for float/double only"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (subset)"
@@ -30,10 +30,10 @@ status: "draft"
 
 ## User Manual Card
 
-**Component:** `fat_p::Tensor<T, Allocator, IteratorPolicy>`
+**Component:** `fat_p::Tensor<T, Allocator, IteratorPolicy, ConcurrencyPolicy>`
 **Primary use case:** Dense multidimensional array with shared-ownership views, SIMD-optimized arithmetic, and NumPy-style broadcasting
-**Integration pattern:** Construct with shape -> fill or assign -> operate (arithmetic, matmul, einsum) -> extract views -> iterate with policy-aware iterators
-**Key API:** `Tensor(shape)`, `operator()`, `view()`, `reshape()`, `transpose()`, `operator+/-/*/`, `broadcast_to()`, `matmul()`, `einsum()`, `begin()`/`end()`
+**Integration pattern:** Construct with shape -> fill or assign -> operate (arithmetic, einsum) -> extract views -> iterate with policy-aware iterators
+**Key API:** `Tensor(shape)`, `operator()`, `view()`, `reshape()`, `transpose()`, `operator+/-/*/`, `broadcast_to()`, `einsum()` (matrix multiply via `einsum("ij,jk->ik", A, B)`; `matmul()` exists only for `StaticTensor` in TensorMath.h), `begin()`/`end()`
 **std equivalent:** None
 **Common mistakes:** Modifying a view expecting it to be independent (views share data); reshaping a non-contiguous view; using column-major layout for row-traversal code
 **Performance notes:** SIMD-optimized for float/double on AVX2/AVX-512; views are zero-copy; expression templates defer evaluation for operator chains
@@ -169,6 +169,18 @@ The data buffer is freed only when the last Tensor (original or any view) is des
 ---
 
 ## Construction
+
+### Template parameters
+
+```cpp
+template <typename T = double,
+          typename Allocator = TensorAllocator<T>,
+          typename IteratorPolicy = RowMajorPolicy,
+          typename ConcurrencyPolicy = SingleThreadedPolicy>
+class Tensor;
+```
+
+The fourth parameter, `ConcurrencyPolicy` (from `ConcurrencyPolicies.h`), controls synchronization; the default `SingleThreadedPolicy` is a zero-cost no-op, so single-threaded use pays nothing.
 
 ### From shape (zero-initialized)
 

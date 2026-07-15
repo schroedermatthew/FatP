@@ -80,7 +80,7 @@ flowchart TB
 
     subgraph Domain["Domain Layer — Fat-P integrated"]
         FC["FatPCbor.h<br/>fat_p::cbor_fatp<br/>CborWriter · CborReader<br/>CborResult · CborBuffer<br/>CborTraits"]
-        FS["FatPCborStream.h<br/>fat_p::cbor_fatp_stream<br/>FatPStreamParser<br/>Policy-based limits<br/>UTF-8 validation policies"]
+        FS["FatPCborStream.h<br/>fat_p::cbor_stream<br/>FatPStreamParser<br/>Policy-based limits<br/>UTF-8 validation policies"]
     end
 
     FC -->|"builds on"| CL

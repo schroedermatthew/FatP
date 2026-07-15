@@ -5,7 +5,7 @@ title: "PolicyIterator"
 fatp_components: ["PolicyIterator"]
 topics: ["policy-based design", "iterator abstraction", "compile-time dispatch", "zero-overhead abstraction", "traversal patterns"]
 constraints: ["virtual dispatch overhead", "iterator boilerplate", "STL algorithm compatibility", "debug-mode bounds checking"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2025-12-30"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "reviewed"

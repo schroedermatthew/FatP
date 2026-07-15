@@ -31,8 +31,8 @@ status: "reviewed"
 
 **Component:** EnumPlus
 **Primary use case:** Wrap enums for type-safe arithmetic, bitwise flag operations, and safe validation/casting without implicit conversions
-**Integration pattern:** Define `enum class`, use `FATP_ENABLE_ENUM_BITWISE_OPS` for flags, wrap values in `EnumPlusWrapper` for strong typing, use `EnumPlusMap` for enum-indexed arrays
-**Key API:** `EnumPlusWrapper<E>`, `EnumPlusMap<E, V, N>`, `is_valid_enum<E>()`, `safe_enum_cast<E>()`, `safe_to_underlying()`, `FATP_ENABLE_ENUM_BITWISE_OPS`
+**Integration pattern:** Define `enum class`, specialize `EnableOverloadedOperators<E> : std::true_type` to opt flags into bitwise operators, wrap values in `EnumPlusWrapper` for strong typing, use `EnumPlusMap` for enum-indexed arrays
+**Key API:** `EnumPlusWrapper<E>`, `EnumPlusMap<E, V, BoundsPolicy>` (size comes from `EnumSizeTrait<E>`), `is_valid_enum<E>()`, `safe_enum_cast<E>()`, `safe_to_underlying()`, `EnableOverloadedOperators<E>`
 **std equivalent:** None
 **Common mistakes:** Forgetting to enable bitwise ops before using `|` and `&` on enum flags; using raw `static_cast` instead of `safe_enum_cast`; assuming contiguous enum values when using EnumPlusMap
 **Performance notes:** EnumPlusWrapper is zero overhead (same size and layout as the underlying enum). EnumPlusMap is a fixed-size array with O(1) indexed access. See `components/EnumPlus/results/` for current data
@@ -241,8 +241,8 @@ fat_p::EnumPlusWrapper<Color> w4 = 5;             // COMPILE ERROR
 
 | Requirement | Minimum | Recommended |
 |-------------|---------|-------------|
-| C++ Standard | C++17 | C++20 |
-| Compiler | GCC 7+, Clang 5+, MSVC 2017+ | GCC 10+, Clang 12+, MSVC 2022 |
+| C++ Standard | C++20 | C++20 |
+| Compiler | GCC 10+, Clang 12+, MSVC 2019 16.10+ | GCC 12+, Clang 15+, MSVC 2022 |
 
 ### Integration
 
@@ -799,7 +799,7 @@ All benchmarks performed on:
 | Processor | Intel Core i7-8850H @ 2.60 GHz |
 | RAM | 32.0 GB |
 | Compiler | GCC 13.2, -O3 -march=native |
-| Standard | C++17 |
+| Standard | C++20 |
 
 Each operation measured over 10,000,000 iterations with DoNotOptimize barriers.
 
@@ -857,7 +857,7 @@ Each operation measured over 10,000,000 iterations with DoNotOptimize barriers.
 | `enum_count` | Yes | Yes |
 | Compile time | Heavy | Minimal |
 | Enum size limit | ~256 values | Unlimited |
-| C++ standard | C++17 | C++17 |
+| C++ standard | C++17 | C++20 |
 | Header size | Large | Small |
 | Case-insensitive parse | No | Yes (`from_string_icase`) |
 

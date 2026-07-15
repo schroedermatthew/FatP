@@ -31,11 +31,11 @@ status: "reviewed"
 ## User Manual Card
 
 **Component:** SimdVector
-**Primary use case:** Perform data-parallel arithmetic on vectors of floats/doubles/ints using a portable API that maps to the best available SIMD instructions
-**Integration pattern:** Load data with `SimdVector<float>::load(ptr)`, operate with arithmetic operators and math functions, store results with `.store(ptr)`. Works with AlignedVector for aligned loads.
-**Key API:** `SimdVector<T>`, `.load()`, `.store()`, arithmetic operators, `.select()`, `.sum()`, `.min()`, `.max()`, `.sqrt()`, `.abs()`
+**Primary use case:** Perform data-parallel arithmetic on vectors of floats/doubles (float and double only) using a portable API that maps to the best available SIMD instructions
+**Integration pattern:** Load data with `SimdVector<float>::load_aligned(ptr)` (or `load_unaligned`/`load_partial`), operate with arithmetic operators and math functions, store results with `.store_aligned(ptr)` (or `store_unaligned`/`store_partial`). Works with AlignedVector for aligned loads.
+**Key API:** `SimdVector<T>`, `load_aligned()`/`load_unaligned()`/`load_partial()`, `store_aligned()`/`store_unaligned()`/`store_partial()`, arithmetic operators, `select()`, `.horizontal_sum()`, `.min()`, `.max()`, `.sqrt()`, `.abs()`
 **std equivalent:** None
-**Common mistakes:** Loading from unaligned memory without using unaligned load (crashes on some platforms); assuming a specific SIMD width (use `SimdVector<T>::lanes()` instead); operating on arrays whose length is not a multiple of the SIMD width without handling the tail
+**Common mistakes:** Loading from unaligned memory without using unaligned load (crashes on some platforms); assuming a specific SIMD width (use the `SimdVector<T>::width` constant instead); operating on arrays whose length is not a multiple of the SIMD width without handling the tail
 **Performance notes:** Operations map to native SIMD instructions when available. Scalar fallback is functional but not accelerated. See `components/SimdVector/results/` for current data
 
 ---
@@ -307,8 +307,8 @@ Some libraries detect CPU features at runtime and dispatch to different code pat
 
 SimdVector requires:
 
-- **C++17 or later** (for `if constexpr`, `std::is_same_v`)
-- A compiler with SIMD support: GCC 7+, Clang 5+, MSVC 2017+
+- **C++20 or later**
+- A compiler with SIMD support: GCC 10+, Clang 10+, MSVC 2019 16.11+
 - Fat-P's `enforce.h` for alignment checks
 
 ### Compilation
@@ -318,34 +318,34 @@ Enable the SIMD instruction set you want to target:
 **GCC/Clang on x86:**
 ```bash
 # SSE2 (default on x86-64)
-g++ -std=c++17 -O3 main.cpp
+g++ -std=c++20 -O3 main.cpp
 
 # AVX2 + FMA
-g++ -std=c++17 -O3 -mavx2 -mfma main.cpp
+g++ -std=c++20 -O3 -mavx2 -mfma main.cpp
 
 # AVX-512
-g++ -std=c++17 -O3 -mavx512f main.cpp
+g++ -std=c++20 -O3 -mavx512f main.cpp
 
 # Native (auto-detect CPU features)
-g++ -std=c++17 -O3 -march=native main.cpp
+g++ -std=c++20 -O3 -march=native main.cpp
 ```
 
 **GCC/Clang on ARM:**
 ```bash
 # NEON (usually enabled by default on AArch64)
-g++ -std=c++17 -O3 main.cpp
+g++ -std=c++20 -O3 main.cpp
 
 # Explicit NEON for ARM32
-g++ -std=c++17 -O3 -mfpu=neon main.cpp
+g++ -std=c++20 -O3 -mfpu=neon main.cpp
 ```
 
 **MSVC:**
 ```bash
 # AVX2
-cl /std:c++17 /O2 /arch:AVX2 main.cpp
+cl /std:c++20 /O2 /arch:AVX2 main.cpp
 
 # AVX-512 (VS2019+)
-cl /std:c++17 /O2 /arch:AVX512 main.cpp
+cl /std:c++20 /O2 /arch:AVX512 main.cpp
 ```
 
 ### First Program
@@ -434,11 +434,9 @@ namespace fat_p {
     using SimdVectorF = SimdVector<float>;   // Short name for float
     using SimdVectorD = SimdVector<double>;  // Short name for double
 }
-
-// Type trait
-static_assert(fat_p::is_simd_vector_v<fat_p::SimdVector<float>>);  // true
-static_assert(!fat_p::is_simd_vector_v<std::vector<float>>);       // false
 ```
+
+Note: SimdVector does not provide a detection type trait (no `is_simd_vector_v`).
 
 ---
 
@@ -951,7 +949,7 @@ SV clamp(SV v, float lo, float hi)
 
 **Prefer FMA over separate multiply + add.** `fma(a, b, c)` computes `a*b + c` in one instruction with better accuracy (single rounding) and the same throughput as multiply alone.
 
-**Avoid horizontal reductions in inner loops.** `hsum()`, `hmin()`, `hmax()` are 5-10 cycles. Accumulate vertically (keep SIMD lanes separate) and reduce once after the loop.
+**Avoid horizontal reductions in inner loops.** `horizontal_sum()`, `horizontal_min()`, `horizontal_max()` are 5-10 cycles. Accumulate vertically (keep SIMD lanes separate) and reduce once after the loop.
 
 **Use select() instead of branches.** Branch misprediction costs ~15 cycles. `select()` (blendv) is always 1-2 cycles regardless of the predicate pattern.
 

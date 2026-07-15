@@ -31,11 +31,11 @@ status: "reviewed"
 
 **Component:** Factory
 **Primary use case:** Register concrete types by string name and create instances through a type-safe factory interface
-**Integration pattern:** Register factories at startup with `factory.registerType<ConcreteType>("name")`; create instances with `factory.create("name")` returning `Expected<unique_ptr<Base>, Error>`
-**Key API:** `Factory<Base>`, `.registerType<T>()`, `.create()`, `.createExpected()`, `.has()`, `.registeredNames()`
+**Integration pattern:** Register creators at startup with `factory.registerType("name", creator)`; create instances with `factory.make("name")` returning `Expected<T, Error>` (with the default error policy)
+**Key API:** `Factory<Key, T>`, `.registerType()`, `.make()`, `.hasType()`, `.getRegisteredKeys()`
 **std equivalent:** None
-**Common mistakes:** Registering types after first use; forgetting that `create()` returns Expected (not a raw pointer); using Factory as a service locator (use ServiceLocator instead)
-**Performance notes:** Registration is O(1) amortized (hash map insert). Creation involves one hash lookup + one virtual call. See `components/Factory/results/` for current data
+**Common mistakes:** Registering types after first use; forgetting that `make()` returns Expected (not a raw product) under the default error policy; using Factory as a service locator (use ServiceLocator instead)
+**Performance notes:** Registration is O(log n) with the default `MapStoragePolicy` (`std::map`); use `UnorderedMapStoragePolicy` for O(1) amortized hash lookups. Creation involves one map lookup + one `std::function` invocation. See `components/Factory/results/` for current data
 
 ---
 ## Table of Contents

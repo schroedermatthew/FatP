@@ -185,51 +185,72 @@ struct SharedMutexPolicy {
 
 **Use case:** Read-heavy workloads—multiple readers can proceed concurrently; only writers need exclusive access.
 
-### 4. SpinLockPolicy: Low-Latency Locking
+### 4. SpinlockSynchronizationPolicy: Low-Latency Locking
 
 ```cpp
-struct SpinLockPolicy {
-    mutable std::atomic_flag flag_ = ATOMIC_FLAG_INIT;
-    
-    class LockGuard {
-        std::atomic_flag& flag_;
-    public:
-        explicit LockGuard(std::atomic_flag& f) : flag_(f) {
-            while (flag_.test_and_set(std::memory_order_acquire)) {
-                // Spin
-            }
-        }
-        ~LockGuard() { flag_.clear(std::memory_order_release); }
-    };
-    
-    [[nodiscard]] LockGuard lock() const { return LockGuard(flag_); }
+struct SpinlockSynchronizationPolicy {
+    // Cache-line-aligned atomic_flag; LockGuard spins with
+    // test_and_set + yield and counts contention while waiting
+    class LockGuard { /* acquires in ctor, releases in dtor */ };
+
+    [[nodiscard]] LockGuard lock();
+    [[nodiscard]] bool try_lock();
+    uint64_t get_contention() const noexcept;  // observability built in
 };
 ```
 
-**Use case:** Very short critical sections where mutex overhead exceeds wait time.
+**Use case:** Very short critical sections where mutex overhead exceeds wait time. The built-in contention counter tells you when a spinlock is the wrong choice.
 
-### 5. Policy Traits for Generic Code
+### 5. Concepts and Variable Templates for Generic Code
+
+Policy introspection is built on C++20 concepts (`ConcurrencyPolicy`, `SharedPolicy`, `WaitablePolicy`, `LockFreePolicy`, and friends) with matching `_v` variable templates:
 
 ```cpp
-template<typename Policy>
-struct PolicyTraits {
-    static constexpr bool is_thread_safe = 
-        !std::is_same_v<Policy, SingleThreadedPolicy>;
-    
-    static constexpr bool supports_shared_lock = 
-        std::is_same_v<Policy, SharedMutexPolicy>;
-};
+// From ConcurrencyPolicies.h
+template <typename T>
+inline constexpr bool is_concurrency_policy_v = ConcurrencyPolicyTag<T>;
+
+template <typename T>
+inline constexpr bool is_shared_policy_v = SharedPolicy<T>;
 
 // Usage in generic code
 template<typename Policy>
 void optimize_for_policy() {
-    if constexpr (PolicyTraits<Policy>::supports_shared_lock) {
+    if constexpr (fat_p::is_shared_policy_v<Policy>) {
         // Use shared locks for reads
     } else {
         // Use exclusive locks
     }
 }
 ```
+
+Further detectors follow the same pattern: `is_waitable_policy_v`, `is_fair_policy_v`, `is_optimistic_policy_v`, `is_lockfree_policy_v`, `is_recursive_policy_v`, `is_timed_policy_v`, `has_contention_tracking_v`, `supports_try_lock_v`.
+
+### 6. The Full Policy Catalog
+
+The four policies above are the everyday workhorses, but the header ships nineteen. One-liners here; the User Manual covers each in detail:
+
+| Policy | One-liner |
+|--------|-----------|
+| `SingleThreadedPolicy` | No-op guards; zero overhead when threading is not needed |
+| `MutexSynchronizationPolicy` | `std::mutex` exclusive locking |
+| `SharedMutexPolicy` | `std::shared_mutex` reader-writer locking |
+| `UniqueRWLockPolicy` | Custom reader-writer lock with unique write ownership |
+| `SpinlockSynchronizationPolicy` | `atomic_flag` spinlock with contention tracking |
+| `LockFreeSynchronizationPolicy` | Pure atomics; no locks at all |
+| `LockFreeWithFallbackPolicy` | Lock-free fast path with a mutex fallback |
+| `WaitableSynchronizationPolicy` | Mutex plus `condition_variable` for blocking waits |
+| `SeqLockPolicy` | Sequence lock; optimistic, retry-based reads |
+| `TicketLockPolicy` | FIFO-fair ticket lock |
+| `MCSLockPolicy` | MCS queue lock; each waiter spins on its own cache line |
+| `RCUPolicy` | Read-copy-update; lock-free reads of a shared snapshot |
+| `HazardPointerPolicy` | Hazard-pointer-protected access and reclamation |
+| `AdaptiveLockPolicy` | Spins briefly, then falls back to blocking |
+| `PriorityInheritanceLockPolicy` | Lock with priority inheritance to counter priority inversion |
+| `VersionedLockPolicy` | Version-stamped optimistic concurrency |
+| `RecursiveMutexPolicy` | Re-entrant locking via `std::recursive_mutex` |
+| `TimedMutexPolicy` | Lock attempts with timeouts (`try_lock_for`/`try_lock_until`) |
+| `SharedTimedMutexPolicy` | Reader-writer locking with timeouts |
 
 ---
 
@@ -271,7 +292,7 @@ Fat-p components use ConcurrencyPolicies internally (StringPool, IdGenerator, Si
 | SingleThreadedPolicy | No synchronization — compiles to nothing | 0 bytes |
 | MutexSynchronizationPolicy | OS mutex lock/unlock | 40 bytes (mutex) |
 | SharedMutexPolicy | OS shared mutex — shared lock for reads, exclusive for writes | 56 bytes |
-| SpinLockPolicy | Atomic flag CAS spin — no OS transition when uncontended | 1 byte (atomic_flag) |
+| SpinlockSynchronizationPolicy | Atomic flag CAS spin — no OS transition when uncontended | 2 cache lines (flag + contention counter) |
 
 See `components/ConcurrencyPolicies/results/` for current platform-specific benchmark data.
 
@@ -284,7 +305,7 @@ See `components/ConcurrencyPolicies/results/` for current platform-specific benc
 ### Where Fat-P Loses (Honesty Builds Trust)
 
 - **Dynamic threading needs:** If thread safety must change at runtime, use runtime checks
-- **Very complex locking:** For priority inheritance or RCU, use specialized libraries
+- **Kernel-grade RCU or robust mutexes:** `RCUPolicy` and `PriorityInheritanceLockPolicy` are provided in user space; kernel-level RCU semantics or robust (owner-death-aware) mutexes still need OS/library support
 - **Cross-process:** These policies are in-process only; for shared memory, use OS primitives
 
 ---

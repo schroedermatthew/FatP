@@ -96,7 +96,7 @@ Three access modes control the mapping's permission bits:
 
 | Mode | POSIX prot/flags | Windows | Behavior |
 |------|-----------------|---------|----------|
-| `ReadOnly` | `PROT_READ`, `MAP_PRIVATE` | `PAGE_READONLY` | Reads only; writes segfault |
+| `ReadOnly` | `PROT_READ`, `MAP_SHARED` | `PAGE_READONLY` | Reads only; writes segfault |
 | `ReadWrite` | `PROT_READ|PROT_WRITE`, `MAP_SHARED` | `PAGE_READWRITE` | Reads and writes; changes visible to other processes and persisted |
 | `Private` | `PROT_READ|PROT_WRITE`, `MAP_PRIVATE` | Copy-on-write | Writes go to private copy; original file unchanged |
 

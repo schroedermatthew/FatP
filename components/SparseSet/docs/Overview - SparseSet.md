@@ -118,7 +118,7 @@ Extends SparseSet with a parallel data array:
 fat_p::SparseSetWithData<uint32_t, Transform> transforms;
 transforms.insert(entity_id, Transform{position, rotation, scale});
 
-if (auto* t = transforms.get(entity_id)) {
+if (auto* t = transforms.tryGet(entity_id)) {
     t->position += velocity * dt;
 }
 ```

@@ -143,7 +143,7 @@ CSRMatrix<double> A = /* ... */;
 ThreadPool pool(8);
 
 // Work-balanced SpMV
-std::vector<double> y = matvec_parallel(A, x, pool);
+std::vector<double> y = matvecParallel(A, x, pool);
 ```
 
 ### Tier 3: HpcCSRMatrix (NUMA + Prefetch)
@@ -249,7 +249,7 @@ flowchart TD
     EN["enforce.h"]
     CU["CacheUtilities.h"]
     CA["CheckedArithmetic.h"]
-    TT["FatPTypeTraits.h"]
+    TT["FatPConcepts.h"]
     APP["Your Application"]
     
     CSR --> TP

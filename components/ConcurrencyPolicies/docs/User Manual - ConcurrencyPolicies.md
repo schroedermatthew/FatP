@@ -33,7 +33,7 @@ status: "reviewed"
 **Component:** ConcurrencyPolicies
 **Primary use case:** Make containers and components thread-safety-configurable via compile-time policy selection, paying zero overhead for single-threaded use
 **Integration pattern:** Add `template<typename ConcurrencyPolicy = SingleThreadedPolicy>` to your class template; use policy's `lock()` / `shared_lock()` in member functions
-**Key API:** `SingleThreadedPolicy`, `MutexSynchronizationPolicy`, `SharedMutexPolicy`, `SpinlockSynchronizationPolicy`, `SeqLockPolicy`, `RCUPolicy`, `is_concurrent_v<P>`
+**Key API:** `SingleThreadedPolicy`, `MutexSynchronizationPolicy`, `SharedMutexPolicy`, `SpinlockSynchronizationPolicy`, `SeqLockPolicy`, `RCUPolicy`, `is_concurrency_policy_v<P>`
 **std equivalent:** None
 **Common mistakes:** Using spinlocks for long critical sections; using mutex policies when single-threaded suffices; holding locks across allocation boundaries; ignoring trait checks in generic code
 **Performance notes:** SingleThreadedPolicy compiles to zero overhead. Spinlocks win for short critical sections (<1μs). SharedMutex wins for read-heavy workloads. See `components/ConcurrencyPolicies/results/` for current data
@@ -371,7 +371,7 @@ ConcurrencyPolicies is header-only:
 
 Required headers (automatically included):
 
-- CppStandardDetection.h (C++ version detection)
+- CppFeatureDetection.h (C++ feature detection)
 
 ### First Program
 
@@ -1381,6 +1381,6 @@ using RWContainer = Container<fat_p::SharedMutexPolicy>;
 
 **Related Components:**
 
-- CppStandardDetection.h - C++ version detection
+- `CppFeatureDetection.h` - C++ feature detection
 - SmallVector.h - Policy-based small buffer optimization
 - ObjectPool.h - Policy-based object pooling

@@ -31,10 +31,10 @@ status: "reviewed"
 
 **Component:** IdGenerator
 **Primary use case:** Generate unique identifiers with configurable policies for threading, overflow, and recycling
-**Integration pattern:** Create `IdGenerator<Policy>`, call `.next()` to get IDs; use with `StrongId` for type-safe handles; configure thread safety policy based on usage context
-**Key API:** `IdGenerator<Policy>`, `.next()`, `.recycle(id)`, `.reset()`, `SequentialPolicy`, `RecyclingPolicy`, `ThreadSafePolicy`
+**Integration pattern:** Create `IdGenerator<IdType, Policies...>`, call `.generate()` to get IDs; use with `StrongId` for type-safe handles; configure the concurrency policy based on usage context
+**Key API:** `IdGenerator<IdType, Policies...>`, `.generate()`, `.release(id)`, `.reset()`, `SequentialAllocationPolicy`, `ImmediateRecyclingPolicy`, `MutexSynchronizationPolicy`
 **std equivalent:** None
-**Common mistakes:** Using SequentialPolicy in multi-threaded code; ignoring overflow errors from `.next()`; recycling IDs that are still in use (ABA problem)
+**Common mistakes:** Using the default `SingleThreadedPolicy` in multi-threaded code (use `ThreadSafeIdGenerator`); ignoring overflow errors from `.generate()`; releasing IDs that are still in use (ABA problem)
 **Performance notes:** Sequential generation is a single increment. Thread-safe generation is an atomic increment. Recycling policy adds a free-list lookup. See `components/IdGenerator/results/` for current data
 
 ---
@@ -344,7 +344,7 @@ auto id5 = gen.generate();  // 103 (continues sequence)
 - Deterministic and reproducible
 - Easy to debug (IDs indicate creation order)
 - Efficient (no random number generation)
-- Maximum ID visible via `ids_in_use_.rbegin()`
+- Maximum active ID tracked by `ActiveIdTracker` (an `std::unordered_set` with a lazily recomputed max cache)
 
 #### BoundedSequentialAllocationPolicy
 
@@ -659,7 +659,7 @@ Generates a new unique ID or reuses a recycled one.
 **Returns:** `Expected<IdType, IdError>` containing:
 - **Success:** The generated ID
 - **Error:** `IdError::Overflow` if the ID space is exhausted
-- **Error:** `IdError::AlreadyInUse` if collision retry exhausted (10 attempts)
+- **Error:** `IdError::AlreadyInUse` if collision retry exhausted (100 attempts)
 
 **Collision Handling:** For `RandomAllocationPolicy` or when manual insertions cause collisions, the generator automatically retries up to 100 times before returning `AlreadyInUse`. This makes random generation on small types (e.g., `uint8_t`) more robust.
 

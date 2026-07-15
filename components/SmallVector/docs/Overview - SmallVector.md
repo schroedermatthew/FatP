@@ -5,7 +5,7 @@ title: "SmallVector Overview"
 fatp_components: ["SmallVector"]
 topics: ["small buffer optimization", "inline storage", "stack allocation"]
 constraints: ["heap allocation avoidance", "cache locality"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"

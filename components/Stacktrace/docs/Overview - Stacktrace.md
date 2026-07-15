@@ -5,7 +5,7 @@ title: "Stacktrace"
 fatp_components: ["Stacktrace", "StackFrame"]
 topics: ["stack trace capture", "symbol resolution", "crash diagnostics", "async-signal-safe", "demangling", "debug information", "cross-platform diagnostics"]
 constraints: ["async-signal-safety requirements", "symbol resolution cost", "platform backend availability", "debug info dependency", "signal handler restrictions"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: "std::stacktrace"
 std_since: "C++23"
 boost_equivalent: "Boost.Stacktrace"
@@ -87,7 +87,7 @@ Crash handlers face an additional constraint: signal handlers cannot safely allo
 
 ### The Standard's Limitation
 
-C++23 introduced `std::stacktrace`, which solves the portability problem—if you can use C++23. For the vast majority of production codebases locked to C++17 or C++20 for compiler availability, ABI stability, or policy reasons, this component doesn't exist.
+C++23 introduced `std::stacktrace`, which solves the portability problem—if you can use C++23. For the many production codebases locked to C++20 for compiler availability, ABI stability, or policy reasons, this component doesn't exist.
 
 Even when available, `std::stacktrace::current()` performs immediate symbol resolution. There's no standard facility for async-signal-safe capture with deferred resolution.
 
@@ -96,10 +96,10 @@ Even when available, `std::stacktrace::current()` performs immediate symbol reso
 auto trace = std::stacktrace::current();
 std::cout << std::to_string(trace);
 
-// C++17: You're on your own
+// C++20: You're on your own
 ```
 
-No C++17 or C++20 standard component provides cross-platform stack trace capture. This gap will persist for years as codebases migrate.
+No C++20 standard component provides cross-platform stack trace capture. This gap will persist for years as codebases migrate.
 
 ---
 
@@ -275,7 +275,7 @@ for (const auto& frame : st) {
 
 | Aspect | std::stacktrace | FAT-P Stacktrace |
 |--------|-----------------|------------------|
-| **Availability** | C++23 only | C++17+ |
+| **Availability** | C++23 only | C++20+ |
 | **Async-signal-safe** | No | Yes (captureRaw) |
 | **Deferred resolution** | No | Yes |
 | **JSON output** | No | Built-in |
@@ -283,7 +283,7 @@ for (const auto& frame : st) {
 
 **When to use std::stacktrace:** C++23 is available and async-signal-safety is not needed.
 
-**When to use FAT-P Stacktrace:** C++17/C++20 codebase; crash handlers need async-signal-safe capture; need JSON output or deduplication.
+**When to use FAT-P Stacktrace:** C++20 codebase; crash handlers need async-signal-safe capture; need JSON output or deduplication.
 
 ### Boost.Stacktrace
 
@@ -316,7 +316,7 @@ for (const auto& frame : st) {
 
 | If You Need... | Why Not std:: | Why Not Boost | FAT-P Advantage |
 |----------------|---------------|---------------|-----------------|
-| C++17 support | Unavailable | Heavy dependency | Header-only, no deps |
+| C++20 support | Unavailable | Heavy dependency | Header-only, no deps |
 | Async-signal-safe | Not provided | Complex API | Simple captureRaw() |
 | Deferred resolution | Not supported | Not supported | Built-in |
 | JSON output | Not provided | Not provided | toJson() method |
@@ -328,13 +328,13 @@ for (const auto& frame : st) {
 
 C++23's `std::stacktrace` addresses portability, but:
 
-1. **Most codebases cannot use C++23 yet.** Enterprise C++ moves slowly. Compiler availability, ABI concerns, and testing overhead mean C++23 adoption will take years.
+1. **Most codebases cannot use C++23 yet.** Enterprise C++ moves slowly. Compiler availability, ABI concerns, and testing overhead mean C++23 adoption will take years. Stacktrace needs only C++20.
 
 2. **std::stacktrace lacks async-signal-safe capture.** The standard provides no mechanism for two-phase capture. This gap is unlikely to be addressed because signal handling is inherently platform-specific.
 
 3. **No standard JSON serialization.** `std::to_string(std::stacktrace)` produces implementation-defined output, not structured data for log aggregation.
 
-For C++17/C++20 codebases that need crash handlers, structured logging, or deferred resolution, no standard solution exists or is planned.
+For C++20 codebases that need crash handlers, structured logging, or deferred resolution, no standard solution exists or is planned.
 
 ---
 
@@ -374,7 +374,7 @@ Benchmarks on Linux x86-64, GCC 13, execinfo backend (median of 15 runs):
 
 ```
 Stacktrace.h
-    → uses: CppStandardDetection.h (platform/compiler detection macros)
+    → uses: CppFeatureDetection.h (platform/compiler detection macros)
     → used by: ContractException.h (violation diagnostics)
     → used by: Enforce.h (assertion stack traces)
     → used by: DiagnosticLogger.h (structured crash logs)
@@ -386,13 +386,13 @@ Stacktrace.h
 
 Stacktrace delivers on the FAT-P promise:
 
-**Permanence.** C++17/C++20 codebases cannot use `std::stacktrace`. The async-signal-safe two-phase capture pattern has no standard equivalent. This component fills a gap that will persist for years.
+**Permanence.** C++20 codebases cannot use `std::stacktrace`. The async-signal-safe two-phase capture pattern has no standard equivalent. This component fills a gap that will persist for years.
 
 **Specialization.** Multi-backend automatic selection, deferred symbol resolution, JSON output, and hash/equality support address real diagnostic requirements that platform APIs and even `std::stacktrace` leave unsolved.
 
 **Control.** Frame skipping, depth limits, and separate capture/resolve phases give precise control over when costs are incurred. Header-only deployment with zero dependencies enables integration anywhere.
 
-For crash handlers, contract violations, and diagnostic logging in C++17/C++20 codebases, Stacktrace transforms platform-specific boilerplate into portable, async-signal-safe, structured diagnostics—without external dependencies.
+For crash handlers, contract violations, and diagnostic logging in C++20 codebases, Stacktrace transforms platform-specific boilerplate into portable, async-signal-safe, structured diagnostics—without external dependencies.
 
 ---
 

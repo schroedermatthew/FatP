@@ -5,7 +5,7 @@ title: "StrongId"
 fatp_components: ["StrongId", "AtomicStrongId"]
 topics: ["strong typing", "type safety", "ID wrapper", "zero overhead abstraction", "phantom types", "newtype pattern", "compile-time safety"]
 constraints: ["parameter ordering bugs", "ID type confusion", "runtime overhead of wrappers", "implicit conversions"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.Serialization BOOST_STRONG_TYPEDEF"
 build_modes: ["Debug", "Release"]
@@ -31,7 +31,7 @@ StrongId is a zero-overhead type wrapper that prevents a pervasive class of bugs
 **Component:** StrongId  
 **Problem solved:** Compile-time prevention of ID parameter mix-ups; optional value validation  
 **When to use:** Any codebase with multiple integer ID types crossing API boundaries  
-**When NOT to use:** Single ID type; need C++11/14 compatibility; need dimensional analysis (units, quantities)  
+**When NOT to use:** Single ID type; need pre-C++20 compatibility; need dimensional analysis (units, quantities)  
 **Key guarantee:** Zero overhead—`sizeof(StrongId<int, Tag>) == sizeof(int)`; identical assembly to raw int  
 **std equivalent:** None. No standard equivalent exists or is planned.  
 **Boost equivalent:** `BOOST_STRONG_TYPEDEF` (macro-based, fewer features)  
@@ -176,9 +176,9 @@ Built-in policies enforce domain constraints at construction: `PositiveCheckPoli
 
 ### Atomic Support
 
-`AtomicStrongId` is an alias for `std::atomic<StrongId<...>>` and supports `load()`, `store()`, `exchange()`, and `compare_exchange_*()` on the typed ID.
+`AtomicStrongId` is a wrapper class holding a `std::atomic<StrongId<...>>` member and supports `load()`, `store()`, `exchange()`, and `compare_exchange_*()` on the typed ID.
 
-`std::atomic` does **not** provide `fetch_add()`/`fetch_sub()` for user-defined types; for ID generators, prefer an underlying `std::atomic<T>` counter and wrap the returned value into the StrongId type (or implement a small wrapper class).
+`std::atomic` does **not** provide `fetch_add()`/`fetch_sub()` for user-defined types; `AtomicStrongId` fills this gap with `fetch_add()`/`fetch_sub()` implemented via compare-exchange loops that respect the OpPolicy overflow checks—making type-safe atomic ID generators direct.
 
 ### Expected Integration
 
@@ -241,7 +241,7 @@ Checked arithmetic (DefaultOpPolicy) adds overhead: 2.2× for addition, ~10× fo
 StrongId.h
     → uses: CheckedArithmetic.h (overflow detection)
     → uses: Expected.h (safe factory)
-    → uses: FatPTypeTraits.h (is_strong_id trait)
+    → uses: FatPConcepts.h (is_strong_id trait)
     → uses: CppStandardDetection.h (C++20 spaceship operator)
 ```
 

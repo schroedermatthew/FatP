@@ -87,8 +87,10 @@ struct DebugOnly {
     constexpr DebugOnly() noexcept {}
     constexpr DebugOnly(const T&) noexcept {}  // Ignores argument
     
-    // Returns default-constructed temporary (likely optimized away)
-    constexpr T get() const noexcept { return T{}; }
+    // NOTE: no get()/operator->/operator* here — accessors exist only in
+    // debug builds. Cross-mode code uses if_debug() or value_or() instead.
+    template<typename U>
+    constexpr T value_or(U&& d) const { return T(std::forward<U>(d)); }
     
     template<typename F>
     void if_debug(F&&) noexcept {}  // Does nothing
@@ -168,9 +170,11 @@ public:
     }
     
     void dumpStats() {
-        if constexpr (DebugOnly<int>::is_active) {
-            log("Cache hits: ", hits_.get(), " misses: ", misses_.get());
-        }
+        hits_.if_debug([this](auto& h) {
+            misses_.if_debug([&](auto& m) {
+                log("Cache hits: ", h, " misses: ", m);
+            });
+        });
     }
 };
 ```
@@ -267,7 +271,7 @@ DebugOnly provides debug-only storage permanently—a pattern the language canno
 |----------|-------------|---------------|
 | `sizeof(DebugOnly<T>)` | `sizeof(T)` | 1 byte (empty) |
 | `DebugOnly<T>` with EBO | `sizeof(T)` | 0 bytes effective |
-| `get()` call | Direct access | Returns default `T{}` |
+| `get()` call | Direct access | Not available (compile error — use `value_or()` / `if_debug()`) |
 | `if_debug(f)` | Calls `f` | No-op (optimized out) |
 | `is_active` check | `if constexpr (true)` | `if constexpr (false)` |
 
@@ -288,12 +292,12 @@ DebugOnly provides debug-only storage permanently—a pattern the language canno
 ```
 DebugOnly.h
     ↓ uses
-TypeTraits.h            (is_hashable, is_streamable, is_equality_comparable, is_less_comparable)
-CppStandardDetection.h  ([[no_unique_address]] detection)
+Concepts.h      (hashable, streamable, equality_comparable, totally_ordered concepts)
+FatPConfig.h    (FATP_NO_UNIQUE_ADDRESS — MSVC-aware [[no_unique_address]] selection)
     ↓ used by
-SmallVector.h           (debug capacity tracking)
-Signal.h                (debug listener counts)
-ObjectPool.h            (debug allocation stats)
+FatPTest.h                  (test framework debug bookkeeping)
+enforce.h                   (debug assertion machinery)
+enforce_raiser_selector.h   (enforce policy selection)
 ```
 
 ---
@@ -315,4 +319,4 @@ Two complete implementations (debug/release) ensure zero release overhead while 
 
 ---
 
-*DebugOnly.h (646 lines) — Fat-P Library*
+*DebugOnly.h — Fat-P Library*

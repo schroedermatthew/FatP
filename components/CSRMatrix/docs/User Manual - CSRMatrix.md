@@ -32,8 +32,8 @@ status: "reviewed"
 
 **Component:** CSRMatrix
 **Primary use case:** Store and operate on large sparse matrices efficiently using Compressed Sparse Row format, with HPC-grade parallel matrix-vector multiplication
-**Integration pattern:** Build with `CSRMatrixBuilder`, call `.build()` to get immutable `CSRMatrix`, perform SpMV with `matrix.multiply(x, y)` or parallel variant
-**Key API:** `CSRMatrix<T>`, `CSRMatrixBuilder<T>`, `.addEntry()`, `.build()`, `.multiply()`, `.parallelMultiply()`, `.rows()`, `.cols()`, `.nnz()`
+**Integration pattern:** Construct directly from COO triplet arrays (row indices, column indices, values) to get an immutable `CSRMatrix`; perform SpMV with `matvec(x, y)` or `operator*`, and parallel SpMV with `matvecParallel()`
+**Key API:** `CSRMatrix<T>` COO constructor, `.matvec()`, `operator*`, `.matmul()`, `.matvecParallel()`, `.rows()`, `.cols()`, `.nnz()`
 **std equivalent:** None
 **Common mistakes:** Modifying a CSRMatrix after construction (it's immutable; rebuild from builder); ignoring duplicate entries during assembly (use duplicate handling policy); assuming parallel SpMV is always faster (overhead exceeds benefit for small matrices)
 **Performance notes:** SpMV is memory-bandwidth bound for large matrices. Parallel SpMV scales with core count. CSR format enables O(nnz) iteration. See `components/CSRMatrix/results/` for current data
@@ -660,7 +660,7 @@ CSRMatrix<double> A = /* power-law matrix */;
 ThreadPool pool(8);
 
 // Work-balanced parallel SpMV
-std::vector<double> y = matvec_parallel(A, x, pool);
+std::vector<double> y = matvecParallel(A, x, pool);
 ```
 
 CSRMatrixParallel partitions by **nnz count**, not row count:
@@ -746,7 +746,7 @@ using namespace fat_p;
 
 HpcCSRMatrix<double> A(rows, cols, row_idx, col_idx, vals);
 
-if (A.is_numa_available())
+if (A.isNumaAvailable())
 {
     std::cout << "Data allocated on local NUMA node\n";
 }
@@ -768,10 +768,10 @@ for (ptr_type j = start; j < end; ++j)
 }
 ```
 
-**Caveat:** Modern Intel CPUs (Arrow Lake, etc.) have very aggressive hardware prefetchers. Software prefetch may add overhead without benefit. Test with `use_prefetch=false`:
+**Caveat:** Modern Intel CPUs (Arrow Lake, etc.) have very aggressive hardware prefetchers. Software prefetch may add overhead without benefit. Test with `use_prefetch=false` (this third parameter exists only on `HpcCSRMatrix::matvec` from CSRMatrix_HPC.h---the base `CSRMatrix::matvec` takes only `(x, y)` or `(alpha, x, beta, y)`):
 
 ```cpp
-A.matvec(x.data(), y.data(), /*use_prefetch=*/false);
+A.matvec(x.data(), y.data(), /*use_prefetch=*/false);  // A is HpcCSRMatrix
 ```
 
 ---
@@ -791,7 +791,7 @@ flowchart TD
     Q1 -->|"No"| UseBase["CSRMatrix"]
     Q1 -->|"Yes"| Q4
     
-    Q4 -->|"Yes"| UseOMP["CSRMatrix + matvec_parallel"]
+    Q4 -->|"Yes"| UseOMP["CSRMatrix + matvecParallel"]
     Q4 -->|"No"| Q2
     
     Q2 -->|"No"| UseTP["CSRMatrixParallel"]
@@ -846,7 +846,7 @@ HpcParallelConfig config;
 config.use_prefetch = true;   // Default: software prefetch enabled
 config.use_prefetch = false;  // Try this on Arrow Lake and newer
 
-A.matvec_parallel(x, y, pool, config);
+A.matvecParallel(x, y, pool, config);
 ```
 
 Always benchmark both settings on your target hardware.
@@ -989,7 +989,8 @@ matvec_threadpool_batch(A, x, y, pool);  // Faster than matvec_threadpool
 
 **HpcCSRMatrix prefetch hurts performance**
 ```cpp
-// Try disabling software prefetch
+// Try disabling software prefetch (HpcCSRMatrix only;
+// base CSRMatrix::matvec has no prefetch parameter)
 A.matvec(x.data(), y.data(), /*use_prefetch=*/false);
 // Modern CPUs may have better hardware prefetchers
 ```

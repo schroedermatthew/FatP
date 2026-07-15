@@ -33,7 +33,7 @@ status: "reviewed"
 **Component:** AlignedVector
 **Primary use case:** Store elements with guaranteed memory alignment for SIMD operations and cache-optimal access
 **Integration pattern:** Drop-in replacement for `std::vector` where alignment guarantees are needed; pair with SimdVector for explicit SIMD operations
-**Key API:** `AlignedVector()`, `push_back()`, `emplace_back()`, `data()`, `alignedLoad()`, `alignedStore()`, `reserve()`, `resize()`
+**Key API:** `AlignedVector()`, `push_back()`, `emplace_back()`, `data()`, `assume_aligned()`, `reserve()`, `resize()`
 **std equivalent:** None
 **Common mistakes:** Using default `std::vector` where alignment matters for SIMD; forgetting that iterator invalidation rules match `std::vector`; assuming alignment persists after copying to unaligned containers
 **Performance notes:** Alignment enables compiler auto-vectorization and explicit SIMD loads/stores without penalty. See `components/AlignedVector/results/` for current data
@@ -92,7 +92,7 @@ status: "reviewed"
    - [Allocator Comparison](#allocator-comparison)
    - [Custom Allocator Integration](#custom-allocator-integration)
 10. [Exception Safety](#exception-safety)
-    - [The Strong Guarantee](#the-strong-guarantee)
+    - [Guarantees by Operation](#guarantees-by-operation)
     - [How It Works](#how-it-works)
     - [move_if_noexcept](#move_if_noexcept)
 11. [SIMD and Auto-Vectorization](#simd-and-auto-vectorization)
@@ -365,8 +365,6 @@ public:
     
     T* allocate(size_t n);
     void deallocate(T* ptr, size_t n) noexcept;
-    
-    static constexpr size_t max_size() noexcept;
 };
 ```
 
@@ -433,7 +431,7 @@ void deallocate(T* ptr, size_t) noexcept {
 - No runtime storage overhead for alignment value
 - Compiler optimization opportunities
 
-**Strong exception guarantee:** All mutating operations leave the container unchanged if an exception is thrown. This is essential for production code where errors must not corrupt data.
+**Documented exception guarantees:** Copy assignment and `assign()` provide the strong guarantee (container unchanged on throw); `insert()`, `emplace()`, `erase()`, and `resize()` provide the basic guarantee (valid, leak-free state, but shifted elements are not rolled back). Errors never corrupt data.
 
 **std::vector compatibility:** AlignedVector provides the full `std::vector` interface, making it a drop-in replacement in most code.
 
@@ -477,7 +475,7 @@ your_project/
 ├── include/
 │   └── fat_p/
 │       ├── AlignedVector.h
-│       └── FatPTypeTraits.h    // Required dependency
+│       └── FatPConcepts.h      // Optional: is_aligned_vector trait
 └── src/
     └── main.cpp
 ```
@@ -511,7 +509,7 @@ int main() {
     
     // Verify alignment
     std::cout << "Data address: " << data.data() << "\n";
-    std::cout << "Aligned to 64: " << (data.is_aligned() ? "yes" : "no") << "\n";
+    std::cout << "Aligned to 64: " << (data.isAligned() ? "yes" : "no") << "\n";
     
     // Use like std::vector
     data.push_back(2.0f);
@@ -1117,9 +1115,6 @@ public:
     // Deallocate aligned memory
     void deallocate(T* ptr, size_t n) noexcept;
     
-    // Maximum allocatable elements
-    static constexpr size_t max_size() noexcept;
-    
     // Rebind for container internals
     template<typename U>
     struct rebind {
@@ -1163,9 +1158,11 @@ alloc.deallocate(buffer, 100);
 
 ## Exception Safety
 
-### The Strong Guarantee
+### Guarantees by Operation
 
-AlignedVector provides the **strong exception guarantee** for all mutating operations: if an operation throws an exception, the container is left unchanged.
+AlignedVector documents an exception guarantee for each mutating operation. Copy assignment and `assign()` provide the **strong exception guarantee**: if the operation throws, the container is left unchanged. In contrast, `insert()`, `emplace()`, `erase()`, and `resize()` provide the **basic guarantee**: the container remains in a valid, leak-free state, but elements already shifted are not rolled back.
+
+Appending at the end (`push_back`, `emplace_back`) also leaves the container unchanged when construction of the new element throws, as the example below shows.
 
 ```cpp
 struct MayThrow {
@@ -1510,7 +1507,7 @@ AlignedVector<float, 64> cache_data;
 |---------|---------------|-------------|
 | Alignment control | Configurable (16-256+) | alignof(T) only |
 | Auto-vectorization hint | assume_aligned() | None |
-| Exception safety | Strong guarantee | Strong guarantee |
+| Exception safety | Strong/basic per operation | Strong guarantee |
 | Interface compatibility | Full std::vector | Standard |
 | Dependencies | Single header | Standard library |
 
@@ -1552,7 +1549,7 @@ Eigen is a popular linear algebra library that includes aligned allocators.
 |---------|---------------|---------------------|
 | Memory management | Automatic (RAII) | Manual free() required |
 | Growth | Automatic | Manual reallocation |
-| Exception safety | Strong guarantee | None |
+| Exception safety | Strong/basic per operation | None |
 | Move semantics | Built-in | Manual |
 | Complexity | Simple API | Low-level |
 
@@ -1874,8 +1871,8 @@ Always verify alignment in debug builds:
 ```cpp
 fat_p::AlignedVector<float, 64> data(1000);
 
-// Method 1: Use is_aligned()
-assert(data.is_aligned());
+// Method 1: Use isAligned()
+assert(data.isAligned());
 
 // Method 2: Manual check
 assert(reinterpret_cast<uintptr_t>(data.data()) % 64 == 0);
@@ -1987,7 +1984,7 @@ gdb ./a.out
 $1 = (float *) 0x555555580040
 (gdb) p (long)vec.data() % 64
 $2 = 0                          # Aligned!
-(gdb) p vec.is_aligned()
+(gdb) p vec.isAligned()
 $3 = true
 ```
 
@@ -2005,7 +2002,7 @@ void test_alignment_guarantee() {
         fat_p::AlignedVector<float, 64> vec(n);
         
         if (n > 0) {
-            assert(vec.is_aligned());
+            assert(vec.isAligned());
             assert(reinterpret_cast<uintptr_t>(vec.data()) % 64 == 0);
         }
     }
@@ -2015,25 +2012,25 @@ void test_alignment_after_operations() {
     fat_p::AlignedVector<float, 64> vec;
     
     // Empty
-    assert(vec.is_aligned());
+    assert(vec.isAligned());
     
     // After push_back
     for (int i = 0; i < 100; ++i) {
         vec.push_back(static_cast<float>(i));
-        assert(vec.is_aligned());
+        assert(vec.isAligned());
     }
     
     // After reserve
     vec.reserve(1000);
-    assert(vec.is_aligned());
+    assert(vec.isAligned());
     
     // After shrink_to_fit
     vec.shrink_to_fit();
-    assert(vec.is_aligned());
+    assert(vec.isAligned());
     
     // After clear
     vec.clear();
-    assert(vec.is_aligned());
+    assert(vec.isAligned());
 }
 
 void test_simd_safety() {
@@ -2245,7 +2242,7 @@ using allocator_type = AlignedAllocator<T, Alignment>;
 
 **Alignment:**
 - `get_alignment()` — Static constexpr
-- `is_aligned()` — Runtime check
+- `isAligned()` — Runtime check
 
 ### Non-Member Functions
 
@@ -2271,7 +2268,7 @@ AlignedVector is a **cache-aware vector container** providing:
 - **Configurable alignment:** 16, 32, 64, 128+ bytes via template parameter
 - **Full std::vector interface:** Drop-in replacement for most code
 - **Auto-vectorization support:** `assume_aligned()` for compiler hints
-- **Strong exception guarantee:** Operations leave container unchanged on failure
+- **Documented exception guarantees:** Strong for assignment and `assign()`; basic for `insert()`/`emplace()`/`erase()`/`resize()`
 - **Platform portability:** Works on Windows and POSIX systems
 - **Zero dependencies:** Single header, standard library only
 

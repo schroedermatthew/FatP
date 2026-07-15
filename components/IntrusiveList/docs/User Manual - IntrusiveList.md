@@ -1056,6 +1056,7 @@ public:
     // Capacity
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] size_type size() const noexcept;
+    [[nodiscard]] constexpr size_type max_size() const noexcept;
     
     // Element access
     [[nodiscard]] reference front();
@@ -1093,6 +1094,12 @@ public:
     // Node-to-iterator conversion
     [[nodiscard]] iterator iteratorTo(T& node);
     [[nodiscard]] const_iterator iteratorTo(const T& node) const;
+    
+    // Membership query
+    // SafeOwnerPolicy: O(1) via owner pointer comparison.
+    // FastOwnerPolicy: O(N) scan in debug builds; release builds return
+    //                  node.isLinked() (cannot distinguish which list).
+    [[nodiscard]] bool contains(const T& node) const noexcept;
 };
 ```
 

@@ -199,7 +199,7 @@ String pooling adds overhead. Avoid it when:
 
 ### Prerequisites
 
-- C++17 or later compiler (GCC 7+, Clang 5+, MSVC 2017+)
+- C++20 or later compiler (GCC 10+, Clang 12+, MSVC 2019 16.11+)
 - `ConcurrencyPolicies.h` header (provides thread safety policies)
 
 ### Integration
@@ -247,7 +247,7 @@ int main()
 
 **Compile and run:**
 ```bash
-g++ -std=c++17 -O2 -I include src/main.cpp -o string_pool_demo
+g++ -std=c++20 -O2 -I include src/main.cpp -o string_pool_demo
 ./string_pool_demo
 ```
 
@@ -392,25 +392,26 @@ The pool needs three operations:
 (and thus `c_str()` pointers) remain valid unless the element is erased. Since we never erase 
 individual strings, pointers are stable for the pool's lifetime.
 
-### The C++17 vs C++20 Lookup Problem
+### Why C++20: The Heterogeneous Lookup Story
 
-In C++17, searching a `std::unordered_set<std::string>` requires a `std::string` key:
+Before C++20, searching a `std::unordered_set<std::string>` required a `std::string` key:
 
 ```cpp
-// C++17: Must construct temporary string
+// Pre-C++20: Must construct temporary string
 std::string temp(str);           // Potential heap allocation!
 auto it = m_strings.find(temp);  // Search with temporary
 ```
 
-C++20 introduced "heterogeneous lookup" allowing direct `string_view` searches:
+C++20 introduced "heterogeneous lookup" (P0919R3) allowing direct `string_view` searches:
 
 ```cpp
 // C++20: No temporary needed
 auto it = m_strings.find(str);   // Search directly with string_view
 ```
 
-StringPool detects C++20 automatically and uses the faster path when available. For HPC 
-workloads with many lookups, **C++20 is strongly recommended** to avoid temporary allocations.
+StringPool requires C++20 and uses transparent heterogeneous lookup unconditionally—there 
+is no C++17 fallback path. Every lookup searches directly with `string_view`, so cache-hit 
+interning never constructs a temporary `std::string`.
 
 ### Memory Lifetime Contract
 
@@ -512,11 +513,11 @@ const char* s3 = pool.intern(str);
 
 **Which overload to prefer?**
 
-| Input Type | C++17 Performance | C++20 Performance | Recommendation |
-|------------|-------------------|-------------------|----------------|
-| `string_view` | Temporary allocation | Zero-copy lookup | ✅ Prefer |
-| `const char*` | Temporary allocation | Zero-copy lookup | ✅ Good |
-| `std::string` | No extra allocation | No extra allocation | For existing strings |
+| Input Type | Lookup Performance | Recommendation |
+|------------|--------------------|----------------|
+| `string_view` | Zero-copy lookup | ✅ Prefer |
+| `const char*` | Zero-copy lookup | ✅ Good |
+| `std::string` | No extra allocation | For existing strings |
 
 ### Handling nullptr
 

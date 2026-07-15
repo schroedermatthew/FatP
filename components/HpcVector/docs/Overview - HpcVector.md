@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-HpcVector is the **"holy grail" HPC container**—combining cache-line alignment, NUMA-local allocation, and SIMD optimization hints in a single `std::vector`-compatible type. Unlike using `AlignedVector` and `NumaAllocator` separately (which requires manual composition), HpcVector provides **unified allocation semantics**: one template, three NUMA policies, automatic alignment. The `assume_aligned()` method enables compiler auto-vectorization while `is_numa_available()` confirms locality guarantees, transforming memory-bound workloads into compute-bound operations with up to 2× throughput improvement on multi-socket systems.
+HpcVector is the **"holy grail" HPC container**—combining cache-line alignment, NUMA-local allocation, and SIMD optimization hints in a single `std::vector`-compatible type. Unlike using `AlignedVector` and `NumaAllocator` separately (which requires manual composition), HpcVector provides **unified allocation semantics**: one template, three NUMA policies, automatic alignment. The `assume_aligned()` method enables compiler auto-vectorization while `isNumaAvailable()` confirms locality guarantees, transforming memory-bound workloads into compute-bound operations with up to 2× throughput improvement on multi-socket systems.
 
 ---
 
@@ -83,13 +83,13 @@ public:
         return static_cast<T*>(__builtin_assume_aligned(data_, Alignment));
     }
     
-    // Runtime NUMA verification
-    [[nodiscard]] bool is_numa_available() const noexcept {
+    // Runtime verification
+    [[nodiscard]] bool isNumaAvailable() const noexcept {
         return allocator_.numa_available();
     }
     
-    [[nodiscard]] int get_numa_node() const noexcept {
-        return allocator_.get_node();
+    [[nodiscard]] bool isAligned() const noexcept {
+        return reinterpret_cast<std::uintptr_t>(data_) % Alignment == 0;
     }
 };
 ```
@@ -110,7 +110,7 @@ flowchart TB
     numa --> ptr["Aligned, NUMA-Local Pointer"]
     aligned --> ptr
     
-    ptr --> features["• assume_aligned() ✓<br/>• is_numa_available() ✓<br/>• get_numa_node() ✓"]
+    ptr --> features["• assume_aligned() ✓<br/>• isNumaAvailable() ✓<br/>• isAligned() ✓"]
 ```
 
 **Why NUMA allocations exceed alignment requirements:**
@@ -177,12 +177,14 @@ With hint: "Pointer is 64-byte aligned—emit aligned loads, no peeling loop, di
 fat_p::HpcVector<float> data(1000000);
 
 // Verify NUMA was actually available
-if (data.is_numa_available()) {
-    int node = data.get_numa_node();
-    std::cout << "Data allocated on NUMA node " << node << "\n";
+if (data.isNumaAvailable()) {
+    std::cout << "Data allocated with NUMA-local placement\n";
 } else {
     std::cout << "NUMA unavailable—using aligned fallback\n";
 }
+
+// Verify alignment at runtime
+assert(data.isAligned());
 ```
 
 **Why this matters:** On non-NUMA systems or when libnuma is unavailable, HpcVector silently falls back to aligned allocation. The verification methods let you confirm placement for debugging and performance analysis.
@@ -253,7 +255,7 @@ fat_p::HpcInterleavedVector<int> interleaved(1000);
 |----------------|----------------------|-------------------------------|--------------------|--------------------|
 | NUMA + alignment | No NUMA awareness | Verbose composition | Neither | Pre-composed solution |
 | assume_aligned() | ✓ Has it | Must add manually | ✗ Missing | Built-in |
-| NUMA verification | ✗ N/A | ✓ Available | ✗ N/A | `is_numa_available()`, `get_numa_node()` |
+| NUMA verification | ✗ N/A | ✓ Available | ✗ N/A | `isNumaAvailable()`, `isAligned()` |
 | Policy selection | ✗ N/A | ✓ Available | ✗ N/A | Template parameter |
 | Single header | ✓ | Requires composition | ✓ | ✓ |
 
@@ -282,7 +284,7 @@ fat_p::HpcInterleavedVector<int> interleaved(1000);
 | `reserve` | O(n) | Single NUMA allocation |
 | `operator[]` | O(1) | Direct pointer arithmetic |
 | `assume_aligned()` | O(1) | Returns data pointer with compiler hint |
-| `is_numa_available()` | O(1) | Queries cached allocator state |
+| `isNumaAvailable()` | O(1) | Queries cached allocator state |
 
 ### Where Fat-P Wins
 

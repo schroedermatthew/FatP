@@ -36,7 +36,7 @@ status: "draft"
 **Key API:** `init()`, `reset()`, `lazy_init()`, `get()`, `operator*`/`->`, `is_initialized()`, `wait_for_init()`
 **std equivalent:** None
 **Common mistakes:** Forgetting to call `init()` before `get()`; using SingleThreadedPolicy in multithreaded code; calling `init()` twice without AllowResetPolicy
-**Performance notes:** SingleThreaded: zero overhead beyond optional check; Atomic: one atomic load per access; ConditionVar: mutex lock per access
+**Performance notes:** SingleThreaded: zero overhead beyond optional check; Atomic: spinlock acquire/release per access (all accesses serialize); ConditionVar: mutex lock per access
 
 ---
 
@@ -88,7 +88,7 @@ The C++ language has no mechanism to prevent accessing an object before it is in
 
 | Aspect | std::optional | EnforcedInit |
 |--------|--------------|--------------|
-| Access when empty | UB (`operator*`) or throws (`value()`) | Returns error or throws (configurable) |
+| Access when empty | UB (`operator*`) or throws (`value()`) | Always throws; `init()` reports errors via Expected |
 | Thread-safe init | No | ConditionVarPolicy, AtomicPolicy |
 | Wait for init | No | `wait_for_init()` with timeout |
 | Reset control | Always resettable | Policy-controlled |
@@ -161,11 +161,11 @@ No synchronization. Raw `std::optional` check. Zero overhead.
 
 ### AtomicPolicy
 
-`std::atomic<bool>` flag. `init()` sets with release semantics; `get()` checks with acquire. Lower overhead than mutex. Does not support `wait_for_init()`.
+A spinlock built on a `std::atomic<bool>` flag: every `lock()` and `lock_shared()` spins on a compare-exchange (yielding between attempts) and holds the flag exclusively. Readers serialize with each other, not just with the writer. Avoids the memory footprint of a mutex, but under contention a real mutex is often faster. Does not support `wait_for_init()`.
 
-### MutexPolicy
+### MutexSynchronizationPolicy
 
-`std::mutex` on all access.
+`std::mutex` on all access (from `ConcurrencyPolicies.h`).
 
 ### ConditionVarPolicy
 
@@ -253,17 +253,17 @@ value.init(99);  // Re-initialized
 
 ## Lazy Initialization
 
-`lazy_init(factory)` registers a callable invoked on first `get()`:
+`lazy_init(factory)` invokes the factory immediately if the value is not yet initialized, and does nothing if it is. It is "lazy" in the init-at-most-once sense, not deferred-until-access:
 
 ```cpp
 fat_p::EnforcedInit<ExpensiveResource> resource;
-resource.lazy_init([]() { return ExpensiveResource::create(); });
+resource.lazy_init([]() { return ExpensiveResource::create(); });  // Factory invoked here, once
 
-auto& r = resource.get();   // Factory invoked here, once
-auto& r2 = resource.get();  // Same instance, no factory call
+resource.lazy_init([]() { return ExpensiveResource::create(); });  // No-op: already initialized
+auto& r = resource.get();  // Returns the existing instance
 ```
 
-The two-argument `get(factory)` combines lookup and lazy init:
+For initialization deferred to first access, use the two-argument `get(factory)`, which calls `lazy_init(factory)` and then returns the value:
 
 ```cpp
 auto& r = resource.get([]() { return ExpensiveResource::create(); });
@@ -307,10 +307,10 @@ The implementation uses `std::less<const void*>` for lock ordering between sourc
 |--------|--------|-------|-----------------|
 | SingleThreaded | Not safe | Not safe | N/A |
 | Atomic | Safe | Safe | N/A |
-| Mutex | Safe | Safe | N/A |
+| MutexSynchronization | Safe | Safe | N/A |
 | ConditionVar | Safe | Safe | Safe |
 
-For "one thread inits, many threads read," AtomicPolicy is sufficient and lowest-overhead.
+For "one thread inits, many threads read," AtomicPolicy is safe and avoids a mutex's memory footprint, but its spinlock is exclusive—concurrent readers serialize. If concurrent reads matter, use `SharedMutexPolicy` (from `ConcurrencyPolicies.h`), whose `lock_shared()` allows parallel readers.
 
 ---
 
@@ -425,7 +425,7 @@ AllowResetPolicy enables clean teardown and re-initialization between tests.
 
 ### Use the Narrowest Concurrency Policy
 
-SingleThreaded for single-threaded code. Atomic for "one writer, many readers." ConditionVar only when threads need to block-wait. Over-synchronizing wastes CPU.
+SingleThreaded for single-threaded code. Atomic when you want thread safety without a mutex's footprint (remember its spinlock serializes readers). ConditionVar only when threads need to block-wait. Over-synchronizing wastes CPU.
 
 ### Prefer NoResetPolicy
 
@@ -489,8 +489,8 @@ Each worker is initialized individually. Accessing an uninitialized worker is ca
 | Policy | init() mechanism | get() mechanism | Memory overhead |
 |--------|-----------------|-----------------|-----------------|
 | SingleThreaded | `optional::emplace` — no synchronization | `has_value()` check — single branch | sizeof(optional<T>) |
-| Atomic | Atomic store (release) | Atomic load (acquire) | + 1 byte atomic flag |
-| Mutex | Mutex lock/unlock | Mutex lock/unlock | + sizeof(mutex) |
+| Atomic | Spinlock acquire/release (CAS + yield loop) | Spinlock acquire/release — accesses serialize | + 1 byte atomic flag |
+| MutexSynchronization | Mutex lock/unlock | Mutex lock/unlock | + sizeof(mutex) |
 | ConditionVar | Lock + notify_all | Lock + wait-if-uninitialized | + sizeof(mutex) + sizeof(condition_variable) |
 
 See `components/EnforcedInit/results/` for current platform-specific benchmark data.
@@ -544,8 +544,8 @@ Policies are default-constructed in the copy/move destination. The VALUE is copi
 | `init(args...)` | Construct T in-place; returns `Expected<void, string>` |
 | `init(initializer_list)` | Construct from initializer list |
 | `reset()` | Destroy value (AllowResetPolicy); returns Expected |
-| `lazy_init(factory)` | Register factory for first `get()` |
-| `get()` / `get(factory)` | Return `T&`; throws if uninitialized |
+| `lazy_init(factory)` | Invoke factory immediately if uninitialized; no-op otherwise |
+| `get()` / `get(factory)` | Return `T&`; `get()` throws if uninitialized; `get(factory)` lazy_inits first |
 | `operator*` / `operator->` | Shorthand for `get()` |
 | `is_initialized()` | Returns bool |
 | `wait_for_init(timeout)` | Block until init (ConditionVarPolicy) |

@@ -18,7 +18,7 @@ status: "reviewed"
 
 
 
-**Scope:** Complete usage guide for `fat_p::StableHashMap<K, V>`: pointer-stable open-addressing hash map with node indirection, insertion, lookup, erasure, iteration, freeze/unfreeze, and comparison with alternatives.
+**Scope:** Complete usage guide for `fat_p::StableHashMap<K, V>`: pointer-stable open-addressing hash map with node indirection, insertion, lookup, erasure, iteration, and comparison with alternatives.
 
 **Not covered:**
 - SIMD-accelerated hash map without stability (see FastHashMap)
@@ -33,11 +33,11 @@ status: "reviewed"
 
 **Component:** StableHashMap
 **Primary use case:** Hash map where pointers and references to values remain valid across insertions and erasures
-**Integration pattern:** Use where code holds `Value*` or `Value&` that must survive mutations; use `freeze()` for read-only mode with better cache locality
-**Key API:** `StableHashMap<K, V>`, `.insert()`, `.find()`, `.erase()`, `.insertOrAssign()`, `.freeze()`, `.unfreeze()`, `.operator[]()`, `.contains()`
+**Integration pattern:** Use where code holds `Value*` or `Value&` that must survive mutations; if you need a read-only frozen mode, that lives on FastHashMap (`freeze()`), not here
+**Key API:** `StableHashMap<K, V>`, `.insert()`, `.find()`, `.erase()`, `.insert_or_assign()`, `.try_emplace()`, `.operator[]()`, `.contains()`
 **std equivalent:** None
-**Common mistakes:** Using StableHashMap when pointer stability isn't needed (FastHashMap is faster); forgetting to unfreeze before mutation; assuming frozen mode is thread-safe (it's not; use ConcurrencyPolicies)
-**Performance notes:** Node indirection adds one pointer dereference per access vs FastHashMap. Freeze mode enables dense iteration. See `components/FatPHashMap/results/` for current data
+**Common mistakes:** Using StableHashMap when pointer stability isn't needed (FastHashMap is faster); assuming the map is thread-safe (it's not; synchronize externally)
+**Performance notes:** Node indirection adds one pointer dereference per access vs FastHashMap. See `components/FatPHashMap/results/` for current data
 
 ---
 ## Table of Contents
@@ -49,7 +49,7 @@ status: "reviewed"
 5. [The Control Byte Insight](#the-control-byte-insight)
 6. [Reference Stability: The Node-Based Advantage](#reference-stability-the-node-based-advantage)
 7. [Getting Started](#getting-started)
-8. [The Insert Dilemma: Four Methods, Four Philosophies](#the-insert-dilemma-four-methods-four-philosophies)
+8. [The Insert Dilemma: Three Methods, Three Philosophies](#the-insert-dilemma-three-methods-three-philosophies)
 9. [Finding Values: Why Pointers Beat Iterators](#finding-values-why-pointers-beat-iterators)
 10. [The Block Allocator: Eliminating Malloc Overhead](#the-block-allocator-eliminating-malloc-overhead)
 11. [Hash Quality: Protecting Against Weak Hashes](#hash-quality-protecting-against-weak-hashes)
@@ -706,7 +706,6 @@ StableHashMap provides `std::unordered_map`-equivalent stability:
 **Pointers to values remain valid** after:
 - `insert()` (even if rehash occurs)
 - `insert_or_assign()` (even if rehash occurs)
-- `emplace()` (even if rehash occurs)
 - `try_emplace()` (even if rehash occurs)
 - `erase()` of *other* elements
 - `operator[]` on *other* keys
@@ -842,11 +841,11 @@ class StableHashMap;
 
 ---
 
-## The Insert Dilemma: Four Methods, Four Philosophies
+## The Insert Dilemma: Three Methods, Three Philosophies
 
 ### Why So Many Insert Methods?
 
-StableHashMap provides four ways to add elements: `insert()`, `insert_or_assign()`, `emplace()`, and `try_emplace()`. This seems redundant. Why not just one?
+StableHashMap provides three ways to add elements: `insert()`, `insert_or_assign()`, and `try_emplace()`. This seems redundant. Why not just one?
 
 The answer involves a fundamental design question: **what happens when you insert a key that already exists?**
 
@@ -865,8 +864,8 @@ No single behavior fits all cases. Rather than choose wrong for half your users,
 ### insert(): Insert-Only, No Overwrite
 
 ```cpp
-bool insert(const Key& k, const Value& v);
-bool insert(Key&& k, Value&& v);
+template<typename K, typename V>
+std::pair<Value*, bool> insert(K&& key, V&& value);
 ```
 
 `insert()` adds the key-value pair only if the key is **missing**. If the key exists, it does nothing:
@@ -874,7 +873,7 @@ bool insert(Key&& k, Value&& v);
 ```cpp
 fat_p::StableHashMap<std::string, int> map;
 map.insert("x", 1);
-bool inserted = map.insert("x", 2);  // Returns false
+auto [ptr, inserted] = map.insert("x", 2);  // inserted == false
 std::cout << *map.find("x");  // Prints 1 (original value)
 ```
 
@@ -903,35 +902,14 @@ The return value indicates what happened:
 
 **Use insert_or_assign when:** You're setting configuration values, updating state, or implementing "last writer wins" semantics.
 
-### emplace(): In-Place Construction with Overwrite
-
-```cpp
-template<typename... Args>
-std::pair<Value*, bool> emplace(const Key& k, Args&&... args);
-```
-
-`emplace()` constructs the value in-place from the provided arguments, avoiding temporary object construction:
-
-```cpp
-fat_p::StableHashMap<int, std::string> map;
-
-// Constructs string("xxxxxxxxxx") directly in the node
-// No temporary string is created
-map.emplace(1, 10, 'x');
-```
-
-**Important difference from std::unordered_map:** StableHashMap's `emplace()` **overwrites** existing keys. This is a deliberate design choice. In HPC workloads, upsert semantics are more common than "insert if missing."
-
-If you need the standard library's "emplace only if missing" behavior, use `try_emplace()`.
-
 ### try_emplace(): Conditional In-Place Construction
 
 ```cpp
-template<typename... Args>
-std::pair<Value*, bool> try_emplace(const Key& k, Args&&... args);
+template<typename K, typename... Args>
+std::pair<Value*, bool> try_emplace(K&& key, Args&&... args);
 ```
 
-`try_emplace()` is like `emplace()`, but it only constructs the value if the key is **missing**:
+`try_emplace()` constructs the value in-place from the provided arguments, and only if the key is **missing**. (There is no separate `emplace()`; for overwrite semantics, use `insert_or_assign()`.)
 
 ```cpp
 fat_p::StableHashMap<std::string, ExpensiveObject> cache;
@@ -952,7 +930,6 @@ if (!inserted) {
 |----------|--------|-----|
 | Add if missing, ignore duplicates | `insert()` | No overwrite, matches std::unordered_map |
 | Set value, replace if exists | `insert_or_assign()` | Upsert semantics |
-| Construct in-place, replace if exists | `emplace()` | Avoid temporaries, HPC-style upsert |
 | Construct in-place only if missing | `try_emplace()` | Avoid construction for existing keys |
 | Increment/modify existing value | `operator[]` | Returns reference for modification |
 
@@ -1527,7 +1504,7 @@ if (ptr) {
 }
 ```
 
-**2. emplace() overwrites existing keys**
+**2. No emplace(); use try_emplace() or insert_or_assign()**
 
 ```cpp
 // std::unordered_map: emplace ignores duplicate
@@ -1535,13 +1512,14 @@ map.emplace(1, "first");
 map.emplace(1, "second");  // Ignored!
 // map[1] == "first"
 
-// StableHashMap: emplace overwrites
-map.emplace(1, "first");
-map.emplace(1, "second");  // Overwrites!
-// map[1] == "second"
+// StableHashMap: no emplace(); try_emplace() gives the same
+// "construct in place, ignore duplicate" behavior
+map.try_emplace(1, "first");
+map.try_emplace(1, "second");  // Ignored!
+// map[1] == "first"
 ```
 
-Use `try_emplace()` for std::unordered_map-compatible behavior.
+If you actually want overwrite-on-duplicate, use `insert_or_assign()`.
 
 **3. No bucket interface**
 

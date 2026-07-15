@@ -5,7 +5,7 @@ title: "SmallVector Design and Implementation"
 fatp_components: ["SmallVector"]
 topics: ["design rationale", "implementation details", "performance tradeoffs"]
 constraints: ["memory layout", "move semantics"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"

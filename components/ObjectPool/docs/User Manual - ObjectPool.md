@@ -610,7 +610,8 @@ std::string* t = pool.acquire(10, 'x');          // Constructs "xxxxxxxxxx"
 
 ```cpp
 template <typename... Args>
-T* try_acquire(Args&&... args);  // Note: not [[nodiscard]]
+[[nodiscard]] T* try_acquire(Args&&... args)
+    noexcept(std::is_nothrow_constructible_v<T, Args...>);
 ```
 
 `try_acquire()` works like `acquire()` but returns `nullptr` instead of growing when the pool is empty. This provides bounded memory usage—the pool never exceeds its pre-allocated capacity.
@@ -1413,8 +1414,8 @@ pool.acquire_uninitialized();  // Error: requires trivially destructible T
 | Signature | Description |
 |-----------|-------------|
 | `ObjectPool(size_t block_size)` | Create pool with specified objects per block |
-| `ObjectPool(ObjectPool&& other)` | Move constructor |
-| `ObjectPool& operator=(ObjectPool&& other)` | Move assignment |
+| `ObjectPool(ObjectPool&&)` | Deleted — moving a pool while objects are acquired would invalidate all outstanding pointers |
+| `ObjectPool& operator=(ObjectPool&&)` | Deleted — pools are deliberately non-movable (copying is deleted too) |
 
 ### Acquisition
 

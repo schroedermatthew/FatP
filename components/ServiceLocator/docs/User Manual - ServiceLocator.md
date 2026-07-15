@@ -3,7 +3,7 @@ doc_id: UM-SERVICELOCATOR-001
 doc_type: "User Manual"
 title: "ServiceLocator"
 fatp_components: ["ServiceLocator"]
-topics: ["service locator", "dependency injection", "registration", "resolution", "scopes", "factories", "singleton", "transient", "RAII registration", "statistics", "type erasure", "parent chain", "composition root", "test overrides", "MRU cache", "concurrency policy", "thread safety", "singleton factory gate", "type key policy", "registration policy", "StableHashMap", "reference stability", "lifetime safety"]
+topics: ["service locator", "dependency injection", "registration", "resolution", "scopes", "factories", "singleton", "transient", "RAII registration", "type erasure", "parent chain", "composition root", "test overrides", "concurrency policy", "thread safety", "singleton factory gate", "type key policy", "registration policy", "StableHashMap", "reference stability", "lifetime safety"]
 constraints: ["type keys not stable across DSOs by default", "transient factories require createExpected", "raw-pointer results require stable registration", "global() is per-instantiation", "non-copyable non-movable"]
 cxx_standard: "C++20"
 std_equivalent: null
@@ -20,9 +20,9 @@ status: "draft"
 
 ---
 
-**Scope:** Complete usage guide for `fat_p::service_locator::ServiceLocator`: the type erasure mechanism, two-level registry design, concurrency policies, registration policies, type key policies, registration (instance, shared, factory), resolution (pointer, reference, Expected, shared_ptr), singleton creation coordination, parent-child scoping, RAII registration handles, the MRU cache, lifetime safety analysis, error handling patterns, and integration patterns.
+**Scope:** Complete usage guide for `fat_p::service_locator::ServiceLocator`: the type erasure mechanism, two-level registry design, concurrency policies, registration policies, type key policies, registration (instance, shared, factory), resolution (pointer, reference, Expected, shared_ptr), singleton creation coordination, parent-child scoping, RAII registration handles, lifetime safety analysis, error handling patterns, and integration patterns.
 
-**Not covered:** Full dependency injection container design (ServiceLocator is a locator, not a DI container that auto-resolves dependency graphs). Writing a custom `TypeKeyPolicy` implementation from scratch. Custom `StatisticsPolicy` implementation.
+**Not covered:** Full dependency injection container design (ServiceLocator is a locator, not a DI container that auto-resolves dependency graphs). Writing a custom `TypeKeyPolicy` implementation from scratch.
 
 **Prerequisites:** C++20; familiarity with `std::shared_ptr`, interface-based design (`ILogger`, `IDatabase`), and the concept of a composition root (the place in your application where services are wired together).
 
@@ -36,7 +36,7 @@ status: "draft"
 **Key API:** `registerInstance`, `registerShared`, `registerFactory`, `tryResolve`, `resolveExpected`, `resolve`, `createExpected`, `makeScope`, `Registration`
 **std equivalent:** None (the service locator pattern is not in the standard library)
 **Common mistakes:** Resolving a transient as `T&` instead of `createExpected`; holding raw pointers across unregister; using `global()` assuming it is process-wide (it is per-instantiation); mutating the registry concurrently without `ThreadSafeServiceLocator`
-**Performance notes:** Unnamed resolve is a single hash lookup; MRU cache eliminates repeated lookups for the same type; named resolve adds string hashing overhead. See `components/ServiceLocator/results/` for current data
+**Performance notes:** Unnamed resolve is a single hash lookup; named resolve adds string hashing overhead. See `components/ServiceLocator/results/` for current data
 
 ---
 
@@ -59,22 +59,21 @@ status: "draft"
 15. RAII Registration Handles
 16. Lifetime Safety: When Pointers Dangle
 17. Error Handling Patterns
-18. The MRU Cache
-19. Use Case: Application Composition Root
-20. Use Case: Test Overrides with Scopes
-21. Use Case: Named Services for Multiple Implementations
-22. Use Case: Transient Factory for Request-Scoped Objects
-23. Use Case: Decorator Pattern via Scopes
-24. Use Case: Configuration-Driven Registration
-25. Best Practices
-26. Migration from Raw Singletons
-27. Migration from a Global Map of Interfaces
-28. Advanced Usage
-29. Performance Characteristics
-30. Troubleshooting
-31. Known Limitations
-32. API Reference
-33. FAQ
+18. Use Case: Application Composition Root
+19. Use Case: Test Overrides with Scopes
+20. Use Case: Named Services for Multiple Implementations
+21. Use Case: Transient Factory for Request-Scoped Objects
+22. Use Case: Decorator Pattern via Scopes
+23. Use Case: Configuration-Driven Registration
+24. Best Practices
+25. Migration from Raw Singletons
+26. Migration from a Global Map of Interfaces
+27. Advanced Usage
+28. Performance Characteristics
+29. Troubleshooting
+30. Known Limitations
+31. API Reference
+32. FAQ
 
 ---
 
@@ -187,7 +186,7 @@ flowchart TD
 
 **Unnamed registry (Level 1).** Keyed by a `void*` type identifier only. No string allocation, no string hashing. This is the fast path. The hash function is a SplitMix64 finalizer on the pointer address, which produces well-distributed hashes with a single multiplication chain.
 
-**Named registry (Level 2).** Keyed by a `ServiceKey` containing both the type identifier and a `std::string` name. The hash combines the type pointer hash with a string hash via `FNV-1a`. Lookup is slower due to string hashing and composite key construction.
+**Named registry (Level 2).** Keyed by a `ServiceKey` containing both the type identifier and a `std::string` name. The hash combines the type pointer hash with `std::hash<std::string_view>` of the name using a boost-style hash-combine step, then applies a MurmurHash3-style finalizer. Lookup is slower due to string hashing and composite key construction.
 
 Named resolution is significantly slower than unnamed because string hashing touches every character, while the unnamed path hashes a single pointer. Use unnamed services for the common case; use named services only when you need multiple implementations of the same interface. See `components/ServiceLocator/results/` for current platform-specific benchmark data.
 
@@ -235,7 +234,7 @@ template <typename ConcurrencyPolicy,
 class ServiceLocator;
 ```
 
-Four convenience aliases are provided:
+Two convenience aliases are provided:
 
 | Alias | Concurrency | Registration | Typical use |
 |---|---|---|---|
@@ -697,16 +696,6 @@ IDatabase& db = locator.resolve<IDatabase>();
 
 ---
 
-## The MRU Cache
-
-The MRU(2) cache accelerates repeated unnamed resolves by caching the two most recently resolved type pointers. When the same type (or alternating between two types) is resolved repeatedly, the cache avoids the hash lookup entirely by returning the cached result from a simple pointer comparison. For three or more rotating types, the cache provides no benefit and falls through to the normal hash lookup.
-
-See `components/ServiceLocator/results/` for current MRU cache hit/miss benchmark data.
-
-The cache is invalidated on any registry mutation (register, unregister, clear). It applies only to unnamed resolves. Named resolves always go through the full named registry.
-
----
-
 ## Use Case: Application Composition Root
 
 Wire all services at startup in one place:
@@ -983,18 +972,6 @@ if (locator.isRegistered<IAnalytics>())
 
 Note: `isRegistered` checks the current locator and all parents.
 
-### Statistics
-
-With `AtomicServiceLocatorStatisticsPolicy`:
-
-```cpp
-auto stats = locator.stats();
-std::cout << "Resolves: " << stats.resolveCount
-          << " Registers: " << stats.registerCount << "\n";
-```
-
-The default `NoServiceLocatorStatisticsPolicy` provides no-op counters (zero overhead).
-
 ### Custom Type Keys for DSO Boundaries
 
 When services are registered by plugins loaded at runtime, use a type key policy based on `std::type_index`:
@@ -1143,7 +1120,7 @@ struct Plugin
 
 ## Performance Characteristics
 
-Performance is dominated by the hash lookup mechanism. Unnamed operations use a single pointer hash (SplitMix64 finalizer), while named operations add string hashing (FNV-1a) and composite key construction.
+Performance is dominated by the hash lookup mechanism. Unnamed operations use a single pointer hash (SplitMix64 finalizer), while named operations add string hashing (`std::hash<std::string_view>`, combined with the type hash and run through a MurmurHash3-style finalizer) and composite key construction.
 
 | Operation | Unnamed | Named | Cost Driver |
 |---|---|---|---|
@@ -1151,7 +1128,6 @@ Performance is dominated by the hash lookup mechanism. Unnamed operations use a 
 | tryResolve / resolve | Fastest | Slower | Hash lookup; named adds string hashing |
 | createExpected (transient) | Factory cost | Factory cost | New instance per call |
 | createExpected (singleton, cached) | Fast | Slower | Shared_ptr copy |
-| MRU cache hit | Fastest | N/A | Simple pointer comparison, unnamed only |
 | makeScope | Moderate | N/A | Allocates child locator |
 
 See `components/ServiceLocator/results/` for current platform-specific benchmark data.
@@ -1204,10 +1180,6 @@ Child locators do not copy parent registrations. They fall through to the parent
 
 This is by design. Named resolution requires string hashing and composite key construction on every call. If you need to resolve a named service frequently, resolve once at startup and cache the reference.
 
-### MRU cache not effective
-
-The cache is invalidated on any registry mutation. If you register/unregister frequently, every mutation resets the cache. The cache is most effective after registration stabilizes.
-
 ---
 
 ## Known Limitations
@@ -1219,8 +1191,6 @@ The cache is invalidated on any registry mutation. If you register/unregister fr
 **No async factory support.** Factories are synchronous. For async initialization, construct a future/promise externally and register the result after completion.
 
 **Non-copyable, non-movable.** ServiceLocator cannot be copied or moved. Pass by reference.
-
-**MRU cache unnamed only.** Named resolves never hit the cache.
 
 **No cycle detection for non-factory dependencies.** Circular dependency detection only applies to singleton factories creating each other. If two services hold raw references to each other (registered via `registerInstance`), the locator cannot detect it.
 
@@ -1257,7 +1227,6 @@ The cache is invalidated on any registry mutation. If you register/unregister fr
 | `makeChild()` | Child locator (explicit ownership) |
 | `global()` | Per-instantiation static singleton |
 | `isRegistered<T>(name)` | Check (current + parents) |
-| `stats()` | Statistics (policy-dependent) |
 
 ### Registration Handle
 

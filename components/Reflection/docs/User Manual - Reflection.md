@@ -37,8 +37,8 @@ status: "reviewed"
 
 **Component:** Reflection
 **Primary use case:** Enumerate struct members at compile time for serialization, logging, comparison, and debugging without manual registration
-**Integration pattern:** Register types with reflection macros, then use `reflect<T>::members()` to enumerate fields generically
-**Key API:** `FATP_REFLECT`, `reflect<T>::members()`, `reflect<T>::name()`, `reflect<T>::for_each()`
+**Integration pattern:** Register types with `FATP_REFLECT_REGISTER`, then use `visit_fields` and the other free functions to enumerate fields generically
+**Key API:** `FATP_REFLECT_REGISTER`, `visit_fields`, `get_field<I>`, `get_field_name<I, T>`, `field_count<T>()`
 **std equivalent:** None
 **Common mistakes:** Forgetting to register types with the reflection macro; assuming private members are reflected (only registered public members); using reflection in constexpr contexts where the macro doesn't support it
 **Performance notes:** Reflection is compile-time only. Runtime enumeration is a constexpr array traversal. Zero overhead when not used
@@ -820,7 +820,7 @@ Write a single function that serializes any reflectable struct to JSON:
 
 ```cpp
 template <typename T>
-    requires fat_p::is_reflectable_v<T>
+    requires (fat_p::is_reflectable<T>())
 JsonValue serialize(const T& obj)
 {
     JsonValue j;
@@ -842,7 +842,7 @@ Compare two instances of the same struct and report which fields changed:
 
 ```cpp
 template <typename T>
-    requires fat_p::is_reflectable_v<T>
+    requires (fat_p::is_reflectable<T>())
 std::vector<std::string> diff(const T& a, const T& b)
 {
     std::vector<std::string> changed;
@@ -866,7 +866,7 @@ FATP_REFLECT_REGISTER(Request, method, url, body_size, auth_token);
 void log_request(const Request& req)
 {
     spdlog::debug("Incoming: {}", fat_p::to_debug_string(req));
-    // Output: "Request { method: GET, url: /api/v1/users, body_size: 0, auth_token: abc123 }"
+    // Output: "Request { method: \"GET\", url: \"/api/v1/users\", body_size: 0, auth_token: \"abc123\" }"
 }
 ```
 
@@ -909,9 +909,9 @@ The macro defines template specializations which cannot be inside a function or 
 
 Only fields listed in `FATP_REFLECT_REGISTER` are visible. If you added a field to the struct but not to the macro, reflection doesn't know about it. Update the macro call.
 
-### to_debug_string crashes with non-streamable types
+### to_debug_string prints "?" for a field
 
-`to_debug_string` uses `operator<<` for each field. If a field type doesn't have `operator<<`, compilation fails. Provide one, or use `visit_fields` with a custom visitor that handles the type.
+`to_debug_string` dispatches on field type with `if constexpr`: integers and floats go through `std::to_string`, strings are quoted, pointers show "null"/"non-null". Any other type falls through to a literal `"?"` — it always compiles, but the value isn't shown. For those types, use `visit_fields` with a custom visitor that handles the type.
 
 ### field_count returns 0
 

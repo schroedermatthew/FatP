@@ -5,7 +5,7 @@ title: "SlotMap Design"
 fatp_components: ["SlotMap"]
 topics: ["slot map", "handle stability", "generation counters"]
 constraints: ["ABA safety", "dense storage"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 last_verified: "2026-01-11"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
@@ -1159,7 +1159,7 @@ The Rust ecosystem adopted generational indices enthusiastically. Libraries like
 **2020s: Standardization efforts**
 Various proposals for handle-based containers have appeared in C++ circles, though none have reached standardization. The pattern remains primarily in game engines and specialized libraries.
 
-**FAT-P's SlotMap:** A clean, header-only C++17 implementation bringing the game engine pattern to general-purpose C++.
+**FAT-P's SlotMap:** A clean, header-only C++20 implementation bringing the game engine pattern to general-purpose C++.
 
 ---
 

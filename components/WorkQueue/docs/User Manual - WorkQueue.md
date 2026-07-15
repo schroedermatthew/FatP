@@ -218,7 +218,7 @@ flowchart TB
     L3 --> L2 --> L1
 ```
 
-**Layer 1: Ring buffers.** Each shard is a fixed-size, lock-free, single-producer-multiple-consumer ring buffer. It stores elements in a contiguous array. The `head_` and `tail_` atomic indices track where the next dequeue and enqueue will occur. Power-of-2 capacity enables bitwise masking instead of modulo division.
+**Layer 1: Ring buffers.** Each shard is a bounded, lock-free, multiple-producer-multiple-consumer (MPMC) ring buffer, so the whole structure is full MPMC. It stores elements in a contiguous array. The `head_` and `tail_` atomic indices track where the next dequeue and enqueue will occur. Power-of-2 capacity enables bitwise masking instead of modulo division.
 
 **Layer 2: Shard routing.** The WorkQueue template holds an array of N shards. When a producer calls `enqueue()`, the routing policy selects which shard to target. When a consumer calls `dequeue()`, the routing policy determines which shard to probe first, which neighbors to check, and whether to fall back to a full scan.
 

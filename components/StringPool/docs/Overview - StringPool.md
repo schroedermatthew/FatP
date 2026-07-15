@@ -127,13 +127,13 @@ StringPool<MutexSynchronizationPolicy> mutex_pool;
 ### 3. C++20 Heterogeneous Lookup (Zero-Allocation Find)
 
 ```cpp
-// C++17: find("key") constructs temporary std::string (potential allocation)
-// C++20: find("key") uses string_view directly (zero allocation)
+// Pre-C++20 containers: find("key") constructs temporary std::string (potential allocation)
+// StringPool (C++20 required): find("key") uses string_view directly (zero allocation)
 
 StringPool pool;
 pool.intern("existing_key");
 
-// In C++20, this does NOT allocate:
+// This does NOT allocate:
 if (pool.contains("existing_key")) { /* ... */ }
 const char* ptr = pool.find("existing_key");  // No allocation
 ```
@@ -236,7 +236,7 @@ Intern hits are fast (hash lookup only, no allocation). Intern misses are slower
 - **All-unique strings:** No duplicates = no savings, only overhead
 - **Short-lived strings:** Pool lifetime must exceed all references
 - **Very large strings:** Interning multi-MB strings wastes pool memory if rarely reused
-- **C++17 heavy lookup:** Without C++20, `find()` allocates a temporary string
+- **Pre-C++20 codebases:** StringPool requires C++20; there is no C++17 fallback
 
 ---
 

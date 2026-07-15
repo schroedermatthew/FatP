@@ -2,7 +2,7 @@
 doc_id: UM-LOCKFREEQUEUE-001
 doc_type: "User Manual"
 title: "Lock-Free Queues"
-fatp_components: ["LockFreeQueue", "WorkQueue", "PolicyQueue", "LockFreeRingBuffer"]
+fatp_components: ["LockFreeQueue", "WorkQueue", "LockFreeRingBuffer"]
 topics: ["lock-free programming", "MPMC queues", "SPSC queues", "producer-consumer patterns", "thread safety", "capacity management", "sequence numbers"]
 constraints: ["bounded capacity", "trivially copyable types", "memory ordering", "ABA problem", "cache contention"]
 cxx_standard: "C++20"
@@ -28,7 +28,7 @@ status: "reviewed"
 4. [Getting Started](#getting-started)
 5. [LockFreeQueue: The FIFO Foundation](#lockfreequeue-the-fifo-foundation)
 6. [WorkQueue: Sharding for Scale](#workqueue-sharding-for-scale)
-7. [PolicyQueue: Topology Abstraction](#policyqueue-topology-abstraction)
+7. [PolicyQueue (design sketch — not in the library)](#policyqueue-design-sketch--not-in-the-library)
 8. [LockFreeRingBuffer: Dedicated SPSC](#lockfreeringbuffer-dedicated-spsc)
 9. [The Token System: Thread Affinity](#the-token-system-thread-affinity)
 10. [Common Patterns](#common-patterns)
@@ -59,7 +59,7 @@ status: "reviewed"
 
 ---
 
-**Scope:** Practical usage of Fat-P's lock-free queue family: LockFreeQueue, WorkQueue, PolicyQueue, and LockFreeRingBuffer. Covers integration, API, patterns, migration, and troubleshooting.
+**Scope:** Practical usage of Fat-P's lock-free queue family: LockFreeQueue, WorkQueue, and LockFreeRingBuffer. Covers integration, API, patterns, migration, and troubleshooting.
 
 **Not covered:**
 - Design rationale and algorithm derivation (see Companion Guide - Lock-Free Queues)
@@ -263,7 +263,6 @@ Fat-P's lock-free queues require C++20 and have no external dependencies. Includ
 ```cpp
 #include "LockFreeQueue.h"   // LockFreeQueue
 #include "WorkQueue.h"       // WorkQueue
-#include "PolicyQueue.h"     // PolicyQueue
 #include "LockFreeRingBuffer.h"  // SPSC ring buffer
 ```
 
@@ -441,7 +440,7 @@ if (queue.dequeue(value)) {
 
 ### Optional Statistics
 
-When `EnableStatistics = true`, the queue tracks contention:
+When `EnableStats = true`, the queue tracks operation counts:
 
 ```cpp
 fat_p::LockFreeQueue<int, 1024, true> queue;
@@ -449,13 +448,17 @@ fat_p::LockFreeQueue<int, 1024, true> queue;
 // ... use queue ...
 
 auto stats = queue.stats();
-std::cout << "Enqueue retries: " << stats.enqueueContention << "\n";
-std::cout << "Dequeue retries: " << stats.dequeueContention << "\n";
+std::cout << "Total enqueues:  " << stats.totalEnqueues << "\n";
+std::cout << "Total dequeues:  " << stats.totalDequeues << "\n";
+std::cout << "Failed enqueues: " << stats.failedEnqueues << "\n";
+std::cout << "Failed dequeues: " << stats.failedDequeues << "\n";
+std::cout << "Current size:    " << stats.currentSize
+          << " / " << stats.capacity << "\n";
 
 queue.resetStats();  // Clear for next measurement period
 ```
 
-High contention counts indicate the queue is a bottleneck. Consider increasing capacity, switching to WorkQueue, or reducing producer/consumer thread counts.
+High failed-enqueue counts indicate the queue is a bottleneck (producers finding it full). Consider increasing capacity, switching to WorkQueue, or reducing producer/consumer thread counts.
 
 ---
 
@@ -547,46 +550,19 @@ The asymmetry (4 probes for enqueue, 8 for dequeue) reflects typical workloads w
 
 ---
 
-## PolicyQueue: Topology Abstraction
+## PolicyQueue (design sketch — not in the library)
 
-### When Abstraction Matters
-
-PolicyQueue provides a uniform interface over different topologies:
-
-```cpp
-// Single-queue topology (strict FIFO)
-using FifoQueue = fat_p::PolicyQueue<Task,
-    fat_p::policy_queue::SingleTopology<4096>>;
-
-// Sharded topology (maximum throughput)
-using FastQueue = fat_p::PolicyQueue<Task,
-    fat_p::policy_queue::ShardedTopology<16, 1024>>;
-
-// Generic code works with either
-template <typename Queue>
-void worker(Queue& q) {
-    Task task;
-    while (q.dequeue(task)) {
-        process(task);
-    }
-}
-```
-
-This enables writing libraries that don't hardcode queue topology. The caller chooses based on their requirements.
-
-### Topology Policies
-
-**SingleTopology**: Wraps LockFreeQueue. Provides strict FIFO. Best for low-to-moderate contention.
-
-```cpp
-fat_p::policy_queue::SingleTopology<Capacity>
-```
-
-**ShardedTopology**: Wraps WorkQueue. Provides maximum scaling. Best for high contention.
-
-```cpp
-fat_p::policy_queue::ShardedTopology<ShardCount, ShardCapacity>
-```
+> **Note:** PolicyQueue (with SingleTopology/ShardedTopology policies) was a design sketch and is not part of the library. To write topology-generic code, template on the queue type directly—LockFreeQueue and WorkQueue share the `enqueue(value)` / `dequeue(value)` interface:
+>
+> ```cpp
+> template <typename Queue>
+> void worker(Queue& q) {
+>     Task task;
+>     while (q.dequeue(task)) {
+>         process(task);
+>     }
+> }
+> ```
 
 ---
 
@@ -597,7 +573,7 @@ fat_p::policy_queue::ShardedTopology<ShardCount, ShardCapacity>
 When exactly one thread produces and exactly one thread consumes, the full MPMC machinery is unnecessary. LockFreeRingBuffer provides an optimized Single-Producer Single-Consumer implementation:
 
 ```cpp
-fat_p::LockFreeRingBuffer<Sample, 256> audio_buffer;
+fat_p::LockFreeRingBuffer<Sample> audio_buffer(256);  // capacity rounded up to a power of 2
 
 // Producer thread only
 void capture() {
@@ -766,8 +742,8 @@ For dedicated producer-consumer pairs, chain SPSC buffers:
 
 ```cpp
 // Pipeline: Capture → Process → Output
-fat_p::LockFreeRingBuffer<RawData, 256> capture_to_process;
-fat_p::LockFreeRingBuffer<ProcessedData, 256> process_to_output;
+fat_p::LockFreeRingBuffer<RawData> capture_to_process(256);
+fat_p::LockFreeRingBuffer<ProcessedData> process_to_output(256);
 
 void capture_thread() {
     while (running) {
@@ -992,7 +968,6 @@ void shutdown_system() {
 | Many producers, few consumers (MPSC) | WorkQueue or moodycamel | Both handle this well |
 | Few producers, many consumers (SPMC) | WorkQueue | Beats moodycamel 2× |
 | Dedicated producer-consumer pair | LockFreeRingBuffer | Minimum overhead |
-| Need topology abstraction | PolicyQueue | Compile-time selection |
 | Non-trivially-copyable types | Queue of indices/pointers | Indirect through separate storage |
 | Unbounded capacity required | moodycamel | Fat-P queues are bounded |
 
@@ -1166,11 +1141,11 @@ You're violating the single-producer or single-consumer contract. Use LockFreeQu
 
 ### Performance Issues
 
-**High contention statistics**
+**High failure statistics**
 
 ```cpp
 auto stats = queue.stats();
-if (stats.enqueueContention > threshold) {
+if (stats.failedEnqueues > threshold) {
     // Queue is bottleneck; consider:
     // 1. More shards (WorkQueue)
     // 2. Larger capacity
@@ -1205,7 +1180,7 @@ Consider:
 | `bool empty() const` | Approximate emptiness check |
 | `size_t size() const` | Approximate element count |
 | `static constexpr size_t capacity()` | Compile-time capacity |
-| `Stats stats() const` | Contention statistics (if EnableStats) |
+| `Stats stats() const` | Operation counts: totalEnqueues, totalDequeues, failedEnqueues, failedDequeues, currentSize, capacity (if EnableStats) |
 | `void resetStats()` | Clear statistics (if EnableStats) |
 
 ### WorkQueue<T, ShardCount, ShardCapacity, RoutingPolicy, BackoffPolicy>
@@ -1224,19 +1199,21 @@ Consider:
 | `static constexpr size_t shard_count()` | Number of shards |
 | `static constexpr size_t shard_capacity()` | Per-shard capacity |
 
-### PolicyQueue<T, Topology>
+### LockFreeRingBuffer<T>
 
-Same interface as underlying topology (SingleTopology → LockFreeQueue API; ShardedTopology → WorkQueue API).
-
-### LockFreeRingBuffer<T, Capacity>
+Capacity is a runtime constructor argument, rounded up to the next power of 2: `LockFreeRingBuffer(size_t capacity)`.
 
 | Member | Description |
 |--------|-------------|
-| `bool push(const T&)` | Push (single producer only!) |
-| `bool pop(T&)` | Pop (single consumer only!) |
+| `bool push(const T&)` | Push by copy (single producer only!) |
+| `bool push(T&&)` | Push by move (single producer only!) |
+| `std::optional<T> pop()` | Pop; nullopt if empty (single consumer only!) |
+| `bool pop(T&)` | Pop into reference (single consumer only!) |
+| `std::optional<T> peek() const` | Peek at front without removing (single consumer only!) |
 | `bool empty() const` | Check if empty |
-| `size_t size() const` | Current element count |
-| `static constexpr size_t capacity()` | Compile-time capacity |
+| `bool full() const` | Check if full |
+| `size_t size() const` | Current element count (approximate) |
+| `size_t capacity() const` | Capacity (as rounded at construction) |
 
 ---
 
@@ -1262,4 +1239,4 @@ Same interface as underlying topology (SingleTopology → LockFreeQueue API; Sha
 
 ---
 
-*LockFreeQueue.h | WorkQueue.h | PolicyQueue.h | LockFreeRingBuffer.h — Fat-P Library v3.2*
+*LockFreeQueue.h | WorkQueue.h | LockFreeRingBuffer.h — Fat-P Library v3.2*

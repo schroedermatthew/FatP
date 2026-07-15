@@ -259,7 +259,7 @@ JsonLite makes deliberate trade-offs for configuration file use cases:
 | **Safety** | All numeric conversions check for overflow | Slower than unchecked libraries |
 | **Simplicity** | Core JSON + JSON Pointer only | No streaming, no JSON Patch, no binary |
 | **Clarity** | Explicit type conversions | More verbose than implicit APIs |
-| **Modern C++** | Requires C++17, uses `std::variant` | Won't work with older compilers |
+| **Modern C++** | Requires C++20, uses `std::variant` | Won't work with older compilers |
 | **Zero dependencies** | Standard library only | No `{fmt}`, no SIMD, no compression |
 | **Comments** | JSONC support via ConfigJsonPolicy | Comments stripped on save (not round-tripped) |
 
@@ -450,7 +450,7 @@ The performance difference is negligible for configuration-sized objects.
 
 ### Prerequisites
 
-- C++17 or later compiler
+- C++20 or later compiler
 - Standard library with `<variant>`, `<optional>`, `<string_view>`
 
 ### Integration
@@ -477,17 +477,17 @@ in a `.cpp` file are fine; avoid `using namespace fat_p` in headers.
 
 **Minimum flags:**
 ```bash
-g++ -std=c++17 -I/path/to/headers main.cpp -o app
+g++ -std=c++20 -I/path/to/headers main.cpp -o app
 ```
 
 **Recommended flags:**
 ```bash
-g++ -std=c++17 -O2 -Wall -Wextra -I/path/to/headers main.cpp -o app
+g++ -std=c++20 -O2 -Wall -Wextra -I/path/to/headers main.cpp -o app
 ```
 
 **Debug with sanitizers:**
 ```bash
-g++ -std=c++17 -g -fsanitize=address,undefined -I/path/to/headers main.cpp -o app
+g++ -std=c++20 -g -fsanitize=address,undefined -I/path/to/headers main.cpp -o app
 ```
 
 ### First Program
@@ -833,12 +833,11 @@ Once you have a `JsonValue`, convert it to a string:
 ```cpp
 JsonValue j = to_json(42);
 
-// Compact format (default)
-std::string compact = to_json_string(j);  // "42"
+// Pretty format (default)
+std::string pretty = to_json_string(j);  // "42"
 
-// Pretty format
-std::string pretty = to_json_string<PrettyJsonPolicy>(j);
-// 42
+// Compact format (override the pretty flag)
+std::string compact = to_json_string(j, /*pretty=*/false);  // "42"
 ```
 
 For objects:
@@ -849,15 +848,15 @@ FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host)
 Config cfg{8080, "localhost"};
 JsonValue j = to_json(cfg);
 
-// Compact: {"port":8080,"host":"localhost"}
-std::string compact = to_json_string(j);
-
-// Pretty:
+// Pretty (default):
 // {
-//   "port": 8080,
-//   "host": "localhost"
+//     "port": 8080,
+//     "host": "localhost"
 // }
-std::string pretty = to_json_string<PrettyJsonPolicy>(j);
+std::string pretty = to_json_string(j);
+
+// Compact: {"port":8080,"host":"localhost"}
+std::string compact = to_json_string(j, /*pretty=*/false);
 ```
 
 ---
@@ -1121,29 +1120,38 @@ JsonLite supports multiple formatting policies for JSON output.
 
 #### StandardJsonPolicy (Default)
 
-Produces compact JSON with minimal whitespace:
+Produces pretty-printed, strict-spec JSON (`pretty_print = true`, 4-space indent,
+no NaN/Inf, escaped Unicode):
 
 ```cpp
 JsonValue j = parse_json(R"({"name": "Alice", "age": 30})");
 std::string output = to_json_string(j);
+// {
+//     "name": "Alice",
+//     "age": 30
+// }
+```
+
+For compact output (file size, network transmission, machine-to-machine),
+override the pretty flag at the call site — `to_json_string`'s second parameter
+defaults to `Policy::pretty_print`:
+
+```cpp
+std::string compact = to_json_string(j, /*pretty=*/false);
 // {"name":"Alice","age":30}
 ```
 
-**Use when:**
-- Minimizing file size
-- Network transmission
-- Machine-to-machine communication
-
 #### PrettyJsonPolicy
 
-Produces human-readable JSON with indentation:
+Identical to StandardJsonPolicy — it exists to make the pretty-printing intent
+explicit at the call site:
 
 ```cpp
 JsonValue j = parse_json(R"({"name": "Alice", "age": 30})");
 std::string output = to_json_string<PrettyJsonPolicy>(j);
 // {
-//   "name": "Alice",
-//   "age": 30
+//     "name": "Alice",
+//     "age": 30
 // }
 ```
 
@@ -1572,7 +1580,7 @@ FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Config, port, host, debug)
 
 Config cfg{8080, "localhost", false};
 
-// Save with compact format (default)
+// Save (always pretty-printed -- save_params hard-codes pretty=true)
 save_params("config.json", cfg);
 
 // Save with pretty format
@@ -1718,8 +1726,8 @@ You could handle this with runtime flags or global settings, but that creates pr
 
 ```cpp
 // Policy is a template parameter - chosen at compile time
-std::string compact = to_json_string<StandardJsonPolicy>(value);  // Minimal output
-std::string pretty = to_json_string<PrettyJsonPolicy>(value);     // Indented output
+std::string standard = to_json_string<StandardJsonPolicy>(value); // Pretty, strict JSON
+std::string pretty = to_json_string<PrettyJsonPolicy>(value);     // Same, intent explicit
 std::string config = to_json_string<ConfigJsonPolicy>(value);     // Comments allowed
 ```
 
@@ -1727,17 +1735,20 @@ std::string config = to_json_string<ConfigJsonPolicy>(value);     // Comments al
 
 | Policy | Output Style | NaN/Inf | Comments | Use For |
 |--------|--------------|---------|----------|---------|
-| `StandardJsonPolicy` | Compact | [X] Reject | [X] No | APIs, data exchange |
-| `PrettyJsonPolicy` | Indented | [X] Reject | [X] No | Human-readable output |
-| `CompatJsonPolicy` | Compact | [OK] Allow | [X] No | Scientific computing |
-| `ConfigJsonPolicy` | Compact | [X] Reject | [OK] Parse | Configuration files |
+| `StandardJsonPolicy` | Pretty (4-space indent) | [X] Reject | [X] No | APIs, data exchange |
+| `PrettyJsonPolicy` | Pretty (4-space indent) | [X] Reject | [X] No | Human-readable output |
+| `CompatJsonPolicy` | Pretty (4-space indent) | [OK] Allow | [X] No | Scientific computing |
+| `ConfigJsonPolicy` | Pretty (4-space indent) | [X] Reject | [OK] Parse | Configuration files |
+
+All policies pretty-print by default; pass `/*pretty=*/false` to `to_json_string` (or
+derive a policy with `pretty_print = false`) for compact output.
 
 ### StandardJsonPolicy
 
 The default policy for standard JSON compliance:
 
 **Characteristics:**
-- Compact output with minimal whitespace
+- Pretty-printed output (`pretty_print = true`, 4-space indent)
 - Strict JSON compliance (rejects NaN, Infinity)
 - No comments allowed
 - UTF-8 characters are escaped
@@ -1746,20 +1757,24 @@ The default policy for standard JSON compliance:
 ```cpp
 JsonValue j = parse_json(R"({"key": "value"})");
 std::string output = to_json_string(j);  // Uses StandardJsonPolicy
+// {
+//     "key": "value"
+// }
+
+std::string compact = to_json_string(j, /*pretty=*/false);
 // {"key":"value"}
 ```
 
 **Use when:**
 - Strict JSON compliance required
 - Interfacing with other systems
-- Minimizing file size
 
 ### PrettyJsonPolicy
 
 Human-readable formatting with indentation:
 
 **Characteristics:**
-- Indented with 2 spaces per level
+- Indented with 4 spaces per level (`indent_step = 4`)
 - Newlines after commas and braces
 - Strict JSON compliance (like StandardJsonPolicy)
 - No comments allowed
@@ -1772,9 +1787,9 @@ obj["active"] = to_json(true);
 
 std::string pretty = to_json_string<PrettyJsonPolicy>(JsonValue(obj));
 // {
-//   "name": "Alice",
-//   "age": 30,
-//   "active": true
+//     "name": "Alice",
+//     "age": 30,
+//     "active": true
 // }
 ```
 
@@ -1874,23 +1889,16 @@ save_json_to_file<PrettyJsonPolicy>("config_clean.json", config);
 
 ### Custom Policies
 
-You can create custom policies by defining a struct with the required static functions:
+You can create custom policies by inheriting from `StandardJsonPolicy` and overriding the static constexpr members you want to change:
 
 ```cpp
-struct MyCustomPolicy
+struct MyCustomPolicy : StandardJsonPolicy
 {
-    // Control compact vs pretty printing
-    static constexpr bool is_compact() { return false; }
-    static constexpr int indent_spaces() { return 4; }
+    // Compact output instead of the default pretty-printing
+    static constexpr bool pretty_print = false;
     
-    // Control special value handling
-    static constexpr bool allow_nan_inf() { return false; }
-    
-    // Control comment handling
-    static constexpr bool allow_comments() { return false; }
-    
-    // Control UTF-8 handling
-    static constexpr bool escape_unicode() { return true; }
+    // Lower floating-point precision
+    static constexpr int numeric_precision = 6;
 };
 
 // Use custom policy
@@ -1898,22 +1906,30 @@ JsonValue j = to_json(config);
 std::string output = to_json_string<MyCustomPolicy>(j);
 ```
 
-**Policy interface:**
+**Policy interface** (all static constexpr data members; defaults shown are `StandardJsonPolicy`'s):
 ```cpp
 struct Policy
 {
     // Pretty printing (false = compact, true = formatted)
-    static constexpr bool is_compact();
-    static constexpr int indent_spaces();  // Only used if !is_compact()
+    static constexpr bool pretty_print = true;
+    static constexpr int indent_step = 4;         // Spaces per indent level
+    
+    // Number formatting
+    static constexpr int numeric_precision = 16;  // Decimal precision for floats
+    static constexpr NumberFormat number_format = NumberFormat::Auto;
     
     // Special value support
-    static constexpr bool allow_nan_inf();  // NaN, Infinity
+    static constexpr bool allow_nan_inf = false;  // NaN, Infinity
     
     // Comment support (parsing only)
-    static constexpr bool allow_comments();  // JSONC comments
+    static constexpr bool allow_comments = false; // JSONC comments
     
     // UTF-8 handling
-    static constexpr bool escape_unicode();  // Escape non-ASCII
+    static constexpr bool escape_unicode = true;  // Escape non-ASCII
+    
+    // Recursion limits
+    static constexpr size_t max_parse_depth = 64;
+    static constexpr size_t max_dump_depth = 64;
 };
 ```
 
@@ -2220,14 +2236,17 @@ FATP_JSON_DEFINE_TYPE_NON_INTRUSIVE(Person, name, age, address, hobbies)
 Person p{"Alice", 30, {"123 Main St", "Springfield", 12345}, {"reading", "cycling"}};
 std::string json = to_json_string<PrettyJsonPolicy>(to_json(p));
 // {
-//   "name": "Alice",
-//   "age": 30,
-//   "address": {
-//     "street": "123 Main St",
-//     "city": "Springfield",
-//     "zip": 12345
-//   },
-//   "hobbies": ["reading", "cycling"]
+//     "name": "Alice",
+//     "age": 30,
+//     "address": {
+//         "street": "123 Main St",
+//         "city": "Springfield",
+//         "zip": 12345
+//     },
+//     "hobbies": [
+//         "reading",
+//         "cycling"
+//     ]
 // }
 ```
 
@@ -2439,7 +2458,7 @@ Before comparing features, it helps to understand where each library comes from 
 
 | Feature | JsonLite | nlohmann/json |
 |---------|----------|---------------|
-| **C++ Version** | C++17 | C++11 |
+| **C++ Version** | C++20 | C++11 |
 | **Dependencies** | None | None |
 | **Type Safety** | Explicit | Implicit conversions |
 | **Numeric Checking** | Overflow detection | No checking |
@@ -2460,14 +2479,14 @@ Before comparing features, it helps to understand where each library comes from 
 **Choose JsonLite if:**
 - Want explicit type safety (no silent conversions)
 - Need numeric overflow checking
-- Using C++17+ and want modern idioms
+- Using C++20+ and want modern idioms
 - Prefer clarity over convenience
 
 ### JsonLite vs RapidJSON
 
 | Feature | JsonLite | RapidJSON |
 |---------|----------|-----------|
-| **C++ Version** | C++17 | C++03/11 |
+| **C++ Version** | C++20 | C++03/11 |
 | **Parsing Speed** | ~150 MB/s | ~400-1000 MB/s |
 | **API Style** | Modern (variant) | Classic (pointers) |
 | **Memory** | std allocator | Custom allocators |
@@ -2712,7 +2731,7 @@ JsonLite is **not** designed for high-frequency or real-time systems:
 JsonLite can work on embedded systems:
 
 **Requirements:**
-- C++17 compiler support
+- C++20 compiler support
 - std::variant, std::optional available
 - Sufficient memory for parsed JSON tree
 
@@ -2732,15 +2751,15 @@ JsonLite can work on embedded systems:
 
 JsonLite works across all major platforms:
 
-- **Windows**: MSVC 2017+, MinGW
-- **Linux**: GCC 7.3+, Clang 5.0+
-- **macOS**: Xcode 10+
-- **BSD**: Clang 5.0+
+- **Windows**: MSVC 2019+ (16.11), MinGW
+- **Linux**: GCC 10+, Clang 10+
+- **macOS**: Xcode 12+
+- **BSD**: Clang 10+
 
 **Benefits:**
 - Header-only (no build system needed)
 - Zero external dependencies
-- Standard C++17 only
+- Standard C++20 only
 - Same code on all platforms
 
 ---
@@ -2874,16 +2893,16 @@ for (int val : items) {
 
 ### Minimum Version
 
-JsonLite requires C++17 or later.
+JsonLite requires C++20 or later.
 
 ### Tested Compilers
 
 | Compiler | Minimum Version | Full `from_chars` Support | Notes |
 |----------|-----------------|---------------------------|-------|
-| **GCC** | 7.3 | 11+ | Floating-point `from_chars` requires GCC 11+ |
-| **Clang** | 5.0 | 14+ | Floating-point `from_chars` requires Clang 14+ |
-| **MSVC** | 2017 (15.7) | 19.29+ (VS 2019 16.10) | Full floating-point support in later versions |
-| **Apple Clang** | 10.0 | Xcode 14.3+ | Floating-point `from_chars` requires Xcode 14.3+ |
+| **GCC** | 10 | 11+ | Floating-point `from_chars` requires GCC 11+ |
+| **Clang** | 10 | 14+ | Floating-point `from_chars` requires Clang 14+ |
+| **MSVC** | 2019 (16.11) | 19.29+ (VS 2019 16.10) | Full floating-point support in later versions |
+| **Apple Clang** | Xcode 12 | Xcode 14.3+ | Floating-point `from_chars` requires Xcode 14.3+ |
 
 > **Note on Floating-Point Map Keys:** If you use `std::map<double, V>` or `std::map<float, V>` 
 > as serialization targets, ensure your compiler meets the "Full `from_chars` Support" requirements.
@@ -2894,22 +2913,22 @@ JsonLite requires C++17 or later.
 
 **Required:**
 ```bash
--std=c++17
+-std=c++20
 ```
 
 **Recommended:**
 ```bash
--std=c++17 -O2 -Wall -Wextra
+-std=c++20 -O2 -Wall -Wextra
 ```
 
 **For maximum performance:**
 ```bash
--std=c++17 -O3 -DNDEBUG -march=native
+-std=c++20 -O3 -DNDEBUG -march=native
 ```
 
 **Debug with sanitizers:**
 ```bash
--std=c++17 -g -O0 -fsanitize=address,undefined -fno-omit-frame-pointer
+-std=c++20 -g -O0 -fsanitize=address,undefined -fno-omit-frame-pointer
 ```
 
 ### Dependencies
@@ -2944,7 +2963,7 @@ Required standard library headers:
 - `<variant>`
 - `<vector>`
 
-All headers are part of the C++17 standard library.
+All headers are part of the C++20 standard library.
 
 ---
 
@@ -2985,7 +3004,7 @@ elements) and FlatMap (contiguous storage, better cache locality).
 1. **Use value-returning API**: No performance difference, but cleaner code
 2. **Reserve vector capacity**: If you know array size, call `reserve()`
 3. **Reuse JsonValue objects**: Avoids allocation churn for repeated operations
-4. **Use compact policy**: Default StandardJsonPolicy produces minimal JSON
+4. **Use compact output**: Pass `/*pretty=*/false` (or a policy with `pretty_print = false`) to minimize output size; the default pretty-prints
 5. **Profile first**: Don't optimize without measurements
 
 **Example - reserve capacity:**
@@ -3520,7 +3539,7 @@ std::rename("config.json.tmp", "config.json");  // Atomic on POSIX
 
 ## Summary
 
-JsonLite is a **safety-first, modern C++17 JSON library** designed for applications that 
+JsonLite is a **safety-first, modern C++20 JSON library** designed for applications that 
 prioritize correctness and simplicity over maximum performance.
 
 **Key Characteristics:**
@@ -3553,7 +3572,7 @@ prioritize correctness and simplicity over maximum performance.
 - You want explicit type safety
 - You need zero external dependencies
 - Configuration correctness is critical
-- You're building on C++17 or later
+- You're building on C++20 or later
 - Simplicity and clarity matter
 - Human-readable config files are important
 

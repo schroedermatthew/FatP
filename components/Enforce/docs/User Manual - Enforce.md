@@ -16,7 +16,7 @@ status: "reviewed"
 
 # User Manual - Enforce
 
-**Scope:** Complete usage guide for the `fat_p::enforce` macro system: condition macros (ENFORCE_PRE, ENFORCE_POST, ENFORCE_INVARIANT), Expected macros, predicate macros, policies (DebugOnly, AlwaysEnforce, Warning, NoThrow, Abort), predicates (core, container, range, floating-point, iterator), error message formatting, and Expected integration.
+**Scope:** Complete usage guide for the `fat_p::enforce` macro system: condition macros (FATP_ENFORCE, FATP_ALWAYS_ENFORCE, FATP_ENFORCE_WARN, FATP_NOEXCEPT_ENFORCE, FATP_ABORT_ENFORCE), Expected macros, predicate macros, policies (DebugOnly, AlwaysEnforce, Warning, NoThrow, Abort), predicates (core, container, range, floating-point, iterator), error message formatting, and Expected integration.
 
 **Not covered:**
 - ContractException hierarchy design (see ContractException User Manual)
@@ -31,8 +31,8 @@ status: "reviewed"
 
 **Component:** Enforce
 **Primary use case:** Replace `assert()` with policy-controlled contract checking that can throw, terminate, log, or return Expected based on compile-time configuration
-**Integration pattern:** Use `FATP_ENFORCE_PRE(condition)` at function entry, `FATP_ENFORCE_POST(condition)` at exit, `FATP_ENFORCE_INVARIANT(condition)` in state-sensitive code; configure policy via template parameter or build mode
-**Key API:** `FATP_ENFORCE_PRE`, `FATP_ENFORCE_POST`, `FATP_ENFORCE_INVARIANT`, `FATP_ENFORCE_EXPECTED`, `DebugOnlyPolicy`, `AlwaysEnforcePolicy`, `NoThrowPolicy`, `AbortPolicy`
+**Integration pattern:** Use `FATP_ENFORCE(condition)` for debug-only checks (zero cost in release), `FATP_ALWAYS_ENFORCE(condition)` for checks that must survive release builds; pick the response via the macro family (WARN, NOEXCEPT, ABORT) or build mode
+**Key API:** `FATP_ENFORCE`, `FATP_ALWAYS_ENFORCE`, `FATP_ENFORCE_WARN`, `FATP_NOEXCEPT_ENFORCE`, `FATP_ABORT_ENFORCE`, `FATP_ENFORCE_EXPECTED`, `DebugOnlyPolicy`, `AlwaysEnforcePolicy`, `NoThrowPolicy`, `AbortPolicy`
 **std equivalent:** None
 **Common mistakes:** Placing side effects inside enforce conditions (stripped in some policies); using AlwaysEnforcePolicy for checks that should be debug-only; ignoring the Expected return from ENFORCE_EXPECTED macros
 **Performance notes:** DebugOnlyPolicy compiles to nothing in release. AlwaysEnforcePolicy adds a branch per check. Message formatting is deferred until violation. See `components/Enforce/results/` for current data
@@ -215,7 +215,7 @@ Several solutions exist for contract enforcement in C++:
 | GSL Expects/Ensures | Simple, well-designed | Limited to terminate behavior, no flexibility |
 | Custom macros | Tailored to project needs | Maintenance burden, often poorly designed |
 
-C++20 introduced language-level contracts, but adoption is limited. As of 2024, no major compiler fully implements them, and the specification continues to evolve. The Enforce system provides similar functionality today, using C++17 features.
+C++20 introduced language-level contracts, but adoption is limited. As of 2024, no major compiler fully implements them, and the specification continues to evolve. The Enforce system provides similar functionality today, using C++20 features (`std::source_location`, concepts, `__VA_OPT__`).
 
 ### Where Enforce Fits
 
@@ -226,7 +226,7 @@ The Enforce system occupies a specific niche: **policy-based contract enforcemen
 - **Detailed diagnostics**: File, line, expression, and custom messages automatically
 - **Zero overhead option**: Debug-only macros compile to nothing in release
 - **Thread-safe**: All operations are thread-safe by default
-- **Header-only**: No library to link, no dependencies beyond C++17 standard library
+- **Header-only**: No library to link, no dependencies beyond C++20 standard library
 
 **When to use Enforce:**
 
@@ -346,8 +346,8 @@ The compiler sees the policy at compile time, selects the appropriate raiser, an
 
 | Requirement | Minimum Version |
 |-------------|-----------------|
-| C++ Standard | C++17 |
-| Compiler | GCC 7+, Clang 5+, MSVC 2017+ |
+| C++ Standard | C++20 |
+| Compiler | GCC 11+, Clang 15+, MSVC 2019 16.10+ |
 | Dependencies | None (header-only) |
 
 ### Integration
@@ -610,55 +610,54 @@ Predicates are reusable condition checks that provide semantic meaning and type 
 
 | Predicate | Check | Common Use |
 |-----------|-------|------------|
+| `BooleanPredicate` | `value` is truthy | Generic conditions |
 | `NotNullPredicate` | `ptr != nullptr` | Pointer validation |
 | `IsNullPredicate` | `ptr == nullptr` | Ensuring cleanup |
 | `IsPositivePredicate` | `value > 0` | Counts, sizes |
-| `IsNegativePredicate` | `value < 0` | Error codes |
 | `IsNonNegativePredicate` | `value >= 0` | Offsets, indices |
-| `IsNonPositivePredicate` | `value <= 0` | Upper bounds |
-| `IsZeroPredicate` | `value == 0` | Initialization |
-| `IsNonZeroPredicate` | `value != 0` | Divisors |
-| `IsTruePredicate` | `value == true` | Boolean flags |
-| `IsFalsePredicate` | `value == false` | Boolean flags |
+| `IsIntegralPredicate` | `std::integral<T>` (the value's type is integral) | Numeric validation |
 
 ### Container Predicates
 
 | Predicate | Check | Arguments |
 |-----------|-------|-----------|
 | `NotEmptyPredicate` | `!container.empty()` | container |
-| `IsEmptyPredicate` | `container.empty()` | container |
 | `HasSizePredicate` | `container.size() == expected` | expected, container |
 | `IsSortedPredicate` | `std::is_sorted(...)` | container |
 | `ContainerIsUniquePredicate` | All elements unique | container |
-| `ValidIndexPredicate` | `idx < container.size()` | idx, container |
+| `HasNoNullElementsPredicate` | No element is null | container |
+| `AllSatisfyPredicate` | Every element passes `pred` | pred, container |
+| `AnySatisfyPredicate` | At least one element passes `pred` | pred, container |
+| `ContainerHasElementPredicate` | `std::find(...) != end` | container, element |
+| `ValidIndexPredicate` | `idx < container.size()` (and `idx >= 0` if signed) | idx, container |
 
-### Range Predicates
+### Range and Comparison Predicates
 
 | Predicate | Check | Arguments |
 |-----------|-------|-----------|
 | `InRangePredicate` | `min <= value <= max` | value, min, max |
-| `InRangeExclusivePredicate` | `min < value < max` | value, min, max |
-| `GreaterThanPredicate` | `value > threshold` | value, threshold |
-| `LessThanPredicate` | `value < threshold` | value, threshold |
-| `GreaterOrEqualPredicate` | `value >= threshold` | value, threshold |
-| `LessOrEqualPredicate` | `value <= threshold` | value, threshold |
+| `InExclusiveRangePredicate` | `min < value < max` | value, min, max |
+| `IsGreaterThanPredicate` | `lhs > rhs` | lhs, rhs |
+| `IsLessThanPredicate` | `lhs < rhs` | lhs, rhs |
+| `IsGreaterThanOrEqualPredicate` | `lhs >= rhs` | lhs, rhs |
+| `IsLessThanOrEqualPredicate` | `lhs <= rhs` | lhs, rhs |
+| `IsPowerOfTwoPredicate` | `value > 0 && (value & (value-1)) == 0` | value |
 
 ### Floating-Point Predicates
 
 | Predicate | Check | Arguments |
 |-----------|-------|-----------|
 | `IsFinitePredicate` | `std::isfinite(value)` | value |
-| `IsNaNPredicate` | `std::isnan(value)` | value |
-| `IsInfPredicate` | `std::isinf(value)` | value |
-| `IsNormalPredicate` | `std::isnormal(value)` | value |
+| `IsNotNaNPredicate` | `!std::isnan(value)` (enforces the value is NOT NaN) | value |
+| `IsNotInfPredicate` | `!std::isinf(value)` (enforces the value is NOT infinite) | value |
+| `IsNormalPredicate` | `std::isnormal(value) \|\| value == 0` | value |
 | `ApproxEqualPredicate` | `|a - b| <= epsilon` | epsilon, a, b |
 
 ### Iterator Predicates
 
 | Predicate | Check | Arguments |
 |-----------|-------|-----------|
-| `ValidIteratorPredicate` | Iterator dereferenceable | iter, end |
-| `IteratorInRangePredicate` | Iterator in [begin, end) | iter, begin, end |
+| `IsValidIteratorPredicate` | `it != end` (not past the end) | iter, end |
 
 ---
 
@@ -808,8 +807,11 @@ struct MyAppRaiser : fat_p::CustomRaiser<MyApplicationError>
 {
 };
 
-// Usage with enforce_policy:
-enforce_policy<MyAppRaiser>(condition, "message");
+// Usage via enforce_policy_impl (the macros' underlying function), with a
+// policy whose RaiserSelector resolves to your raiser:
+auto enforcer = fat_p::enforce_policy_impl<MyPolicy>(
+    condition, "condition", std::source_location::current());
+enforcer("message");
 ```
 
 ### Custom Violation Handler
@@ -1090,7 +1092,7 @@ int main()
 - **Detailed diagnostics**: file, line, expression, and custom messages
 - **Zero overhead option**: debug-only macros compile to nothing
 - **Thread-safe**: all operations safe for concurrent use
-- **Header-only**: no linking required, C++17 compatible
+- **Header-only**: no linking required, C++20 compatible
 
 ### Quick Reference
 
@@ -1167,5 +1169,5 @@ classDiagram
 ---
 
 **Library:** fat_p C++ Utilities  
-**Standard:** C++17  
+**Standard:** C++20  
 **Type:** Header-only

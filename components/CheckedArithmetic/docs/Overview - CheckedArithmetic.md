@@ -251,9 +251,10 @@ checked_add<Policy>(a, b);        // Integer addition with overflow detection
 checked_sub<Policy>(a, b);        // Integer subtraction
 checked_mul<Policy>(a, b);        // Integer multiplication
 checked_div<Policy>(a, b);        // Catches b==0, INT_MIN/-1
-checked_shl<Policy>(val, shift);  // Catches shift >= bit_width
+checked_left_shift<Policy>(val, shift);   // Catches shift >= bit_width
+checked_right_shift<Policy>(val, shift);  // Same UB prevention for right shifts
 checked_abs<Policy>(val);         // Catches abs(INT_MIN) overflow
-checked_neg<Policy>(val);         // Catches -INT_MIN overflow
+checked_negate<Policy>(val);      // Catches -INT_MIN overflow
 
 // Floating-point operations (CheckedArithmeticFP.h)
 checked_add_fp<Policy>(a, b);     // FP addition with NaN/Inf detection
@@ -332,7 +333,7 @@ CheckedArithmetic_IntSimd.h (AVX2/SSE2/NEON backends)
     ↓ uses
 enforce.h                 (ThrowOnErrorPolicy implementation)
 Expected.h                (ReturnExpectedPolicy return type)
-CppStandardDetection.h    (C++20 concepts conditional)
+CheckedArithmeticPolicies.h (error-handling policy definitions)
     ↓ used by
 SmallVector.h             (overflow-safe capacity growth)
 StrongId.h                (checked ID arithmetic)

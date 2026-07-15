@@ -61,60 +61,51 @@ C++20 introduced contracts (`[[expects:]]`, `[[ensures:]]`) but they were remove
 ### The Mechanism: Two Axes of Customization
 
 ```cpp
-// Axis 1: PREDICATES - What to check
-template<typename T>
-struct not_null {
-    static bool check(const T& ptr) { return ptr != nullptr; }
-    static const char* message() { return "Pointer must not be null"; }
+// Axis 1: PREDICATES - What to check (structs with a static check())
+struct NotNullPredicate {
+    template <typename Ptr>
+    static constexpr bool check(const Ptr& ptr) noexcept { return ptr != nullptr; }
 };
 
-template<typename T>
-struct positive {
-    static bool check(const T& val) { return val > 0; }
-    static const char* message() { return "Value must be positive"; }
+struct IsPositivePredicate {
+    template <typename T>
+    static constexpr bool check(T value) noexcept { return value > T{0}; }
 };
 
-// Axis 2: RAISERS - How to report violations
-struct throw_raiser {
-    [[noreturn]] static void raise(const char* msg, const char* file, int line) {
-        throw contract_violation(msg, file, line);
-    }
+// Axis 2: RAISERS - How to report violations (structs with a static fail())
+struct LogicRaiser {           // throws LogicContractError
+    [[noreturn]] static void fail(const std::string& message);
 };
 
-struct abort_raiser {
-    [[noreturn]] static void raise(const char* msg, const char* file, int line) {
-        std::cerr << file << ":" << line << ": " << msg << "\n";
-        std::abort();
-    }
+struct AbortRaiser {           // logs to stderr, then std::abort()
+    [[noreturn]] static void fail(const std::string& message) noexcept;
 };
 
-struct log_raiser {
-    static void raise(const char* msg, const char* file, int line) {
-        log_error(file, line, msg);
-        // Continues execution
-    }
+struct WarningToCerrRaiser {   // logs to stderr, execution continues
+    static void fail(const std::string& message) noexcept;
 };
 ```
 
 ### The Core Function
 
+The composition point is `enforce_policy_impl`, which selects a raiser from a policy and wraps the check result; the `FATP_*` macros stringify the condition and capture `std::source_location` at the call site:
+
 ```cpp
-template<typename Predicate, typename Raiser, typename... Args>
-constexpr void enforce(Args&&... args) {
-    if constexpr (Raiser::enabled) {
-        if (!Predicate::check(std::forward<Args>(args)...)) {
-            Raiser::raise(Predicate::message(), __FILE__, __LINE__);
-        }
-    }
-    // When disabled: entire function body is empty
+template <typename Policy>
+[[nodiscard]] constexpr auto enforce_policy_impl(bool passed,
+                                                 const char* expression_str,
+                                                 std::source_location loc)
+{
+    using Raiser = typename RaiserSelector<Policy>::type;
+    return MakeEnforcer<Raiser>(passed, expression_str, loc);
 }
 ```
 
-**Generated code when disabled:** The `if constexpr (false)` branch is eliminated entirely. Zero instructions generated.
+**Generated code when disabled:** In release builds (`NDEBUG`), `FATP_ENFORCE` expands to `((void)0)` — preprocessor elimination, zero instructions generated.
 
 **Generated code when enabled:**
 ```asm
-; enforce<not_null, throw_raiser>(ptr)
+; FATP_ALWAYS_ENFORCE_NOT_NULL(ptr)
 test    rdi, rdi          ; Check ptr != nullptr
 jz      .throw_violation  ; Jump if null
 ret                       ; Continue if valid
@@ -124,60 +115,67 @@ ret                       ; Continue if valid
 
 ## Feature Inventory
 
-### 1. Predefined Predicates
+### 1. Predefined Predicates (via the predicate macros)
+
+Predicates are structs in `enforce_predicates.h` invoked through the `FATP_*_ENFORCE_1/2/3` macros (suffix = argument count) or through named convenience macros:
 
 ```cpp
 // Null checks
-enforce<not_null>(ptr);                    // ptr != nullptr
-enforce<not_null>(span);                   // !span.empty()
+FATP_ALWAYS_ENFORCE_NOT_NULL(ptr);                     // ptr != nullptr
+FATP_ALWAYS_ENFORCE_1(NotNullPredicate, ptr);          // same, explicit form
 
 // Numeric checks
-enforce<positive>(count);                  // count > 0
-enforce<non_negative>(index);              // index >= 0
-enforce<in_range<0, 100>>(percent);        // 0 <= percent <= 100
+FATP_ALWAYS_ENFORCE_IS_POSITIVE(count);                // count > 0
+FATP_ALWAYS_ENFORCE_IS_NON_NEGATIVE(index);            // index >= 0
+FATP_ALWAYS_ENFORCE_IN_RANGE(0, 100, percent);         // 0 <= percent <= 100
 
 // Container checks
-enforce<not_empty>(container);             // !container.empty()
-enforce<size_at_least<5>>(container);      // container.size() >= 5
+FATP_ALWAYS_ENFORCE_NOT_EMPTY(container);              // !container.empty()
+FATP_ALWAYS_ENFORCE_HAS_SIZE(5, container);            // container.size() == 5
 
-// Custom predicates
-enforce<my_predicate>(value);              // my_predicate::check(value)
+// Custom predicates: any struct with a static check()
+FATP_ALWAYS_ENFORCE_1(MyPredicate, value);             // MyPredicate::check(value)
 ```
 
-### 2. Raiser Options
+### 2. Raiser/Policy Options
 
 ```cpp
-// FATP_ALWAYS_ENFORCE: Always enabled, throws
+// FATP_ALWAYS_ENFORCE: Always enabled, throws LogicContractError
 FATP_ALWAYS_ENFORCE(condition, "Message");
 
-// FATP_DEBUG_ENFORCE: Enabled in debug, disabled in release
-FATP_DEBUG_ENFORCE(condition, "Debug-only check");
+// FATP_ENFORCE: Enabled in debug, expands to nothing in release
+FATP_ENFORCE(condition, "Debug-only check");
 
-// Custom raiser
-enforce<predicate, log_and_continue>(value);
-enforce<predicate, throw_raiser>(value);
-enforce<predicate, abort_raiser>(value);
+// Other responses
+FATP_ENFORCE_WARN(condition, "...");      // WarningToCerrRaiser: log + continue
+FATP_ABORT_ENFORCE(condition, "...");     // AbortRaiser: log + std::abort()
+FATP_NOEXCEPT_ENFORCE(condition, "...");  // NoThrowRaiser: safe in noexcept code
 ```
 
-### 3. Expression-Based Enforcement
+### 3. Expression Capture
+
+Every macro stringifies its condition (`#condition`) and captures `std::source_location`, so the diagnostic carries the expression text, file, line, and function automatically:
 
 ```cpp
-// enforce_that: Captures expression text for error message
-enforce_that(x > 0);          // "Violation: x > 0"
-enforce_that(ptr != nullptr); // "Violation: ptr != nullptr"
-
-// With custom message
-enforce_that(x > 0, "x must be positive for this algorithm");
+FATP_ALWAYS_ENFORCE(x > 0);   // message includes "x > 0" + call site
+FATP_ALWAYS_ENFORCE(x > 0, "x must be positive for this algorithm");
 ```
 
-### 4. Multi-Condition Enforcement
+### 4. Container-Wide Enforcement
 
 ```cpp
-// enforce_all: All conditions must pass
-enforce_all<not_null, not_empty>(ptr, container);
+// All elements must satisfy a predicate
+FATP_ALWAYS_ENFORCE_ALL_SATISFY(is_valid, container);
 
-// enforce_any: At least one condition must pass
-enforce_any<has_value, has_default>(optional, default_value);
+// At least one element must satisfy a predicate
+FATP_ALWAYS_ENFORCE_ANY_SATISFY(is_ready, container);
+```
+
+### 5. Expected Integration
+
+```cpp
+// Returns Expected<void, std::string> instead of throwing
+auto result = FATP_ENFORCE_EXPECTED(size > 0, "size must be positive");
 ```
 
 ---
@@ -190,7 +188,7 @@ enforce_any<has_value, has_default>(optional, default_value);
 | Policy selection | âŒ Fixed abort | âŒ Fixed throw | Limited | âœ… Raiser + Context |
 | Predicate composition | âŒ Manual | âŒ Manual | âŒ Manual | âœ… Composable |
 | Zero-overhead disable | âœ… Compiled out | âŒ Always present | âœ… Compiled out | âœ… if constexpr |
-| Expression capture | âŒ No | âŒ Manual | Partial | âœ… enforce_that |
+| Expression capture | âŒ No | âŒ Manual | Partial | âœ… `#condition` + source_location |
 
 **The Sweet Spot:** Enforce is the only option combining predicate composition, raiser customization, and zero-overhead disabling.
 
@@ -224,11 +222,11 @@ assert(ptr != nullptr);
 
 // Enforce (always enabled)
 FATP_ALWAYS_ENFORCE(ptr != nullptr, "...");
-// â†’ if (!ptr) { throw contract_violation(...); }
+// â†’ if (!ptr) { throw LogicContractError(...); }
 
-// Enforce (disabled)
-FATP_DEBUG_ENFORCE<my_policy>(ptr != nullptr, "...");
-// â†’ (nothing - entire check eliminated)
+// Enforce (debug-only, release build)
+FATP_ENFORCE(ptr != nullptr, "...");
+// â†’ (nothing - macro expands to ((void)0) under NDEBUG)
 ```
 
 ### Where Fat-P Wins
@@ -248,8 +246,8 @@ FATP_DEBUG_ENFORCE<my_policy>(ptr != nullptr, "...");
 ```
 enforce.h
     â†“ components
-enforce_predicates.h     (not_null, positive, in_range, ...)
-enforce_raisers.h        (throw_raiser, abort_raiser, log_raiser)
+enforce_predicates.h     (NotNullPredicate, IsPositivePredicate, InRangePredicate, ...)
+enforce_raisers.h        (LogicRaiser, AbortRaiser, WarningToCerrRaiser, ...)
     â†“ used by
 SmallVector.h            (bounds checking)
 CheckedArithmetic.h      (ThrowOnErrorPolicy)

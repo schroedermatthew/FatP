@@ -18,7 +18,7 @@ status: "draft"
 
 ## What It Does
 
-PlatformDetection provides compile-time macros that identify the compiler (`FATP_COMPILER_CLANG`, `FATP_COMPILER_GCC`, `FATP_COMPILER_MSVC`), operating system (`FATP_PLATFORM_WINDOWS`, `FATP_PLATFORM_LINUX`, `FATP_PLATFORM_MACOS`), CPU architecture (`FATP_ARCH_X64`, `FATP_ARCH_ARM64`), hardware features (`FATP_HAS_NUMA`), and build configuration (`FATP_DEBUG`). All Fat-P headers use these macros instead of probing vendor-specific macros directly.
+PlatformDetection provides compile-time macros that identify the compiler (`FATP_COMPILER_CLANG`, `FATP_COMPILER_GCC`, `FATP_COMPILER_MSVC`), operating system (`FATP_PLATFORM_WINDOWS`, `FATP_PLATFORM_LINUX`, `FATP_PLATFORM_MACOS`), CPU architecture (`FATP_ARCH_X64`, `FATP_ARCH_ARM64`), hardware features (`FATP_HAS_NUMA`, `FATP_CACHE_LINE_SIZE`), and build configuration (`FATP_BUILD_DEBUG`, `FATP_BUILD_RELEASE`). All Fat-P headers use these macros instead of probing vendor-specific macros directly.
 
 ## Why It Exists
 

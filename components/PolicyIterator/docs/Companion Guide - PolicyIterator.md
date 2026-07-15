@@ -5,7 +5,7 @@ title: "PolicyIterator"
 fatp_components: ["PolicyIterator"]
 topics: ["policy-based design", "static dispatch", "iterator design", "template metaprogramming", "zero-overhead abstraction", "Alexandrescu patterns"]
 constraints: ["virtual dispatch overhead", "type erasure costs", "iterator category requirements", "bounds checking in release builds", "ABI stability"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2025-12-30"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]

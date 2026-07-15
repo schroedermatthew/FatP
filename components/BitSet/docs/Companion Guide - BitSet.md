@@ -278,7 +278,7 @@ A smarter approach recognizes that bits are stored in words:
 
 ```mermaid
 flowchart TB
-    subgraph Range["set_range(70, 200) across 4 words"]
+    subgraph Range["setRange(70, 200) across 4 words"]
         W0["Word 0<br/>bits 0-63<br/>unchanged"]
         W1["Word 1<br/>bits 64-127<br/>mask: 0xFFFFFFFFFFFFFFC0<br/>(bits 70-127)"]
         W2["Word 2<br/>bits 128-191<br/>mask: 0xFFFFFFFFFFFFFFFF<br/>(all bits)"]
@@ -300,7 +300,7 @@ Three operations instead of 130. That's where the 200× speedup comes from.
 ### Implementation Sketch
 
 ```cpp
-void set_range(size_t start, size_t end) {
+void setRange(size_t start, size_t end) {
     size_t start_word = start / 64;
     size_t end_word = (end - 1) / 64;
     
@@ -637,10 +637,10 @@ constexpr uint64_t low_mask(size_t to) {
 }
 ```
 
-### set_range Implementation
+### setRange Implementation
 
 ```cpp
-void set_range(size_t start, size_t end) {
+void setRange(size_t start, size_t end) {
     if (start >= end) return;
     
     size_t first_word = start / 64;
@@ -669,7 +669,7 @@ void set_range(size_t start, size_t end) {
 
 Setting 100 bits with a loop: 100 iterations, 100 mask computations, 100 OR operations.
 
-Setting 100 bits with `set_range`: ~3 iterations, 3 mask computations, 3 OR operations.
+Setting 100 bits with `setRange`: ~3 iterations, 3 mask computations, 3 OR operations.
 
 The ratio depends on word alignment. Perfectly aligned ranges (start and end on 64-bit boundaries) achieve maximum speedup. Misaligned ranges still benefit from full-word operations in the middle.
 
@@ -751,7 +751,7 @@ void set(size_t pos) {
     m_words[pos / 64] |= (1ULL << (pos % 64));
 }
 
-void set_unchecked(size_t pos) {
+void setUnchecked(size_t pos) {
     m_words[pos / 64] |= (1ULL << (pos % 64));  // No branch
 }
 ```
@@ -774,7 +774,7 @@ The checked version has a comparison and branch. On a hot path with millions of 
 ```cpp
 // Safe: indices come from the iterator
 for (size_t i : source_bits) {
-    dest_bits.set_unchecked(i);  // i is known valid
+    dest_bits.setUnchecked(i);  // i is known valid
 }
 
 // Unsafe: index from external source
@@ -949,7 +949,7 @@ size_t allocate_range(size_t count) {
     while (start + count <= 1024) {
         size_t end = start + count;
         if (!in_use.intersects_range(start, end)) {  // Custom method
-            in_use.set_range(start, end);
+            in_use.setRange(start, end);
             return start;
         }
         start = in_use.find_next(start);
@@ -1000,11 +1000,11 @@ bool has_permissions(const std::bitset<64>& user,
 // THE FIX: Set-theoretic operation
 bool has_permissions(const fat_p::BitSet<64>& user,
                      const fat_p::BitSet<64>& required) {
-    return required.is_subset_of(user);
+    return required.isSubsetOf(user);
 }
 ```
 
-`is_subset_of` checks if every bit in `required` is also set in `user`. This is implemented as `(required & ~user) == 0`—one AND, one NOT, one comparison. Three operations instead of 64.
+`isSubsetOf` checks if every bit in `required` is also set in `user`. This is implemented as `(required & ~user) == 0`—one AND, one NOT, one comparison. Three operations instead of 64.
 
 ### Additional Permission Operations
 

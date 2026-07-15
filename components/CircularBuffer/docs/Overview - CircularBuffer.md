@@ -144,8 +144,9 @@ while (running) {
 }
 
 // Consumer thread - never blocks
+Event received;
 while (running) {
-    if (auto e = events.pop()) process(*e);
+    if (events.pop(received)) process(received);
 }
 ```
 
@@ -159,9 +160,10 @@ objects.emplace(arg1, arg2, arg3);  // No temporary
 ### 3. Non-Consuming Peek via front()
 
 ```cpp
-if (auto* ptr = buffer.front()) {
+if (const auto* ptr = buffer.front()) {
     if (ptr->priority > threshold) {
-        auto value = buffer.pop();
+        Event value;
+        if (buffer.pop(value)) handle(value);
     }
 }
 ```

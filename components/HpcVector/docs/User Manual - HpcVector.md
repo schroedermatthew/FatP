@@ -33,7 +33,7 @@ status: "reviewed"
 **Component:** HpcVector
 **Primary use case:** Allocate and operate on large vectors with NUMA-aware placement and SIMD-ready alignment for multi-socket HPC systems
 **Integration pattern:** Replace `std::vector<T>` with `HpcVector<T, Policy>` in NUMA-sensitive code; select a NUMA policy (local, interleave, bind); use SIMD operations directly on the aligned data
-**Key API:** `HpcVector<T, Policy>`, `.data()`, `.size()`, `.push_back()`, NUMA policy types, `.verify()` for runtime correctness checks
+**Key API:** `HpcVector<T, Policy>`, `.data()`, `.size()`, `.push_back()`, NUMA policy types, `.isAligned()` / `.isNumaAvailable()` for runtime checks
 **std equivalent:** None
 **Common mistakes:** Using HpcVector on single-socket systems (no NUMA benefit, use AlignedVector instead); ignoring NUMA policy selection (default may not be optimal); forgetting that NUMA benefits only appear at large data sizes
 **Performance notes:** NUMA-local allocation avoids cross-socket memory access. Alignment enables SIMD without penalty. Overhead over std::vector is allocation-time only. See `components/HpcVector/results/` for current data
@@ -244,9 +244,9 @@ int main()
     
     HpcVector<double> data(1000000);
     
-    std::cout << "NUMA available: " << std::boolalpha << data.is_numa_available() << "\n";
+    std::cout << "NUMA available: " << std::boolalpha << data.isNumaAvailable() << "\n";
     std::cout << "Alignment: " << HpcVector<double>::alignment << " bytes\n";
-    std::cout << "Data aligned: " << data.is_aligned() << "\n";
+    std::cout << "Data aligned: " << data.isAligned() << "\n";
     
     // Initialize
     for (size_t i = 0; i < data.size(); ++i) {
@@ -490,7 +490,7 @@ void scale_avx(fat_p::HpcVector<float>& data, float factor)
 ```cpp
 HpcVector<float> data(1000);
 
-if (data.is_numa_available()) {
+if (data.isNumaAvailable()) {
     std::cout << "NUMA is active\n";
 } else {
     std::cout << "NUMA not available, using aligned allocation\n";
@@ -500,7 +500,7 @@ if (data.is_numa_available()) {
 ### Checking Alignment
 
 ```cpp
-if (data.is_aligned()) {
+if (data.isAligned()) {
     std::cout << "Data is " << HpcVector<float>::alignment << "-byte aligned\n";
 }
 
@@ -672,7 +672,7 @@ See `components/HpcVector/results/` for current platform-specific benchmark data
 
 ### NUMA Not Available
 
-**Symptom:** `is_numa_available()` returns false
+**Symptom:** `isNumaAvailable()` returns false
 
 **Causes:**
 - Single-socket system (expected)
@@ -709,7 +709,7 @@ See `components/HpcVector/results/` for current platform-specific benchmark data
 
 ### Single-Socket Systems
 
-On single-socket systems, `is_numa_available()` returns false and memory is allocated with aligned allocation only. You still get cache-line alignment.
+On single-socket systems, `isNumaAvailable()` returns false and memory is allocated with aligned allocation only. You still get cache-line alignment.
 
 ### Small Allocations
 
@@ -717,7 +717,7 @@ NUMA allocation has higher overhead (~50 us vs ~10 us). For small, frequent allo
 
 ### Container Limitations
 
-HpcVector doesn't support `insert()` / `erase()` (by design—shifts are expensive for HPC).
+HpcVector supports a full `insert()` overload family (single element, range, count, initializer list) but does not provide `erase()`. Element shifts are expensive at HPC data sizes, so prefer building vectors append-only where possible.
 
 ---
 

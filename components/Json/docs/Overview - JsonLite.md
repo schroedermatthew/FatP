@@ -352,16 +352,16 @@ Different contexts need different JSON handling:
 
 ```cpp
 // Strict parsing for API responses
-auto data = parse<StandardJsonPolicy>(api_response);
-// Rejects: comments, trailing commas, single quotes
+auto data = parse_json<StandardJsonPolicy>(api_response);
+// Rejects: comments, NaN/Infinity
 
-// Lenient parsing for config files
-auto config = parse<CompatJsonPolicy>(config_file);
-// Accepts: // comments, /* block comments */, trailing commas
+// Comment-tolerant parsing for config files
+auto config = parse_json<ConfigJsonPolicy>(config_file);
+// Accepts: // comments, /* block comments */
 
-// Pretty output for human-readable files
-std::string output = to_string<PrettyJsonPolicy>(config, 2);
-// Indented with 2 spaces, one key per line
+// Pretty output for human-readable files (the default; made explicit here)
+std::string output = to_json_string<PrettyJsonPolicy>(config);
+// Indented with 4 spaces, one key per line
 ```
 
 ### 4. Comprehensive STL Support

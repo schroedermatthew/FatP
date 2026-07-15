@@ -33,10 +33,10 @@ status: "reviewed"
 
 **Component:** SlotMap
 **Primary use case:** Store objects with stable handles that detect use-after-free via generation counters, with dense storage for cache-friendly iteration
-**Integration pattern:** Insert objects, receive a `SlotKey` handle, use the handle for O(1) lookup, handles become invalid after removal (generation mismatch detects stale use)
-**Key API:** `SlotMap<T>`, `.insert()`, `.remove()`, `.operator[]()`, `.contains()`, `SlotKey`, `.generation()`
+**Integration pattern:** Insert objects, receive a `SlotMapHandle` (the map's `Handle` alias), use the handle for O(1) lookup, handles become invalid after removal (generation mismatch detects stale use)
+**Key API:** `SlotMap<T>`, `.insert()`, `.erase()`, `.get()`, `.at()`, `.contains()`, `SlotMapHandle`, `handle.generation`
 **std equivalent:** None
-**Common mistakes:** Using raw indices instead of SlotKey (bypasses generation check); holding SlotKey to removed elements (stale handle, detected at runtime); assuming iteration order matches insertion order
+**Common mistakes:** Using raw indices instead of handles (bypasses generation check); holding a `SlotMapHandle` to removed elements (stale handle, detected at runtime); assuming iteration order matches insertion order
 **Performance notes:** Insert and remove are O(1). Lookup by handle is O(1) with one generation check. Dense storage enables cache-friendly iteration. See `components/SlotMap/results/` for current data
 
 ---
@@ -259,11 +259,11 @@ Valid access              data_[1] = actual Entity
 ### Prerequisites
 
 - C++20 or later
-- Header files: `SlotMap.h`, `FatPTypeTraits.h`
+- Header file: `SlotMap.h` (self-contained; standard library headers only)
 
 ### Integration
 
-Copy the header files to your project's include path. No compilation or linking required—SlotMap is header-only.
+Copy the header to your project's include path. No compilation or linking required—SlotMap is header-only.
 
 ### Your First SlotMap
 
@@ -444,7 +444,7 @@ enemies.is_valid(goblin);  // 3 == 3 → TRUE
 
 ### Generation Overflow
 
-Generations are 32-bit unsigned integers. After 4 billion reuses of the same slot, the generation wraps to 0, potentially allowing an ancient handle to validate incorrectly.
+Generations are 32-bit unsigned integers by default (`SlotMap<T, uint64_t>` selects 64-bit generations). After 4 billion reuses of the same slot, the generation wraps to 0, potentially allowing an ancient handle to validate incorrectly.
 
 **In practice, this is not a concern:**
 
@@ -792,14 +792,10 @@ for (auto h : to_remove)
 
 **Symptom:**
 ```
-fatal error: FatPTypeTraits.h: No such file or directory
+fatal error: SlotMap.h: No such file or directory
 ```
 
-**Solution:** Ensure all required headers are in your include path:
-- `SlotMap.h`
-- `FatPTypeTraits.h`
-- `TypeTraits.h`
-- `CppStandardDetection.h`
+**Solution:** Ensure `SlotMap.h` is in your include path. It is self-contained—it includes only standard library headers, so no other FatP headers are required.
 
 #### C++ Standard Version
 
@@ -862,10 +858,10 @@ auto player = entities.insert(Entity{0, 0, 100, "Player"});
 auto enemy  = entities.insert(Entity{10, 5, 50, "Goblin"});
 
 // O(1) access by handle — even after other entities are removed
-entities[player].health -= 10;
+entities.at(player).health -= 10;
 
 // Iteration over all live entities — contiguous, cache-friendly
-for (auto& [key, entity] : entities)
+for (auto& entity : entities)
 {
     entity.x += entity.health > 0 ? 1.0f : 0.0f;
 }
@@ -887,8 +883,8 @@ auto handle = textures.insert(load_texture("sprite.png"));
 textures.erase(handle);
 
 // Even later: accidentally use the old handle
-if (textures.contains(handle))  // false — generation mismatch
-    draw(textures[handle]);     // Not reached — safe
+if (textures.contains(handle))     // false — generation mismatch
+    draw(textures.at(handle));     // Not reached — safe
 ```
 
 The generational index catches dangling handles: after erase, the slot's generation increments. The old handle's generation no longer matches, so `contains()` returns false.
@@ -908,7 +904,7 @@ listeners.erase(id);  // Clean removal, no dangling
 
 ## Best Practices
 
-**Use contains() before operator[] for untrusted handles.** `operator[]` does not validate the generation. If the handle might be stale (from a different system, from serialization), check `contains()` first.
+**Use contains() or get() for untrusted handles.** `at()` validates the generation and throws `std::out_of_range` on a stale handle. If the handle might be stale (from a different system, from serialization), check `contains()` first or use `get()` and test for nullptr.
 
 **Iterate with range-for for bulk processing.** SlotMap stores data contiguously. Range-for iteration is cache-friendly and faster than random access by handle.
 
@@ -931,14 +927,14 @@ SlotMap does not guarantee insertion order during iteration. New entities may fi
 ### Types
 
 ```cpp
-template<typename T, typename Allocator = std::allocator<T>>
+template<typename T, typename GenerationType = uint32_t, typename Allocator = std::allocator<T>>
 class SlotMap
 {
 public:
     using value_type = T;
     using size_type = uint32_t;
-    using generation_type = uint32_t;
-    using Handle = SlotMapHandle;
+    using generation_type = GenerationType;
+    using Handle = SlotMapHandleT<GenerationType>;
     
     struct Entry;        // Handle + value reference pair
     struct ConstEntry;   // Handle + const value reference pair
@@ -952,7 +948,7 @@ public:
 
 ### Handle
 
-A handle is an opaque reference containing a slot index and generation counter.
+A handle is an opaque reference containing a slot index and generation counter. `SlotMapHandle` is the default 32-bit-generation alias for `SlotMapHandleT<uint32_t>`; `SlotMapHandle64` uses 64-bit generations.
 
 ```cpp
 struct SlotMapHandle

@@ -16,7 +16,7 @@ status: "reviewed"
 
 # User Manual - EqualityComparisons
 
-**Scope:** Complete usage guide for `fat_p::EqualityComparisons`: tolerance-based floating-point comparison, ULP-based comparison, the policy system (Strict, Tolerant, ULP, Custom), container deep equality, `EqualityAny` type-erased comparison, and integration with testing frameworks.
+**Scope:** Complete usage guide for `fat_p::EqualityComparisons`: tolerance-based floating-point comparison, ULP-based comparison, the policy system (StandardComparisonPolicy, UlpComparisonPolicy, RelativeComparisonPolicy, HybridComparisonPolicy), container deep equality, `EqualityAny` type-erased comparison, and integration with testing frameworks.
 
 **Not covered:**
 - Floating-point comparison strategies and IEEE 754 theory (see FloatingPointComparison User Manual)
@@ -31,8 +31,8 @@ status: "reviewed"
 
 **Component:** EqualityComparisons
 **Primary use case:** Compare floating-point values, containers of floating-point values, and heterogeneous types with configurable tolerance
-**Integration pattern:** Use `equalWithinTolerance(a, b, tol)` for scalar comparison; use `deepEqual(containerA, containerB, policy)` for container comparison; use `EqualityAny` for type-erased comparison in test frameworks
-**Key API:** `equalWithinTolerance()`, `equalWithinUlps()`, `deepEqual()`, `EqualityAny`, `StrictPolicy`, `TolerantPolicy`, `UlpPolicy`
+**Integration pattern:** Use `areEqual(a, b)` (optionally with an epsilon: `areEqual(a, b, tol)`) for scalars and containers alike — the same entry point deep-compares containers element-wise; select the strategy via the policy template parameter, e.g. `areEqual<double, UlpComparisonPolicy>(a, b)`; use `EqualityAny` for type-erased comparison in test frameworks
+**Key API:** `areEqual<T, Policy = StandardComparisonPolicy>(a, b, eps...)`, `EqualityAny`, `StandardComparisonPolicy`, `UlpComparisonPolicy`, `RelativeComparisonPolicy`, `HybridComparisonPolicy`
 **std equivalent:** None
 **Common mistakes:** Using absolute tolerance for values of very different magnitudes; using too-tight ULP tolerance for results of long computation chains; comparing NaN values (NaN != NaN by IEEE 754)
 **Performance notes:** Scalar comparison is a single subtraction + comparison. Container deep equality is O(N) with early exit on first mismatch. See `components/Equality/results/` for current data

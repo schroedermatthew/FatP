@@ -3,7 +3,7 @@ doc_id: UM-ENHANCEDBOUNDSCHECKING-001
 doc_type: "User Manual"
 title: "EnhancedBoundsChecking"
 fatp_components: ["EnhancedBoundsChecking"]
-topics: ["bounds checking", "index validation", "out_of_range", "debug-only checks", "enforce integration", "custom exception", "diagnostic messages"]
+topics: ["bounds checking", "index validation", "out_of_range", "debug-only checks", "enforce integration", "custom exception", "diagnostic messages", "container bounds", "multi-dimensional bounds", "range validation", "slice validation"]
 constraints: ["debug_bounds_check compiled away in release", "enforce_bounds requires Enforce component"]
 cxx_standard: "C++20"
 std_equivalent: null
@@ -19,9 +19,9 @@ status: "draft"
 
 ---
 
-**Scope:** Usage guide for the six bounds-checking functions in `EnhancedBoundsChecking.h`.
+**Scope:** Usage guide for the fifteen bounds-checking functions in `EnhancedBoundsChecking.h`.
 
-**Not covered:** Container-specific bounds checking (each container implements its own `at()` using these functions internally).
+**Not covered:** The internals of Fat-P containers' own `at()` implementations (containers implement `at()` using these functions internally; the functions themselves --- including `check_container_bounds()` --- are covered here).
 
 **Prerequisites:** C++20. Familiarity with `std::out_of_range`.
 
@@ -31,26 +31,26 @@ status: "draft"
 
 **Component:** EnhancedBoundsChecking
 **Primary use case:** Validate indices with detailed error messages
-**Key API:** `bounds_check()`, `debug_bounds_check()`, `bounds_check_with<E>()`, `enforce_bounds()`, `debug_enforce_bounds()`
+**Key API:** `bounds_check()`, `debug_bounds_check()`, `bounds_check_with<E>()`, `enforce_bounds()`, `debug_enforce_bounds()`, `check_container_bounds()`, `bounds_check_2d()`, `bounds_check_nd()`, `validate_range()`, `validate_slice()` (each of the last five also has a `debug_` variant)
 **Common mistakes:** Using `bounds_check()` in hot loops (always-on cost); forgetting `debug_bounds_check()` is stripped in release
 **Performance notes:** Each check is a single comparison + predicted branch; branch prediction strongly favors the in-bounds path
 
 ---
 
-## The Six Functions
+## The Fifteen Functions
 
-### bounds_check(index, min, max, context)
+Eight check families; every family except `bounds_check_with` also has a `debug_`-prefixed variant that is compiled away when `NDEBUG` is defined.
 
-Always-on. Throws `std::out_of_range` if `index < min || index >= max`:
+### bounds_check(index, min, max, context) / debug_bounds_check(...)
+
+Always-on (the `debug_` variant is zero cost in release). Throws `std::out_of_range` if `index < min || index >= max`. All three value parameters share one template type, so pass consistent types:
 
 ```cpp
-fat_p::bounds_check(i, 0, vec.size(), "vector element");
-// Throws: "Index out of range: vector element index 15 not in [0, 10)"
+fat_p::bounds_check(i, size_t{0}, vec.size(), "vector element");
+// Throws: "vector element 15 out of range [0, 10)"
 ```
 
-### debug_bounds_check(index, min, max, context)
-
-Same check, but compiled away when `NDEBUG` is defined. Zero cost in release.
+The message format is `<context> <index> out of range [<min>, <max>)`.
 
 ### bounds_check_with<ExceptionT>(index, min, max, context)
 
@@ -64,6 +64,46 @@ fat_p::bounds_check_with<MyRangeError>(i, 0, n, "sensor reading");
 
 Integrates with Fat-P's enforce system. Uses `fat_p::enforce()` predicates for consistent assertion behavior across the library.
 
+### check_container_bounds(container, index, context) / debug_check_container_bounds(...)
+
+Checks `index` against `container.size()` (any container with a `.size()` method). Equivalent to `bounds_check(index, size_t{0}, container.size(), context)`:
+
+```cpp
+fat_p::check_container_bounds(vec, i, "vector element");
+```
+
+### bounds_check_2d(row, col, rows, cols, context) / debug_bounds_check_2d(...)
+
+Checks a row/column pair against a matrix shape. Throws `std::out_of_range` with the message `<context> (<row>, <col>) out of bounds for shape (<rows>, <cols>)`:
+
+```cpp
+fat_p::bounds_check_2d(r, c, mat.rows(), mat.cols(), "matrix element");
+```
+
+### bounds_check_nd(indices, shape, context) / debug_bounds_check_nd(...)
+
+Checks a `std::vector<size_t>` of indices against a `std::vector<size_t>` shape. Throws `std::invalid_argument` if the index count does not match the shape's dimensionality, and `std::out_of_range` naming the offending dimension otherwise:
+
+```cpp
+fat_p::bounds_check_nd({i, j, k}, {nx, ny, nz}, "tensor element");
+```
+
+### validate_range(start, end, size, context) / debug_validate_range(...)
+
+Validates that a half-open range `[start, end)` fits within `[0, size)`. Throws `std::out_of_range` with the message `<context> [<start>, <end>) invalid for size <size>`:
+
+```cpp
+fat_p::validate_range(first, last, vec.size(), "view window");
+```
+
+### validate_slice(start, stop, step, size, context) / debug_validate_slice(...)
+
+Validates tensor/array slice parameters, including negative steps. Throws `std::invalid_argument` if `step == 0`, and `std::out_of_range` for invalid start/stop bounds:
+
+```cpp
+fat_p::validate_slice(start, stop, step, data.size(), "tensor slice");
+```
+
 ---
 
 ## When to Use Which
@@ -75,6 +115,13 @@ Integrates with Fat-P's enforce system. Uses `fat_p::enforce()` predicates for c
 | `bounds_check_with<E>` | Single comparison + branch | Domain-specific exception hierarchies |
 | `enforce_bounds` | Single comparison + branch | Integration with enforce predicates |
 | `debug_enforce_bounds` | Zero (compiled out) | Internal checks with enforce integration |
+| `check_container_bounds` | Comparison + branch | Index into any container with `.size()` |
+| `bounds_check_2d` | Four comparisons + branch | Matrix/image row-column access |
+| `bounds_check_nd` | O(dimensions) comparisons | Tensor indexing with runtime dimensionality |
+| `validate_range` | Four comparisons + branch | Subranges, views, windows |
+| `validate_slice` | Several comparisons + branch | Python-style start/stop/step slicing |
+
+Each of the last five also has a `debug_`-prefixed variant with zero release cost.
 
 ---
 
@@ -105,6 +152,16 @@ The default context is `"Index"`. Pass a meaningful context string as the fourth
 | `bounds_check_with<E>(idx, min, max, ctx)` | `E` | Active |
 | `enforce_bounds(idx, min, max, ctx)` | via enforce system | Active |
 | `debug_enforce_bounds(idx, min, max, ctx)` | via enforce system | Compiled away |
+| `check_container_bounds(cont, idx, ctx)` | `std::out_of_range` | Active |
+| `debug_check_container_bounds(cont, idx, ctx)` | `std::out_of_range` | Compiled away |
+| `bounds_check_2d(row, col, rows, cols, ctx)` | `std::out_of_range` | Active |
+| `debug_bounds_check_2d(row, col, rows, cols, ctx)` | `std::out_of_range` | Compiled away |
+| `bounds_check_nd(indices, shape, ctx)` | `std::invalid_argument` (dimension mismatch), `std::out_of_range` | Active |
+| `debug_bounds_check_nd(indices, shape, ctx)` | same as above | Compiled away |
+| `validate_range(start, end, size, ctx)` | `std::out_of_range` | Active |
+| `debug_validate_range(start, end, size, ctx)` | `std::out_of_range` | Compiled away |
+| `validate_slice(start, stop, step, size, ctx)` | `std::invalid_argument` (`step == 0`), `std::out_of_range` | Active |
+| `debug_validate_slice(start, stop, step, size, ctx)` | same as above | Compiled away |
 
 ---
 

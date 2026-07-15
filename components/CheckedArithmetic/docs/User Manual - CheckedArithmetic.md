@@ -390,7 +390,7 @@ Dependencies (must be available):
 
 - `enforce.h` - Assertion/contract enforcement
 - `Expected.h` - Expected type for error handling
-- `CppStandardDetection.h` - C++ version detection
+- `CheckedArithmeticPolicies.h` - error-handling policy definitions
 
 ### Compilation Flags
 

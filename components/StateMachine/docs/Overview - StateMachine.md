@@ -141,7 +141,7 @@ Calling `transition()` from within a hook is almost always a bug. Debug builds d
 
 ### Compile-Time Introspection
 
-Query the state machine's structure at compile time: `state_count`, `initial_state_index`, `contains_state<T>`, and (with StrictPolicy) `is_transition_allowed<From, To>` (self-transitions always return true). These enable static_asserts that verify assumptions and generic code that adapts to any state machine.
+Query the state machine's structure at compile time: `stateCount()`, `initialStateIndex()`, `contains_state<T>`, and (with StrictPolicy) `is_transition_allowed<From, To>` (self-transitions always return true). These enable static_asserts that verify assumptions and generic code that adapts to any state machine.
 
 ---
 

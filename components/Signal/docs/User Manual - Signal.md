@@ -32,9 +32,9 @@ status: "reviewed"
 **Component:** Signal
 **Primary use case:** Implement the observer pattern with type-safe signals, RAII connection management, and configurable thread safety
 **Integration pattern:** Declare `Signal<void(int)> onEvent;` in your class, let observers `connect()` callables, emit with `onEvent.emit(42)` or `onEvent(42)`. Connections auto-disconnect via `ScopedConnection` RAII.
-**Key API:** `Signal<Sig>`, `.connect()`, `.emit()`, `ScopedConnection`, `.disconnect()`, `.block()`, `.unblock()`, `ThreadSafeSignal<Sig>`, `SpinlockSignal<Sig>`
+**Key API:** `Signal<Sig>`, `.connect()`, `.emit()`, `ScopedConnection`, `.disconnect()`, `ThreadSafeSignal<Sig>`, `SpinlockSignal<Sig>` (no block/unblock API — disconnect is how delivery is stopped)
 **std equivalent:** None
-**Common mistakes:** Discarding the `Connection` return value (needed for disconnect); connecting member functions without ensuring object lifetime; modifying the signal's slot list from within a slot callback (reentrancy - handled, but understand the semantics)
+**Common mistakes:** Discarding the `ScopedConnection` return value (needed for disconnect); connecting member functions without ensuring object lifetime; modifying the signal's slot list from within a slot callback (reentrancy - handled, but understand the semantics)
 **Performance notes:** Small-object optimization avoids heap allocation for small slot counts. Emission is O(N) over connected slots. See `components/Signal/results/` for current data
 
 ---
@@ -212,10 +212,10 @@ Signal exploits this by using `SmallVector<Slot, 4>`:
 ```cpp
 struct Slot
 {
-    ConnectionId id;      // Type-safe ID (StrongId)
-    Callback func;        // std::function<Signature>
-    int priority;         // Ordering (higher = earlier)
-    bool active;          // Soft-delete flag
+    ConnectionId id;           // Type-safe ID (StrongId)
+    Callback func;             // std::function<Signature>
+    int priority;              // Ordering (higher = earlier)
+    std::atomic<bool> active;  // Soft-delete flag
 };
 
 using SlotList = SmallVector<Slot, InlineCapacity>;
@@ -232,9 +232,9 @@ Signal object (~200 bytes on stack):
 |   | Slot 2     | |
 |   | Slot 3     | |
 |   +------------+ |
-| recursionDepth_  |
-| needsCleanup_    |
-| nextId_          |
+| mRecursionDepth  |
+| mNeedsCleanup    |
+| mNextId          |
 +------------------+
 ```
 
@@ -341,13 +341,12 @@ bool disconnect(ConnectionId id)
 
 ### Prerequisites
 
-- **C++17 or later** compiler
+- **C++20 or later** compiler
 - **fat_p headers required:**
   - `SmallVector.h` (and its dependencies)
   - `ConcurrencyPolicies.h`
   - `StrongId.h`
   - `ScopeGuard.h`
-  - `FatPTypeTraits.h`
 
 ### Integration
 
@@ -391,7 +390,7 @@ int main()
 
 Compile with:
 ```bash
-g++ -std=c++17 -O2 -I/path/to/fat_p main.cpp -o main
+g++ -std=c++20 -O2 -I/path/to/fat_p main.cpp -o main
 ```
 
 ---
@@ -968,7 +967,8 @@ Signal integrates with several fat_p components:
 | `ConcurrencyPolicies` | Thread safety | Configurable synchronization |
 | `StrongId` | Connection IDs | Type-safe handles |
 | `ScopeGuard` | Cleanup logic | Exception-safe recursion tracking |
-| `FatPTypeTraits` | Type detection | `is_signal_v<T>` trait |
+
+The `is_signal_v<T>` detection trait is defined in `Signal.h` itself.
 
 ---
 

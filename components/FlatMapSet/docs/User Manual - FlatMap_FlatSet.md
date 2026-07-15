@@ -496,7 +496,7 @@ map.erase(map.end());  // Debug: enforce triggers with "invalid iterator"
 |-------------|---------|
 | C++ Standard | C++20 |
 | Compiler | GCC 7+, Clang 5+, MSVC 2017+ |
-| Dependencies | `enforce.h`, `FatPTypeTraits.h` |
+| Dependencies | `enforce.h`, `Concepts.h` |
 
 ### Integration
 
@@ -1222,7 +1222,7 @@ Memory savings: ~80%
 
 | Aspect | fat_p::FlatMap | boost::container::flat_map |
 |--------|----------------|---------------------------|
-| Dependencies | enforce.h, FatPTypeTraits.h | Boost.Container |
+| Dependencies | enforce.h, Concepts.h | Boost.Container |
 | Implementation | ~900 lines | ~2000+ lines |
 | Features | Core API | Extended API (extract, merge) |
 | Iterator | Custom (key protection) | Custom (key protection) |
@@ -1713,7 +1713,7 @@ int main()
 **Related Components:**
 
 - `enforce.h` - Debug-mode contract validation
-- `FatPTypeTraits.h` - `is_flat_map_v<T>`, `is_flat_set_v<T>` type traits
+- `Concepts.h` - Shared concept definitions used by the container interfaces
 
 **Thread Safety:**
 

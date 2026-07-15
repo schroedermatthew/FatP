@@ -32,8 +32,8 @@ status: "draft"
 
 **Component:** RateLimiter
 **Primary use case:** Limit the rate of operations to prevent overload
-**Integration pattern:** Construct with rate + capacity -> `try_acquire()` or `acquire()` before each operation
-**Key API:** `try_acquire()`, `acquire()`, `available_tokens()`, `reset()`
+**Integration pattern:** Construct with rate + capacity -> `try_acquire()` (or, on TokenBucket, blocking `acquire()`) before each operation
+**Key API:** `try_acquire()`, `reset()`; TokenBucket only: `acquire()`, `available_tokens()`
 **std equivalent:** None
 **Common mistakes:** Capacity equal to rate (no burst); SlidingWindow with high limits (memory grows); forgetting `acquire()` blocks the thread
 **Performance notes:** `try_acquire()` 10-20 ns uncontended; all algorithms use `steady_clock`
@@ -196,9 +196,9 @@ while (has_work())
 }
 ```
 
-### acquire() -- Blocking with Timeout
+### acquire() -- Blocking with Timeout (TokenBucket only)
 
-Blocks until a token is available or timeout expires. Internally calls `try_acquire()` in a loop with short sleeps:
+Available on `TokenBucketRateLimiter` only---SlidingWindow and LeakyBucket offer just `try_acquire()`. Blocks until a token is available or timeout expires. Internally calls `try_acquire()` in a loop with short sleeps:
 
 ```cpp
 if (limiter.acquire(1, std::chrono::seconds(5)))
@@ -211,9 +211,9 @@ The sleep between retries is short (order of the token refill interval). `acquir
 
 ---
 
-## Multi-Token Acquisition
+## Multi-Token Acquisition (TokenBucket only)
 
-`try_acquire(count)` and `acquire(count, timeout)` acquire multiple tokens atomically:
+On `TokenBucketRateLimiter`, `try_acquire(count)` and `acquire(count, timeout)` acquire multiple tokens atomically (SlidingWindow and LeakyBucket accept one request per `try_acquire()` call):
 
 ```cpp
 if (limiter.try_acquire(10))
@@ -479,23 +479,29 @@ All limiters use `steady_clock`, which is monotonic. No NTP jump issues. But if 
 
 ### SlidingWindowRateLimiter
 
+No blocking `acquire()`---this limiter is non-blocking only.
+
 | Method | Description |
 |--------|-------------|
 | `SlidingWindowRateLimiter(max, window)` | Construct |
-| `try_acquire()` | Non-blocking |
-| `acquire(timeout)` | Blocking |
+| `try_acquire()` | Non-blocking; returns bool |
 | `current_count()` | Requests in window |
 | `reset()` | Clear timestamps |
+| `max_requests()` | Configured request limit |
+| `window_duration()` | Configured window length |
 
 ### LeakyBucketRateLimiter
+
+No blocking `acquire()` and no count parameter---one request per `try_acquire()` call.
 
 | Method | Description |
 |--------|-------------|
 | `LeakyBucketRateLimiter(rate, capacity)` | Construct |
-| `try_acquire(count = 1)` | Non-blocking |
-| `acquire(count, timeout)` | Blocking |
-| `current_level()` | Bucket fill |
+| `try_acquire()` | Non-blocking; returns bool |
+| `queue_size()` | Current queue depth (after leaking) |
 | `reset()` | Empty bucket |
+| `rate()` | Configured leak rate |
+| `capacity()` | Configured maximum queue size |
 
 ---
 

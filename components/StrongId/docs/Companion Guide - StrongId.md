@@ -5,7 +5,7 @@ title: "StrongId"
 fatp_components: ["StrongId", "AtomicStrongId"]
 topics: ["strong typing design", "phantom types", "newtype pattern", "zero overhead abstraction", "policy-based design", "type safety philosophy", "wrapper optimization"]
 constraints: ["implicit conversion dangers", "parameter ordering bugs", "runtime overhead of wrappers", "validation at boundaries", "overflow detection tradeoffs"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2026-01-18"
 audience: ["C++ developers", "library maintainers", "language enthusiasts", "AI assistants"]
@@ -864,7 +864,7 @@ StrongId synthesizes ideas from these predecessors while prioritizing zero overh
 
 # **Appendix C — Where StrongId Loses**
 
-**C++17 Requirement:** Projects on C++11/14 cannot use StrongId.
+**C++20 Requirement:** Projects on earlier standards cannot use StrongId (it relies on `operator<=>`).
 
 **No Dimensional Analysis:** For quantities with units, use type_safe or mp-units.
 

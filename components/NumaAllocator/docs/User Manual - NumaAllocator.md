@@ -32,8 +32,8 @@ status: "reviewed"
 
 **Component:** NumaAllocator
 **Primary use case:** Allocate memory on specific NUMA nodes for optimal data locality in multi-socket HPC systems
-**Integration pattern:** Query topology with `NumaTopology::discover()`, select a policy, construct `NumaAllocator<T, Policy>`, use as a standard allocator with containers
-**Key API:** `NumaAllocator<T, Policy>`, `NumaAlignedAllocator<T, Align, Policy>`, `NumaTopology::discover()`, `bindThreadToNode()`, `LocalPolicy`, `InterleavePolicy`, `BindPolicy`
+**Integration pattern:** Query topology with `NumaInfo` (`is_available()`, `num_nodes()`, `current_node()`, `cpus_on_node()`), select a policy, construct `NumaAllocator<T, Policy>`, use as a standard allocator with containers
+**Key API:** `NumaAllocator<T, Policy>`, `NumaAlignedAllocator<T, Align, Policy>`, `NumaInfo`, `bind_thread_to_node()`, `NumaLocalPolicy`, `NumaInterleavedPolicy`, `NumaPreferredPolicy`
 **std equivalent:** None
 **Common mistakes:** Assuming NUMA allocation is always faster (it's only beneficial for large, long-lived allocations); forgetting to bind threads to nodes (thread migration defeats NUMA placement); using NUMA allocation for small, short-lived objects
 **Performance notes:** NUMA-local allocation avoids cross-socket latency. Thread affinity binding prevents thread migration. Allocation overhead is slightly higher than standard malloc due to policy evaluation. See `components/NumaAllocator/results/` for current data
@@ -257,7 +257,7 @@ graph LR
 ```
 
 The header records:
-- **Magic number:** Validation sentinel (`0xFADE'NUMA`)
+- **Magic number:** Validation sentinel (`HEADER_MAGIC = 0xFADE'0A11`)
 - **Source:** Pool or Direct allocation
 - **NUMA available:** State at allocation time
 

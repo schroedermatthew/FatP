@@ -127,7 +127,7 @@ class AlignedVector {
 
 3. **Auto-vectorization hint:** `assume_aligned()` tells the compiler "this pointer is aligned"—no runtime check, no peeling loop, direct vectorized code
 
-4. **Strong exception guarantee:** All mutating operations either complete or leave the container unchanged
+4. **Documented exception guarantees:** Copy assignment and `assign()` provide the strong guarantee (unchanged on throw); `insert()`, `emplace()`, `erase()`, and `resize()` provide the basic guarantee (valid, leak-free state)
 
 ---
 
@@ -208,7 +208,7 @@ bool equal = (a == b);
 bool less = (a < b);
 ```
 
-### 4. Strong Exception Guarantee
+### 4. Exception Safety
 
 ```cpp
 fat_p::AlignedVector<Widget> widgets;
@@ -269,7 +269,7 @@ fat_p::AlignedVector<float, 64> copy = floats;
 | Cache-line alignment | Only aligns to alignof(T) | Tied to Eigen library | No RAII, no growth | Configurable, standalone |
 | Auto-vectorization hints | No assume_aligned() | Library-specific | Manual pointer tracking | Built-in assume_aligned() |
 | Cross-platform | Works, but no alignment control | Eigen dependency | POSIX vs Windows APIs | Single header, both platforms |
-| Exception safety | Strong guarantee | Strong guarantee | None | Strong guarantee |
+| Exception safety | Strong guarantee | Strong guarantee | None | Strong/basic per operation |
 | Move-only types | Full support | Full support | Manual lifetime | Full support |
 | Zero dependencies | Standard library | Requires Eigen | Standard library | Standard library only |
 
@@ -324,7 +324,7 @@ fat_p::AlignedVector<float, 64> copy = floats;
 ```
 AlignedVector.h
     ↓ uses
-FatPTypeTraits.h       (is_aligned_vector trait)
+FatPConcepts.h         (is_aligned_vector trait)
     ↓ used by
 Tensor.h               (Aligned storage for tensor data)
 SimdVector.h           (SIMD-accelerated vector operations)

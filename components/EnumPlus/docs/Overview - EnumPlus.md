@@ -124,12 +124,12 @@ enum class Status { Pending, Active, Completed };
 // (with EnumStringPolicy specialization)
 
 Status s = Status::Active;
-std::string_view name = enum_to_string(s);  // "Active"
+std::string_view name = fat_p::to_string(s);  // "Active"
 
-Status parsed = enum_from_string<Status>("Pending");  // Status::Pending
+Status parsed = fat_p::from_string<Status>("Pending");  // Status::Pending
 
-// Optional-returning variant
-std::optional<Status> maybe = try_enum_from_string<Status>("Invalid");
+// Optional-returning, case-insensitive variant
+std::optional<Status> maybe = fat_p::from_string_icase<Status>("invalid");
 // maybe == std::nullopt
 ```
 
@@ -154,32 +154,23 @@ EnumPlusMap<Color, Handler, NoBoundsCheckPolicy> fast_handlers;
 ### 3. Enum Iteration
 
 ```cpp
-// Iterate all values
-for (Color c : EnumRange<Color>()) {
-    std::cout << enum_to_string(c) << "\n";
+// Iterate all values (range-for over the constexpr value array)
+for (Color c : enum_values<Color>()) {
+    std::cout << fat_p::to_string(c) << "\n";
 }
 // Output: Red, Green, Blue
+
+// Or with a callable
+for_each_enum<Color>([](Color c) { std::cout << fat_p::to_string(c) << "\n"; });
 
 // Get all values as array
 constexpr auto all_colors = enum_values<Color>();
 static_assert(all_colors.size() == 3);
 ```
 
-### 4. Increment/Decrement Operators
+(There are no `++`/`--` operators for enums — the opt-in operator set is bitwise/shift only. To step through values, iterate `enum_values<E>()`.)
 
-```cpp
-template<>
-struct EnableOverloadedOperators<Color> {
-    static constexpr bool value = true;
-};
-
-Color c = Color::Red;
-++c;  // Color::Green
-++c;  // Color::Blue
---c;  // Color::Green
-```
-
-### 5. Bitwise Flag Operators
+### 4. Bitwise Flag Operators
 
 ```cpp
 enum class Permissions : uint32_t {
@@ -202,7 +193,7 @@ p |= Permissions::Execute;  // Add permission
 p &= ~Permissions::Write;   // Remove permission
 ```
 
-### 6. EnumPlusWrapper (Strong Typing)
+### 5. EnumPlusWrapper (Strong Typing)
 
 ```cpp
 // Prevent implicit conversion from underlying type
@@ -235,10 +226,10 @@ auto underlying = c.underlying();   // Get int value
 
 **Standard Reality:** C++ reflection is coming (C++26+?) but:
 - Adoption in production codebases: 5-10 years away
-- HPC codebases locked to C++17/20 even longer
+- HPC codebases locked to C++20 even longer
 - Even with reflection, enum maps need manual implementation
 
-EnumPlus provides enum enhancements **today** on C++17, with a migration path to reflection when available.
+EnumPlus provides enum enhancements **today** on C++20, with a migration path to reflection when available.
 
 ---
 
@@ -246,10 +237,10 @@ EnumPlus provides enum enhancements **today** on C++17, with a migration path to
 
 | Operation | Cost | Notes |
 |----------|------|-------|
-| `enum_to_string` | O(1) | Array lookup |
-| `enum_from_string` | O(n) | Linear search (n = enum size) |
+| `to_string` | O(1) | Array lookup |
+| `from_string` | O(n) | Linear search (n = enum size) |
 | `EnumPlusMap[]` | O(1) | Direct array access |
-| `EnumRange` iteration | O(n) | Loop over values |
+| `enum_values` iteration | O(n) | Loop over values |
 | Bounds check | O(1) | Single comparison against min/max |
 
 ### Where Fat-P Wins

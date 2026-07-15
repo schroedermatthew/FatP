@@ -132,7 +132,7 @@ alloc.deallocate(p);                   // Push to free list
 
 ### Constraints
 
-T must be trivially copyable (the pool initializes memory with placement new and manages it via raw bytes). Maximum capacity is fixed at compile time. If you exceed capacity, `allocate()` returns nullptr.
+T must be trivially copyable (the pool initializes memory with placement new and manages it via raw bytes). Maximum capacity is fixed at compile time. If you exceed capacity, `allocate()` throws `std::bad_alloc`. Check `available()` or `full()` first to avoid the exception.
 
 ### When to use
 
@@ -256,9 +256,9 @@ BlockAllocator requires `sizeof(T) >= sizeof(void*)` for the free list. Add padd
 
 PoolAllocator requires trivially copyable T. Use NewDeleteAllocator or BlockAllocator for types with non-trivial constructors, destructors, or copy/move operators.
 
-### PoolAllocator allocate() returns nullptr
+### PoolAllocator allocate() throws std::bad_alloc
 
-The pool is exhausted. Increase `MaxObjects` or switch to BlockAllocator (unlimited capacity).
+The pool is exhausted. Increase `MaxObjects` or switch to BlockAllocator (unlimited capacity). Use `available()` or `full()` to check headroom before allocating.
 
 ### Memory usage grows without bound (BlockAllocator)
 
@@ -298,10 +298,12 @@ BlockAllocator never returns blocks to the OS. If you allocate and deallocate fr
 
 | Method | Description |
 |---|---|
-| `allocate(args...)` | Pop from pool free list; nullptr if full |
+| `allocate(args...)` | Pop from pool free list; throws `std::bad_alloc` if full |
 | `deallocate(ptr)` | Push to pool free list |
 | `capacity()` | constexpr MaxObjects |
 | `allocated()` | Current live object count |
+| `available()` | Remaining free slots (`MaxObjects - allocated()`) |
+| `full()` | true if the pool is fully allocated |
 
 ---
 

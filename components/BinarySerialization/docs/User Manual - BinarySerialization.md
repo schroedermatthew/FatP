@@ -443,7 +443,7 @@ BinaryLite reports errors by throwing `std::runtime_error`. This is appropriate 
 ```cpp
 fat_p::binary_fatp::BinaryResult<std::string> result = readStringResult(decoder);
 
-if (result.hasValue())
+if (result.has_value())
 {
     std::cout << result.value() << "\n";
 }
@@ -465,20 +465,34 @@ else
 template <>
 struct fat_p::binary_fatp::BinaryTraits<MyType>
 {
-    static void encode(fat_p::binary::Encoder& enc, const MyType& value)
+    template <typename Writer>
+    static void encode(Writer& writer, const MyType& value)
     {
-        enc.writeUint32(value.id);
-        enc.writeString(value.name);
+        writer.writeUint32(value.id);
+        writer.writeString(value.name);
     }
 
-    static MyType decode(fat_p::binary::Decoder& dec)
+    template <typename Reader>
+    static fat_p::binary_fatp::BinaryResult<MyType> decode(Reader& reader)
     {
-        auto id = dec.readUint32();
-        auto name = dec.readString();
-        return MyType{id, std::move(name)};
+        auto id = reader.readUint32();
+        if (!id)
+        {
+            return fat_p::make_unexpected(id.error());
+        }
+
+        auto name = reader.readString();
+        if (!name)
+        {
+            return fat_p::make_unexpected(name.error());
+        }
+
+        return MyType{*id, std::move(*name)};
     }
 };
 ```
+
+Note that `encode()` and `decode()` are templated on the writer and reader types (so one specialization works with `BinaryWriter` over any byte container), and `decode()` returns a `BinaryResult<MyType>` rather than a bare value---errors propagate through `Expected` instead of exceptions.
 
 ---
 
@@ -849,7 +863,9 @@ If data was written with hand-rolled code (raw `memcpy` of structs) before migra
 - `BinaryError` — Error type with message string
 - `BinaryResult<T>` — Alias for `Expected<T, BinaryError>`
 - `BinaryBuffer` — Alias for `HpcVector<uint8_t, 64>`
-- `BinaryTraits<T>` — Customization point for type serialization
+- `BinaryWriter<Buffer = BinaryBuffer>` — Tagged serializer over any byte container providing `data()`/`size()`/`push_back()`; methods include `writeInt()`, `writeUint()`, `writeFloat()`, `writeDouble()`, `writeBool()`, `writeString()`, `writeBytes()`, `writeArrayHeader()`, `writeMapHeader()`
+- `BinaryReader<Container>` — Expected-based tagged deserializer; every `readXxx()` returns `BinaryResult<T>` instead of throwing; `peekType()` for look-ahead dispatch
+- `BinaryTraits<T>` — Customization point for type serialization; `encode(Writer&, const T&)` and `decode(Reader&) -> BinaryResult<T>`, both templated on the writer/reader type
 
 ---
 

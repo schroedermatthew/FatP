@@ -131,13 +131,13 @@ flowchart TB
     subgraph Software["Without Hardware Instructions"]
         S1["count() loops through<br/>up to 1024 bits"]
         S2["find_first() scans<br/>bit by bit"]
-        S3["set_range() loops<br/>100 times for 100 bits"]
+        S3["setRange() loops<br/>100 times for 100 bits"]
     end
     
     subgraph Hardware["With Hardware Instructions"]
         H1["count() executes<br/>16 POPCNT instructions"]
         H2["find_first() executes<br/>1-16 TZCNT instructions"]
-        H3["set_range() executes<br/>3-4 word ORs"]
+        H3["setRange() executes<br/>3-4 word ORs"]
     end
     
     Software --> |"64× slower"| Hardware
@@ -182,20 +182,20 @@ Each operation uses hardware TZCNT or LZCNT, completing in nanoseconds regardles
 Word-aligned bulk manipulation:
 
 ```cpp
-bits.set_range(100, 200);    // Set 100 bits with ~3 word operations
-bits.clear_range(150, 175);  // Clear 25 bits
-bits.flip_range(0, 64);      // Toggle entire first word
+bits.setRange(100, 200);    // Set 100 bits with ~3 word operations
+bits.clearRange(150, 175);  // Clear 25 bits
+bits.flipRange(0, 64);      // Toggle entire first word
 size_t n = bits.count_range(0, 128);  // POPCNT on 2 words
 ```
 
-**Measured result:** `set_range` completes in **0.19 ns** versus 88.59 ns for std::bitset's loop-based equivalent—a **460× improvement**.
+**Measured result:** `setRange` completes in **0.19 ns** versus 88.59 ns for std::bitset's loop-based equivalent—a **460× improvement**.
 
 ### 4. Set-Theoretic Operations
 
 Relationship testing between bitsets:
 
 ```cpp
-if (required.is_subset_of(permissions)) {
+if (required.isSubsetOf(permissions)) {
     // User has all required permissions
 }
 
@@ -212,7 +212,7 @@ Safety where you want it, speed where you need it:
 
 ```cpp
 bits.set(user_input);       // Bounds-checked, throws on invalid
-bits.set_unchecked(known);  // No check, maximum speed
+bits.setUnchecked(known);  // No check, maximum speed
 ```
 
 ---
@@ -255,7 +255,7 @@ Benchmarks on Linux, GCC 13, Release build (median of 15 runs):
 |-----------|---------------|-------------|---------|
 | Population count (1024 bits) | 3.08 ns | 3.90 ns | 1.3× |
 | Iterate 100 bits (N=10K) | 258 ns | 5,197 ns | **20×** |
-| set_range (100 bits) | 0.19 ns | 88.59 ns | **460×** |
+| setRange (100 bits) | 0.19 ns | 88.59 ns | **460×** |
 | find_first | 0.79 ns | N/A | ∞ |
 | AND operation (1024 bits) | 3.74 ns | 4.90 ns | 1.3× |
 

@@ -162,10 +162,9 @@ Available runtime queries:
 | Function | Returns true when |
 |---|---|
 | `cpu_has_sse2()` | CPU supports SSE2 |
-| `cpu_has_avx()` | CPU supports AVX and OS saves AVX state |
-| `cpu_has_avx2()` | CPU supports AVX2 |
-| `cpu_has_avx512f()` | CPU supports AVX-512F |
-| `cpu_has_avx512bw()` | CPU supports AVX-512BW |
+| `cpu_has_avx2()` | CPU supports AVX2 and OS saves AVX state |
+| `cpu_has_avx512f()` | CPU supports AVX-512F and OS saves AVX-512 state |
+| `cpu_has_avx512bw()` | CPU supports AVX-512BW (requires AVX-512F) |
 | `cpu_has_neon()` | Platform has NEON (compile-time on ARM) |
 
 Results are cached in a `static const` local variable on first call. Thread-safe via C++11 static initialization guarantees. After the first call, all queries are a single pointer dereference with no system calls.
@@ -548,8 +547,7 @@ No SIMD support is compiled in. Check your compiler flags. On x86-64, SSE2 is al
 | Function | Description |
 |---|---|
 | `cpu_has_sse2()` | Runtime SSE2 check (x86) |
-| `cpu_has_avx()` | Runtime AVX check (x86, includes OSXSAVE) |
-| `cpu_has_avx2()` | Runtime AVX2 check (x86) |
+| `cpu_has_avx2()` | Runtime AVX2 check (x86, includes OSXSAVE) |
 | `cpu_has_avx512f()` | Runtime AVX-512F check (x86) |
 | `cpu_has_avx512bw()` | Runtime AVX-512BW check (x86) |
 | `cpu_has_neon()` | NEON check (compile-time on ARM) |

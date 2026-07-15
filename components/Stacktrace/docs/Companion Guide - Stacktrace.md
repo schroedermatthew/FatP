@@ -5,7 +5,7 @@ title: "Stacktrace"
 fatp_components: ["Stacktrace", "StackFrame"]
 topics: ["stack trace design", "backend architecture", "async-signal-safety", "symbol resolution", "cross-platform abstraction", "crash diagnostics", "exception debugging", "unwinding algorithms"]
 constraints: ["async-signal-safety", "symbol resolution performance", "debug info availability", "platform API differences", "signal handler restrictions", "memory allocation constraints"]
-cxx_standard: "C++17"
+cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
 last_verified: "2026-01-18"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
@@ -328,7 +328,7 @@ C++23 introduced `std::stacktrace`, finally standardizing what should have been 
 - MSVC 19.34 (2022): Support
 
 **Production codebase migration:**
-- Most enterprise C++ is still on C++17 or C++14
+- Most enterprise C++ is still on C++20 or earlier
 - Compiler upgrades require testing, ABI validation, build system changes
 - Security-critical codebases move slowly
 - Scientific computing clusters run old compilers for driver compatibility
@@ -355,7 +355,7 @@ Clean, portable, standard. But:
 
 ### The Gap Stacktrace Fills
 
-For C++17/C++20 codebases that need:
+For C++20 codebases that need:
 - Stack traces today, not when C++23 migration completes
 - Async-signal-safe capture for crash handlers
 - Consistent structured output (JSON) for log aggregation
@@ -1095,7 +1095,7 @@ C++23 finally standardized `std::stacktrace`. Implementation varies by compiler,
 1. **Header-only.** No separate compilation, no link-time requirements.
 2. **Zero external dependencies.** STL only; no Boost, no separate libraries.
 3. **Async-signal-safe capture mode.** Must work in crash handlers.
-4. **C++17 minimum.** No C++20 or C++23 requirements for core functionality.
+4. **C++20 minimum.** No C++23 requirements for core functionality.
 
 ### Rejected Alternatives
 
@@ -1158,7 +1158,7 @@ JIT code (V8, LLVM JIT) has no debug info in the normal sense. Addresses won't r
 - **Deferred symbol resolution.** Symbols are resolved immediately.
 - **JSON output.** `to_string()` produces human-readable text, not structured data.
 - **Custom formatting.** Take what the implementation gives you.
-- **C++17/C++20 availability.** Requires C++23.
+- **C++20 availability.** Requires C++23.
 
 ### Why These Gaps Matter
 
