@@ -44,14 +44,16 @@ FATP_META:
  */
 
 #include <array>
-#include <bitset>
+#include <bit>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <iosfwd>
 #include <span>
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 #include "enforce.h"
 
@@ -596,12 +598,26 @@ struct HierarchySchema
 /**
  * @brief Capability bits that describe what an item is and what it can do.
  *
- * Bits 0-7:   Category (what kind of thing this is)
- * Bits 8-15:  Providers (what this item provides)
- * Bits 16-23: Consumers (what this item consumes)
- * Bits 24-31: Properties (access and visibility flags)
+ * These are the FRAMEWORK's pre-registered capabilities, occupying the reserved
+ * framework band (indices 0-31). The capability space itself is OPEN: the mask
+ * is unbounded (see SkeletonMask below) and applications register their own
+ * named capabilities at init via CapabilityRegistry (CapabilityRegistry.h),
+ * receiving indices from 32 upward. There is no ceiling on how many kinds of
+ * capability can exist — the vocabulary is registered, not hardcoded.
  *
- * @note Count is a sentinel for the bitset size. Do not pass it to makeMask().
+ * Framework band layout:
+ *   Bits 0-7:   Category   (what kind of thing this is)
+ *   Bits 8-15:  Providers  (what this item provides, and the KIND of value —
+ *               value kind is orthogonal to provider-ness, so a relay is
+ *               ProvidesValue + ValueBinary and an analog channel is
+ *               ProvidesValue + ValueContinuous; a future multi-state item is
+ *               ProvidesValue + ValueDiscrete with no new provider bit)
+ *   Bits 16-23: Consumers  (what this item consumes)
+ *   Bits 24-31: Properties (access and visibility flags)
+ *
+ * @note Count is the size of the framework band (the first application index),
+ *       NOT the mask width — the mask has no fixed width. Do not pass Count to
+ *       makeMask().
  */
 enum class SkeletonCapability : uint32_t
 {
@@ -616,6 +632,9 @@ enum class SkeletonCapability : uint32_t
     ProvidesValue   = 8,
     ProvidesCommand = 9,
     ProvidesStatus  = 10,
+    ValueBinary     = 11, ///< Provided value is boolean (relay/switch-like).
+    ValueContinuous = 12, ///< Provided value is analog/continuous.
+    ValueDiscrete   = 13, ///< Provided value is a discrete multi-state.
 
     // --- Consumers (16-23) ---
     ConsumesValue   = 16,
@@ -628,45 +647,252 @@ enum class SkeletonCapability : uint32_t
     Serializable   = 26,
     NetworkVisible = 27,
 
-    Count = 32 ///< Sentinel: total number of capability bits. Not a valid capability.
+    Count = 32 ///< Framework band size / first application capability index. Not a valid capability.
 };
 
+/// Size of the reserved framework capability band; application capability
+/// indices are allocated from this value upward by CapabilityRegistry.
+inline constexpr std::size_t kFrameworkCapabilityBand =
+    static_cast<std::size_t>(SkeletonCapability::Count);
+
+/// Sanity guard for capability indices. This is NOT a design cap on the
+/// capability space — it exists solely so a corrupted index cannot demand
+/// gigabytes of mask storage. Raise freely if legitimate registrations ever
+/// approach it (they will not: capabilities are vocabulary, which grows
+/// slowly — the BE reference accumulated ~60 over eight years).
+inline constexpr std::size_t kCapabilityIndexSanityBound = std::size_t{1} << 20;
+
 /**
- * @brief A 32-bit capability bitset.
+ * @brief An unbounded capability bitset.
  *
- * Use makeMask() to construct a mask from SkeletonCapability values.
+ * Replaces the former `std::bitset<32>` alias. The mask has NO fixed width:
+ * storage is a word vector that grows to the highest set index, so the
+ * capability space is limited only by what has been registered — never by the
+ * mask type. This is deliberate ("no limits on expressibility"): the mask is
+ * not on any hot path (compares happen at bind/registration/query time), it is
+ * never serialized (it is derived per type from skeletonMask() statics at
+ * construction), and it crosses no ABI — so a fixed width would be a policy
+ * cap inside a mechanism, with nothing to justify it.
+ *
+ * Semantics:
+ *  - Set operations are width-agnostic: missing high words read as zero, so
+ *    masks of different storage widths compare and combine correctly.
+ *  - Storage is normalized (no trailing zero words), so equality is plain
+ *    member comparison.
+ *  - Deliberately NOT provided (bitset-isms that presume a width): no-argument
+ *    set(), all(), size(), to_ulong(). Use toString() for diagnostics.
+ *
+ * Use makeMask() to construct a mask from SkeletonCapability values and/or
+ * registered capability indices.
  */
-using SkeletonMask = std::bitset<static_cast<std::size_t>(SkeletonCapability::Count)>;
+class SkeletonMask
+{
+public:
+    /// Empty mask (no capabilities).
+    SkeletonMask() = default;
+
+    /// Seeds the low 64 capability indices from @p bits (index i set iff
+    /// bit i of @p bits is set). Useful for tests and diagnostics.
+    explicit SkeletonMask(unsigned long long bits)
+    {
+        if (bits != 0ull)
+        {
+            mWords.push_back(bits);
+        }
+    }
+
+    /// @brief Sets capability @p index. Grows storage as needed.
+    void set(std::size_t index)
+    {
+        FATP_ALWAYS_ENFORCE(index < kCapabilityIndexSanityBound,
+            "SkeletonMask::set(): capability index exceeds the corruption sanity "
+            "bound (kCapabilityIndexSanityBound). This is a bug, not a capacity "
+            "limit -- indices come from CapabilityRegistry allocation.");
+        const std::size_t word = index / 64u;
+        if (mWords.size() <= word)
+        {
+            mWords.resize(word + 1u, 0ull);
+        }
+        mWords[word] |= (1ull << (index % 64u));
+    }
+
+    /// @brief Clears capability @p index. No-op if beyond current storage.
+    void reset(std::size_t index) noexcept
+    {
+        const std::size_t word = index / 64u;
+        if (word < mWords.size())
+        {
+            mWords[word] &= ~(1ull << (index % 64u));
+            trim();
+        }
+    }
+
+    /// @brief True if capability @p index is set (false beyond storage).
+    [[nodiscard]] bool test(std::size_t index) const noexcept
+    {
+        const std::size_t word = index / 64u;
+        return word < mWords.size() &&
+               ((mWords[word] >> (index % 64u)) & 1ull) != 0ull;
+    }
+
+    /// @brief True if no capability is set.
+    [[nodiscard]] bool none() const noexcept { return mWords.empty(); }
+
+    /// @brief True if any capability is set.
+    [[nodiscard]] bool any() const noexcept { return !mWords.empty(); }
+
+    /// @brief Number of set capabilities.
+    [[nodiscard]] std::size_t count() const noexcept
+    {
+        std::size_t n = 0;
+        for (const std::uint64_t w : mWords)
+        {
+            n += static_cast<std::size_t>(std::popcount(w));
+        }
+        return n;
+    }
+
+    // ── Set algebra (width-agnostic) ────────────────────────────────────
+
+    SkeletonMask& operator&=(const SkeletonMask& rhs) noexcept
+    {
+        if (mWords.size() > rhs.mWords.size())
+        {
+            mWords.resize(rhs.mWords.size());
+        }
+        for (std::size_t i = 0; i < mWords.size(); ++i)
+        {
+            mWords[i] &= rhs.mWords[i];
+        }
+        trim();
+        return *this;
+    }
+
+    SkeletonMask& operator|=(const SkeletonMask& rhs)
+    {
+        if (mWords.size() < rhs.mWords.size())
+        {
+            mWords.resize(rhs.mWords.size(), 0ull);
+        }
+        for (std::size_t i = 0; i < rhs.mWords.size(); ++i)
+        {
+            mWords[i] |= rhs.mWords[i];
+        }
+        return *this;
+    }
+
+    [[nodiscard]] friend SkeletonMask operator&(SkeletonMask lhs,
+                                                const SkeletonMask& rhs) noexcept
+    {
+        lhs &= rhs;
+        return lhs;
+    }
+
+    [[nodiscard]] friend SkeletonMask operator|(SkeletonMask lhs,
+                                                const SkeletonMask& rhs)
+    {
+        lhs |= rhs;
+        return lhs;
+    }
+
+    /// Normalized storage makes defaulted comparison width-correct: equal
+    /// masks compare equal regardless of how they were built.
+    [[nodiscard]] friend bool operator==(const SkeletonMask&,
+                                         const SkeletonMask&) = default;
+
+    // ── Diagnostics ─────────────────────────────────────────────────────
+
+    /// @brief Hex rendering, most-significant word first (e.g. "0x0", "0x900").
+    [[nodiscard]] std::string toString() const
+    {
+        if (mWords.empty())
+        {
+            return "0x0";
+        }
+        static constexpr char kHex[] = "0123456789abcdef";
+        std::string out = "0x";
+        bool leading = true;
+        for (std::size_t w = mWords.size(); w-- > 0;)
+        {
+            for (int nibble = 15; nibble >= 0; --nibble)
+            {
+                const unsigned digit =
+                    static_cast<unsigned>((mWords[w] >> (nibble * 4)) & 0xFull);
+                if (leading && digit == 0 && !(w == 0 && nibble == 0))
+                {
+                    continue;
+                }
+                leading = false;
+                out.push_back(kHex[digit]);
+            }
+        }
+        return out;
+    }
+
+private:
+    void trim() noexcept
+    {
+        while (!mWords.empty() && mWords.back() == 0ull)
+        {
+            mWords.pop_back();
+        }
+    }
+
+    std::vector<std::uint64_t> mWords; // little-endian words, normalized (no zero tail)
+};
+
+/// Streams the mask's toString() (diagnostics; std::bitset had an inserter too).
+inline std::ostream& operator<<(std::ostream& os, const SkeletonMask& mask)
+{
+    return os << mask.toString();
+}
+
+namespace detail
+{
+/// Framework capability → index, rejecting the Count sentinel.
+[[nodiscard]] inline std::size_t capabilityIndexOf(SkeletonCapability cap)
+{
+    const std::size_t idx = static_cast<std::size_t>(static_cast<uint32_t>(cap));
+    FATP_ALWAYS_ENFORCE(idx < kFrameworkCapabilityBand,
+        "makeMask(): invalid framework capability. Do not pass SkeletonCapability::Count.");
+    return idx;
+}
+
+/// Registered capability index (application band) — passed through; the
+/// sanity bound is enforced by SkeletonMask::set().
+[[nodiscard]] inline std::size_t capabilityIndexOf(std::size_t index) noexcept
+{
+    return index;
+}
+} // namespace detail
 
 /**
  * @brief Constructs a SkeletonMask with the given capability bits set.
  *
- * @pre Each value in @p caps must be a defined SkeletonCapability other than Count.
- *      Passing Count (value 32) violates this contract and terminates the process in
- *      all build configurations via FATP_ALWAYS_ENFORCE.
+ * Accepts framework capabilities (SkeletonCapability values) and registered
+ * application capability indices (std::size_t, as returned by
+ * CapabilityRegistry::registerCapability) — freely mixed.
+ *
+ * @pre Each SkeletonCapability value must be a defined capability other than
+ *      Count. Passing Count terminates the process in all build configurations
+ *      via FATP_ALWAYS_ENFORCE.
  *
  * @code
- * auto m = makeMask(SkeletonCapability::Sensor, SkeletonCapability::ProvidesValue);
+ * auto m  = makeMask(SkeletonCapability::Sensor, SkeletonCapability::ProvidesValue);
+ * auto m2 = makeMask(SkeletonCapability::ProvidesValue, hydraulicCapIndex);
  * @endcode
  *
- * @tparam Caps... Types convertible to SkeletonCapability.
+ * @tparam Caps... SkeletonCapability values and/or std::size_t indices.
  * @return A SkeletonMask with the corresponding bits set.
  */
-template <std::convertible_to<SkeletonCapability>... Caps>
-[[nodiscard]] SkeletonMask makeMask(Caps... caps) noexcept
+template <typename... Caps>
+    requires((std::convertible_to<Caps, SkeletonCapability> ||
+              std::convertible_to<Caps, std::size_t>) &&
+             ...)
+[[nodiscard]] SkeletonMask makeMask(Caps... caps)
 {
     SkeletonMask m;
-    (
-        [&]
-        {
-            const auto rawCap = static_cast<SkeletonCapability>(caps);
-            const std::size_t idx = static_cast<std::size_t>(static_cast<uint32_t>(rawCap));
-            FATP_ALWAYS_ENFORCE(idx < m.size(),
-                "makeMask(): capability index out of range. Do not pass SkeletonCapability::Count.");
-            m.set(idx);
-        }(),
-        ...
-    );
+    (m.set(detail::capabilityIndexOf(caps)), ...);
     return m;
 }
 

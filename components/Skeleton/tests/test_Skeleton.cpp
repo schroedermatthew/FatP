@@ -51,6 +51,7 @@ FATP_META:
 #include <string>
 #include <vector>
 
+#include "CapabilityRegistry.h"
 #include "Skeleton.h"
 #include "FatPTest.h"
 
@@ -624,12 +625,15 @@ FATP_TEST_CASE(mask_bitwise_and)
 
 FATP_TEST_CASE(mask_capability_count_sentinel_value)
 {
-    // Count == 32, which is the bitset size. Validate the enum value is correct.
+    // Count == 32 == the framework capability band size (the first application
+    // index) — NOT the mask width; the mask is unbounded.
     FATP_ASSERT_EQ(
         static_cast<uint32_t>(SkeletonCapability::Count),
         uint32_t(32),
         "SkeletonCapability::Count must equal 32"
     );
+    FATP_ASSERT_EQ(kFrameworkCapabilityBand, std::size_t(32),
+        "Framework band must span indices 0..31");
     return true;
 }
 
@@ -1794,13 +1798,119 @@ FATP_TEST_CASE(boneid_to_string_each_depth)
 // Suite 13: Mask edge cases
 // =============================================================================
 
-FATP_TEST_CASE(mask_all_32_bits_set)
+// The mask is unbounded; "full" now means "the whole framework band".
+static SkeletonMask makeFrameworkBandFullMask()
 {
-    // Build a mask with all 32 capability bits set.
-    SkeletonMask full;
-    full.set(); // std::bitset::set() sets all bits
-    FATP_ASSERT_EQ(full.count(), std::size_t(32), "Full mask must have 32 bits set");
-    FATP_ASSERT_TRUE(full.all(), "Full mask must report all() == true");
+    SkeletonMask m;
+    for (std::size_t i = 0; i < kFrameworkCapabilityBand; ++i)
+    {
+        m.set(i);
+    }
+    return m;
+}
+
+FATP_TEST_CASE(mask_framework_band_full)
+{
+    // Build a mask with the entire framework band set.
+    SkeletonMask full = makeFrameworkBandFullMask();
+    FATP_ASSERT_EQ(full.count(), std::size_t(32),
+        "Framework-band-full mask must have 32 bits set");
+    FATP_ASSERT_TRUE(full.test(0) && full.test(31),
+        "Band edges must be set");
+    FATP_ASSERT_FALSE(full.test(32),
+        "First application index must not be set");
+    return true;
+}
+
+FATP_TEST_CASE(mask_unbounded_indices)
+{
+    // The mask has no width: indices far beyond the framework band work.
+    SkeletonMask m;
+    m.set(100);
+    m.set(1000);
+    FATP_ASSERT_TRUE(m.test(100),  "Bit 100 must be set");
+    FATP_ASSERT_TRUE(m.test(1000), "Bit 1000 must be set");
+    FATP_ASSERT_FALSE(m.test(999), "Bit 999 must not be set");
+    FATP_ASSERT_EQ(m.count(), std::size_t(2), "Exactly two bits set");
+
+    m.reset(1000);
+    FATP_ASSERT_FALSE(m.test(1000), "Bit 1000 must clear");
+    FATP_ASSERT_EQ(m.count(), std::size_t(1), "One bit remains");
+    return true;
+}
+
+FATP_TEST_CASE(mask_cross_width_equality_and_ops)
+{
+    // Masks built at different storage widths must compare and combine
+    // correctly (missing high words read as zero; storage is normalized).
+    SkeletonMask narrow = makeMask(SkeletonCapability::Sensor);
+
+    SkeletonMask wasWide = makeMask(SkeletonCapability::Sensor);
+    wasWide.set(500);
+    wasWide.reset(500); // storage normalizes back down
+    FATP_ASSERT_TRUE(narrow == wasWide,
+        "Equal content must compare equal regardless of storage history");
+
+    SkeletonMask wide;
+    wide.set(500);
+    SkeletonMask intersection = narrow & wide;
+    FATP_ASSERT_TRUE(intersection.none(),
+        "Disjoint narrow/wide masks must intersect to empty");
+
+    SkeletonMask joined = narrow | wide;
+    FATP_ASSERT_TRUE(joined.test(0) && joined.test(500),
+        "Union must contain both narrow and wide bits");
+    FATP_ASSERT_EQ(joined.count(), std::size_t(2), "Union has two bits");
+    return true;
+}
+
+FATP_TEST_CASE(mask_ull_ctor_matches_sets)
+{
+    // The unsigned-long-long seed ctor is equivalent to setting those indices.
+    SkeletonMask seeded(0b101ull);
+    SkeletonMask built;
+    built.set(0);
+    built.set(2);
+    FATP_ASSERT_TRUE(seeded == built, "ull ctor must equal explicit sets");
+    FATP_ASSERT_TRUE(SkeletonMask(0ull).none(), "Zero seed must be empty");
+    return true;
+}
+
+FATP_TEST_CASE(capability_registry_framework_preregistered)
+{
+    auto& reg = CapabilityRegistry::instance();
+    const auto sensor = reg.find("Sensor");
+    FATP_ASSERT_TRUE(sensor.has_value(), "Sensor must be pre-registered");
+    FATP_ASSERT_EQ(*sensor, static_cast<std::size_t>(SkeletonCapability::Sensor),
+        "Sensor must sit at its enum index");
+    const auto vb = reg.find("ValueBinary");
+    FATP_ASSERT_TRUE(vb.has_value(), "ValueBinary must be pre-registered");
+    FATP_ASSERT_EQ(*vb, static_cast<std::size_t>(SkeletonCapability::ValueBinary),
+        "ValueBinary must sit at its enum index");
+    FATP_ASSERT_TRUE(reg.highWater() >= kFrameworkCapabilityBand,
+        "The framework band must be reserved");
+    return true;
+}
+
+FATP_TEST_CASE(capability_registry_allocates_and_idempotent)
+{
+    auto& reg = CapabilityRegistry::instance();
+    const std::size_t a = reg.registerCapability("Test.AppCapabilityA");
+    const std::size_t b = reg.registerCapability("Test.AppCapabilityB");
+    FATP_ASSERT_TRUE(a >= kFrameworkCapabilityBand,
+        "Application capabilities must be allocated above the framework band");
+    FATP_ASSERT_TRUE(b > a, "Allocation must be sequential");
+    FATP_ASSERT_EQ(reg.registerCapability("Test.AppCapabilityA"), a,
+        "Registration must be idempotent by name");
+    FATP_ASSERT_EQ(reg.name(a), std::string_view("Test.AppCapabilityA"),
+        "Reverse lookup must return the registered name");
+
+    // makeMask accepts registered indices, mixed with framework capabilities.
+    SkeletonMask m = makeMask(SkeletonCapability::ProvidesValue, a);
+    FATP_ASSERT_TRUE(
+        m.test(static_cast<std::size_t>(SkeletonCapability::ProvidesValue)),
+        "Framework bit must be set");
+    FATP_ASSERT_TRUE(m.test(a), "Registered application bit must be set");
     return true;
 }
 
@@ -1826,8 +1936,7 @@ FATP_TEST_CASE(mask_excluded_superset_of_item_mask_matches_nothing)
     SensorItem sensor(sk, m, "sensor");
 
     // Exclude more bits than the item has -- still excludes it.
-    SkeletonMask superExclude;
-    superExclude.set(); // all bits excluded
+    SkeletonMask superExclude = makeFrameworkBandFullMask();
     auto results = sk.query({}, superExclude);
     FATP_ASSERT_EQ(results.size(), std::size_t(0),
         "Full exclusion mask must match nothing");
@@ -1840,9 +1949,8 @@ FATP_TEST_CASE(mask_required_superset_of_any_item_matches_nothing)
     SkeletonMask m = makeMask(SkeletonCapability::Sensor);
     SensorItem sensor(sk, m, "sensor");
 
-    // Require all 32 bits -- item only has 1.
-    SkeletonMask fullRequired;
-    fullRequired.set();
+    // Require the whole framework band -- item only has 1 bit.
+    SkeletonMask fullRequired = makeFrameworkBandFullMask();
     auto results = sk.query(fullRequired);
     FATP_ASSERT_EQ(results.size(), std::size_t(0),
         "Query requiring all 32 bits must not match an item with only 1 bit set");
@@ -1852,8 +1960,7 @@ FATP_TEST_CASE(mask_required_superset_of_any_item_matches_nothing)
 FATP_TEST_CASE(mask_item_with_all_bits_matches_any_required)
 {
     Skeleton sk;
-    SkeletonMask fullMask;
-    fullMask.set();
+    SkeletonMask fullMask = makeFrameworkBandFullMask();
     SensorItem sensor(sk, fullMask, "omnipotent");
 
     // Any non-empty required mask must match an item with all bits.
@@ -2947,7 +3054,12 @@ bool test_Skeleton()
 
     // Mask edge cases
     out << "\n--- Mask edge cases ---\n";
-    FATP_RUN_TEST_NS(runner, skeleton, mask_all_32_bits_set);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_framework_band_full);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_unbounded_indices);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_cross_width_equality_and_ops);
+    FATP_RUN_TEST_NS(runner, skeleton, mask_ull_ctor_matches_sets);
+    FATP_RUN_TEST_NS(runner, skeleton, capability_registry_framework_preregistered);
+    FATP_RUN_TEST_NS(runner, skeleton, capability_registry_allocates_and_idempotent);
     FATP_RUN_TEST_NS(runner, skeleton, mask_required_and_excluded_overlap_matches_nothing);
     FATP_RUN_TEST_NS(runner, skeleton, mask_excluded_superset_of_item_mask_matches_nothing);
     FATP_RUN_TEST_NS(runner, skeleton, mask_required_superset_of_any_item_matches_nothing);

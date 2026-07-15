@@ -304,7 +304,7 @@ public:
 // =============================================================================
 
 /**
- * @brief Default mask policy tag. v1 uses SkeletonMask (std::bitset<32>) directly.
+ * @brief Default mask policy tag. Uses SkeletonMask (the unbounded capability mask) directly.
  * Reserved as an extension point so that adding a custom mask policy later
  * does not require a breaking type change on BasicBoneItem.
  */
@@ -1017,12 +1017,9 @@ public:
         );
         for (const auto& [id, item] : items)
         {
-            char hexBuf[12];
-            std::snprintf(hexBuf, sizeof(hexBuf), "0x%08x",
-                static_cast<uint32_t>(item->mask().to_ulong()));
             out << "  " << id.toString()
                 << "  name=\"" << item->name() << "\""
-                << "  mask=" << hexBuf << '\n';
+                << "  mask=" << item->mask().toString() << '\n';
         }
     }
 
