@@ -111,7 +111,7 @@ At runtime, each Bone produces a canonical `BoneId`: a 64-bit packed value stori
 
 ### Capability Description: SkeletonMask
 
-Every item carries a `SkeletonMask` — a 32-bit `std::bitset` built from `SkeletonCapability` enum values. Capabilities describe what an item *is* and what it *does*, independently of its address. This separation matters: two items at the same address level might have entirely different capabilities. Querying by capability finds all matching items across the whole registry without knowing their addresses.
+Every item carries a `SkeletonMask` — an unbounded capability bitset built from `SkeletonCapability` enum values and/or application capability indices registered by name through `CapabilityRegistry` (framework band 0–31 pre-registered; application indices allocated from 32 upward, collision-free). Capabilities describe what an item *is* and what it *does*, independently of its address. This separation matters: two items at the same address level might have entirely different capabilities. Querying by capability finds all matching items across the whole registry without knowing their addresses — and the vocabulary is open: an application adds capabilities by registering names, never by editing a framework enum.
 
 ```cpp
 using namespace fat_p::skeleton;
@@ -221,6 +221,7 @@ Signal.h        (onPublished, onUnpublishing, onMaskChanged)
 ScopeGuard.h    (traversal and publish rollback guards)
 enforce.h       (precondition assertions in debug builds)
 SkeletonFwd.h   (BoneId, HierarchySchema, SkeletonCapability, SkeletonMask)
+CapabilityRegistry.h (name → capability-index registry; application band)
 
 SkeletonUtilities.h
     → uses

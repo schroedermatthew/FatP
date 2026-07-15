@@ -22,7 +22,7 @@ status: "draft"
 
 ---
 
-**Scope:** Complete usage guide for the Skeleton component: HierarchySchema, BoneId, Bone, SkeletonItem, BoneItem, Skeleton, SkeletonMask, and SkeletonUtilities. Covers schema design, item authoring, publication lifecycle, lookup and traversal, capability queries, reactive signals, and dynamic address generation.
+**Scope:** Complete usage guide for the Skeleton component: HierarchySchema, BoneId, Bone, SkeletonItem, BoneItem, Skeleton, SkeletonMask, CapabilityRegistry, and SkeletonUtilities. Covers schema design, item authoring, publication lifecycle, lookup and traversal, capability queries, registered application capabilities, reactive signals, and dynamic address generation.
 
 **Not covered:**
 - Thread-safe registries (Skeleton is single-threaded; no ThreadSafeSkeleton in v1)
@@ -38,7 +38,7 @@ status: "draft"
 **Component:** Skeleton
 **Primary use case:** Hierarchically organized runtime components that discover each other by typed address or capability without tight constructor coupling
 **Integration pattern:** Create one Skeleton per application domain; derive item types from `BoneItem<Schema, Levels...>`; publish in the most-derived constructor, unpublish in the most-derived destructor
-**Key API:** `HierarchySchema`, `Bone`, `BoneItem`, `SkeletonItem`, `Skeleton::find`, `Skeleton::query`, `Skeleton::visitSubtree`, `Skeleton::onPublished`, `makeMask`, `index2BoneId`
+**Key API:** `HierarchySchema`, `Bone`, `BoneItem`, `SkeletonItem`, `Skeleton::find`, `Skeleton::query`, `Skeleton::visitSubtree`, `Skeleton::onPublished`, `makeMask`, `CapabilityRegistry`, `index2BoneId`
 **std equivalent:** None. No standard equivalent exists or is planned.
 **Migration from std:** Not applicable — Skeleton addresses a pattern not covered by any standard facility.
 **Common mistakes:** Calling `publish` before all members are initialized; forgetting `unpublish` in the destructor; calling `publish` or `unpublish` from within a `visitSubtree` callback
@@ -53,6 +53,7 @@ status: "draft"
    - [BoneId: The Hierarchical Address](#boneid-the-hierarchical-address)
    - [HierarchySchema: The Type Contract](#hierarchyschema-the-type-contract)
    - [SkeletonMask: The Capability Description](#skeletonmask-the-capability-description)
+   - [CapabilityRegistry: Application Capabilities](#capabilityregistry-application-capabilities)
 3. [Getting Started](#getting-started)
    - [Prerequisites and Integration](#prerequisites-and-integration)
    - [Your First Schema](#your-first-schema)
@@ -151,23 +152,29 @@ using SysSchema = HierarchySchema<System, Subsystem, Channel>;
 
 ### SkeletonMask: The Capability Description
 
-A `SkeletonMask` is `std::bitset<32>`. Each bit position corresponds to a `SkeletonCapability` enum value. The standard capability set is organized into four groups:
+A `SkeletonMask` is an **unbounded** capability bitset (a normalized word vector — it grows to the highest set index; masks of different storage widths compare and combine correctly). It is not a `std::bitset`: bitset idioms that presume a fixed width — no-argument `set()`, `all()`, `size()`, `to_ulong()` — are deliberately not provided. Use `set(i)`, `reset(i)`, `test(i)`, `none()`, `any()`, `count()`, the set operators (`&`, `|`, `&=`, `|=`, `==`), and `toString()` for diagnostics.
+
+The capability *vocabulary* is open and registered, not hardcoded. Indices `0–31` are the reserved **framework band**, pre-registered from the `SkeletonCapability` enum:
 
 ```
 Bits 0–7:   Category   — Sensor, Controller, Display, Network, Storage
-Bits 8–15:  Providers  — ProvidesValue, ProvidesCommand, ProvidesStatus
+Bits 8–15:  Providers  — ProvidesValue, ProvidesCommand, ProvidesStatus,
+                         ValueBinary, ValueContinuous, ValueDiscrete
 Bits 16–23: Consumers  — ConsumesValue, ConsumesCommand, ConsumesStatus
 Bits 24–31: Properties — Readable, Writable, Serializable, NetworkVisible
 ```
+
+The value-kind bits qualify a provided value orthogonally to provider-ness: a relay is `ProvidesValue + ValueBinary`, an analog channel is `ProvidesValue + ValueContinuous` — a new value kind never needs a new provider bit.
 
 Build masks with `makeMask()`:
 
 ```cpp
 using namespace fat_p::skeleton;
 
-// A temperature sensor that provides readable values
+// A temperature sensor that provides readable continuous values
 auto tempMask = makeMask(SkeletonCapability::Sensor,
                          SkeletonCapability::ProvidesValue,
+                         SkeletonCapability::ValueContinuous,
                          SkeletonCapability::Readable);
 
 // A display controller that consumes values and is writable
@@ -176,7 +183,27 @@ auto dispMask = makeMask(SkeletonCapability::Display,
                          SkeletonCapability::Writable);
 ```
 
-`makeMask` accepts any number of capability arguments. Passing `SkeletonCapability::Count` (the sentinel, value 32) terminates the process — it is not a valid capability bit.
+`makeMask` accepts any number of arguments — framework capabilities and registered application capability indices (`std::size_t`), freely mixed. Passing `SkeletonCapability::Count` terminates the process: `Count` (32) is the framework band size and the first application index, not a capability.
+
+### CapabilityRegistry: Application Capabilities
+
+Applications extend the vocabulary at init through `CapabilityRegistry` (`CapabilityRegistry.h`): register a capability by name and receive an allocated index from `kFrameworkCapabilityBand` (32) upward. Allocation is sequential and collision-free by construction; registration is idempotent by name, so independent modules may register a shared name and receive the same index. Register during startup, before items are constructed, and never afterwards — the same immutable-after-init contract as every other registry.
+
+```cpp
+using namespace fat_p::skeleton;
+
+const std::size_t hydraulic =
+    CapabilityRegistry::instance().registerCapability("App.Hydraulic");
+
+auto pumpMask = makeMask(SkeletonCapability::Controller,
+                         SkeletonCapability::ProvidesValue,
+                         hydraulic);
+
+// Later, anywhere: query by the registered capability like any other bit.
+auto pumps = skeleton.query(makeMask(hydraulic));
+```
+
+`find(name)` returns the index for a registered name; `name(index)` returns the name for an index (empty for reserved/unregistered slots); `highWater()` is one past the highest allocated index. There is no ceiling on how many capabilities can exist — a sanity enforce far above any real vocabulary (index < 2^20) guards against corrupted indices only.
 
 ---
 
@@ -851,13 +878,17 @@ The `ScopedConnection` was stored as a local variable that went out of scope, or
 | `child<ChildLevel>` | Child Bone type alias |
 | `schema_type` | The HierarchySchema instantiation |
 
-### SkeletonCapability / SkeletonMask / makeMask (SkeletonFwd.h)
+### SkeletonCapability / SkeletonMask / makeMask (SkeletonFwd.h), CapabilityRegistry (CapabilityRegistry.h)
 
 | Item | Description |
 |------|-------------|
-| `SkeletonCapability` | Enum of 32 capability bits (Sensor, Controller, Display, Network, Storage, ProvidesValue, ProvidesCommand, ProvidesStatus, ConsumesValue, ConsumesCommand, ConsumesStatus, Readable, Writable, Serializable, NetworkVisible) |
-| `SkeletonMask` | `std::bitset<32>` |
-| `makeMask(caps...) → SkeletonMask` | Build a mask. Terminates if `SkeletonCapability::Count` is passed |
+| `SkeletonCapability` | The pre-registered framework band (indices 0–31): Sensor, Controller, Display, Network, Storage, ProvidesValue, ProvidesCommand, ProvidesStatus, ValueBinary, ValueContinuous, ValueDiscrete, ConsumesValue, ConsumesCommand, ConsumesStatus, Readable, Writable, Serializable, NetworkVisible |
+| `kFrameworkCapabilityBand` | 32 — the framework band size / first application capability index |
+| `SkeletonMask` | Unbounded capability bitset (normalized word vector). `set(i)/reset(i)/test(i)`, `none/any/count`, `&`, `\|`, `&=`, `\|=`, `==`, `toString()`. No width-presuming bitset APIs (no-arg `set`, `all`, `size`, `to_ulong`) |
+| `makeMask(caps...) → SkeletonMask` | Build a mask from framework capabilities and/or registered indices, mixed. Terminates if `SkeletonCapability::Count` is passed |
+| `CapabilityRegistry::instance()` | Singleton name → capability-index registry |
+| `registerCapability(name) → size_t` | Register (idempotent by name); allocates application indices from 32 upward. Call at init only |
+| `find(name)` / `name(index)` / `highWater()` | Lookup by name; reverse lookup; one past the highest allocated index |
 
 ### SkeletonItem (Skeleton.h)
 
