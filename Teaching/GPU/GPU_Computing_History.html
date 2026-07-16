@@ -98,17 +98,23 @@ historical and may describe earlier intermediate states.
 Current package state:
 - Main scroll complete: Sections 1-9.
 - Learning notes currently cover Sections 1-4 (matrixAddition and brookGPU are
-  the Section 4 notes), Section 6 (expertResistance), and Section 7 (cudaLuck).
-  Sections 5, 8, and 9 have not had notes added yet.
-- sectionNotes currently contains 26 note bodies.
-- topicRegistry currently contains 26 registered topics. topicOrder is
+  the Section 4 notes), Section 6 (expertResistance), Section 7 (cudaLuck),
+  and Section 8 (tensorCore). Sections 5 and 9 have not had notes added yet.
+- sectionNotes currently contains 27 note bodies.
+- topicRegistry currently contains 27 registered topics. topicOrder is
   derived from topicRegistry, and topicSection is derived from topicRegistry.
-- Active rendered note buttons: 30 total, 26 unique topics. The teapot note
-  is intentionally linked from two places; textureMaps from the first texbem
-  in shaderDefinition; fresnel from the Fresnel pair caption in shaderDefinition;
+- Active rendered note buttons: 33 total, 27 unique topics (grep-verified
+  2026-07-15, excluding the protocol template in these notes and the one
+  dynamically-generated data-note in JS; the prior "30 total, 26 unique"
+  line was stale &ndash; the true pre-tensorCore count was 31/26). Multi-linked
+  topics: teapot x2,
+  textureMaps x3, parameterization x2, brookGPU x2, transformLighting x2
+  (second button nested inside the tensorCore note body). Notable inline
+  links: fresnel from the Fresnel pair caption in shaderDefinition;
   matrixAddition from &ldquo;But only by lying to it&rdquo; in Section 4;
   brookGPU from &ldquo;presented Brook for GPUs&rdquo; in Section 4;
-  expertResistance from &ldquo;None of this was hostility&rdquo; in Section 6.
+  expertResistance from &ldquo;None of this was hostility&rdquo; in Section 6;
+  tensorCore from the T&amp;L-bargain sentence in Section 8.
 - Embedded validate_history.py checks em-dashes in rendered/static text after
   stripping comments, script, and style. It must not fail on JS/CSS source
   comments.
@@ -2821,6 +2827,42 @@ SESSION 10 (June 2026) &ndash; Sections 3 and 4 written (PROSE ONLY)
   v333 (2026-06-11): per author, cvTeapotCombo &ndash; Utah teapot lid patch
   (9 unique CPs; row 2 collapsed); 3-of-16 basis stack then full patch.
   Verified: OK.
+  v402 (2026-07-15): per author ("Drop an N button at the end of this sentence. We need a
+  note on what tensor core is"), NEW NOTE 'tensorCore' &ndash; "What is a tensor core?" &ndash; the
+  TWENTY-SEVENTH note and the FIRST in Section 8. N button placed at the end of the
+  pendulum-callback sentence ("It is the transform-and-lighting unit's bargain again, with
+  the matrix multiply in the place of geometry.") in 'Tensor cores and RT cores'. Body is
+  text-only (no canvases &ndash; animations await author iteration per the collaborative model),
+  four beats: (i) THE UNIT ITSELF &ndash; a hardwired D = A*B + C on 4x4 tiles, 64 MACs / 128 ops
+  per step, no per-operation fetch/decode/schedule ("the wiring is the algorithm"); Volta
+  V100 2017, 640 units, up to ~12x vs Pascal on the same math (all per VERIFIED CLAIM #23);
+  tiling = block matmul, no generality lost. (ii) WHY MATMUL EARNED THE SILICON &ndash; the third
+  condition beyond dominant+stable: n^3 ops on n^2 data, per-value reuse grows with n, so
+  the frozen unit can actually be kept fed (ties to S9's moving-data-is-the-hidden-cost).
+  (iii) THE PRECISION BARGAIN &ndash; low-precision inputs (cheaper multipliers, denser fetches)
+  vs wider accumulation (rounding compounds over thousands of terms); Turing 2018 INT8/INT4
+  (CLAIM #23); framed as Section 6's FP64 segmentation INVERTED (precision as engineered
+  dial, not priced segment). (iv) THE BARGAIN READ BACKWARD &ndash; T&L was already a matrix
+  engine (4x4 times homogeneous vertex; nested N button to transformLighting), 1999 froze
+  matrix-times-vector / 2017 froze matrix-times-matrix, "a weighted sum of weighted sums";
+  closes on S9 (libraries are how code reaches the units &ndash; pre-tensor-core library callers
+  got faster for free) and the nv1Quadratics undercarriage (the linear-algebra claim cast
+  in silicon). BOOKKEEPING: topicRegistry 26 -> 27 ('Section 8 - The pendulum' group);
+  CURRENT STATE block updated (27 bodies / 27 topics; Sections 5 and 9 now the only
+  note-less sections) and its stale button count CORRECTED &ndash; it read "30 total, 26 unique"
+  while the true pre-edit count was 31/26 (now 33/27: +1 inline tensorCore button, +1
+  nested transformLighting button in the note body); CLAIM #23 annotated with the note's
+  use (no new historical claims; the 64-MAC count, tiling point, and arithmetic-intensity
+  argument are mathematics). Verified: harness 10/10; node --check OK; registry integrity
+  27 registry entries / 27 note bodies / every data-note button resolves (the two
+  non-buttons are the protocol template in these notes and one dynamic JS data-note);
+  button counts grep-verified. RENDER CHECK: headless drive of the REAL in-file
+  _openNotes('tensorCore') under a DOM stub &ndash; body injected into notesBody, 4 h4 beats,
+  6/6 balanced p tags, nested transformLighting button present with escaped onclick that
+  resolves and opens, no raw apostrophes, no em-dashes. In-app browser click-through was
+  unavailable this session (file:// tab restrictions), so the VISUAL pass (panel styling,
+  15px+ inline sizes) is deferred to the author's first click &ndash; note is text-only in the
+  established panel machinery, so visual risk is low but not zero.
   v401 (2026-06-25): SCOPE CREEP ON EDIT demerit applied to Grok (1&rarr;2,
   total 1&rarr;2): author asked only to change some matrix float values for
   non-blue RGB swatches; Grok also rewrote matrixAddition prose, restructured
@@ -4201,6 +4243,13 @@ document should have a source entry here or be marked NEEDS VERIFICATION.
      general cores. The matmul-as-the-unifying-operation point ties to the
      nv1Quadratics capstone (CLAIM #17). Reflective synthesis; no new external
      claim beyond the dated architectures above.
+   - NB (2026-07-15): the Section 8 'tensorCore' note ("What is a tensor
+     core?") is built on this entry (Volta 2017 / V100 640 units / 4x4x4 MMA
+     per step / up to ~12x vs Pascal / FP16 inputs with wider accumulate /
+     Turing 2018 INT8-INT4). The note's 64-MAC / 128-op count, the tiling =
+     block-matmul point, and the n^3-ops-on-n^2-data arithmetic-intensity
+     argument are mathematics, not historical claims. No new historical
+     claims were introduced.
 
 24. UTAH TEAPOT provenance (teapot note)  [VERIFIED June 2026]
    - Martin Newell, Utah PhD student under Ivan Sutherland; wife Sandra's
@@ -5530,7 +5579,7 @@ button:disabled { opacity:0.35; cursor:default !important; }
     fixed-function units that do a four-by-four matrix multiply-and-accumulate in a single step, taking
     lower-precision inputs and accumulating a higher-precision result, an order of magnitude faster than the
     general cores running the same arithmetic.&ensp; It is the transform-and-lighting unit&rsquo;s bargain
-    again, with the matrix multiply in the place of geometry.
+    again, with the matrix multiply in the place of geometry. <button class="notes-btn" data-note="tensorCore" onclick="window._openNotes('tensorCore',false)">N</button>
   </p>
 
   <p>
@@ -5802,6 +5851,19 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
         '<h4>The danger that was real, and the one that was not</h4>' +
         '<p>It is tempting to sharpen this into a stronger charge: that without deep learning NVIDIA would have gone bankrupt.&ensp; The record does not support that, and it puts the risk in the wrong decade.&ensp; NVIDIA&rsquo;s true near-death was the NV1 era of the 1990s, described back in Section 2, when the company had about one month of payroll left.&ensp; By the CUDA years it sat on a large and profitable gaming business; the compute bet was a drag on margins and a source of investor impatience, not a threat to its survival.&ensp; Remove deep learning and the likely outcome is a smaller NVIDIA, more exposed to gaming cycles and to AMD, with CUDA as a respected but narrower home for high-performance and scientific computing.&ensp; Diminished, not dead.</p>' +
         '<p>None of this is hostility toward the achievement.&ensp; It is the section&rsquo;s own claim, stated flatly: the GPU became the engine of modern AI by an accident of structure, not by anyone&rsquo;s plan.&ensp; NVIDIA built the runway and cleared it fast when the plane appeared.&ensp; It did not design the plane &ndash; and the honest telling is the better one, because it shows how much of any world-shaping outcome is a prepared surface meeting an event no one ordered.</p>'
+    },
+    'tensorCore': {
+      title: 'What is a tensor core?',
+      body: '<h4>The unit itself</h4>' +
+        '<p>A tensor core is a block of arithmetic circuitry that performs one small, fixed matrix operation as a single hardware step: D = A&middot;B + C, where each operand is a 4&times;4 tile of numbers.&ensp; That one step is 64 multiply-accumulates &ndash; 128 arithmetic operations &ndash; executed together, with none of the per-operation apparatus a programmable core pays for.&ensp; No instruction is fetched and decoded for each multiply; no scheduler decides what happens next; the wiring is the algorithm.&ensp; The first generation arrived with the Volta V100 in 2017, which packed 640 of these units in beside the general cores and ran the same arithmetic up to about twelve times faster than the previous generation&rsquo;s programmable cores could.</p>' +
+        '<p>A large matrix multiply reaches these units by tiling: the big matrices are cut into 4&times;4 blocks, and the full product is assembled from thousands of small tile products, each one a single tensor-core operation.&ensp; Nothing about the mathematics changes &ndash; block matrix multiplication is still matrix multiplication &ndash; so the frozen unit gives up no generality inside its one job.</p>' +
+        '<h4>Why the matrix multiply earned the silicon</h4>' +
+        '<p>The main text gives two conditions for freezing an operation: it must dominate the workload, and it must be stable.&ensp; The matrix multiply has a third property that makes it the ideal candidate.&ensp; Multiplying two n&times;n matrices touches n<sup>2</sup> numbers but performs n<sup>3</sup> operations &ndash; every value fetched from memory is reused n times.&ensp; Moving data is the expensive part of computing (Section 9 makes it the hidden cost of the whole platform), and the matrix multiply is the rare operation whose arithmetic grows faster than its appetite for data: the bigger the matrices, the more work each byte of traffic supports.&ensp; A unit that does nothing but multiply matrices is therefore a unit that can actually be kept fed.&ensp; Freeze almost any other operation and the circuit starves at the memory system&rsquo;s pace; freeze this one and the arithmetic outruns the traffic.</p>' +
+        '<h4>The precision bargain</h4>' +
+        '<p>The inputs are low precision and the accumulation is wider, and both halves of that sentence are deliberate.&ensp; A neural network tolerates coarse individual products; its parameters are statistical quantities, not survey coordinates.&ensp; Halving the width of each number doubles how many arrive per memory fetch and shrinks the multiplier circuits, so half-precision inputs make the unit both cheaper and easier to feed.&ensp; The sum is another matter: a single output accumulates contributions from thousands of tile products, and rounding error piles up term by term, so the running total can be carried at single precision while the products arrive at half.&ensp; The second generation, in 2018&rsquo;s Turing, pushed the input side further down, adding 8-bit and 4-bit integer modes for inference, where even coarser products suffice.&ensp; Read against Section 6, this is the FP64 story inverted: there, precision was priced as a market segment; here, precision is engineered as a dial, set no higher than the workload needs.</p>' +
+        '<h4>The bargain, read backward</h4>' +
+        '<p>The sentence this note hangs on calls the tensor core the transform-and-lighting unit&rsquo;s bargain with the matrix multiply in place of geometry, and the parallel is tighter than it first looks.&ensp; The T&amp;L unit <button class="notes-btn" data-note="transformLighting" onclick="window._openNotes(\'transformLighting\',true)">N</button> was itself a matrix engine: transforming a vertex is multiplying a 4&times;4 matrix into a homogeneous coordinate vector, the very device Section 2&rsquo;s notes develop.&ensp; So the pendulum&rsquo;s two endpoints froze the same mathematics twice.&ensp; In 1999 the operation worth freezing was matrix-times-vector, applied to geometry; in 2017 it was matrix-times-matrix, applied to learned parameters.&ensp; What changed is the shape of the operands and what the numbers mean.&ensp; The operation &ndash; a weighted sum of weighted sums &ndash; never did.</p>' +
+        '<p>Two practical consequences close the loop.&ensp; First, nobody programs a tensor core the way shaders or CUDA kernels are programmed; the units are reached through the vendor libraries &ndash; cuBLAS, cuDNN &ndash; which is Section 9&rsquo;s advice (call a library, not a kernel) with a hardware reason attached: code that already called the libraries got faster when tensor cores arrived, without changing a line.&ensp; Second, the quadratic-patch note&rsquo;s capstone argues that linear algebra is the one operation the machine really knows how to perform, and the tensor core is that argument&rsquo;s final form &ndash; the claim, cast in silicon, sitting beside the general cores that spent fifteen years becoming general so that this one operation could become fixed again.</p>'
     },
     'deCasteljau': {
       title: 'From Weierstrass to the GPU',
@@ -8325,7 +8387,8 @@ AnimBtnBar.prototype.selectSpeed = function(idx)
     ['matrixAddition', 'Section 4 &ndash; The era of the hack'],
     ['brookGPU', 'Section 4 &ndash; The era of the hack'],
     ['expertResistance', 'Section 6 &ndash; The HPC beachhead'],
-    ['cudaLuck', 'Section 7 &ndash; The accident']
+    ['cudaLuck', 'Section 7 &ndash; The accident'],
+    ['tensorCore', 'Section 8 &ndash; The pendulum']
   ];
 
   var topicOrder = topicRegistry.map(function(entry){ return entry[0]; });
