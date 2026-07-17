@@ -1041,6 +1041,16 @@ private:
         return ParseStatus::NeedMoreData;
     }
 
+    // Returns the slot a freshly-begun container (array/map/tag) must be
+    // stored into, or nullptr when the container is the top-level value (the
+    // caller then stores it in mRoot). Only begin_array/begin_map/begin_tag
+    // call this; scalar values are placed by emit_value instead.
+    //
+    // A container appearing as a MAP VALUE (or, rarely, a map key) must be
+    // inserted into the map here -- returning nullptr made begin_* mistake it
+    // for the root and overwrite mRoot, destroying the map being built. Like
+    // the array case, the slot is inserted WITHOUT decrementing frame.remaining
+    // (complete_value decrements the parent when the child container finishes).
     CborValue* get_current_target()
     {
         if (mStack.empty())
@@ -1052,19 +1062,26 @@ private:
 
         if (frame.is_map)
         {
-            return nullptr;
+            if (frame.expecting_value)
+            {
+                CborValue& slot = frame.target->as_map()[std::move(mPendingMapKey)];
+                frame.expecting_value = false;
+                return &slot;
+            }
+            // Container as a map key: build it into the pending key; the value
+            // follows once this container completes.
+            frame.expecting_value = true;
+            return &mPendingMapKey;
         }
-        else
+
+        if (frame.target->is_array())
         {
-            if (frame.target->is_array())
-            {
-                frame.target->as_array().emplace_back();
-                return &frame.target->as_array().back();
-            }
-            else if (frame.target->is_tagged())
-            {
-                return frame.target->as_tagged().value.get();
-            }
+            frame.target->as_array().emplace_back();
+            return &frame.target->as_array().back();
+        }
+        if (frame.target->is_tagged())
+        {
+            return frame.target->as_tagged().value.get();
         }
         return nullptr;
     }

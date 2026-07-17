@@ -369,6 +369,62 @@ FATP_TEST_CASE(parse_maps)
     return true;
 }
 
+// Regression: a map VALUE that is itself a container (array/map/tag) must be
+// inserted into the map. get_current_target() returned nullptr for map frames,
+// so begin_array/begin_map/begin_tag mistook the nested container for the root
+// and overwrote mRoot, destroying the map -- any map with a container value
+// parsed to a non-map. (Found via Loom's wire codec: {"k":2,"b":[3]}.)
+FATP_TEST_CASE(parse_map_with_container_values)
+{
+    const auto text_key = [](const char* s) { return CborValue(std::string(s)); };
+
+    // {"k": 2, "b": [3]}
+    {
+        CborStreamParser parser;
+        auto data = encode_map_header(2);
+        auto kk = encode_text("k");   auto vk = encode_uint(2);
+        auto kb = encode_text("b");   auto ab = encode_array_header(1);
+        auto ai = encode_uint(3);
+        data.insert(data.end(), kk.begin(), kk.end());
+        data.insert(data.end(), vk.begin(), vk.end());
+        data.insert(data.end(), kb.begin(), kb.end());
+        data.insert(data.end(), ab.begin(), ab.end());
+        data.insert(data.end(), ai.begin(), ai.end());
+
+        FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse map+array value");
+        FATP_ASSERT_TRUE(parser.result().is_map(), "Result is a map (was overwritten by the array)");
+        auto& m = parser.result().as_map();
+        FATP_ASSERT_TRUE(m.size() == 2, "Map has both pairs");
+        FATP_ASSERT_TRUE(m.at(text_key("k")).as_unsigned() == 2, "Scalar value intact");
+        FATP_ASSERT_TRUE(m.at(text_key("b")).is_array(), "Container value is an array");
+        FATP_ASSERT_TRUE(m.at(text_key("b")).as_array().size() == 1, "Array size");
+        FATP_ASSERT_TRUE(m.at(text_key("b")).as_array()[0].as_unsigned() == 3, "Array element");
+    }
+
+    // Nested map value: {"a": 1, "n": {"x": 9}}
+    {
+        CborStreamParser parser;
+        auto data = encode_map_header(2);
+        auto ka = encode_text("a");   auto va = encode_uint(1);
+        auto kn = encode_text("n");   auto mn = encode_map_header(1);
+        auto kx = encode_text("x");   auto vx = encode_uint(9);
+        data.insert(data.end(), ka.begin(), ka.end());
+        data.insert(data.end(), va.begin(), va.end());
+        data.insert(data.end(), kn.begin(), kn.end());
+        data.insert(data.end(), mn.begin(), mn.end());
+        data.insert(data.end(), kx.begin(), kx.end());
+        data.insert(data.end(), vx.begin(), vx.end());
+
+        FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse nested map value");
+        FATP_ASSERT_TRUE(parser.result().is_map(), "Outer is a map");
+        auto& n = parser.result().as_map().at(text_key("n"));
+        FATP_ASSERT_TRUE(n.is_map(), "Nested value is a map");
+        FATP_ASSERT_TRUE(n.as_map().at(text_key("x")).as_unsigned() == 9, "Nested element");
+    }
+
+    return true;
+}
+
 FATP_TEST_CASE(parse_nested)
 {
     CborStreamParser parser;
@@ -671,6 +727,7 @@ bool test_CborStreamLite()
     FATP_RUN_TEST_NS(runner, cborstreamlite, parse_floats);
     FATP_RUN_TEST_NS(runner, cborstreamlite, parse_arrays);
     FATP_RUN_TEST_NS(runner, cborstreamlite, parse_maps);
+    FATP_RUN_TEST_NS(runner, cborstreamlite, parse_map_with_container_values);
     FATP_RUN_TEST_NS(runner, cborstreamlite, parse_nested);
     FATP_RUN_TEST_NS(runner, cborstreamlite, chunked_input);
     FATP_RUN_TEST_NS(runner, cborstreamlite, chunked_random_sizes);
