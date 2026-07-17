@@ -155,6 +155,43 @@ FATP_TEST_CASE(string_roundtrip)
     return true;
 }
 
+FATP_TEST_CASE(bytes_roundtrip)
+{
+    // CborReader::readBytes decodes a byte string (major type 2), mirroring
+    // CborWriter::writeBytes. Includes empty and arbitrary non-UTF-8 bytes.
+    const std::vector<std::vector<std::uint8_t>> cases = {
+        {},
+        {0x00},
+        {0xFF, 0x00, 0x7E, 0xAB, 0xCD},
+        std::vector<std::uint8_t>(500, 0x42),
+    };
+
+    for (const auto& payload : cases)
+    {
+        std::vector<std::uint8_t> buf;
+        CborWriter                writer(buf);
+        writer.writeBytes(payload);
+
+        CborReader reader(buf);
+        auto       out = reader.readBytes();
+        FATP_ASSERT_TRUE(out.has_value(), out.error().message.c_str());
+        FATP_ASSERT_TRUE(*out == payload, "byte string roundtrip");
+        FATP_ASSERT_EQ(reader.remaining(), std::size_t{0}, "reader fully consumed");
+    }
+
+    // Type mismatch: a text string is not a byte string.
+    {
+        std::vector<std::uint8_t> buf;
+        CborWriter                writer(buf);
+        writer.writeString(std::string("hi"));
+        CborReader reader(buf);
+        auto       out = reader.readBytes();
+        FATP_ASSERT_TRUE(!out.has_value(), "readBytes rejects a text string");
+    }
+
+    return true;
+}
+
 // ============================================================================
 // Vector Roundtrips
 // ============================================================================
@@ -766,6 +803,7 @@ bool test_FatPCbor()
     FATP_RUN_TEST_NS(runner, fatpcbor, bool_roundtrip);
     FATP_RUN_TEST_NS(runner, fatpcbor, double_roundtrip);
     FATP_RUN_TEST_NS(runner, fatpcbor, string_roundtrip);
+    FATP_RUN_TEST_NS(runner, fatpcbor, bytes_roundtrip);
 
     // Containers
     FATP_RUN_TEST_NS(runner, fatpcbor, vector_int_roundtrip);

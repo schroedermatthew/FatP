@@ -434,6 +434,45 @@ public:
         return out;
     }
 
+    CborResult<std::vector<std::uint8_t>> readBytes()
+    {
+        auto head = readByte();
+        if (!head)
+        {
+            return make_unexpected(CborError(head.error().message));
+        }
+
+        const std::uint8_t b = *head;
+        const std::uint8_t mt = static_cast<std::uint8_t>(b >> 5U);
+        const std::uint8_t ai = static_cast<std::uint8_t>(b & 0x1FU);
+
+        if (mt != 2U)
+        {
+            return make_unexpected(CborError("Expected byte string"));
+        }
+
+        auto len_res = readArg(ai);
+        if (!len_res)
+        {
+            return make_unexpected(CborError(len_res.error().message));
+        }
+
+        const std::uint64_t len = *len_res;
+        if (len > remaining())
+        {
+            return make_unexpected(CborError("CBOR underflow reading byte string"));
+        }
+
+        std::vector<std::uint8_t> out;
+        out.resize(static_cast<std::size_t>(len));
+        if (len > 0U)
+        {
+            std::memcpy(out.data(), mData + mPos, static_cast<std::size_t>(len));
+        }
+        mPos += static_cast<std::size_t>(len);
+        return out;
+    }
+
     CborResult<std::uint64_t> readArrayHeader()
     {
         return readSizedHeader(4U, "array");
