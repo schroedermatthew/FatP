@@ -130,6 +130,13 @@ inline std::vector<uint8_t> encode_map_header(size_t n)
     return buf;
 }
 
+inline std::vector<uint8_t> encode_tag(uint64_t tag)
+{
+    std::vector<uint8_t> buf;
+    write_type_arg(buf, 6, tag);
+    return buf;
+}
+
 inline std::vector<uint8_t> encode_false()
 {
     return {0xF4};
@@ -420,6 +427,47 @@ FATP_TEST_CASE(parse_map_with_container_values)
         auto& n = parser.result().as_map().at(text_key("n"));
         FATP_ASSERT_TRUE(n.is_map(), "Nested value is a map");
         FATP_ASSERT_TRUE(n.as_map().at(text_key("x")).as_unsigned() == 9, "Nested element");
+    }
+
+    // Tag value: {"t": 42("z")} -- the third container kind get_current_target
+    // must place (begin_tag had the same bug as begin_array/begin_map).
+    {
+        CborStreamParser parser;
+        auto data = encode_map_header(1);
+        auto kt = encode_text("t");
+        auto tg = encode_tag(42);
+        auto tv = encode_text("z");
+        data.insert(data.end(), kt.begin(), kt.end());
+        data.insert(data.end(), tg.begin(), tg.end());
+        data.insert(data.end(), tv.begin(), tv.end());
+
+        FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse tag map value");
+        FATP_ASSERT_TRUE(parser.result().is_map(), "Outer is a map (was overwritten by the tag)");
+        auto& t = parser.result().as_map().at(text_key("t"));
+        FATP_ASSERT_TRUE(t.is_tagged(), "Value is a tag");
+        FATP_ASSERT_TRUE(t.as_tagged().tag == 42, "Tag number");
+        FATP_ASSERT_TRUE(t.as_tagged().value->as_string() == "z", "Tagged content");
+    }
+
+    // Container as a map KEY: {[1]: 7}. Rare, but get_current_target's key
+    // branch must build the key container in place.
+    {
+        CborStreamParser parser;
+        auto data = encode_map_header(1);
+        auto ka = encode_array_header(1);
+        auto ke = encode_uint(1);
+        auto vv = encode_uint(7);
+        data.insert(data.end(), ka.begin(), ka.end());
+        data.insert(data.end(), ke.begin(), ke.end());
+        data.insert(data.end(), vv.begin(), vv.end());
+
+        FATP_ASSERT_TRUE(parser.feed(data) == ParseStatus::Done, "Parse container-key map");
+        FATP_ASSERT_TRUE(parser.result().is_map(), "Is a map");
+        auto& m = parser.result().as_map();
+        FATP_ASSERT_TRUE(m.size() == 1, "One pair");
+        CborValue arrKey(CborArray{});
+        arrKey.as_array().push_back(CborValue(std::uint64_t{1}));
+        FATP_ASSERT_TRUE(m.at(arrKey).as_unsigned() == 7, "Array-key maps to value");
     }
 
     return true;
