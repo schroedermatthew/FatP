@@ -1,0 +1,276 @@
+{"kind":"deck","id":"pr/8g062w","name":"Deck"}
+{"kind":"layout","layoutId":"056d9674-4696-4160-8577-e0f48d57a8d6","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"335302a5-fbb9-4216-a1aa-53b3da1d45cf","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/6wmjog","slide":1,"title":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textShapes":12}
+{"kind":"textbox","id":"sh/8fq9cz2p","slide":1,"text":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textPreview":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textChars":38,"textLines":1,"bbox":[58,24,900,28]}
+{"kind":"textbox","id":"sh/7eh8julk","slide":1,"text":"It is a throughput machine","textPreview":"It is a throughput machine","textChars":26,"textLines":1,"bbox":[58,55,1080,62]}
+{"kind":"textbox","id":"sh/mdora9kz","slide":1,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[1120,20,100,92]}
+{"kind":"textbox","id":"sh/lcfqh43e","slide":1,"text":"FAST PER TASK","textPreview":"FAST PER TASK","textChars":13,"textLines":1,"bbox":[80,147,350,28]}
+{"kind":"textbox","id":"sh/kb698z2t","slide":1,"text":"FAST IN AGGREGATE","textPreview":"FAST IN AGGREGATE","textChars":17,"textLines":1,"bbox":[600,147,560,28]}
+{"kind":"shape","id":"sh/zax8ful8","slide":1,"bbox":[452,290,92,46]}
+{"kind":"shape","id":"sh/y9or6pkn","slide":1,"bbox":[125,215,255,255]}
+{"kind":"textbox","id":"sh/58jatoji","slide":1,"text":"CPU","textPreview":"CPU","textChars":3,"textLines":1,"bbox":[125,245,255,48]}
+{"kind":"textbox","id":"sh/47a9kj2x","slide":1,"text":"one hard problem\nas quickly as possible","textPreview":"one hard problem | as quickly as possible","textChars":39,"textLines":2,"bbox":[155,305,195,90]}
+{"kind":"textbox","id":"sh/25wfax0b","slide":1,"text":"latency","textPreview":"latency","textChars":7,"textLines":1,"bbox":[125,420,255,32]}
+{"kind":"shape","id":"sh/365gj2hw","slide":1,"bbox":[600,205,42,42]}
+{"kind":"shape","id":"sh/47excni1","slide":1,"bbox":[652,205,42,42]}
+{"kind":"shape","id":"sh/p8nylszm","slide":1,"bbox":[704,205,42,42]}
+{"kind":"shape","id":"sh/uhcf6d0z","slide":1,"bbox":[756,205,42,42]}
+{"kind":"shape","id":"sh/filgfihk","slide":1,"bbox":[808,205,42,42]}
+{"kind":"shape","id":"sh/g3ex8ni5","slide":1,"bbox":[860,205,42,42]}
+{"kind":"shape","id":"sh/h4nyhszq","slide":1,"bbox":[912,205,42,42]}
+{"kind":"shape","id":"sh/edgfih0j","slide":1,"bbox":[964,205,42,42]}
+{"kind":"shape","id":"sh/zypgrmho","slide":1,"bbox":[1016,205,42,42]}
+{"kind":"shape","id":"sh/vihc3exg","slide":1,"bbox":[1068,205,42,42]}
+{"kind":"shape","id":"sh/ah8va9gv","slide":1,"bbox":[600,257,42,42]}
+{"kind":"shape","id":"sh/xkju54f6","slide":1,"bbox":[652,257,42,42]}
+{"kind":"shape","id":"sh/wjqdczy1","slide":1,"bbox":[704,257,42,42]}
+{"kind":"shape","id":"sh/jm1c7exc","slide":1,"bbox":[756,257,42,42]}
+{"kind":"shape","id":"sh/ilsve9gr","slide":1,"bbox":[808,257,42,42]}
+{"kind":"shape","id":"sh/5oju9ofi","slide":1,"bbox":[860,257,42,42]}
+{"kind":"shape","id":"sh/knadgjyx","slide":1,"bbox":[912,257,42,42]}
+{"kind":"shape","id":"sh/7a1cbyxo","slide":1,"bbox":[964,257,42,42]}
+{"kind":"shape","id":"sh/69svitg3","slide":1,"bbox":[1016,257,42,42]}
+{"kind":"shape","id":"sh/4fut83u1","slide":1,"bbox":[1068,257,42,42]}
+{"kind":"shape","id":"sh/pg3u18vm","slide":1,"bbox":[600,309,42,42]}
+{"kind":"shape","id":"sh/2dcb6tcb","slide":1,"bbox":[652,309,42,42]}
+{"kind":"shape","id":"sh/3elczydg","slide":1,"bbox":[704,309,42,42]}
+{"kind":"shape","id":"sh/gbut4ju5","slide":1,"bbox":[756,309,42,42]}
+{"kind":"shape","id":"sh/hc3uxovq","slide":1,"bbox":[808,309,42,42]}
+{"kind":"shape","id":"sh/upsb29cz","slide":1,"bbox":[860,309,42,42]}
+{"kind":"shape","id":"sh/fa1cvedk","slide":1,"bbox":[912,309,42,42]}
+{"kind":"shape","id":"sh/snat0jet","slide":1,"bbox":[964,309,42,42]}
+{"kind":"shape","id":"sh/tojutove","slide":1,"bbox":[1016,309,42,42]}
+{"kind":"shape","id":"sh/xgfilg7u","slide":1,"bbox":[1068,309,42,42]}
+{"kind":"shape","id":"sh/cf6hcb6p","slide":1,"bbox":[600,361,42,42]}
+{"kind":"shape","id":"sh/bed0j6p4","slide":1,"bbox":[652,361,42,42]}
+{"kind":"shape","id":"sh/ad4za1oj","slide":1,"bbox":[704,361,42,42]}
+{"kind":"shape","id":"sh/lkfip076","slide":1,"bbox":[756,361,42,42]}
+{"kind":"shape","id":"sh/kj6hgv6l","slide":1,"bbox":[808,361,42,42]}
+{"kind":"shape","id":"sh/zix0nqp0","slide":1,"bbox":[860,361,42,42]}
+{"kind":"shape","id":"sh/yhozelof","slide":1,"bbox":[912,361,42,42]}
+{"kind":"shape","id":"sh/1ovidw72","slide":1,"bbox":[964,361,42,42]}
+{"kind":"shape","id":"sh/0nmh4rqh","slide":1,"bbox":[1016,361,42,42]}
+{"kind":"shape","id":"sh/qt0fex4z","slide":1,"bbox":[1068,361,42,42]}
+{"kind":"shape","id":"sh/ru9wn25k","slide":1,"bbox":[600,413,42,42]}
+{"kind":"shape","id":"sh/sf2xg7m5","slide":1,"bbox":[652,413,42,42]}
+{"kind":"shape","id":"sh/dgbepcnq","slide":1,"bbox":[704,413,42,42]}
+{"kind":"shape","id":"sh/ehkfih4b","slide":1,"bbox":[756,413,42,42]}
+{"kind":"shape","id":"sh/fitwr25w","slide":1,"bbox":[808,413,42,42]}
+{"kind":"shape","id":"sh/0j2xk7mh","slide":1,"bbox":[860,413,42,42]}
+{"kind":"shape","id":"sh/1kbytcnm","slide":1,"bbox":[912,413,42,42]}
+{"kind":"shape","id":"sh/ulgf6do7","slide":1,"bbox":[964,413,42,42]}
+{"kind":"shape","id":"sh/vmpwfi5c","slide":1,"bbox":[1016,413,42,42]}
+{"kind":"shape","id":"sh/jq5c7el4","slide":1,"bbox":[1068,413,42,42]}
+{"kind":"textbox","id":"sh/y5wbe94z","slide":1,"text":"GPU","textPreview":"GPU","textChars":3,"textLines":1,"bbox":[600,480,510,40]}
+{"kind":"textbox","id":"sh/lsnu9o3a","slide":1,"text":"millions of independent pixels made latency irrelevant","textPreview":"millions of independent pixels made latency irrelevant","textChars":54,"textLines":1,"bbox":[600,522,510,48]}
+{"kind":"shape","id":"sh/kretgjmp","slide":1,"bbox":[80,590,1080,58]}
+{"kind":"textbox","id":"sh/b2lc3ul8","slide":1,"text":"FIRST PORTING QUESTION","textPreview":"FIRST PORTING QUESTION","textChars":22,"textLines":1,"bbox":[104,600,240,36]}
+{"kind":"textbox","id":"sh/a1cba94n","slide":1,"text":"Is there enough independent work to be worth the trip?","textPreview":"Is there enough independent work to be worth the trip?","textChars":54,"textLines":1,"bbox":[350,596,770,42]}
+{"kind":"notes","id":"nt/6wmjog","slide":1,"text":"Gaming economics built a machine optimized for aggregate throughput: millions of inexpensive cards drawing millions of independent pixels. The audience has already seen that history. Emphasize that CUDA did not change the economics; compute inherited the architecture shaped by games. Small or serial work often loses, sometimes by orders of magnitude. The first question is not how fast the GPU is, but whether the work exposes enough parallelism."}
+{"kind":"slide","id":"sl/aib2md","slide":2,"title":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textShapes":63}
+{"kind":"textbox","id":"sh/fuxgjmto","slide":2,"text":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textPreview":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textChars":38,"textLines":1,"bbox":[58,24,900,28]}
+{"kind":"textbox","id":"sh/gv6hsra9","slide":2,"text":"The programming model is the hardware","textPreview":"The programming model is the hardware","textChars":37,"textLines":1,"bbox":[58,55,1080,62]}
+{"kind":"textbox","id":"sh/hwzylwbu","slide":2,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[1120,20,100,92]}
+{"kind":"textbox","id":"sh/6pofmhsr","slide":2,"text":"WRITE ONCE","textPreview":"WRITE ONCE","textChars":10,"textLines":1,"bbox":[78,145,330,28]}
+{"kind":"shape","id":"sh/7qxgfmtc","slide":2,"bbox":[78,185,365,270]}
+{"kind":"textbox","id":"sh/sr6xorax","slide":2,"text":"kernel update(i)\n{\n    y[i] = a*x[i] + y[i];\n}","textPreview":"kernel update(i) | { |     y[i] = a*x[i] + y[i]; | }","textChars":46,"textLines":4,"bbox":[110,225,300,180]}
+{"kind":"textbox","id":"sh/tsfyhwbi","slide":2,"text":"one function","textPreview":"one function","textChars":12,"textLines":1,"bbox":[78,468,365,34]}
+{"kind":"shape","id":"sh/ql8zylsb","slide":2,"bbox":[465,288,112,48]}
+{"kind":"textbox","id":"sh/rmhgrqtw","slide":2,"text":"RUN EVERYWHERE","textPreview":"RUN EVERYWHERE","textChars":14,"textLines":1,"bbox":[610,145,520,28]}
+{"kind":"textbox","id":"sh/7qhgzyt0","slide":2,"text":"i0","textPreview":"i0","textChars":2,"textLines":1,"bbox":[620,190,48,34]}
+{"kind":"textbox","id":"sh/6p8zqtcf","slide":2,"text":"i1","textPreview":"i1","textChars":2,"textLines":1,"bbox":[683,190,48,34]}
+{"kind":"textbox","id":"sh/tsjy18bq","slide":2,"text":"i2","textPreview":"i2","textChars":2,"textLines":1,"bbox":[746,190,48,34]}
+{"kind":"textbox","id":"sh/8rqhs3ul","slide":2,"text":"i3","textPreview":"i3","textChars":2,"textLines":1,"bbox":[809,190,48,34]}
+{"kind":"textbox","id":"sh/ve1g3itw","slide":2,"text":"i4","textPreview":"i4","textChars":2,"textLines":1,"bbox":[872,190,48,34]}
+{"kind":"textbox","id":"sh/udszudcb","slide":2,"text":"i5","textPreview":"i5","textChars":2,"textLines":1,"bbox":[935,190,48,34]}
+{"kind":"textbox","id":"sh/hgjy5sb2","slide":2,"text":"i6","textPreview":"i6","textChars":2,"textLines":1,"bbox":[998,190,48,34]}
+{"kind":"textbox","id":"sh/gfahwnuh","slide":2,"text":"i7","textPreview":"i7","textChars":2,"textLines":1,"bbox":[1061,190,48,34]}
+{"kind":"textbox","id":"sh/3i1g7it8","slide":2,"text":"i8","textPreview":"i8","textChars":2,"textLines":1,"bbox":[620,239,48,34]}
+{"kind":"textbox","id":"sh/ihszyxcn","slide":2,"text":"i9","textPreview":"i9","textChars":2,"textLines":1,"bbox":[683,239,48,34]}
+{"kind":"textbox","id":"sh/edwj6hwv","slide":2,"text":"i10","textPreview":"i10","textChars":3,"textLines":1,"bbox":[746,239,48,34]}
+{"kind":"textbox","id":"sh/ze5kzmdg","slide":2,"text":"i11","textPreview":"i11","textChars":3,"textLines":1,"bbox":[809,239,48,34]}
+{"kind":"textbox","id":"sh/0fe18rel","slide":2,"text":"i12","textPreview":"i12","textChars":3,"textLines":1,"bbox":[872,239,48,34]}
+{"kind":"textbox","id":"sh/1gn21wv6","slide":2,"text":"i13","textPreview":"i13","textChars":3,"textLines":1,"bbox":[935,239,48,34]}
+{"kind":"textbox","id":"sh/q9cj2hwj","slide":2,"text":"i14","textPreview":"i14","textChars":3,"textLines":1,"bbox":[998,239,48,34]}
+{"kind":"textbox","id":"sh/ral0vmd4","slide":2,"text":"i15","textPreview":"i15","textChars":3,"textLines":1,"bbox":[1061,239,48,34]}
+{"kind":"textbox","id":"sh/cbu14rep","slide":2,"text":"i16","textPreview":"i16","textChars":3,"textLines":1,"bbox":[620,288,48,34]}
+{"kind":"textbox","id":"sh/dcn2xwva","slide":2,"text":"i17","textPreview":"i17","textChars":3,"textLines":1,"bbox":[683,288,48,34]}
+{"kind":"textbox","id":"sh/a5gje1w3","slide":2,"text":"i18","textPreview":"i18","textChars":3,"textLines":1,"bbox":[746,288,48,34]}
+{"kind":"textbox","id":"sh/b6pk76d8","slide":2,"text":"i19","textPreview":"i19","textChars":3,"textLines":1,"bbox":[809,288,48,34]}
+{"kind":"textbox","id":"sh/5cbet4j2","slide":2,"text":"i20","textPreview":"i20","textChars":3,"textLines":1,"bbox":[872,288,48,34]}
+{"kind":"textbox","id":"sh/kb2dkz2h","slide":2,"text":"i21","textPreview":"i21","textChars":3,"textLines":1,"bbox":[935,288,48,34]}
+{"kind":"textbox","id":"sh/jatcru1w","slide":2,"text":"i22","textPreview":"i22","textChars":3,"textLines":1,"bbox":[998,288,48,34]}
+{"kind":"textbox","id":"sh/i9kvipkb","slide":2,"text":"i23","textPreview":"i23","textChars":3,"textLines":1,"bbox":[1061,288,48,34]}
+{"kind":"textbox","id":"sh/x8bupkjq","slide":2,"text":"i24","textPreview":"i24","textChars":3,"textLines":1,"bbox":[620,337,48,34]}
+{"kind":"textbox","id":"sh/wnidgz25","slide":2,"text":"i25","textPreview":"i25","textChars":3,"textLines":1,"bbox":[683,337,48,34]}
+{"kind":"textbox","id":"sh/vm9cnu1k","slide":2,"text":"i26","textPreview":"i26","textChars":3,"textLines":1,"bbox":[746,337,48,34]}
+{"kind":"textbox","id":"sh/al0vepkf","slide":2,"text":"i27","textPreview":"i27","textChars":3,"textLines":1,"bbox":[809,337,48,34]}
+{"kind":"textbox","id":"sh/h4ve1oju","slide":2,"text":"i28","textPreview":"i28","textChars":3,"textLines":1,"bbox":[872,337,48,34]}
+{"kind":"textbox","id":"sh/g3mdsj2p","slide":2,"text":"i29","textPreview":"i29","textChars":3,"textLines":1,"bbox":[935,337,48,34]}
+{"kind":"textbox","id":"sh/obqdwzyt","slide":2,"text":"i30","textPreview":"i30","textChars":3,"textLines":1,"bbox":[998,337,48,34]}
+{"kind":"textbox","id":"sh/pczu54fe","slide":2,"text":"i31","textPreview":"i31","textChars":3,"textLines":1,"bbox":[1061,337,48,34]}
+{"kind":"textbox","id":"sh/298vupg3","slide":2,"text":"i32","textPreview":"i32","textChars":3,"textLines":1,"bbox":[620,386,48,34]}
+{"kind":"textbox","id":"sh/nahc3ux8","slide":2,"text":"i33","textPreview":"i33","textChars":3,"textLines":1,"bbox":[683,386,48,34]}
+{"kind":"textbox","id":"sh/cfad0zy5","slide":2,"text":"i34","textPreview":"i34","textChars":3,"textLines":1,"bbox":[746,386,48,34]}
+{"kind":"textbox","id":"sh/x0ju94fq","slide":2,"text":"i35","textPreview":"i35","textChars":3,"textLines":1,"bbox":[809,386,48,34]}
+{"kind":"textbox","id":"sh/ad8vypgz","slide":2,"text":"i36","textPreview":"i36","textChars":3,"textLines":1,"bbox":[872,386,48,34]}
+{"kind":"textbox","id":"sh/be1c7uxk","slide":2,"text":"i37","textPreview":"i37","textChars":3,"textLines":1,"bbox":[935,386,48,34]}
+{"kind":"textbox","id":"sh/k3ad4je1","slide":2,"text":"i38","textPreview":"i38","textChars":3,"textLines":1,"bbox":[998,386,48,34]}
+{"kind":"textbox","id":"sh/l4jedofm","slide":2,"text":"i39","textPreview":"i39","textChars":3,"textLines":1,"bbox":[1061,386,48,34]}
+{"kind":"textbox","id":"sh/vy5g3iho","slide":2,"text":"i40","textPreview":"i40","textChars":3,"textLines":1,"bbox":[620,435,48,34]}
+{"kind":"textbox","id":"sh/uxwfud0j","slide":2,"text":"i41","textPreview":"i41","textChars":3,"textLines":1,"bbox":[683,435,48,34]}
+{"kind":"textbox","id":"sh/h0ny58zu","slide":2,"text":"i42","textPreview":"i42","textChars":3,"textLines":1,"bbox":[746,435,48,34]}
+{"kind":"textbox","id":"sh/wzexwny9","slide":2,"text":"i43","textPreview":"i43","textChars":3,"textLines":1,"bbox":[809,435,48,34]}
+{"kind":"textbox","id":"sh/7ulgzyhs","slide":2,"text":"i44","textPreview":"i44","textChars":3,"textLines":1,"bbox":[872,435,48,34]}
+{"kind":"textbox","id":"sh/m9cfqt07","slide":2,"text":"i45","textPreview":"i45","textChars":3,"textLines":1,"bbox":[935,435,48,34]}
+{"kind":"textbox","id":"sh/9w3y18zy","slide":2,"text":"i46","textPreview":"i46","textChars":3,"textLines":1,"bbox":[998,435,48,34]}
+{"kind":"textbox","id":"sh/8vuxs3id","slide":2,"text":"i47","textPreview":"i47","textChars":3,"textLines":1,"bbox":[1061,435,48,34]}
+{"kind":"textbox","id":"sh/rqpgb2hw","slide":2,"text":"many independent elements","textPreview":"many independent elements","textChars":25,"textLines":1,"bbox":[620,500,490,34]}
+{"kind":"shape","id":"sh/65gf2xgb","slide":2,"bbox":[100,577,1010,0]}
+{"kind":"shape","id":"sh/mxkrql4v","slide":2,"bbox":[105,552,20,20]}
+{"kind":"textbox","id":"sh/nytsjq5g","slide":2,"text":"graphics disguise","textPreview":"graphics disguise","textChars":17,"textLines":1,"bbox":[137,540,250,28]}
+{"kind":"textbox","id":"sh/oz29svm1","slide":2,"text":"textures + shaders","textPreview":"textures + shaders","textChars":18,"textLines":1,"bbox":[137,570,250,28]}
+{"kind":"shape","id":"sh/90bal0nm","slide":2,"bbox":[455,552,20,20]}
+{"kind":"textbox","id":"sh/a14ru547","slide":2,"text":"Brook","textPreview":"Brook","textChars":5,"textLines":1,"bbox":[487,540,250,28]}
+{"kind":"textbox","id":"sh/b2dsna5c","slide":2,"text":"streams + kernels","textPreview":"streams + kernels","textChars":17,"textLines":1,"bbox":[487,570,250,28]}
+{"kind":"shape","id":"sh/w3m9wfmx","slide":2,"bbox":[805,552,20,20]}
+{"kind":"textbox","id":"sh/x4vap0ni","slide":2,"text":"CUDA","textPreview":"CUDA","textChars":4,"textLines":1,"bbox":[837,540,250,28]}
+{"kind":"textbox","id":"sh/q50ri1on","slide":2,"text":"native vocabulary","textPreview":"native vocabulary","textChars":17,"textLines":1,"bbox":[837,570,250,28]}
+{"kind":"shape","id":"sh/r698b658","slide":2,"bbox":[58,668,1164,0]}
+{"kind":"textbox","id":"sh/t0zux47q","slide":2,"text":"Ask of every loop: are the iterations strangers to each other?","textPreview":"Ask of every loop: are the iterations strangers to each other?","textChars":62,"textLines":1,"bbox":[58,674,1164,28]}
+{"kind":"notes","id":"nt/aib2md","slide":2,"text":"The model was present before CUDA: every pixel was already decided independently. Section 4 showed floats disguised as colors and matrices as textures. Brook named the stream-and-kernel abstraction; CUDA removed the graphics disguise and made it native. Data-parallel code often ports naturally. Deeply serial code must be rethought rather than translated."}
+{"kind":"slide","id":"sl/1v1u9w","slide":3,"title":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textShapes":17}
+{"kind":"textbox","id":"sh/xgrm9gvm","slide":3,"text":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textPreview":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textChars":38,"textLines":1,"bbox":[58,24,900,28]}
+{"kind":"textbox","id":"sh/adgnylwb","slide":3,"text":"Call a library first","textPreview":"Call a library first","textChars":20,"textLines":1,"bbox":[58,55,1080,62]}
+{"kind":"textbox","id":"sh/bep47qdw","slide":3,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[1120,20,100,92]}
+{"kind":"shape","id":"sh/obylwbe5","slide":3,"bbox":[350,235,105,42]}
+{"kind":"shape","id":"sh/pc7m5gvq","slide":3,"bbox":[720,235,105,42]}
+{"kind":"shape","id":"sh/2pg3u1wz","slide":3,"bbox":[350,405,105,42]}
+{"kind":"shape","id":"sh/nap436dk","slide":3,"bbox":[720,405,105,42]}
+{"kind":"textbox","id":"sh/0nelsbe9","slide":3,"text":"YOUR CODE","textPreview":"YOUR CODE","textChars":9,"textLines":1,"bbox":[80,150,240,28]}
+{"kind":"textbox","id":"sh/1onm1wve","slide":3,"text":"A · B","textPreview":"A · B","textChars":5,"textLines":1,"bbox":[80,195,270,125]}
+{"kind":"textbox","id":"sh/h8r29cfy","slide":3,"text":"FFT(x)","textPreview":"FFT(x)","textChars":6,"textLines":1,"bbox":[80,365,270,125]}
+{"kind":"textbox","id":"sh/g7i1g7ed","slide":3,"text":"OPERATION CONTRACT","textPreview":"OPERATION CONTRACT","textChars":18,"textLines":1,"bbox":[455,150,270,28]}
+{"kind":"textbox","id":"sh/v69k72xs","slide":3,"text":"cuBLAS","textPreview":"cuBLAS","textChars":6,"textLines":1,"bbox":[455,195,270,125]}
+{"kind":"textbox","id":"sh/u5gjexwn","slide":3,"text":"cuFFT","textPreview":"cuFFT","textChars":5,"textLines":1,"bbox":[455,365,270,125]}
+{"kind":"textbox","id":"sh/t4725sf2","slide":3,"text":"CHANGING SILICON","textPreview":"CHANGING SILICON","textChars":16,"textLines":1,"bbox":[825,150,330,28]}
+{"kind":"textbox","id":"sh/83y1cneh","slide":3,"text":"Volta","textPreview":"Volta","textChars":5,"textLines":1,"bbox":[825,195,330,72]}
+{"kind":"textbox","id":"sh/7ip03ixw","slide":3,"text":"Ampere","textPreview":"Ampere","textChars":6,"textLines":1,"bbox":[825,295,330,72]}
+{"kind":"textbox","id":"sh/6hgjadwb","slide":3,"text":"Hopper","textPreview":"Hopper","textChars":6,"textLines":1,"bbox":[825,395,330,72]}
+{"kind":"shape","id":"sh/lg7i1sfq","slide":3,"bbox":[80,545,1075,90]}
+{"kind":"textbox","id":"sh/kfy18ne5","slide":3,"text":"Write to the operation","textPreview":"Write to the operation","textChars":22,"textLines":1,"bbox":[110,563,330,34]}
+{"kind":"textbox","id":"sh/wv2t47qd","slide":3,"text":"Let the library choose the device path","textPreview":"Let the library choose the device path","textChars":38,"textLines":1,"bbox":[475,563,620,34]}
+{"kind":"textbox","id":"sh/xwbadcry","slide":3,"text":"Custom kernels still matter for the glue between operations.","textPreview":"Custom kernels still matter for the glue between operations.","textChars":60,"textLines":1,"bbox":[110,602,990,24]}
+{"kind":"shape","id":"sh/a9kb2h87","slide":3,"bbox":[58,668,1164,0]}
+{"kind":"textbox","id":"sh/butsbm9s","slide":3,"text":"The library is the contract that can outlive the hardware.","textPreview":"The library is the contract that can outlive the hardware.","textChars":58,"textLines":1,"bbox":[58,674,1164,28]}
+{"kind":"notes","id":"nt/1v1u9w","slide":3,"text":"NVIDIA's integrated stack—CUDA plus tuned libraries—became part of the product. Vendor libraries are rewritten for each architecture and are the usual path to specialized units such as tensor cores. On common operations, hand-written kernels often lose to vendor libraries and may age worse across hardware generations. Do not make the claim absolute: custom kernels remain important for fusion, unusual operations, and the glue between library calls."}
+{"kind":"slide","id":"sl/iioqqa","slide":4,"title":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textShapes":17}
+{"kind":"textbox","id":"sh/u547258f","slide":4,"text":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textPreview":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textChars":38,"textLines":1,"bbox":[58,24,900,28]}
+{"kind":"textbox","id":"sh/h8v6dkrq","slide":4,"text":"Moving data is the hidden cost","textPreview":"Moving data is the hidden cost","textChars":30,"textLines":1,"bbox":[58,55,1080,62]}
+{"kind":"textbox","id":"sh/g7mp4fq5","slide":4,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[1120,20,100,92]}
+{"kind":"textbox","id":"sh/72do7q9o","slide":4,"text":"THE EXPENSIVE CROSSING","textPreview":"THE EXPENSIVE CROSSING","textChars":22,"textLines":1,"bbox":[78,140,520,28]}
+{"kind":"shape","id":"sh/6147y583","slide":4,"bbox":[315,235,210,55]}
+{"kind":"shape","id":"sh/t4v690ru","slide":4,"bbox":[760,235,210,55]}
+{"kind":"shape","id":"sh/s3mp0vq9","slide":4,"bbox":[315,445,210,55]}
+{"kind":"textbox","id":"sh/jeto3q9s","slide":4,"text":"CPU\nMEMORY","textPreview":"CPU | MEMORY","textChars":10,"textLines":2,"bbox":[80,195,235,135]}
+{"kind":"textbox","id":"sh/idknul87","slide":4,"text":"GPU\nKERNEL","textPreview":"GPU | KERNEL","textChars":10,"textLines":2,"bbox":[525,195,235,135]}
+{"kind":"textbox","id":"sh/4je9cnat","slide":4,"text":"CPU\nMEMORY","textPreview":"CPU | MEMORY","textChars":10,"textLines":2,"bbox":[970,195,235,135]}
+{"kind":"textbox","id":"sh/5k7qlsre","slide":4,"text":"transfer","textPreview":"transfer","textChars":8,"textLines":1,"bbox":[355,292,130,24]}
+{"kind":"textbox","id":"sh/ihw7ads3","slide":4,"text":"transfer","textPreview":"transfer","textChars":8,"textLines":1,"bbox":[800,292,130,24]}
+{"kind":"textbox","id":"sh/ji58ji9o","slide":4,"text":"BAD LOOP: transfer → compute → transfer","textPreview":"BAD LOOP: transfer → compute → transfer","textChars":39,"textLines":1,"bbox":[80,348,1125,38]}
+{"kind":"textbox","id":"sh/wfep8nax","slide":4,"text":"UPLOAD\nONCE","textPreview":"UPLOAD | ONCE","textChars":11,"textLines":2,"bbox":[80,410,235,125]}
+{"kind":"shape","id":"sh/xgnqh8ri","slide":4,"bbox":[525,410,680,125]}
+{"kind":"textbox","id":"sh/adw76dsr","slide":4,"text":"K1","textPreview":"K1","textChars":2,"textLines":1,"bbox":[555,440,105,64]}
+{"kind":"shape","id":"sh/ve58fi9c","slide":4,"bbox":[665,458,34,28]}
+{"kind":"textbox","id":"sh/gbi9k7a1","slide":4,"text":"K2","textPreview":"K2","textChars":2,"textLines":1,"bbox":[705,440,105,64]}
+{"kind":"shape","id":"sh/1crqtcrm","slide":4,"bbox":[815,458,34,28]}
+{"kind":"textbox","id":"sh/psnqxcjq","slide":4,"text":"K3","textPreview":"K3","textChars":2,"textLines":1,"bbox":[855,440,105,64]}
+{"kind":"shape","id":"sh/orep4725","slide":4,"bbox":[965,458,34,28]}
+{"kind":"textbox","id":"sh/n658v210","slide":4,"text":"K4","textPreview":"K4","textChars":2,"textLines":1,"bbox":[1005,440,105,64]}
+{"kind":"textbox","id":"sh/25c72xkf","slide":4,"text":"data stays resident","textPreview":"data stays resident","textChars":19,"textLines":1,"bbox":[525,545,680,32]}
+{"kind":"shape","id":"sh/143qtsju","slide":4,"bbox":[80,592,1125,60]}
+{"kind":"textbox","id":"sh/03up0n29","slide":4,"text":"Arithmetic per byte moved must pay for the crossing.","textPreview":"Arithmetic per byte moved must pay for the crossing.","textChars":52,"textLines":1,"bbox":[110,600,1065,42]}
+{"kind":"notes","id":"nt/iioqqa","slide":4,"text":"The GPU remains a coprocessor across a bus. The HPC skeptics were right that movement could erase the arithmetic win; it simply was not fatal when workloads kept data resident and did enough work per byte. Use this slide to introduce arithmetic intensity and the roofline vocabulary. A slow GPU port may be a transfer problem, but also acknowledge occupancy, divergence, synchronization, and insufficient parallelism."}
+{"kind":"slide","id":"sl/tzs1t2","slide":5,"title":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textShapes":22}
+{"kind":"textbox","id":"sh/up8bq9gj","slide":5,"text":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textPreview":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textChars":38,"textLines":1,"bbox":[58,24,900,28]}
+{"kind":"textbox","id":"sh/hcjulofa","slide":5,"text":"Small costs scale; precision is priced","textPreview":"Small costs scale; precision is priced","textChars":38,"textLines":1,"bbox":[58,55,1080,62]}
+{"kind":"textbox","id":"sh/gbatsjyp","slide":5,"text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1120,20,100,92]}
+{"kind":"textbox","id":"sh/7mhcfexs","slide":5,"text":"LAUNCH GRANULARITY","textPreview":"LAUNCH GRANULARITY","textChars":18,"textLines":1,"bbox":[78,145,430,28]}
+{"kind":"textbox","id":"sh/6l8bm9gn","slide":5,"text":"1000 tiny launches","textPreview":"1000 tiny launches","textChars":18,"textLines":1,"bbox":[80,185,330,32]}
+{"kind":"shape","id":"sh/tozuh4fy","slide":5,"bbox":[82,235,20,20]}
+{"kind":"shape","id":"sh/snqtozyd","slide":5,"bbox":[111,235,20,20]}
+{"kind":"shape","id":"sh/jixcbuxw","slide":5,"bbox":[140,235,20,20]}
+{"kind":"shape","id":"sh/ihobipgb","slide":5,"bbox":[169,235,20,20]}
+{"kind":"shape","id":"sh/0n6dw36x","slide":5,"bbox":[198,235,20,20]}
+{"kind":"shape","id":"sh/lofep8n2","slide":5,"bbox":[227,235,20,20]}
+{"kind":"shape","id":"sh/yl4vutor","slide":5,"bbox":[256,235,20,20]}
+{"kind":"shape","id":"sh/zmdwny5c","slide":5,"bbox":[285,235,20,20]}
+{"kind":"shape","id":"sh/cjmds36l","slide":5,"bbox":[314,235,20,20]}
+{"kind":"shape","id":"sh/dkvel8n6","slide":5,"bbox":[343,235,20,20]}
+{"kind":"shape","id":"sh/qh4vqtof","slide":5,"bbox":[372,235,20,20]}
+{"kind":"shape","id":"sh/bidwjy50","slide":5,"bbox":[82,273,20,20]}
+{"kind":"shape","id":"sh/wfqx4n6p","slide":5,"bbox":[111,273,20,20]}
+{"kind":"shape","id":"sh/xgzexsna","slide":5,"bbox":[140,273,20,20]}
+{"kind":"shape","id":"sh/5wvehsfe","slide":5,"bbox":[169,273,20,20]}
+{"kind":"shape","id":"sh/4vmd8ny9","slide":5,"bbox":[198,273,20,20]}
+{"kind":"shape","id":"sh/judwfixo","slide":5,"bbox":[227,273,20,20]}
+{"kind":"shape","id":"sh/it4v6dg3","slide":5,"bbox":[256,273,20,20]}
+{"kind":"shape","id":"sh/h8bed8fi","slide":5,"bbox":[285,273,20,20]}
+{"kind":"shape","id":"sh/w72d43yx","slide":5,"bbox":[314,273,20,20]}
+{"kind":"shape","id":"sh/v6twbixc","slide":5,"bbox":[343,273,20,20]}
+{"kind":"shape","id":"sh/u5kv2dgr","slide":5,"bbox":[372,273,20,20]}
+{"kind":"shape","id":"sh/94be98f6","slide":5,"bbox":[405,246,75,36]}
+{"kind":"textbox","id":"sh/832d03y1","slide":5,"text":"BATCH\n+ FUSE","textPreview":"BATCH | + FUSE","textChars":12,"textLines":2,"bbox":[495,225,190,80]}
+{"kind":"textbox","id":"sh/y9gba9wj","slide":5,"text":"Do more per launch.","textPreview":"Do more per launch.","textChars":19,"textLines":1,"bbox":[80,330,600,42]}
+{"kind":"shape","id":"sh/za9sjed4","slide":5,"bbox":[720,150,0,230]}
+{"kind":"textbox","id":"sh/kbitcjep","slide":5,"text":"PRECISION CHANGES THE BILL","textPreview":"PRECISION CHANGES THE BILL","textChars":26,"textLines":1,"bbox":[755,145,470,28]}
+{"kind":"textbox","id":"sh/lcrul4va","slide":5,"text":"FP64","textPreview":"FP64","textChars":4,"textLines":1,"bbox":[755,195,70,34]}
+{"kind":"shape","id":"sh/a5gb6pwn","slide":5,"bbox":[830,195,410,34]}
+{"kind":"textbox","id":"sh/b6psfud8","slide":5,"text":"8 bytes","textPreview":"8 bytes","textChars":7,"textLines":1,"bbox":[845,196,100,30]}
+{"kind":"textbox","id":"sh/c7yt8zet","slide":5,"text":"FP32","textPreview":"FP32","textChars":4,"textLines":1,"bbox":[755,253,70,34]}
+{"kind":"shape","id":"sh/x87ah4vy","slide":5,"bbox":[830,253,300,34]}
+{"kind":"textbox","id":"sh/2hwb2pwb","slide":5,"text":"4 bytes","textPreview":"4 bytes","textChars":7,"textLines":1,"bbox":[845,254,100,30]}
+{"kind":"textbox","id":"sh/nipsbudw","slide":5,"text":"FP16","textPreview":"FP16","textChars":4,"textLines":1,"bbox":[755,311,70,34]}
+{"kind":"shape","id":"sh/fup8nqhs","slide":5,"bbox":[830,311,200,34]}
+{"kind":"textbox","id":"sh/etg7el07","slide":5,"text":"2 bytes","textPreview":"2 bytes","textChars":7,"textLines":1,"bbox":[845,312,100,30]}
+{"kind":"textbox","id":"sh/1wrqp0zy","slide":5,"text":"INT8","textPreview":"INT8","textChars":4,"textLines":1,"bbox":[755,369,70,34]}
+{"kind":"shape","id":"sh/gvipgvid","slide":5,"bbox":[830,369,125,34]}
+{"kind":"textbox","id":"sh/r6pojqhw","slide":5,"text":"1 byte","textPreview":"1 byte","textChars":6,"textLines":1,"bbox":[845,370,100,30]}
+{"kind":"shape","id":"sh/65g7al0b","slide":5,"bbox":[80,408,1125,190]}
+{"kind":"textbox","id":"sh/ts7qlgzm","slide":5,"text":"ONE CHOICE, TWO PRICES","textPreview":"ONE CHOICE, TWO PRICES","textChars":22,"textLines":1,"bbox":[110,430,410,28]}
+{"kind":"textbox","id":"sh/srypcbi1","slide":5,"text":"SILICON","textPreview":"SILICON","textChars":7,"textLines":1,"bbox":[110,475,150,34]}
+{"kind":"textbox","id":"sh/j25of6hk","slide":5,"text":"FP64 throughput varies sharply by product class.","textPreview":"FP64 throughput varies sharply by product class.","textChars":48,"textLines":1,"bbox":[275,472,850,38]}
+{"kind":"textbox","id":"sh/i1w7610z","slide":5,"text":"BYTES","textPreview":"BYTES","textChars":5,"textLines":1,"bbox":[110,530,150,34]}
+{"kind":"textbox","id":"sh/ovad0nul","slide":5,"text":"Narrower values move more data through the same bandwidth.","textPreview":"Narrower values move more data through the same bandwidth.","textChars":58,"textLines":1,"bbox":[275,527,850,38]}
+{"kind":"shape","id":"sh/9wjet8b6","slide":5,"bbox":[58,668,1164,0]}
+{"kind":"textbox","id":"sh/mtsvydcf","slide":5,"text":"Choose precision deliberately—and check what the actual card provides.","textPreview":"Choose precision deliberately—and check what the actual card provides.","textChars":70,"textLines":1,"bbox":[58,674,1164,28]}
+{"kind":"notes","id":"nt/tzs1t2","slide":5,"text":"First, every launch has overhead. The structural remedies are batching, fusion, and capture/replay for repeated sequences. Second, precision is a priced choice. The history showed consumer FP64 deliberately segmented from datacenter FP64, while tensor cores created fast lower-precision paths. Precision also changes data movement: halving width doubles the values carried by the same memory traffic. Avoid treating the displayed formats as a universal ranking; the real device and workload decide."}
+{"kind":"slide","id":"sl/5caxwx","slide":6,"title":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textShapes":18}
+{"kind":"textbox","id":"sh/87a9g76h","slide":6,"text":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textPreview":"SECTION 9  ·  WHY THIS MATTERS FOR YOU","textChars":38,"textLines":1,"bbox":[58,24,900,28]}
+{"kind":"textbox","id":"sh/7618n25w","slide":6,"text":"Read the machine before you port","textPreview":"Read the machine before you port","textChars":32,"textLines":1,"bbox":[58,55,1080,62]}
+{"kind":"textbox","id":"sh/m5s7exob","slide":6,"text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1120,20,100,92]}
+{"kind":"textbox","id":"sh/l4jqlsnq","slide":6,"text":"WHERE IS THE KERNEL ON THE ROOFLINE?","textPreview":"WHERE IS THE KERNEL ON THE ROOFLINE?","textChars":36,"textLines":1,"bbox":[440,142,400,72]}
+{"kind":"shape","id":"sh/k3apcn65","slide":6,"bbox":[345,262,105,40]}
+{"kind":"shape","id":"sh/z218ji50","slide":6,"bbox":[830,262,105,40]}
+{"kind":"shape","id":"sh/y1s7adof","slide":6,"bbox":[345,488,105,40]}
+{"kind":"shape","id":"sh/50nqxwna","slide":6,"bbox":[830,488,105,40]}
+{"kind":"textbox","id":"sh/4ze9ormp","slide":6,"text":"MEMORY-BOUND","textPreview":"MEMORY-BOUND","textChars":12,"textLines":1,"bbox":[95,236,310,32]}
+{"kind":"shape","id":"sh/el0zihkz","slide":6,"bbox":[80,280,335,155]}
+{"kind":"textbox","id":"sh/fmt0rm1k","slide":6,"text":"CUT BYTES","textPreview":"CUT BYTES","textChars":9,"textLines":1,"bbox":[110,302,275,36]}
+{"kind":"textbox","id":"sh/g72hk725","slide":6,"text":"lower precision\nkeep data resident\nfuse nearby work","textPreview":"lower precision | keep data resident | fuse nearby work","textChars":51,"textLines":3,"bbox":[125,345,245,75]}
+{"kind":"textbox","id":"sh/18bitcjq","slide":6,"text":"COMPUTE-BOUND","textPreview":"COMPUTE-BOUND","textChars":13,"textLines":1,"bbox":[875,236,310,32]}
+{"kind":"shape","id":"sh/6h0zexk3","slide":6,"bbox":[865,280,335,155]}
+{"kind":"textbox","id":"sh/ri9gn21o","slide":6,"text":"MATCH THE MATH","textPreview":"MATCH THE MATH","textChars":14,"textLines":1,"bbox":[895,302,275,36]}
+{"kind":"textbox","id":"sh/sjihg729","slide":6,"text":"library operation\nhardware fast path\nformat support","textPreview":"library operation | hardware fast path | format support","textChars":51,"textLines":3,"bbox":[910,345,245,75]}
+{"kind":"shape","id":"sh/tkrypcju","slide":6,"bbox":[440,280,400,155]}
+{"kind":"textbox","id":"sh/qd4zq1k7","slide":6,"text":"THE HISTORY GIVES\nYOU THE QUESTIONS","textPreview":"THE HISTORY GIVES | YOU THE QUESTIONS","textChars":35,"textLines":2,"bbox":[485,308,310,64]}
+{"kind":"textbox","id":"sh/bed0z61s","slide":6,"text":"parallelism · movement · launches · specialization · precision","textPreview":"parallelism · movement · launches · specialization · precision","textChars":62,"textLines":1,"bbox":[475,385,330,36]}
+{"kind":"textbox","id":"sh/7i5wryh4","slide":6,"text":"FP64-DOMINATED?","textPreview":"FP64-DOMINATED?","textChars":15,"textLines":1,"bbox":[95,466,310,32]}
+{"kind":"textbox","id":"sh/mhwvit0z","slide":6,"text":"Check the ratio.\nChoose the product class.","textPreview":"Check the ratio. | Choose the product class.","textChars":42,"textLines":2,"bbox":[80,510,335,105]}
+{"kind":"textbox","id":"sh/9knetoza","slide":6,"text":"COMMON OPERATION?","textPreview":"COMMON OPERATION?","textChars":17,"textLines":1,"bbox":[875,466,310,32]}
+{"kind":"textbox","id":"sh/8jexkjip","slide":6,"text":"Call the library first.\nWrite custom glue second.","textPreview":"Call the library first. | Write custom glue second.","textChars":49,"textLines":2,"bbox":[865,510,335,105]}
+{"kind":"textbox","id":"sh/vm5wvyhg","slide":6,"text":"MEASURE\nBEFORE YOU MOVE","textPreview":"MEASURE | BEFORE YOU MOVE","textChars":23,"textLines":2,"bbox":[440,510,400,105]}
+{"kind":"shape","id":"sh/ulwfmt0v","slide":6,"bbox":[58,668,1164,0]}
+{"kind":"textbox","id":"sh/ho7ex8zm","slide":6,"text":"The history stops here. The porting conversation starts with better questions.","textPreview":"The history stops here. The porting conversation starts with better questions.","textChars":78,"textLines":1,"bbox":[58,674,1164,28]}
+{"kind":"notes","id":"nt/5caxwx","slide":6,"text":"This is the handoff to the technical porting discussions. The goal is not a universal recipe; it is a disciplined first set of questions. Locate the kernel on the roofline. If memory-bound, reduce bytes and preserve residency. If compute-bound, match the mathematical operation and supported formats to the hardware path. If FP64 dominates, inspect the actual device ratio before choosing hardware. If the operation is common, start with the library. Measure before offloading."}
