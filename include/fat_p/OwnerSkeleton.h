@@ -174,6 +174,18 @@ public:
     template <typename T, typename... Args>
     [[nodiscard]] T* emplace(Args&&... args);
 
+    /// @brief Installs an owner-level admission gate evaluated after
+    ///        construction but before ownership or publication.
+    ///
+    /// A rejected item is destroyed without ever entering either registry and
+    /// without emitting onPublished/onUnpublishing. The gate belongs here
+    /// because this class owns the publication boundary; a caller-side
+    /// publish-then-remove check is already observable and is not admission.
+    void setPrePublishGate(std::function<bool(const SkeletonItem&)> gate)
+    {
+        mPrePublishGate = std::move(gate);
+    }
+
     // ── Removal ───────────────────────────────────────────────────────────────
 
     /**
@@ -328,6 +340,7 @@ private:
     // as an already-unpublished husk and destructs cleanly when the last owner
     // drops it; the mSkeleton==nullptr terminate-guard is what makes this safe.
     FastHashMap<BoneId, std::shared_ptr<SkeletonItem>> mOwnership;
+    std::function<bool(const SkeletonItem&)> mPrePublishGate;
     uint32_t    mPropagationDepth{0};   // mutation guard during propagateDown/Up
 
     void assertNotPropagating(const char* ctx) const noexcept;
@@ -399,6 +412,11 @@ T* OwnerSkeleton::emplace(Args&&... args)
         !raw->isPublished(),
         "OwnerSkeleton::emplace(): item called publish() in its constructor. "
         "Use OwnedBoneItem<> base or remove the publish() call.");
+
+    if (mPrePublishGate && !mPrePublishGate(*raw))
+    {
+        return nullptr;
+    }
 
     // Ownership before publication: onPublished observers see a consistent view.
     // contains() passed above so insert() will succeed; the return value is not
