@@ -174,6 +174,28 @@ public:
     template <typename T, typename... Args>
     [[nodiscard]] T* emplace(Args&&... args);
 
+    /**
+     * @brief emplace() with a preparation phase on the unpublished candidate.
+     *
+     * @details
+     * Identical to emplace() through the admission gate; then @p prepare runs
+     * on the constructed, gate-admitted, still-unpublished candidate. This is
+     * the seam for installing facts that publication observers may rely on
+     * (owner wiring, identity witnesses, decoded state) so the first
+     * publication exposes them as final.
+     *
+     * If @p prepare returns false the candidate is destroyed without entering
+     * either registry and without emitting onPublished/onUnpublishing —
+     * indistinguishable from a gate refusal — and nullptr is returned. If
+     * @p prepare throws, the candidate is destroyed the same way and the
+     * exception propagates.
+     *
+     * @throws As emplace(), plus anything @p prepare throws.
+     */
+    template <typename T, typename... Args>
+    [[nodiscard]] T* emplacePrepared(const std::function<bool(T&)>& prepare,
+                                     Args&&... args);
+
     /// @brief Installs an owner-level admission gate evaluated after
     ///        construction but before ownership or publication.
     ///
@@ -418,10 +440,17 @@ T* OwnerSkeleton::emplace(Args&&... args)
         return nullptr;
     }
 
-    // Ownership before publication: onPublished observers see a consistent view.
-    // contains() passed above so insert() will succeed; the return value is not
-    // checked here.
-    mOwnership.insert(id, std::move(placeholder));
+    // Ownership before publication: onPublished observers see a consistent
+    // view. The insert result IS checked: a reentrant gate that created an
+    // item at this id would otherwise leave this insert a silent no-op and
+    // the later duplicate-publish rollback would erase the NESTED item's
+    // ownership — destroying a still-published bone (terminate).
+    if (mOwnership.insert(id, std::move(placeholder)) == nullptr)
+    {
+        throw DuplicateBoneError(
+            "OwnerSkeleton::emplace(): the admission gate reentrantly created "
+            "an item at " + id.toString() + ".");
+    }
 
     // Rollback on any exception escaping publish(). insert() succeeded above,
     // so erasing id here is safe. Skeleton::publish() already rolls back its
@@ -434,6 +463,59 @@ T* OwnerSkeleton::emplace(Args&&... args)
     raw->publish(mSkeleton);    // public on SkeletonItem; fires onPublished signal
 
     return raw;                 // T* not T&: caller must not store past remove(id)
+}
+
+template <typename T, typename... Args>
+T* OwnerSkeleton::emplacePrepared(const std::function<bool(T&)>& prepare,
+                                  Args&&... args)
+{
+    assertNotPropagating("emplacePrepared()");
+
+    auto placeholder = std::make_shared<T>(std::forward<Args>(args)...);
+    T*     raw = placeholder.get();
+    BoneId id  = raw->boneId();
+
+    if (mOwnership.contains(id))
+    {
+        throw DuplicateBoneError(
+            "OwnerSkeleton::emplacePrepared(): item at " + id.toString() +
+            " is already owned by this OwnerSkeleton.");
+    }
+
+    FATP_ALWAYS_ENFORCE(
+        !raw->isPublished(),
+        "OwnerSkeleton::emplacePrepared(): item called publish() in its "
+        "constructor. Use OwnedBoneItem<> base or remove the publish() call.");
+
+    if (mPrePublishGate && !mPrePublishGate(*raw))
+    {
+        return nullptr;
+    }
+
+    // The preparation seam: the candidate is admitted but unpublished. A false
+    // return (or a throw) destroys it with no registry entry and no signal.
+    // The prepare callback must not mutate this owner (no emplace/remove) —
+    // arbitrary code runs here between the duplicate check and the insert,
+    // so the insert result is checked rather than assumed.
+    if (prepare && !prepare(*raw))
+    {
+        return nullptr;
+    }
+
+    if (mOwnership.insert(id, std::move(placeholder)) == nullptr)
+    {
+        throw DuplicateBoneError(
+            "OwnerSkeleton::emplacePrepared(): the prepare callback "
+            "reentrantly created an item at " + id.toString() + ".");
+    }
+
+    auto rollback = makeScopeGuardOnFail([&]() noexcept {
+        mOwnership.erase(id);
+    });
+
+    raw->publish(mSkeleton);    // observers see the prepared facts as final
+
+    return raw;
 }
 
 inline void OwnerSkeleton::remove(BoneId id)

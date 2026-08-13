@@ -29,6 +29,7 @@ FATP_META:
 #include "FatPTest.h"
 
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 namespace fat_p::testing::ownerskeleton
@@ -438,6 +439,122 @@ FATP_TEST_CASE(dump_does_not_crash)
     return true;
 }
 
+// emplacePrepared: the prepare seam runs on the admitted, unpublished
+// candidate; the publication carries the prepared fact as final.
+FATP_TEST_CASE(emplacePrepared_prepares_before_publication)
+{
+    OwnerSkeleton db("test");
+    const BoneId id = makeId1(30);
+
+    bool maskSeenAtPublish = false;
+    auto conn = db.onPublished(
+        [&maskSeenAtPublish](SkeletonItem& item)
+        { maskSeenAtPublish = item.mask().any(); });
+
+    bool candidateWasUnpublished = false;
+    SimpleItem* made = db.emplacePrepared<SimpleItem>(
+        [&candidateWasUnpublished](SimpleItem& candidate)
+        {
+            candidateWasUnpublished = !candidate.isPublished();
+            candidate.setMask(fat_p::skeleton::makeMask(
+                fat_p::skeleton::SkeletonCapability::ProvidesValue));
+            return true;
+        },
+        id, "raw");
+
+    FATP_ASSERT_TRUE(made != nullptr, "prepared emplace returns the item");
+    FATP_ASSERT_TRUE(candidateWasUnpublished, "prepare runs on an UNPUBLISHED candidate");
+    FATP_ASSERT_TRUE(maskSeenAtPublish,
+                     "the publish observer sees the prepared fact as final");
+    return true;
+}
+
+// A false prepare destroys the candidate with no registry entry and no
+// signal — indistinguishable from a gate refusal.
+FATP_TEST_CASE(emplacePrepared_false_destroys_silently)
+{
+    OwnerSkeleton db("test");
+    const BoneId id = makeId1(31);
+
+    int publishes = 0;
+    int unpublishes = 0;
+    auto pubConn = db.onPublished([&publishes](SkeletonItem&) { ++publishes; });
+    auto unpubConn = db.onUnpublishing([&unpublishes](SkeletonItem&) { ++unpublishes; });
+
+    std::vector<BoneId> destroyed;
+    TrackedItem* made = db.emplacePrepared<TrackedItem>(
+        [](TrackedItem&) { return false; }, id, &destroyed);
+
+    FATP_ASSERT_TRUE(made == nullptr, "a refused preparation returns null");
+    FATP_ASSERT_TRUE(db.find(id) == nullptr, "no registry entry exists");
+    FATP_ASSERT_EQ(publishes, 0, "no publish fired");
+    FATP_ASSERT_EQ(unpublishes, 0, "no unpublish fired");
+    FATP_ASSERT_EQ(destroyed.size(), std::size_t{1}, "the candidate was destroyed");
+    return true;
+}
+
+// A throwing prepare unwinds identically: candidate destroyed, no entry,
+// no signal, and the exception propagates to the caller.
+FATP_TEST_CASE(emplacePrepared_throw_unwinds_silently)
+{
+    OwnerSkeleton db("test");
+    const BoneId id = makeId1(32);
+
+    int publishes = 0;
+    auto pubConn = db.onPublished([&publishes](SkeletonItem&) { ++publishes; });
+
+    std::vector<BoneId> destroyed;
+    bool threw = false;
+    try
+    {
+        (void)db.emplacePrepared<TrackedItem>(
+            [](TrackedItem&) -> bool { throw std::runtime_error("prepare failed"); },
+            id, &destroyed);
+    }
+    catch (const std::runtime_error&)
+    {
+        threw = true;
+    }
+
+    FATP_ASSERT_TRUE(threw, "the prepare exception propagates");
+    FATP_ASSERT_TRUE(db.find(id) == nullptr, "no registry entry exists");
+    FATP_ASSERT_EQ(publishes, 0, "no publish fired");
+    FATP_ASSERT_EQ(destroyed.size(), std::size_t{1}, "the candidate was destroyed");
+    return true;
+}
+
+// A prepare callback that reentrantly creates the SAME id is a duplicate:
+// the outer insert detects it and throws DuplicateBoneError instead of
+// silently corrupting ownership (the nested item survives untouched).
+FATP_TEST_CASE(emplacePrepared_reentrant_duplicate_throws)
+{
+    OwnerSkeleton db("test");
+    const BoneId id = makeId1(33);
+
+    bool threw = false;
+    SimpleItem* nested = nullptr;
+    try
+    {
+        (void)db.emplacePrepared<SimpleItem>(
+            [&db, &nested, id](SimpleItem&)
+            {
+                nested = db.emplace<SimpleItem>(id, "nested");
+                return true;
+            },
+            id, "outer");
+    }
+    catch (const DuplicateBoneError&)
+    {
+        threw = true;
+    }
+
+    FATP_ASSERT_TRUE(threw, "the reentrant duplicate throws DuplicateBoneError");
+    FATP_ASSERT_TRUE(nested != nullptr, "the nested create succeeded");
+    FATP_ASSERT_TRUE(db.find(id) == nested, "the nested item survives, still owned");
+    FATP_ASSERT_TRUE(nested->isPublished(), "the nested item is still published");
+    return true;
+}
+
 // ─── Terminate tests (death tests -- run only in death-test mode) ─────────────
 //
 // The following behaviours are required to terminate the process. They are
@@ -487,6 +604,10 @@ bool test_OwnerSkeleton()
     FATP_RUN_TEST_NS(runner, ownerskeleton, query_mask_filter);
     FATP_RUN_TEST_NS(runner, ownerskeleton, serialization_version_default);
     FATP_RUN_TEST_NS(runner, ownerskeleton, dump_does_not_crash);
+    FATP_RUN_TEST_NS(runner, ownerskeleton, emplacePrepared_prepares_before_publication);
+    FATP_RUN_TEST_NS(runner, ownerskeleton, emplacePrepared_false_destroys_silently);
+    FATP_RUN_TEST_NS(runner, ownerskeleton, emplacePrepared_throw_unwinds_silently);
+    FATP_RUN_TEST_NS(runner, ownerskeleton, emplacePrepared_reentrant_duplicate_throws);
 
     return 0 == runner.print_summary();
 }
