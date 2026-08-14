@@ -410,17 +410,16 @@ public:
 
     // ── Serialization hooks ───────────────────────────────────────────────────
     //
-    // Public so that application-layer save/load orchestration (e.g.
-    // ActiveDatabase) can call them on arbitrary SkeletonItem* pointers.
-    // Default implementations are no-ops. Override in derived classes to
-    // participate in save/load.
+    // Public so caller-owned persistence orchestration can invoke them through
+    // arbitrary SkeletonItem* pointers. Default implementations are no-ops.
+    // Override in derived classes to participate in a positional binary schema.
     //
     // Matches BE: ITEM_COMMON::BinaryIO, SaveItemData, LoadItemData were all
     // public and called by external orchestration code through base pointers.
     //
-    // serializationVersion() is written by save() before calling serialize(),
-    // and passed back to deserialize() before calling it. Inspect the version
-    // parameter in deserialize() to apply schema migration logic for older files.
+    // The caller writes serializationVersion() in its record envelope before
+    // serialize(), then supplies that stored version to deserialize(). Derived
+    // readers inspect the version to select their supported schema path.
     //
     // SerializeWriter and SerializeReader are thin wrappers over a binary stream
     // (see SkeletonSerializer.h, fat_p Phase 1 deliverable). Forward declarations

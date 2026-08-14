@@ -416,9 +416,8 @@ T* OwnerSkeleton::emplace(Args&&... args)
 {
     assertNotPropagating("emplace()");
 
-    // Check for duplicate ownership before constructing T. Throwing here means
-    // no object is ever constructed for a duplicate id -- matches the contract
-    // that the first item at that BoneId is never disturbed.
+    // Construction is required to obtain T's BoneId. If that id is already
+    // owned, the temporary is destroyed and the existing item is undisturbed.
     auto placeholder = std::make_shared<T>(std::forward<Args>(args)...);
     T*     raw = placeholder.get();
     BoneId id  = raw->boneId();

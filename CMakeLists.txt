@@ -78,6 +78,7 @@ set(FATP_BENCH_EXTRA_INCLUDE_DIRS "" CACHE STRING "Additional include directorie
 # Core library (header-only)
 # =========================================================
 add_library(fatp INTERFACE)
+target_compile_features(fatp INTERFACE cxx_std_20)
 target_include_directories(fatp INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/fat_p>

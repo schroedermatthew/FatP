@@ -18,13 +18,13 @@
 #     undefs_total: 0
 #     includes_windows_h: false
 """
-FATP_META Parser - Robust YAML extraction from C++ headers.
+FATP_META Parser - Robust YAML extraction from repository-authored code files.
 
 Tolerates common whitespace variations:
 - Tabs (converted to 2 spaces)
 - Inconsistent indentation (normalized via dedent)
 - Leading/trailing whitespace on lines
-- Comment prefixes (* or //)
+- Comment prefixes (*, //, or #)
 
 Usage:
     python fatp_meta_parser.py path/to/header.h
@@ -50,7 +50,7 @@ def extract_fatp_meta_block(content: str) -> Optional[str]:
     Extract the raw FATP_META block from file content.
     Returns the YAML portion (after 'FATP_META:' line, before closing '*/')
     """
-    # Pattern: /* ... FATP_META: ... */ or // FATP_META: style
+    # Pattern: /* ... FATP_META: ... */, // FATP_META:, or # FATP_META: style
     # We look for FATP_META: and capture until end of comment
     
     # Try block comment style first: /* FATP_META: ... */
@@ -59,14 +59,21 @@ def extract_fatp_meta_block(content: str) -> Optional[str]:
     if match:
         return match.group(1)
     
-    # Try line comment style: // FATP_META: followed by // lines
-    line_pattern = r'//\s*FATP_META:\s*\n((?://.*\n)*)'
-    match = re.search(line_pattern, content)
-    if match:
-        # Strip // prefix from each line
-        lines = match.group(1).split('\n')
-        cleaned = [re.sub(r'^//\s?', '', line) for line in lines]
-        return '\n'.join(cleaned)
+    # Try C++ and script/build-file line-comment styles.
+    for marker in ('//', '#'):
+        escaped_marker = re.escape(marker)
+        line_pattern = (
+            rf'(?m)^{escaped_marker}\s*FATP_META:\s*\n'
+            rf'((?:^{escaped_marker}.*(?:\n|$))*)'
+        )
+        match = re.search(line_pattern, content)
+        if match:
+            lines = match.group(1).split('\n')
+            cleaned = [
+                re.sub(rf'^{escaped_marker}\s?', '', line)
+                for line in lines
+            ]
+            return '\n'.join(cleaned)
     
     return None
 
@@ -172,7 +179,7 @@ def parse_file(filepath: Path) -> Tuple[Optional[Dict[str, Any]], Optional[str]]
 
 def validate_required_keys(meta: Dict[str, Any]) -> List[str]:
     """Check for required keys per schema v1."""
-    required = ['meta_version', 'component', 'file_role', 'path', 'summary']
+    required = ['meta_version', 'component', 'file_role', 'path', 'layer', 'summary']
     missing = [k for k in required if k not in meta]
     return missing
 
@@ -212,7 +219,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(
-        description='Parse and validate FATP_META blocks in C++ headers',
+        description='Parse and validate FATP_META blocks in repository code files',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__
     )
@@ -220,7 +227,10 @@ def main():
     parser.add_argument('--validate', action='store_true', help='Validate files and report errors')
     parser.add_argument('--dump', action='store_true', help='Dump parsed YAML as JSON')
     parser.add_argument('--quiet', '-q', action='store_true', help='Only show errors')
-    parser.add_argument('--extensions', default='.h,.hpp,.cpp', help='File extensions to process (comma-separated)')
+    parser.add_argument(
+        '--extensions',
+        default='.h,.hpp,.cpp,.cmake,.py,.ps1,.sh',
+        help='File extensions to process (comma-separated)')
     
     args = parser.parse_args()
     extensions = tuple(args.extensions.split(','))
