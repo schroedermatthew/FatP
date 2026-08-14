@@ -936,12 +936,81 @@ records where the implementation added to it, and the one claim that is not cove
 - The batch capacity preflight now measures against the configured `upper_bound` rather than
   the ID type's maximum, which it must for a bounded or full-domain generator.
 
-**Verification.** 27 new tests (`test_IdGenerator` 48 → 75, all passing), then a 12-mutant
-gate against the header: recycled-count saturation, the four release transitions, the reset
-rebuild, sentinel normalization, both staging orders, the batch credit guard, the claim split
-credit, the revert suppression, the comparator, and the trait opt-in. Eleven were killed by a
-named test. Full library builds clean, 101/101 tests, layer validation clean,
-`IdGenerator.h` compiles standalone under `/W4 /WX`.
+**Verification.** 27 new tests (`test_IdGenerator` 48 → 75), then a 12-mutant gate. A second,
+adversarial coverage audit followed — six independent lenses over implementation-versus-suite,
+each finding put through a refutation round — and it was worth running: it surfaced **four
+defects in the landed code**, all reproduced by direct execution before being believed, plus
+six mutations the 75-test suite did not kill. Both are recorded below. The suite is now 84
+tests and a 12-mutant gate in which every mutant dies.
+
+**Defects found after landing, and fixed.**
+
+- **The batch capacity preflight was gated on the ID type's width, not the configured
+  domain's.** `sizeof(underlying_type) < sizeof(size_t)` compiled the guard out for every
+  64-bit generator, *including* a sparse or bounded one whose domain holds ten identifiers, so
+  `generate_batch(SIZE_MAX)` reached `reserve()` and threw `std::length_error` out of an
+  `Expected`-returning API — the exact outcome the guard's own comment claims to prevent. That
+  is precisely the first consumer's shape: `size_t`-wide indices with a depth-derived ceiling.
+  The test that should have caught it deliberately reached for `uint64_t` *so the preflight
+  would be compiled out*. Now measured against `mUpperBound - mBaseId`.
+  - Consequence worth stating: the preflight is now **exact** for any domain narrower than
+    `SIZE_MAX + 1`, so domain exhaustion is always refused before the loop and the batch's
+    mid-loop `Overflow` arm is defensive. Ordinary rollback is reached by an injected
+    mid-batch reservation failure instead, which is a better test anyway — it separates "the
+    allocator ran out" from "the domain ran out".
+- **A moved-from `SparseRecyclingPolicy` kept `mCreditCount` while losing the credits.** The
+  implicit move transfers the containers and *copies* the scalar, so the source reported
+  credits it did not hold; `configure_domain`'s reuse arm keys off exactly that count and
+  called `take_credit()` on an empty list. Move operations are now user-declared and zero the
+  source — which also makes this note's stated basis for `reset()`'s conditional `noexcept`
+  true, since the moved-from state now really does take the allocating arm.
+- **A sparse StrongId generator could issue `invalid()`.** `SparseIdGenerator<Id>(255)` over a
+  `StrongId<uint8_t>` normalizes the ceiling to 254, below the base; `configure_domain` built
+  an inverted interval and `generate()` handed out the sentinel. `base > upper` remains a
+  precondition violation, but it now yields an **empty** domain, matching what the non-sparse
+  path does in the same situation. This mattered because the full-domain path has no late
+  `generate()` sentinel guard to fall back on — domain construction is the only mechanism, and
+  its only check disappears under `NDEBUG`.
+- **`Compare` was documented as a general ordering seam, and is not one.** Five sites mix map
+  order with raw arithmetic. `std::greater` compiles and is silently wrong: `claim()` of a
+  wholly free identifier returns `InvalidClaim`, and generation runs descending. Resolved by
+  **narrowing, not genericising** — documented as ascending-only, with a direction assert in
+  `configure_domain`.
+
+Also recorded, not fixed: the pairing `static_assert` is hygiene rather than a behavioural
+guard, since `next_id()` is never called on the full-domain path and `revert()` is suppressed
+structurally. And `is_sequential_policy`'s specialization set becomes ambiguous the moment
+either shipped policy also declares the opt-in alias — a tempting symmetry edit, since
+`BoundedSequentialAllocationPolicy` already declares `accepts_upper_bound`. There is a comment
+at the specializations saying so.
+
+**Mutants the 75-test suite did not kill, all now killed.** Claiming a *singleton* free
+interval (`claim_at`'s erase arm was dead — regressing it to a front trim yields an inverted
+entry, after which `generate()` hands out an already-active identifier); releasing the base of
+a *full-width* domain (the `id > mBase` guard is load-bearing only when the wrapped `id - 1`
+lands on a live key, and every test released inside a narrowed domain, where deleting the
+guard **erases the entire domain**); `release_batch` on a sparse generator (zero coverage — it
+is a separate copy of `release()`'s erase-first ordering); `generate()`'s id_type construction
+order; `recycled_count()`'s saturation threshold; and `claim()` taking no lock at all.
+
+**Allocation is now measured, which the credit mechanism had no witness for.** Every prior
+oracle was a *count*, and no count distinguishes a node taken from the credit stack from one
+freshly allocated — both decrement the count and leave identical structure. The suite now
+replaces global `operator new` (armed only inside two tests) and asserts **zero** allocations
+across `release()`, `release_batch()`, and both reset paths, having first shown the counter
+live on the activation path. The same instrument closes the split-reservation unwind, whose
+`catch` block had never executed.
+
+**No longer un-injectable.** The earlier note that a throwing *active-set* insert could not be
+tested was true only of the policy-level seam. With `operator new` replaced, allocation
+failure can be injected at any index, `ActiveIdTracker`'s insert included.
+
+**Concurrency.** `claim()` is exercised under real contention over `UniqueRWLockPolicy` — the
+only shipped policy whose `lock_shared()` is a genuine `std::shared_lock`; `MutexSynchronization
+Policy` aliases its shared guard to its exclusive one, so a shared/exclusive swap is invisible
+there. Four writers claim interleaved stripes so every claim contends on a node a neighbour is
+splitting, with two readers holding the shared lock throughout. Deleting `claim()`'s lock now
+crashes with an access violation rather than passing.
 
 **The one surviving mutant, recorded rather than hidden.** Deleting the `is_in_domain()` check
 from `claim()` passes the entire suite. It is a provably equivalent mutation: the free set is a
@@ -951,11 +1020,10 @@ required test 15 does not, despite appearing to. The check stays — it is `O(1)
 `O(log I)` lookup, it names which question is being asked, and it is the one of the two that
 survives a violation of invariant 1 — but it is enforced by argument, not by the suite.
 
-**Not covered.** A throwing *active-set* insert is still untested at generator level:
-`ActiveIdTracker` wraps `std::unordered_set` with no allocator seam, so the failure cannot be
-injected without changing a shipped type. The credit-reservation failure that immediately
-precedes it IS injected (`FlakySparsePolicy`), which is what kills the generate-path staging
-mutant; the insert itself is covered by construction only.
+**Still not covered.** Required test 25's compile-fail coverage: both generator-level
+`static_assert`s can be deleted with the suite green, because a `static_assert` firing is a
+compile failure and there is no `try_compile` fixture in this component. The suite asserts the
+*predicates* instead. Adding the fixture is new build machinery and an owner scope decision.
 
 **Review record.** The first draft was reviewed against Fat-P `5366366d` and Loom `20c80eb`
 by a six-lens pass that derived required behavior from live source before reading the draft,

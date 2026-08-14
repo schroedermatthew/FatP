@@ -615,6 +615,18 @@ For a `StrongId`-style type the reserved `invalid()` sentinel is excluded from t
 construction, so it is never issued, never counted as free, and `claim()` of it returns
 `InvalidClaim`.
 
+**`base_id` must not exceed the upper bound.** This is a precondition, asserted in debug
+builds. A violation yields an *empty* domain — every `generate()` reports `Overflow` — rather
+than undefined behaviour. Watch for the case where the bound is implicit: over a
+`StrongId<uint8_t>`, `SparseIdGenerator<Id> gen(255)` normalizes the ceiling to 254, which is
+below the base, and the generator is exhausted from birth.
+
+> **Advanced:** `SparseRecyclingPolicy` has a second template parameter, `Compare`, defaulting
+> to `std::less<IdType>`. Despite the shape, **it is not a general ordering seam** — the policy
+> mixes map order with interval arithmetic and is correct only for orderings equivalent to
+> ascending numeric order. It exists so the complexity contract can be instrumented with a
+> counting comparator. Supplying `std::greater` compiles and is silently wrong.
+
 > **Convenience Aliases:** `SparseIdGenerator<T>` and `ThreadSafeSparseIdGenerator<T>`. The
 > policy pairs only with sequential allocation — a `static_assert` rejects random allocation,
 > which has nothing to contribute when issuance comes from the free set.

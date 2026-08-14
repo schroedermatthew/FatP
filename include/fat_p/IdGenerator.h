@@ -776,6 +776,12 @@ struct is_sequential_policy<T, std::void_t<typename T::is_sequential_policy>> : 
 {
 };
 
+// DO NOT declare `using is_sequential_policy = void;` on either policy below.
+// The void_t specialization above and these two would then both match with a
+// second argument of `void`, and partial ordering cannot separate them because
+// the void_t argument is a non-deduced context -- the trait stops compiling.
+// The symmetry is tempting precisely because BoundedSequentialAllocationPolicy
+// already declares `accepts_upper_bound`.
 template <typename IdType>
 struct is_sequential_policy<SequentialAllocationPolicy<IdType>, void> : std::true_type
 {
@@ -955,12 +961,23 @@ public:
  * IdGenerator calls `configure_domain()` during construction and again on
  * `reset()`.
  */
-/// @tparam Compare Ordering for the interval map, as every ordered container
-///         takes. It exists here for the same reason it exists on `std::map`,
-///         and it is also what makes the gap-independence claim measurable: a
-///         counting comparator is the only instrument that distinguishes
-///         `claim()` from a generate-and-release walk, since both leave one
-///         identifier active and the rest free.
+/// @tparam Compare Ordering for the interval map. **It must induce ASCENDING
+///         numeric order** -- `std::less<IdType>` or a transparent/instrumented
+///         equivalent. This is NOT a general ordering seam despite looking like
+///         one: five sites mix map order with raw arithmetic and are correct only
+///         under ascending order. `peek_lowest()` returns `begin()->second` *as
+///         the lowest free identifier*; `is_free()`, `reserve_claim_credits()`
+///         and `claim_at()` do `lower_bound(id)` then test `it->second <= id`;
+///         `add_recycled()` finds the right neighbour with `upper_bound(id)`.
+///         Instantiated with `std::greater`, the policy compiles and is silently
+///         wrong -- `claim()` of a wholly free identifier returns `InvalidClaim`,
+///         and generation runs descending. `configure_domain()` asserts the
+///         direction, which is as much as a comparator can be checked from here.
+///
+///         The parameter exists because the complexity contract has no other
+///         witness: a counting comparator is the only instrument that separates
+///         `claim()` from the generate-and-release walk it replaces, since both
+///         leave one identifier active and everything else free.
 template <typename IdType = uint64_t, typename Compare = std::less<IdType>>
 class SparseRecyclingPolicy
 {
@@ -970,6 +987,68 @@ public:
 
     /// @brief Opt-in marker for detail::is_full_domain_policy_v.
     using is_full_domain_policy = void;
+
+    // =========================================================================
+    // Special members
+    // =========================================================================
+
+    SparseRecyclingPolicy() = default;
+    ~SparseRecyclingPolicy() = default;
+
+    // Return credits are detached map nodes, which are move-only, so the policy
+    // could never be copied. Say so rather than leaving it to be inferred.
+    SparseRecyclingPolicy(const SparseRecyclingPolicy&) = delete;
+    SparseRecyclingPolicy& operator=(const SparseRecyclingPolicy&) = delete;
+
+    /**
+     * @brief Move, leaving the source consistent rather than merely empty.
+     *
+     * @details These are declared rather than defaulted because the implicit
+     * versions get it WRONG in a way nothing would notice until a rebuild: the
+     * containers move out and are left empty, but `mCreditCount` is a scalar and
+     * is COPIED. A moved-from source then reports credits it does not hold, and
+     * `configure_domain()`'s reuse arm -- which keys off `mCreditCount > 0` --
+     * calls `take_credit()` on an empty list.
+     *
+     * Zeroing the source's count also makes the documented basis for
+     * `reset()`'s conditional `noexcept` true: the moved-from state really is
+     * empty map, no actives, no credits, so the rebuild really does take the
+     * allocating arm.
+     */
+    SparseRecyclingPolicy(SparseRecyclingPolicy&& other) noexcept
+        : mFree(std::move(other.mFree))
+        , mNodeSource(std::move(other.mNodeSource))
+        , mCredits(std::move(other.mCredits))
+        , mCreditCount(other.mCreditCount)
+        , mBase(other.mBase)
+        , mUpper(other.mUpper)
+    {
+        other.mCreditCount = 0;
+    }
+
+    SparseRecyclingPolicy& operator=(SparseRecyclingPolicy&& other) noexcept
+    {
+        if (this != &other)
+        {
+            // clear() then swap() rather than container move-assignment: both
+            // are unconditionally noexcept, which move-assignment is not, and a
+            // potentially-throwing base would silently DELETE IdGenerator's
+            // `operator=(IdGenerator&&) noexcept = default`.
+            mFree.clear();
+            mNodeSource.clear();
+            mCredits.clear();
+
+            mFree.swap(other.mFree);
+            mNodeSource.swap(other.mNodeSource);
+            mCredits.swap(other.mCredits);
+
+            mCreditCount = other.mCreditCount;
+            other.mCreditCount = 0;
+            mBase = other.mBase;
+            mUpper = other.mUpper;
+        }
+        return *this;
+    }
 
     // =========================================================================
     // Domain configuration
@@ -991,12 +1070,33 @@ public:
      * `noexcept` and IdGenerator::reset() is conditionally `noexcept` because of
      * it. Construction takes the same path, and construction may allocate.
      *
+     * `base > upper` is a precondition violation. It is nonetheless handled,
+     * because the release build is where it bites: this policy is the ONLY
+     * guard against issuing a StrongId's reserved sentinel -- the full-domain
+     * path has no late `generate()` check to fall back on -- and an inverted
+     * interval hands that sentinel straight out. `SparseIdGenerator<Id>(255)`
+     * over a `StrongId<uint8_t>` is the whole recipe: the ceiling normalizes to
+     * 254 below a base of 255. An empty domain reports exhaustion instead,
+     * matching what the non-sparse path does in the same situation.
+     *
      * @param base Lowest identifier in the domain
      * @param upper Highest identifier in the domain (inclusive)
+     * @pre `base <= upper`; a violation yields an empty (exhausted) domain
      */
     void configure_domain(IdType base, IdType upper)
     {
         assert(base <= upper && "Sparse domain requires base <= upper_bound");
+        assert((base == upper || Compare{}(base, upper)) &&
+               "SparseRecyclingPolicy requires a Compare inducing ASCENDING order");
+
+        if (upper < base)
+        {
+            mBase = base;
+            mUpper = upper;
+            mFree.clear();
+            drop_all_credits();
+            return;
+        }
 
         mBase = base;
         mUpper = upper;
@@ -1970,15 +2070,32 @@ public:
         // feasible count can still fail to allocate, and that exception still
         // propagates, because IdError describes identifier-domain outcomes and
         // running out of memory is not one of them.
+        //
+        // The test is on the CONFIGURED DOMAIN's width, not the ID type's. Those
+        // came apart the moment the domain became narrower than its type: a
+        // `sizeof(underlying_type) < sizeof(size_t)` gate compiles the guard out
+        // for every 64-bit generator, including a sparse or bounded one whose
+        // domain holds ten identifiers, so `generate_batch(SIZE_MAX)` reached
+        // `reserve()` and threw the exact exception this exists to prevent. That
+        // is precisely the shape of the first consumer -- size_t-wide indices
+        // with a depth-derived ceiling.
         {
-            if constexpr (sizeof(underlying_type) < sizeof(std::size_t))
+            if (mUpperBound < mBaseId)
             {
-                // The whole domain is representable as size_t, so capacity is
-                // exact: total slots minus those already taken. The ceiling is
-                // the CONFIGURED bound, which for a bounded or full-domain
-                // generator is below the ID type's maximum.
-                const std::size_t capacity = static_cast<std::size_t>(mUpperBound) -
-                                             static_cast<std::size_t>(mBaseId) + 1u;
+                // Precondition-violating domain: empty, so nothing is satisfiable.
+                return make_unexpected(IdError::Overflow);
+            }
+
+            const auto span = static_cast<std::uint64_t>(mUpperBound) -
+                              static_cast<std::uint64_t>(mBaseId);
+            constexpr auto kSizeMax =
+                static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max());
+
+            if (span < kSizeMax)
+            {
+                // Capacity is representable, so the check is exact: total slots
+                // minus those already taken.
+                const std::size_t capacity = static_cast<std::size_t>(span) + 1u;
                 const std::size_t taken = mIdsInUse.size();
                 if (count > (capacity > taken ? capacity - taken : std::size_t{0}))
                 {

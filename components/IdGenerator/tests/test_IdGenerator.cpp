@@ -41,7 +41,9 @@ FATP_META:
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <iostream>
+#include <new>
 #include <set>
 #include <thread>
 #include <vector>
@@ -51,6 +53,78 @@ FATP_META:
 #include "FatPTest.h"
 #include "IdGenerator.h"
 #include "StrongId.h"
+
+// -----------------------------------------------------------------------------
+// Global allocation counter, declared before first use.
+//
+// Replacing global operator new is a heavy instrument and is used deliberately:
+// the return-credit mechanism's whole claim is about WHERE allocation happens,
+// and no count-based oracle can see that. See allocprobe below for the arming
+// interface. When disarmed -- which is every test but two -- this costs one
+// relaxed atomic load per allocation.
+//
+// Aligned (over-aligned) allocations are deliberately not replaced: nothing on
+// the measured paths over-aligns, and replacing them widens the blast radius
+// across the whole executable for no coverage.
+// -----------------------------------------------------------------------------
+namespace fat_p::testing::idgenerator::allocprobe
+{
+extern std::atomic<bool> counting;
+extern std::atomic<size_t> allocations;
+extern std::atomic<long long> fail_at;
+} // namespace fat_p::testing::idgenerator::allocprobe
+
+namespace
+{
+void* fatp_probe_allocate(std::size_t bytes)
+{
+    namespace probe = fat_p::testing::idgenerator::allocprobe;
+
+    if (probe::counting.load(std::memory_order_relaxed))
+    {
+        const long long index =
+            static_cast<long long>(probe::allocations.fetch_add(1, std::memory_order_relaxed));
+        const long long fail = probe::fail_at.load(std::memory_order_relaxed);
+        if (fail >= 0 && index == fail)
+        {
+            probe::fail_at.store(-1, std::memory_order_relaxed);
+            throw std::bad_alloc();
+        }
+    }
+
+    void* p = std::malloc(bytes == 0 ? 1 : bytes);
+    if (p == nullptr)
+    {
+        throw std::bad_alloc();
+    }
+    return p;
+}
+} // namespace
+
+void* operator new(std::size_t bytes)
+{
+    return fatp_probe_allocate(bytes);
+}
+void* operator new[](std::size_t bytes)
+{
+    return fatp_probe_allocate(bytes);
+}
+void operator delete(void* p) noexcept
+{
+    std::free(p);
+}
+void operator delete[](void* p) noexcept
+{
+    std::free(p);
+}
+void operator delete(void* p, std::size_t) noexcept
+{
+    std::free(p);
+}
+void operator delete[](void* p, std::size_t) noexcept
+{
+    std::free(p);
+}
 
 namespace fat_p::testing::idgenerator
 {
@@ -1776,6 +1850,35 @@ struct has_claim<Gen,
 {
 };
 
+/// @brief Same detector for the two full-domain-only query methods.
+///
+/// @details A constrained member template is never instantiated for a generator
+/// that does not call it, so dropping the `requires` clauses passes the whole
+/// suite -- and then every alias advertises two queries its policy cannot answer.
+template <typename Gen, typename = void>
+struct has_interval_query : std::false_type
+{
+};
+
+template <typename Gen>
+struct has_interval_query<
+    Gen,
+    std::void_t<decltype(std::declval<const Gen&>().free_interval_count())>> : std::true_type
+{
+};
+
+template <typename Gen, typename = void>
+struct has_credit_query : std::false_type
+{
+};
+
+template <typename Gen>
+struct has_credit_query<
+    Gen,
+    std::void_t<decltype(std::declval<const Gen&>().reserved_credit_count())>> : std::true_type
+{
+};
+
 } // namespace
 
 // A claim is only meaningful at the edges too: the first identifier the
@@ -2103,6 +2206,23 @@ FATP_TEST_CASE(sparse_recycled_count_is_exact_then_saturates)
     auto first = full.generate();
     FATP_ASSERT_TRUE(first.has_value() && *first == uint64_t(0), "issue one");
     FATP_ASSERT_EQ(full.recycled_count(), kMax, "2^64-1 is exactly SIZE_MAX");
+
+    // Both assertions above are satisfied by a SATURATING answer as well as an
+    // exact one, so on their own they leave the threshold free to move by 2^63.
+    // This is the assertion a saturating answer cannot also satisfy.
+    auto second = full.generate();
+    FATP_ASSERT_TRUE(second.has_value() && *second == uint64_t(1), "issue another");
+    FATP_ASSERT_EQ(full.recycled_count(), kMax - 1, "exact one below the representable ceiling");
+
+    auto third = full.generate();
+    FATP_ASSERT_TRUE(third.has_value() && *third == uint64_t(2), "and another");
+    FATP_ASSERT_EQ(full.recycled_count(), kMax - 2, "still exact");
+
+    // Two intervals summing at operand sizes nothing else in the suite reaches,
+    // which is the cross-interval accumulation path rather than the per-term one.
+    FATP_ASSERT_TRUE(full.release(1).has_value(), "release the middle -> [1,1] and [3, 2^64-1]");
+    FATP_ASSERT_EQ(full.free_interval_count(), size_t(2), "two intervals");
+    FATP_ASSERT_EQ(full.recycled_count(), kMax - 1, "1 + (2^64-3), summed without wrapping");
     return true;
 }
 
@@ -2184,6 +2304,22 @@ FATP_TEST_CASE(sparse_policy_does_not_reach_the_existing_aliases)
     static_assert(!has_claim<RandomIdGenerator<uint64_t>>::value, "same");
     static_assert(has_claim<SparseIdGenerator<uint64_t>>::value,
                   "and is present on the sparse alias");
+    static_assert(has_claim<ThreadSafeSparseIdGenerator<uint64_t>>::value, "and its thread-safe twin");
+
+    // The two full-domain query methods are gated the same way.
+    static_assert(!has_interval_query<SimpleIdGenerator<uint64_t>>::value,
+                  "free_interval_count() is meaningless without an interval set");
+    static_assert(!has_interval_query<DenseIdGenerator<uint64_t>>::value, "same");
+    static_assert(!has_interval_query<RandomIdGenerator<uint64_t>>::value, "same");
+    static_assert(has_interval_query<SparseIdGenerator<uint64_t>>::value, "present where it means something");
+    static_assert(has_interval_query<ThreadSafeSparseIdGenerator<uint64_t>>::value, "and there");
+
+    static_assert(!has_credit_query<SimpleIdGenerator<uint64_t>>::value,
+                  "reserved_credit_count() is meaningless without return credits");
+    static_assert(!has_credit_query<DenseIdGenerator<uint64_t>>::value, "same");
+    static_assert(!has_credit_query<RandomIdGenerator<uint64_t>>::value, "same");
+    static_assert(has_credit_query<SparseIdGenerator<uint64_t>>::value, "present where it means something");
+    static_assert(has_credit_query<ThreadSafeSparseIdGenerator<uint64_t>>::value, "and there");
 
     // reset() stays unconditionally noexcept for the shipping policies and is
     // conditionally noexcept only where a domain rebuild may allocate.
@@ -2241,13 +2377,31 @@ public:
 
     static inline bool fail_next_reserve = false;
 
+    /// @brief Fail the Nth reservation since `reserve_calls` was last zeroed.
+    ///
+    /// @details A batch reserves once per element, so failing "the next one"
+    /// can only ever break the first. Failing the fourth is what puts a
+    /// half-built batch on the rollback path.
+    static inline int fail_at_reserve = -1;
+    static inline int reserve_calls = 0;
+
+    static void arm(int nth)
+    {
+        reserve_calls = 0;
+        fail_at_reserve = nth;
+        fail_next_reserve = false;
+    }
+
+    static void disarm()
+    {
+        fail_at_reserve = -1;
+        fail_next_reserve = false;
+        reserve_calls = 0;
+    }
+
     void reserve_credit()
     {
-        if (fail_next_reserve)
-        {
-            fail_next_reserve = false;
-            throw std::bad_alloc();
-        }
+        check_injection();
         SparseRecyclingPolicy<IdType>::reserve_credit();
     }
 
@@ -2255,12 +2409,24 @@ public:
     // reserve_credit() is non-virtual, so the shadow above never sees it.
     std::size_t reserve_claim_credits(IdType id)
     {
+        check_injection();
+        return SparseRecyclingPolicy<IdType>::reserve_claim_credits(id);
+    }
+
+private:
+    static void check_injection()
+    {
+        const int n = reserve_calls++;
         if (fail_next_reserve)
         {
             fail_next_reserve = false;
             throw std::bad_alloc();
         }
-        return SparseRecyclingPolicy<IdType>::reserve_claim_credits(id);
+        if (n == fail_at_reserve)
+        {
+            fail_at_reserve = -1;
+            throw std::bad_alloc();
+        }
     }
 };
 
@@ -2285,12 +2451,21 @@ using CountingSparseGenerator =
                 id_generator::ExpectedErrorPolicy<IdType, IdError>,
                 SingleThreadedPolicy>;
 
-/// @brief A sequential allocation policy that records whether revert() ran.
+/// @brief A sequential allocation policy that records whether revert() ran, and
+/// that can run out INDEPENDENTLY of the generator's configured domain.
 ///
 /// @details The full-domain path must never revert the allocation policy, which
 /// issued nothing. `is_sequential_policy` is declared so the pairing check
 /// accepts it -- the check is a property, not a whitelist of the two shipped
 /// policies.
+///
+/// The issue cap exists because the batch capacity preflight is exact for any
+/// domain narrower than SIZE_MAX+1, so domain exhaustion is now always refused
+/// BEFORE the loop and can no longer reach rollback. An allocation policy that
+/// stops early while the generator's configured domain says otherwise is the
+/// remaining way to exercise the ordinary rollback path -- and it is the honest
+/// one, since it isolates "the allocator ran out" from "the domain ran out",
+/// which is exactly the distinction the sparse assertion is about.
 template <typename IdType>
 class CountingRevertPolicy : public SequentialAllocationPolicy<IdType>
 {
@@ -2298,18 +2473,105 @@ public:
     using is_sequential_policy = void;
 
     static inline size_t reverts = 0;
+    static inline size_t issue_cap = 0; // 0 = unlimited
 
     explicit CountingRevertPolicy(IdType base_id = 0)
         : SequentialAllocationPolicy<IdType>(base_id)
     {
     }
 
+    std::optional<IdType> next_id(IdType max_id, bool first_call) noexcept
+    {
+        if (issue_cap != 0 && mIssued >= issue_cap)
+        {
+            return std::nullopt;
+        }
+        auto result = SequentialAllocationPolicy<IdType>::next_id(max_id, first_call);
+        if (result)
+        {
+            ++mIssued;
+        }
+        return result;
+    }
+
     void revert(size_t count) noexcept
     {
         ++reverts;
+        mIssued = (count > mIssued) ? 0 : mIssued - count;
         SequentialAllocationPolicy<IdType>::revert(count);
     }
+
+    void reset(IdType base_id = 0) noexcept
+    {
+        mIssued = 0;
+        SequentialAllocationPolicy<IdType>::reset(base_id);
+    }
+
+private:
+    size_t mIssued = 0;
 };
+
+/// @brief TU-level allocation counter.
+///
+/// @details Every existing oracle in this file is a COUNT --
+/// reserved_credit_count(), free_interval_count(), recycled_count() -- and none
+/// of them can tell a node taken from the credit stack from one freshly
+/// allocated: both decrement the count and leave identical structure. So the
+/// entire promise of the return-credit mechanism ("release is nothrow BY
+/// CONSTRUCTION, not because termination hides a bad_alloc") had no witness at
+/// all, while only its arithmetic was tested.
+///
+/// Counting is off by default, so the cost to every other test is one relaxed
+/// atomic load. It is atomic rather than plain because the concurrency tests in
+/// this file allocate on several threads through this same replacement.
+} // namespace (the replaced operator new must see these at EXTERNAL linkage)
+
+namespace allocprobe
+{
+
+std::atomic<bool> counting{false};
+std::atomic<size_t> allocations{0};
+std::atomic<long long> fail_at{-1}; // index within the counting window
+
+inline void start(long long fail_index = -1)
+{
+    allocations.store(0, std::memory_order_relaxed);
+    fail_at.store(fail_index, std::memory_order_relaxed);
+    counting.store(true, std::memory_order_relaxed);
+}
+
+inline size_t stop()
+{
+    counting.store(false, std::memory_order_relaxed);
+    fail_at.store(-1, std::memory_order_relaxed);
+    return allocations.load(std::memory_order_relaxed);
+}
+
+/// @brief RAII window, so an injected throw cannot leave counting armed.
+class Window
+{
+public:
+    explicit Window(long long fail_index = -1)
+    {
+        start(fail_index);
+    }
+    ~Window()
+    {
+        (void)stop();
+    }
+    Window(const Window&) = delete;
+    Window& operator=(const Window&) = delete;
+
+    size_t count() const
+    {
+        return allocations.load(std::memory_order_relaxed);
+    }
+};
+
+} // namespace allocprobe
+
+namespace
+{
 
 template <typename IdType>
 using FlakyGenerator = IdGenerator<IdType,
@@ -2485,6 +2747,43 @@ FATP_TEST_CASE(sparse_claim_cost_is_independent_of_the_gap)
     FATP_ASSERT_EQ(far_cost, near_cost, "the same interval structure costs the same to claim");
     FATP_ASSERT_TRUE(far_cost < size_t(100),
                      "and it is a constant, not a walk over two million identifiers");
+
+    // Both measurements above run on a freshly built generator holding ONE
+    // interval, so I is fixed and only the gap varies -- which an O(I) claim()
+    // would also pass. The bound is on INTERVAL COUNT, so it needs a fragmented
+    // domain to mean anything.
+    {
+        CountingSparseGenerator<uint32_t> gen(0, 4000);
+        for (uint32_t id = 0; id <= 4000; id += 2)
+        {
+            FATP_ASSERT_TRUE(gen.claim(id).has_value(), "claim every even identifier");
+        }
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(2000), "leaving 2000 singleton gaps");
+
+        CountingLess<uint32_t>::comparisons = 0;
+        FATP_ASSERT_TRUE(gen.claim(3999).has_value(), "claim near the top of a fragmented domain");
+        const size_t frag_cost = CountingLess<uint32_t>::comparisons;
+
+        FATP_ASSERT_TRUE(frag_cost > near_cost, "the measurement is live at I = 2000");
+        FATP_ASSERT_TRUE(frag_cost < size_t(150),
+                         "but logarithmic in I -- a linear scan would record 2000+");
+
+        // While the comparator is mounted: generate() is O(1) in I and release()
+        // is O(log I). Neither was instrumented at all.
+        CountingLess<uint32_t>::comparisons = 0;
+        FATP_ASSERT_TRUE(gen.generate().has_value(), "generate from a 2000-interval domain");
+        FATP_ASSERT_TRUE(CountingLess<uint32_t>::comparisons < size_t(20),
+                         "generate() reads begin(), so it does not scale with I");
+
+        CountingLess<uint32_t>::comparisons = 0;
+        FATP_ASSERT_TRUE(gen.release(3999).has_value(), "release into a 2000-interval domain");
+        FATP_ASSERT_TRUE(CountingLess<uint32_t>::comparisons < size_t(150),
+                         "release() is a find plus an upper_bound, not a scan");
+    }
+
+    // The absolute budgets are toolchain-dependent, and a counting comparator
+    // witnesses only comparator-mediated work: an implementation that walked
+    // mFree with built-in operators would stay invisible to it.
     return true;
 }
 
@@ -2500,39 +2799,181 @@ FATP_TEST_CASE(sparse_batch_rollback_does_not_revert_the_allocation_policy)
                                   id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
                                   SingleThreadedPolicy>;
 
-    SparseGen sparse(0, 9);
+    // Domain exhaustion can no longer reach rollback: the capacity preflight is
+    // exact for any domain narrower than SIZE_MAX+1, so an infeasible count is
+    // refused before the loop. Reaching the ROLLBACK path therefore means
+    // failing mid-batch, which is what the injected reservation failure does.
+    using FlakySparseGen = IdGenerator<uint16_t,
+                                       CountingRevertPolicy<uint16_t>,
+                                       FlakySparsePolicy<uint16_t>,
+                                       id_generator::ExpectedErrorPolicy<uint16_t, IdError>,
+                                       SingleThreadedPolicy>;
+
+    FlakySparseGen sparse(0, 9);
     FATP_ASSERT_TRUE(sparse.claim(4).has_value(), "one claim, so the setup is explicit");
 
-    CountingRevertPolicy<uint64_t>::reverts = 0;
-    auto doomed = sparse.generate_batch(12); // only 9 are free
-    FATP_ASSERT_TRUE(!doomed.has_value() && doomed.error() == IdError::Overflow,
-                     "the batch cannot be satisfied");
-    FATP_ASSERT_EQ(CountingRevertPolicy<uint64_t>::reverts, size_t(0),
-                   "and the allocation policy was never reverted");
+    CountingRevertPolicy<uint16_t>::reverts = 0;
+    FlakySparsePolicy<uint16_t>::arm(3); // fail the fourth element's reservation
+
+    bool threw = false;
+    try
+    {
+        (void)sparse.generate_batch(6);
+    }
+    catch (const std::bad_alloc&)
+    {
+        threw = true;
+    }
+    FlakySparsePolicy<uint16_t>::disarm();
+
+    FATP_ASSERT_TRUE(threw, "the batch failed partway and rolled back");
+    FATP_ASSERT_EQ(CountingRevertPolicy<uint16_t>::reverts, size_t(0),
+                   "and the allocation policy was never reverted -- it issued nothing");
     FATP_ASSERT_EQ(sparse.recycled_count(), size_t(9), "the free set is exactly restored");
     FATP_ASSERT_EQ(sparse.free_interval_count(), size_t(2), "as the same two intervals");
     FATP_ASSERT_EQ(sparse.active_count(), size_t(1), "with only the claim still active");
+    FATP_ASSERT_EQ(sparse.reserved_credit_count(), size_t(1), "and its credit alone");
 
-    // The counter is not inert: the ordinary path still reverts. This must be a
-    // batch that survives the capacity preflight and runs out INSIDE the loop --
-    // the preflight refuses an impossible count before anything is allocated, so
-    // it never reaches rollback. uint64_t is what skips it: the preflight is
-    // compiled out when the domain is not representable as size_t.
+    // Also confirm the preflight refuses domain exhaustion without rolling back.
+    CountingRevertPolicy<uint16_t>::reverts = 0;
+    auto doomed = sparse.generate_batch(12); // only 9 are free
+    FATP_ASSERT_TRUE(!doomed.has_value() && doomed.error() == IdError::Overflow,
+                     "an infeasible count is refused up front");
+    FATP_ASSERT_EQ(CountingRevertPolicy<uint16_t>::reverts, size_t(0), "still no revert");
+
+    // The counter is not inert: the ordinary path still reverts. This needs an
+    // allocation policy that runs out while the CONFIGURED DOMAIN says otherwise,
+    // because a domain that can be counted is now always caught by the preflight.
     using PlainGen = IdGenerator<uint64_t,
                                  CountingRevertPolicy<uint64_t>,
                                  ImmediateRecyclingPolicy<uint64_t>,
                                  id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
                                  SingleThreadedPolicy>;
 
-    PlainGen plain(std::numeric_limits<uint64_t>::max() - 3);
+    PlainGen plain(0); // full-width domain: the preflight cannot bound it
     CountingRevertPolicy<uint64_t>::reverts = 0;
-    auto over = plain.generate_batch(10); // only four identifiers remain
+    CountingRevertPolicy<uint64_t>::issue_cap = 4; // but the allocator stops at four
+    auto over = plain.generate_batch(10);
+    CountingRevertPolicy<uint64_t>::issue_cap = 0;
+
     FATP_ASSERT_TRUE(!over.has_value() && over.error() == IdError::Overflow,
-                     "an ordinary batch that runs out mid-loop");
+                     "an ordinary batch whose ALLOCATOR runs out mid-loop");
     FATP_ASSERT_TRUE(CountingRevertPolicy<uint64_t>::reverts > size_t(0),
-                     "does revert -- so the zero above is a measurement, not a dead counter");
+                     "does revert -- so the zeros above are measurements, not a dead counter");
+    FATP_ASSERT_EQ(plain.active_count(), size_t(0), "and the batch rolled fully back");
     return true;
 }
+
+#if FATP_USE_SHARED_MUTEX
+// Constraint 8 requires claim() to take the generator's EXCLUSIVE lock, and the
+// sparse policy has strictly more shared mutable state than any other -- an
+// ordered map plus a credit list -- so an unsynchronised claim tears container
+// internals rather than racing a counter. Deleting the lock passed the whole
+// suite, because the one test naming ThreadSafeSparseIdGenerator ran entirely on
+// the calling thread.
+//
+// UniqueRWLockPolicy rather than MutexSynchronizationPolicy: the latter's
+// lock_shared() is an alias for its exclusive LockGuard over the same
+// std::mutex, so swapping lock() for lock_shared() would be a no-op there. This
+// is the only shipped policy whose shared lock is a real std::shared_lock, and
+// it is the instantiation required test 23 asked for.
+FATP_TEST_CASE(sparse_claims_are_serialized_under_contention)
+{
+    using RWSparse = IdGenerator<uint32_t,
+                                 SequentialAllocationPolicy<uint32_t>,
+                                 SparseRecyclingPolicy<uint32_t>,
+                                 id_generator::ExpectedErrorPolicy<uint32_t, IdError>,
+                                 UniqueRWLockPolicy>;
+
+    static_assert(std::is_move_constructible_v<RWSparse>,
+                  "UniqueRWLockPolicy holds its mutex in a unique_ptr and declares moves");
+    static_assert(std::is_move_assignable_v<RWSparse>, "same");
+
+    constexpr uint32_t kWriters = 4;
+    constexpr uint32_t kIds = 40000;
+
+    RWSparse gen(0, kIds - 1);
+
+    std::atomic<size_t> claim_failures{0};
+    std::atomic<size_t> read_failures{0};
+    std::atomic<bool> done{false};
+
+    std::vector<std::thread> threads;
+    threads.reserve(kWriters + 2);
+
+    // Interleaved stripes, so every claim contends on a node a neighbour is
+    // splitting rather than on a disjoint region of the map.
+    for (uint32_t t = 0; t < kWriters; ++t)
+    {
+        threads.emplace_back(
+            [&gen, &claim_failures, t]()
+            {
+                for (uint32_t id = t; id < kIds; id += kWriters)
+                {
+                    if (!gen.claim(id).has_value())
+                    {
+                        claim_failures.fetch_add(1, std::memory_order_relaxed);
+                    }
+                }
+            });
+    }
+
+    // Readers hold the SHARED lock concurrently with the writers. They assert
+    // only monotone bounds: sparse_invariants_hold composes three separately
+    // locked reads and can legitimately observe C != A mid-flight on correct
+    // code, so using it here would be a false failure, not a real one.
+    for (int r = 0; r < 2; ++r)
+    {
+        threads.emplace_back(
+            [&gen, &read_failures, &done]()
+            {
+                while (!done.load(std::memory_order_relaxed))
+                {
+                    const size_t active = gen.active_count();
+                    const size_t free_ids = gen.recycled_count();
+                    const size_t credits = gen.reserved_credit_count();
+                    const size_t intervals = gen.free_interval_count();
+                    if (active > kIds || free_ids > kIds || credits > kIds || intervals > kIds)
+                    {
+                        read_failures.fetch_add(1, std::memory_order_relaxed);
+                    }
+                }
+            });
+    }
+
+    for (uint32_t t = 0; t < kWriters; ++t)
+    {
+        threads[t].join();
+    }
+    done.store(true, std::memory_order_relaxed);
+    for (size_t i = kWriters; i < threads.size(); ++i)
+    {
+        threads[i].join();
+    }
+
+    FATP_ASSERT_EQ(claim_failures.load(), size_t(0), "every claim in a disjoint set succeeded");
+    FATP_ASSERT_EQ(read_failures.load(), size_t(0), "and no reader saw an impossible value");
+
+    // Quiesced: now the exact composite state is meaningful.
+    FATP_ASSERT_EQ(gen.active_count(), size_t(kIds), "every identifier is claimed");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "nothing is free");
+    FATP_ASSERT_EQ(gen.free_interval_count(), size_t(0), "which IS exhaustion");
+    FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(kIds), "one credit per active identifier");
+
+    auto over = gen.generate();
+    FATP_ASSERT_TRUE(!over.has_value() && over.error() == IdError::Overflow, "and it refuses");
+
+    for (uint32_t id = 0; id < kIds; ++id)
+    {
+        FATP_ASSERT_TRUE(gen.release(id).has_value(), "release everything");
+    }
+    FATP_ASSERT_EQ(gen.free_interval_count(), size_t(1),
+                   "and the domain merges back to exactly one interval");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(kIds), "holding every identifier");
+    FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(0), "with every credit consumed");
+    return true;
+}
+#endif // FATP_USE_SHARED_MUTEX
 
 // A guard's destructor calls release(), which for this policy merges intervals.
 // Neither the destructor nor move-assignment may terminate.
@@ -2669,6 +3110,189 @@ FATP_TEST_CASE(sparse_pairing_and_construction_are_compile_time_properties)
     return true;
 }
 
+// claim_at()'s fourth arm: the claimed identifier IS the whole interval, so the
+// entry is ERASED rather than trimmed. Every other claim in this file front-trims,
+// back-rekeys or splits. Regressing this arm to a front trim leaves an INVERTED
+// entry (key k, mapped k+1), after which peek_lowest() hands generate() an
+// identifier that is already active -- and every count still looks plausible.
+FATP_TEST_CASE(sparse_claiming_a_singleton_interval_erases_it)
+{
+    // (a) A one-value free interval inside a larger domain.
+    {
+        SparseIdGenerator<uint16_t> gen(0, 9);
+        for (uint16_t id : std::array<uint16_t, 3>{3, 4, 5})
+        {
+            FATP_ASSERT_TRUE(gen.claim(id).has_value(), "claim");
+        }
+        FATP_ASSERT_TRUE(gen.release(4).has_value(), "release the middle -> singleton [4,4]");
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(3), "[0,2] [4,4] [6,9]");
+
+        FATP_ASSERT_TRUE(gen.claim(4).has_value(), "reclaim the singleton");
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(2),
+                       "the entry is ERASED -- a front trim leaves an inverted [4,5]");
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(7), "3 + 4 free");
+        FATP_ASSERT_TRUE(sparse_invariants_hold(gen, 10), "invariants");
+
+        // Drain the bottom interval, then prove issuance skips the active run.
+        for (uint16_t expected : std::array<uint16_t, 3>{0, 1, 2})
+        {
+            auto got = gen.generate();
+            FATP_ASSERT_TRUE(got.has_value() && *got == expected, "issues 0, 1, 2");
+        }
+        auto next = gen.generate();
+        FATP_ASSERT_TRUE(next.has_value() && *next == uint16_t(6),
+                         "then 6 -- never an identifier that is already active");
+    }
+
+    // (b) The single-value domain the note declares well-formed.
+    {
+        SparseIdGenerator<uint16_t> one(7, 7);
+        FATP_ASSERT_EQ(one.recycled_count(), size_t(1), "one claimable identifier");
+        FATP_ASSERT_EQ(one.free_interval_count(), size_t(1), "held as one interval");
+
+        FATP_ASSERT_TRUE(one.claim(7).has_value(), "and it is claimable");
+        FATP_ASSERT_EQ(one.free_interval_count(), size_t(0), "after which the map is empty");
+        FATP_ASSERT_EQ(one.recycled_count(), size_t(0), "which IS exhaustion");
+        FATP_ASSERT_EQ(one.reserved_credit_count(), size_t(1), "one credit for one active id");
+
+        auto over = one.generate();
+        FATP_ASSERT_TRUE(!over.has_value() && over.error() == IdError::Overflow, "exhausted");
+        auto again = one.claim(7);
+        FATP_ASSERT_TRUE(!again.has_value() && again.error() == IdError::AlreadyInUse, "duplicate");
+
+        FATP_ASSERT_TRUE(one.release(7).has_value(), "release rebuilds the singleton");
+        FATP_ASSERT_EQ(one.free_interval_count(), size_t(1), "[7,7] again");
+        FATP_ASSERT_EQ(one.reserved_credit_count(), size_t(0), "credit consumed");
+
+        FATP_ASSERT_TRUE(one.claim(7).has_value(), "claim again, then reset FROM EXHAUSTION");
+        one.reset();
+        FATP_ASSERT_EQ(one.free_interval_count(), size_t(1), "rebuilt from the credit");
+        auto issued = one.generate();
+        FATP_ASSERT_TRUE(issued.has_value() && *issued == uint16_t(7), "and 7 issues again");
+    }
+    return true;
+}
+
+// add_recycled()'s `id > mBase` guard is load-bearing in exactly ONE shape:
+// base 0 AND a ceiling at the ID type's maximum. Only then does the wrapped
+// `id - 1` land on a LIVE key -- the tail interval's -- so `left` and `right`
+// resolve to the same entry, the merge-both arm self-assigns and then erases it,
+// and the entire domain disappears. Every other sparse test releases inside a
+// narrowed domain where the wrapped lookup harmlessly misses.
+FATP_TEST_CASE(sparse_release_at_the_base_of_a_full_width_domain)
+{
+    // (a) The merge-back case: one interval, release the base.
+    {
+        SparseIdGenerator<uint8_t> gen;
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(256), "the full 0..255");
+
+        auto first = gen.generate();
+        FATP_ASSERT_TRUE(first.has_value() && *first == uint8_t(0), "issues 0");
+
+        FATP_ASSERT_TRUE(gen.release(0).has_value(), "release the base");
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(1),
+                       "one interval -- an unguarded id-1 wraps onto the tail key and erases it");
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(256), "the whole domain is free again");
+        FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(0), "credit consumed");
+
+        auto again = gen.generate();
+        FATP_ASSERT_TRUE(again.has_value() && *again == uint8_t(0), "and 0 issues again");
+    }
+
+    // (b) The extend-left case, with the domain fragmented so the wrapped
+    //     lookup would rekey a different entry rather than merge with itself.
+    {
+        SparseIdGenerator<uint16_t> frag;
+        for (int i = 0; i < 3; ++i)
+        {
+            FATP_ASSERT_TRUE(frag.generate().has_value(), "issue 0, 1, 2");
+        }
+        FATP_ASSERT_TRUE(frag.claim(100).has_value(), "and claim 100");
+        FATP_ASSERT_EQ(frag.free_interval_count(), size_t(2), "[3,99] and [101,65535]");
+
+        FATP_ASSERT_TRUE(frag.release(0).has_value(), "release the base");
+        FATP_ASSERT_EQ(frag.free_interval_count(), size_t(3), "a singleton [0,0] appears");
+        FATP_ASSERT_EQ(frag.recycled_count(), size_t(65533), "65536 - 3 active");
+        FATP_ASSERT_TRUE(sparse_invariants_hold(frag, 65536), "invariants");
+    }
+    return true;
+}
+
+// release_batch() is a SEPARATE copy of release()'s erase-first ordering, and no
+// test called it on a sparse generator at all. Invariant 3 constrains its
+// mid-vector InvalidRelease return as much as its success return: hoisting
+// add_recycled above the erase hands a never-active identifier to a policy that
+// then calls take_credit() with no credit to take.
+FATP_TEST_CASE(sparse_release_batch_keeps_the_existence_proof_first)
+{
+    // (a) A whole batch out and back.
+    {
+        SparseIdGenerator<uint16_t> gen(0, 9);
+        auto batch = gen.generate_batch(4);
+        FATP_ASSERT_TRUE(batch.has_value(), "four identifiers");
+        FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(4), "one credit each");
+
+        FATP_ASSERT_TRUE(gen.release_batch(*batch).has_value(), "released as a batch");
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(1),
+                       "merged back to ONE interval, not four fragments");
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(10), "the whole domain");
+        FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(0), "every credit consumed");
+    }
+
+    // (b) A refused element mid-vector must insert nothing and consume nothing.
+    {
+        SparseIdGenerator<uint16_t> gen(0, 9);
+        FATP_ASSERT_TRUE(gen.claim(2).has_value() && gen.claim(5).has_value(), "two claims");
+
+        std::vector<uint16_t> ids{2, 4, 5}; // 4 was never active
+        auto result = gen.release_batch(ids);
+        FATP_ASSERT_TRUE(!result.has_value() && result.error() == IdError::InvalidRelease,
+                         "the batch stops at the first non-active identifier");
+
+        FATP_ASSERT_TRUE(!gen.is_active(2), "2 was released before the refusal");
+        FATP_ASSERT_TRUE(gen.is_active(5), "5 was never reached");
+        FATP_ASSERT_TRUE(!gen.is_active(4), "and 4 never became active");
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(9), "exactly one identifier came back");
+        FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(1), "one credit left, for 5");
+        FATP_ASSERT_TRUE(sparse_invariants_hold(gen, 10), "the refusal balanced");
+    }
+    return true;
+}
+
+// generate() constructs the caller's id_type BEFORE it mutates anything. Moving
+// that construction last permanently strands an identifier: active, out of the
+// free set, holding a credit, never handed to the caller -- and unrecoverable,
+// because exhaustion is an empty map.
+FATP_TEST_CASE(sparse_generate_constructs_the_id_type_before_mutating)
+{
+    ThrowingGenerator gen(0, 9);
+
+    ThrowingId::constructed = 0;
+    ThrowingId::throw_at = 0;
+
+    bool threw = false;
+    try
+    {
+        (void)gen.generate();
+    }
+    catch (const std::runtime_error&)
+    {
+        threw = true;
+    }
+    ThrowingId::throw_at = -1; // shared with the batch test
+
+    FATP_ASSERT_TRUE(threw, "the constructor's exception reaches the caller");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "nothing became active");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(10), "nothing left the free set");
+    FATP_ASSERT_EQ(gen.free_interval_count(), size_t(1), "the domain is untouched");
+    FATP_ASSERT_EQ(gen.reserved_credit_count(), size_t(0), "and no credit was stranded");
+
+    auto after = gen.generate();
+    FATP_ASSERT_TRUE(after.has_value() && after->get() == uint16_t(0),
+                     "the identifier it was about to strand is still issuable");
+    return true;
+}
+
 // The reserved sentinel, across all three ways a domain can reach the top.
 FATP_TEST_CASE(sparse_sentinel_normalization_covers_every_request)
 {
@@ -2713,6 +3337,241 @@ FATP_TEST_CASE(sparse_sentinel_normalization_covers_every_request)
         FATP_ASSERT_TRUE(gen.claim(255).has_value(),
                          "255 is claimable when the ID type reserves nothing");
     }
+
+    // A base ABOVE the normalized ceiling is a precondition violation, and the
+    // release build is where it bites: this policy is the only guard against
+    // issuing the sentinel, because the full-domain path has no late generate()
+    // check to fall back on. An inverted interval used to hand 255 straight out.
+    {
+        SparseIdGenerator<Id> gen(255); // ceiling normalizes to 254, below the base
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "an empty domain, not an inverted one");
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(0), "which reads as exhausted");
+
+        auto over = gen.generate();
+        FATP_ASSERT_TRUE(!over.has_value() && over.error() == IdError::Overflow,
+                         "so it refuses, exactly as the non-sparse path does");
+
+        SimpleIdGenerator<Id> control(255);
+        auto c = control.generate();
+        FATP_ASSERT_TRUE(!c.has_value() && c.error() == IdError::Overflow,
+                         "which is the control this now matches");
+    }
+    return true;
+}
+
+// The batch capacity preflight tests the CONFIGURED DOMAIN's width, not the ID
+// type's. Gating it on sizeof(underlying_type) compiled it out for every 64-bit
+// generator -- including a sparse one whose domain holds ten identifiers -- so
+// an infeasible count reached result.reserve() and threw the exact exception the
+// guard exists to prevent. That is the first consumer's shape: size_t-wide
+// indices with a depth-derived ceiling.
+FATP_TEST_CASE(sparse_batch_preflight_uses_the_configured_domain)
+{
+    SparseIdGenerator<uint64_t> wide(0, 9);
+
+    // Catch rather than let it escape: without the fix this throws
+    // std::length_error, and an uncaught throw aborts the runner instead of
+    // reporting a named failure -- which is a kill, but an illegible one.
+    bool threw = false;
+    bool was_refused = false;
+    try
+    {
+        auto absurd = wide.generate_batch(std::numeric_limits<size_t>::max());
+        was_refused = !absurd.has_value() && absurd.error() == IdError::Overflow;
+    }
+    catch (...)
+    {
+        threw = true;
+    }
+    FATP_ASSERT_TRUE(!threw,
+                     "an infeasible count is REFUSED, never thrown out of an Expected API");
+    FATP_ASSERT_TRUE(was_refused, "and refused as Overflow");
+    FATP_ASSERT_EQ(wide.recycled_count(), size_t(10), "with nothing consumed");
+    FATP_ASSERT_EQ(wide.active_count(), size_t(0), "nor activated");
+
+    auto over_by_one = wide.generate_batch(11);
+    FATP_ASSERT_TRUE(!over_by_one.has_value() && over_by_one.error() == IdError::Overflow,
+                     "the check is exact at the boundary");
+
+    auto exact = wide.generate_batch(10);
+    FATP_ASSERT_TRUE(exact.has_value() && exact->size() == size_t(10),
+                     "and a count the domain can exactly satisfy still succeeds");
+
+    // The same reasoning with the ceiling supplied by a bounded ALLOCATION
+    // policy on a 64-bit type, where the guard was equally absent.
+    IdGenerator<uint64_t, BoundedSequentialAllocationPolicy<uint64_t>> bounded(0, 4);
+    auto refused = bounded.generate_batch(std::numeric_limits<size_t>::max());
+    FATP_ASSERT_TRUE(!refused.has_value() && refused.error() == IdError::Overflow,
+                     "bounded allocation is preflighted too");
+    return true;
+}
+
+// A moved-from policy must be CONSISTENT, not merely empty. The implicit move
+// gets this wrong invisibly: the containers move out and are left empty, but
+// mCreditCount is a scalar and is COPIED -- so the source reports credits it
+// does not hold, and configure_domain()'s reuse arm keys off exactly that count
+// and calls take_credit() on an empty list.
+FATP_TEST_CASE(sparse_moved_from_policy_reports_no_credits)
+{
+    using MovableSparse = IdGenerator<uint64_t,
+                                      SequentialAllocationPolicy<uint64_t>,
+                                      SparseRecyclingPolicy<uint64_t>,
+                                      id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
+                                      MovableSingleThreadedPolicy>;
+
+    MovableSparse a(0, 9);
+    FATP_ASSERT_TRUE(a.claim(4).has_value(), "one claim, so one credit is held");
+    FATP_ASSERT_EQ(a.reserved_credit_count(), size_t(1), "held before the move");
+
+    MovableSparse b = std::move(a);
+
+    FATP_ASSERT_EQ(b.active_count(), size_t(1), "the state travelled");
+    FATP_ASSERT_EQ(b.reserved_credit_count(), size_t(1), "credits included");
+    FATP_ASSERT_EQ(b.recycled_count(), size_t(9), "and the free set");
+
+    // MovableSingleThreadedPolicy's locks are no-ops, so unlike the
+    // UniqueRWLockPolicy case there is no null mutex making this UB.
+    FATP_ASSERT_EQ(a.reserved_credit_count(), size_t(0),
+                   "the SOURCE reports no credits, matching its emptied stack");
+    FATP_ASSERT_EQ(a.active_count(), size_t(0), "and no actives");
+
+    // The rebuild on a moved-from source must take the allocating arm -- which
+    // is the entire stated basis for reset() being conditionally noexcept.
+    a.reset();
+    FATP_ASSERT_EQ(a.free_interval_count(), size_t(1), "reset rebuilt the domain");
+    FATP_ASSERT_EQ(a.recycled_count(), size_t(10), "as the whole of [0, 9]");
+    auto issued = a.generate();
+    FATP_ASSERT_TRUE(issued.has_value() && *issued == uint64_t(0), "and it issues again");
+    return true;
+}
+
+// The credit mechanism's PURPOSE, measured. Every other oracle in this file is a
+// count, and no count can tell a node taken from the credit stack from one
+// freshly allocated: both decrement the count and leave identical structure.
+FATP_TEST_CASE(sparse_return_paths_allocate_nothing)
+{
+    SparseIdGenerator<uint16_t> gen(0, 63);
+
+    // The counter is live: activation DOES allocate, one credit per identifier.
+    std::vector<uint16_t> held;
+    held.reserve(16);
+    size_t activation_cost = 0;
+    {
+        allocprobe::Window w;
+        for (int i = 0; i < 16; ++i)
+        {
+            auto id = gen.generate();
+            if (id.has_value())
+            {
+                held.push_back(*id);
+            }
+        }
+        activation_cost = w.count();
+    }
+    FATP_ASSERT_EQ(held.size(), size_t(16), "sixteen identifiers");
+    FATP_ASSERT_TRUE(activation_cost > 0,
+                     "activation allocates -- so a zero below is a measurement, not a dead probe");
+
+    // Release: allocation-free, every transition.
+    {
+        allocprobe::Window w;
+        for (uint16_t id : held)
+        {
+            (void)gen.release(id);
+        }
+        FATP_ASSERT_EQ(w.count(), size_t(0), "release() allocates NOTHING");
+    }
+    FATP_ASSERT_EQ(gen.free_interval_count(), size_t(1), "and canonicalizes");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(64), "back to the whole domain");
+
+    // release_batch: same promise, separate code path.
+    {
+        auto batch = gen.generate_batch(8);
+        FATP_ASSERT_TRUE(batch.has_value(), "a batch to give back");
+        allocprobe::Window w;
+        (void)gen.release_batch(*batch);
+        FATP_ASSERT_EQ(w.count(), size_t(0), "release_batch() allocates NOTHING");
+    }
+
+    // reset() on a fragmented domain: reuses a node from the map.
+    {
+        FATP_ASSERT_TRUE(gen.claim(10).has_value() && gen.claim(20).has_value(), "fragment it");
+        allocprobe::Window w;
+        gen.reset();
+        FATP_ASSERT_EQ(w.count(), size_t(0), "reset() reuses an owned node");
+    }
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(64), "rebuilt");
+
+    // reset() from EXHAUSTION: no map node left, so it must spend a credit.
+    {
+        SparseIdGenerator<uint8_t> small(0, 3);
+        for (int i = 0; i < 4; ++i)
+        {
+            (void)small.generate();
+        }
+        FATP_ASSERT_EQ(small.free_interval_count(), size_t(0), "no node to reuse");
+        FATP_ASSERT_EQ(small.reserved_credit_count(), size_t(4), "but credits are held");
+
+        allocprobe::Window w;
+        small.reset();
+        FATP_ASSERT_EQ(w.count(), size_t(0),
+                       "the exhausted rebuild spends a credit rather than allocating");
+        FATP_ASSERT_EQ(small.recycled_count(), size_t(4), "and the domain is whole");
+    }
+    return true;
+}
+
+// reserve_claim_credits()'s unwind: an interior claim reserves TWO nodes, and if
+// the second fails the first must be released. FlakySparsePolicy cannot see this
+// -- it throws before delegating -- so only a failure injected at the allocator
+// reaches the partial state.
+FATP_TEST_CASE(sparse_split_reservation_unwinds_its_first_credit)
+{
+    // Drive the policy directly: the whole reservation surface is public.
+    SparseRecyclingPolicy<uint16_t> policy;
+    policy.configure_domain(0, 9);
+
+    // How many allocations does one interior reservation perform? Do not
+    // hard-code it -- it is two credits here, but measuring keeps the test
+    // honest if the node source ever changes.
+    size_t cost = 0;
+    {
+        allocprobe::Window w;
+        const std::size_t reserved = policy.reserve_claim_credits(5);
+        cost = w.count();
+        FATP_ASSERT_EQ(reserved, size_t(2), "an interior claim reserves two nodes");
+    }
+    FATP_ASSERT_TRUE(cost >= 2, "each credit is a real allocation");
+    for (std::size_t i = 0; i < 2; ++i)
+    {
+        policy.discard_credit();
+    }
+    FATP_ASSERT_EQ(policy.credit_count(), size_t(0), "baseline restored");
+
+    // Now fail each allocation of that reservation in turn. Every one must
+    // leave the policy exactly as it was found.
+    for (size_t fail_index = 0; fail_index < cost; ++fail_index)
+    {
+        bool threw = false;
+        try
+        {
+            allocprobe::Window w(static_cast<long long>(fail_index));
+            (void)policy.reserve_claim_credits(5);
+        }
+        catch (const std::bad_alloc&)
+        {
+            threw = true;
+        }
+
+        FATP_ASSERT_TRUE(threw, "the injected failure propagates");
+        FATP_ASSERT_EQ(policy.credit_count(), size_t(0),
+                       "no credit survives the unwind -- a bare rethrow leaks the first one");
+        FATP_ASSERT_EQ(policy.interval_count(), size_t(1), "and no interval was disturbed");
+        FATP_ASSERT_EQ(policy.recycled_count(), size_t(10), "nor any identifier consumed");
+    }
+
+    // And the reservation still works afterwards.
+    FATP_ASSERT_EQ(policy.reserve_claim_credits(5), size_t(2), "usable after every failure");
     return true;
 }
 
@@ -2827,6 +3686,17 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_credit_failure_leaves_the_free_set_untouched);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_unwinds_a_throwing_id_constructor);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_claim_credit_failure_changes_nothing);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_claiming_a_singleton_interval_erases_it);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_release_at_the_base_of_a_full_width_domain);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_release_batch_keeps_the_existence_proof_first);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_generate_constructs_the_id_type_before_mutating);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_preflight_uses_the_configured_domain);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_moved_from_policy_reports_no_credits);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_return_paths_allocate_nothing);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_split_reservation_unwinds_its_first_credit);
+#if FATP_USE_SHARED_MUTEX
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_claims_are_serialized_under_contention);
+#endif
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_claim_cost_is_independent_of_the_gap);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_rollback_does_not_revert_the_allocation_policy);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_guards_release_through_the_interval_set);
