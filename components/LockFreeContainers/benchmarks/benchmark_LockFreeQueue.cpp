@@ -126,11 +126,16 @@ FATP_META:
 // Rationale: Boost is widely deployed reference point
 #if __has_include(<boost/lockfree/queue.hpp>)
 #include <boost/lockfree/queue.hpp>
-#include "FatPBenchmarkHeader.h"
 #define HAS_BOOST_LOCKFREE 1
 #else
 #define HAS_BOOST_LOCKFREE 0
 #endif
+
+// Unconditional: fat_p::bench::HeaderConfig and print_standard_header are used
+// by the standardized header block below regardless of which competitor
+// libraries are present. This include sat inside the Boost guard above, so the
+// file could not compile at all without Boost installed.
+#include "FatPBenchmarkHeader.h"
 
 // ============================================================================
 // Benchmark Configuration (Canonical Environment Variables)
