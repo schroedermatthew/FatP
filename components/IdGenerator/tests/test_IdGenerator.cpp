@@ -1513,6 +1513,84 @@ FATP_TEST_CASE(strong_id_never_issues_the_invalid_sentinel)
     return true;
 }
 
+// Refusing the reserved sentinel must not be mistaken for exhaustion under a
+// COLLIDING policy: a random draw can land on it at any time, with the space
+// nearly empty. A sequential policy reaches it only at the domain's end, where
+// Overflow is correct.
+FATP_TEST_CASE(random_retries_the_sentinel_instead_of_reporting_overflow)
+{
+    using Tag = StrongId<uint8_t, struct RandomSentinelTag>;
+    using RandomTag = IdGenerator<Tag,
+                                  RandomAllocationPolicy<uint8_t>,
+                                  NoRecyclingPolicy<uint8_t>>;
+    RandomTag gen;
+
+    // 255 is reserved, so 0..254 are issuable. Draw well past the point where
+    // an unlucky sentinel draw is near-certain: an immediate Overflow on that
+    // draw would stop us far short while the space was still mostly free.
+    size_t issued = 0;
+    for (int i = 0; i < 200; ++i)
+    {
+        auto r = gen.generate();
+        if (!r.has_value())
+        {
+            break;
+        }
+        FATP_ASSERT_TRUE(r->isValid(), "never the sentinel");
+        ++issued;
+    }
+
+    FATP_ASSERT_TRUE(issued >= 150,
+                     "a sentinel draw must be retried like any other collision; "
+                     "treating it as exhaustion stops generation with the space free");
+    return true;
+}
+
+// The bounded policy parks its counter at the bound exactly as the unbounded one
+// parks at the type maximum, so it needs the same revert correction.
+FATP_TEST_CASE(bounded_revert_does_not_over_rewind_at_the_bound)
+{
+    using Bounded = IdGenerator<uint16_t,
+                                BoundedSequentialAllocationPolicy<uint16_t>,
+                                NoRecyclingPolicy<uint16_t>>;
+    // The bound is a construction-time property of the policy, which the
+    // generator cannot forward; exercise the policy directly.
+    BoundedSequentialAllocationPolicy<uint16_t> policy(0, 4);
+
+    std::vector<uint16_t> issued;
+    bool first = true;
+    uint16_t last = 0;
+    while (true)
+    {
+        auto id = policy.next_id(last, first);
+        if (!id.has_value())
+        {
+            break;
+        }
+        issued.push_back(*id);
+        last = *id;
+        first = false;
+    }
+    FATP_ASSERT_EQ(issued.size(), size_t(5), "0..4 are issuable");
+    FATP_ASSERT_EQ(issued.back(), uint16_t(4), "the last is the bound itself");
+
+    // Revert only the last TWO (4 and 3). Issuing 4 parked the counter without
+    // advancing it, so the counter must come back by one, to 3 -- not by two,
+    // which would re-open 2, an ID that was never reverted.
+    //
+    // The check must run with first_call = true (an emptied active set), because
+    // otherwise next_id's max(mNextId, max_id + 1) term masks the counter's
+    // value and both the correct and incorrect states answer alike.
+    policy.revert(2);
+    auto again = policy.next_id(0, true);
+    FATP_ASSERT_TRUE(again.has_value(), "reverting reopens the range");
+    FATP_ASSERT_EQ(*again, uint16_t(3),
+                   "resumes at 3; rewinding one too far re-issues 2, which was never reverted");
+
+    (void)sizeof(Bounded);
+    return true;
+}
+
 // StrongId coverage previously stopped at generate()/release(). The batch,
 // guard, and query paths carry their own conversions.
 FATP_TEST_CASE(strong_id_batch_guard_and_queries)
@@ -1659,6 +1737,8 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, reset_invalidates_outstanding_guards);
     FATP_RUN_TEST_NS(runner, idgenerator, guard_move_assignment_releases_the_dropped_id);
     FATP_RUN_TEST_NS(runner, idgenerator, strong_id_never_issues_the_invalid_sentinel);
+    FATP_RUN_TEST_NS(runner, idgenerator, random_retries_the_sentinel_instead_of_reporting_overflow);
+    FATP_RUN_TEST_NS(runner, idgenerator, bounded_revert_does_not_over_rewind_at_the_bound);
     FATP_RUN_TEST_NS(runner, idgenerator, strong_id_batch_guard_and_queries);
     FATP_RUN_TEST_NS(runner, idgenerator, movability_matches_the_concurrency_policy);
 

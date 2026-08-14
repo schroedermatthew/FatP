@@ -522,6 +522,11 @@ public:
         if (candidate == mMaxBound)
         {
             mNextId = candidate; // Stay at max
+            // Parking means this issue advanced the counter by ZERO. revert()
+            // must know, or it rewinds one too far and re-issues an ID this
+            // policy already handed out -- the same defect the unbounded
+            // sequential policy carried at its own saturation point.
+            mSaturated = true;
         }
         else
         {
@@ -535,6 +540,7 @@ public:
     {
         mBaseId = base_id;
         mNextId = base_id;
+        mSaturated = false;
         // Note: mMaxBound is not reset - it's a construction-time constraint
     }
 
@@ -545,6 +551,18 @@ public:
         if (count == 0)
         {
             return;
+        }
+
+        // The last issue parked at the bound and advanced nothing; rewind by
+        // one less to match.
+        if (mSaturated)
+        {
+            mSaturated = false;
+            --count;
+            if (count == 0)
+            {
+                return;
+            }
         }
 
         // Protect against underflow
@@ -564,6 +582,7 @@ private:
     IdType mBaseId;
     IdType mNextId;
     IdType mMaxBound;
+    bool mSaturated = false; // Last issue parked at mMaxBound (see revert)
 };
 
 // =============================================================================
@@ -908,11 +927,25 @@ public:
             // that is numeric_limits<underlying>::max(), so a generator whose
             // domain reaches the top would otherwise hand back a value that
             // isValid() reports as invalid.
+            //
+            // What the refusal MEANS depends on the allocation policy. A
+            // sequential policy reaches the sentinel only at the end of its
+            // domain, so that is genuine exhaustion. A random policy can draw it
+            // at any time with the space nearly empty, where it is an ordinary
+            // collision: retry instead, or a single unlucky draw would report
+            // Overflow against a nearly empty generator.
             if constexpr (detail::has_invalid_sentinel_v<IdType_>)
             {
                 if (raw_id == std::numeric_limits<underlying_type>::max())
                 {
-                    return ErrorPolicy::report_error(IdError::Overflow);
+                    if constexpr (needs_retry)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        return ErrorPolicy::report_error(IdError::Overflow);
+                    }
                 }
             }
 
@@ -1073,14 +1106,22 @@ public:
 
                     underlying_type raw_id = *new_id_opt;
 
-                    // Same sentinel guard as generate(): the reserved "no ID"
-                    // value is never issued.
+                    // Same sentinel guard as generate(), including the same
+                    // policy distinction: a random draw landing on the sentinel
+                    // is a collision to retry, not exhaustion.
                     if constexpr (detail::has_invalid_sentinel_v<IdType_>)
                     {
                         if (raw_id == std::numeric_limits<underlying_type>::max())
                         {
-                            rollback_batch(result, from_pool);
-                            return make_unexpected(IdError::Overflow);
+                            if constexpr (needs_retry)
+                            {
+                                continue;
+                            }
+                            else
+                            {
+                                rollback_batch(result, from_pool);
+                                return make_unexpected(IdError::Overflow);
+                            }
                         }
                     }
 
