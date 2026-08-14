@@ -290,6 +290,18 @@ struct SingleThreadedPolicy
 {
     using PolicyTag = void;
 
+    // Copy is deleted like every policy here: a synchronization primitive must
+    // not be copied. Declaring it also SUPPRESSES the implicit move operations,
+    // so this policy is immovable, and so is every owner that inherits it --
+    // including an owner whose own `Owner(Owner&&) noexcept = default;` then
+    // resolves to a DELETED function rather than the grant it appears to be.
+    //
+    // That immovability is load-bearing and deliberate here. `IdGenerator`
+    // documents moving-with-live-guards as undefined behavior, and
+    // `SlidingFileWindow` hands out a reference into its own write-back buffer;
+    // for both, the deleted move is what makes the compiler enforce a
+    // precondition their documentation only states. See MovableSingleThreadedPolicy
+    // below for the opt-in variant.
     SingleThreadedPolicy() = default;
     SingleThreadedPolicy(const SingleThreadedPolicy&) = delete;
     SingleThreadedPolicy& operator=(const SingleThreadedPolicy&) = delete;
@@ -304,6 +316,110 @@ struct SingleThreadedPolicy
     // IMPORTANT:
     // Do not construct guards directly from getLock(). Always use lock() /
     // lock_shared() so SingleThreadedPolicy can remain a no-op.
+    struct LockGuard
+    {
+    };
+
+    using SharedGuard = LockGuard;
+    using WriteLock = LockGuard;
+    using ReadLock = LockGuard;
+
+    [[nodiscard]] LockGuard lock() noexcept
+    {
+        return {};
+    }
+    [[nodiscard]] SharedGuard lock_shared() const noexcept
+    {
+        return {};
+    }
+    [[nodiscard]] bool try_lock()
+    {
+        return true;
+    }
+    [[nodiscard]] bool try_lock_shared() const
+    {
+        return true;
+    }
+
+    NoOpLock& getLock() const
+    {
+        return mLock;
+    }
+
+    static NoOpLock& getStaticLock()
+    {
+        static NoOpLock mLock;
+        return mLock;
+    }
+
+    uint64_t get_contention() const
+    {
+        return 0;
+    }
+    void reset_contention()
+    {
+    }
+
+private:
+    mutable NoOpLock mLock{};
+};
+
+// =============================================================================
+// MovableSingleThreadedPolicy - SingleThreadedPolicy, but movable
+// =============================================================================
+//
+// Identical no-op synchronization to SingleThreadedPolicy, differing in exactly
+// one property: it declares its move operations, so it does not force
+// immovability on the owners that inherit it.
+//
+// WHICH ONE TO PICK
+//
+// Both are empty and cost nothing. The choice is about the OWNER, not about
+// synchronization:
+//
+//   SingleThreadedPolicy        - the owner must not be moved. Hands out
+//                                 references or pointers into itself, is
+//                                 registered by address, or documents moving as
+//                                 undefined behavior. The deleted move makes the
+//                                 compiler enforce that; the owner does not have
+//                                 to remember to.
+//
+//   MovableSingleThreadedPolicy - the owner is safe to relocate. Nothing points
+//                                 back into it and nothing external holds a
+//                                 reference to its interior.
+//
+// Choosing wrongly in the safe direction costs nothing but a compile error at
+// the first move. Choosing wrongly in the unsafe direction produces a dangling
+// interior reference that no test in this library would currently catch, so
+// SingleThreadedPolicy remains the default.
+//
+// This is a policy, not a mixin: an owner that wants immovability regardless of
+// its policy should say so itself with a deleted move, rather than depending on
+// a base to withhold one.
+
+struct MovableSingleThreadedPolicy
+{
+    using PolicyTag = void;
+
+    MovableSingleThreadedPolicy() = default;
+    MovableSingleThreadedPolicy(const MovableSingleThreadedPolicy&) = delete;
+    MovableSingleThreadedPolicy& operator=(const MovableSingleThreadedPolicy&) = delete;
+
+    // The only difference from SingleThreadedPolicy. Restoring these is always
+    // valid because the policy owns no resource -- moving it moves nothing.
+    MovableSingleThreadedPolicy(MovableSingleThreadedPolicy&&) noexcept = default;
+    MovableSingleThreadedPolicy& operator=(MovableSingleThreadedPolicy&&) noexcept = default;
+
+    struct NoOpLock
+    {
+    };
+
+    // Trivial, empty guard type -- a true zero-cost abstraction under
+    // optimization, exactly as in SingleThreadedPolicy.
+    //
+    // IMPORTANT:
+    // Do not construct guards directly from getLock(). Always use lock() /
+    // lock_shared() so this policy can remain a no-op.
     struct LockGuard
     {
     };
