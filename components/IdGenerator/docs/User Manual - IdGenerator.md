@@ -562,6 +562,67 @@ auto id3 = gen.generate();  // 3 (not 1)
 - Short-lived applications where exhaustion is impossible
 - Debugging (IDs indicate creation order)
 
+#### SparseRecyclingPolicy
+
+The three policies above hold only the IDs released back to them; the allocation policy decides
+what has never been issued. This one holds **both** — every ID in `[base, upper_bound]`, free or
+not, stored as disjoint inclusive intervals. That is what makes an ID claimable *by value*.
+
+```cpp
+fat_p::SparseIdGenerator<uint32_t> gen(0, 1'000'000);
+
+// Reserve a persisted ID directly. No walk, no fixed attempt ceiling, and the
+// cost does not depend on how far 999'999 is from anything already issued.
+auto ok = gen.claim(999'999);       // Expected<void, IdError>
+
+auto id1 = gen.generate();          // 0 -- nothing below the claim was consumed
+auto id2 = gen.generate();          // 1
+
+gen.claim(999'999);                 // IdError::AlreadyInUse  (it is active)
+gen.claim(1'000'001);               // IdError::InvalidClaim  (outside the domain)
+```
+
+**Use it when IDs arrive from outside** — loaded from a file, assigned by a peer, or recovered
+from a previous run — and must be reserved without first consuming everything below them.
+
+**Characteristics:**
+- `claim()` is O(log I) in the number of free *intervals*, never O(gap)
+- `generate()` returns the lowest free ID; `release()` merges adjacent intervals immediately
+- Activation allocates one node (two for a claim that splits an interval); `release()`,
+  batch rollback, and the ordinary `reset()` then allocate nothing
+- `reset()` is conditionally `noexcept` here, because it rebuilds the domain
+
+**Two things behave differently from the other policies:**
+
+1. **`recycled_count()` means something else.** For the other policies it is "released and not
+   yet reused", so zero means nothing is pending. Here it is the number of *free* IDs including
+   never-issued ones, so **zero means the domain is exhausted**. Generic code that reads the
+   count without knowing its policy will misread it.
+2. **Exhaustion is the configured ceiling**, not the ID type's maximum. The allocation policy is
+   not consulted on this path.
+
+**Configure the domain to what your consumer can actually represent:**
+
+```cpp
+// A consumer that can only encode 16 bits of index, in a 32-bit ID type.
+fat_p::SparseIdGenerator<uint32_t> gen(0, 0xFFFF);
+```
+
+Without a ceiling the generator would happily issue an ID the consumer cannot represent, and
+generator exhaustion would never coincide with the consumer's real exhaustion.
+
+For a `StrongId`-style type the reserved `invalid()` sentinel is excluded from the domain at
+construction, so it is never issued, never counted as free, and `claim()` of it returns
+`InvalidClaim`.
+
+> **Convenience Aliases:** `SparseIdGenerator<T>` and `ThreadSafeSparseIdGenerator<T>`. The
+> policy pairs only with sequential allocation — a `static_assert` rejects random allocation,
+> which has nothing to contribute when issuance comes from the free set.
+>
+> `claim()` exists **only** on a generator using this policy. `SimpleIdGenerator`,
+> `ThreadSafeIdGenerator`, `DenseIdGenerator` and `RandomIdGenerator` are unchanged: no claim
+> member, no ordering change, no new errors.
+
 ### Concurrency Policy
 
 **What:** Controls thread safety and synchronization overhead.
@@ -606,6 +667,8 @@ Pre-configured type aliases for common use cases:
 | `ThreadSafeIdGenerator<T>` | Sequential | FIFO | Mutex | Multi-threaded access |
 | `DenseIdGenerator<T>` | Sequential | Min-First | Single-threaded | HPC, cache-friendly |
 | `RandomIdGenerator<T>` | Random | None | Single-threaded | Unpredictable IDs |
+| `SparseIdGenerator<T>` | Sequential | Sparse (full domain) | Single-threaded | Claiming persisted IDs |
+| `ThreadSafeSparseIdGenerator<T>` | Sequential | Sparse (full domain) | Mutex | Claiming, multi-threaded |
 
 ```cpp
 // Simple sequential generator
@@ -619,7 +682,12 @@ fat_p::DenseIdGenerator<uint64_t> gen3(1);
 
 // Random ID generator
 fat_p::RandomIdGenerator<uint64_t> gen4;
+
+// Claim-by-value generator over an explicit domain
+fat_p::SparseIdGenerator<uint32_t> gen5(0, 1'000'000);
 ```
+
+Only the last two offer `claim()`. The first four are unaffected by it in every respect.
 
 ### Construction
 
@@ -738,6 +806,60 @@ if (id)
     }
 }
 ```
+
+### claim()
+
+```cpp
+Expected<void, IdError> claim(IdType_ id)   // SparseRecyclingPolicy only
+```
+
+Takes ownership of a specific ID by value. Available **only** on a generator whose recycling
+policy owns the whole domain — `SparseIdGenerator` and `ThreadSafeSparseIdGenerator`. On any
+other generator the member does not exist, so a misuse is a compile error rather than a runtime
+one.
+
+**Parameters:**
+- `id`: The ID to reserve. Must be inside `[base_id, upper_bound]` and not already active.
+
+**Returns:** `Expected<void, IdError>` indicating:
+- **Success:** the ID is now active and will not be issued by `generate()`
+- **Error:** `IdError::AlreadyInUse` — the ID is currently active
+- **Error:** `IdError::InvalidClaim` — the ID is outside the configured domain
+
+**Cost:** O(log I) in the number of free intervals. It does **not** depend on how far `id` is
+from any ID already issued, which is the whole reason the policy exists.
+
+**Exception safety:** every allocating step runs before every mutating step, so a failed
+allocation leaves the generator exactly as it was found. A refused claim allocates nothing.
+
+**Example:**
+```cpp
+fat_p::SparseIdGenerator<uint32_t> gen(0, 1'000'000);
+
+// Reinstate IDs recovered from a previous run, in any order.
+for (uint32_t persisted : loaded_ids)
+{
+    auto result = gen.claim(persisted);
+    if (!result)
+    {
+        if (result.error() == fat_p::IdError::InvalidClaim)
+        {
+            // Out of domain: the record is corrupt or was written by a
+            // generator with a different base or ceiling. Surface it.
+        }
+        else
+        {
+            // AlreadyInUse: a duplicate in the persisted data.
+        }
+    }
+}
+
+// Fresh IDs still come from the bottom of whatever is left.
+auto next = gen.generate();
+```
+
+A refused claim is data to report, not a reason to abort: nothing has been mutated, and the
+generator is fully usable afterwards.
 
 ### generate_batch()
 
@@ -1006,9 +1128,18 @@ enum class IdError
 {
     Overflow,        // ID space exhausted
     InvalidRelease,  // Attempted to release non-active ID
-    AlreadyInUse     // Generated ID already active (random collision)
+    AlreadyInUse,    // Generated ID already active (random collision), or
+                     // claim() named an ID that is currently active
+    InvalidClaim     // claim() named an ID outside the configured domain
+                     // (SparseRecyclingPolicy only)
 };
 ```
+
+`AlreadyInUse` and `InvalidClaim` answer different questions, which matters when a `claim()`
+comes from persisted data: `AlreadyInUse` means the ID is real but taken, `InvalidClaim` means
+the ID could not have been issued by this generator at all — below `base`, above `upper_bound`,
+or the ID type's reserved sentinel. The first is a conflict; the second is corrupt or
+mis-scoped input.
 
 ### Handling Errors
 

@@ -34,27 +34,36 @@ FATP_META:
  *
  * @details Provides a flexible ID generation system with:
  *   - Sequential, bounded-sequential, or random allocation strategies. The
- *     bounded policy's upper bound is set through the generator's
- *     (base_id, upper_bound) constructor, available only to policies that opt
- *     in via an accepts_upper_bound alias. Random allocation treats base_id as
- *     a MINIMUM, not a first ID.
- *   - Configurable recycling policies (FIFO, Min-First, None)
+ *     upper bound is set through the generator's (base_id, upper_bound)
+ *     constructor, available when EITHER policy role opts in: the allocation
+ *     side via an accepts_upper_bound alias, the recycling side by exposing
+ *     configure_domain. Random allocation treats base_id as a MINIMUM, not a
+ *     first ID.
+ *   - Configurable recycling policies (FIFO, Min-First, None, Sparse)
+ *   - Sparse recycling owns the COMPLETE domain as disjoint intervals, which is
+ *     what makes claim(id) possible: reserving a persisted identifier costs
+ *     O(log I) in the free-interval count rather than O(gap), and lower
+ *     unclaimed identifiers stay issuable. Exhaustion is an empty interval set,
+ *     not a question for the allocation policy.
  *   - Thread-safe and single-threaded variants
- *   - StrongId integration for type safety
+ *   - StrongId integration for type safety, including exclusion of the reserved
+ *     invalid() sentinel from the issuable domain at construction
  *   - Expected-based error handling
  *   - RAII IdGuard for automatic cleanup
  *   - O(1) active ID tracking via unordered_set with lazy max
  *   - Batch generation/release with single lock acquisition
  *   - Seeded random generation for reproducibility
  *
- * @version 1.4
+ * @version 1.5
  */
 
 #include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <deque>
+#include <forward_list>
 #include <limits>
+#include <map>
 #include <memory>
 #include <optional>
 #include <random>
@@ -79,7 +88,11 @@ enum class IdError
 {
     Overflow,
     InvalidRelease,
-    AlreadyInUse
+    AlreadyInUse,
+    /// @brief A claimed identifier lies outside the configured domain, or the
+    /// free-set state contradicts the active set. Distinct from AlreadyInUse,
+    /// which means the caller named an identifier that is currently active.
+    InvalidClaim
 };
 
 // =============================================================================
@@ -204,6 +217,64 @@ struct accepts_upper_bound<T, std::void_t<typename T::accepts_upper_bound>> : st
 
 template <typename T>
 inline constexpr bool accepts_upper_bound_v = accepts_upper_bound<T>::value;
+
+// A recycling policy that learns its domain through configure_domain(base, upper).
+// Detected by the expression, not by a marker alias: unlike the allocation-side
+// opt-in above there is no same-arity impostor to confuse it with, and detecting
+// the call means a policy cannot claim the seam without providing it.
+template <typename T, typename = void>
+struct has_domain_configure : std::false_type
+{
+};
+
+template <typename T>
+struct has_domain_configure<
+    T,
+    std::void_t<decltype(std::declval<T&>().configure_domain(
+        std::declval<typename T::value_type>(), std::declval<typename T::value_type>()))>>
+    : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool has_domain_configure_v = has_domain_configure<T>::value;
+
+// Is that seam nothrow? This is what makes IdGenerator::reset() conditionally
+// noexcept: a full-domain policy rebuilds its domain there, and the rebuild is
+// allocation-free in every state reachable WITHOUT a move but not in the
+// moved-from state, which a movable instantiation can reach.
+template <typename T, typename = void>
+struct domain_configure_is_noexcept : std::true_type
+{
+};
+
+template <typename T>
+struct domain_configure_is_noexcept<T, std::enable_if_t<has_domain_configure<T>::value>>
+    : std::bool_constant<noexcept(std::declval<T&>().configure_domain(
+          std::declval<typename T::value_type>(), std::declval<typename T::value_type>()))>
+{
+};
+
+template <typename T>
+inline constexpr bool domain_configure_is_noexcept_v = domain_configure_is_noexcept<T>::value;
+
+// Opt-in marker: a recycling policy that owns the COMPLETE domain [base, upper]
+// rather than only the identifiers released back to it. Such a policy exposes
+// peek_lowest/remove_lowest/claim_at, and its empty free set -- not the
+// allocation policy -- is what exhaustion means. A positive property a policy
+// declares about itself, never a blacklist of the policies that lack it.
+template <typename T, typename = void>
+struct is_full_domain_policy : std::false_type
+{
+};
+
+template <typename T>
+struct is_full_domain_policy<T, std::void_t<typename T::is_full_domain_policy>> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool is_full_domain_policy_v = is_full_domain_policy<T>::value;
 
 // What IdGenerator actually requires of a concurrency policy: an exclusive lock
 // on a mutable policy, and a shared lock on a CONST one (the query methods hold
@@ -683,6 +754,41 @@ struct is_random_policy<RandomAllocationPolicy<IdType>> : std::true_type
 template <typename T>
 inline constexpr bool is_random_policy_v = is_random_policy<T>::value;
 
+/// @brief Trait to detect a sequential allocation policy.
+///
+/// @details This is the ALLOCATION side of the full-domain pairing check. A
+/// trait on the recycling policy cannot constrain what it is paired with, so
+/// the generator needs a separate predicate to refuse random allocation under a
+/// full-domain recycling policy -- where issuance comes from the free set and a
+/// random draw has nothing to contribute.
+///
+/// The two shipped policies are recognized by specialization; anyone else may
+/// opt in with `using is_sequential_policy = void;`. Without that door a custom
+/// sequential policy could never be paired with the sparse policy at all, and
+/// the pairing check would be a whitelist of two rather than a property.
+template <typename T, typename = void>
+struct is_sequential_policy : std::false_type
+{
+};
+
+template <typename T>
+struct is_sequential_policy<T, std::void_t<typename T::is_sequential_policy>> : std::true_type
+{
+};
+
+template <typename IdType>
+struct is_sequential_policy<SequentialAllocationPolicy<IdType>, void> : std::true_type
+{
+};
+
+template <typename IdType>
+struct is_sequential_policy<BoundedSequentialAllocationPolicy<IdType>, void> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool is_sequential_policy_v = is_sequential_policy<T>::value;
+
 } // namespace detail
 
 // =============================================================================
@@ -791,6 +897,469 @@ public:
     }
 };
 
+/**
+ * @brief Full-domain recycling: the policy owns every identifier in
+ * `[base, upper_bound]`, free or not, as a set of disjoint inclusive intervals.
+ *
+ * @details The three policies above hold only what was released back to them,
+ * and the allocation policy decides what has never been issued. This one holds
+ * both, which is what makes an identifier CLAIMABLE by value: a caller can ask
+ * for 60000 out of an empty generator without first consuming 0..59999, and the
+ * generator still knows that 60000 is spoken for.
+ *
+ * Intervals are stored in an ordered map keyed by UPPER bound so the lowest
+ * free identifier is `begin()->second` and taking it does not change a key:
+ *
+ * @code
+ *   upper -> lower
+ *   4     -> 1        [1, 4]
+ *   59999 -> 6        [6, 59999]
+ *   LIMIT -> 60001    [60001, upper_bound]
+ * @endcode
+ *
+ * Invariants, observed BETWEEN operations: intervals are disjoint and
+ * non-adjacent (adjacent ones merge immediately); the union of the free
+ * intervals and the generator's active set is exactly `[base, upper_bound]`;
+ * and the two are disjoint. Inside an operation, under the generator's lock, an
+ * identifier may be momentarily in both sets or in neither -- every such window
+ * is closed by a step that cannot throw.
+ *
+ * **Exhaustion is an empty map**, not a count of zero and not a sentinel value.
+ *
+ * @section return_credits Return credits
+ *
+ * `add_recycled()` is `noexcept` and inserts into a map. That is only honest
+ * because the node it may need was already allocated: each activation reserves
+ * a **return credit** -- a detached map node -- before the identifier becomes
+ * active, and every path that hands an identifier back consumes or destroys
+ * one. Release, batch rollback, and the ordinary reset are therefore
+ * allocation-free by construction rather than by hiding a `bad_alloc` behind a
+ * `noexcept` boundary.
+ *
+ * A reservoir of nodes freed by exhausted intervals does NOT fund this, which
+ * is why credits are per-activation:
+ *
+ * @code
+ *   free [0, MAX];  generate 0 -> [1, MAX]   (no node freed)
+ *                   generate 1 -> [2, MAX]   (no node freed)
+ *                   release 0  -> needs [0, 0], reservoir empty
+ * @endcode
+ *
+ * The credit count equals the active count at every operation boundary. Credits
+ * are held in a `std::forward_list`, not a vector: the stack must release
+ * storage as credits are spent, or a generator that briefly held a million
+ * identifiers would keep that footprint for its lifetime.
+ *
+ * @warning Only usable through a generator that configures it. A
+ * default-constructed policy has an empty domain, which reads as exhausted;
+ * IdGenerator calls `configure_domain()` during construction and again on
+ * `reset()`.
+ */
+/// @tparam Compare Ordering for the interval map, as every ordered container
+///         takes. It exists here for the same reason it exists on `std::map`,
+///         and it is also what makes the gap-independence claim measurable: a
+///         counting comparator is the only instrument that distinguishes
+///         `claim()` from a generate-and-release walk, since both leave one
+///         identifier active and the rest free.
+template <typename IdType = uint64_t, typename Compare = std::less<IdType>>
+class SparseRecyclingPolicy
+{
+public:
+    using value_type = IdType;
+    using key_compare = Compare;
+
+    /// @brief Opt-in marker for detail::is_full_domain_policy_v.
+    using is_full_domain_policy = void;
+
+    // =========================================================================
+    // Domain configuration
+    // =========================================================================
+
+    /**
+     * @brief Rebuild the free domain to exactly `[base, upper]`.
+     *
+     * @details Called by IdGenerator at construction and from `reset()`. It does
+     * NOT build a replacement map; it reuses a node it already owns -- any node
+     * from a non-empty map, or one return credit when the map is empty because
+     * the domain is fully claimed. Both cases are allocation-free.
+     *
+     * The one state that must allocate is a MOVED-FROM policy, whose map,
+     * credits, and the generator's active set are all empty at once. That state
+     * is unreachable through the shipped aliases (SingleThreadedPolicy is
+     * immovable, which suppresses the generator's moves) and reachable through
+     * an instantiation over UniqueRWLockPolicy, so this function is not
+     * `noexcept` and IdGenerator::reset() is conditionally `noexcept` because of
+     * it. Construction takes the same path, and construction may allocate.
+     *
+     * @param base Lowest identifier in the domain
+     * @param upper Highest identifier in the domain (inclusive)
+     */
+    void configure_domain(IdType base, IdType upper)
+    {
+        assert(base <= upper && "Sparse domain requires base <= upper_bound");
+
+        mBase = base;
+        mUpper = upper;
+
+        if (!mFree.empty())
+        {
+            NodeType node = mFree.extract(mFree.begin());
+            mFree.clear();
+            rewrite(node, upper, base);
+            (void)mFree.insert(std::move(node));
+        }
+        else if (mCreditCount > 0)
+        {
+            NodeType node = take_credit();
+            rewrite(node, upper, base);
+            (void)mFree.insert(std::move(node));
+        }
+        else
+        {
+            // Construction, or a moved-from policy. The only allocating path.
+            (void)mFree.emplace(upper, base);
+        }
+
+        drop_all_credits();
+    }
+
+    /// @brief Is @p id inside the configured domain? A domain test, not a free-set test.
+    bool is_in_domain(IdType id) const noexcept
+    {
+        return id >= mBase && id <= mUpper;
+    }
+
+    // =========================================================================
+    // Generation path -- peek then remove, never a pop
+    // =========================================================================
+
+    /**
+     * @brief The lowest free identifier, or nullopt when the domain is exhausted.
+     *
+     * @details Deliberately NOT `get_recycled()`. That accessor is a pop, and
+     * the generator must know the identifier BEFORE the free set is mutated: it
+     * reserves the return credit and inserts into the active set first, so a
+     * throw from either leaves the free set untouched. With a pop, a throwing
+     * active-set insert would leave the identifier in neither set, and because
+     * exhaustion is an empty map it could never be recovered.
+     */
+    std::optional<IdType> peek_lowest() const noexcept
+    {
+        if (mFree.empty())
+        {
+            return std::nullopt;
+        }
+        return mFree.begin()->second;
+    }
+
+    /**
+     * @brief Remove the identifier that `peek_lowest()` just reported.
+     *
+     * @details Advances the first interval's lower bound, or erases it when it
+     * held one value. Never splits, therefore never allocates, therefore cannot
+     * throw. Removing an ARBITRARY free identifier can split and is `claim_at()`
+     * -- a different operation with a different cost, kept distinct in the type
+     * system rather than in a precondition comment.
+     *
+     * @pre The map is non-empty: a prior `peek_lowest()` returned a value under
+     * the same lock.
+     */
+    void remove_lowest() noexcept
+    {
+        assert(!mFree.empty() && "remove_lowest() requires a prior peek_lowest()");
+
+        auto it = mFree.begin();
+        if (it->second == it->first)
+        {
+            mFree.erase(it);
+        }
+        else
+        {
+            ++(it->second);
+        }
+    }
+
+    // =========================================================================
+    // Claim path
+    // =========================================================================
+
+    /// @brief Is @p id currently free? False for an active or out-of-domain identifier.
+    bool is_free(IdType id) const noexcept
+    {
+        auto it = mFree.lower_bound(id);
+        return it != mFree.end() && it->second <= id;
+    }
+
+    /**
+     * @brief Reserve the nodes a claim of @p id will need, before anything is mutated.
+     *
+     * @details One return credit for the activation, plus one more when the
+     * claim splits an interval. Strongly exception-safe: if the second
+     * reservation throws, the first is released, so the credit count still
+     * equals the active count at the boundary.
+     *
+     * @pre `is_free(id)`.
+     * @return The number of credits reserved, for the caller's unwind guard.
+     */
+    std::size_t reserve_claim_credits(IdType id)
+    {
+        auto it = mFree.lower_bound(id);
+        assert(it != mFree.end() && it->second <= id && "reserve_claim_credits() requires a free id");
+
+        const bool splits = it->second < id && id < it->first;
+        const std::size_t needed = splits ? 2u : 1u;
+
+        std::size_t done = 0;
+        try
+        {
+            for (; done < needed; ++done)
+            {
+                reserve_credit();
+            }
+        }
+        catch (...)
+        {
+            while (done-- > 0)
+            {
+                discard_credit();
+            }
+            throw;
+        }
+        return needed;
+    }
+
+    /**
+     * @brief Remove @p id from the free set, consuming the reserved nodes.
+     *
+     * @details Erases, trims, or splits. Neither `id - 1` nor `id + 1` is ever
+     * evaluated at a domain endpoint: each is guarded by the comparison that
+     * makes it meaningful. Trimming the back rekeys through a node handle rather
+     * than erase-and-insert, which would deallocate and reallocate.
+     *
+     * @pre `reserve_claim_credits(id)` succeeded under the same lock and the
+     * free set has not changed since.
+     */
+    void claim_at(IdType id) noexcept
+    {
+        auto it = mFree.lower_bound(id);
+        assert(it != mFree.end() && it->second <= id && "claim_at() requires a free id");
+
+        const IdType lower = it->second;
+        const IdType upper = it->first;
+
+        if (lower == id && upper == id)
+        {
+            mFree.erase(it);
+        }
+        else if (lower == id)
+        {
+            ++(it->second);
+        }
+        else if (upper == id)
+        {
+            NodeType node = mFree.extract(it);
+            rewrite(node, static_cast<IdType>(id - 1), lower);
+            (void)mFree.insert(std::move(node));
+        }
+        else
+        {
+            // Interior: the surviving entry keeps its key and becomes the RIGHT
+            // fragment; the reserved node carries the left one.
+            it->second = static_cast<IdType>(id + 1);
+            NodeType node = take_credit();
+            rewrite(node, static_cast<IdType>(id - 1), lower);
+            (void)mFree.insert(std::move(node));
+        }
+    }
+
+    // =========================================================================
+    // Activation credits
+    // =========================================================================
+
+    /// @brief Reserve one return credit. The only allocating step of an activation.
+    void reserve_credit()
+    {
+        (void)mNodeSource.emplace(IdType{}, IdType{});
+        NodeType node = mNodeSource.extract(mNodeSource.begin());
+        mCredits.push_front(std::move(node));
+        ++mCreditCount;
+    }
+
+    /// @brief Release an unused reservation during unwind, restoring credits == actives.
+    void discard_credit() noexcept
+    {
+        assert(mCreditCount > 0 && "discard_credit() without a reservation");
+        mCredits.pop_front();
+        --mCreditCount;
+    }
+
+    /// @brief Reserved return credits. Equals the active count at every operation boundary.
+    std::size_t credit_count() const noexcept
+    {
+        return mCreditCount;
+    }
+
+    // =========================================================================
+    // RecyclingPolicy surface
+    // =========================================================================
+
+    /**
+     * @brief Return @p id to the free set, merging with adjacent intervals.
+     *
+     * @details Exactly one of four transitions, all allocation-free because this
+     * activation's return credit was reserved when the identifier was taken:
+     *
+     *  1. Both neighbours adjacent: merge through @p id. The RIGHT entry
+     *     survives -- its key is already the merged upper bound -- taking the
+     *     left's lower bound; the left entry is erased. Credit destroyed.
+     *  2. Left neighbour adjacent: extend its upper bound to @p id, which
+     *     rekeys through a node handle. Credit destroyed.
+     *  3. Right neighbour adjacent: lower its lower bound to @p id, a
+     *     value-only write. Credit destroyed.
+     *  4. Neither: insert the singleton `[id, id]`, consuming the credit.
+     *
+     * Adjacency arithmetic is guarded at both domain endpoints.
+     *
+     * @pre @p id was active and has just been erased from the active set.
+     */
+    void add_recycled(IdType id) noexcept
+    {
+        auto left = mFree.end();
+        if (id > mBase)
+        {
+            left = mFree.find(static_cast<IdType>(id - 1));
+        }
+
+        auto right = mFree.end();
+        if (id < mUpper)
+        {
+            auto it = mFree.upper_bound(id);
+            if (it != mFree.end() && it->second == static_cast<IdType>(id + 1))
+            {
+                right = it;
+            }
+        }
+
+        if (left != mFree.end() && right != mFree.end())
+        {
+            right->second = left->second;
+            mFree.erase(left);
+            discard_credit();
+        }
+        else if (left != mFree.end())
+        {
+            NodeType node = mFree.extract(left);
+            const IdType lower = node.mapped();
+            rewrite(node, id, lower);
+            (void)mFree.insert(std::move(node));
+            discard_credit();
+        }
+        else if (right != mFree.end())
+        {
+            right->second = id;
+            discard_credit();
+        }
+        else
+        {
+            NodeType node = take_credit();
+            rewrite(node, id, id);
+            (void)mFree.insert(std::move(node));
+        }
+    }
+
+    /**
+     * @brief The number of currently FREE identifiers, including never-issued ones.
+     *
+     * @details Sums inclusive interval cardinalities in O(I). Saturates at
+     * `SIZE_MAX`, per term as well as in the sum: `[0, 2^64-1]` has cardinality
+     * `2^64`, and computing it as `upper - lower + 1` wraps to zero. A zero
+     * result from a non-empty map would invert this query's meaning, since
+     * exhaustion is an empty map -- so the span is computed first and saturated
+     * before the increment.
+     */
+    size_t recycled_count() const noexcept
+    {
+        constexpr std::size_t kMax = std::numeric_limits<std::size_t>::max();
+
+        std::size_t total = 0;
+        for (const auto& entry : mFree)
+        {
+            const auto span = static_cast<std::uint64_t>(entry.first - entry.second);
+            if (span >= static_cast<std::uint64_t>(kMax))
+            {
+                return kMax;
+            }
+            const std::size_t cardinality = static_cast<std::size_t>(span) + 1u;
+            if (total > kMax - cardinality)
+            {
+                return kMax;
+            }
+            total += cardinality;
+        }
+        return total;
+    }
+
+    /**
+     * @brief Drop all state without rebuilding the domain.
+     *
+     * @details The destructor's operation. NOT reset's: an empty map means
+     * exhausted, so a `clear()`-only reset would silently degrade the generator
+     * to plain sequential allocation while reporting nothing. `reset()` reaches
+     * this policy through `configure_domain()` instead.
+     */
+    void clear() noexcept
+    {
+        mFree.clear();
+        mNodeSource.clear();
+        drop_all_credits();
+    }
+
+    /// @brief Free interval count. Exposed so tests can assert canonicalization.
+    std::size_t interval_count() const noexcept
+    {
+        return mFree.size();
+    }
+
+private:
+    using IntervalMap = std::map<IdType, IdType, Compare>; // upper -> lower
+    using NodeType = typename IntervalMap::node_type;
+
+    static void rewrite(NodeType& node, IdType upper, IdType lower) noexcept
+    {
+        node.key() = upper;
+        node.mapped() = lower;
+    }
+
+    NodeType take_credit() noexcept
+    {
+        assert(mCreditCount > 0 && "take_credit() without a reservation");
+        NodeType node = std::move(mCredits.front());
+        mCredits.pop_front();
+        --mCreditCount;
+        return node;
+    }
+
+    void drop_all_credits() noexcept
+    {
+        mCredits.clear();
+        mCreditCount = 0;
+    }
+
+    IntervalMap mFree;
+
+    /// @brief Node factory. Empty between operations; `reserve_credit()` inserts
+    /// one scratch entry and immediately extracts it to obtain a detached node.
+    IntervalMap mNodeSource;
+
+    /// @brief Reserved return credits. forward_list, not vector: storage must
+    /// shrink as credits are spent, so the bound stays O(active), not O(peak).
+    std::forward_list<NodeType> mCredits;
+
+    std::size_t mCreditCount{0};
+    IdType mBase{0};
+    IdType mUpper{std::numeric_limits<IdType>::max()};
+};
+
 // =============================================================================
 // ErrorPolicy
 // =============================================================================
@@ -871,46 +1440,235 @@ public:
     using result_type = typename ErrorPolicy::result_type;
     using underlying_type = underlying_id_type_t<IdType_>;
 
-    // =========================================================================
-    // Construction
-    // =========================================================================
+private:
+    /// @brief Does the recycling policy own the whole domain rather than only what was released?
+    static constexpr bool kFullDomain = detail::is_full_domain_policy_v<RecyclingPolicy>;
 
-    explicit IdGenerator(underlying_type base_id = 0)
-        : AllocationPolicy(base_id)
-        , RecyclingPolicy()
-        , ConcurrencyPolicy()
-        , mBaseId(base_id)
-        , mIdsInUse()
-    {
-    }
+    static_assert(!kFullDomain || detail::is_sequential_policy_v<AllocationPolicy>,
+                  "A full-domain RecyclingPolicy (SparseRecyclingPolicy) requires a sequential "
+                  "AllocationPolicy. Issuance comes from the free set, so a random draw has "
+                  "nothing to contribute, and the free set -- not the allocation policy -- is "
+                  "what exhaustion means.");
+
+    static_assert(!kFullDomain || detail::has_domain_configure_v<RecyclingPolicy>,
+                  "A full-domain RecyclingPolicy must also model has_domain_configure_v: a policy "
+                  "that owns the whole domain but cannot be told what the domain IS is exactly the "
+                  "defect the full-domain contract exists to prevent.");
 
     /**
-     * @brief Construct with an explicit upper bound for a bounded policy.
+     * @brief Normalize a requested upper bound against the ID type's reserved sentinel.
      *
-     * @details Available only when the allocation policy OPTS IN by declaring
-     * `using accepts_upper_bound = void;` -- `BoundedSequentialAllocationPolicy`
-     * is the one that does. Without this the bound was unreachable through
-     * IdGenerator: the general constructor forwards `base_id` alone, so a
-     * bounded generator silently got the policy's default bound of
-     * `numeric_limits::max()` and was not bounded at all.
+     * @details For a StrongId-style type the underlying maximum denotes
+     * `invalid()` and must never be issued, so the effective bound is one less.
+     * Doing this at DOMAIN CONSTRUCTION rather than as a late generation guard
+     * keeps the free set equal to the set of issuable identifiers: `claim()` of
+     * the sentinel is out of domain, `recycled_count()` never counts an
+     * unissuable value, and exhaustion still means an empty interval map.
      *
-     * The opt-in is a declared alias rather than "forward a second argument
-     * whenever the policy accepts one", because that test also matches
-     * `RandomAllocationPolicy(uint64_t seed, int)` and would quietly reinterpret
-     * `(base, upper_bound)` as `(seed, ignored)` -- constructing a seeded random
-     * generator where a bounded one was asked for.
-     *
-     * @param base_id The first ID to generate
-     * @param upper_bound The last ID the policy may issue (inclusive)
+     * A future wrapper declaring `invalid()` at some other value would need the
+     * sentinel trait strengthened to expose that value first; this does not
+     * infer arbitrary sentinel placement from the function name alone.
      */
-    template <typename AP = AllocationPolicy>
-        requires detail::accepts_upper_bound_v<AP>
-    IdGenerator(underlying_type base_id, underlying_type upper_bound)
+    static constexpr underlying_type effective_upper_bound(underlying_type requested) noexcept
+    {
+        if constexpr (detail::has_invalid_sentinel_v<IdType_>)
+        {
+            constexpr auto kSentinel = std::numeric_limits<underlying_type>::max();
+            return requested >= kSentinel ? static_cast<underlying_type>(kSentinel - 1) : requested;
+        }
+        else
+        {
+            return requested;
+        }
+    }
+
+    static constexpr underlying_type kDefaultUpperBound =
+        effective_upper_bound(std::numeric_limits<underlying_type>::max());
+
+    // Role-directed forwarding tags. An allocation policy that models
+    // accepts_upper_bound_v is CONSTRUCTED with the bound; one that does not
+    // keeps its shipped single-argument construction. Neither pretends to be the
+    // other, and no temporary policy is constructed and moved in -- that would
+    // impose an accidental movability requirement on custom policies.
+    struct bounded_alloc_tag
+    {
+    };
+    struct plain_alloc_tag
+    {
+    };
+
+    using alloc_tag = std::conditional_t<detail::accepts_upper_bound_v<AllocationPolicy>,
+                                         bounded_alloc_tag,
+                                         plain_alloc_tag>;
+
+    IdGenerator(bounded_alloc_tag, underlying_type base_id, underlying_type upper_bound)
         : AllocationPolicy(base_id, upper_bound)
         , RecyclingPolicy()
         , ConcurrencyPolicy()
         , mBaseId(base_id)
+        , mUpperBound(upper_bound)
         , mIdsInUse()
+    {
+        configure_recycling_domain();
+    }
+
+    IdGenerator(plain_alloc_tag, underlying_type base_id, underlying_type upper_bound)
+        : AllocationPolicy(base_id)
+        , RecyclingPolicy()
+        , ConcurrencyPolicy()
+        , mBaseId(base_id)
+        , mUpperBound(upper_bound)
+        , mIdsInUse()
+    {
+        configure_recycling_domain();
+    }
+
+    /// @brief The guarded recycling-side domain seam. A no-op for the three
+    /// shipping policies, which do not model it, so their behavior is unchanged.
+    void configure_recycling_domain() noexcept(
+        detail::domain_configure_is_noexcept_v<RecyclingPolicy>)
+    {
+        if constexpr (detail::has_domain_configure_v<RecyclingPolicy>)
+        {
+            RecyclingPolicy::configure_domain(mBaseId, mUpperBound);
+        }
+    }
+
+    static constexpr underlying_type to_underlying(IdType_ id) noexcept
+    {
+        if constexpr (std::is_same_v<IdType_, underlying_type>)
+        {
+            return id;
+        }
+        else
+        {
+            return id.get();
+        }
+    }
+
+    result_type report_id(underlying_type raw_id) const
+    {
+        if constexpr (std::is_same_v<IdType_, underlying_type>)
+        {
+            return ErrorPolicy::report_success(raw_id);
+        }
+        else
+        {
+            return ErrorPolicy::report_success(IdType_(raw_id));
+        }
+    }
+
+    /**
+     * @brief Undo return-credit reservations if the activation does not complete.
+     *
+     * @details The active-set insert is the one throwing step between reserving
+     * a credit and consuming it. Without this the throw path would leak a credit
+     * on every failure and the credits == actives relation would drift upward --
+     * which matters because reset()'s exhausted case depends on it.
+     */
+    class CreditGuard
+    {
+    public:
+        CreditGuard(IdGenerator& gen, std::size_t count) noexcept
+            : mGen(&gen)
+            , mCount(count)
+        {
+        }
+
+        ~CreditGuard()
+        {
+            for (std::size_t i = 0; i < mCount; ++i)
+            {
+                mGen->RecyclingPolicy::discard_credit();
+            }
+        }
+
+        void commit() noexcept
+        {
+            mCount = 0;
+        }
+
+        CreditGuard(const CreditGuard&) = delete;
+        CreditGuard& operator=(const CreditGuard&) = delete;
+
+    private:
+        IdGenerator* mGen;
+        std::size_t mCount;
+    };
+
+    /**
+     * @brief Make @p raw_id active, funding its eventual release first.
+     *
+     * @details For a full-domain policy the return credit is reserved BEFORE the
+     * active-set insert, so `release()` can be nothrow by construction rather
+     * than by hiding a bad_alloc behind a noexcept boundary. Nothing in the free
+     * set is touched here: the caller removes the identifier only after this
+     * returns, so a throw from either step leaves the free set intact.
+     */
+    void make_active(underlying_type raw_id)
+    {
+        if constexpr (kFullDomain)
+        {
+            RecyclingPolicy::reserve_credit();
+            CreditGuard guard(*this, 1);
+            (void)mIdsInUse.insert(raw_id);
+            guard.commit();
+        }
+        else
+        {
+            (void)mIdsInUse.insert(raw_id);
+        }
+    }
+
+public:
+    // =========================================================================
+    // Construction
+    // =========================================================================
+
+    /**
+     * @brief Construct over the ID type's full domain, starting at @p base_id.
+     *
+     * @details Delegates through the same role dispatch as the two-argument form
+     * using the default request. An opted-in allocation policy receives the
+     * effective default bound; an opted-in recycling policy receives it through
+     * `configure_domain`; a policy that opts into neither keeps its shipped
+     * construction.
+     */
+    explicit IdGenerator(underlying_type base_id = 0)
+        : IdGenerator(alloc_tag{}, base_id, kDefaultUpperBound)
+    {
+    }
+
+    /**
+     * @brief Construct with an explicit upper bound.
+     *
+     * @details Available when EITHER policy role declares that it consumes a
+     * bound: the allocation side by `using accepts_upper_bound = void;`
+     * (`BoundedSequentialAllocationPolicy`), or the recycling side by exposing
+     * `configure_domain` (`SparseRecyclingPolicy`). One public operation with
+     * role-directed forwarding; if both roles opt in, both receive the same
+     * effective value.
+     *
+     * Without this the allocation-side bound was unreachable through
+     * IdGenerator: the general constructor forwarded `base_id` alone, so a
+     * bounded generator silently got the policy's default bound of
+     * `numeric_limits::max()` and was not bounded at all.
+     *
+     * The allocation-side opt-in is a declared alias rather than "forward a
+     * second argument whenever the policy accepts one", because that test also
+     * matches `RandomAllocationPolicy(uint64_t seed, int)` and would quietly
+     * reinterpret `(base, upper_bound)` as `(seed, ignored)` -- constructing a
+     * seeded random generator where a bounded one was asked for.
+     *
+     * @param base_id The first ID to generate
+     * @param upper_bound The last ID that may be issued (inclusive), normalized
+     *        against the ID type's reserved sentinel
+     * @pre `base_id <= effective_upper_bound(upper_bound)`
+     */
+    template <typename AP = AllocationPolicy, typename RP = RecyclingPolicy>
+        requires(detail::accepts_upper_bound_v<AP> || detail::has_domain_configure_v<RP>)
+    IdGenerator(underlying_type base_id, underlying_type upper_bound)
+        : IdGenerator(alloc_tag{}, base_id, effective_upper_bound(upper_bound))
     {
     }
 
@@ -931,8 +1689,10 @@ public:
         , RecyclingPolicy()
         , ConcurrencyPolicy()
         , mBaseId(0)
+        , mUpperBound(kDefaultUpperBound)
         , mIdsInUse()
     {
+        configure_recycling_domain();
     }
 
     /**
@@ -965,6 +1725,34 @@ public:
     result_type generate()
     {
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+
+        // A full-domain policy holds every identifier, issued or not, so the
+        // generation path is a staged take from the free set and the allocation
+        // policy is never consulted -- see make_active() for why the order is
+        // peek / reserve / insert / remove rather than the pop below.
+        if constexpr (kFullDomain)
+        {
+            auto lowest = RecyclingPolicy::peek_lowest();
+            if (!lowest)
+            {
+                // Exhaustion IS an empty free set. The allocation policy cannot
+                // answer this question: its own exhaustion point is the ID
+                // type's maximum, which may be far above the configured ceiling.
+                return ErrorPolicy::report_error(IdError::Overflow);
+            }
+
+            // Construct the caller's value BEFORE anything is mutated. A
+            // throwing id_type constructor would otherwise leave the identifier
+            // active and out of the caller's hands -- unreleasable, because the
+            // caller never received the value to release.
+            const underlying_type raw_id = *lowest;
+            result_type issued = report_id(raw_id);
+            make_active(raw_id);
+            RecyclingPolicy::remove_lowest();
+            return issued;
+        }
+        else
+        {
 
         // Try recycled IDs first (guaranteed unique, no retry needed)
         if (auto recycled = RecyclingPolicy::get_recycled())
@@ -1052,6 +1840,74 @@ public:
         }
 
         return ErrorPolicy::report_error(IdError::AlreadyInUse);
+
+        } // if constexpr (!kFullDomain)
+    }
+
+    /**
+     * @brief Take ownership of a specific identifier by value.
+     *
+     * @details Available only when the recycling policy owns the whole domain.
+     * The point of the full-domain policy: a caller can claim 60000 out of an
+     * empty generator without first consuming 0..59999, and the generator still
+     * knows 60000 is spoken for.
+     *
+     * Every allocating step precedes every mutating step, so a throw leaves the
+     * generator exactly as it was found:
+     *
+     *  1. An active identifier is refused with `AlreadyInUse`.
+     *  2. An identifier outside `[base, upper_bound]` is refused with
+     *     `InvalidClaim`, BEFORE any lookup -- the below-base, above-ceiling and
+     *     reserved-sentinel test, which is a domain test, not a free-set test.
+     *  3. An identifier that is in-domain but not free, having already passed
+     *     step 1, means the policy state contradicts the active set:
+     *     `InvalidClaim`.
+     *  4. Reserve the return credit, plus one more if the claim splits an
+     *     interval. All allocation happens here, with nothing yet mutated.
+     *  5. Insert into the active set -- may throw; the free set is still intact.
+     *  6. Remove from the free set: erase, trim, or split. Cannot throw.
+     *
+     * @param id The identifier to claim
+     * @return Success, or AlreadyInUse / InvalidClaim
+     */
+    template <typename RP = RecyclingPolicy>
+        requires detail::is_full_domain_policy_v<RP>
+    Expected<void, IdError> claim(IdType_ id)
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+
+        const underlying_type raw_id = to_underlying(id);
+
+        if (mIdsInUse.count(raw_id) > 0)
+        {
+            return make_unexpected(IdError::AlreadyInUse);
+        }
+
+        // Deliberately redundant while the invariants hold, and kept anyway.
+        // The free set is a subset of [base, upper_bound], so is_free() already
+        // rejects everything out of domain with the same error -- deleting this
+        // check passes the whole suite, and no test can distinguish the two.
+        // It stays because it is O(1) ahead of an O(log I) lookup, it says which
+        // question is being asked, and it is the one of the two that remains
+        // correct if the free set ever violates invariant 1.
+        if (!RecyclingPolicy::is_in_domain(raw_id))
+        {
+            return make_unexpected(IdError::InvalidClaim);
+        }
+
+        if (!RecyclingPolicy::is_free(raw_id))
+        {
+            return make_unexpected(IdError::InvalidClaim);
+        }
+
+        {
+            CreditGuard guard(*this, RecyclingPolicy::reserve_claim_credits(raw_id));
+            (void)mIdsInUse.insert(raw_id);
+            guard.commit();
+        }
+        RecyclingPolicy::claim_at(raw_id);
+
+        return {};
     }
 
     Expected<void, IdError> release(IdType_ id) noexcept
@@ -1115,13 +1971,14 @@ public:
         // propagates, because IdError describes identifier-domain outcomes and
         // running out of memory is not one of them.
         {
-            constexpr auto kDomainMax = std::numeric_limits<underlying_type>::max();
             if constexpr (sizeof(underlying_type) < sizeof(std::size_t))
             {
                 // The whole domain is representable as size_t, so capacity is
-                // exact: total slots minus those already taken.
-                const std::size_t capacity =
-                    static_cast<std::size_t>(kDomainMax) - static_cast<std::size_t>(mBaseId) + 1u;
+                // exact: total slots minus those already taken. The ceiling is
+                // the CONFIGURED bound, which for a bounded or full-domain
+                // generator is below the ID type's maximum.
+                const std::size_t capacity = static_cast<std::size_t>(mUpperBound) -
+                                             static_cast<std::size_t>(mBaseId) + 1u;
                 const std::size_t taken = mIdsInUse.size();
                 if (count > (capacity > taken ? capacity - taken : std::size_t{0}))
                 {
@@ -1177,6 +2034,35 @@ public:
 
         try
         {
+            if constexpr (kFullDomain)
+            {
+                // Every element comes from the free set, so every element is
+                // recorded as pooled and rollback returns all of them there. The
+                // allocation policy is not consulted and is not reverted.
+                for (size_t i = 0; i < count; ++i)
+                {
+                    auto lowest = RecyclingPolicy::peek_lowest();
+                    if (!lowest)
+                    {
+                        rollback_batch(result, from_pool);
+                        return make_unexpected(IdError::Overflow);
+                    }
+
+                    const underlying_type raw_id = *lowest;
+                    RecyclingPolicy::reserve_credit();
+                    {
+                        CreditGuard guard(*this, 1);
+                        commit(raw_id, true);
+                        guard.commit();
+                    }
+                    RecyclingPolicy::remove_lowest();
+                }
+
+                return result;
+            }
+            else
+            {
+
             for (size_t i = 0; i < count; ++i)
             {
                 // Try recycled IDs first
@@ -1250,6 +2136,8 @@ public:
                     return make_unexpected(IdError::AlreadyInUse);
                 }
             }
+
+            } // if constexpr (!kFullDomain)
         }
         catch (...)
         {
@@ -1345,11 +2233,17 @@ private:
             }
         }
 
-        // Revert the allocation policy counter to prevent sequence gaps
-        // Only policies that support revert() will have this called
-        if constexpr (detail::has_revert_v<AllocationPolicy>)
+        // Revert the allocation policy counter to prevent sequence gaps.
+        // Only policies that support revert() will have this called, and never
+        // on the full-domain path, where the allocation policy issued nothing
+        // and its counter never advanced.
+        if constexpr (detail::has_revert_v<AllocationPolicy> && !kFullDomain)
         {
             AllocationPolicy::revert(newly_generated_count);
+        }
+        else
+        {
+            (void)newly_generated_count;
         }
     }
 
@@ -1385,11 +2279,71 @@ public:
         return RecyclingPolicy::recycled_count();
     }
 
-    void reset() noexcept
+    /**
+     * @brief Number of disjoint free intervals held by a full-domain policy.
+     *
+     * @details The oracle for canonicalization. "Intervals are disjoint and
+     * non-adjacent" is an invariant, not a performance note, and a release that
+     * leaves two adjacent intervals where one belongs is invisible to every
+     * other query -- membership, counts and issuance order all still look right.
+     * This is what makes that failure observable.
+     */
+    template <typename RP = RecyclingPolicy>
+        requires detail::is_full_domain_policy_v<RP>
+    std::size_t free_interval_count() const noexcept
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock_shared();
+        return RecyclingPolicy::interval_count();
+    }
+
+    /**
+     * @brief Reserved return credits, which must equal `active_count()` here.
+     *
+     * @details The credits == actives relation is what makes `release()` nothrow
+     * by construction and what `reset()`'s exhausted case depends on. It holds at
+     * every operation boundary -- and every boundary is exactly where a caller
+     * can observe it.
+     */
+    template <typename RP = RecyclingPolicy>
+        requires detail::is_full_domain_policy_v<RP>
+    std::size_t reserved_credit_count() const noexcept
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock_shared();
+        return RecyclingPolicy::credit_count();
+    }
+
+    /**
+     * @brief Clear every active identifier and restore the configured domain.
+     *
+     * @details A policy that owns its domain is reached through
+     * `configure_domain`, NOT through `clear()`: `clear()` alone leaves the
+     * interval map empty, an empty map means exhausted, so a literal
+     * `clear()`-only reset would silently degrade the generator to plain
+     * sequential allocation while reporting nothing.
+     *
+     * The rebuild runs BEFORE the active set is cleared, because an exhausted
+     * full-domain policy funds it from a return credit and the credits belong to
+     * the identifiers still active at that point.
+     *
+     * Conditionally `noexcept`: the rebuild reuses an owned node in every state
+     * reachable WITHOUT a move, and allocates only for a moved-from generator,
+     * which a movable instantiation can reach (see the class note on move
+     * operations). The IdGuard objection that keeps `release()` unconditionally
+     * `noexcept` does not apply -- no destructor and no guard calls `reset()`.
+     * The three shipping recycling policies keep the unconditional `noexcept`.
+     */
+    void reset() noexcept(detail::domain_configure_is_noexcept_v<RecyclingPolicy>)
     {
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        if constexpr (detail::has_domain_configure_v<RecyclingPolicy>)
+        {
+            configure_recycling_domain();
+        }
+        else
+        {
+            RecyclingPolicy::clear();
+        }
         mIdsInUse.clear();
-        RecyclingPolicy::clear();
         AllocationPolicy::reset(mBaseId);
 
         // Invalidate outstanding guards. Without this a guard created before
@@ -1557,6 +2511,11 @@ public:
 
 private:
     underlying_type mBaseId;
+
+    /// @brief Highest issuable identifier, already normalized against the ID
+    /// type's reserved sentinel. Retained for reset() and the claim domain test.
+    underlying_type mUpperBound;
+
     ActiveIdTracker<underlying_type> mIdsInUse;
     // Bumped by reset(). Outstanding IdGuards carry the epoch they were made
     // in and refuse to release across a bump.
@@ -1592,6 +2551,36 @@ using DenseIdGenerator = IdGenerator<IdType,
                                      MinRecyclingPolicy<underlying_id_type_t<IdType>>,
                                      id_generator::ExpectedErrorPolicy<IdType, IdError>,
                                      SingleThreadedPolicy>;
+
+/// @brief Generator supporting claim-by-value over the whole domain.
+///
+/// @details The only alias whose recycling policy owns every identifier rather
+/// than only the released ones, so it is the only one offering `claim(id)`. Use
+/// it when identifiers arrive from outside -- a load, a peer, a file -- and must
+/// be reserved without first consuming everything below them.
+///
+/// Construct with `SparseIdGenerator<T> gen(base, upper_bound)` to narrow the
+/// domain to what the consumer can actually represent; `gen(base)` takes the ID
+/// type's full domain, less its reserved sentinel if it declares one.
+///
+/// No existing alias selects this policy: SimpleIdGenerator, ThreadSafeIdGenerator,
+/// DenseIdGenerator and RandomIdGenerator receive no claim member and no
+/// ordering change.
+template <typename IdType = uint64_t>
+using SparseIdGenerator = IdGenerator<IdType,
+                                      SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
+                                      SparseRecyclingPolicy<underlying_id_type_t<IdType>>,
+                                      id_generator::ExpectedErrorPolicy<IdType, IdError>,
+                                      SingleThreadedPolicy>;
+
+/// @brief Thread-safe claim-by-value generator.
+template <typename IdType = uint64_t>
+using ThreadSafeSparseIdGenerator =
+    IdGenerator<IdType,
+                SequentialAllocationPolicy<underlying_id_type_t<IdType>>,
+                SparseRecyclingPolicy<underlying_id_type_t<IdType>>,
+                id_generator::ExpectedErrorPolicy<IdType, IdError>,
+                MutexSynchronizationPolicy>;
 
 /// @brief Random ID generator (no recycling, with retry for collisions)
 template <typename IdType = uint64_t>

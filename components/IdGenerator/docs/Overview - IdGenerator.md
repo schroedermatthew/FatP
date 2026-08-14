@@ -137,13 +137,14 @@ RandomIdGenerator<uint64_t> rand_gen(seed_tag, 42);
 
 **Mechanism:** Each policy implements `next_id(max_id, first_call)` differently, returning `std::optional<IdType>` where `nullopt` means the domain is spent. The compiler inlines the selected implementation directly.
 
-### 2. Recycling Policies: Three Strategies
+### 2. Recycling Policies: Four Strategies
 
 | Policy | Order | Complexity | Use Case |
 |--------|-------|------------|----------|
 | `ImmediateRecyclingPolicy` | FIFO queue | O(1) | General purpose |
 | `MinRecyclingPolicy` | Smallest first | O(log n) | Dense ID ranges for cache locality |
 | `NoRecyclingPolicy` | Never recycle | O(1) | Audit trails, security |
+| `SparseRecyclingPolicy` | Smallest first, over the whole domain | O(log I) | Claiming persisted IDs by value |
 
 ```cpp
 // FIFO: release(1), release(2), generate() → 1
@@ -151,9 +152,18 @@ SimpleIdGenerator<uint64_t> fifo_gen(1);
 
 // Min-First: release(2), release(1), generate() → 1 (smallest)
 DenseIdGenerator<uint64_t> dense_gen(1);
+
+// Sparse: reserve a specific ID without consuming everything below it
+SparseIdGenerator<uint32_t> sparse_gen(0, 1'000'000);
+sparse_gen.claim(999'999);          // O(log I), NOT O(gap)
+sparse_gen.generate();              // 0 -- nothing below the claim was spent
 ```
 
 **The HPC Case for Min-First:** When IDs index into arrays, keeping active IDs dense improves cache utilization. Min-first recycling fills gaps from the bottom.
+
+**The Persistence Case for Sparse:** The first three policies hold only what was released back to them, so an ID that was never issued in *this* run can only be reserved by generating up to it and releasing everything on the way — O(gap), and usually capped by an arbitrary attempt ceiling that turns a large gap into a failure. `SparseRecyclingPolicy` holds the complete domain as disjoint intervals, so reserving a persisted ID is one interval lookup regardless of its numeric value.
+
+It is the only policy that offers `claim()`, and the only one where `recycled_count()` counts never-issued IDs — so a zero from it means the domain is exhausted, not that nothing is pending. Exhaustion is an empty interval set rather than a question for the allocation policy.
 
 ### 3. StrongId Integration: Compile-Time Type Safety
 
@@ -300,6 +310,9 @@ No benchmark ships with this component yet: `components/IdGenerator/benchmarks/`
 | `is_active()` | O(1) average | Hash lookup |
 | Internal max-ID tracking | O(1) while the cache is valid, O(n) to rebuild it | `ActiveIdTracker` caches the maximum and invalidates it when that element is erased; the next `max_element()` is a linear `std::max_element` scan of the `unordered_set` |
 | `generate_batch(n)` | O(n) | N × O(1) operations |
+| `claim(id)` (sparse only) | O(log I) in free-interval count | Interval lookup, then at most one split. Independent of `id`'s numeric value and of its distance from any active ID |
+| `release()` (sparse only) | O(log I) | Merge with adjacent intervals; allocation-free, funded by the credit reserved at activation |
+| `recycled_count()` (sparse only) | O(I) | Checked, saturating sum of interval cardinalities |
 
 ### Where Fat-P Wins
 
@@ -307,12 +320,13 @@ No benchmark ships with this component yet: `components/IdGenerator/benchmarks/`
 - **StrongId integration:** Compile-time type safety with zero runtime cost
 - **Batch operations:** Reduce lock contention in high-throughput scenarios
 - **Dense recycling:** Min-first policy keeps IDs cache-friendly
+- **Claim by value:** Sparse recycling reserves a specific persisted ID in O(log I), where the alternative is a gap walk with an arbitrary attempt ceiling
 
 ### Where Fat-P Loses (Honesty Builds Trust)
 
 - **Distributed uniqueness:** For multi-node systems, UUIDs or Snowflake IDs are more appropriate
 - **128-bit IDs:** If you need 128-bit identifiers, IdGenerator's integral focus doesn't fit
-- **Persistence:** IdGenerator is in-memory only; database sequences survive restarts
+- **Persistence:** IdGenerator is in-memory only; database sequences survive restarts. `SparseRecyclingPolicy` makes *reinstating* persisted IDs cheap, but the persisting is still yours
 - **Simple use cases:** If you just need a counter, `std::atomic<uint64_t>` is simpler
 
 ---
@@ -347,7 +361,10 @@ Resource managers (handle allocation)
 | Edge cases | 5 | Overflow, double release, boundaries |
 | Custom policies | 3 | Custom allocation, bounded, tracker |
 | Active ID tracking | 3 | Lazy max recompute, dirty-max insert |
-| Post-review coverage | 10 | AlreadyInUse reachability, retry loop, exhausted latch, batch pool restoration, saturated revert, reset-invalidated guards, guard move-assignment, sentinel refusal, StrongId batch, movability |
+| Post-review coverage | 15 | AlreadyInUse reachability, retry loop, exhausted latch, batch pool restoration, saturated revert, reset-invalidated guards, guard move-assignment, sentinel refusal, StrongId batch, movability, bounded upper bound, random base as minimum, impossible batch count |
+| Sparse ID claiming | 27 | Claim at endpoints and in gaps, order independence, duplicate and out-of-domain refusal, all four release/merge transitions asserted on interval count, staged generation, batch exclusion and rollback, exhaustion at the configured ceiling, saturating free count, domain rebuild on reset, credit accounting, exception injection at each allocating step, gap-independence with a counting comparator, revert suppression, guard release, constructor routing, sentinel normalization |
+
+Total: 75 tests. The sparse group was additionally put through a 12-mutant gate against the header; 11 mutants were killed by a named test, and the survivor is a provably equivalent mutation recorded in the design note rather than papered over.
 
 ---
 

@@ -15,16 +15,24 @@ constraints:
   - "existing policy behavior remains unchanged"
   - "finite unsigned identifier domains"
 cxx_standard: "C++20"
-last_verified: "2026-08-13"
+last_verified: "2026-08-14"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
-status: "draft"
+status: "implemented"
 ---
 
 # Design Note - Sparse ID Claiming
 
-**Status:** Reviewed; contract ratified 2026-08-14  
+**Status:** Implemented 2026-08-14; contract ratified 2026-08-14  
 **Decided:** Mechanism authorized 2026-07-22; detailed Fat-P contract ratified 2026-08-14  
-**Last reviewed:** 2026-08-14 against Fat-P `5366366d` and Loom `20c80eb`
+**Last reviewed:** 2026-08-14 against Fat-P `adf89510` and Loom `20c80eb`
+
+## Implementation status
+
+Shipped in `include/fat_p/IdGenerator.h`: `SparseRecyclingPolicy`, `IdError::InvalidClaim`,
+`IdGenerator::claim()`, the `configure_domain` seam, the three `detail::` traits, and the
+`SparseIdGenerator` / `ThreadSafeSparseIdGenerator` aliases. The contract below is the
+specification the implementation was written against; the deviations and the one gap are
+recorded in §Implementation notes at the end rather than left for a reader to discover.
 
 ## Scope
 
@@ -164,9 +172,9 @@ reserved nodes and moving allocation onto `generate()`/`claim()`.
 
 ### Domain configuration
 
-The policy cannot discover its own domain. `IdGenerator`'s only general constructor passes
-`base_id` to the allocation policy and to `mBaseId`, and **default-constructs the recycling
-policy**, which therefore never learns the base:
+The policy cannot discover its own domain. `IdGenerator` passes `base_id` to the allocation
+policy and to `mBaseId`, but **default-constructs the recycling policy**, which therefore never
+learns the base:
 
 ```cpp
 explicit IdGenerator(underlying_type base_id = 0)
@@ -180,33 +188,79 @@ explicit IdGenerator(underlying_type base_id = 0)
 `clear()` — the identical call the destructor makes — so a policy that must *rebuild* a
 domain has no hook to do it in.
 
-Fat-P therefore adds one guarded configuration seam, used at exactly two call sites:
+Fat-P already has an allocation-side upper-bound seam. Commit `adf89510` added a two-argument
+`IdGenerator(base_id, upper_bound)` constructor constrained by
+`detail::accepts_upper_bound_v<AllocationPolicy>`; the participating allocation policy receives
+both values. The opt-in is declared by the policy rather than inferred from constructor arity,
+because `RandomAllocationPolicy(uint64_t seed, int ignored)` also accepts two arguments and must
+not be mistaken for a bounded policy.
+
+The sparse policy needs the same public construction shape but consumes the domain on the
+**recycling** side. Fat-P therefore adds an independent guarded configuration seam, used at
+exactly two call sites:
 
 1. **Construction.** After the initializer list, `IdGenerator` calls
-   `RecyclingPolicy::configure_domain(base_id, upper_bound)` when
+   `RecyclingPolicy::configure_domain(base_id, effective_upper_bound)` when
    `detail::has_domain_configure_v<RecyclingPolicy>` holds.
-2. **`reset()`.** The same guarded call rebuilds `[base, upper_bound]` **before** the active
-   set is cleared. This call is distinct from `clear()`; `reset()` must not rely on `clear()`
-   to restore a domain. The rebuild reuses an owned node in every state reachable without a
-   move, and is conditionally `noexcept` for exactly the state that is not — see §Reset and
-   destruction.
+2. **`reset()`.** The same guarded call rebuilds `[base, effective_upper_bound]` **before** the
+   active set is cleared. This call is distinct from `clear()`; `reset()` must not rely on
+   `clear()` to restore a domain. The rebuild reuses an owned node in every state reachable
+   without a move, and is conditionally `noexcept` for exactly the state that is not — see
+   §Reset and destruction.
 
 Destruction continues to call the non-allocating `clear()` and does not rebuild.
 
-The three existing policies do not model `has_domain_configure_v`, so neither call site emits
-anything for them and their behavior is byte-for-byte unchanged.
+The three existing recycling policies do not model `has_domain_configure_v`, so neither call site
+invokes a new recycling operation for them and their observable behavior is unchanged.
 
-**Upper bound.** The generator gains one defaulted constructor parameter:
+**Upper-bound construction.** The generator keeps its shipped one-argument constructor and its
+shipped allocation-policy opt-in. The two-argument constructor is available when either policy
+role declares that it consumes a bound:
 
 ```cpp
-explicit IdGenerator(underlying_type base_id = 0,
-                     underlying_type upper_bound = std::numeric_limits<underlying_type>::max());
+explicit IdGenerator(underlying_type base_id = 0);
+
+template <typename AP = AllocationPolicy, typename RP = RecyclingPolicy>
+    requires (detail::accepts_upper_bound_v<AP> ||
+              detail::has_domain_configure_v<RP>)
+IdGenerator(underlying_type base_id, underlying_type upper_bound);
 ```
 
-Existing call sites are source-compatible because the parameter is defaulted and trailing.
-The value is stored beside `mBaseId`, forwarded to `configure_domain`, and used by the
-generator's own exhaustion test (§Exhaustion). A `upper_bound < base_id` is a precondition
-violation, not a runtime error.
+This is one public operation with role-directed forwarding, not one policy pretending to be the
+other. An allocation policy modelling `accepts_upper_bound_v` is constructed with
+`(base_id, effective_upper_bound)`; otherwise it retains its `(base_id)` construction. A
+recycling policy modelling `has_domain_configure_v` is default-constructed and then receives
+`configure_domain(base_id, effective_upper_bound)`. If both roles opt in, both receive the same
+effective value. Private tag-dispatched constructors may select the correct initializer-list
+form; constructing a temporary policy and moving it into the base is not required and would add
+an accidental movability requirement to custom policies.
+
+The one-argument constructor delegates through the same role dispatch using the default request.
+An opted-in allocation policy receives the effective default, and an opted-in recycling policy
+receives it through `configure_domain`; policies that opt into neither retain their shipped
+construction. The generator retains the effective value for `reset()` and the sparse
+claim-domain check. An `effective_upper_bound < base_id` is a precondition violation, not a
+runtime error.
+
+**Reserved invalid sentinel.** `detail::has_invalid_sentinel_v<IdType_>` identifies the
+StrongId-style contract already enforced by `generate()`: the underlying maximum denotes
+`invalid()` and must never be issued. For such an ID type, the effective upper bound is
+`min(requested_upper_bound, numeric_limits<underlying_type>::max() - 1)`, which is the underlying
+value of `StrongId::max()`. For an integral ID type without that sentinel, the effective bound is
+the requested value unchanged. The one-argument default request remains
+`numeric_limits<underlying_type>::max()`; normalization excludes the sentinel only when the ID
+type declares one.
+
+This normalization is part of domain construction, not a late generation guard. It keeps the
+free set equal to the set of issuable identifiers: `claim(invalid())` is outside the effective
+domain, `recycled_count()` never counts an unissuable value, and exhaustion still means an empty
+interval map. If a future ID wrapper declares `invalid()` at a value other than the underlying
+maximum, the sentinel trait must be strengthened to expose that value before the wrapper can use
+the sparse policy; this contract does not infer arbitrary sentinel placement from the function
+name alone.
+
+In the remainder of this note, `upper_bound` means this normalized effective upper bound unless
+the text explicitly says `requested_upper_bound`.
 
 `upper_bound` is configurable per instance because a consumer's valid domain can be narrower
 than its ID type. Loom is exactly that case: `index2BoneId` consumes an index 16 bits per level and
@@ -225,7 +279,7 @@ does not permit both to be left unstated.
 upper -> lower
 4     -> 1       represents [1, 4]
 59999 -> 6       represents [6, 59999]
-MAX   -> 60001   represents [60001, MAX]
+LIMIT -> 60001   represents [60001, effective_upper_bound]
 ```
 
 Keying by upper bound lets `get_recycled()` take the first interval's lower value without changing
@@ -241,7 +295,9 @@ the map key. The policy maintains these invariants:
    propagate an exception, with an identifier in neither set.
 4. The free intervals and active set are disjoint between operations.
 
-The empty generator starts with one interval, `[base, upper_bound]`. Exhaustion is represented
+The empty generator starts with one interval, `[base, effective_upper_bound]`. For an ordinary
+integral ID type `LIMIT` may be the underlying maximum; for a StrongId-style type it is at most
+one less, so the invalid sentinel is never part of the interval union. Exhaustion is represented
 by an empty map, not by a guessed sentinel value, and specifically not by a zero count.
 
 ### Generation
@@ -283,8 +339,8 @@ operation. No step can leave it in neither.
 
 ### Exhaustion
 
-With a configurable `upper_bound`, the allocation policy can no longer answer the exhaustion
-question: `SequentialAllocationPolicy::next_id` reports exhaustion at
+With a configurable effective upper bound, the allocation policy can no longer answer the
+exhaustion question: `SequentialAllocationPolicy::next_id` reports exhaustion at
 `std::numeric_limits<IdType>::max()`, which may be far above the configured ceiling. A
 full-domain generator therefore never falls through to the allocation policy — an empty free
 set *is* exhaustion, and `Overflow` is reported directly.
@@ -391,9 +447,9 @@ is that release is nothrow *by construction* rather than by hiding a `bad_alloc`
 It acquires the generator's exclusive lock and follows this order:
 
 1. Reject an already-active identifier with `IdError::AlreadyInUse`.
-2. Reject an identifier outside `[base, upper_bound]` with `IdError::InvalidClaim`, before any
-   lookup. This is the below-base and above-ceiling test, and it is a domain test, not a
-   free-set test.
+2. Reject an identifier outside `[base, effective_upper_bound]` with `IdError::InvalidClaim`,
+   before any lookup. This is the below-base, above-ceiling, and reserved-sentinel test, and it
+   is a domain test, not a free-set test.
 3. Find the first interval whose upper bound is not less than `id`; if none contains `id`, the
    identifier is free-set-absent but domain-valid, which means it is active — already refused
    at step 1 — or the policy state is inconsistent. Report `IdError::InvalidClaim`.
@@ -478,13 +534,16 @@ case (§Reset and destruction). An allocation exception is not translated
 to `IdError`, because `IdError` describes identifier-domain outcomes rather than memory
 failure; but it must never escape after a partial mutation.
 
-**Traits.** Two `detail::` traits are added, in the style of the header's existing
-`may_collide_v` and `is_random_policy_v`:
+**Traits.** The shipped `detail::accepts_upper_bound_v<P>` remains the allocation-policy opt-in
+for constructor forwarding. Three additional `detail::` traits are added, in the style of the
+header's existing `may_collide_v` and `is_random_policy_v`:
 
 - `detail::is_full_domain_policy_v<P>` — the policy owns the complete domain, exposes
   `peek_lowest`/`remove_lowest`/`claim_at`, and opts in explicitly. This gates the generate
   staging order, the exhaustion path, batch rollback, and the availability of `claim()`.
-- `detail::has_domain_configure_v<P>` — the policy accepts `configure_domain(base, upper)`.
+- `detail::has_domain_configure_v<P>` — the recycling policy accepts
+  `configure_domain(base, upper)`; this also opts the policy into the generator's two-argument
+  construction surface.
 - `detail::is_sequential_policy_v<P>` — the allocation-policy side of the pairing check
   above. It exists because the other two traits describe the recycling policy and therefore
   cannot say anything about what it is paired with.
@@ -535,13 +594,19 @@ Consequences for this contract:
 
 ### Batch rollback
 
-The current batch rollback distinguishes recycled identifiers from newly allocated identifiers by
-comparing them with the pre-batch maximum. That rule does not apply to a full-domain policy: every
-identifier came from the free set, including values above the previous active maximum.
+Batch rollback records provenance per element when each identifier is committed. Commit
+`b7b16d1e` replaced the former value-based inference with a `from_pool` record because comparison
+with the pre-batch maximum was wrong for every recycling policy: a pooled identifier above the
+active maximum was misclassified as newly allocated, and an empty pre-batch active set caused all
+pooled identifiers consumed by the batch to be discarded on rollback. No policy may reconstruct
+provenance from identifier values.
 
-For a sparse-policy instance, a failed `generate_batch()` returns every generated identifier to
-the interval set and erases it from the active tracker. It does not call the allocation policy's
-`revert()`. The restored interval union and active set must be identical to their pre-batch state.
+The sparse path uses that same recorded-provenance contract, with every generated element marked
+as coming from the full-domain free set. A failed `generate_batch()` returns every generated
+identifier to the interval set and erases it from the active tracker. It does not call the
+allocation policy's `revert()`. The restored interval union and active set must be identical to
+their pre-batch state. What distinguishes the sparse policy is not how provenance is determined;
+it is that the return credits make the policy-facing restoration allocation-free.
 
 **That guarantee is only achievable because rollback allocates nothing.** Each element of the
 batch acquired a return credit when it became active, and rollback consumes those credits, so
@@ -622,8 +687,9 @@ domain.
 For the sparse policy, `recycled_count()` means the number of currently free identifiers, including
 never-issued identifiers in the open tail. It sums inclusive interval cardinalities in O(I) time.
 
-The full domain may contain `SIZE_MAX + 1` values, which cannot be represented by the existing
-`std::size_t` return type. The result therefore saturates at
+For a plain integral ID type, the full domain may contain `SIZE_MAX + 1` values, which cannot be
+represented by the existing `std::size_t` return type. A StrongId-style domain never contains its
+reserved top sentinel and therefore does not have that extra value. The result saturates at
 `std::numeric_limits<std::size_t>::max()`. It is exact whenever the free cardinality is
 representable. The operation performs checked addition and never wraps.
 
@@ -739,6 +805,16 @@ The Fat-P slice must add red-first tests for:
     policy's reserved-node footprint returns to `O(A)`, not the high-water mark.
 25. A `static_assert` fires for `SparseRecyclingPolicy` paired with `RandomAllocationPolicy`,
     and does not fire for the sequential pairing. Compile-fail coverage, not runtime.
+26. Constructor routing is proved for each policy-role combination: allocation-only opt-in,
+    recycling-only opt-in, both roles opted in, and neither role opted in. Each participating
+    policy observes the same effective bound; the two-argument constructor is unavailable when
+    neither role opts in, and `RandomAllocationPolicy` is never selected by accidental arity.
+27. With `using Id = StrongId<uint8_t, Tag>`, a default-constructed sparse generator contains and
+    issues exactly `0..254`: `recycled_count()` starts at 255, reaches zero after those values are
+    active, and the next `generate()` reports `Overflow`; `claim(Id::invalid())` returns
+    `InvalidClaim`, and reset does not reintroduce `255`. Repeat with an explicit requested upper
+    bound of `255` to prove normalization, and with a plain `uint8_t` generator to prove that
+    `255` remains valid when the ID type declares no sentinel.
 
 The Loom integration slice must then prove that a lone sparse persisted child loads without a
 generate walk, unclaimed lower slots remain available, an already-active claim is refused without
@@ -784,6 +860,8 @@ operation its recycle source cannot honor.
 - Exhaustion is an explicit empty-domain state.
 - Existing aliases retain their current successful-operation behavior.
 - The representation naturally returns the lowest free identifier.
+- Allocation and recycling policies share one upper-bound construction surface while opting in
+  independently, and StrongId-style domains exclude the reserved invalid sentinel.
 
 ### Negative
 
@@ -809,6 +887,8 @@ operation its recycle source cannot honor.
 - Keep `claim()` unavailable for policies that do not model complete sparse claiming.
 - Preserve the active/free invariant across allocation exceptions: an identifier may be in
   both sets inside an operation, never in neither between operations.
+- Normalize a StrongId-style requested ceiling before constructing the free domain; the invalid
+  sentinel must never enter an interval, a free count, or a successful claim.
 - Reserve every return credit before the first mutation of an operation, so that release,
   batch rollback, and reset remain allocation-free.
 - Decide the `allocateAt` terminate branch explicitly during Loom integration; a refused
@@ -823,10 +903,59 @@ operation its recycle source cannot honor.
 
 ## Status
 
-**Status:** Reviewed; contract ratified 2026-08-14  
+**Status:** Implemented in Fat-P 2026-08-14; contract ratified 2026-08-14  
 **Mechanism authority:** Loom owner decisions `D-ALLOC-SPARSE-POLICY` and
 `D-ALLOC-FATP-CHANGE`, 2026-07-22  
-**Implementation:** Not started  
+**Implementation:** Fat-P complete; Loom integration not started  
+
+---
+
+## Implementation notes
+
+Written 2026-08-14, after the slice landed. The contract above is unchanged; this section
+records where the implementation added to it, and the one claim that is not covered by a test.
+
+**Additions the contract did not specify.**
+
+- `SparseRecyclingPolicy` takes a `Compare` template parameter, defaulting to
+  `std::less<IdType>`, as every ordered container does. Required test 18 asks for a counting
+  comparator, and there was no way to supply one.
+- `detail::is_sequential_policy_v` recognizes an opt-in `using is_sequential_policy = void;`
+  alias in addition to the two shipped specializations. Without it the pairing check was a
+  whitelist of two types, no user could pair a custom sequential policy with the sparse
+  policy, and required test 19 — which needs an instrumented allocation policy — was
+  unwritable.
+- `free_interval_count()` and `reserved_credit_count()` are exposed on the generator, gated on
+  the full-domain trait. Canonicalization (invariant 2) and the `C == A` relation are stated
+  invariants with no other oracle: every other query returns the same answer whether or not
+  adjacent intervals were merged.
+- `generate()` constructs the caller's `id_type` *before* it mutates anything, which the
+  staged order in §Generation did not require. A throwing `id_type` constructor would
+  otherwise leave the identifier active and out of the caller's hands. `generate_batch()`
+  already had this ordering; `generate()` did not.
+- The batch capacity preflight now measures against the configured `upper_bound` rather than
+  the ID type's maximum, which it must for a bounded or full-domain generator.
+
+**Verification.** 27 new tests (`test_IdGenerator` 48 → 75, all passing), then a 12-mutant
+gate against the header: recycled-count saturation, the four release transitions, the reset
+rebuild, sentinel normalization, both staging orders, the batch credit guard, the claim split
+credit, the revert suppression, the comparator, and the trait opt-in. Eleven were killed by a
+named test. Full library builds clean, 101/101 tests, layer validation clean,
+`IdGenerator.h` compiles standalone under `/W4 /WX`.
+
+**The one surviving mutant, recorded rather than hidden.** Deleting the `is_in_domain()` check
+from `claim()` passes the entire suite. It is a provably equivalent mutation: the free set is a
+subset of `[base, upper_bound]` by invariant 1, so `is_free()` already rejects every
+out-of-domain identifier with the same `InvalidClaim`. No test can distinguish them, and
+required test 15 does not, despite appearing to. The check stays — it is `O(1)` ahead of an
+`O(log I)` lookup, it names which question is being asked, and it is the one of the two that
+survives a violation of invariant 1 — but it is enforced by argument, not by the suite.
+
+**Not covered.** A throwing *active-set* insert is still untested at generator level:
+`ActiveIdTracker` wraps `std::unordered_set` with no allocator seam, so the failure cannot be
+injected without changing a shipped type. The credit-reservation failure that immediately
+precedes it IS injected (`FlakySparsePolicy`), which is what kills the generate-path staging
+mutant; the insert itself is covered by construction only.
 
 **Review record.** The first draft was reviewed against Fat-P `5366366d` and Loom `20c80eb`
 by a six-lens pass that derived required behavior from live source before reading the draft,
@@ -893,3 +1022,16 @@ rather than `O(A)`; `remove(IdType)` was split into `remove_lowest()` and `claim
 because the general form implied a split the generate path never performs; and a trait on the
 recycling policy cannot constrain the allocation policy it is paired with, so the
 random-allocation rejection needed its own `static_assert` on the pair.
+
+**Fourth round (2026-08-14) — reconciliation with the shipped allocator fixes.** Review against
+Fat-P `adf89510` found three stale or incomplete contract statements. First, batch provenance is
+now recorded for every policy by `from_pool`; the sparse policy does not need a separate
+value-inference rule, only its allocation-free credit-funded return path. Second, the shipped
+upper-bound constructor is an allocation-policy opt-in, so the sparse domain now joins that
+public surface through an independent recycling-policy opt-in and role-directed forwarding.
+An inline C++20 compiler probe covered allocation-only, recycling-only, dual-opt-in, and
+neither-opt-in combinations with non-movable policy bases; the tag-dispatched initializer shape
+compiled and the accidental two-argument arity match remained unavailable.
+Third, the default interval could include `StrongId::invalid()`. The effective domain now clamps
+a StrongId-style requested ceiling to the largest valid value, and required tests prove that
+generation, claiming, free counts, reset, and exhaustion all agree on the same issuable set.
