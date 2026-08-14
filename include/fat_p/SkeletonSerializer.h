@@ -58,6 +58,8 @@ FATP_META:
 // 5. String length is stored as uint32_t (not uint64_t). No Loom string
 //    field will exceed 4 GiB. This halves the length prefix cost compared
 //    to BinaryLite's uint64_t length prefix.
+//    Variable-length reads accumulate verified chunks, so a corrupt length
+//    prefix cannot force allocation of the entire claimed payload up front.
 //
 // Error model: read methods throw std::runtime_error on stream failure or
 // truncation. Write methods propagate stream exceptions if the stream has
@@ -73,12 +75,17 @@ FATP_META:
  */
 
 #include <bit>
+#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <istream>
 #include <ostream>
+#include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "SkeletonFwd.h"
 
@@ -137,6 +144,36 @@ T readLe(std::istream& in)
     }
 
     return value;
+}
+
+inline constexpr std::uint32_t kLengthPrefixedReadChunkBytes = 4096u;
+
+template <typename Append>
+void readLengthPrefixedChunks(
+    std::istream& in,
+    std::uint32_t length,
+    const char* truncatedMessage,
+    Append&& append)
+{
+    char chunk[kLengthPrefixedReadChunkBytes];
+    std::uint32_t remaining = length;
+
+    while (remaining != 0u)
+    {
+        const std::uint32_t chunkSize =
+            remaining < kLengthPrefixedReadChunkBytes
+                ? remaining
+                : kLengthPrefixedReadChunkBytes;
+
+        in.read(chunk, static_cast<std::streamsize>(chunkSize));
+        if (in.gcount() != static_cast<std::streamsize>(chunkSize))
+        {
+            throw std::runtime_error(truncatedMessage);
+        }
+
+        append(chunk, static_cast<std::size_t>(chunkSize));
+        remaining -= chunkSize;
+    }
 }
 
 } // namespace detail
@@ -282,13 +319,20 @@ public:
     {
         const auto len = detail::readLe<std::uint32_t>(mIn);
 
-        std::string result(len, '\0');
-        mIn.read(result.data(), static_cast<std::streamsize>(len));
+        std::string result;
+        result.reserve(
+            len < detail::kLengthPrefixedReadChunkBytes
+                ? len
+                : detail::kLengthPrefixedReadChunkBytes);
 
-        if (!mIn.good())
-        {
-            throw std::runtime_error("SkeletonSerializer: truncated string read");
-        }
+        detail::readLengthPrefixedChunks(
+            mIn,
+            len,
+            "SkeletonSerializer: truncated string read",
+            [&result](const char* data, std::size_t size)
+            {
+                result.append(data, size);
+            });
 
         return result;
     }
@@ -300,14 +344,21 @@ public:
     {
         const auto len = detail::readLe<std::uint32_t>(mIn);
 
-        std::vector<std::uint8_t> result(len);
-        mIn.read(reinterpret_cast<char*>(result.data()),
-                 static_cast<std::streamsize>(len));
+        std::vector<std::uint8_t> result;
+        result.reserve(
+            len < detail::kLengthPrefixedReadChunkBytes
+                ? len
+                : detail::kLengthPrefixedReadChunkBytes);
 
-        if (!mIn.good())
-        {
-            throw std::runtime_error("SkeletonSerializer: truncated bytes read");
-        }
+        detail::readLengthPrefixedChunks(
+            mIn,
+            len,
+            "SkeletonSerializer: truncated bytes read",
+            [&result](const char* data, std::size_t size)
+            {
+                const auto* first = reinterpret_cast<const std::uint8_t*>(data);
+                result.insert(result.end(), first, first + size);
+            });
 
         return result;
     }

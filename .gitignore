@@ -60,7 +60,7 @@ vcpkg-root
 
 # Other common files/folders
 # CMake build artifacts (if using CMake with vcpkg)
-CMake/
+CMakeFiles/
 CMakeLists.txt.user
 CMakeSettings.json
 out/

@@ -865,7 +865,7 @@ static void benchmark_visit_subtree(const std::vector<size_t>& sizes)
             Timer t;
             t.start();
             sk.visitSubtree(subtree, [](SkeletonItem& item) {
-                prevent_opt(item.boneId().value());
+                prevent_opt(static_cast<int64_t>(item.boneId().words()[0]));
             });
             double elapsed = t.elapsed_ns();
             if (!is_warmup)
