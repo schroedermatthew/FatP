@@ -33,9 +33,11 @@ FATP_META:
  *
  *
  * @details Provides a flexible ID generation system with:
- *   - Sequential or random allocation strategies (a bounded sequential policy also
- *     ships, but its upper bound can only be set by constructing the policy
- *     directly: the generator's constructor forwards nothing but base_id)
+ *   - Sequential, bounded-sequential, or random allocation strategies. The
+ *     bounded policy's upper bound is set through the generator's
+ *     (base_id, upper_bound) constructor, available only to policies that opt
+ *     in via an accepts_upper_bound alias. Random allocation treats base_id as
+ *     a MINIMUM, not a first ID.
  *   - Configurable recycling policies (FIFO, Min-First, None)
  *   - Thread-safe and single-threaded variants
  *   - StrongId integration for type safety
@@ -184,6 +186,41 @@ struct has_invalid_sentinel<T, std::void_t<decltype(T::invalid())>> : std::true_
 
 template <typename T>
 inline constexpr bool has_invalid_sentinel_v = has_invalid_sentinel<T>::value;
+
+// Opt-in marker: an allocation policy that takes (base_id, upper_bound) and
+// wants IdGenerator's two-argument constructor to forward both. Detection is by
+// a DECLARED alias, never by constructibility -- a constructibility test also
+// matches RandomAllocationPolicy(uint64_t, int) and would silently build a
+// seeded random policy when a bounded one was requested.
+template <typename T, typename = void>
+struct accepts_upper_bound : std::false_type
+{
+};
+
+template <typename T>
+struct accepts_upper_bound<T, std::void_t<typename T::accepts_upper_bound>> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool accepts_upper_bound_v = accepts_upper_bound<T>::value;
+
+// What IdGenerator actually requires of a concurrency policy: an exclusive lock
+// on a mutable policy, and a shared lock on a CONST one (the query methods hold
+// the policy const). This is deliberately narrower than fat_p::ConcurrencyPolicy,
+// which additionally requires LockGuard/SharedGuard aliases that IdGenerator
+// never names, and which does not require lock_shared() to be const-callable.
+//
+// This is a diagnostic constraint, not a synchronization guarantee: the DEFAULT
+// policy provides no mutual exclusion at all, by design. It turns a mis-supplied
+// type into one clear error at the point of instantiation instead of a cascade
+// from deep inside a member.
+template <typename P>
+concept UsableConcurrencyPolicy = requires(P p, const P cp)
+{
+    p.lock();
+    cp.lock_shared();
+};
 
 } // namespace detail
 
@@ -431,9 +468,17 @@ class RandomAllocationPolicy
 
 public:
     /// @brief Construct with random seed from std::random_device
-    explicit RandomAllocationPolicy(IdType = 0)
-        : mRng(std::random_device{}())
-        , mDist(static_cast<DistType>(0), static_cast<DistType>(std::numeric_limits<IdType>::max()))
+    /// @param base_id The MINIMUM ID this policy will draw. Unlike the
+    ///        sequential policies, where base_id is the first ID issued, a
+    ///        random policy has no "first" -- it draws uniformly from
+    ///        [base_id, max]. Previously this argument was accepted and
+    ///        discarded, so a generator constructed with a base produced IDs
+    ///        below it.
+    explicit RandomAllocationPolicy(IdType base_id = 0)
+        : mBaseId(base_id)
+        , mRng(std::random_device{}())
+        , mDist(static_cast<DistType>(base_id),
+                static_cast<DistType>(std::numeric_limits<IdType>::max()))
     {
     }
 
@@ -441,7 +486,8 @@ public:
     /// @param seed The seed value for the RNG
     /// @param ignored Disambiguator (use any value)
     RandomAllocationPolicy(uint64_t seed, int /*ignored*/)
-        : mRng(seed)
+        : mBaseId(0)
+        , mRng(seed)
         , mDist(static_cast<DistType>(0), static_cast<DistType>(std::numeric_limits<IdType>::max()))
     {
     }
@@ -452,8 +498,13 @@ public:
         return static_cast<IdType>(mDist(mRng));
     }
 
-    void reset(IdType = 0) noexcept
+    void reset(IdType base_id = 0) noexcept
     {
+        // Rebuild the distribution: reset(base) must honor the new lower bound,
+        // or a reset generator would resume drawing below it.
+        mBaseId = base_id;
+        mDist = std::uniform_int_distribution<DistType>(
+            static_cast<DistType>(base_id), static_cast<DistType>(std::numeric_limits<IdType>::max()));
         mRng.seed(std::random_device{}());
     }
 
@@ -464,6 +515,7 @@ public:
     }
 
 private:
+    IdType mBaseId;
     std::mt19937_64 mRng;
     std::uniform_int_distribution<DistType> mDist;
 };
@@ -484,6 +536,11 @@ class BoundedSequentialAllocationPolicy
     static_assert(std::is_unsigned_v<IdType>, "IdType should be unsigned for ID generation");
 
 public:
+    /// Opts this policy into IdGenerator's (base_id, upper_bound) constructor.
+    /// Without it the bound is unreachable through the generator and this policy
+    /// silently behaves as an unbounded one.
+    using accepts_upper_bound = void;
+
     explicit BoundedSequentialAllocationPolicy(IdType base_id = 0,
                                                IdType max_bound = std::numeric_limits<IdType>::max())
         : mBaseId(base_id)
@@ -806,7 +863,7 @@ template <typename IdType_,
           typename AllocationPolicy = SequentialAllocationPolicy<underlying_id_type_t<IdType_>>,
           typename RecyclingPolicy = ImmediateRecyclingPolicy<underlying_id_type_t<IdType_>>,
           typename ErrorPolicy = id_generator::ExpectedErrorPolicy<IdType_, IdError>,
-          typename ConcurrencyPolicy = SingleThreadedPolicy>
+          detail::UsableConcurrencyPolicy ConcurrencyPolicy = SingleThreadedPolicy>
 class IdGenerator : private AllocationPolicy, private RecyclingPolicy, private ConcurrencyPolicy
 {
 public:
@@ -820,6 +877,36 @@ public:
 
     explicit IdGenerator(underlying_type base_id = 0)
         : AllocationPolicy(base_id)
+        , RecyclingPolicy()
+        , ConcurrencyPolicy()
+        , mBaseId(base_id)
+        , mIdsInUse()
+    {
+    }
+
+    /**
+     * @brief Construct with an explicit upper bound for a bounded policy.
+     *
+     * @details Available only when the allocation policy OPTS IN by declaring
+     * `using accepts_upper_bound = void;` -- `BoundedSequentialAllocationPolicy`
+     * is the one that does. Without this the bound was unreachable through
+     * IdGenerator: the general constructor forwards `base_id` alone, so a
+     * bounded generator silently got the policy's default bound of
+     * `numeric_limits::max()` and was not bounded at all.
+     *
+     * The opt-in is a declared alias rather than "forward a second argument
+     * whenever the policy accepts one", because that test also matches
+     * `RandomAllocationPolicy(uint64_t seed, int)` and would quietly reinterpret
+     * `(base, upper_bound)` as `(seed, ignored)` -- constructing a seeded random
+     * generator where a bounded one was asked for.
+     *
+     * @param base_id The first ID to generate
+     * @param upper_bound The last ID the policy may issue (inclusive)
+     */
+    template <typename AP = AllocationPolicy>
+        requires detail::accepts_upper_bound_v<AP>
+    IdGenerator(underlying_type base_id, underlying_type upper_bound)
+        : AllocationPolicy(base_id, upper_bound)
         , RecyclingPolicy()
         , ConcurrencyPolicy()
         , mBaseId(base_id)
@@ -1019,6 +1106,29 @@ public:
         }
 
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+
+        // Refuse a count the ID space cannot satisfy, BEFORE reserving for it.
+        // Without this, result.reserve(count) throws length_error or bad_alloc
+        // out of an Expected-returning API for a count that was never
+        // satisfiable. This is a domain check, not an allocation guard: a
+        // feasible count can still fail to allocate, and that exception still
+        // propagates, because IdError describes identifier-domain outcomes and
+        // running out of memory is not one of them.
+        {
+            constexpr auto kDomainMax = std::numeric_limits<underlying_type>::max();
+            if constexpr (sizeof(underlying_type) < sizeof(std::size_t))
+            {
+                // The whole domain is representable as size_t, so capacity is
+                // exact: total slots minus those already taken.
+                const std::size_t capacity =
+                    static_cast<std::size_t>(kDomainMax) - static_cast<std::size_t>(mBaseId) + 1u;
+                const std::size_t taken = mIdsInUse.size();
+                if (count > (capacity > taken ? capacity - taken : std::size_t{0}))
+                {
+                    return make_unexpected(IdError::Overflow);
+                }
+            }
+        }
 
         std::vector<id_type> result;
         // Provenance is RECORDED, not inferred. The previous implementation

@@ -321,7 +321,7 @@ class IdGenerator;
 
 **Why:** Different applications need different ID patterns. Sequential IDs are predictable and debuggable; random IDs resist enumeration attacks.
 
-**When to customize:** Use `RandomAllocationPolicy` for security-sensitive applications. Implement custom policies for special patterns (odd-only, range-restricted, etc.).
+**When to customize:** Use `RandomAllocationPolicy` when IDs should not be sequentially guessable from one another, or when you need a seeded, reproducible non-sequential sequence. It draws from `std::mt19937_64`, which is **not** a cryptographic generator: its internal state is recoverable from a modest run of observed outputs, after which every subsequent ID is predictable. Do not rely on it where an adversary must not predict the next ID. Implement custom policies for special patterns (odd-only, range-restricted, etc.).
 
 #### SequentialAllocationPolicy (Default)
 
@@ -377,7 +377,23 @@ auto id2 = policy.next_id(100, false); // 101
 - Protocol fields with limited bit width
 - Array-backed storage with fixed capacity
 
-**Reachability:** The bound is a policy-level feature only. `IdGenerator` exposes one general constructor, `explicit IdGenerator(underlying_type base_id)`, which forwards `base_id` and nothing else, so a generator instantiated over `BoundedSequentialAllocationPolicy` runs with the default bound of `std::numeric_limits<IdType>::max()`. To use the bound, drive the policy directly or add a constructor that forwards it.
+**Reachability:** Pass the bound through the generator's two-argument constructor:
+
+```cpp
+using Bounded = fat_p::IdGenerator<uint16_t,
+                                   fat_p::BoundedSequentialAllocationPolicy<uint16_t>,
+                                   fat_p::NoRecyclingPolicy<uint16_t>>;
+Bounded gen(10, 14);   // issues 10, 11, 12, 13, 14, then Overflow
+```
+
+That constructor exists only for allocation policies that opt in by declaring
+`using accepts_upper_bound = void;`. The opt-in is a declared alias rather than a
+constructibility test, because `RandomAllocationPolicy` also accepts two arguments —
+`(seed, ignored)` — and a constructibility test would silently build a seeded random
+generator when a bounded one was requested.
+
+The one-argument constructor still works and still leaves the policy at its default bound of
+`std::numeric_limits<IdType>::max()`, which is to say unbounded.
 
 #### RandomAllocationPolicy
 
@@ -614,7 +630,7 @@ explicit IdGenerator(underlying_type base_id = 0)
 Creates a generator with the specified starting ID.
 
 **Parameters:**
-- `base_id`: The first ID to generate (default: 0)
+- `base_id`: The first ID to generate (default: 0). Under `RandomAllocationPolicy` there is no "first" ID, so `base_id` acts as the **minimum**: draws are uniform over `[base_id, max]`, and `reset()` rebuilds the distribution so the minimum survives it.
 
 **Example:**
 ```cpp
@@ -1503,7 +1519,7 @@ fat_p::ThreadSafeIdGenerator<uint64_t> gen(1);
 |----------|--------------------------|--------------------|
 | Single-threaded, sequential | `SimpleIdGenerator` | Hash insert or erase; no synchronization |
 | Multi-threaded | `ThreadSafeIdGenerator` | Hash insert or erase plus one mutex lock/unlock |
-| Security-sensitive | `RandomIdGenerator` | Hash insert plus one `mt19937_64` draw, repeated on collision |
+| Non-guessable ordering (not cryptographic) | `RandomIdGenerator` | Hash insert plus one `mt19937_64` draw, repeated on collision |
 
 *No throughput figures are given: this component has no benchmark. See [Benchmark Status](#benchmark-status).*
 

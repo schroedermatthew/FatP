@@ -1591,6 +1591,90 @@ FATP_TEST_CASE(bounded_revert_does_not_over_rewind_at_the_bound)
     return true;
 }
 
+// The bounded policy's upper bound is now reachable through IdGenerator. Before
+// the opt-in constructor it was not: the generator forwarded base_id alone, so a
+// "bounded" generator silently used the policy's default bound of max() and was
+// not bounded at all.
+FATP_TEST_CASE(bounded_generator_honors_its_upper_bound)
+{
+    using Bounded = IdGenerator<uint16_t,
+                                BoundedSequentialAllocationPolicy<uint16_t>,
+                                NoRecyclingPolicy<uint16_t>>;
+    Bounded gen(10, 14); // inclusive: 10, 11, 12, 13, 14
+
+    std::vector<uint16_t> issued;
+    while (true)
+    {
+        auto r = gen.generate();
+        if (!r.has_value())
+        {
+            FATP_ASSERT_TRUE(r.error() == IdError::Overflow, "the bound reports Overflow");
+            break;
+        }
+        issued.push_back(*r);
+        FATP_ASSERT_TRUE(issued.size() <= 16, "loop guard: the bound is not being honored");
+    }
+
+    FATP_ASSERT_EQ(issued.size(), size_t(5), "exactly 10..14 are issuable");
+    FATP_ASSERT_EQ(issued.front(), uint16_t(10), "starts at the base");
+    FATP_ASSERT_EQ(issued.back(), uint16_t(14), "ends at the bound, inclusive");
+
+    // The single-argument constructor still exists and still means "unbounded"
+    // for this policy, which is the pre-existing behavior.
+    Bounded unbounded(10);
+    auto first = unbounded.generate();
+    FATP_ASSERT_TRUE(first.has_value() && *first == uint16_t(10), "one-arg form still works");
+    return true;
+}
+
+// RandomAllocationPolicy accepted base_id and discarded it, so a generator
+// constructed with a base produced IDs below it. It is a MINIMUM for a random
+// policy, not a "first ID" -- there is no first.
+FATP_TEST_CASE(random_honors_base_id_as_a_lower_bound)
+{
+    RandomIdGenerator<uint16_t> gen(40000);
+
+    for (int i = 0; i < 200; ++i)
+    {
+        auto r = gen.generate();
+        FATP_ASSERT_TRUE(r.has_value(), "space is ample above 40000");
+        FATP_ASSERT_TRUE(*r >= uint16_t(40000),
+                         "a random draw must not fall below the configured base");
+    }
+
+    // reset(base) must rebuild the distribution, not just reseed the engine.
+    gen.reset();
+    for (int i = 0; i < 50; ++i)
+    {
+        auto r = gen.generate();
+        FATP_ASSERT_TRUE(r.has_value(), "still generating after reset");
+        FATP_ASSERT_TRUE(*r >= uint16_t(40000), "the base survives reset()");
+    }
+    return true;
+}
+
+// generate_batch must refuse a count the domain cannot satisfy rather than
+// throwing length_error/bad_alloc out of an Expected-returning API.
+FATP_TEST_CASE(batch_refuses_an_impossible_count)
+{
+    SimpleIdGenerator<uint8_t> gen(0); // 256 IDs total
+
+    auto absurd = gen.generate_batch(100000);
+    FATP_ASSERT_FALSE(absurd.has_value(), "a count beyond the domain is refused");
+    FATP_ASSERT_TRUE(absurd.error() == IdError::Overflow, "and reported as Overflow");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "with nothing allocated");
+
+    // Exactly the domain size is still feasible.
+    auto full = gen.generate_batch(256);
+    FATP_ASSERT_TRUE(full.has_value(), "the whole domain is a legal batch");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(256), "all issued");
+
+    // And one more than remains is refused.
+    auto over = gen.generate_batch(1);
+    FATP_ASSERT_FALSE(over.has_value(), "nothing left");
+    return true;
+}
+
 // StrongId coverage previously stopped at generate()/release(). The batch,
 // guard, and query paths carry their own conversions.
 FATP_TEST_CASE(strong_id_batch_guard_and_queries)
@@ -1739,6 +1823,9 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, strong_id_never_issues_the_invalid_sentinel);
     FATP_RUN_TEST_NS(runner, idgenerator, random_retries_the_sentinel_instead_of_reporting_overflow);
     FATP_RUN_TEST_NS(runner, idgenerator, bounded_revert_does_not_over_rewind_at_the_bound);
+    FATP_RUN_TEST_NS(runner, idgenerator, bounded_generator_honors_its_upper_bound);
+    FATP_RUN_TEST_NS(runner, idgenerator, random_honors_base_id_as_a_lower_bound);
+    FATP_RUN_TEST_NS(runner, idgenerator, batch_refuses_an_impossible_count);
     FATP_RUN_TEST_NS(runner, idgenerator, strong_id_batch_guard_and_queries);
     FATP_RUN_TEST_NS(runner, idgenerator, movability_matches_the_concurrency_policy);
 
