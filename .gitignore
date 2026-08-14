@@ -65,9 +65,12 @@ CMakeLists.txt.user
 CMakeSettings.json
 out/
 build/
-# MSVC build tree alongside the preset's default one. The `default` preset
-# resolves to the MSYS2 GCC toolchain; this is the Visual Studio generator's.
+# Generator-specific build trees alongside the preset's default one. The
+# `default` preset resolves to the MSYS2 GCC toolchain; build-msvc/ is the
+# Visual Studio generator's. build-analysis/ was tracked by accident and is
+# untracked as of this entry.
 build-msvc/
+build-analysis/
 .cmake/
 
 # Local verification / agent scratch (not part of the project)
