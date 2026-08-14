@@ -473,7 +473,44 @@ public:
     SlidingFileWindow(const SlidingFileWindow&) = delete;
     SlidingFileWindow& operator=(const SlidingFileWindow&) = delete;
     SlidingFileWindow(SlidingFileWindow&&) noexcept = default;
-    SlidingFileWindow& operator=(SlidingFileWindow&&) noexcept = default;
+
+    // Move assignment closes THIS window first. The defaulted version replaced
+    // every member memberwise, discarding an open file's dirty window and
+    // direct-access buffer without writing either back -- the target's
+    // unflushed data was simply lost. Closing first flushes it, which is the
+    // same thing the destructor does, and only then adopts the source.
+    //
+    // Note that whether this is reachable at all depends on the concurrency
+    // policy: with the default SingleThreadedPolicy the move members resolve to
+    // deleted, because that policy is immovable by design. It is reachable for
+    // an instantiation over a movable policy, and the interior reference
+    // operator[] hands out is NOT retargeted by a move -- a caller holding one
+    // across a move is writing into the moved-from husk.
+    SlidingFileWindow& operator=(SlidingFileWindow&& other) noexcept
+    {
+        if (this != &other)
+        {
+            close_impl();
+
+            mFile = std::move(other.mFile);
+            mFileSize = other.mFileSize;
+            mWindowSize = other.mWindowSize;
+            mBeginIndex = other.mBeginIndex;
+            mEndIndex = other.mEndIndex;
+            mElementSize = other.mElementSize;
+            mWindow = std::move(other.mWindow);
+            mCurrentElement = std::move(other.mCurrentElement);
+            mCurrentIndex = other.mCurrentIndex;
+
+            other.mFileSize = 0;
+            other.mWindowSize = 0;
+            other.mBeginIndex = 0;
+            other.mEndIndex = 0;
+            other.mElementSize = 0;
+            other.mCurrentIndex = std::numeric_limits<size_t>::max();
+        }
+        return *this;
+    }
 
     // =============================================================================
     // File Operations
@@ -842,6 +879,14 @@ private:
     {
         if (mFile.is_open())
         {
+            // The direct-access buffer is a WRITE-BACK cache: operator[] hands
+            // out a reference to mCurrentElement for out-of-window indices and
+            // the dirty value is written only on the NEXT out-of-window access.
+            // Without this, the final such write is dropped on close -- a data
+            // loss that needs no move and no error to occur, just a program
+            // that writes through the last reference it obtained and then
+            // closes.
+            flush_current_element();
             flush_window();
             mFile.close();
 
@@ -852,6 +897,18 @@ private:
             mElementSize = 0;
             mCurrentIndex = std::numeric_limits<size_t>::max();
             mWindow.clear();
+        }
+    }
+
+    // Writes the direct-access buffer back if it holds a live element. Mirrors
+    // the write-back performed by operator[] when it moves the buffer to a new
+    // index; see close_impl for why it must also run at teardown.
+    void flush_current_element() noexcept
+    {
+        if (mCurrentIndex < mFileSize)
+        {
+            mFile.seekp(static_cast<std::streamoff>(mCurrentIndex * mElementSize), std::ios::beg);
+            SerializationPolicy::write(mFile, mCurrentElement);
         }
     }
 
