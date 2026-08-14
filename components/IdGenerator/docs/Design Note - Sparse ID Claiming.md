@@ -493,17 +493,45 @@ failure; but it must never escape after a partial mutation.
 is ill-formed and is rejected with a `static_assert`, since a full-domain policy that cannot
 learn its domain is exactly the defect this contract exists to prevent.
 
-**Generator move operations.** `IdGenerator`'s move constructor and move assignment are
-defaulted and `noexcept`, and remain so: the interval map, the credit stack, and the active
-tracker all move without allocating, and the credit-per-active-identifier relation travels
-with the destination. No new declaration is required.
+**Generator move operations — movability is CONDITIONAL, and the declarations mislead.**
+`IdGenerator` declares `IdGenerator(IdGenerator&&) noexcept = default;` and the matching
+assignment (`IdGenerator.h:804-805`). Those declarations do not mean what they appear to
+mean, and this note states the measured behavior rather than the declared one.
 
-The moved-from SOURCE is the case to keep in view. It holds an empty map, no actives, and no
-credits, while remaining a callable object whose configured base and upper bound may still be
-set. That state is unreachable by any other route, and it is the sole reason `reset()` is
-conditionally `noexcept` (§Reset and destruction). Every other operation is well-defined on
-it: `generate()` reports `Overflow`, `claim()` reports `InvalidClaim`, `release()` reports
-`InvalidRelease`, and `recycled_count()` returns zero.
+`= default` is a request, not a grant: it becomes `= delete` when a base cannot satisfy it.
+`SingleThreadedPolicy` deletes its copy constructor and copy assignment
+(`ConcurrencyPolicies.h:293-295`), which suppresses its implicit moves, and `IdGenerator`
+inherits it privately. Measured with trait probes (MSVC 18, `/std:c++20`):
+
+| Instantiation | move ctor | move assign |
+|---|---:|---:|
+| `SimpleIdGenerator`, `DenseIdGenerator`, `ThreadSafeIdGenerator`, `RandomIdGenerator` | 0 | 0 |
+| Same policies but `ConcurrencyPolicy = UniqueRWLockPolicy` | 1 | 1 |
+
+So **every shipped alias is immovable**, while a custom instantiation over a movable
+concurrency policy — `UniqueRWLockPolicy` holds its mutex in a `unique_ptr` and declares
+proper moves (`ConcurrencyPolicies.h:555-562`) — **is** movable. A `SparseIdGenerator`
+alias that keeps `SingleThreadedPolicy` is therefore immovable, but this note permits
+explicit instantiations, so the sparse policy must remain correct under a movable one.
+
+Consequences for this contract:
+
+- The moved-from SOURCE state — empty interval map, no actives, no credits — is
+  **unreachable through the shipped aliases and reachable through a movable
+  instantiation**. It is the sole reason `reset()` is conditionally `noexcept`
+  (§Reset and destruction), and that conditional stands. It must not be removed on the
+  argument that the shipped aliases cannot move: the contract is written for the template,
+  not for four of its instantiations.
+- A moved-from generator is **not** safe to operate on. `UniqueRWLockPolicy`'s moved-from
+  source is left with a null mutex pointer, so operations that take the lock are undefined
+  rather than merely degenerate. An earlier revision of this note claimed every operation
+  stays well-defined on a moved-from generator, reporting `Overflow`/`InvalidClaim`/
+  `InvalidRelease`; that claim is **withdrawn as false**. The only operations a moved-from
+  generator supports are destruction and move-assignment.
+- If `IdGenerator` is ever made unconditionally immovable — by deleting its move members
+  rather than defaulting them — the moved-from case disappears and `reset()` may return to
+  an unconditional `noexcept`. That is an owner decision recorded in §13 of the Loom
+  register discussion, not something this note assumes.
 
 ### Batch rollback
 
@@ -543,23 +571,26 @@ would silently degrade the generator to plain sequential allocation while report
 
 Reset destroys the remaining credits with the active set it clears.
 
-**Those two cases are not exhaustive, and `reset()` therefore cannot keep an unconditional
-`noexcept`.** An earlier revision of this note claimed they were, on the argument that an
-empty map with no active identifiers would leave the domain neither free nor active. That
-argument omits moved-from state. `IdGenerator`'s move operations are defaulted and `noexcept`
-(`IdGenerator.h:804-805`), and `reset()` states no precondition:
+**Those two cases are exhaustive only while the generator cannot move, so `reset()` is
+conditionally `noexcept`.** Subject to the invariants above, the proof is: the configured
+domain is non-empty because `base <= upper_bound`; free ∪ active equals that domain at every
+operation boundary; credits equal the active count; therefore a non-empty map supplies a
+node, and an empty map implies full exhaustion and so at least one active identifier and one
+credit. No other conforming route to empty-map-with-zero-credits exists — `clear()` is
+unreachable through private inheritance, and exception paths preserve the invariants.
+
+The exception is a MOVED-FROM generator, whose map, active tracker, and credit stack are all
+empty at once. Whether that state is reachable depends on the instantiation
+(§Generator move operations): the shipped aliases cannot move, but an instantiation over
+`UniqueRWLockPolicy` can. The contract is written for the template, so it must cover it:
 
 ```cpp
-fat_p::SparseIdGenerator<uint16_t> a(0);
-a.claim(60000);
+using MovableGen = fat_p::IdGenerator<uint16_t, Sequential, Sparse, ExpectedError,
+                                      fat_p::UniqueRWLockPolicy>;   // move traits: 1, 1
+MovableGen a(0);
 auto b = std::move(a);
-a.reset();                  // legal; a has an empty map, no actives, no credits
+// a now has an empty map, no actives, no credits — and a null mutex.
 ```
-
-The moved-from source has an empty interval map, an empty active tracker, and an empty credit
-stack — the third case. There is nothing to reuse and no credit to spend, so the rebuild must
-allocate. The standard does not even guarantee a moved-from `std::map` is empty; it is valid
-but unspecified, so the argument cannot be rescued by assuming otherwise.
 
 The contract is therefore:
 
@@ -568,12 +599,20 @@ The contract is therefore:
   unconditional `noexcept` they ship with, because their `clear()` cannot allocate.
 - The `IdGuard` objection that withdrew conditional `noexcept` from `release()` does not
   apply here: no destructor and no guard calls `reset()`.
-- Allocation is confined to the moved-from case. In every state reachable without a move, one
-  of the two reuse cases applies and the rebuild is allocation-free.
+- Allocation is confined to the moved-from case, which only a movable instantiation can
+  reach. In every state reachable without a move, one of the two reuse cases applies and the
+  rebuild is allocation-free.
+- Calling `reset()` on a moved-from generator is in any case undefined for a
+  `UniqueRWLockPolicy` instantiation, because taking the lock dereferences a null mutex. The
+  conditional `noexcept` exists so the specification is honest about the allocation, not
+  because that call is supported.
 
-An implementation may instead narrow the contract — declaring that a moved-from generator
-supports only destruction and move-assignment — but that narrows a guarantee the shipped
-generator makes today, and this note does not take that option silently.
+**Two earlier revisions of this note got this wrong in opposite directions**, and both errors
+are recorded rather than quietly fixed. The first claimed the two cases were exhaustive full
+stop, omitting moved-from state entirely. The second — after both an independent review and
+the peer round agreed the first was broken — was about to declare the moved-from case
+unreachable for ALL instantiations, which is equally false. The measured answer is
+conditional, and only a compiler probe produced it.
 
 Destruction uses the policy's non-allocating `clear()` operation. It does not rebuild the
 domain.
@@ -689,9 +728,13 @@ The Fat-P slice must add red-first tests for:
     generate, claim with and without split, all four release transitions, batch rollback,
     and reset. A throwing active-set insert must leave `C == A`, not `C == A + 1` — the
     unwind rule has no other oracle.
-23. `reset()` on a moved-from generator, which is the one state where the rebuild allocates.
-    Also `generate()`, `claim()`, `release()`, and `recycled_count()` on a moved-from
-    generator, asserting the documented refusals rather than undefined behaviour.
+23. Movability is asserted, not assumed. `static_assert` the move traits for every shipped
+    alias (expected: NOT movable, because `SingleThreadedPolicy` deletes its copy operations
+    and suppresses its moves) AND for an instantiation over `UniqueRWLockPolicy` (expected:
+    movable). Assert an actual move EXPRESSION for the movable one, not only the trait —
+    traits do not instantiate the bodies that fail. `reset()` on that moved-from generator is
+    the one state where the rebuild allocates; it is not otherwise a supported call, because
+    the moved-from lock policy holds a null mutex.
 24. Storage does not grow monotonically: after activating and releasing a large set, the
     policy's reserved-node footprint returns to `O(A)`, not the high-water mark.
 25. A `static_assert` fires for `SparseRecyclingPolicy` paired with `RandomAllocationPolicy`,
@@ -820,10 +863,30 @@ that resulted:
 over the rewritten note, then a scoped peer round on the four claims that were new design
 rather than corrections. Both found the same central error, independently: the argument that
 `reset()` could stay unconditionally `noexcept` rested on an exhaustiveness proof that
-omitted moved-from state. A moved-from generator has an empty interval map, no active
-identifiers, and no credits — the case the proof declared impossible — so the rebuild must
-allocate. That is the second short exhaustiveness proof in this arc to fail on an unexamined
-case; the first was the node reservoir. Also corrected in that round: the credit invariant is
+omitted moved-from state. That is the second short exhaustiveness proof in this arc to fail
+on an unexamined case; the first was the node reservoir.
+
+**Third round (2026-08-14) — the correction was itself wrong, and this is the one to
+remember.** A deep review of the live component established by COMPILER PROBE that no shipped
+`IdGenerator` alias is movable at all: `SingleThreadedPolicy` deletes its copy operations
+(`ConcurrencyPolicies.h:293-295`), suppressing its implicit moves, so
+`IdGenerator(IdGenerator&&) noexcept = default` (`IdGenerator.h:804`) is defined as DELETED.
+Both the second-round reviewer and the peer had read that declaration and believed it; a
+ten-line `is_move_constructible_v` probe falsified both. The obvious repair — declare the
+moved-from case unreachable and restore an unconditional `noexcept` — was **also wrong**:
+the peer's own probe showed the generic template IS movable over `UniqueRWLockPolicy`, which
+this note explicitly permits. The conditional `noexcept` therefore stands, on the corrected
+justification now in §Reset and destruction, and the note's claim that a moved-from generator
+supports every operation is withdrawn as false (that policy's moved-from source holds a null
+mutex).
+
+**Rule this produced:** a claim about a DECLARED language-level property — movable,
+`noexcept`, trivially copyable, convertible — is settled by compiling it, never by reading
+the declaration. `= default` is a request that silently becomes `= delete`. And a refutation
+round must change the EVIDENCE CLASS — a compiler probe, a throwing allocator, a throwing
+lock, a sanitizer — rather than adding a second reader who consults the same declaration.
+Two independent reviewers agreeing raised confidence in the reasoning and did nothing about
+the shared unexamined premise beneath it. Also corrected in that round: the credit invariant is
 `C == A` at operation boundaries, not at every instant, and the unwind rule that keeps it
 true was unstated; the credit stack must release capacity or the storage bound is `O(max A)`
 rather than `O(A)`; `remove(IdType)` was split into `remove_lowest()` and `claim_at()`
