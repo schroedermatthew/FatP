@@ -9,7 +9,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: null
 build_modes: ["Debug", "Release"]
-last_verified: "2026-02-15"
+last_verified: "2026-08-14"
 audience: ["C++ developers", "AI assistants"]
 status: "reviewed"
 ---
@@ -35,7 +35,7 @@ status: "reviewed"
 **Key API:** `IdGenerator<IdType, Policies...>`, `.generate()`, `.release(id)`, `.reset()`, `SequentialAllocationPolicy`, `ImmediateRecyclingPolicy`, `MutexSynchronizationPolicy`
 **std equivalent:** None
 **Common mistakes:** Using the default `SingleThreadedPolicy` in multi-threaded code (use `ThreadSafeIdGenerator`); ignoring overflow errors from `.generate()`; releasing IDs that are still in use (ABA problem)
-**Performance notes:** Sequential generation is a single increment. Thread-safe generation is an atomic increment. Recycling policy adds a free-list lookup. See `components/IdGenerator/results/` for current data
+**Performance notes:** Generation is a hash-set insert plus an allocation-policy counter update, after a check of the recycle pool (deque pop-front, or extract-min for `MinRecyclingPolicy`). Thread-safe generation adds one `std::mutex` lock/unlock per call — there is no atomic-counter fast path. No benchmark has been written for this component yet
 
 ---
 ## Table of Contents
@@ -179,7 +179,7 @@ classDiagram
     IdGenerator --|> ConcurrencyPolicy : private inheritance
 ```
 
-Private inheritance enables the Empty Base Optimization (EBO), meaning policy classes with no data members add zero bytes to the generator.
+Private inheritance enables the Empty Base Optimization (EBO), meaning policy classes with no data members add zero bytes to the generator. Not every shipped policy qualifies: `NoRecyclingPolicy` is genuinely empty, but `SingleThreadedPolicy` holds a `mutable NoOpLock` member, so it is not an empty class and its base subobject still occupies storage.
 
 ### Internal State
 
@@ -200,7 +200,7 @@ flowchart TD
     D --> F{ID valid?}
     F -->|No| G[Return Overflow error]
     F -->|Yes| H{ID already in use?}
-    H -->|Yes| I[Return AlreadyInUse error]
+    H -->|Yes| I["Retry; AlreadyInUse once attempts are exhausted"]
     H -->|No| E
     E --> J[Return success with ID]
 ```
@@ -211,11 +211,11 @@ The `ActiveIdTracker` uses a specialized design for O(1) amortized performance:
 
 1. **Storage**: `std::unordered_set` provides O(1) average insert, erase, and lookup.
 
-2. **Lazy Max Tracking**: The tracker caches the maximum ID. This cache is only invalidated when the maximum ID is released, triggering a one-time O(N) recomputation on the next `generate()`.
+2. **Lazy Max Tracking**: The tracker caches the maximum ID. Releasing that maximum invalidates the cache, and the next `generate()` that actually consults it pays a one-time O(N) `std::max_element` scan. `generate()` checks the recycle pool first and only asks for the maximum when the pool is empty, so with a recycling policy in place the scan is usually never reached.
 
-3. **Result**: Sequential generation is O(1) amortized through bitmap scanning and lazy max tracking, avoiding the O(log N) tree operations of `std::set`-based implementations. See `components/IdGenerator/results/` for current platform-specific benchmark data.
+3. **Result**: Sequential generation is O(1) amortized — a hash insert plus, at most, one lazy max recomputation per released maximum. Nothing here is an ordered container, so none of the O(log N) tree operations of a `std::set`-based implementation are paid.
 
-**Trade-off**: Repeatedly releasing the maximum ID degrades to O(N) per generation. See [Performance Characteristics](#performance-characteristics) for details.
+**Trade-off**: When the recycle pool is empty, repeatedly releasing the maximum ID makes every `generate()` rescan the active set. See [Performance Characteristics](#performance-characteristics) for details.
 
 ---
 
@@ -223,7 +223,7 @@ The `ActiveIdTracker` uses a specialized design for O(1) amortized performance:
 
 ### Prerequisites
 
-- C++17 or later
+- C++20 or later. This is enforced, not advisory: `ConcurrencyPolicies.h` pulls in `CppFeatureDetection.h`, which emits `#error "Fat-P requires C++20 or later"`, and `IdGenerator.h` uses constrained templates (`requires`).
 - Header files: `IdGenerator.h`, `Expected.h`, `StrongId.h`, `ConcurrencyPolicies.h`
 
 ### Integration
@@ -351,13 +351,14 @@ auto id5 = gen.generate();  // 103 (continues sequence)
 Generates IDs within a specified range, useful for domain-specific constraints.
 
 ```cpp
-// Create a policy for IDs 100-199 (100 possible IDs)
+// A generator type built on the bounded policy. Note that the bound cannot
+// be passed through this alias -- see "Reachability" below.
 using BoundedGen = fat_p::IdGenerator<
     uint64_t,
     fat_p::BoundedSequentialAllocationPolicy<uint64_t>,
     fat_p::ImmediateRecyclingPolicy<uint64_t>>;
 
-// Direct policy construction with bounds
+// Direct policy construction is the only way to set the bound today: IDs 100-199
 fat_p::BoundedSequentialAllocationPolicy<uint64_t> policy(100, 199);
 
 auto id1 = policy.next_id(100, true);  // 100
@@ -375,6 +376,8 @@ auto id2 = policy.next_id(100, false); // 101
 - Fixed-size entity pools (e.g., max 1000 players)
 - Protocol fields with limited bit width
 - Array-backed storage with fixed capacity
+
+**Reachability:** The bound is a policy-level feature only. `IdGenerator` exposes one general constructor, `explicit IdGenerator(underlying_type base_id)`, which forwards `base_id` and nothing else, so a generator instantiated over `BoundedSequentialAllocationPolicy` runs with the default bound of `std::numeric_limits<IdType>::max()`. To use the bound, drive the policy directly or add a constructor that forwards it.
 
 #### RandomAllocationPolicy
 
@@ -645,8 +648,9 @@ assert(*id1 == *id2);        // Identical!
 
 **Notes:**
 - Non-copyable (deleted copy constructor and assignment)
-- Movable (defaulted move constructor and assignment)
-- Moving a generator while `IdGuard` instances exist causes undefined behavior
+- Movability is inherited from the concurrency policy. `IdGenerator` writes `IdGenerator(IdGenerator&&) noexcept = default`, but a defaulted move is *deleted* when a base cannot be moved. All four shipped aliases are therefore immovable: `SimpleIdGenerator`, `DenseIdGenerator` and `RandomIdGenerator` use `SingleThreadedPolicy`, whose declared (deleted) copy constructor suppresses its implicit move operations, and `ThreadSafeIdGenerator` uses `MutexSynchronizationPolicy`, which deletes its move operations outright. `std::is_move_constructible_v` is `false` for all four
+- An instantiation over `UniqueRWLockPolicy` or `MovableSingleThreadedPolicy` *is* movable, because those policies declare their move operations
+- For a movable instantiation, moving the generator while `IdGuard` instances exist causes undefined behavior — each guard holds a raw pointer to the generator it came from. `SingleThreadedPolicy`'s immovability is deliberate: it makes the compiler enforce that precondition rather than leaving it to documentation
 
 ### generate()
 
@@ -659,9 +663,9 @@ Generates a new unique ID or reuses a recycled one.
 **Returns:** `Expected<IdType, IdError>` containing:
 - **Success:** The generated ID
 - **Error:** `IdError::Overflow` if the ID space is exhausted
-- **Error:** `IdError::AlreadyInUse` if collision retry exhausted (100 attempts)
+- **Error:** `IdError::AlreadyInUse` if collision retry is exhausted
 
-**Collision Handling:** For `RandomAllocationPolicy` or when manual insertions cause collisions, the generator automatically retries up to 100 times before returning `AlreadyInUse`. This makes random generation on small types (e.g., `uint8_t`) more robust.
+**Collision Handling:** The retry count is selected at compile time from the allocation policy: `kMaxRetries` is `detail::may_collide_v<AllocationPolicy> ? 100 : 1`. The trait is specialized to `false` for `SequentialAllocationPolicy` and `BoundedSequentialAllocationPolicy`, so `SimpleIdGenerator`, `DenseIdGenerator` and `ThreadSafeIdGenerator` make exactly one attempt — those policies cannot hand back an ID that is already active, so there is nothing to retry. Only `RandomIdGenerator`, and any custom policy that does not specialize the trait, gets the 100-attempt loop; that is what makes random generation on small types such as `uint8_t` survive collisions.
 
 **Example:**
 ```cpp
@@ -702,6 +706,8 @@ Releases an ID, making it available for recycling.
 - **Success:** ID successfully released
 - **Error:** `IdError::InvalidRelease` if the ID was not active
 
+`Expected` is declared `[[nodiscard]]`, so discarding this return value is a compiler diagnostic (`-Wunused-result` on GCC/Clang, C4834 on MSVC), not a silent omission. Several short examples in this manual drop it to keep the point in view; under warnings-as-errors, either check it or write `(void)gen.release(id);` to state that the omission is deliberate.
+
 **Example:**
 ```cpp
 auto id = gen.generate();
@@ -733,11 +739,13 @@ Generates multiple IDs in a single operation, acquiring the lock once for thread
 - **Error:** `IdError::Overflow` if ID space exhausted during batch
 - **Error:** `IdError::AlreadyInUse` if collision retry exhausted
 
-**Rollback Behavior:** If generation fails partway through, all successfully generated IDs in the batch are released. Importantly, the rollback preserves ID density:
-- IDs that were recycled (from the recycle pool) are returned to the pool
-- Newly generated IDs (above the pre-batch maximum) are discarded, not recycled
+**Rollback Behavior:** If generation fails partway through, every ID committed so far is removed from the active set. Each ID's provenance is recorded when it is committed, not inferred from its value:
+- IDs that came from the recycle pool are returned to the pool
+- IDs the allocation policy produced are discarded, and the policy's counter is rewound by exactly that many — but only if the policy provides `revert(size_t)`. `SequentialAllocationPolicy` and `BoundedSequentialAllocationPolicy` do; a custom policy without it keeps the counter where the failed batch left it, leaving a permanent gap
 
-This density-preserving rollback ensures that `MinRecyclingPolicy` and similar policies maintain optimal ID locality even after failed batch operations.
+Rollback also runs when an exception escapes mid-batch — a failed allocation, or a throwing `id_type` constructor. The caller never receives the partial vector, so the accumulated IDs are returned rather than left active and unreachable.
+
+Recording provenance rather than guessing it is what makes this hold in the two cases a value comparison gets wrong: a pooled ID that sits above the current maximum, and a batch that starts with an empty active set. This density-preserving rollback keeps `MinRecyclingPolicy` and similar policies dense after a failed batch.
 
 **Example:**
 ```cpp
@@ -824,7 +832,7 @@ Generates an ID wrapped in an RAII guard that automatically releases on destruct
 }
 ```
 
-**Debug Assertions:** In debug builds (`NDEBUG` not defined), `IdGuard` asserts that release succeeds in its destructor and move assignment operator. This helps catch bugs like double-release or use-after-generator-destruction during development.
+**Debug Assertions:** In debug builds (`NDEBUG` not defined), `IdGuard` asserts in its destructor and move assignment operator that the release either succeeded or was refused because the generator's epoch has moved on. A guard left over from before a `reset()` is inert by design and does not trip the assertion; a double-release or a release of a never-active ID does.
 
 **IdGuard Lifecycle:**
 
@@ -848,6 +856,7 @@ stateDiagram-v2
 - **Moved**: Guard has been moved-from; now empty (no ID owned)
 - **Released**: ID automatically released to generator on destruction
 - **OwnershipReleased**: User called `release_ownership()`; must manually release ID
+- **Stale**: The generator was `reset()` after the guard was created; the guard's destructor releases nothing, so it cannot claw back an ID the generator has already reissued
 
 ### Query Methods
 
@@ -869,7 +878,9 @@ Returns the number of IDs in the recycle queue.
 ```cpp
 void reset() noexcept
 ```
-Clears all state, returning the generator to its initial condition.
+Clears all state, returning the generator to its initial condition, and bumps an internal epoch counter. Any `IdGuard` created before the call carries the old epoch and becomes inert: its destructor goes through `release_if_current`, which refuses to release across a bump rather than releasing an ID the generator has already reissued to a different owner.
+
+`release()` carries no such protection. Releasing an ID value obtained before a `reset()` succeeds if the generator has since reissued that value, and it evicts the current owner's ID.
 
 ---
 
@@ -920,7 +931,7 @@ std::thread t2([&]() {
 
 ### Performance Trade-offs
 
-Thread safety comes with measurable overhead from mutex acquisition on every operation. Batch generation amortizes this cost across multiple IDs. See `components/IdGenerator/results/` for current platform-specific benchmark data.
+Thread safety costs a mutex acquisition on every operation, including `is_active()`, `active_count()` and `recycled_count()`: `MutexSynchronizationPolicy::lock_shared()` takes the same exclusive `std::mutex`, since that policy has no shared mode. Batch generation amortizes the cost across the whole batch. No benchmark exists for this component, so this manual does not quantify the gap.
 
 **Guidelines for choosing:**
 
@@ -932,7 +943,7 @@ Thread safety comes with measurable overhead from mutex acquisition on every ope
 2. **Use thread-safe** (`ThreadSafeIdGenerator`) when:
    - Multiple threads generate/release IDs concurrently
    - You need the simplicity of internal synchronization
-   - The ~5% batch overhead is acceptable
+   - Paying one mutex lock/unlock per operation is acceptable
 
 3. **Use batch operations** to amortize synchronization:
    ```cpp
@@ -968,7 +979,7 @@ else
 - No exceptions thrown for predictable errors (overflow, collisions)
 - Forced error checking at call site (can't ignore return value)
 - Zero-overhead abstraction when optimized
-- Compatible with C++17 structured bindings
+- Requires C++20, the library minimum
 
 For comprehensive documentation on `Expected`, including advanced usage patterns like `and_then()`, `or_else()`, and monadic operations, see the **Expected User Manual**.
 
@@ -1038,33 +1049,17 @@ catch (const std::exception& e)
 
 ## Performance
 
-### Benchmark Environment
+### Benchmark Status
 
-| Component | Windows | Linux |
-|-----------|---------|-------|
-| Processor | Intel Core i7-8850H @ 2.60 GHz | Sandboxed container (unknown) |
-| RAM | 32.0 GB | 9.0 GB |
-| OS | Windows 10 | Ubuntu 24.04 |
-| Compiler | MSVC 2022 | GCC 13.3 |
-| Build | `/O2` | `-O3` |
+No benchmark exists for this component. `components/IdGenerator/benchmarks/` is empty and `components/IdGenerator/results/` holds only a `.gitkeep`, so everything below is complexity and mechanism, not measurement. The questions a benchmark would settle — the cost of mutex acquisition on each platform, and the batch size at which amortizing the lock starts to pay — remain open.
 
-### Benchmark Results
+### Mechanism
 
-All core operations (generate, release, is_active) are O(1) amortized. Batch generation acquires the lock once for the entire batch, amortizing synchronization cost. Platform differences exist between Windows and Linux mutex implementations. See `components/IdGenerator/results/` for current platform-specific benchmark data.
-
-**Platform Observations:**
-- Windows and Linux show different relative costs for generation vs release/recycling
-- Linux mutex implementation appears faster, though environments differ
-- Both platforms achieve O(1) amortized performance
-- Linux benchmarks from sandboxed container; real hardware may differ
-
-### Methodology
-
-Benchmarks use 100,000 iterations with 1,000 warmup iterations. Times represent the average per operation. Results may vary based on system load, CPU frequency scaling, and memory pressure.
+All core operations (generate, release, is_active) are O(1) amortized: a hash insert, erase or lookup, plus at most one lazy max recomputation per released maximum. `generate_batch()` and `release_batch()` acquire the concurrency policy's lock once for the whole batch rather than once per ID, so their advantage over a loop of single calls grows with batch size and with contention.
 
 ### Optimization Tips
 
-1. **Prefer single-threaded** when possible. The thread-safe variant adds approximately 30% overhead.
+1. **Prefer single-threaded** when possible. `SingleThreadedPolicy::lock()` returns an empty guard the optimizer removes; `MutexSynchronizationPolicy` locks and unlocks a `std::mutex` on every call, queries included. The size of that gap on your platform is unmeasured here.
 
 2. **Pre-size workloads**: If you know the maximum concurrent IDs, you can pre-generate and release them to populate the recycle pool.
 
@@ -1084,13 +1079,18 @@ IdGenerator uses an `unordered_set` with lazy max tracking for O(1) average-case
 | `release()` | O(1) | Hash erase |
 | `is_active()` | O(1) | Hash lookup |
 
-**Worst Case: Descending Release Pattern**
+**Worst Case: Releasing the Maximum With an Empty Pool**
 
-When you repeatedly release the maximum active ID, each subsequent `generate()` must scan all active IDs to find the new maximum:
+Releasing the maximum active ID invalidates the cached maximum, and the next `generate()` that has to consult it scans all active IDs. That scan is only reached when the recycle pool cannot answer the request first, because `generate()` checks the pool before it looks at the maximum. Reproducing it therefore takes a generator that does not recycle:
 
 ```cpp
 // This pattern triggers O(N) scans
-SimpleIdGenerator<uint64_t> gen(1);
+using NoRecycleGen = fat_p::IdGenerator<
+    uint64_t,
+    fat_p::SequentialAllocationPolicy<uint64_t>,
+    fat_p::NoRecyclingPolicy<uint64_t>>;
+
+NoRecycleGen gen(1);
 
 // Generate 1000 IDs: 1, 2, 3, ..., 1000
 std::vector<uint64_t> ids;
@@ -1098,12 +1098,16 @@ for (int i = 0; i < 1000; ++i) {
     ids.push_back(*gen.generate());
 }
 
-// Release in descending order - each release invalidates max
-for (int i = 999; i >= 0; --i) {
-    gen.release(ids[i]);  // Releasing current max
-    gen.generate();        // O(N) scan to find new max
+// Release the current maximum, then generate. The pool is always empty,
+// so every generate() rescans the active set for the new maximum.
+uint64_t current_max = ids.back();
+for (int i = 0; i < 1000; ++i) {
+    (void)gen.release(current_max);   // Releasing current max
+    current_max = *gen.generate();    // O(N) scan to find new max
 }
 ```
+
+Run the same loop on `SimpleIdGenerator` and no scan happens at all: each release puts the ID in the FIFO pool, and the following `generate()` hands it straight back without touching the maximum.
 
 **Why This Tradeoff?**
 
@@ -1114,7 +1118,7 @@ The lazy max approach optimizes for common patterns:
 | Random release | O(1) | Very common |
 | Bulk allocate/release | O(1) | Common in HPC |
 | Ascending release | O(1) | Common |
-| Descending release | O(N) | Rare |
+| Descending release, recycle pool empty | O(N) | Rare |
 
 For the rare case where descending release is a bottleneck, alternatives include:
 - Using a max-heap alongside the hash set (adds memory overhead)
@@ -1193,9 +1197,9 @@ public:
         return result ? std::optional(*result) : std::nullopt;
     }
     
-    void release(uint64_t id)
+    bool release(uint64_t id)
     {
-        gen_.release(id);  // Now recyclable!
+        return gen_.release(id).has_value();  // Now recyclable!
     }
 };
 ```
@@ -1364,12 +1368,14 @@ Note: These headers may have their own dependencies (e.g., `Expected.h` depends 
 
 **Symptom:**
 ```
-error: 'if constexpr' only available with '-std=c++17'
+error: "Fat-P requires C++20 or later"
 ```
 
-**Solution:** Enable C++17 or later:
-- GCC/Clang: `-std=c++17`
-- MSVC: `/std:c++17`
+**Solution:** Enable C++20 or later:
+- GCC/Clang: `-std=c++20`
+- MSVC: `/std:c++20`
+
+The message comes from `CppFeatureDetection.h`, reached through `ConcurrencyPolicies.h`. `IdGenerator.h` also uses constrained templates (`requires`), so C++17 cannot compile it even with that check bypassed.
 
 #### Unsigned Type Constraint
 
@@ -1435,7 +1441,7 @@ gen.release(*id);  // Correct: passing UserId
 **Causes:**
 1. ID was already released (double-release)
 2. ID was never generated by this generator
-3. Generator was reset between generate and release
+3. Generator was reset between generate and release — but only while the value has not been reissued. `release()` performs no epoch check, so once `reset()` has handed that value to a new owner, releasing the stale handle succeeds and evicts the new owner's ID instead of reporting an error. `IdGuard` is epoch-checked and has no such failure mode
 
 **Solution:**
 ```cpp
@@ -1457,6 +1463,7 @@ if (gen.is_active(id))
 **Causes:**
 1. ID space exhausted (all values used)
 2. Using small integer type with many allocations
+3. The ID type reserves a "no ID" sentinel. `StrongId` exposes `invalid()`, whose underlying value is `std::numeric_limits<T>::max()`, and `detail::has_invalid_sentinel_v` detects that. A generator over such a type never issues that one value and reports `Overflow` instead, so `IdGenerator<StrongId<uint8_t, Tag>>` stops at 254 where `SimpleIdGenerator<uint8_t>` stops at 255
 
 **Solutions:**
 1. Use a larger type (`uint64_t` instead of `uint32_t`)
@@ -1492,13 +1499,13 @@ fat_p::ThreadSafeIdGenerator<uint64_t> gen(1);
 
 ### Performance Profile
 
-| Use Case | Recommended Configuration | Throughput |
-|----------|--------------------------|------------|
-| Single-threaded, sequential | `SimpleIdGenerator` | 8-10M ops/sec |
-| Multi-threaded | `ThreadSafeIdGenerator` | 9-18M ops/sec |
-| Security-sensitive | `RandomIdGenerator` | 5-8M ops/sec |
+| Use Case | Recommended Configuration | Cost Per Operation |
+|----------|--------------------------|--------------------|
+| Single-threaded, sequential | `SimpleIdGenerator` | Hash insert or erase; no synchronization |
+| Multi-threaded | `ThreadSafeIdGenerator` | Hash insert or erase plus one mutex lock/unlock |
+| Security-sensitive | `RandomIdGenerator` | Hash insert plus one `mt19937_64` draw, repeated on collision |
 
-*Note: Ranges reflect Windows (native) vs Linux (sandboxed) benchmarks. See [Benchmark Results](#benchmark-results) for details.*
+*No throughput figures are given: this component has no benchmark. See [Benchmark Status](#benchmark-status).*
 
 ### Quick Start Code
 

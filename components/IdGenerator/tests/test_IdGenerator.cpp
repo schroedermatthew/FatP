@@ -3,9 +3,7 @@
  * @brief Comprehensive unit tests for IdGenerator.h
  *
  * Test Configuration:
- * - Processor: Intel Core i7-8850H @ 2.60GHz
- * - RAM: 32GB
- * - C++ Standard: C++17
+ * - C++ Standard: C++20 (the include chain hard-errors below it)
  * - Build Modes: Debug and Release
  *
  * @version 1.0
@@ -16,8 +14,8 @@ FATP_META:
   component: IdGenerator
   file_role: test
   path: components/IdGenerator/tests/test_IdGenerator.cpp
+  namespace: fat_p::testing::idgenerator
   layer: Testing
-  namespace: fat_p
   summary: "Unit tests for IdGenerator."
   api_stability: in_work
   related:
@@ -1273,6 +1271,311 @@ FATP_TEST_CASE(dirty_max_insert)
 // Benchmarks
 // =============================================================================
 
+// =============================================================================
+// Coverage added after the component review. Each case here closes a gap where
+// a documented behavior had no test, or where an existing test would still have
+// passed if the behavior it names were removed.
+// =============================================================================
+
+// The suite never produced IdError::AlreadyInUse. Only a colliding allocation
+// policy can, and only when the space is full enough that 100 retries all land
+// on live IDs.
+FATP_TEST_CASE(already_in_use_is_reachable)
+{
+    RandomIdGenerator<uint8_t> gen;
+
+    size_t generated = 0;
+    IdError last = IdError::Overflow;
+    bool saw_already_in_use = false;
+
+    for (int i = 0; i < 1000; ++i)
+    {
+        auto r = gen.generate();
+        if (r.has_value())
+        {
+            ++generated;
+            continue;
+        }
+        last = r.error();
+        saw_already_in_use = (last == IdError::AlreadyInUse);
+        break;
+    }
+
+    FATP_ASSERT_TRUE(saw_already_in_use,
+                     "a saturated random generator reports AlreadyInUse, not Overflow");
+    FATP_ASSERT_TRUE(generated > 0, "it generated before saturating");
+    return true;
+}
+
+// The collision retry loop had no test that would notice its removal: with
+// kMaxRetries == 1 a random generator fails as soon as one draw collides.
+// Filling most of a small space makes collisions near-certain, so a generator
+// that still succeeds proves the loop retried.
+FATP_TEST_CASE(collision_retry_loop_is_load_bearing)
+{
+    RandomIdGenerator<uint8_t> gen;
+
+    size_t count = 0;
+    while (count < 200)
+    {
+        auto r = gen.generate();
+        if (!r.has_value())
+        {
+            break;
+        }
+        ++count;
+    }
+
+    FATP_ASSERT_TRUE(count >= 200,
+                     "reaching 200 of 256 random IDs requires the retry loop; "
+                     "a single-attempt policy would fail far earlier");
+    return true;
+}
+
+// overflow_exhaustion_tracking never validated the exhausted latch it is named
+// for: once exhausted, EVERY later call must fail, including after a release
+// that frees an ID below the maximum.
+FATP_TEST_CASE(exhausted_latch_holds_until_reset)
+{
+    using NoRec = IdGenerator<uint8_t,
+                              SequentialAllocationPolicy<uint8_t>,
+                              NoRecyclingPolicy<uint8_t>>;
+    NoRec gen(250);
+
+    while (gen.generate().has_value())
+    {
+    }
+
+    auto after = gen.generate();
+    FATP_ASSERT_FALSE(after.has_value(), "still exhausted");
+    FATP_ASSERT_TRUE(after.error() == IdError::Overflow, "and reports Overflow");
+
+    // Releasing does not un-exhaust a non-recycling generator.
+    (void)gen.release(250);
+    auto after_release = gen.generate();
+    FATP_ASSERT_FALSE(after_release.has_value(),
+                      "release must not clear the exhausted latch under NoRecyclingPolicy");
+
+    // reset() is the documented way out.
+    gen.reset();
+    auto after_reset = gen.generate();
+    FATP_ASSERT_TRUE(after_reset.has_value(), "reset clears exhaustion");
+    FATP_ASSERT_EQ(*after_reset, uint8_t(250), "and restarts at the base");
+    return true;
+}
+
+// Batch rollback must restore the recycle pool EXACTLY. The previous
+// implementation guessed provenance from the pre-batch maximum and silently
+// dropped pooled IDs; neither existing rollback test asserted recycled_count().
+FATP_TEST_CASE(batch_rollback_restores_the_pool_exactly)
+{
+    // Case 1: active set empty at batch start. pre_batch_max was nullopt here,
+    // which discarded the ENTIRE pool.
+    {
+        DenseIdGenerator<uint8_t> gen(250);
+        auto first = gen.generate_batch(6);
+        FATP_ASSERT_TRUE(first.has_value(), "initial batch");
+
+        std::vector<uint8_t> ids(first->begin(), first->end());
+        auto released = gen.release_batch(ids);
+        FATP_ASSERT_TRUE(released.has_value(), "release_batch");
+
+        const size_t pooled = gen.recycled_count();
+        FATP_ASSERT_EQ(pooled, size_t(6), "six IDs pooled");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(0), "active set is empty");
+
+        auto second = gen.generate_batch(7);
+        FATP_ASSERT_FALSE(second.has_value(), "the second batch cannot be satisfied");
+        FATP_ASSERT_EQ(gen.recycled_count(), pooled, "every pooled ID returned to the pool");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(0), "and nothing stayed active");
+    }
+
+    // Case 2: a pooled ID ABOVE the current active maximum.
+    {
+        DenseIdGenerator<uint8_t> gen(0);
+        for (int i = 0; i < 256; ++i)
+        {
+            (void)gen.generate();
+        }
+        (void)gen.release(255);
+        const size_t pooled = gen.recycled_count();
+        FATP_ASSERT_EQ(pooled, size_t(1), "one ID pooled, above the active max of 254");
+
+        auto batch = gen.generate_batch(2);
+        FATP_ASSERT_FALSE(batch.has_value(), "batch fails after consuming the pooled ID");
+        FATP_ASSERT_EQ(gen.recycled_count(), pooled, "the pooled ID came back");
+        FATP_ASSERT_FALSE(gen.is_active(255), "and is not left active");
+    }
+    return true;
+}
+
+// revert() must rewind the allocation counter by exactly what it advanced.
+// Issuing the top-of-range ID parks the counter instead of advancing it, so a
+// naive revert re-issued an ID that had already been handed out.
+FATP_TEST_CASE(revert_does_not_over_rewind_at_saturation)
+{
+    using NoRec = IdGenerator<uint8_t,
+                              SequentialAllocationPolicy<uint8_t>,
+                              NoRecyclingPolicy<uint8_t>>;
+    NoRec gen(0);
+
+    auto first = gen.generate_batch(100); // 0..99
+    FATP_ASSERT_TRUE(first.has_value(), "first batch");
+    std::vector<uint8_t> ids(first->begin(), first->end());
+    (void)gen.release_batch(ids);
+
+    auto second = gen.generate_batch(200); // 100..255, then Overflow -> rollback
+    FATP_ASSERT_FALSE(second.has_value(), "second batch overflows");
+
+    auto next = gen.generate();
+    FATP_ASSERT_TRUE(next.has_value(), "a slot remains");
+    FATP_ASSERT_EQ(*next, uint8_t(100),
+                   "resumes at 100; rewinding one too far would re-issue 99");
+    return true;
+}
+
+// reset() while a guard is alive must not let that guard release an ID the
+// generator has since reissued to a different owner.
+FATP_TEST_CASE(reset_invalidates_outstanding_guards)
+{
+    SimpleIdGenerator<uint64_t> gen(1);
+
+    {
+        auto held = gen.scoped_id();
+        FATP_ASSERT_TRUE(held.has_value(), "guard holds an ID");
+        const uint64_t guarded = held->get();
+        FATP_ASSERT_EQ(gen.active_count(), size_t(1), "one active");
+
+        gen.reset();
+        FATP_ASSERT_EQ(gen.active_count(), size_t(0), "reset cleared the active set");
+
+        // A new owner takes the same raw ID the stale guard still names.
+        auto reissued = gen.generate();
+        FATP_ASSERT_TRUE(reissued.has_value(), "reissued after reset");
+        FATP_ASSERT_EQ(*reissued, guarded, "the same raw value is now owned by someone else");
+    } // stale guard destructs here
+
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1),
+                   "the stale guard must NOT have released the new owner's ID");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "and must not have pooled it");
+    return true;
+}
+
+// IdGuard's move-assignment release branch and operator* were never executed.
+FATP_TEST_CASE(guard_move_assignment_releases_the_dropped_id)
+{
+    SimpleIdGenerator<uint64_t> gen(1);
+
+    auto ha = gen.scoped_id();
+    auto hb = gen.scoped_id();
+    FATP_ASSERT_TRUE(ha.has_value() && hb.has_value(), "two guards");
+
+    const uint64_t dropped = ha->get();
+    const uint64_t kept = hb->get();
+    FATP_ASSERT_TRUE(dropped != kept, "two distinct IDs");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(2), "both active");
+
+    *ha = std::move(*hb); // ha's original ID must be released here
+
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1), "the dropped ID was released");
+    FATP_ASSERT_FALSE(gen.is_active(dropped), "specifically the one ha held");
+    FATP_ASSERT_TRUE(gen.is_active(kept), "and the adopted one is still live");
+    FATP_ASSERT_EQ(ha->get(), kept, "the adopted ID is reported");
+    FATP_ASSERT_FALSE(static_cast<bool>(*hb), "the moved-from guard is disarmed");
+    return true;
+}
+
+// A StrongId generator must never issue the reserved invalid() sentinel, which
+// is the underlying max(): a caller checking isValid() would read a live ID as
+// absent.
+FATP_TEST_CASE(strong_id_never_issues_the_invalid_sentinel)
+{
+    using Tag = StrongId<uint8_t, struct SentinelTag>;
+    IdGenerator<Tag> gen(250);
+
+    size_t issued = 0;
+    while (true)
+    {
+        auto r = gen.generate();
+        if (!r.has_value())
+        {
+            FATP_ASSERT_TRUE(r.error() == IdError::Overflow,
+                             "refusing the sentinel reports Overflow");
+            break;
+        }
+        FATP_ASSERT_TRUE(r->isValid(), "every issued StrongId is valid");
+        FATP_ASSERT_TRUE(*r != Tag::invalid(), "and is never the sentinel itself");
+        ++issued;
+        FATP_ASSERT_TRUE(issued < 32, "loop guard");
+    }
+
+    FATP_ASSERT_EQ(issued, size_t(5), "250..254 are issuable; 255 is reserved");
+    return true;
+}
+
+// StrongId coverage previously stopped at generate()/release(). The batch,
+// guard, and query paths carry their own conversions.
+FATP_TEST_CASE(strong_id_batch_guard_and_queries)
+{
+    using Tag = StrongId<uint64_t, struct BatchTag>;
+    IdGenerator<Tag> gen(500);
+
+    auto batch = gen.generate_batch(3);
+    FATP_ASSERT_TRUE(batch.has_value(), "strong-id batch");
+    FATP_ASSERT_EQ(batch->size(), size_t(3), "three IDs");
+    FATP_ASSERT_EQ((*batch)[0].get(), uint64_t(500), "starts at the base");
+    FATP_ASSERT_TRUE(gen.is_active((*batch)[0]), "is_active accepts a StrongId");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(3), "three active");
+
+    {
+        auto held = gen.scoped_id();
+        FATP_ASSERT_TRUE(held.has_value(), "scoped StrongId");
+        FATP_ASSERT_TRUE(held->get().isValid(), "guarded StrongId is valid");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(4), "guard holds a fourth");
+    }
+    FATP_ASSERT_EQ(gen.active_count(), size_t(3), "guard released it");
+
+    auto released = gen.release_batch(*batch);
+    FATP_ASSERT_TRUE(released.has_value(), "strong-id release_batch");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "all released");
+    return true;
+}
+
+// Movability is a compiler-oracle claim, not a source-reading claim. The
+// shipped aliases are immovable because SingleThreadedPolicy is; the movable
+// policy exists for owners that are safe to relocate.
+FATP_TEST_CASE(movability_matches_the_concurrency_policy)
+{
+    static_assert(!std::is_move_constructible_v<SimpleIdGenerator<uint64_t>>,
+                  "shipped aliases are immovable: IdGuard holds a back-pointer");
+    static_assert(!std::is_move_assignable_v<SimpleIdGenerator<uint64_t>>, "same");
+    static_assert(!std::is_move_constructible_v<DenseIdGenerator<uint64_t>>, "same");
+    static_assert(!std::is_move_constructible_v<RandomIdGenerator<uint64_t>>, "same");
+
+    using MovableGen = IdGenerator<uint64_t,
+                                   SequentialAllocationPolicy<uint64_t>,
+                                   ImmediateRecyclingPolicy<uint64_t>,
+                                   id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
+                                   MovableSingleThreadedPolicy>;
+    static_assert(std::is_move_constructible_v<MovableGen>,
+                  "MovableSingleThreadedPolicy does not force immovability");
+    static_assert(std::is_move_assignable_v<MovableGen>, "same");
+
+    // A trait is not a use: exercise an actual move so the bodies instantiate.
+    MovableGen a(10);
+    auto first = a.generate();
+    FATP_ASSERT_TRUE(first.has_value(), "generated before the move");
+
+    MovableGen b = std::move(a);
+    FATP_ASSERT_EQ(b.active_count(), size_t(1), "state travelled to the destination");
+    FATP_ASSERT_TRUE(b.is_active(10), "including the active set");
+
+    auto next = b.generate();
+    FATP_ASSERT_TRUE(next.has_value() && *next == uint64_t(11),
+                     "and the destination continues the sequence");
+    return true;
+}
+
 } // namespace fat_p::testing::idgenerator
 
 namespace fat_p::testing
@@ -1346,6 +1649,18 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, active_id_tracking);
     FATP_RUN_TEST_NS(runner, idgenerator, lazy_max_recompute);
     FATP_RUN_TEST_NS(runner, idgenerator, dirty_max_insert);
+
+    // Coverage added after the component review
+    FATP_RUN_TEST_NS(runner, idgenerator, already_in_use_is_reachable);
+    FATP_RUN_TEST_NS(runner, idgenerator, collision_retry_loop_is_load_bearing);
+    FATP_RUN_TEST_NS(runner, idgenerator, exhausted_latch_holds_until_reset);
+    FATP_RUN_TEST_NS(runner, idgenerator, batch_rollback_restores_the_pool_exactly);
+    FATP_RUN_TEST_NS(runner, idgenerator, revert_does_not_over_rewind_at_saturation);
+    FATP_RUN_TEST_NS(runner, idgenerator, reset_invalidates_outstanding_guards);
+    FATP_RUN_TEST_NS(runner, idgenerator, guard_move_assignment_releases_the_dropped_id);
+    FATP_RUN_TEST_NS(runner, idgenerator, strong_id_never_issues_the_invalid_sentinel);
+    FATP_RUN_TEST_NS(runner, idgenerator, strong_id_batch_guard_and_queries);
+    FATP_RUN_TEST_NS(runner, idgenerator, movability_matches_the_concurrency_policy);
 
 
     return 0 == runner.print_summary();

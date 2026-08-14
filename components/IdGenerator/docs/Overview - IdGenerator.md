@@ -60,7 +60,7 @@ template <
     typename IdType_,           // uint64_t, StrongId<uint64_t, Tag>, etc.
     typename AllocationPolicy,  // Sequential, Bounded, Random
     typename RecyclingPolicy,   // FIFO, MinFirst, None
-    typename ErrorPolicy,       // Throw, Expected<T, IdError>
+    typename ErrorPolicy,       // ExpectedErrorPolicy<T, IdError> (the only one shipped)
     typename ConcurrencyPolicy  // SingleThreaded, Mutex, SharedMutex
 >
 class IdGenerator;
@@ -68,7 +68,7 @@ class IdGenerator;
 
 **Five policy axes, all resolved at compile time.** The compiler sees through the abstraction completely—no vtables, no function pointers, no runtime dispatch.
 
-### The Mechanism: Policy Inheritance with EBO
+### The Mechanism: Policy Inheritance
 
 ```cpp
 template <...>
@@ -76,20 +76,13 @@ class IdGenerator : private AllocationPolicy
                   , private RecyclingPolicy
                   , private ConcurrencyPolicy
 {
-    underlying_type base_id_;
-    ActiveIdTracker<underlying_type> ids_in_use_;
+    underlying_type mBaseId;
+    ActiveIdTracker<underlying_type> mIdsInUse;
+    std::size_t mEpoch;              // bumped by reset(); guards refuse to cross it
 };
 ```
 
-For `SingleThreadedPolicy` (stateless), Empty Base Optimization eliminates storage overhead:
-
-```cpp
-sizeof(SimpleIdGenerator<uint64_t>) == 
-    sizeof(uint64_t) +           // base_id_
-    sizeof(unordered_set) +      // ids_in_use_
-    sizeof(deque)                // recycling queue
-// Zero bytes for SingleThreadedPolicy
-```
+Inheriting the policies rather than holding them by value is what lets the compiler inline every policy call. It does not make them free. `SingleThreadedPolicy` holds a `mutable NoOpLock` member, so it is not an empty class and Empty Base Optimization does not apply to it — `std::is_empty_v<SingleThreadedPolicy>` is `false`. A generator's footprint is the allocation policy's counters and flags, the recycling container (`std::deque` for FIFO, `std::set` for min-first), the active-ID `std::unordered_set` plus its cached maximum, the base ID, and the reset epoch. Measure `sizeof` on your own toolchain rather than summing those parts: the containers dominate and their sizes are implementation-specific.
 
 ### What The Compiler Sees
 
@@ -98,14 +91,20 @@ sizeof(SimpleIdGenerator<uint64_t>) ==
 SimpleIdGenerator<uint64_t> gen(1);
 auto id = gen.generate();
 
-// Compiles to essentially:
+// Compiles to essentially (pseudocode):
 if (!recycled_.empty()) {
     uint64_t id = recycled_.front();
     recycled_.pop_front();
     ids_in_use_.insert(id);
     return id;
 }
-return base_id_++;
+// Not a bare counter: the sequential policy takes the larger of its own
+// cursor and one past the tracker's current maximum, which is what keeps
+// recycling gaps and the counter from disagreeing.
+uint64_t id = max(next_id_, ids_in_use_.max_element() + 1);
+next_id_ = id + 1;
+ids_in_use_.insert(id);
+return id;
 ```
 
 No indirection. No virtual calls. The policy template parameters are **erased** at compile time, leaving only the selected implementation.
@@ -120,20 +119,23 @@ No indirection. No virtual calls. The policy template parameters are **erased** 
 |--------|----------|----------|
 | `SequentialAllocationPolicy` | Monotonically increasing | Default; predictable, debuggable |
 | `BoundedSequentialAllocationPolicy` | Sequential with hard limit | Array indexing, protocol constraints |
-| `RandomAllocationPolicy` | Uniform random distribution | Security, unpredictability |
+| `RandomAllocationPolicy` | Uniform random distribution (`std::mt19937_64`) | Non-sequential IDs, seeded reproducibility |
 
 ```cpp
 // Sequential (default): 1, 2, 3, ...
 SimpleIdGenerator<uint64_t> seq_gen(1);
 
-// Bounded: 0-999 only, then error
-BoundedIdGenerator<uint64_t> bounded_gen(0, 1000);
+// Bounded: 0-1000 inclusive, then error. There is no bounded generator alias,
+// and IdGenerator's constructor forwards only the base ID, so the bound is set
+// by using the policy directly (or by wrapping it in a policy that fixes the
+// bound at compile time).
+BoundedSequentialAllocationPolicy<uint64_t> bounded_policy(0, 1000);
 
 // Random with seed for reproducibility
 RandomIdGenerator<uint64_t> rand_gen(seed_tag, 42);
 ```
 
-**Mechanism:** Each policy implements `allocate_new()` differently. The compiler inlines the selected implementation directly.
+**Mechanism:** Each policy implements `next_id(max_id, first_call)` differently, returning `std::optional<IdType>` where `nullopt` means the domain is spent. The compiler inlines the selected implementation directly.
 
 ### 2. Recycling Policies: Three Strategies
 
@@ -184,11 +186,11 @@ ThreadSafeIdGenerator<uint64_t> ts_gen(1);
 using ReaderHeavyGen = IdGenerator<uint64_t,
     SequentialAllocationPolicy<uint64_t>,
     ImmediateRecyclingPolicy<uint64_t>,
-    ExpectedErrorPolicy<uint64_t, IdError>,
+    id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
     SharedMutexPolicy>;
 ```
 
-**Mechanism:** `ConcurrencyPolicy` provides `lock()`, `unlock()`, `lock_shared()`, `unlock_shared()`. For `SingleThreadedPolicy`, these are empty inline functions that compile away.
+**Mechanism:** `ConcurrencyPolicy` provides `lock()` and `lock_shared()`, each returning an RAII guard that releases on scope exit; there is no separate `unlock()` in the interface IdGenerator uses. For `SingleThreadedPolicy` both guards are empty types, so the acquisition and the release compile away.
 
 ### 5. RAII IdGuard: Exception-Safe ID Management
 
@@ -203,16 +205,18 @@ using ReaderHeavyGen = IdGenerator<uint64_t,
 }  // ID automatically released, even if exception thrown
 ```
 
-**Mechanism:** `IdGuard` stores a reference to the generator and the ID. Destructor calls `release()`. Move-only semantics prevent double-release.
+**Mechanism:** `IdGuard` stores a pointer to the generator, the ID, and the generator's epoch at construction. The destructor calls `release_if_current()`, which releases only if `reset()` has not bumped the epoch since — a guard that outlived a `reset()` goes inert rather than releasing an ID the generator has already reissued to someone else. Move-only semantics prevent double-release.
 
 ### 6. Batch Operations: Amortized Lock Cost
 
 ```cpp
 // Generate 100 IDs with single lock acquisition
 auto ids = gen.generate_batch(100);
-if (!ids) { /* handle partial failure */ }
+if (!ids) { /* nothing was kept: the batch rolled itself back */ }
 
-// Release multiple IDs atomically
+// Release multiple IDs under one lock. NOT atomic: release_batch commits each
+// ID as it goes and returns on the first invalid one, leaving the releases it
+// already performed in place.
 std::vector<uint64_t> to_release = {1, 5, 9, 13};
 auto result = gen.release_batch(to_release);
 ```
@@ -226,7 +230,8 @@ auto result = gen.generate();
 if (!result) {
     switch (result.error()) {
         case IdError::Overflow:
-            // ID space exhausted
+            // ID space exhausted, or the next ID would be the type's
+            // reserved invalid() sentinel, which is never issued
             break;
         case IdError::AlreadyInUse:
             // Collision during random allocation
@@ -274,7 +279,7 @@ No single standard API could satisfy all these requirements. IdGenerator's polic
 
 ## Performance Characteristics
 
-### Benchmark Results
+### Operation Mechanisms
 
 | Operation | Mechanism | ThreadSafe Overhead |
 |-----------|-----------|---------------------|
@@ -284,16 +289,16 @@ No single standard API could satisfy all these requirements. IdGenerator's polic
 | `is_active()` query | Hash lookup | + mutex lock/unlock per query |
 | Batch generate (N) | Single lock, N × O(1) operations | One lock acquisition amortized across N |
 
-See `components/IdGenerator/results/` for current platform-specific benchmark data.
+No benchmark ships with this component yet: `components/IdGenerator/benchmarks/` and `components/IdGenerator/results/` are empty. The table above states mechanism, not measurement.
 
 ### Complexity Analysis
 
 | Operation | Complexity | Mechanism |
 |-----------|------------|-----------|
-| `generate()` | O(1) amortized | Hash insert + counter or queue pop |
-| `release()` | O(1) amortized | Hash erase + queue push |
+| `generate()` | O(1); O(n) on the first call after the highest active ID is released | Hash insert + counter or queue pop, plus the max lookup below |
+| `release()` | O(1) amortized with FIFO recycling, O(log n) with min-first | Hash erase + `deque` push, or `set` insert for `MinRecyclingPolicy` |
 | `is_active()` | O(1) average | Hash lookup |
-| Internal max-ID tracking | O(1) cached | Lazy max recomputation in `ActiveIdTracker` |
+| Internal max-ID tracking | O(1) while the cache is valid, O(n) to rebuild it | `ActiveIdTracker` caches the maximum and invalidates it when that element is erased; the next `max_element()` is a linear `std::max_element` scan of the `unordered_set` |
 | `generate_batch(n)` | O(n) | N × O(1) operations |
 
 ### Where Fat-P Wins
@@ -327,7 +332,7 @@ Resource managers (handle allocation)
 
 ---
 
-## Test Suite: 33 Cases, 1,537 Lines
+## Test Suite
 
 ### Coverage Categories
 
@@ -341,6 +346,8 @@ Resource managers (handle allocation)
 | Batch operations | 7 | Generation, release, rollback |
 | Edge cases | 5 | Overflow, double release, boundaries |
 | Custom policies | 3 | Custom allocation, bounded, tracker |
+| Active ID tracking | 3 | Lazy max recompute, dirty-max insert |
+| Post-review coverage | 10 | AlreadyInUse reachability, retry loop, exhausted latch, batch pool restoration, saturated revert, reset-invalidated guards, guard move-assignment, sentinel refusal, StrongId batch, movability |
 
 ---
 
@@ -361,4 +368,4 @@ Five orthogonal policy axes (allocation, recycling, error handling, concurrency,
 
 ---
 
-*IdGenerator.h (1163 lines) — Fat-P Library*
+*IdGenerator.h — Fat-P Library*

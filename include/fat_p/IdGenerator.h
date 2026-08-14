@@ -33,7 +33,9 @@ FATP_META:
  *
  *
  * @details Provides a flexible ID generation system with:
- *   - Sequential, bounded, or random allocation strategies
+ *   - Sequential or random allocation strategies (a bounded sequential policy also
+ *     ships, but its upper bound can only be set by constructing the policy
+ *     directly: the generator's constructor forwards nothing but base_id)
  *   - Configurable recycling policies (FIFO, Min-First, None)
  *   - Thread-safe and single-threaded variants
  *   - StrongId integration for type safety
@@ -166,6 +168,23 @@ struct has_revert<T, std::void_t<decltype(std::declval<T>().revert(size_t{}))>> 
 template <typename T>
 inline constexpr bool has_revert_v = has_revert<T>::value;
 
+// Trait to detect an ID type that reserves a sentinel meaning "no ID"
+// (StrongId::invalid(), whose underlying value is numeric_limits<T>::max()).
+// A generator must never ISSUE that value: a caller comparing against
+// invalid(), or calling isValid(), would read a live ID as absent.
+template <typename T, typename = void>
+struct has_invalid_sentinel : std::false_type
+{
+};
+
+template <typename T>
+struct has_invalid_sentinel<T, std::void_t<decltype(T::invalid())>> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool has_invalid_sentinel_v = has_invalid_sentinel<T>::value;
+
 } // namespace detail
 
 template <typename T>
@@ -292,7 +311,7 @@ public:
 
     std::optional<IdType> next_id(IdType max_id, bool first_call = false) noexcept
     {
-        // If mWe_LIT_0__t generate more
+        // Exhausted: the domain is spent and we cannot generate any more.
         if (mExhausted)
         {
             return std::nullopt;
@@ -328,7 +347,14 @@ public:
         {
             mNextId = candidate; // Stay at max
             // Mark as exhausted AFTER returning max (max is still a valid ID)
-            // The NEXT call will fail
+            // The NEXT call will fail.
+            //
+            // The counter could not advance past max, so this issue advanced it
+            // by ZERO rather than one. revert() must know, or it rewinds one too
+            // far and the next generate() re-issues an ID this policy already
+            // handed out -- which under NoRecyclingPolicy is a silent
+            // never-reuse violation.
+            mSaturated = true;
         }
         else
         {
@@ -353,6 +379,18 @@ public:
         // Clear exhausted flag since we're reverting
         mExhausted = false;
 
+        // If the last issue saturated at max, the counter advanced by one less
+        // than the number of IDs issued, so rewind by one less too.
+        if (mSaturated)
+        {
+            mSaturated = false;
+            --count;
+            if (count == 0)
+            {
+                return;
+            }
+        }
+
         // Protect against underflow
         if (count > static_cast<size_t>(mNextId - mBaseId))
         {
@@ -371,12 +409,14 @@ public:
         mBaseId = base_id;
         mNextId = base_id;
         mExhausted = false;
+        mSaturated = false;
     }
 
 private:
     IdType mBaseId;
     IdType mNextId;
     bool mExhausted; // Track if we've hit the limit
+    bool mSaturated = false; // Last issue parked the counter at max (see revert)
 };
 
 template <typename IdType = uint64_t>
@@ -733,8 +773,15 @@ inline constexpr seed_tag_t seed_tag{};
  * @tparam ConcurrencyPolicy Thread safety strategy
  *
  * @note The generator's lifetime must exceed that of any IdGuard instances
- *       created from it. Moving or destroying the generator while guards
- *       exist results in undefined behavior.
+ *       created from it. Destroying the generator while guards exist is
+ *       undefined behavior. Movability is conditional on ConcurrencyPolicy,
+ *       and none of the four aliases below is movable: SingleThreadedPolicy
+ *       deletes its copy operations, which suppresses its moves, and
+ *       MutexSynchronizationPolicy deletes its moves outright, so the
+ *       defaulted moves here resolve to deleted and a move is a compile
+ *       error. Under a policy that keeps its move (UniqueRWLockPolicy,
+ *       MovableSingleThreadedPolicy) the generator is movable, and moving it
+ *       with live guards is undefined behavior.
  */
 template <typename IdType_,
           typename AllocationPolicy = SequentialAllocationPolicy<underlying_id_type_t<IdType_>>,
@@ -790,8 +837,9 @@ public:
      * to release after destruction, this increases the chance of catching the
      * error rather than silently corrupting memory.
      *
-     * @warning IdGuard instances must not outlive the generator. Moving or
-     * destroying the generator while guards exist results in undefined behavior.
+     * @warning IdGuard instances must not outlive the generator. Destroying the
+     * generator while guards exist results in undefined behavior; see the class
+     * note for when a move is possible at all.
      */
     ~IdGenerator()
     {
@@ -856,6 +904,18 @@ public:
 
             underlying_type raw_id = *new_id_opt;
 
+            // Never issue the ID type's reserved "no ID" sentinel. For StrongId
+            // that is numeric_limits<underlying>::max(), so a generator whose
+            // domain reaches the top would otherwise hand back a value that
+            // isValid() reports as invalid.
+            if constexpr (detail::has_invalid_sentinel_v<IdType_>)
+            {
+                if (raw_id == std::numeric_limits<underlying_type>::max())
+                {
+                    return ErrorPolicy::report_error(IdError::Overflow);
+                }
+            }
+
             // Single-lookup: insert returns false if already present (collision)
             if (mIdsInUse.insert(raw_id))
             {
@@ -902,11 +962,18 @@ public:
      *
      * @details Acquires lock once and generates all requested IDs, reducing
      * synchronization overhead for thread-safe variants. If generation fails
-     * partway through, all successfully generated IDs are released (rollback).
+     * partway through, the IDs accumulated so far are rolled back.
      *
-     * Rollback behavior: IDs that were recycled are returned to the recycle pool.
-     * Newly generated IDs (beyond previous max) are discarded to preserve ID density
-     * for MinRecyclingPolicy and similar policies.
+     * Rollback behavior: every ID that came from the recycle pool is returned to
+     * it, and IDs the allocation policy produced are discarded with the counter
+     * rewound by exactly that many, preserving ID density for MinRecyclingPolicy
+     * and similar policies. Provenance is recorded per element, not inferred
+     * from the value.
+     *
+     * Rollback also runs if an exception escapes mid-batch (a failing allocation,
+     * or a throwing id_type constructor): the caller never receives the partial
+     * result, so the IDs accumulated so far are returned rather than left
+     * active and unreachable.
      *
      * @param count Number of IDs to generate
      * @return Expected containing vector of IDs, or error if generation failed
@@ -920,76 +987,127 @@ public:
 
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
 
-        // Track the max before batch for smart rollback
-        auto pre_batch_max = mIdsInUse.max_element();
-
         std::vector<id_type> result;
+        // Provenance is RECORDED, not inferred. The previous implementation
+        // compared each ID against the pre-batch maximum to guess whether it
+        // had come from the recycle pool, which was wrong in two directions:
+        // an ID pooled above the current maximum was misfiled as newly
+        // allocated, and when the active set was empty the pre-batch maximum
+        // was nullopt, so EVERY pooled ID consumed by the batch was discarded
+        // on rollback. Both cases lost pool entries permanently and inflated
+        // the count handed to the allocation policy's revert().
+        std::vector<bool> from_pool;
         result.reserve(count);
+        from_pool.reserve(count);
 
         // Compile-time optimization: only use retry loop for policies that may collide
         // Higher retry count (100) handles small ID types where collisions are frequent
         constexpr bool needs_retry = detail::may_collide_v<AllocationPolicy>;
         constexpr int kMaxRetries = needs_retry ? 100 : 1;
 
-        for (size_t i = 0; i < count; ++i)
+        // Commit one raw ID into the active set and the result. Ordered so the
+        // throwing steps run before any state the caller can observe: the
+        // id_type is constructed first (a user-supplied strong-ID constructor
+        // may throw), then the active-set insertion, and only then the
+        // push_backs, which cannot reallocate because both vectors are
+        // reserved. If either of the first two steps throws, `raw_id` has not
+        // been recorded anywhere, so the caller-visible state is exactly the
+        // pre-call state once the accumulated batch is rolled back. This
+        // assumes id_type moves without throwing: a throwing move constructor
+        // in the push_back would leave `raw_id` in the active set but out of
+        // `result`, where rollback cannot see it.
+        const auto commit = [this, &result, &from_pool](underlying_type raw_id, bool pooled)
         {
-            // Try recycled IDs first
-            if (auto recycled = RecyclingPolicy::get_recycled())
+            if constexpr (std::is_same_v<IdType_, underlying_type>)
             {
-                underlying_type raw_id = *recycled;
                 (void)mIdsInUse.insert(raw_id);
-
-                if constexpr (std::is_same_v<IdType_, underlying_type>)
-                {
-                    result.push_back(raw_id);
-                }
-                else
-                {
-                    result.push_back(IdType_(raw_id));
-                }
-                continue;
+                result.push_back(raw_id);
             }
-
-            // Generate new ID with retry loop (optimized at compile-time)
-            bool generated = false;
-
-            for (int attempt = 0; attempt < kMaxRetries; ++attempt)
+            else
             {
-                bool is_first = mIdsInUse.empty();
-                auto max_opt = mIdsInUse.max_element();
-                underlying_type max_id = is_first ? mBaseId : *max_opt;
-                auto new_id_opt = AllocationPolicy::next_id(max_id, is_first);
-
-                if (!new_id_opt)
-                {
-                    // Overflow - rollback all generated IDs
-                    rollback_batch(result, pre_batch_max);
-                    return make_unexpected(IdError::Overflow);
-                }
-
-                underlying_type raw_id = *new_id_opt;
-
-                if (mIdsInUse.insert(raw_id))
-                {
-                    if constexpr (std::is_same_v<IdType_, underlying_type>)
-                    {
-                        result.push_back(raw_id);
-                    }
-                    else
-                    {
-                        result.push_back(IdType_(raw_id));
-                    }
-                    generated = true;
-                    break;
-                }
+                IdType_ typed(raw_id);
+                (void)mIdsInUse.insert(raw_id);
+                result.push_back(std::move(typed));
             }
+            from_pool.push_back(pooled);
+        };
 
-            if (!generated)
+        try
+        {
+            for (size_t i = 0; i < count; ++i)
             {
-                // Collision exhaustion - rollback
-                rollback_batch(result, pre_batch_max);
-                return make_unexpected(IdError::AlreadyInUse);
+                // Try recycled IDs first
+                if (auto recycled = RecyclingPolicy::get_recycled())
+                {
+                    const underlying_type raw_id = *recycled;
+                    try
+                    {
+                        commit(raw_id, true);
+                    }
+                    catch (...)
+                    {
+                        // get_recycled() already removed it from the pool; put
+                        // it back before unwinding or it exists nowhere.
+                        RecyclingPolicy::add_recycled(raw_id);
+                        throw;
+                    }
+                    continue;
+                }
+
+                // Generate new ID with retry loop (optimized at compile-time)
+                bool generated = false;
+
+                for (int attempt = 0; attempt < kMaxRetries; ++attempt)
+                {
+                    bool is_first = mIdsInUse.empty();
+                    auto max_opt = mIdsInUse.max_element();
+                    underlying_type max_id = is_first ? mBaseId : *max_opt;
+                    auto new_id_opt = AllocationPolicy::next_id(max_id, is_first);
+
+                    if (!new_id_opt)
+                    {
+                        // Overflow - rollback all generated IDs
+                        rollback_batch(result, from_pool);
+                        return make_unexpected(IdError::Overflow);
+                    }
+
+                    underlying_type raw_id = *new_id_opt;
+
+                    // Same sentinel guard as generate(): the reserved "no ID"
+                    // value is never issued.
+                    if constexpr (detail::has_invalid_sentinel_v<IdType_>)
+                    {
+                        if (raw_id == std::numeric_limits<underlying_type>::max())
+                        {
+                            rollback_batch(result, from_pool);
+                            return make_unexpected(IdError::Overflow);
+                        }
+                    }
+
+                    if (mIdsInUse.count(raw_id) == 0)
+                    {
+                        commit(raw_id, false);
+                        generated = true;
+                        break;
+                    }
+                }
+
+                if (!generated)
+                {
+                    // Collision exhaustion - rollback
+                    rollback_batch(result, from_pool);
+                    return make_unexpected(IdError::AlreadyInUse);
+                }
             }
+        }
+        catch (...)
+        {
+            // An allocation or a throwing id_type constructor must not strand
+            // the IDs already committed: the caller never receives `result`, so
+            // without this they would stay active forever, unreleasable and
+            // unissuable.
+            rollback_batch(result, from_pool);
+            throw;
         }
 
         return result;
@@ -1040,37 +1158,38 @@ private:
     /**
      * @brief Rollback batch generation, preserving ID density.
      *
-     * @details IDs that were recycled (below or equal to pre_batch_max) are
-     * returned to the recycle pool. Newly generated IDs (above pre_batch_max)
-     * are discarded and the allocation policy counter is reverted to prevent
-     * permanent sequence gaps.
+     * @details Each element's provenance is read from @p from_pool, recorded
+     * when the ID was committed. Pool IDs go back to the pool; allocator IDs
+     * are discarded and the allocation policy counter is reverted by exactly
+     * that count to prevent permanent sequence gaps.
      */
-    void rollback_batch(const std::vector<id_type>& result, std::optional<underlying_type> pre_batch_max)
+    void rollback_batch(const std::vector<id_type>& result, const std::vector<bool>& from_pool)
     {
         size_t newly_generated_count = 0;
 
-        for (const auto& id : result)
+        for (size_t i = 0; i < result.size(); ++i)
         {
             underlying_type raw;
             if constexpr (std::is_same_v<IdType_, underlying_type>)
             {
-                raw = id;
+                raw = result[i];
             }
             else
             {
-                raw = id.get();
+                raw = result[i].get();
             }
             mIdsInUse.erase(raw);
 
-            // Only recycle IDs that were originally recycled (not newly generated)
-            // This preserves density for MinRecyclingPolicy
-            if (pre_batch_max.has_value() && raw <= *pre_batch_max)
+            // Provenance is read from the recorded flag, never guessed from the
+            // value. An ID that came from the pool goes back to the pool; only
+            // IDs the allocation policy actually produced are counted for
+            // revert(), so the counter is rewound by exactly what it advanced.
+            if (i < from_pool.size() && from_pool[i])
             {
                 RecyclingPolicy::add_recycled(raw);
             }
             else
             {
-                // This was a newly generated ID
                 ++newly_generated_count;
             }
         }
@@ -1121,6 +1240,13 @@ public:
         mIdsInUse.clear();
         RecyclingPolicy::clear();
         AllocationPolicy::reset(mBaseId);
+
+        // Invalidate outstanding guards. Without this a guard created before
+        // the reset releases on destruction against the post-reset state: at
+        // best a spurious InvalidRelease (and a failed debug assert), at worst
+        // a SUCCESSFUL release of an ID the generator has already reissued to a
+        // different owner, corrupting that owner's state in release builds.
+        ++mEpoch;
     }
 
     // =========================================================================
@@ -1131,7 +1257,8 @@ public:
      * @brief RAII guard that automatically releases an ID when destroyed.
      *
      * @warning The IdGenerator must outlive all IdGuard instances created from it.
-     *          Destroying or moving the generator while guards exist is undefined behavior.
+     *          Destroying it while guards exist is undefined behavior; moving it is
+     *          a compile error under all four shipped aliases (see the class note).
      */
     class IdGuard
     {
@@ -1140,6 +1267,7 @@ public:
             : mGenerator(nullptr)
             , mId{}
             , mValid(false)
+            , mEpoch(0)
         {
         }
 
@@ -1147,6 +1275,7 @@ public:
             : mGenerator(&gen)
             , mId(id)
             , mValid(true)
+            , mEpoch(gen.mEpoch)
         {
         }
 
@@ -1154,13 +1283,17 @@ public:
         {
             if (mValid && mGenerator)
             {
-                auto result = mGenerator->release(mId);
+                // Releases only if the generator has not been reset since this
+                // guard was made; a stale guard is silently inert rather than
+                // releasing an ID that now belongs to someone else.
+                [[maybe_unused]] const bool released =
+                    mGenerator->release_if_current(mId, mEpoch);
 #ifndef NDEBUG
-                // In debug builds, assert that release succeeded
-                // Failure indicates a bug: double-release or invalid ID
-                assert(result.has_value() && "IdGuard: release failed in destructor");
-#else
-                (void)result;
+                // A failure here means a double-release or an ID that was never
+                // active -- a real bug. Being stale is not a bug, so it is
+                // excluded from the assertion.
+                assert((released || mEpoch != mGenerator->mEpoch) &&
+                       "IdGuard: release failed in destructor");
 #endif
             }
         }
@@ -1173,6 +1306,7 @@ public:
             : mGenerator(other.mGenerator)
             , mId(other.mId)
             , mValid(other.mValid)
+            , mEpoch(other.mEpoch)
         {
             other.mValid = false;
         }
@@ -1183,16 +1317,20 @@ public:
             {
                 if (mValid && mGenerator)
                 {
-                    auto result = mGenerator->release(mId);
+                    // Same staleness rule as the destructor: releasing the ID
+                    // this guard is dropping must not touch a post-reset
+                    // generation.
+                    [[maybe_unused]] const bool released =
+                        mGenerator->release_if_current(mId, mEpoch);
 #ifndef NDEBUG
-                    assert(result.has_value() && "IdGuard: release failed in move assignment");
-#else
-                    (void)result;
+                    assert((released || mEpoch != mGenerator->mEpoch) &&
+                           "IdGuard: release failed in move assignment");
 #endif
                 }
                 mGenerator = other.mGenerator;
                 mId = other.mId;
                 mValid = other.mValid;
+                mEpoch = other.mEpoch;
                 other.mValid = false;
             }
             return *this;
@@ -1220,6 +1358,7 @@ public:
         IdGenerator* mGenerator;
         IdType_ mId;
         bool mValid;
+        std::size_t mEpoch; // generator epoch at construction; see reset()
     };
 
     [[nodiscard]] Expected<IdGuard, IdError> scoped_id()
@@ -1232,9 +1371,45 @@ public:
         return IdGuard(*this, *result);
     }
 
+    // Releases @p id only if @p epoch is still the generator's current epoch.
+    // reset() bumps the epoch, so a guard created before a reset becomes inert
+    // instead of releasing an ID the generator has since reissued to someone
+    // else. The check runs under the lock, so it cannot race a concurrent
+    // reset(). Returns true if the release happened.
+    bool release_if_current(IdType_ id, std::size_t epoch) noexcept
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+
+        if (epoch != mEpoch)
+        {
+            return false;
+        }
+
+        underlying_type raw_id;
+        if constexpr (std::is_same_v<IdType_, underlying_type>)
+        {
+            raw_id = id;
+        }
+        else
+        {
+            raw_id = id.get();
+        }
+
+        if (mIdsInUse.erase(raw_id) == 0)
+        {
+            return false;
+        }
+
+        RecyclingPolicy::add_recycled(raw_id);
+        return true;
+    }
+
 private:
     underlying_type mBaseId;
     ActiveIdTracker<underlying_type> mIdsInUse;
+    // Bumped by reset(). Outstanding IdGuards carry the epoch they were made
+    // in and refuse to release across a bump.
+    std::size_t mEpoch{0};
 };
 
 // =============================================================================
