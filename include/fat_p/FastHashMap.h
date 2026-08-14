@@ -1055,7 +1055,7 @@ private:
                                                    std::is_nothrow_swappable_v<Allocator>;
 
     // SFINAE helpers for heterogeneous lookup
-    // These ensure find/erase/contains mDon_LIT_0__t handle K
+    // These ensure find/erase/contains don't handle K
     template <typename K>
     using IsHashInvocable = std::bool_constant<std::is_invocable_r_v<size_t, const Hash&, const K&>>;
 

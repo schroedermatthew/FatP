@@ -603,7 +603,7 @@ public:
     /**
      * @brief Move assignment operator.
      * @details If this guard is active and we are NOT unwinding, executes the current
-     * action before taking ownership of the mSource_LIT_0__s
+     * action before taking ownership of the source's
      * uncaught_exceptions baseline to maintain correct behavior.
      */
     ScopeGuardOnSuccess& operator=(ScopeGuardOnSuccess&& other) noexcept(std::is_nothrow_move_assignable_v<F>)

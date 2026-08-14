@@ -4974,7 +4974,7 @@ inline void skip_whitespace(std::string_view s, size_t& pos) noexcept
  */
 inline std::string parse_string(std::string_view s, size_t& pos)
 {
-    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected mString_LIT_1__position", pos);
+    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: expected string", "position", pos);
     ++pos; // Skip opening quote
 
     std::string res;
@@ -5131,7 +5131,7 @@ inline std::string parse_string(std::string_view s, size_t& pos)
         ++pos;
     }
 
-    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: unterminated mString_LIT_1__position", pos);
+    FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"', "JSON parse error: unterminated string", "position", pos);
     ++pos; // Skip closing quote
     return res;
 }
@@ -5409,7 +5409,8 @@ inline JsonObject parse_object(std::string_view s, size_t& pos, size_t depth)
 
         // Key must be a string
         FATP_JSON_ENFORCE(pos < s.size() && s[pos] == '"',
-                          "JSON parse error: expected string mKey_LIT_1__position",
+                          "JSON parse error: expected string key",
+                          "position",
                           pos);
         std::string key = parse_string(s, pos);
 

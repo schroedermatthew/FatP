@@ -579,7 +579,7 @@ FATP_TEST_CASE(guard_move_constructor)
  * @brief CRITICAL TEST: Verifies move assignment restores the current target
  *
  * This test validates the fix for CRITICAL-1: Move assignment must restore
- * the current mGuard_LIT_0__s target.
+ * the current guard's target.
  *
  * Expected behavior (v2.4):
  * - guard2 = std::move(guard1) first restores value2 to 99
