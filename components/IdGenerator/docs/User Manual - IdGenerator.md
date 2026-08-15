@@ -35,7 +35,11 @@ status: "reviewed"
 **Key API:** `IdGenerator<IdType, Policies...>`, `.generate()`, `.release(id)`, `.reset()`, `SequentialAllocationPolicy`, `ImmediateRecyclingPolicy`, `MutexSynchronizationPolicy`
 **std equivalent:** None
 **Common mistakes:** Using the default `SingleThreadedPolicy` in multi-threaded code (use `ThreadSafeIdGenerator`); ignoring overflow errors from `.generate()`; releasing IDs that are still in use (ABA problem)
-**Performance notes:** Generation is a hash-set insert plus an allocation-policy counter update, after a check of the recycle pool (deque pop-front, or extract-min for `MinRecyclingPolicy`). Thread-safe generation adds one `std::mutex` lock/unlock per call — there is no atomic-counter fast path. No benchmark has been written for this component yet
+**Performance notes:** Generation is a hash-table insert plus an allocation-policy counter update,
+after a check of the recycle pool (deque pop-front, or extract-min for `MinRecyclingPolicy`).
+Active entries also carry an optional guard-activation token. Thread-safe generation adds one
+`std::mutex` lock/unlock per call — there is no atomic-counter fast path. No benchmark has been
+written for this component yet
 
 ---
 ## Table of Contents
@@ -167,6 +171,7 @@ classDiagram
         <<interface>>
         +get_recycled()
         +add_recycled()
+        +restore_recycled()
     }
     
     class ConcurrencyPolicy {
@@ -185,7 +190,9 @@ Private inheritance enables the Empty Base Optimization (EBO), meaning policy cl
 
 The generator maintains two data structures:
 
-1. **Active Tracker** (`ActiveIdTracker`): Uses `std::unordered_set` for O(1) average lookups and insertions. Maintains a cached maximum ID to support sequential allocation without O(N) searching.
+1. **Active Tracker** (`ActiveIdTracker`): Uses `std::unordered_map` for O(1) average lookups and
+   insertions. Each value is an optional guard-activation token. The tracker also maintains a
+   cached maximum ID to support sequential allocation without O(N) searching.
 
 2. **Recycled Queue** (policy-dependent): Released IDs available for reuse. The default policy uses `std::deque` for FIFO ordering.
 
@@ -209,7 +216,8 @@ flowchart TD
 
 The `ActiveIdTracker` uses a specialized design for O(1) amortized performance:
 
-1. **Storage**: `std::unordered_set` provides O(1) average insert, erase, and lookup.
+1. **Storage**: `std::unordered_map` provides O(1) average insert, erase, and lookup while carrying
+   an optional guard-activation token beside each ID.
 
 2. **Lazy Max Tracking**: The tracker caches the maximum ID. Releasing that maximum invalidates the cache, and the next `generate()` that actually consults it pays a one-time O(N) `std::max_element` scan. `generate()` checks the recycle pool first and only asks for the maximum when the pool is empty, so with a recycling policy in place the scan is usually never reached.
 
@@ -344,7 +352,7 @@ auto id5 = gen.generate();  // 103 (continues sequence)
 - Deterministic and reproducible
 - Easy to debug (IDs indicate creation order)
 - Efficient (no random number generation)
-- Maximum active ID tracked by `ActiveIdTracker` (an `std::unordered_set` with a lazily recomputed max cache)
+- Maximum active ID tracked by `ActiveIdTracker` (an `std::unordered_map` with a lazily recomputed max cache)
 
 #### BoundedSequentialAllocationPolicy
 
@@ -478,6 +486,12 @@ private:
 **Why:** Without recycling, a long-running application will eventually exhaust the ID space. Recycling enables bounded memory usage.
 
 **When to customize:** Use `NoRecyclingPolicy` when ID uniqueness across time matters (audit logs, versioning). Implement priority-based recycling to prefer certain IDs.
+
+A custom policy also provides `restore_recycled(id) noexcept`. It is the unwind operation for a
+candidate already removed by `get_recycled()`: it must restore that value to the same position it
+occupied before the attempted issue. For FIFO policies that means the front, not the ordinary
+release position at the back. Batch rollback invokes restores in reverse removal order so the
+complete pre-call sequence is recovered.
 
 #### ImmediateRecyclingPolicy (Default)
 
@@ -626,12 +640,14 @@ below the base, and the generator is exhausted from birth.
 > mixes map order with interval arithmetic and is correct only for orderings equivalent to
 > ascending numeric order. It exists so the complexity contract can be instrumented with a
 > counting comparator, and it is constrained accordingly: a comparator must be `std::less` or
-> declare `using ascending_order = void;`. Supplying `std::greater` is a compile error, not a
-> silent misbehaviour.
+> declare `using ascending_order = void;`; it must also be nothrow-default-constructible,
+> nothrow-move-constructible, nothrow-swappable, and nothrow-invocable. Supplying `std::greater`
+> or a comparator whose swap may throw is rejected by the template constraint, not admitted to a
+> `noexcept` interval operation.
 
 > **Convenience Aliases:** `SparseIdGenerator<T>` and `ThreadSafeSparseIdGenerator<T>`. The
-> policy pairs only with sequential allocation — a `static_assert` rejects random allocation,
-> which has nothing to contribute when issuance comes from the free set.
+> policy pairs only with sequential allocation — the `IdGenerator` template constraint rejects
+> random allocation, which has nothing to contribute when issuance comes from the free set.
 >
 > `claim()` exists **only** on a generator using this policy. `SimpleIdGenerator`,
 > `ThreadSafeIdGenerator`, `DenseIdGenerator` and `RandomIdGenerator` are unchanged: no claim
@@ -748,7 +764,9 @@ assert(*id1 == *id2);        // Identical!
 - Non-copyable (deleted copy constructor and assignment)
 - Movability is inherited from the concurrency policy. `IdGenerator` writes `IdGenerator(IdGenerator&&) noexcept = default`, but a defaulted move is *deleted* when a base cannot be moved. All four shipped aliases are therefore immovable: `SimpleIdGenerator`, `DenseIdGenerator` and `RandomIdGenerator` use `SingleThreadedPolicy`, whose declared (deleted) copy constructor suppresses its implicit move operations, and `ThreadSafeIdGenerator` uses `MutexSynchronizationPolicy`, which deletes its move operations outright. `std::is_move_constructible_v` is `false` for all four
 - An instantiation over `UniqueRWLockPolicy` or `MovableSingleThreadedPolicy` *is* movable, because those policies declare their move operations
-- For a movable instantiation, moving the generator while `IdGuard` instances exist causes undefined behavior — each guard holds a raw pointer to the generator it came from. `SingleThreadedPolicy`'s immovability is deliberate: it makes the compiler enforce that precondition rather than leaving it to documentation
+- A movable custom instantiation does not offer `scoped_id()` or `scoped_claim()`. Each guard would
+  hold a raw pointer to its generator, so the factories require an immovable generator.
+  `SingleThreadedPolicy`'s immovability makes every single-threaded shipped alias eligible
 
 ### generate()
 
@@ -881,6 +899,10 @@ generator is fully usable afterwards.
 Expected<std::vector<id_type>, IdError> generate_batch(size_t count)
 ```
 
+This member is available only when `id_type` is nothrow-move-constructible. The batch commits an
+active ID before moving it into the reserved result vector; admitting a throwing move would make
+that candidate invisible to rollback.
+
 Generates multiple IDs in a single operation, acquiring the lock once for thread-safe variants.
 
 **Parameters:**
@@ -895,7 +917,11 @@ Generates multiple IDs in a single operation, acquiring the lock once for thread
 - IDs that came from the recycle pool are returned to the pool
 - IDs the allocation policy produced are discarded, and the policy's counter is rewound by exactly that many — but only if the policy provides `revert(size_t)`. `SequentialAllocationPolicy` and `BoundedSequentialAllocationPolicy` do; a custom policy without it keeps the counter where the failed batch left it, leaving a permanent gap
 
-Rollback also runs when an exception escapes mid-batch — a failed allocation, or a throwing `id_type` constructor. The caller never receives the partial vector, so the accumulated IDs are returned rather than left active and unreachable.
+Rollback also runs when an exception escapes mid-batch — a failed active-tracker allocation, or
+a throwing `id_type` constructor. The current fresh candidate rewinds the allocation policy even
+though it has not yet reached the result vector, and accumulated IDs are returned in reverse
+removal order so FIFO pools regain their exact sequence. The caller never receives the partial
+vector, so no ID is left active and unreachable.
 
 Recording provenance rather than guessing it is what makes this hold in the two cases a value comparison gets wrong: a pooled ID that sits above the current maximum, and a batch that starts with an empty active set. This density-preserving rollback keeps `MinRecyclingPolicy` and similar policies dense after a failed batch.
 
@@ -984,7 +1010,11 @@ Generates an ID wrapped in an RAII guard that automatically releases on destruct
 }
 ```
 
-**Debug Assertions:** In debug builds (`NDEBUG` not defined), `IdGuard` asserts in its destructor and move assignment operator that the release either succeeded or was refused because the generator's epoch has moved on. A guard left over from before a `reset()` is inert by design and does not trip the assertion; a double-release or a release of a never-active ID does.
+**Activation identity:** Guard creation allocates a private token before it mutates the generator,
+then attaches the token to the issued active entry under the same lock. Destruction and move
+assignment release only if that exact token still owns that exact ID. A guard made stale by
+`reset()`, direct `release()`, or release-and-reissue is silently inert; it cannot release the
+later activation that happens to reuse the same raw value.
 
 **IdGuard Lifecycle:**
 
@@ -1008,7 +1038,8 @@ stateDiagram-v2
 - **Moved**: Guard has been moved-from; now empty (no ID owned)
 - **Released**: ID automatically released to generator on destruction
 - **OwnershipReleased**: User called `release_ownership()`; must manually release ID
-- **Stale**: The generator was `reset()` after the guard was created; the guard's destructor releases nothing, so it cannot claw back an ID the generator has already reissued
+- **Stale**: The guarded activation was reset or directly released; the guard's destructor releases
+  nothing, even if the raw value has since been reissued
 
 ### Query Methods
 
@@ -1030,7 +1061,9 @@ Returns the number of IDs in the recycle queue.
 ```cpp
 void reset() noexcept
 ```
-Clears all state, returning the generator to its initial condition, and bumps an internal epoch counter. Any `IdGuard` created before the call carries the old epoch and becomes inert: its destructor goes through `release_if_current`, which refuses to release across a bump rather than releasing an ID the generator has already reissued to a different owner.
+Clears all state, returning the generator to its initial condition. Clearing the active table also
+removes every guard-activation token. An outstanding guard still holds its old token, so its later
+destructor cannot match and release an ID created after the reset.
 
 `release()` carries no such protection. Releasing an ID value obtained before a `reset()` succeeds if the generator has since reissued that value, and it evicts the current owner's ID.
 
@@ -1153,9 +1186,10 @@ enum class IdError
 > obtained from `scoped_id()` or, on a sparse generator, `scoped_claim(id)`. As a public
 > constructor it let a caller build a guard over an identifier they had not acquired, and the
 > destructor then released it out from under its real owner; no assertion caught that, because
-> the release succeeded. Guards also now require an immovable generator, which every shipped
-> alias is. `RandomAllocationPolicy`'s seeded constructor takes `fat_p::seed_tag` instead of an
-> `int` disambiguator.
+> the release succeeded. A per-activation token also prevents a legitimate guard from releasing a
+> later owner after direct release-and-reissue. Guards require an immovable generator, which every
+> shipped alias is. `RandomAllocationPolicy`'s seeded constructor takes `fat_p::seed_tag` instead
+> of an `int` disambiguator.
 
 `AlreadyInUse` and `InvalidClaim` answer different questions, which matters when a `claim()`
 comes from persisted data: `AlreadyInUse` means the ID is real but taken, `InvalidClaim` means
@@ -1238,7 +1272,9 @@ All core operations (generate, release, is_active) are O(1) amortized: a hash in
 
 ### Performance Characteristics
 
-IdGenerator uses an `unordered_set` with lazy max tracking for O(1) average-case operations. Understanding the implementation helps predict performance in edge cases.
+IdGenerator uses an `unordered_map` with lazy max tracking for O(1) average-case operations. The
+mapped value carries optional RAII activation identity. Understanding the implementation helps
+predict performance in edge cases.
 
 **Average Case (Typical HPC Workloads)**
 
@@ -1610,7 +1646,10 @@ gen.release(*id);  // Correct: passing UserId
 **Causes:**
 1. ID was already released (double-release)
 2. ID was never generated by this generator
-3. Generator was reset between generate and release — but only while the value has not been reissued. `release()` performs no epoch check, so once `reset()` has handed that value to a new owner, releasing the stale handle succeeds and evicts the new owner's ID instead of reporting an error. `IdGuard` is epoch-checked and has no such failure mode
+3. Generator was reset between generate and release — but only while the value has not been
+   reissued. A raw ID value carries no activation identity, so once `reset()` has handed that value
+   to a new owner, releasing the stale value succeeds and evicts the new owner's ID instead of
+   reporting an error. `IdGuard` is activation-checked and has no such failure mode
 
 **Solution:**
 ```cpp

@@ -77,12 +77,19 @@ class IdGenerator : private AllocationPolicy
                   , private ConcurrencyPolicy
 {
     underlying_type mBaseId;
+    underlying_type mUpperBound;
     ActiveIdTracker<underlying_type> mIdsInUse;
-    std::size_t mEpoch;              // bumped by reset(); guards refuse to cross it
 };
 ```
 
-Inheriting the policies rather than holding them by value is what lets the compiler inline every policy call. It does not make them free. `SingleThreadedPolicy` holds a `mutable NoOpLock` member, so it is not an empty class and Empty Base Optimization does not apply to it — `std::is_empty_v<SingleThreadedPolicy>` is `false`. A generator's footprint is the allocation policy's counters and flags, the recycling container (`std::deque` for FIFO, `std::set` for min-first), the active-ID `std::unordered_set` plus its cached maximum, the base ID, and the reset epoch. Measure `sizeof` on your own toolchain rather than summing those parts: the containers dominate and their sizes are implementation-specific.
+Inheriting the policies rather than holding them by value is what lets the compiler inline every
+policy call. It does not make them free. `SingleThreadedPolicy` holds a `mutable NoOpLock` member,
+so it is not an empty class and Empty Base Optimization does not apply to it —
+`std::is_empty_v<SingleThreadedPolicy>` is `false`. A generator's footprint is the allocation
+policy's counters and flags, the recycling container (`std::deque` for FIFO, `std::set` for
+min-first), the active-ID `std::unordered_map` and its optional guard tokens plus cached maximum,
+and the configured bounds. Measure `sizeof` on your own toolchain rather than summing those parts:
+the containers dominate and their sizes are implementation-specific.
 
 ### What The Compiler Sees
 
@@ -215,7 +222,10 @@ using ReaderHeavyGen = IdGenerator<uint64_t,
 }  // ID automatically released, even if exception thrown
 ```
 
-**Mechanism:** `IdGuard` stores a pointer to the generator, the ID, and the generator's epoch at construction. The destructor calls `release_if_current()`, which releases only if `reset()` has not bumped the epoch since — a guard that outlived a `reset()` goes inert rather than releasing an ID the generator has already reissued to someone else. Move-only semantics prevent double-release.
+**Mechanism:** Each guarded activation receives a private identity token stored with its active
+ID. The destructor releases only when both the raw ID and that token still match. A guard made
+stale by `reset()`, direct `release()`, or release-and-reissue therefore goes inert instead of
+releasing a later owner's ID. Move-only semantics prevent duplicated guard ownership.
 
 ### 6. Batch Operations: Amortized Lock Cost
 
@@ -308,7 +318,7 @@ No benchmark ships with this component yet: `components/IdGenerator/benchmarks/`
 | `generate()` | O(1); O(n) on the first call after the highest active ID is released | Hash insert + counter or queue pop, plus the max lookup below |
 | `release()` | O(1) amortized with FIFO recycling, O(log n) with min-first | Hash erase + `deque` push, or `set` insert for `MinRecyclingPolicy` |
 | `is_active()` | O(1) average | Hash lookup |
-| Internal max-ID tracking | O(1) while the cache is valid, O(n) to rebuild it | `ActiveIdTracker` caches the maximum and invalidates it when that element is erased; the next `max_element()` is a linear `std::max_element` scan of the `unordered_set` |
+| Internal max-ID tracking | O(1) cached; O(n) rebuild | Linear key scan after the cached maximum is erased |
 | `generate_batch(n)` | O(n) | N × O(1) operations |
 | `claim(id)` (sparse only) | O(log I) in free-interval count | Interval lookup, then at most one split. Independent of `id`'s numeric value and of its distance from any active ID |
 | `release()` (sparse only) | O(log I) | Merge with adjacent intervals; allocation-free, funded by the credit reserved at activation |
@@ -364,7 +374,13 @@ Resource managers (handle allocation)
 | Post-review coverage | 15 | AlreadyInUse reachability, retry loop, exhausted latch, batch pool restoration, saturated revert, reset-invalidated guards, guard move-assignment, sentinel refusal, StrongId batch, movability, bounded upper bound, random base as minimum, impossible batch count |
 | Sparse ID claiming | 36 | Claim at endpoints, in gaps and on singleton intervals; single-value domains; order independence; duplicate and out-of-domain refusal; all four release/merge transitions asserted on interval count; base release on a full-width domain; staged generation; batch exclusion, preflight and rollback; `release_batch`; exhaustion at the configured ceiling; exact-then-saturating free count; domain rebuild on reset; credit accounting; exception injection at each allocating step; **measured allocation-freedom of every return path**; gap-independence with a counting comparator over a fragmented domain; revert suppression; guard release; constructor routing; sentinel normalization; moved-from consistency; and **contended multithreaded claiming over a real `shared_mutex`** |
 
-Total: 84 tests. The sparse group was additionally put through two mutation gates against the header. The second followed an adversarial coverage audit that surfaced four defects in the landed code — a batch preflight gated on the wrong width, a moved-from policy with a stale credit count, an inverted domain that could issue a `StrongId`'s reserved sentinel, and a `Compare` parameter that promised more generality than it delivered. All are fixed and carry regression tests; every mutant in the current gate dies. The one provably equivalent mutation, and the absence of compile-fail coverage, are recorded in the design note rather than papered over.
+Total: 90 tests. The sparse group was additionally put through two mutation gates against the
+header. Later transactional-issuance tests cover active-tracker allocation failure, a throwing
+batch candidate, exact FIFO rollback, and stale guard destruction after release-and-reissue.
+Comparator, policy-pair, batch-move, and guard-factory constraints are expressed with
+`requires`, so ordinary compile-time tests can prove invalid syntax is absent without a separate
+compile-fail harness. The one provably equivalent mutation is recorded in the design note rather
+than papered over.
 
 ---
 

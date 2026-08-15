@@ -50,7 +50,7 @@ FATP_META:
  *     invalid() sentinel from the issuable domain at construction
  *   - Expected-based error handling
  *   - RAII IdGuard for automatic cleanup
- *   - O(1) active ID tracking via unordered_set with lazy max
+ *   - O(1) active ID tracking via unordered_map with lazy max
  *   - Batch generation/release with single lock acquisition
  *   - Seeded random generation for reproducibility
  *
@@ -70,7 +70,7 @@ FATP_META:
 #include <set>
 #include <stdexcept>
 #include <type_traits>
-#include <unordered_set>
+#include <unordered_map>
 #include <vector>
 
 #include "ConcurrencyPolicies.h"
@@ -322,6 +322,12 @@ inline constexpr bool comparator_is_nothrow_v =
     std::is_same_v<C, std::less<IdT>> ||
     std::is_nothrow_invocable_r_v<bool, const C&, const IdT&, const IdT&>;
 
+template <typename C, typename IdT>
+concept SparseIntervalCompare = comparator_is_nothrow_v<C, IdT> &&
+                                std::is_nothrow_move_constructible_v<C> &&
+                                std::is_nothrow_default_constructible_v<C> &&
+                                std::is_nothrow_swappable_v<C> && is_ascending_order_v<C>;
+
 // What IdGenerator actually requires of a concurrency policy: an exclusive lock
 // on a mutable policy, and a shared lock on a CONST one (the query methods hold
 // the policy const). This is deliberately narrower than fat_p::ConcurrencyPolicy,
@@ -350,7 +356,7 @@ using underlying_id_type_t = typename detail::extract_value_type<T>::type;
 // =============================================================================
 
 /**
- * @brief High-performance tracker for active IDs using std::unordered_set with lazy max.
+ * @brief High-performance tracker for active IDs using std::unordered_map with lazy max.
  *
  * @details Provides O(1) average insert/erase/contains operations. The max element is
  * cached and only recomputed when the current max is erased.
@@ -370,7 +376,7 @@ public:
      */
     bool insert(T id)
     {
-        auto [it, inserted] = mContainer.insert(id);
+        auto [it, inserted] = mContainer.emplace(id, std::shared_ptr<const void>{});
         if (inserted)
         {
             if (mContainer.size() == 1)
@@ -387,6 +393,28 @@ public:
             // If !mMaxValid and size > 1, leave invalid for lazy recompute
         }
         return inserted;
+    }
+
+    void set_guard_token(T id, std::shared_ptr<const void> token) noexcept
+    {
+        auto it = mContainer.find(id);
+        assert(it != mContainer.end() && "Cannot guard an inactive identifier");
+        it->second = std::move(token);
+    }
+
+    bool guard_token_matches(T id, const std::shared_ptr<const void>& token) const noexcept
+    {
+        const auto it = mContainer.find(id);
+        return it != mContainer.end() && token && it->second == token;
+    }
+
+    void clear_guard_token(T id, const std::shared_ptr<const void>& token) noexcept
+    {
+        auto it = mContainer.find(id);
+        if (it != mContainer.end() && it->second == token)
+        {
+            it->second.reset();
+        }
     }
 
     size_t erase(T id)
@@ -426,7 +454,12 @@ public:
         }
         if (!mMaxValid)
         {
-            mMax = *std::max_element(mContainer.begin(), mContainer.end());
+            const auto it = std::max_element(
+                mContainer.begin(), mContainer.end(), [](const auto& lhs, const auto& rhs)
+                {
+                    return lhs.first < rhs.first;
+                });
+            mMax = it->first;
             mMaxValid = true;
         }
         return mMax;
@@ -440,7 +473,7 @@ public:
     }
 
 private:
-    std::unordered_set<T> mContainer;
+    std::unordered_map<T, std::shared_ptr<const void>> mContainer;
     T mMax = T{};
     bool mMaxValid = false;
 };
@@ -863,6 +896,11 @@ struct is_sequential_policy<BoundedSequentialAllocationPolicy<IdType>, void> : s
 template <typename T>
 inline constexpr bool is_sequential_policy_v = is_sequential_policy<T>::value;
 
+template <typename AllocationPolicy, typename RecyclingPolicy>
+concept CompatibleIdGeneratorPolicies =
+    !is_full_domain_policy_v<RecyclingPolicy> ||
+    (is_sequential_policy_v<AllocationPolicy> && has_domain_configure_v<RecyclingPolicy>);
+
 } // namespace detail
 
 // =============================================================================
@@ -893,6 +931,11 @@ public:
     void add_recycled(IdType id) noexcept
     {
         mRecycled.push_back(id);
+    }
+
+    void restore_recycled(IdType id) noexcept
+    {
+        mRecycled.push_front(id);
     }
 
     size_t recycled_count() const noexcept
@@ -937,6 +980,11 @@ public:
         mRecycled.insert(id);
     }
 
+    void restore_recycled(IdType id) noexcept
+    {
+        mRecycled.insert(id);
+    }
+
     size_t recycled_count() const noexcept
     {
         return mRecycled.size();
@@ -960,6 +1008,9 @@ public:
         return std::nullopt;
     }
     void add_recycled(IdType) noexcept
+    {
+    }
+    void restore_recycled(IdType) noexcept
     {
     }
     size_t recycled_count() const noexcept
@@ -1054,37 +1105,10 @@ public:
 ///         that can also introduce a defect is not worth its measurement, which
 ///         is why this is constrained rather than merely documented.
 template <typename IdType = uint64_t, typename Compare = std::less<IdType>>
+    requires detail::SparseIntervalCompare<Compare, IdType>
 class SparseRecyclingPolicy
 {
 public:
-    // Ordering was constrained; its EXCEPTION behaviour was left to prose --
-    // the same mistake one layer down. is_free(), claim_at() and add_recycled()
-    // are noexcept and reach Compare through map lookup and insertion, so a
-    // throwing comparator terminates rather than propagating.
-    //
-    // std::less is accepted without the trait because the standard does not
-    // declare its operator() noexcept -- MSVC does, libstdc++ does not -- while
-    // comparing two unsigned integers cannot throw on any implementation.
-    // Requiring the trait outright would reject the library's own default
-    // comparator on GCC, which is a portability regression, not a safety gain.
-    // Every OTHER comparator must say so.
-    static_assert(detail::comparator_is_nothrow_v<Compare, IdType>,
-                  "SparseRecyclingPolicy's Compare must be nothrow-invocable: the policy's "
-                  "noexcept operations reach it through std::map, so a throwing comparator "
-                  "terminates rather than propagating. Declare operator() noexcept.");
-
-    static_assert(std::is_nothrow_move_constructible_v<Compare> &&
-                      std::is_nothrow_default_constructible_v<Compare>,
-                  "and nothrow to construct and move, because the policy's own move operations "
-                  "are noexcept over containers that hold it.");
-
-    static_assert(detail::is_ascending_order_v<Compare>,
-                  "SparseRecyclingPolicy's Compare must induce ASCENDING order and declare it: "
-                  "use std::less<IdType>, or declare `using ascending_order = void;` on your "
-                  "comparator. The policy mixes map order with interval arithmetic, so a "
-                  "descending order would compile and silently falsify every invariant of the "
-                  "interval representation.");
-
     using value_type = IdType;
     using key_compare = Compare;
 
@@ -1495,6 +1519,11 @@ protected:
         }
     }
 
+    void restore_recycled(IdType id) noexcept
+    {
+        add_recycled(id);
+    }
+
 public:
     /**
      * @brief The number of currently FREE identifiers, including never-issued ones.
@@ -1647,14 +1676,15 @@ namespace idg = id_generator;
  *       MutexSynchronizationPolicy deletes its moves outright, so the
  *       defaulted moves here resolve to deleted and a move is a compile
  *       error. Under a policy that keeps its move (UniqueRWLockPolicy,
- *       MovableSingleThreadedPolicy) the generator is movable, and moving it
- *       with live guards is undefined behavior.
+ *       MovableSingleThreadedPolicy) the generator is movable, so the guarded
+ *       issuance factories are removed by constraint.
  */
 template <typename IdType_,
           typename AllocationPolicy = SequentialAllocationPolicy<underlying_id_type_t<IdType_>>,
           typename RecyclingPolicy = ImmediateRecyclingPolicy<underlying_id_type_t<IdType_>>,
           typename ErrorPolicy = id_generator::ExpectedErrorPolicy<IdType_, IdError>,
           detail::UsableConcurrencyPolicy ConcurrencyPolicy = SingleThreadedPolicy>
+    requires detail::CompatibleIdGeneratorPolicies<AllocationPolicy, RecyclingPolicy>
 class IdGenerator : private AllocationPolicy, private RecyclingPolicy, private ConcurrencyPolicy
 {
 public:
@@ -1665,17 +1695,6 @@ public:
 private:
     /// @brief Does the recycling policy own the whole domain rather than only what was released?
     static constexpr bool kFullDomain = detail::is_full_domain_policy_v<RecyclingPolicy>;
-
-    static_assert(!kFullDomain || detail::is_sequential_policy_v<AllocationPolicy>,
-                  "A full-domain RecyclingPolicy (SparseRecyclingPolicy) requires a sequential "
-                  "AllocationPolicy. Issuance comes from the free set, so a random draw has "
-                  "nothing to contribute, and the free set -- not the allocation policy -- is "
-                  "what exhaustion means.");
-
-    static_assert(!kFullDomain || detail::has_domain_configure_v<RecyclingPolicy>,
-                  "A full-domain RecyclingPolicy must also model has_domain_configure_v: a policy "
-                  "that owns the whole domain but cannot be told what the domain IS is exactly the "
-                  "defect the full-domain contract exists to prevent.");
 
     /**
      * @brief Normalize a requested upper bound against the ID type's reserved sentinel.
@@ -1945,10 +1964,9 @@ public:
     // ID Generation and Release
     // =========================================================================
 
-    result_type generate()
+private:
+    result_type generate_unlocked()
     {
-        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
-
         // A full-domain policy holds every identifier, issued or not, so the
         // generation path is a staged take from the free set and the allocation
         // policy is never consulted -- see make_active() for why the order is
@@ -2007,13 +2025,25 @@ public:
                     }
                     catch (...)
                     {
-                        RecyclingPolicy::add_recycled(raw_id);
+                        RecyclingPolicy::restore_recycled(raw_id);
                         throw;
                     }
                 }
             }();
 
-            (void)mIdsInUse.insert(raw_id);
+            try
+            {
+                if (!mIdsInUse.insert(raw_id))
+                {
+                    RecyclingPolicy::restore_recycled(raw_id);
+                    return ErrorPolicy::report_error(IdError::AlreadyInUse);
+                }
+            }
+            catch (...)
+            {
+                RecyclingPolicy::restore_recycled(raw_id);
+                throw;
+            }
             return issued;
         }
 
@@ -2072,10 +2102,21 @@ public:
             // throw leaves a permanent gap in the sequence.
             if constexpr (std::is_same_v<IdType_, underlying_type>)
             {
-                // Single-lookup: insert returns false if already present (collision)
-                if (mIdsInUse.insert(raw_id))
+                try
                 {
-                    return ErrorPolicy::report_success(raw_id);
+                    // Single-lookup: insert returns false if already present (collision)
+                    if (mIdsInUse.insert(raw_id))
+                    {
+                        return ErrorPolicy::report_success(raw_id);
+                    }
+                }
+                catch (...)
+                {
+                    if constexpr (detail::has_revert_v<AllocationPolicy>)
+                    {
+                        AllocationPolicy::revert(1);
+                    }
+                    throw;
                 }
             }
             else
@@ -2096,9 +2137,20 @@ public:
                     }
                 }();
 
-                if (mIdsInUse.insert(raw_id))
+                try
                 {
-                    return issued;
+                    if (mIdsInUse.insert(raw_id))
+                    {
+                        return issued;
+                    }
+                }
+                catch (...)
+                {
+                    if constexpr (detail::has_revert_v<AllocationPolicy>)
+                    {
+                        AllocationPolicy::revert(1);
+                    }
+                    throw;
                 }
             }
             // Collision - retry with next ID from policy (only for random policies)
@@ -2107,6 +2159,13 @@ public:
         return ErrorPolicy::report_error(IdError::AlreadyInUse);
 
         } // if constexpr (!kFullDomain)
+    }
+
+public:
+    result_type generate()
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        return generate_unlocked();
     }
 
     /**
@@ -2135,12 +2194,11 @@ public:
      * @param id The identifier to claim
      * @return Success, or AlreadyInUse / InvalidClaim
      */
+private:
     template <typename RP = RecyclingPolicy>
         requires detail::is_full_domain_policy_v<RP>
-    Expected<void, IdError> claim(IdType_ id)
+    Expected<void, IdError> claim_unlocked(IdType_ id)
     {
-        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
-
         const underlying_type raw_id = to_underlying(id);
 
         if (mIdsInUse.count(raw_id) > 0)
@@ -2173,6 +2231,15 @@ public:
         RecyclingPolicy::claim_at(raw_id);
 
         return {};
+    }
+
+public:
+    template <typename RP = RecyclingPolicy>
+        requires detail::is_full_domain_policy_v<RP>
+    Expected<void, IdError> claim(IdType_ id)
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        return claim_unlocked(id);
     }
 
     Expected<void, IdError> release(IdType_ id) noexcept
@@ -2220,6 +2287,7 @@ public:
      * @return Expected containing vector of IDs, or error if generation failed
      */
     Expected<std::vector<id_type>, IdError> generate_batch(size_t count)
+        requires std::is_nothrow_move_constructible_v<id_type>
     {
         if (count == 0)
         {
@@ -2312,17 +2380,6 @@ public:
         // been recorded anywhere, so the caller-visible state is exactly the
         // pre-call state once the accumulated batch is rolled back.
         //
-        // The nothrow move is REQUIRED, not assumed. A throwing move
-        // constructor in the push_back would leave `raw_id` in the active set
-        // but out of `result`, where rollback cannot see it -- simultaneously
-        // active and free, with no credit backing it. Documenting that
-        // assumption in this very comment, rather than enforcing it, is the
-        // pattern this class has been corrected for elsewhere.
-        static_assert(std::is_nothrow_move_constructible_v<id_type>,
-                      "generate_batch() requires a nothrow-move id_type: the batch records an "
-                      "identifier in the active set before moving it into the result, so a "
-                      "throwing move strands it in neither structure and rollback cannot see it.");
-
         const auto commit = [this, &result, &from_pool](underlying_type raw_id, bool pooled)
         {
             if constexpr (std::is_same_v<IdType_, underlying_type>)
@@ -2384,7 +2441,7 @@ public:
                     {
                         // get_recycled() already removed it from the pool; put
                         // it back before unwinding or it exists nowhere.
-                        RecyclingPolicy::add_recycled(raw_id);
+                        RecyclingPolicy::restore_recycled(raw_id);
                         throw;
                     }
                     continue;
@@ -2430,7 +2487,18 @@ public:
 
                     if (mIdsInUse.count(raw_id) == 0)
                     {
-                        commit(raw_id, false);
+                        try
+                        {
+                            commit(raw_id, false);
+                        }
+                        catch (...)
+                        {
+                            if constexpr (detail::has_revert_v<AllocationPolicy>)
+                            {
+                                AllocationPolicy::revert(1);
+                            }
+                            throw;
+                        }
                         generated = true;
                         break;
                     }
@@ -2515,28 +2583,23 @@ private:
 
         for (size_t i = 0; i < result.size(); ++i)
         {
-            underlying_type raw;
-            if constexpr (std::is_same_v<IdType_, underlying_type>)
-            {
-                raw = result[i];
-            }
-            else
-            {
-                raw = result[i].get();
-            }
+            const underlying_type raw = to_underlying(result[i]);
             mIdsInUse.erase(raw);
 
-            // Provenance is read from the recorded flag, never guessed from the
-            // value. An ID that came from the pool goes back to the pool; only
-            // IDs the allocation policy actually produced are counted for
-            // revert(), so the counter is rewound by exactly what it advanced.
-            if (i < from_pool.size() && from_pool[i])
-            {
-                RecyclingPolicy::add_recycled(raw);
-            }
-            else
+            if (i >= from_pool.size() || !from_pool[i])
             {
                 ++newly_generated_count;
+            }
+        }
+
+        // Pool entries were removed from the front. Restore them in reverse so
+        // an order-sensitive policy returns to its exact pre-batch sequence.
+        for (size_t i = result.size(); i > 0; --i)
+        {
+            const size_t index = i - 1;
+            if (index < from_pool.size() && from_pool[index])
+            {
+                RecyclingPolicy::restore_recycled(to_underlying(result[index]));
             }
         }
 
@@ -2652,25 +2715,24 @@ public:
         }
         mIdsInUse.clear();
         AllocationPolicy::reset(mBaseId);
-
-        // Invalidate outstanding guards. Without this a guard created before
-        // the reset releases on destruction against the post-reset state: at
-        // best a spurious InvalidRelease (and a failed debug assert), at worst
-        // a SUCCESSFUL release of an ID the generator has already reissued to a
-        // different owner, corrupting that owner's state in release builds.
-        ++mEpoch;
     }
 
     // =========================================================================
     // RAII Helper
     // =========================================================================
 
+private:
+    struct GuardToken
+    {
+    };
+
+public:
     /**
      * @brief RAII guard that automatically releases an ID when destroyed.
      *
      * @warning The IdGenerator must outlive all IdGuard instances created from it.
      *          Destroying it while guards exist is undefined behavior; moving it is
-     *          a compile error under all four shipped aliases (see the class note).
+     *          a compile error under the shipped aliases (see the class note).
      */
     class IdGuard
     {
@@ -2690,39 +2752,32 @@ public:
          *   auto other = gen.generate();          // 1 is issued a SECOND time
          * @endcode
          *
-         * The asserts below do not catch that shape, in any build: the release
-         * SUCCEEDS, so `released` is true. They catch only the never-active and
-         * double-release shapes, which are the harmless half. A guard must
-         * therefore be unable to name an identifier it was not given.
+         * A release-result assertion cannot catch that shape in any build: the
+         * release SUCCEEDS. A guard must therefore be unable to name an
+         * identifier it was not given.
          *
          * @warning Movability is checked here rather than only documented -- see
          * the static_assert.
          */
-        IdGuard(IdGenerator& gen, IdType_ id) noexcept
+        IdGuard(IdGenerator& gen, IdType_ id, std::shared_ptr<const void> activation) noexcept
             : mGenerator(&gen)
             , mId(id)
             , mValid(true)
-            , mEpoch(gen.mEpoch)
+            , mActivation(std::move(activation))
         {
-            // The epoch covers reset() and ONLY reset(). A generator MOVE copies
-            // mEpoch into the destination and leaves the source's value alone,
-            // while this guard holds a raw pointer to the source -- so the
-            // staleness check cannot see the move, and the identifier is
-            // stranded active in the destination: unreleasable and unissuable.
-            // Over UniqueRWLockPolicy it is worse, because the source's mutex
-            // pointer is null and the release dereferences it.
+            // A guard holds a raw pointer to its generator. Moving the generator
+            // strands that pointer at the source and therefore cannot be made
+            // safe merely by carrying the activation identity along with it.
             //
-            // The manual already claimed this was a compile error. This makes
-            // that true of the template rather than of four of its
-            // instantiations. Guards and a movable generator are not a
-            // combination that works today; this refuses it instead of
-            // documenting it.
+            // The factories carry the same rule as a constraint so callers can
+            // detect their absence. Keep this assertion as a second-line
+            // diagnostic on the private adopting constructor.
             static_assert(!std::is_move_constructible_v<IdGenerator> &&
                               !std::is_move_assignable_v<IdGenerator>,
                           "IdGuard requires an immovable IdGenerator: a guard holds a raw pointer "
-                          "to its generator and its epoch check cannot detect a move, so moving "
-                          "the generator strands the guarded identifier. Every shipped alias is "
-                          "immovable; if you need reader/writer locking with guards, use "
+                          "to its generator, so moving the generator strands the guarded "
+                          "identifier. Every shipped alias is immovable; if you need "
+                          "reader/writer locking with guards, use "
                           "SharedMutexPolicy, which is immovable and has a real shared lock.");
         }
 
@@ -2733,7 +2788,7 @@ public:
             : mGenerator(nullptr)
             , mId{}
             , mValid(false)
-            , mEpoch(0)
+            , mActivation()
         {
         }
 
@@ -2741,18 +2796,9 @@ public:
         {
             if (mValid && mGenerator)
             {
-                // Releases only if the generator has not been reset since this
-                // guard was made; a stale guard is silently inert rather than
-                // releasing an ID that now belongs to someone else.
-                [[maybe_unused]] const bool released =
-                    mGenerator->release_if_current(mId, mEpoch);
-#ifndef NDEBUG
-                // A failure here means a double-release or an ID that was never
-                // active -- a real bug. Being stale is not a bug, so it is
-                // excluded from the assertion.
-                assert((released || mEpoch != mGenerator->mEpoch) &&
-                       "IdGuard: release failed in destructor");
-#endif
+                // Direct release, reset, or reissue can make this guard stale.
+                // The activation identity makes all of those cases inert.
+                (void)mGenerator->release_if_current(mId, mActivation);
             }
         }
 
@@ -2764,7 +2810,7 @@ public:
             : mGenerator(other.mGenerator)
             , mId(other.mId)
             , mValid(other.mValid)
-            , mEpoch(other.mEpoch)
+            , mActivation(std::move(other.mActivation))
         {
             other.mValid = false;
         }
@@ -2775,20 +2821,12 @@ public:
             {
                 if (mValid && mGenerator)
                 {
-                    // Same staleness rule as the destructor: releasing the ID
-                    // this guard is dropping must not touch a post-reset
-                    // generation.
-                    [[maybe_unused]] const bool released =
-                        mGenerator->release_if_current(mId, mEpoch);
-#ifndef NDEBUG
-                    assert((released || mEpoch != mGenerator->mEpoch) &&
-                           "IdGuard: release failed in move assignment");
-#endif
+                    (void)mGenerator->release_if_current(mId, mActivation);
                 }
                 mGenerator = other.mGenerator;
                 mId = other.mId;
                 mValid = other.mValid;
-                mEpoch = other.mEpoch;
+                mActivation = std::move(other.mActivation);
                 other.mValid = false;
             }
             return *this;
@@ -2809,14 +2847,19 @@ public:
 
         void release_ownership() noexcept
         {
+            if (mValid && mGenerator)
+            {
+                mGenerator->release_guard_ownership(mId, mActivation);
+            }
             mValid = false;
+            mActivation.reset();
         }
 
     private:
         IdGenerator* mGenerator;
         IdType_ mId;
         bool mValid;
-        std::size_t mEpoch; // generator epoch at construction; see reset()
+        std::shared_ptr<const void> mActivation;
     };
 
     /// @brief Generate an identifier and get a guard that releases it.
@@ -2830,12 +2873,15 @@ public:
         requires(!std::is_move_constructible_v<Self> && !std::is_move_assignable_v<Self>)
     [[nodiscard]] Expected<IdGuard, IdError> scoped_id()
     {
-        auto result = generate();
+        auto activation = std::make_shared<GuardToken>();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        auto result = generate_unlocked();
         if (!result.has_value())
         {
             return make_unexpected(result.error());
         }
-        return IdGuard(*this, *result);
+        mIdsInUse.set_guard_token(to_underlying(*result), activation);
+        return IdGuard(*this, *result, std::move(activation));
     }
 
     /**
@@ -2852,44 +2898,39 @@ public:
                  !std::is_move_assignable_v<Self>)
     [[nodiscard]] Expected<IdGuard, IdError> scoped_claim(IdType_ id)
     {
-        auto result = claim(id);
+        auto activation = std::make_shared<GuardToken>();
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        auto result = claim_unlocked(id);
         if (!result.has_value())
         {
             return make_unexpected(result.error());
         }
-        return IdGuard(*this, id);
+        mIdsInUse.set_guard_token(to_underlying(id), activation);
+        return IdGuard(*this, id, std::move(activation));
     }
 
 private:
-    // Releases @p id only if @p epoch is still the generator's current epoch.
-    // reset() bumps the epoch, so a guard created before a reset becomes inert
-    // instead of releasing an ID the generator has since reissued to someone
-    // else. The check runs under the lock, so it cannot race a concurrent
-    // reset(). Returns true if the release happened.
-    bool release_if_current(IdType_ id, std::size_t epoch) noexcept
+    void release_guard_ownership(IdType_ id,
+                                 const std::shared_ptr<const void>& activation) noexcept
     {
         [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        mIdsInUse.clear_guard_token(to_underlying(id), activation);
+    }
 
-        if (epoch != mEpoch)
+    // Releases @p id only if it is still the exact activation adopted by this
+    // guard. The check and release share one lock, so reset/direct release plus
+    // reissue cannot turn a stale guard into authority over a later owner.
+    bool release_if_current(IdType_ id,
+                            const std::shared_ptr<const void>& activation) noexcept
+    {
+        [[maybe_unused]] auto lock = ConcurrencyPolicy::lock();
+        const underlying_type raw_id = to_underlying(id);
+        if (!mIdsInUse.guard_token_matches(raw_id, activation))
         {
             return false;
         }
 
-        underlying_type raw_id;
-        if constexpr (std::is_same_v<IdType_, underlying_type>)
-        {
-            raw_id = id;
-        }
-        else
-        {
-            raw_id = id.get();
-        }
-
-        if (mIdsInUse.erase(raw_id) == 0)
-        {
-            return false;
-        }
-
+        (void)mIdsInUse.erase(raw_id);
         RecyclingPolicy::add_recycled(raw_id);
         return true;
     }
@@ -2902,9 +2943,6 @@ private:
     underlying_type mUpperBound;
 
     ActiveIdTracker<underlying_type> mIdsInUse;
-    // Bumped by reset(). Outstanding IdGuards carry the epoch they were made
-    // in and refuse to release across a bump.
-    std::size_t mEpoch{0};
 };
 
 // =============================================================================
