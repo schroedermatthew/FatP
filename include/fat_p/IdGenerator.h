@@ -311,6 +311,17 @@ struct is_ascending_order<std::less<T>, void> : std::true_type
 template <typename T>
 inline constexpr bool is_ascending_order_v = is_ascending_order<T>::value;
 
+// May the interval map's noexcept operations call this comparator safely?
+//
+// std::less is admitted directly: the standard does not declare its operator()
+// noexcept (MSVC does, libstdc++ does not), yet comparing two unsigned integers
+// cannot throw anywhere. Demanding the trait of it would reject the library's
+// own default on GCC. Any other comparator must declare noexcept.
+template <typename C, typename IdT>
+inline constexpr bool comparator_is_nothrow_v =
+    std::is_same_v<C, std::less<IdT>> ||
+    std::is_nothrow_invocable_r_v<bool, const C&, const IdT&, const IdT&>;
+
 // What IdGenerator actually requires of a concurrency policy: an exclusive lock
 // on a mutable policy, and a shared lock on a CONST one (the query methods hold
 // the policy const). This is deliberately narrower than fat_p::ConcurrencyPolicy,
@@ -1046,6 +1057,27 @@ template <typename IdType = uint64_t, typename Compare = std::less<IdType>>
 class SparseRecyclingPolicy
 {
 public:
+    // Ordering was constrained; its EXCEPTION behaviour was left to prose --
+    // the same mistake one layer down. is_free(), claim_at() and add_recycled()
+    // are noexcept and reach Compare through map lookup and insertion, so a
+    // throwing comparator terminates rather than propagating.
+    //
+    // std::less is accepted without the trait because the standard does not
+    // declare its operator() noexcept -- MSVC does, libstdc++ does not -- while
+    // comparing two unsigned integers cannot throw on any implementation.
+    // Requiring the trait outright would reject the library's own default
+    // comparator on GCC, which is a portability regression, not a safety gain.
+    // Every OTHER comparator must say so.
+    static_assert(detail::comparator_is_nothrow_v<Compare, IdType>,
+                  "SparseRecyclingPolicy's Compare must be nothrow-invocable: the policy's "
+                  "noexcept operations reach it through std::map, so a throwing comparator "
+                  "terminates rather than propagating. Declare operator() noexcept.");
+
+    static_assert(std::is_nothrow_move_constructible_v<Compare> &&
+                      std::is_nothrow_default_constructible_v<Compare>,
+                  "and nothrow to construct and move, because the policy's own move operations "
+                  "are noexcept over containers that hold it.");
+
     static_assert(detail::is_ascending_order_v<Compare>,
                   "SparseRecyclingPolicy's Compare must induce ASCENDING order and declare it: "
                   "use std::less<IdType>, or declare `using ascending_order = void;` on your "
@@ -1955,16 +1987,34 @@ public:
             assert(mIdsInUse.count(raw_id) == 0 && "Recycled ID already in use");
 #endif
 
-            (void)mIdsInUse.insert(raw_id);
+            // Construct the caller's value BEFORE the active-set insert. A
+            // throwing id_type constructor would otherwise leave the identifier
+            // active and out of the caller's hands, unreleasable because they
+            // never received it. The recycled value has already been popped, so
+            // it must go back if the construction fails -- otherwise it exists
+            // in neither set.
+            result_type issued = [&]
+            {
+                if constexpr (std::is_same_v<IdType_, underlying_type>)
+                {
+                    return ErrorPolicy::report_success(raw_id);
+                }
+                else
+                {
+                    try
+                    {
+                        return ErrorPolicy::report_success(IdType_(raw_id));
+                    }
+                    catch (...)
+                    {
+                        RecyclingPolicy::add_recycled(raw_id);
+                        throw;
+                    }
+                }
+            }();
 
-            if constexpr (std::is_same_v<IdType_, underlying_type>)
-            {
-                return ErrorPolicy::report_success(raw_id);
-            }
-            else
-            {
-                return ErrorPolicy::report_success(IdType_(raw_id));
-            }
+            (void)mIdsInUse.insert(raw_id);
+            return issued;
         }
 
         // Generate new ID
@@ -2015,16 +2065,40 @@ public:
                 }
             }
 
-            // Single-lookup: insert returns false if already present (collision)
-            if (mIdsInUse.insert(raw_id))
+            // Same ordering as the recycled path: construct the caller's value
+            // before publishing it, so a throwing id_type constructor cannot
+            // strand an active identifier. Here the allocation policy has also
+            // already advanced, so its counter is rewound too -- otherwise the
+            // throw leaves a permanent gap in the sequence.
+            if constexpr (std::is_same_v<IdType_, underlying_type>)
             {
-                if constexpr (std::is_same_v<IdType_, underlying_type>)
+                // Single-lookup: insert returns false if already present (collision)
+                if (mIdsInUse.insert(raw_id))
                 {
                     return ErrorPolicy::report_success(raw_id);
                 }
-                else
+            }
+            else
+            {
+                result_type issued = [&]
                 {
-                    return ErrorPolicy::report_success(IdType_(raw_id));
+                    try
+                    {
+                        return ErrorPolicy::report_success(IdType_(raw_id));
+                    }
+                    catch (...)
+                    {
+                        if constexpr (detail::has_revert_v<AllocationPolicy>)
+                        {
+                            AllocationPolicy::revert(1);
+                        }
+                        throw;
+                    }
+                }();
+
+                if (mIdsInUse.insert(raw_id))
+                {
+                    return issued;
                 }
             }
             // Collision - retry with next ID from policy (only for random policies)
@@ -2181,18 +2255,34 @@ public:
                               static_cast<std::uint64_t>(mBaseId);
             constexpr auto kSizeMax =
                 static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max());
+            const std::size_t taken = mIdsInUse.size();
 
             if (span < kSizeMax)
             {
                 // Capacity is representable, so the check is exact: total slots
                 // minus those already taken.
                 const std::size_t capacity = static_cast<std::size_t>(span) + 1u;
-                const std::size_t taken = mIdsInUse.size();
                 if (count > (capacity > taken ? capacity - taken : std::size_t{0}))
                 {
                     return make_unexpected(IdError::Overflow);
                 }
             }
+            else if (taken > 0)
+            {
+                // The full-width domain: `span + 1` is unrepresentable, which is
+                // why the branch above excludes it -- and that exclusion was
+                // itself a hole, because AVAILABILITY becomes representable as
+                // soon as one identifier is active. With `taken` taken, exactly
+                // `2^N - taken` remain, i.e. `SIZE_MAX - taken + 1`. Leaving
+                // this out let the original defect survive at the one boundary
+                // the new arithmetic did not cover.
+                const std::size_t available = kSizeMax - taken + 1u;
+                if (count > available)
+                {
+                    return make_unexpected(IdError::Overflow);
+                }
+            }
+            // taken == 0 on a full-width domain: every representable count fits.
         }
 
         std::vector<id_type> result;
@@ -2220,10 +2310,19 @@ public:
         // push_backs, which cannot reallocate because both vectors are
         // reserved. If either of the first two steps throws, `raw_id` has not
         // been recorded anywhere, so the caller-visible state is exactly the
-        // pre-call state once the accumulated batch is rolled back. This
-        // assumes id_type moves without throwing: a throwing move constructor
-        // in the push_back would leave `raw_id` in the active set but out of
-        // `result`, where rollback cannot see it.
+        // pre-call state once the accumulated batch is rolled back.
+        //
+        // The nothrow move is REQUIRED, not assumed. A throwing move
+        // constructor in the push_back would leave `raw_id` in the active set
+        // but out of `result`, where rollback cannot see it -- simultaneously
+        // active and free, with no credit backing it. Documenting that
+        // assumption in this very comment, rather than enforcing it, is the
+        // pattern this class has been corrected for elsewhere.
+        static_assert(std::is_nothrow_move_constructible_v<id_type>,
+                      "generate_batch() requires a nothrow-move id_type: the batch records an "
+                      "identifier in the active set before moving it into the result, so a "
+                      "throwing move strands it in neither structure and rollback cannot see it.");
+
         const auto commit = [this, &result, &from_pool](underlying_type raw_id, bool pooled)
         {
             if constexpr (std::is_same_v<IdType_, underlying_type>)
@@ -2720,6 +2819,15 @@ public:
         std::size_t mEpoch; // generator epoch at construction; see reset()
     };
 
+    /// @brief Generate an identifier and get a guard that releases it.
+    ///
+    /// @details Constrained rather than merely asserted: with the check living
+    /// only inside IdGuard's constructor, this factory still SATISFIED a
+    /// `requires` expression and failed hard on instantiation. A caller could
+    /// not detect that guards were unavailable for their instantiation without
+    /// triggering the error. The constraint makes the absence a property.
+    template <typename Self = IdGenerator>
+        requires(!std::is_move_constructible_v<Self> && !std::is_move_assignable_v<Self>)
     [[nodiscard]] Expected<IdGuard, IdError> scoped_id()
     {
         auto result = generate();
@@ -2739,8 +2847,9 @@ public:
      * that use, expressed so the guard cannot name an identifier the generator
      * did not just hand over.
      */
-    template <typename RP = RecyclingPolicy>
-        requires detail::is_full_domain_policy_v<RP>
+    template <typename RP = RecyclingPolicy, typename Self = IdGenerator>
+        requires(detail::is_full_domain_policy_v<RP> && !std::is_move_constructible_v<Self> &&
+                 !std::is_move_assignable_v<Self>)
     [[nodiscard]] Expected<IdGuard, IdError> scoped_claim(IdType_ id)
     {
         auto result = claim(id);

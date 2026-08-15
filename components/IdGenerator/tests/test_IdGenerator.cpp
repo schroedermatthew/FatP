@@ -2512,7 +2512,9 @@ struct CountingLess
 
     static inline size_t comparisons = 0;
 
-    bool operator()(const T& a, const T& b) const
+    // noexcept is required, not decorative: the policy's noexcept operations
+    // reach the comparator through std::map, so a throwing one terminates.
+    bool operator()(const T& a, const T& b) const noexcept
     {
         ++comparisons;
         return a < b;
