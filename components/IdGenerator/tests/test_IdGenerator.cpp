@@ -44,6 +44,10 @@ FATP_META:
 #include <cstdlib>
 #include <iostream>
 #include <new>
+
+#if defined(_MSC_VER) && !defined(NDEBUG)
+#include <crtdbg.h>
+#endif
 #include <set>
 #include <thread>
 #include <vector>
@@ -364,9 +368,12 @@ FATP_TEST_CASE(random_seed_reproducibility)
     // Test that seeded random generator produces reproducible sequences
     constexpr uint64_t kTestSeed = 12345;
 
-    // Manually construct policies with seed to test reproducibility
-    RandomAllocationPolicy<uint64_t> policy1(kTestSeed, 0);
-    RandomAllocationPolicy<uint64_t> policy2(kTestSeed, 0);
+    // Manually construct policies with seed to test reproducibility. The tag is
+    // what makes this unmistakable: under the old `(seed, int ignored)` shape,
+    // `(1000, 5000)` read as a base and a bound compiled clean and silently
+    // discarded the base.
+    RandomAllocationPolicy<uint64_t> policy1(seed_tag, kTestSeed);
+    RandomAllocationPolicy<uint64_t> policy2(seed_tag, kTestSeed);
 
     // Generate sequence from both - should be identical
     std::vector<uint64_t> seq1, seq2;
@@ -1850,6 +1857,55 @@ struct has_claim<Gen,
 {
 };
 
+/// @brief Detects whether the policy's mutating protocol is reachable publicly.
+template <typename P, typename = void>
+struct has_public_credit_mutators : std::false_type
+{
+};
+
+template <typename P>
+struct has_public_credit_mutators<P, std::void_t<decltype(std::declval<P&>().reserve_credit())>>
+    : std::true_type
+{
+};
+
+template <typename P, typename = void>
+struct has_public_claim_at : std::false_type
+{
+};
+
+template <typename P>
+struct has_public_claim_at<
+    P,
+    std::void_t<decltype(std::declval<P&>().claim_at(std::declval<typename P::value_type>()))>>
+    : std::true_type
+{
+};
+
+template <typename P, typename = void>
+struct has_public_add_recycled : std::false_type
+{
+};
+
+template <typename P>
+struct has_public_add_recycled<
+    P,
+    std::void_t<decltype(std::declval<P&>().add_recycled(std::declval<typename P::value_type>()))>>
+    : std::true_type
+{
+};
+
+template <typename P, typename = void>
+struct has_public_remove_lowest : std::false_type
+{
+};
+
+template <typename P>
+struct has_public_remove_lowest<P, std::void_t<decltype(std::declval<P&>().remove_lowest())>>
+    : std::true_type
+{
+};
+
 /// @brief Same detector for the two full-domain-only query methods.
 ///
 /// @details A constrained member template is never instantiated for a generator
@@ -2428,6 +2484,20 @@ private:
             throw std::bad_alloc();
         }
     }
+};
+
+/// @brief Re-exposes the policy's protected mutating protocol for direct drive.
+///
+/// @details The protocol is protected because every operation in it carries a
+/// sequencing precondition only IdGenerator can honour, and violating one is
+/// silent under NDEBUG. A test that needs to drive it is a derived class, which
+/// is the access the language already provides -- not a reason to make it
+/// public for everyone.
+struct PolicyProbe : SparseRecyclingPolicy<uint16_t>
+{
+    using SparseRecyclingPolicy::discard_credit;
+    using SparseRecyclingPolicy::reserve_claim_credits;
+    using SparseRecyclingPolicy::reserve_credit;
 };
 
 /// @brief Counts every ordering comparison the interval map performs.
@@ -3299,6 +3369,86 @@ FATP_TEST_CASE(sparse_generate_constructs_the_id_type_before_mutating)
     return true;
 }
 
+// Five constraints that were carried by a comment or a runtime assert, and are
+// now carried by the type. Each one previously permitted a state a caller could
+// reach silently -- no assert fired, in any build -- so each needs an oracle
+// that a later "let's make this public again" edit cannot pass.
+FATP_TEST_CASE(sparse_invalid_uses_are_refused_by_the_type)
+{
+    using Gen = SparseIdGenerator<uint16_t>;
+    using Policy = SparseRecyclingPolicy<uint16_t>;
+
+    // (1) A guard cannot name an identifier it was not given. As a public
+    // constructor this released an identifier out from under its real owner,
+    // and the guard's own asserts did not fire, because the release SUCCEEDED.
+    static_assert(!std::is_constructible_v<Gen::IdGuard, Gen&, uint16_t>,
+                  "IdGuard's adopting constructor must not be public: it let a caller fabricate "
+                  "ownership, and the destructor then handed one identifier to two owners");
+    static_assert(std::is_default_constructible_v<Gen::IdGuard>,
+                  "but an empty guard is harmless -- it cannot name an identifier");
+
+    // (2) The policy's mutating protocol carries sequencing preconditions only
+    // IdGenerator can honour. A bare reserve_credit() silently made credits
+    // exceed actives; claim_at() on a non-free id walked off the map's end
+    // inside a noexcept function.
+    // One assertion per ACCESS LABEL, not one per idea: the protocol sits under
+    // three separate labels, and a mutation run showed that asserting two of
+    // them leaves the third free to be reopened silently.
+    static_assert(!has_public_credit_mutators<Policy>::value,
+                  "reserve_credit/discard_credit must not be publicly reachable");
+    static_assert(!has_public_claim_at<Policy>::value, "nor claim_at");
+    static_assert(!has_public_add_recycled<Policy>::value,
+                  "nor add_recycled -- it consumes a credit, so calling it without a matching "
+                  "activation pops an empty list");
+    static_assert(!has_public_remove_lowest<Policy>::value,
+                  "nor remove_lowest -- past exhaustion it writes through the map's end node");
+    static_assert(has_public_credit_mutators<PolicyProbe>::value,
+                  "a derived class still reaches them -- which is the access a test is entitled "
+                  "to, and is why making them protected costs no coverage");
+
+    // The const queries stay public: they have no preconditions and are the
+    // only oracles for canonicalization and credits-equal-actives.
+    static_assert(has_interval_query<Gen>::value, "queries remain reachable");
+    static_assert(has_credit_query<Gen>::value, "both of them");
+
+    // (3) A seed cannot be mistaken for a bound. `p(1000, 5000)` -- read as
+    // (base, upper_bound) -- used to compile and silently discard the base.
+    static_assert(!std::is_constructible_v<RandomAllocationPolicy<uint64_t>, uint64_t, int>,
+                  "the int disambiguator is gone; seeded construction takes seed_tag");
+    static_assert(std::is_constructible_v<RandomAllocationPolicy<uint64_t>, seed_tag_t, uint64_t>,
+                  "and the tagged form is how you get it");
+
+    // (4) Guards require an immovable generator. A move copies the epoch and
+    // leaves the guard pointing at the source, so the staleness check cannot
+    // see it and the identifier is stranded active in the destination.
+    static_assert(!std::is_move_constructible_v<Gen>, "every shipped alias is immovable");
+    static_assert(!std::is_move_constructible_v<SimpleIdGenerator<uint64_t>>, "as before");
+
+    // (5) scoped_claim() restores what the private constructor removed: the
+    // legitimate use was "I acquired this identifier, now guard it".
+    Gen gen(0, 9);
+    {
+        auto guard = gen.scoped_claim(uint16_t{7});
+        FATP_ASSERT_TRUE(guard.has_value(), "a specific identifier, guarded");
+        FATP_ASSERT_TRUE(gen.is_active(7), "active while held");
+        FATP_ASSERT_EQ(**guard, uint16_t(7), "and it is the one asked for");
+        FATP_ASSERT_EQ(gen.free_interval_count(), size_t(2), "claimed by splitting, as usual");
+    }
+    FATP_ASSERT_TRUE(!gen.is_active(7), "released on scope exit");
+    FATP_ASSERT_EQ(gen.free_interval_count(), size_t(1), "and merged back");
+    FATP_ASSERT_TRUE(sparse_invariants_hold(gen, 10), "invariants after a guarded claim");
+
+    auto taken = gen.scoped_claim(uint16_t{7});
+    FATP_ASSERT_TRUE(taken.has_value(), "reclaimable");
+    auto again = gen.scoped_claim(uint16_t{7});
+    FATP_ASSERT_TRUE(!again.has_value() && again.error() == IdError::AlreadyInUse,
+                     "and a refused claim yields no guard rather than an inert one");
+    auto outside = gen.scoped_claim(uint16_t{99});
+    FATP_ASSERT_TRUE(!outside.has_value() && outside.error() == IdError::InvalidClaim,
+                     "domain errors propagate through the guard factory unchanged");
+    return true;
+}
+
 // The reserved sentinel, across all three ways a domain can reach the top.
 FATP_TEST_CASE(sparse_sentinel_normalization_covers_every_request)
 {
@@ -3533,8 +3683,9 @@ FATP_TEST_CASE(sparse_return_paths_allocate_nothing)
 // reaches the partial state.
 FATP_TEST_CASE(sparse_split_reservation_unwinds_its_first_credit)
 {
-    // Drive the policy directly: the whole reservation surface is public.
-    SparseRecyclingPolicy<uint16_t> policy;
+    // Drive the policy directly through a derived probe: the reservation
+    // surface is protected, which is the access a test is entitled to.
+    PolicyProbe policy;
     policy.configure_domain(0, 9);
 
     // How many allocations does one interior reservation perform? Do not
@@ -3692,6 +3843,7 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_credit_failure_leaves_the_free_set_untouched);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_unwinds_a_throwing_id_constructor);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_claim_credit_failure_changes_nothing);
+    FATP_RUN_TEST_NS(runner, idgenerator, sparse_invalid_uses_are_refused_by_the_type);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_claiming_a_singleton_interval_erases_it);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_release_at_the_base_of_a_full_width_domain);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_release_batch_keeps_the_existence_proof_first);
@@ -3722,6 +3874,17 @@ bool test_IdGenerator()
 #ifdef ENABLE_TEST_APPLICATION
 int main()
 {
+#if defined(_MSC_VER) && !defined(NDEBUG)
+    // Route CRT assertion failures to stderr instead of a modal dialog, so an
+    // assert-enabled run is usable unattended. This matters more than it looks:
+    // every assert in IdGenerator.h is invisible to the Release gate, so an
+    // assert that contradicts the code it guards can sit there indefinitely --
+    // which is exactly what happened to configure_domain's `base <= upper`,
+    // left asserting a precondition the function had been changed to handle.
+    _set_error_mode(_OUT_TO_STDERR);
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+#endif
     return fat_p::testing::test_IdGenerator() ? 0 : 1;
 }
 #endif

@@ -1045,10 +1045,58 @@ required test 15 does not, despite appearing to. The check stays — it is `O(1)
 `O(log I)` lookup, it names which question is being asked, and it is the one of the two that
 survives a violation of invariant 1 — but it is enforced by argument, not by the suite.
 
-**Still not covered.** Required test 25's compile-fail coverage: both generator-level
-`static_assert`s can be deleted with the suite green, because a `static_assert` firing is a
-compile failure and there is no `try_compile` fixture in this component. The suite asserts the
-*predicates* instead. Adding the fixture is new build machinery and an owner scope decision.
+**Documentation used as enforcement — a second sweep, and five more sites.** The `Compare`
+lesson generalized. A focused audit asked, of every `assert`, `@pre` and directive comment in
+the header: *could the type have refused instead?* Five sites said yes. Three were confirmed by
+running them, and every one was silent — no assert fires, in any build:
+
+```
+owner holds 1;  { IdGuard foreign(gen, *owner); }  ->  SAME IDENTIFIER ISSUED TWICE
+policy.reserve_credit()                            ->  credits=1, actives=0, no diagnostic
+guard + generator move                             ->  identifier stranded active in the destination
+```
+
+- **`IdGuard`'s adopting constructor was public**, so a caller could mint a guard over an
+  identifier they never acquired; the destructor then released it out from under its owner. The
+  guard's own asserts do not catch that shape *in any build*, because the release SUCCEEDS —
+  they catch only the never-active and double-release shapes, which are the harmless half. Now
+  private with `friend IdGenerator`, plus `scoped_claim()` to keep the legitimate use.
+- **The policy's whole mutating protocol was public** under a `@warning` reading "only usable
+  through a generator that configures it" — a sentence doing an access specifier's job. Now
+  `protected`, which costs no coverage: a derived class still reaches it, which is the access a
+  test is entitled to.
+- **Guards and a movable generator** are incompatible: the epoch is copied by the move and the
+  guard holds a raw pointer to the source, so the staleness check cannot see it. The manual
+  already claimed this was compiler-enforced; a `static_assert` now makes that true of the
+  template rather than of four of its instantiations.
+- **`RandomAllocationPolicy(uint64_t seed, int ignored)`** meant `p(1000, 5000)` — read as
+  `(base, upper_bound)` — compiled clean and discarded the base, reinstating the defect the
+  one-argument constructor was fixed to remove. It now takes the `seed_tag_t` the generator
+  already presented on its own seeded constructor.
+- **`configure_domain`'s asserts sat above the early-out**, so the function aborted on the one
+  input the previous fix taught it to handle. Every sparse sentinel test constructs that
+  generator, so **the suite could not run with asserts enabled at all** — it was green only
+  because the gate builds `NDEBUG`. Both asserts moved below the branch, the `@pre` became a
+  `@note`, and the gate now runs Debug as well as Release: 85/85 in both.
+
+**Verification, including what it got wrong.** Seven mutants over the five narrowings. Two
+early results were my error, not the code's: a mutant flipped a different access label than the
+assertions covered, and one "kill" came from a test call site rather than the `static_assert` I
+had pointed at. The first was a real gap — the protocol sits under three labels and only two
+were asserted — and is closed with one assertion per label, each now killed by its own
+diagnostic.
+
+**Still not covered, and now with more content than before.** Two constraints are provably
+unverifiable without a compile-fail fixture, because a firing `static_assert` *is* a compile
+failure: required test 25's pairing asserts, and the guard-immovability assert added here,
+which no runtime test can reach by construction. That raises `try_compile` from a low-value
+nicety to the one remaining gap worth building machinery for. Owner scope decision.
+
+**The pattern, stated so it transfers.** All five sites, and the `Compare` defect before them,
+are *protocol* constraints — how a thing must be used, in what order, by whom — rather than
+*type* constraints. Type constraints go into the type system here by reflex; protocol
+constraints get narrated. The tell is a comment telling a caller what not to do. Loom's
+`allocateAt` terminate branch is the same shape.
 
 **Review record.** The first draft was reviewed against Fat-P `5366366d` and Loom `20c80eb`
 by a six-lens pass that derived required behavior from live source before reading the draft,

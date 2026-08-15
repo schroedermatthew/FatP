@@ -1149,6 +1149,14 @@ enum class IdError
 };
 ```
 
+> **Changed:** `IdGuard`'s two-argument constructor is no longer public — a guard can only be
+> obtained from `scoped_id()` or, on a sparse generator, `scoped_claim(id)`. As a public
+> constructor it let a caller build a guard over an identifier they had not acquired, and the
+> destructor then released it out from under its real owner; no assertion caught that, because
+> the release succeeded. Guards also now require an immovable generator, which every shipped
+> alias is. `RandomAllocationPolicy`'s seeded constructor takes `fat_p::seed_tag` instead of an
+> `int` disambiguator.
+
 `AlreadyInUse` and `InvalidClaim` answer different questions, which matters when a `claim()`
 comes from persisted data: `AlreadyInUse` means the ID is real but taken, `InvalidClaim` means
 the ID could not have been issued by this generator at all — below `base`, above `upper_bound`,

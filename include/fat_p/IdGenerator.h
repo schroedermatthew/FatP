@@ -202,9 +202,13 @@ inline constexpr bool has_invalid_sentinel_v = has_invalid_sentinel<T>::value;
 
 // Opt-in marker: an allocation policy that takes (base_id, upper_bound) and
 // wants IdGenerator's two-argument constructor to forward both. Detection is by
-// a DECLARED alias, never by constructibility -- a constructibility test also
-// matches RandomAllocationPolicy(uint64_t, int) and would silently build a
-// seeded random policy when a bounded one was requested.
+// a DECLARED alias, never by constructibility. When this was written, a
+// constructibility test also matched RandomAllocationPolicy(uint64_t seed, int)
+// and would have silently built a seeded random policy where a bounded one was
+// requested. That constructor now takes a seed_tag_t, so the specific impostor
+// is gone -- but the reason stands: an intent as consequential as "this policy
+// consumes a bound" should be declared, not inferred from a call being
+// well-formed, and the next two-argument policy would reintroduce it.
 template <typename T, typename = void>
 struct accepts_upper_bound : std::false_type
 {
@@ -431,6 +435,28 @@ private:
 };
 
 // =============================================================================
+// Seeded-construction tag
+// =============================================================================
+
+/// @brief Disambiguation tag for seeded construction.
+///
+/// @details Declared here, above the allocation policies, because
+/// RandomAllocationPolicy takes it directly. That constructor previously read
+/// `(uint64_t seed, int ignored)`, so `RandomAllocationPolicy<uint32_t>
+/// p(1000, 5000)` -- written by someone reasonably reading those as
+/// `(base, upper_bound)` -- compiled clean and silently discarded the base,
+/// reinstating the exact defect the one-argument constructor was fixed to
+/// remove. A tag cannot be mistaken for a bound, and the generator already
+/// presented this same tag on its own seeded constructor.
+struct seed_tag_t
+{
+    explicit seed_tag_t() = default;
+};
+
+/// @brief Constant for seeded construction: `IdGenerator(seed_tag, 42)`
+inline constexpr seed_tag_t seed_tag{};
+
+// =============================================================================
 // IdAllocationPolicy
 // =============================================================================
 
@@ -585,9 +611,9 @@ public:
     }
 
     /// @brief Construct with explicit seed for reproducible randomness
+    /// @param tag Disambiguation tag (use `seed_tag`)
     /// @param seed The seed value for the RNG
-    /// @param ignored Disambiguator (use any value)
-    RandomAllocationPolicy(uint64_t seed, int /*ignored*/)
+    RandomAllocationPolicy(seed_tag_t /*tag*/, uint64_t seed)
         : mBaseId(0)
         , mRng(seed)
         , mDist(static_cast<DistType>(0), static_cast<DistType>(std::numeric_limits<IdType>::max()))
@@ -1126,14 +1152,15 @@ public:
      *
      * @param base Lowest identifier in the domain
      * @param upper Highest identifier in the domain (inclusive)
-     * @pre `base <= upper`; a violation yields an empty (exhausted) domain
+     * @note `base > upper` is not a precondition of this function. It is a
+     *       defined, tested outcome: an empty (exhausted) domain. The assert
+     *       below therefore sits AFTER that branch, not before it -- placing it
+     *       first made the function abort on the one input it exists to handle,
+     *       which no Release build could see and which stopped an
+     *       assert-enabled run of the suite at its first sentinel test.
      */
     void configure_domain(IdType base, IdType upper)
     {
-        assert(base <= upper && "Sparse domain requires base <= upper_bound");
-        assert((base == upper || Compare{}(base, upper)) &&
-               "SparseRecyclingPolicy requires a Compare inducing ASCENDING order");
-
         if (upper < base)
         {
             mBase = base;
@@ -1142,6 +1169,13 @@ public:
             drop_all_credits();
             return;
         }
+
+        // Reached only for a well-ordered request, which is what makes this a
+        // meaningful check on the COMPARATOR rather than on the arguments. The
+        // compile-time is_ascending_order_v constraint is the primary guard;
+        // this catches a comparator that declares the marker and then lies.
+        assert((base == upper || Compare{}(base, upper)) &&
+               "SparseRecyclingPolicy requires a Compare inducing ASCENDING order");
 
         mBase = base;
         mUpper = upper;
@@ -1197,6 +1231,19 @@ public:
         return mFree.begin()->second;
     }
 
+protected:
+    // ---- Mutating protocol. Every operation below carries a sequencing or
+    // state precondition that only IdGenerator can honour, and violating one is
+    // silent under NDEBUG: a bare reserve_credit() falsifies credits == actives
+    // with no diagnostic anywhere, and claim_at() on a non-free identifier walks
+    // off the end of the map inside a noexcept function. These were public, with
+    // an @warning saying "only usable through a generator that configures it" --
+    // a sentence doing an access specifier's job.
+    //
+    // IdGenerator reaches them through private inheritance, which grants access
+    // to protected base members; so does its nested CreditGuard, and so does a
+    // derived policy that shadows them.
+
     /**
      * @brief Remove the identifier that `peek_lowest()` just reported.
      *
@@ -1228,6 +1275,7 @@ public:
     // Claim path
     // =========================================================================
 
+public:
     /// @brief Is @p id currently free? False for an active or out-of-domain identifier.
     bool is_free(IdType id) const noexcept
     {
@@ -1235,6 +1283,7 @@ public:
         return it != mFree.end() && it->second <= id;
     }
 
+protected:
     /**
      * @brief Reserve the nodes a claim of @p id will need, before anything is mutated.
      *
@@ -1338,6 +1387,7 @@ public:
         --mCreditCount;
     }
 
+public:
     /// @brief Reserved return credits. Equals the active count at every operation boundary.
     std::size_t credit_count() const noexcept
     {
@@ -1348,6 +1398,7 @@ public:
     // RecyclingPolicy surface
     // =========================================================================
 
+protected:
     /**
      * @brief Return @p id to the free set, merging with adjacent intervals.
      *
@@ -1412,6 +1463,7 @@ public:
         }
     }
 
+public:
     /**
      * @brief The number of currently FREE identifiers, including never-issued ones.
      *
@@ -1541,13 +1593,6 @@ namespace idg = id_generator;
 // =============================================================================
 
 /// @brief Tag type for seeded construction of RandomIdGenerator
-struct seed_tag_t
-{
-    explicit seed_tag_t() = default;
-};
-
-/// @brief Constant for seeded construction: `IdGenerator(seed_tag, 42)`
-inline constexpr seed_tag_t seed_tag{};
 
 // =============================================================================
 // IdGenerator
@@ -1800,15 +1845,16 @@ public:
      * `numeric_limits::max()` and was not bounded at all.
      *
      * The allocation-side opt-in is a declared alias rather than "forward a
-     * second argument whenever the policy accepts one", because that test also
-     * matches `RandomAllocationPolicy(uint64_t seed, int)` and would quietly
-     * reinterpret `(base, upper_bound)` as `(seed, ignored)` -- constructing a
-     * seeded random generator where a bounded one was asked for.
+     * second argument whenever the policy accepts one" -- see
+     * detail::accepts_upper_bound for why inference was the wrong test even
+     * after the impostor that motivated it was retired.
      *
      * @param base_id The first ID to generate
      * @param upper_bound The last ID that may be issued (inclusive), normalized
      *        against the ID type's reserved sentinel
-     * @pre `base_id <= effective_upper_bound(upper_bound)`
+     * @note `base_id` above the effective upper bound is not a precondition:
+     *       for a full-domain policy it yields an empty (exhausted) domain,
+     *       matching what the non-sparse path reports in the same situation.
      */
     template <typename AP = AllocationPolicy, typename RP = RecyclingPolicy>
         requires(detail::accepts_upper_bound_v<AP> || detail::has_domain_configure_v<RP>)
@@ -1830,7 +1876,7 @@ public:
     template <typename AP = AllocationPolicy>
         requires detail::is_random_policy_v<AP>
     IdGenerator(seed_tag_t /*tag*/, uint64_t seed)
-        : AllocationPolicy(seed, 0)
+        : AllocationPolicy(seed_tag_t{}, seed)
         , RecyclingPolicy()
         , ConcurrencyPolicy()
         , mBaseId(0)
@@ -2529,20 +2575,66 @@ public:
      */
     class IdGuard
     {
-    public:
-        IdGuard() noexcept
-            : mGenerator(nullptr)
-            , mId{}
-            , mValid(false)
-            , mEpoch(0)
-        {
-        }
+        friend IdGenerator;
 
+        /**
+         * @brief Adopt @p id, which the generator has just issued to this guard.
+         *
+         * @details Private, and reachable only through `scoped_id()` /
+         * `scoped_claim()`. As a public constructor it let a caller mint a guard
+         * over an identifier they never acquired, and the destructor then
+         * released it out from under its real owner:
+         *
+         * @code
+         *   auto owner = gen.generate();          // owner holds 1
+         *   { IdGuard foreign(gen, *owner); }     // ~IdGuard releases 1
+         *   auto other = gen.generate();          // 1 is issued a SECOND time
+         * @endcode
+         *
+         * The asserts below do not catch that shape, in any build: the release
+         * SUCCEEDS, so `released` is true. They catch only the never-active and
+         * double-release shapes, which are the harmless half. A guard must
+         * therefore be unable to name an identifier it was not given.
+         *
+         * @warning Movability is checked here rather than only documented -- see
+         * the static_assert.
+         */
         IdGuard(IdGenerator& gen, IdType_ id) noexcept
             : mGenerator(&gen)
             , mId(id)
             , mValid(true)
             , mEpoch(gen.mEpoch)
+        {
+            // The epoch covers reset() and ONLY reset(). A generator MOVE copies
+            // mEpoch into the destination and leaves the source's value alone,
+            // while this guard holds a raw pointer to the source -- so the
+            // staleness check cannot see the move, and the identifier is
+            // stranded active in the destination: unreleasable and unissuable.
+            // Over UniqueRWLockPolicy it is worse, because the source's mutex
+            // pointer is null and the release dereferences it.
+            //
+            // The manual already claimed this was a compile error. This makes
+            // that true of the template rather than of four of its
+            // instantiations. Guards and a movable generator are not a
+            // combination that works today; this refuses it instead of
+            // documenting it.
+            static_assert(!std::is_move_constructible_v<IdGenerator> &&
+                              !std::is_move_assignable_v<IdGenerator>,
+                          "IdGuard requires an immovable IdGenerator: a guard holds a raw pointer "
+                          "to its generator and its epoch check cannot detect a move, so moving "
+                          "the generator strands the guarded identifier. Every shipped alias is "
+                          "immovable; if you need reader/writer locking with guards, use "
+                          "SharedMutexPolicy, which is immovable and has a real shared lock.");
+        }
+
+    public:
+        /// @brief An empty guard, owning nothing. Safe to construct directly:
+        /// it cannot name an identifier, so it cannot fabricate ownership.
+        IdGuard() noexcept
+            : mGenerator(nullptr)
+            , mId{}
+            , mValid(false)
+            , mEpoch(0)
         {
         }
 
@@ -2638,6 +2730,28 @@ public:
         return IdGuard(*this, *result);
     }
 
+    /**
+     * @brief Claim a specific identifier and get a guard that releases it.
+     *
+     * @details The `scoped_id()` sibling for the claim path. It exists because
+     * `IdGuard`'s adopting constructor is private: the legitimate use of that
+     * constructor was "I acquired this identifier, now guard it", and this is
+     * that use, expressed so the guard cannot name an identifier the generator
+     * did not just hand over.
+     */
+    template <typename RP = RecyclingPolicy>
+        requires detail::is_full_domain_policy_v<RP>
+    [[nodiscard]] Expected<IdGuard, IdError> scoped_claim(IdType_ id)
+    {
+        auto result = claim(id);
+        if (!result.has_value())
+        {
+            return make_unexpected(result.error());
+        }
+        return IdGuard(*this, id);
+    }
+
+private:
     // Releases @p id only if @p epoch is still the generator's current epoch.
     // reset() bumps the epoch, so a guard created before a reset becomes inert
     // instead of releasing an ID the generator has since reissued to someone
