@@ -298,6 +298,44 @@ FATP_TEST_CASE(guard_default_ctor)
     return true;
 }
 
+// A guard owns one activation, not every future use of the same raw value.
+// Direct release followed by reissue used to leave the old epoch unchanged, so
+// the stale guard released the second owner's identifier on destruction.
+FATP_TEST_CASE(stale_guard_cannot_release_a_reissued_identifier)
+{
+    SimpleIdGenerator<uint64_t> gen(1);
+
+    {
+        auto stale = gen.scoped_id();
+        FATP_ASSERT_TRUE(stale.has_value(), "guarded activation");
+        const uint64_t raw = stale->get();
+
+        FATP_ASSERT_TRUE(gen.release(raw).has_value(), "the activation is released directly");
+        auto replacement = gen.generate();
+        FATP_ASSERT_TRUE(replacement.has_value() && *replacement == raw,
+                         "the same raw value belongs to a new activation");
+    }
+
+    FATP_ASSERT_EQ(gen.active_count(), size_t(1),
+                   "the stale guard did not release the replacement activation");
+    FATP_ASSERT_TRUE(gen.is_active(1), "the replacement remains active");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(0), "it was not returned to the pool");
+
+    SparseIdGenerator<uint16_t> sparse(0, 9);
+    {
+        auto stale = sparse.scoped_claim(7);
+        FATP_ASSERT_TRUE(stale.has_value(), "guarded sparse claim");
+        FATP_ASSERT_TRUE(sparse.release(7).has_value(), "release the guarded claim directly");
+        FATP_ASSERT_TRUE(sparse.claim(7).has_value(), "a second owner claims the same value");
+    }
+
+    FATP_ASSERT_TRUE(sparse.is_active(7), "the second sparse owner survives stale destruction");
+    FATP_ASSERT_EQ(sparse.active_count(), size_t(1), "exactly the second owner is active");
+    FATP_ASSERT_EQ(sparse.recycled_count(), size_t(9), "the other domain values remain free");
+    FATP_ASSERT_EQ(sparse.reserved_credit_count(), size_t(1), "one return credit backs that owner");
+    return true;
+}
+
 // =============================================================================
 // III. Random Allocation Policy Tests
 // =============================================================================
@@ -1232,7 +1270,7 @@ FATP_TEST_CASE(dirty_max_smaller_id)
 
 FATP_TEST_CASE(active_id_tracking)
 {
-    // Test the ActiveIdTracker (unordered_set with lazy max)
+    // Test the ActiveIdTracker (unordered_map with lazy max)
     SimpleIdGenerator<uint64_t> gen(1);
 
     auto id1 = gen.generate();
@@ -2521,6 +2559,42 @@ struct CountingLess
     }
 };
 
+struct ThrowingSwapLess
+{
+    using ascending_order = void;
+
+    ThrowingSwapLess() noexcept = default;
+    ThrowingSwapLess(const ThrowingSwapLess&) = default;
+    ThrowingSwapLess(ThrowingSwapLess&&) noexcept = default;
+
+    bool operator()(uint16_t lhs, uint16_t rhs) const noexcept
+    {
+        return lhs < rhs;
+    }
+
+    friend void swap(ThrowingSwapLess&, ThrowingSwapLess&) noexcept(false)
+    {
+    }
+};
+
+template <typename Compare>
+concept AcceptsSparseComparator = requires { typename SparseRecyclingPolicy<uint16_t, Compare>; };
+
+template <typename Allocation, typename Recycling>
+concept AcceptsGeneratorPair = requires {
+    typename IdGenerator<uint16_t,
+                         Allocation,
+                         Recycling,
+                         id_generator::ExpectedErrorPolicy<uint16_t, IdError>,
+                         SingleThreadedPolicy>;
+};
+
+class UnconfigurableFullDomainPolicy : public ImmediateRecyclingPolicy<uint16_t>
+{
+public:
+    using is_full_domain_policy = void;
+};
+
 template <typename IdType>
 using CountingSparseGenerator =
     IdGenerator<IdType,
@@ -2692,13 +2766,212 @@ struct ThrowingId
     bool operator==(const ThrowingId&) const = default;
 };
 
+struct ThrowingMoveId
+{
+    using underlying_type = uint16_t;
+
+    uint16_t v{};
+
+    ThrowingMoveId() = default;
+    explicit ThrowingMoveId(uint16_t raw) noexcept
+        : v(raw)
+    {
+    }
+    ThrowingMoveId(const ThrowingMoveId&) = default;
+    ThrowingMoveId(ThrowingMoveId&& other) noexcept(false)
+        : v(other.v)
+    {
+    }
+    ThrowingMoveId& operator=(const ThrowingMoveId&) = default;
+    ThrowingMoveId& operator=(ThrowingMoveId&&) = default;
+
+    uint16_t get() const noexcept
+    {
+        return v;
+    }
+};
+
+using ThrowingMoveGenerator =
+    IdGenerator<ThrowingMoveId,
+                SequentialAllocationPolicy<uint16_t>,
+                NoRecyclingPolicy<uint16_t>,
+                id_generator::ExpectedErrorPolicy<ThrowingMoveId, IdError>,
+                SingleThreadedPolicy>;
+
+template <typename Generator>
+concept HasGenerateBatch = requires(Generator& gen) { gen.generate_batch(1); };
+
 using ThrowingGenerator = IdGenerator<ThrowingId,
                                       SequentialAllocationPolicy<uint16_t>,
                                       SparseRecyclingPolicy<uint16_t>,
                                       id_generator::ExpectedErrorPolicy<ThrowingId, IdError>,
                                       SingleThreadedPolicy>;
 
+using NonSparseThrowingGenerator =
+    IdGenerator<ThrowingId,
+                SequentialAllocationPolicy<uint16_t>,
+                NoRecyclingPolicy<uint16_t>,
+                id_generator::ExpectedErrorPolicy<ThrowingId, IdError>,
+                SingleThreadedPolicy>;
+
 } // namespace
+
+FATP_TEST_CASE(non_sparse_batch_reverts_the_throwing_candidate)
+{
+    NonSparseThrowingGenerator gen(0);
+    ThrowingId::constructed = 0;
+    ThrowingId::throw_at = 0;
+
+    bool threw = false;
+    try
+    {
+        (void)gen.generate_batch(1);
+    }
+    catch (const std::runtime_error&)
+    {
+        threw = true;
+    }
+    ThrowingId::throw_at = -1;
+
+    FATP_ASSERT_TRUE(threw, "the candidate constructor's exception propagates");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "the failed candidate never became active");
+
+    auto next = gen.generate();
+    FATP_ASSERT_TRUE(next.has_value() && next->get() == uint16_t(0),
+                     "next_id was reverted for the candidate that never reached the batch");
+    return true;
+}
+
+FATP_TEST_CASE(non_sparse_single_issue_rolls_back_allocation_failure)
+{
+    size_t allocation_count = 0;
+    {
+        SimpleIdGenerator<uint16_t> measured(0);
+        allocprobe::Window window;
+        auto issued = measured.generate();
+        allocation_count = window.count();
+        if (!issued.has_value())
+        {
+            return false;
+        }
+    }
+    FATP_ASSERT_TRUE(allocation_count > 0, "the active tracker allocates on first insertion");
+
+    for (size_t fail = 0; fail < allocation_count; ++fail)
+    {
+        SimpleIdGenerator<uint16_t> gen(0);
+        bool threw = false;
+        {
+            allocprobe::Window window(static_cast<long long>(fail));
+            try
+            {
+                (void)gen.generate();
+            }
+            catch (const std::bad_alloc&)
+            {
+                threw = true;
+            }
+        }
+
+        FATP_ASSERT_TRUE(threw, "every injected active-tracker failure propagates");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(0), "no failed insertion is active");
+        auto after = gen.generate();
+        FATP_ASSERT_TRUE(after.has_value() && *after == uint16_t(0),
+                         "the sequential allocation is restored exactly");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(non_sparse_recycled_issue_restores_allocation_failure)
+{
+    const auto prepare = [](SimpleIdGenerator<uint16_t>& gen)
+    {
+        auto issued = gen.generate();
+        return issued.has_value() && gen.release(*issued).has_value();
+    };
+
+    size_t allocation_count = 0;
+    {
+        SimpleIdGenerator<uint16_t> measured(0);
+        FATP_ASSERT_TRUE(prepare(measured), "prepare a recycled identifier");
+        allocprobe::Window window;
+        auto issued = measured.generate();
+        allocation_count = window.count();
+        if (!issued.has_value())
+        {
+            return false;
+        }
+    }
+    FATP_ASSERT_TRUE(allocation_count > 0, "reactivation inserts into the active tracker");
+
+    for (size_t fail = 0; fail < allocation_count; ++fail)
+    {
+        SimpleIdGenerator<uint16_t> gen(0);
+        FATP_ASSERT_TRUE(prepare(gen), "prepare each failure case");
+        bool threw = false;
+        {
+            allocprobe::Window window(static_cast<long long>(fail));
+            try
+            {
+                (void)gen.generate();
+            }
+            catch (const std::bad_alloc&)
+            {
+                threw = true;
+            }
+        }
+
+        FATP_ASSERT_TRUE(threw, "the injected reactivation failure propagates");
+        FATP_ASSERT_EQ(gen.active_count(), size_t(0), "the recycled identifier is not active");
+        FATP_ASSERT_EQ(gen.recycled_count(), size_t(1), "it returned to the pool");
+        auto after = gen.generate();
+        FATP_ASSERT_TRUE(after.has_value() && *after == uint16_t(0),
+                         "the exact recycled value remains first");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(non_sparse_batch_restores_the_exact_fifo_sequence)
+{
+    using PooledThrowingGenerator =
+        IdGenerator<ThrowingId,
+                    SequentialAllocationPolicy<uint16_t>,
+                    ImmediateRecyclingPolicy<uint16_t>,
+                    id_generator::ExpectedErrorPolicy<ThrowingId, IdError>,
+                    SingleThreadedPolicy>;
+
+    PooledThrowingGenerator gen(0);
+    ThrowingId::constructed = 0;
+    ThrowingId::throw_at = -1;
+    auto initial = gen.generate_batch(3);
+    FATP_ASSERT_TRUE(initial.has_value(), "prepare three identifiers");
+    FATP_ASSERT_TRUE(gen.release_batch(*initial).has_value(), "release them in FIFO order");
+
+    ThrowingId::constructed = 0;
+    ThrowingId::throw_at = 2;
+    bool threw = false;
+    try
+    {
+        (void)gen.generate_batch(3);
+    }
+    catch (const std::runtime_error&)
+    {
+        threw = true;
+    }
+    ThrowingId::throw_at = -1;
+
+    FATP_ASSERT_TRUE(threw, "the third recycled candidate fails after two commits");
+    FATP_ASSERT_EQ(gen.active_count(), size_t(0), "all committed candidates were removed");
+    FATP_ASSERT_EQ(gen.recycled_count(), size_t(3), "all three candidates returned to the pool");
+
+    for (uint16_t expected = 0; expected < 3; ++expected)
+    {
+        auto next = gen.generate();
+        FATP_ASSERT_TRUE(next.has_value() && next->get() == expected,
+                         "rollback preserves the exact FIFO sequence");
+    }
+    return true;
+}
 
 // A failure to reserve the return credit must leave the generator EXACTLY as it
 // was: the credit is reserved before the free set is touched, so there is no
@@ -3114,9 +3387,9 @@ FATP_TEST_CASE(sparse_credit_storage_returns_to_the_active_count)
 // The pairing check and the constructor routing, asserted at compile time.
 FATP_TEST_CASE(sparse_pairing_and_construction_are_compile_time_properties)
 {
-    // The predicate that drives the generator's static_assert. A compile-fail
-    // harness would be needed to observe the assert itself firing; this asserts
-    // the condition it fires on, which is the part that can be wrong.
+    // These are constraints on the public type/function syntax, so ordinary
+    // requires expressions can prove invalid uses are absent without a
+    // compiler-specific compile-fail harness.
     static_assert(!fat_p::detail::is_sequential_policy_v<RandomAllocationPolicy<uint64_t>>,
                   "random allocation is refused under a full-domain policy");
     static_assert(fat_p::detail::is_sequential_policy_v<SequentialAllocationPolicy<uint64_t>>, "allowed");
@@ -3129,6 +3402,27 @@ FATP_TEST_CASE(sparse_pairing_and_construction_are_compile_time_properties)
     static_assert(!fat_p::detail::is_full_domain_policy_v<ImmediateRecyclingPolicy<uint64_t>>, "not");
     static_assert(fat_p::detail::has_domain_configure_v<SparseRecyclingPolicy<uint64_t>>, "configurable");
     static_assert(!fat_p::detail::has_domain_configure_v<MinRecyclingPolicy<uint64_t>>, "not");
+    static_assert(AcceptsGeneratorPair<SequentialAllocationPolicy<uint16_t>,
+                                       SparseRecyclingPolicy<uint16_t>>,
+                  "the supported full-domain pair is present");
+    static_assert(!AcceptsGeneratorPair<RandomAllocationPolicy<uint16_t>,
+                                        SparseRecyclingPolicy<uint16_t>>,
+                  "a random allocator cannot be paired with a full-domain free set");
+    static_assert(!AcceptsGeneratorPair<SequentialAllocationPolicy<uint16_t>,
+                                        UnconfigurableFullDomainPolicy>,
+                  "a full-domain policy must accept its configured domain");
+
+    static_assert(AcceptsSparseComparator<std::less<uint16_t>>,
+                  "the portable default comparator is accepted");
+    static_assert(AcceptsSparseComparator<CountingLess<uint16_t>>,
+                  "a fully nothrow instrumented comparator is accepted");
+    static_assert(!AcceptsSparseComparator<ThrowingSwapLess>,
+                  "move-assignment is noexcept, so its comparator must be nothrow-swappable");
+
+    static_assert(HasGenerateBatch<SimpleIdGenerator<uint16_t>>,
+                  "ordinary identifiers retain batch generation");
+    static_assert(!HasGenerateBatch<ThrowingMoveGenerator>,
+                  "a throwing move cannot strand a committed batch candidate");
 
     // Constructor routing, by policy role. Two arguments are available when
     // EITHER role opts in, and unavailable when neither does.
@@ -3420,9 +3714,9 @@ FATP_TEST_CASE(sparse_invalid_uses_are_refused_by_the_type)
     static_assert(std::is_constructible_v<RandomAllocationPolicy<uint64_t>, seed_tag_t, uint64_t>,
                   "and the tagged form is how you get it");
 
-    // (4) Guards require an immovable generator. A move copies the epoch and
-    // leaves the guard pointing at the source, so the staleness check cannot
-    // see it and the identifier is stranded active in the destination.
+    // (4) Guards require an immovable generator. A move leaves the guard's raw
+    // generator pointer aimed at the source and strands the guarded activation
+    // in the destination.
     static_assert(!std::is_move_constructible_v<Gen>, "every shipped alias is immovable");
     static_assert(!std::is_move_constructible_v<SimpleIdGenerator<uint64_t>>, "as before");
 
@@ -3764,6 +4058,7 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, raii_guard);
     FATP_RUN_TEST_NS(runner, idgenerator, guard_move_semantics);
     FATP_RUN_TEST_NS(runner, idgenerator, guard_default_ctor);
+    FATP_RUN_TEST_NS(runner, idgenerator, stale_guard_cannot_release_a_reissued_identifier);
 
     // Random allocation
     FATP_RUN_TEST_NS(runner, idgenerator, random_allocation);
@@ -3803,7 +4098,7 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, bounded_allocation);
     FATP_RUN_TEST_NS(runner, idgenerator, dirty_max_smaller_id);
 
-    // Active ID tracking (unordered_set with lazy max)
+    // Active ID tracking (unordered_map with lazy max)
     FATP_RUN_TEST_NS(runner, idgenerator, active_id_tracking);
     FATP_RUN_TEST_NS(runner, idgenerator, lazy_max_recompute);
     FATP_RUN_TEST_NS(runner, idgenerator, dirty_max_insert);
@@ -3842,6 +4137,10 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_reset_from_exhaustion_reuses_a_credit);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_contract_holds_under_mutex_synchronization);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_policy_does_not_reach_the_existing_aliases);
+    FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_batch_reverts_the_throwing_candidate);
+    FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_single_issue_rolls_back_allocation_failure);
+    FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_recycled_issue_restores_allocation_failure);
+    FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_batch_restores_the_exact_fifo_sequence);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_credit_failure_leaves_the_free_set_untouched);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_unwinds_a_throwing_id_constructor);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_claim_credit_failure_changes_nothing);
@@ -3877,6 +4176,9 @@ bool test_IdGenerator()
 int main()
 {
 #if defined(_MSC_VER) && !defined(NDEBUG)
+    // Keep assertion/termination failures in the unattended test process. The
+    // default MSVC behavior may open Windows Error Reporting or debugger UI.
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
     // Route CRT assertion failures to stderr instead of a modal dialog, so an
     // assert-enabled run is usable unattended. This matters more than it looks:
     // every assert in IdGenerator.h is invisible to the Release gate, so an
