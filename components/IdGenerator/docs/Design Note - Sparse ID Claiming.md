@@ -24,15 +24,20 @@ status: "implemented"
 
 **Status:** Implemented 2026-08-14; contract ratified 2026-08-14  
 **Decided:** Mechanism authorized 2026-07-22; detailed Fat-P contract ratified 2026-08-14  
-**Last reviewed:** 2026-08-14 against Fat-P `adf89510` and Loom `20c80eb`
+**Last reviewed:** 2026-08-14 against Fat-P `47c23a9b` and Loom `d51bf4b`
 
 ## Implementation status
 
-Shipped in `include/fat_p/IdGenerator.h`: `SparseRecyclingPolicy`, `IdError::InvalidClaim`,
+Shipped in Fat-P `47c23a9b`, in `include/fat_p/IdGenerator.h`:
+`SparseRecyclingPolicy`, `IdError::InvalidClaim`,
 `IdGenerator::claim()`, the `configure_domain` seam, the three `detail::` traits, and the
 `SparseIdGenerator` / `ThreadSafeSparseIdGenerator` aliases. The contract below is the
 specification the implementation was written against; the deviations and the one gap are
 recorded in §Implementation notes at the end rather than left for a reader to discover.
+
+The first consumer integration shipped in Loom `d51bf4b`: the hierarchical allocator selects
+`SparseIdGenerator`, exact persisted-id factories surface typed claim refusal through their
+existing null result, and direct-child exhaustion is an optional result.
 
 ## Scope
 
@@ -84,10 +89,10 @@ intervals.
 allocation policy. The existing immediate and minimum policies store identifiers only after
 `release()`. The generator has no operation that reserves an identifier chosen by a caller.
 
-The first consumer is a persisted hierarchical allocator. Its current workaround repeatedly
-generates identifiers until it reaches the persisted value, releases every intermediate value,
-and stops after a fixed number of attempts. A sparse claim such as 60000 therefore performs work
-proportional to the gap and can fail even though the requested identifier is free.
+The first consumer is a persisted hierarchical allocator. Its former workaround repeatedly
+generated identifiers until it reached the persisted value, released every intermediate value,
+and stopped after a fixed number of attempts. A sparse claim such as 60000 therefore performed
+work proportional to the gap and could fail even though the requested identifier was free.
 
 Adding the requested identifier only to `ActiveIdTracker` is insufficient. A stale occurrence may
 still exist in a recycling policy, and `generate()` consults that policy first. Advancing a
@@ -816,26 +821,28 @@ The Fat-P slice must add red-first tests for:
     bound of `255` to prove normalization, and with a plain `uint8_t` generator to prove that
     `255` remains valid when the ID type declares no sentinel.
 
-The Loom integration slice must then prove that a lone sparse persisted child loads without a
+The Loom integration slice was required to prove that a lone sparse persisted child loads without a
 generate walk, unclaimed lower slots remain available, an already-active claim is refused without
 partial allocator mutation, and full child-slot exhaustion returns an empty result rather than an
 occupied slot-zero fallback.
 
-That slice touches these consumer symbols by name, and this note authorizes no others:
+That slice touched these consumer symbols by name, and this note authorized no others:
 
-- `LoomIdAllocator::allocateAt` — its bounded generate-and-release walk (512 attempts) is
+- `LoomIdAllocator::allocateAt` — its bounded generate-and-release walk (512 attempts) was
   replaced by a single `claim()`.
-- **The `std::terminate()` that walk falls into.** Today it fires when the walk exhausts its
-  attempt ceiling. If the walk is simply replaced, the same branch fires when `claim()` is
-  refused — which converts a corrupt or out-of-domain persisted index from a data problem
-  into a process kill during load, and makes it the designed path rather than an accident of
-  the ceiling. The integration slice must decide that branch explicitly: a refused claim is a
-  refusal to surface, not a reason to terminate. Leaving the branch untouched is not an
-  option this note permits.
+- **The `std::terminate()` that walk fell into.** The former path fired when the walk exhausted
+  its attempt ceiling. Simply replacing the walk while retaining that branch would have made a
+  refused `claim()` kill the process. The integrated path instead returns
+  `Expected<LoomId, IdError>`; exact-id factories surface refusal through their existing null
+  result, while allocation failure continues to propagate.
 - `firstFreeChildSlot` — returns an optional result so true exhaustion is distinguishable
   from slot zero.
-- The depth-derived index ceiling — Loom passes `upper_bound` for the parent's remaining
-  depth, or enforces the bound itself before calling. See §Domain configuration.
+- The depth-derived index ceiling — Loom passes `upper_bound` for the parent's remaining depth.
+  See §Domain configuration.
+
+Loom `d51bf4b` completed that surface and proof on 2026-08-14. Its production-loader tests cover
+a lone persisted child 600 and `{0, 5, 60000}`; a direct test covers duplicate refusal and the
+lower gap; and a complete 65,536-slot domain proves optional exhaustion.
 
 ---
 
@@ -874,7 +881,7 @@ operation its recycle source cannot honor.
   policies a zero means nothing is pending; for this one a zero means the domain is exhausted.
   Generic code that reads the count without knowing its policy will misread it.
 - The policy is appropriate for sparse reservation, not FIFO recycle-order requirements.
-  Loom's current allocator uses `ImmediateRecyclingPolicy`, so adopting this policy changes
+  Loom's previous allocator used `ImmediateRecyclingPolicy`, so adopting this policy changed
   its recycle order from FIFO to minimum-first.
 - `IdGenerator` gains a compile-time full-domain branch in six places: the constructor and
   `reset()` (the configuration seam), `generate()` and `generate_batch()`'s per-element step
@@ -903,10 +910,10 @@ operation its recycle source cannot honor.
 
 ## Status
 
-**Status:** Implemented in Fat-P 2026-08-14; contract ratified 2026-08-14  
+**Status:** Implemented in Fat-P and integrated in Loom 2026-08-14; contract ratified 2026-08-14
 **Mechanism authority:** Loom owner decisions `D-ALLOC-SPARSE-POLICY` and
 `D-ALLOC-FATP-CHANGE`, 2026-07-22  
-**Implementation:** Fat-P complete; Loom integration not started  
+**Implementation:** Fat-P `47c23a9b`; Loom `d51bf4b`
 
 ---
 
