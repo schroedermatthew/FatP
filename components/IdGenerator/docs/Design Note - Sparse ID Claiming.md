@@ -972,10 +972,35 @@ tests and a 12-mutant gate in which every mutant dies.
   `generate()` sentinel guard to fall back on — domain construction is the only mechanism, and
   its only check disappears under `NDEBUG`.
 - **`Compare` was documented as a general ordering seam, and is not one.** Five sites mix map
-  order with raw arithmetic. `std::greater` compiles and is silently wrong: `claim()` of a
-  wholly free identifier returns `InvalidClaim`, and generation runs descending. Resolved by
-  **narrowing, not genericising** — documented as ascending-only, with a direction assert in
-  `configure_domain`.
+  order with raw arithmetic. `std::greater` compiled and was silently wrong: `claim()` of a
+  wholly free identifier returned `InvalidClaim`, and generation ran descending. Resolved by
+  **narrowing, not genericising** — but the first attempt narrowed it only in prose, which was
+  not enough (see below).
+
+**On surface added for testability.** Three of the additions above the ratified contract exist
+so a required test could be written, and they are not equivalent in cost. The distinction that
+matters is whether the addition lets a caller reach a state the type could not previously
+reach:
+
+- **`Compare` did**, and that is a contract violation, not a coupling cost. Before the
+  parameter, no caller could construct a `SparseRecyclingPolicy` that violated §Representation's
+  four invariants. After it, `SparseRecyclingPolicy<T, std::greater<T>>` compiled and falsified
+  all four. Documenting the requirement and asserting the direction at runtime left the hole
+  open — an instrument that can introduce a defect is not worth its measurement. The parameter
+  is now constrained by `detail::is_ascending_order_v`: `std::less` and any comparator declaring
+  `using ascending_order = void;` are accepted, and everything else is a **compile error**.
+  Verified both ways — `std::greater` fails to compile; `std::less` and an opted-in counting
+  comparator still work, so required test 18 keeps its instrument.
+- **`free_interval_count()` / `reserved_credit_count()` did not.** They are read-only and cannot
+  produce an invalid state. Their cost is real but different: they publish the representation, so
+  changing the interval structure later breaks them and much of the suite with them. They are
+  kept because invariant 2 (canonicalization) and the `C == A` relation have no other oracle —
+  every other query returns the same answer whether or not adjacent intervals were merged.
+- **`is_sequential_policy`'s opt-in alias did not either**, though it weakens a gate: a policy
+  can now declare itself sequential without being so. That gate turns out to enforce nothing
+  (see the `next_id()` note above), so the correct repair is to this note's §Exhaustion, which
+  overstates it, rather than to the code. The door is independently justified: without it no
+  user could pair a custom sequential policy with this one at all.
 
 Also recorded, not fixed: the pairing `static_assert` is hygiene rather than a behavioural
 guard, since `next_id()` is never called on the full-domain path and `revert()` is suppressed

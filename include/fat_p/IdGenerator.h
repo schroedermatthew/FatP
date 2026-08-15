@@ -276,6 +276,37 @@ struct is_full_domain_policy<T, std::void_t<typename T::is_full_domain_policy>> 
 template <typename T>
 inline constexpr bool is_full_domain_policy_v = is_full_domain_policy<T>::value;
 
+// An ordering that a full-domain interval map may actually be built on.
+//
+// SparseRecyclingPolicy mixes map order with raw interval arithmetic, so it is
+// correct ONLY for orderings equivalent to ascending numeric order. Left
+// unconstrained, `SparseRecyclingPolicy<T, std::greater<T>>` compiles and
+// silently falsifies all four invariants of the representation -- a hole that
+// did not exist before the parameter was added, and that a runtime assert
+// documents rather than closes. Requiring an explicit opt-in makes the wrong
+// comparator a COMPILE error and leaves the parameter useful for the one thing
+// it exists for: instrumenting the complexity contract.
+template <typename C, typename = void>
+struct is_ascending_order : std::false_type
+{
+};
+
+template <typename C>
+struct is_ascending_order<C, std::void_t<typename C::ascending_order>> : std::true_type
+{
+};
+
+// The standard orderings that ARE ascending. As with is_sequential_policy, do
+// not let a type match both this and the void_t specialization above: the two
+// would be ambiguous, because the void_t argument is a non-deduced context.
+template <typename T>
+struct is_ascending_order<std::less<T>, void> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool is_ascending_order_v = is_ascending_order<T>::value;
+
 // What IdGenerator actually requires of a concurrency policy: an exclusive lock
 // on a mutable policy, and a shared lock on a CONST one (the query methods hold
 // the policy const). This is deliberately narrower than fat_p::ConcurrencyPolicy,
@@ -962,26 +993,40 @@ public:
  * `reset()`.
  */
 /// @tparam Compare Ordering for the interval map. **It must induce ASCENDING
-///         numeric order** -- `std::less<IdType>` or a transparent/instrumented
-///         equivalent. This is NOT a general ordering seam despite looking like
-///         one: five sites mix map order with raw arithmetic and are correct only
-///         under ascending order. `peek_lowest()` returns `begin()->second` *as
-///         the lowest free identifier*; `is_free()`, `reserve_claim_credits()`
-///         and `claim_at()` do `lower_bound(id)` then test `it->second <= id`;
-///         `add_recycled()` finds the right neighbour with `upper_bound(id)`.
-///         Instantiated with `std::greater`, the policy compiles and is silently
-///         wrong -- `claim()` of a wholly free identifier returns `InvalidClaim`,
-///         and generation runs descending. `configure_domain()` asserts the
-///         direction, which is as much as a comparator can be checked from here.
+///         numeric order**, and it must SAY SO: `std::less<IdType>`, or a type
+///         declaring `using ascending_order = void;`. Anything else is a compile
+///         error.
+///
+///         This is not a general ordering seam despite its shape. Five sites mix
+///         map order with raw arithmetic: `peek_lowest()` returns
+///         `begin()->second` *as the lowest free identifier*; `is_free()`,
+///         `reserve_claim_credits()` and `claim_at()` do `lower_bound(id)` then
+///         test `it->second <= id`; `add_recycled()` finds the right neighbour
+///         with `upper_bound(id)`. Under `std::greater` the policy would be
+///         silently wrong -- `claim()` of a wholly free identifier reports
+///         `InvalidClaim`, generation runs descending, and every invariant in
+///         the representation is false. That is a state the type could not
+///         reach before this parameter existed, so the parameter must not be
+///         able to reach it either: the opt-in is what keeps that true, and the
+///         runtime assert in `configure_domain()` is only a second line.
 ///
 ///         The parameter exists because the complexity contract has no other
 ///         witness: a counting comparator is the only instrument that separates
 ///         `claim()` from the generate-and-release walk it replaces, since both
-///         leave one identifier active and everything else free.
+///         leave one identifier active and everything else free. An instrument
+///         that can also introduce a defect is not worth its measurement, which
+///         is why this is constrained rather than merely documented.
 template <typename IdType = uint64_t, typename Compare = std::less<IdType>>
 class SparseRecyclingPolicy
 {
 public:
+    static_assert(detail::is_ascending_order_v<Compare>,
+                  "SparseRecyclingPolicy's Compare must induce ASCENDING order and declare it: "
+                  "use std::less<IdType>, or declare `using ascending_order = void;` on your "
+                  "comparator. The policy mixes map order with interval arithmetic, so a "
+                  "descending order would compile and silently falsify every invariant of the "
+                  "interval representation.");
+
     using value_type = IdType;
     using key_compare = Compare;
 

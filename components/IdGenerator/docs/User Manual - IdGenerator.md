@@ -625,7 +625,9 @@ below the base, and the generator is exhausted from birth.
 > to `std::less<IdType>`. Despite the shape, **it is not a general ordering seam** — the policy
 > mixes map order with interval arithmetic and is correct only for orderings equivalent to
 > ascending numeric order. It exists so the complexity contract can be instrumented with a
-> counting comparator. Supplying `std::greater` compiles and is silently wrong.
+> counting comparator, and it is constrained accordingly: a comparator must be `std::less` or
+> declare `using ascending_order = void;`. Supplying `std::greater` is a compile error, not a
+> silent misbehaviour.
 
 > **Convenience Aliases:** `SparseIdGenerator<T>` and `ThreadSafeSparseIdGenerator<T>`. The
 > policy pairs only with sequential allocation — a `static_assert` rejects random allocation,

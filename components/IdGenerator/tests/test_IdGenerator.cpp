@@ -2431,9 +2431,15 @@ private:
 };
 
 /// @brief Counts every ordering comparison the interval map performs.
+///
+/// @details The `ascending_order` marker is the policy's opt-in: a comparator
+/// must declare that it orders ascending, so an instrument can be supplied
+/// without opening the door to one that would silently break the representation.
 template <typename T>
 struct CountingLess
 {
+    using ascending_order = void;
+
     static inline size_t comparisons = 0;
 
     bool operator()(const T& a, const T& b) const
