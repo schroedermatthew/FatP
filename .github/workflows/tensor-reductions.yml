@@ -1,0 +1,348 @@
+# =============================================================================
+# .github/workflows/tensor-reductions.yml
+# =============================================================================
+# CI workflow for TensorReductions component
+#
+# Directory structure:
+#   Headers:    include/fat_p/TensorReductions.h
+#   Tests:      components/Tensor/tests/test_TensorReductions.cpp
+# =============================================================================
+
+name: TensorReductions CI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/TensorReductions.h'
+      - 'include/fat_p/tensor/TensorReductions.h'
+      - 'include/fat_p/tensor/TensorAlgorithms.h'
+      - 'include/fat_p/tensor/TensorIterationPlan.h'
+      - 'include/fat_p/tensor/TensorKernels.h'
+      - 'include/fat_p/tensor/Tensor.h'
+      - 'include/fat_p/tensor/TensorView.h'
+      - 'include/fat_p/tensor/TensorLayout.h'
+      - 'include/fat_p/tensor/TensorExtents.h'
+      - '.github/workflows/tensor-reductions.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/TensorReductions.h'
+      - 'include/fat_p/tensor/TensorReductions.h'
+      - 'include/fat_p/tensor/TensorAlgorithms.h'
+      - 'include/fat_p/tensor/TensorIterationPlan.h'
+      - 'include/fat_p/tensor/TensorKernels.h'
+      - 'include/fat_p/tensor/Tensor.h'
+      - 'include/fat_p/tensor/TensorView.h'
+      - 'include/fat_p/tensor/TensorLayout.h'
+      - 'include/fat_p/tensor/TensorExtents.h'
+      - '.github/workflows/tensor-reductions.yml'
+
+env:
+  HEADER: TensorReductions.h
+  TEST_SRC: components/Tensor/tests/test_TensorReductions.cpp
+
+jobs:
+  # ===========================================================================
+  # Linux GCC Builds (C++20/C++23)
+  # ===========================================================================
+  linux-gcc:
+
+    name: Linux GCC-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 12
+            std: 20
+          - version: 13
+            std: 20
+          - version: 14
+            std: 23
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install GCC
+        run: sudo apt-get update && sudo apt-get install -y g++-${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          LINK_EXTRA=""
+          g++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin $LINK_EXTRA
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Linux Clang Builds (C++20/C++23)
+  # ===========================================================================
+  linux-clang:
+
+    name: Linux Clang-${{ matrix.version }} C++${{ matrix.std }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: 16
+            std: 20
+          - version: 17
+            std: 23
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ matrix.version }}
+
+      - name: Build tests
+        run: |
+          clang++-${{ matrix.version }} -std=c++${{ matrix.std }} \
+            -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O2 -DNDEBUG \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run tests
+        run: ./test_bin
+
+  # ===========================================================================
+  # Windows MSVC Builds (C++20/C++23)
+  # ===========================================================================
+  windows-msvc:
+
+    name: Windows MSVC C++${{ matrix.std }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - std: 20
+            flag: "/std:c++20"
+          - std: 23
+            flag: "/std:c++latest"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+
+      - name: Build tests
+        shell: cmd
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorReductions.cpp /Fe:test_bin.exe /link advapi32.lib
+
+      - name: Run tests
+        run: .\test_bin.exe
+
+  # ===========================================================================
+  # Assertions-enabled Debug builds (C++20)
+  # ===========================================================================
+  debug-linux-gcc:
+    name: Debug Linux GCC-13 C++20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build assertions-enabled tests
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -O0 -g3 -DENABLE_TEST_APPLICATION -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_debug
+      - name: Run tests
+        run: ./test_debug
+
+  debug-linux-clang:
+    name: Debug Linux Clang-16 C++20
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 16
+      - name: Build assertions-enabled tests
+        run: |
+          clang++-16 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -Wno-gnu-zero-variadic-macro-arguments \
+            -O0 -g3 -DENABLE_TEST_APPLICATION -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_debug
+      - name: Run tests
+        run: ./test_debug
+
+  debug-windows-msvc:
+    name: Debug Windows MSVC C++20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+      - name: Build assertions-enabled tests
+        shell: cmd
+        run: cl /std:c++20 /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /Od /Zi /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorReductions.cpp /Fe:test_debug.exe /link advapi32.lib
+      - name: Run tests
+        run: .\test_debug.exe
+
+  # ===========================================================================
+  # Sanitizers (C++20)
+  # ===========================================================================
+  sanitizer-asan:
+
+    name: AddressSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build with ASan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=address -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with ASan
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+        run: ./test_bin
+
+  sanitizer-ubsan:
+
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build with UBSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=undefined -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with UBSan
+        env:
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: ./test_bin
+
+  sanitizer-tsan:
+
+    name: ThreadSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build with TSan
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -g -O1 \
+            -fsanitize=thread -fno-omit-frame-pointer \
+            -DENABLE_TEST_APPLICATION \
+            -I./include/fat_p \
+            ${{ env.TEST_SRC }} -o test_bin
+
+      - name: Run with TSan
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: ./test_bin
+
+  # ===========================================================================
+  # Header Self-Containment (C++20)
+  # ===========================================================================
+  header-check:
+
+    name: Header Self-Containment
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Test header compiles standalone
+        run: |
+          echo '#include "${{ env.HEADER }}"' > test_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_include.cpp
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
+            -I./include/fat_p \
+            -c test_include.cpp -o /dev/null
+
+
+          echo "Header is self-contained"
+
+      - name: Test include order independence
+        run: |
+          cat > test1.cpp << 'EOF'
+          #include "TensorReductions.h"
+          #include <vector>
+          #include <algorithm>
+          int main() {{ return 0; }}
+          EOF
+
+          cat > test2.cpp << 'EOF'
+          #include <algorithm>
+          #include <vector>
+          #include "TensorReductions.h"
+          int main() {{ return 0; }}
+          EOF
+
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test1.cpp -o /dev/null
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -I./include/fat_p test2.cpp -o /dev/null
+
+          echo "Include order independent"
+
+  # ===========================================================================
+  # Strict Warnings (C++20)
+  # ===========================================================================
+  strict-warnings:
+
+    name: Strict Warnings
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compile with strict warnings
+        run: |
+          g++-13 -std=c++20 \
+              -Wall -Wextra -Wpedantic \
+              -Wconversion -Wsign-conversion \
+              -Wshadow -Wformat=2 \
+              -Werror \
+              -DENABLE_TEST_APPLICATION -I./include/fat_p \
+              -o test_strict ${{ env.TEST_SRC }}
+          echo "No warnings"
+
+
+  # ===========================================================================
+  # CI Gate
+  # ===========================================================================
+  ci-success:
+    name: CI Success
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings, debug-linux-gcc, debug-linux-clang, debug-windows-msvc]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-asan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.debug-linux-gcc.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.debug-linux-clang.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.debug-windows-msvc.result }}" != "success" ]]; then exit 1; fi
+          echo "All checks passed"

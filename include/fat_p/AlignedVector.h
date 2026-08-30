@@ -14,7 +14,6 @@ FATP_META:
     docs_search: "AlignedVector"
     tests:
       - components/AlignedVector/tests/test_AlignedVector.cpp
-      - components/Tensor/tests/test_TensorStorage.cpp
     benchmarks:
       - components/AlignedVector/benchmarks/benchmark_AlignedVector.cpp
   hygiene:
@@ -71,6 +70,10 @@ FATP_META:
 #include <memory>
 #include <stdexcept>
 #include <type_traits>
+
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
 
 namespace fat_p
 {
@@ -135,7 +138,7 @@ public:
         size_t size = n * sizeof(T);
         void* ptr = nullptr;
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
         ptr = _aligned_malloc(size, Alignment);
         if (!ptr)
         {
@@ -165,7 +168,7 @@ public:
             return;
         }
 
-#if defined(_MSC_VER)
+#if defined(_WIN32)
         _aligned_free(ptr);
 #else
         free(ptr);

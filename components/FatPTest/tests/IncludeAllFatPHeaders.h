@@ -53,7 +53,7 @@ FATP_META:
       - include/fat_p/EnumPlus.h
       - include/fat_p/EqualityAny.h
       - include/fat_p/EqualityComparisons.h
-      - include/fat_p/EqualityTensor.h
+      - include/fat_p/TensorEquality.h
       - include/fat_p/Expected.h
       - include/fat_p/ExpectedAsyncTask.h
       - include/fat_p/Factory.h
@@ -106,11 +106,18 @@ FATP_META:
       - include/fat_p/Stringify.h
       - include/fat_p/StrongId.h
       - include/fat_p/Tensor.h
+      - include/fat_p/TensorAlgorithms.h
+      - include/fat_p/TensorInterop.h
+      - include/fat_p/TensorMatmul.h
+      - include/fat_p/TensorReductions.h
+      - include/fat_p/TensorSelection.h
+      - include/fat_p/TensorSlice.h
       - include/fat_p/TensorEinsum.h
       - include/fat_p/TensorIteration.h
-      - include/fat_p/TensorMath.h
+      - include/fat_p/TensorLayout.h
+      - include/fat_p/TensorView.h
+      - include/fat_p/TensorStatic.h
       - include/fat_p/TensorSerializer.h
-      - include/fat_p/TensorStorage.h
       - include/fat_p/TensorStridePolicy.h
       - include/fat_p/ThreadPool.h
       - include/fat_p/ValueGuard.h
@@ -192,7 +199,7 @@ FATP_META:
 #include "EnumPlus.h"
 #include "EqualityAny.h"
 #include "EqualityComparisons.h"
-#include "EqualityTensor.h"
+#include "TensorEquality.h"
 #include "Expected.h"
 #include "ExpectedAsyncTask.h"
 #include "Factory.h"
@@ -245,11 +252,18 @@ FATP_META:
 #include "StringPool.h"
 #include "StrongId.h"
 #include "Tensor.h"
+#include "TensorAlgorithms.h"
+#include "TensorInterop.h"
+#include "TensorMatmul.h"
+#include "TensorReductions.h"
+#include "TensorSelection.h"
+#include "TensorSlice.h"
 #include "TensorEinsum.h"
 #include "TensorIteration.h"
-#include "TensorMath.h"
+#include "TensorLayout.h"
+#include "TensorView.h"
+#include "TensorStatic.h"
 #include "TensorSerializer.h"
-#include "TensorStorage.h"
 #include "TensorStridePolicy.h"
 #include "ThreadPool.h"
 #include "ValueGuard.h"

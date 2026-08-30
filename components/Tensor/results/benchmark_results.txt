@@ -1,0 +1,191 @@
+================================================================================
+  Tensor Layout Baseline
+================================================================================
+
+Interpretation warning (2026-08-19 correction)
+  The historical sections below were captured on different processors and
+  revisions of the benchmark. They MUST NOT be compared as before/after
+  performance evidence. In particular, the old "Phase 3" view sums exercised
+  public logical iterators, not TensorIterationPlan. They are retained only as
+  provenance. Current iterator-versus-plan evidence must come from one run of
+  benchmark_Tensor.cpp (the two paths are now paired in the same executable)
+  or from the standalone Tensor Benchmarks workflow.
+
+Purpose
+  Pre-owner/view-redesign evidence for contiguous, transpose, slice, and
+  broadcast behavior. These numbers are platform-specific observations, not
+  public performance promises.
+
+Timestamp
+  2026-08-19T11:48:11-07:00
+
+Environment
+  OS: Microsoft Windows 11 Pro 10.0.26200, 64-bit
+  CPU: Intel(R) Core(TM) Ultra 9 285K, 24 cores / 24 logical processors
+  Reported max clock: 3700 MHz
+  Measured start clock: 2322 MHz (base reference: 3686 MHz)
+  Compiler: MSVC 19.51, C++20
+  Build: /O2 /DNDEBUG /W4 /WX /EHsc /permissive- /Zc:preprocessor
+  Repository state: working tree with the Tensor semantic-foundation changes
+
+Build command
+  call "C:\Program Files\Microsoft Visual Studio\18\Professional\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+  cl /nologo /std:c++20 /O2 /DNDEBUG /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /Iinclude\fat_p components\Tensor\benchmarks\benchmark_Tensor.cpp /Fe:build\tensor-phase0\benchmark_Tensor.exe /link advapi32.lib
+
+Run configuration
+  FATP_BENCH_WARMUP_RUNS=3
+  FATP_BENCH_BATCHES=15
+  FATP_BENCH_SEED=12345
+  FATP_BENCH_TARGET_WORK=5000000
+  FATP_BENCH_MIN_BATCH_MS=50
+  FATP_BENCH_VERBOSE_STATS=1
+  FATP_BENCH_NO_SCOPE=1
+  FATP_BENCH_NO_STABILIZE=1
+  FATP_BENCH_NO_COOLDOWN=1
+
+Method
+  Cases were calibrated independently to at least 50 ms per batch, then
+  executed round-robin in a seed-randomized order. Correctness checks ran
+  outside timed regions. Values are nanoseconds per logical element. Median is
+  primary; mean, sample standard deviation, and normal-approximation CI95 are
+  supplementary. Broadcast includes the current API's owning materialization.
+
+Calibrated operations per batch
+  contiguous_sum: 160
+  transpose_sum: 40
+  slice_sum: 68
+  broadcast_materialize_sum: 40
+
+Summary (ns/logical element)
+  case                         median      mean    stddev                 CI95
+  contiguous_sum               1.354     1.356     0.025       [1.343, 1.370]
+  transpose_sum                8.161     8.131     0.152       [8.047, 8.216]
+  slice_sum                    8.121     8.113     0.187       [8.010, 8.216]
+  broadcast_materialize_sum    9.496     9.470     0.155       [9.384, 9.555]
+
+Raw samples (ns/logical element)
+  contiguous_sum
+    1.39093160629 1.33362770081 1.39438629150 1.31176471710 1.32981777191
+    1.35363340378 1.36770725250 1.38101577759 1.32900953293 1.35293722153
+    1.37695074081 1.37300968170 1.34572029114 1.33847951889 1.36575222015
+
+  transpose_sum
+    8.21271896362 7.88709640503 8.17180633545 8.13180923462 7.78765678406
+    8.11949729919 8.26644897461 8.16074371338 8.08261871338 8.22691917419
+    7.95710563660 8.30032348633 8.15052986145 8.35058212280 8.16468238831
+
+  slice_sum
+    8.38595122294 7.83947714014 7.88716833576 8.19854736328 8.34139156965
+    8.12978308185 8.37475147123 8.08105468750 7.97116148706 8.11581081814
+    7.84058415033 7.95784744562 8.12054802390 8.14454321768 8.30893921696
+
+  broadcast_materialize_sum
+    9.61608886719 9.59743499756 9.19474601746 9.28698539734 9.51548576355
+    9.34766769409 9.76669311523 9.49582099915 9.60187911987 9.38000679016
+    9.45379257202 9.43053245544 9.26044464111 9.55953598022 9.53840255737
+
+Unavailable baseline
+  Negative stride is not expressible by the current public dynamic Tensor API.
+  Its first baseline belongs to the signed-layout/kernel phase; no synthetic
+  "before" number is reported here.
+
+===============================================================================
+Phase 3 owner/view and unified-plan observation - 2026-08-19
+===============================================================================
+
+Purpose
+  Record the first post-cutover observation, including negative-stride traversal.
+  These samples are evidence for this machine and command, not a general claim.
+
+Build
+  cl /nologo /std:c++20 /EHsc /O2 /DNDEBUG /W4 /WX /permissive- \
+     /Zc:preprocessor /Iinclude\fat_p \
+     components\Tensor\benchmarks\benchmark_Tensor.cpp Advapi32.lib \
+     /Fe:Artifacts\benchmark_tensor_phase3.exe
+
+Run configuration
+  FATP_BENCH_WARMUP_RUNS=2
+  FATP_BENCH_BATCHES=5
+  FATP_BENCH_MIN_BATCH_MS=20
+  FATP_BENCH_TARGET_WORK=2000000
+  FATP_BENCH_NO_SCOPE=1
+  FATP_BENCH_NO_STABILIZE=1
+  FATP_BENCH_NO_COOLDOWN=1
+
+Environment
+  Windows-x64, MSVC 19.51, Intel Core i7-14700K
+  CPU at benchmark start: 2690 MHz; reported base: 3686 MHz
+
+Calibrated operations per batch
+  contiguous_sum: 256
+  transpose_sum: 16
+  slice_sum: 28
+  negative_stride_sum: 16
+  broadcast_materialize_sum: 16
+
+Summary (ns/logical element)
+  case                         median      mean    stddev                 CI95
+  contiguous_sum               0.372     0.371     0.008       [0.361, 0.382]
+  transpose_sum                8.297     8.319     0.164       [8.115, 8.523]
+  slice_sum                    7.995     7.962     0.164       [7.758, 8.165]
+  negative_stride_sum          7.970     7.937     0.217       [7.667, 8.207]
+  broadcast_materialize_sum    5.028     4.995     0.157       [4.800, 5.190]
+
+Raw samples (ns/logical element)
+  contiguous_sum:             0.380 0.376 0.372 0.358 0.371
+  transpose_sum:              8.297 8.427 8.517 8.089 8.265
+  slice_sum:                  8.126 7.988 8.013 7.686 7.995
+  negative_stride_sum:        8.092 7.970 7.920 7.579 8.125
+  broadcast_materialize_sum:  5.182 5.028 5.098 4.847 4.822
+
+===============================================================================
+Paired iterator / TensorIterationPlan observation - 2026-08-19
+===============================================================================
+
+Purpose
+  Compare the public logical-iterator path and TensorIterationPlan in the same
+  optimized executable, on the same processor, in randomized round-robin
+  batches. This section is comparable within itself only.
+
+Build
+  cl /nologo /std:c++20 /O2 /MD /DNDEBUG /EHsc /permissive- /utf-8 \
+     /W4 /WX /wd4324 /wd4127 /Iinclude\fat_p \
+     components\Tensor\benchmarks\benchmark_Tensor.cpp \
+     /Fe:Artifacts\tensor-peer-fixes\benchmark_Tensor.exe /link advapi32.lib
+
+Run configuration
+  FATP_BENCH_WARMUP_RUNS=2
+  FATP_BENCH_BATCHES=10
+  FATP_BENCH_SEED=12345
+  FATP_BENCH_TARGET_WORK=2000000
+  FATP_BENCH_MIN_BATCH_MS=20
+  FATP_BENCH_NO_SCOPE=1
+  FATP_BENCH_NO_STABILIZE=1
+  FATP_BENCH_NO_COOLDOWN=1
+
+Environment
+  Windows-x64, MSVC 19.51, Intel Core Ultra 9 285K
+  CPU at benchmark start: 3391 MHz; reported base: 3686 MHz
+
+Summary (ns/logical element)
+  case                              median      mean    stddev                 CI95
+  contiguous_iterator_sum            0.366     0.366     0.006       [0.362, 0.371]
+  contiguous_plan_sum                1.861     1.874     0.038       [1.847, 1.901]
+  transpose_iterator_sum             9.350     9.408     0.274       [9.212, 9.604]
+  transpose_plan_sum                 2.258     2.276     0.079       [2.219, 2.332]
+  slice_iterator_sum                 9.165     9.196     0.225       [9.035, 9.357]
+  slice_plan_sum                     1.910     1.912     0.037       [1.885, 1.938]
+  negative_stride_iterator_sum       9.210     9.267     0.212       [9.115, 9.418]
+  negative_stride_plan_sum           1.897     1.913     0.048       [1.878, 1.947]
+  broadcast_materialize_sum          6.299     6.353     0.208       [6.204, 6.501]
+
+Raw samples (ns/logical element)
+  contiguous_iterator_sum:       0.358 0.362 0.379 0.371 0.366 0.364 0.369 0.367 0.367 0.357
+  contiguous_plan_sum:           1.852 1.834 1.906 1.896 1.850 1.870 1.841 1.890 1.845 1.953
+  transpose_iterator_sum:        9.048 9.512 9.681 9.819 9.306 9.105 9.343 9.358 9.753 9.154
+  transpose_plan_sum:            2.202 2.218 2.295 2.456 2.362 2.214 2.257 2.274 2.258 2.223
+  slice_iterator_sum:            8.904 9.113 9.143 9.629 9.079 8.925 9.333 9.456 9.191 9.187
+  slice_plan_sum:                1.865 1.898 1.943 1.911 1.874 1.864 1.909 1.955 1.935 1.964
+  negative_stride_iterator_sum:  8.981 9.295 9.181 9.683 9.160 9.072 9.240 9.377 9.154 9.523
+  negative_stride_plan_sum:      1.891 1.852 1.932 1.893 1.884 1.881 1.900 1.942 1.924 2.026
+  broadcast_materialize_sum:     6.141 6.199 6.253 6.430 6.532 6.099 6.705 6.216 6.345 6.607

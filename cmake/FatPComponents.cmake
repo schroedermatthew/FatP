@@ -3,8 +3,20 @@
 #   component: BuildSystem
 #   file_role: build_script
 #   path: cmake/FatPComponents.cmake
+#   namespace: global
 #   layer: Testing
 #   summary: Registers component test and benchmark translation units as CMake targets.
+#   api_stability: in_work
+#   hygiene:
+#     pragma_once: false
+#     include_guard: false
+#     defines_total: 0
+#     defines_unprefixed: 0
+#     undefs_total: 0
+#     includes_windows_h: false
+#   generated:
+#     by: codex
+#     mode: manual
 
 include_guard(GLOBAL)
 

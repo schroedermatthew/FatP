@@ -15,10 +15,20 @@ on:
   push:
     paths:
       - 'include/fat_p/TensorSerializer.h'
+      - 'include/fat_p/tensor/TensorSerializer.h'
+      - 'include/fat_p/tensor/Tensor.h'
+      - 'include/fat_p/tensor/TensorView.h'
+      - 'include/fat_p/tensor/TensorLayout.h'
+      - 'include/fat_p/tensor/TensorExtents.h'
       - '.github/workflows/tensor-serializer.yml'
   pull_request:
     paths:
       - 'include/fat_p/TensorSerializer.h'
+      - 'include/fat_p/tensor/TensorSerializer.h'
+      - 'include/fat_p/tensor/Tensor.h'
+      - 'include/fat_p/tensor/TensorView.h'
+      - 'include/fat_p/tensor/TensorLayout.h'
+      - 'include/fat_p/tensor/TensorExtents.h'
       - '.github/workflows/tensor-serializer.yml'
 
 env:
@@ -37,6 +47,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - version: 12
+            std: 20
           - version: 13
             std: 20
           - version: 14
@@ -208,6 +220,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
+
 
           echo "Header is self-contained"
 

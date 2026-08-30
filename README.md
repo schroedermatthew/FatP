@@ -44,6 +44,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![CSRMatrixParallel CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix-parallel.yml/badge.svg)
 ![CSRMatrix CI](https://github.com/schroedermatthew/FatP/actions/workflows/csr-matrix.yml/badge.svg)
 ![DebugOnly CI](https://github.com/schroedermatthew/FatP/actions/workflows/debug-only.yml/badge.svg)
+![DeleteAllWorkflowRuns CI](https://github.com/schroedermatthew/FatP/actions/workflows/delete-all-workflow-runs.yml/badge.svg)
 ![DiagnosticContext CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-context.yml/badge.svg)
 ![DiagnosticLogger_Core CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-logger-core.yml/badge.svg)
 ![DiagnosticLogger_IO CI](https://github.com/schroedermatthew/FatP/actions/workflows/diagnostic-logger-io.yml/badge.svg)
@@ -97,11 +98,18 @@ A header-only C++20 utility library. Zero external dependencies.
 ![StringPool CI](https://github.com/schroedermatthew/FatP/actions/workflows/string-pool.yml/badge.svg)
 ![Stringify CI](https://github.com/schroedermatthew/FatP/actions/workflows/stringify.yml/badge.svg)
 ![StrongId CI](https://github.com/schroedermatthew/FatP/actions/workflows/strong-id.yml/badge.svg)
-![TensorComparison CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-comparison.yml/badge.svg)
+![TensorAlgorithms CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-algorithms.yml/badge.svg)
 ![TensorEinsum CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-einsum.yml/badge.svg)
-![TensorMath CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-math.yml/badge.svg)
+![TensorEquality CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-equality.yml/badge.svg)
+![TensorInterop CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-interop.yml/badge.svg)
+![TensorLayout CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-layout.yml/badge.svg)
+![TensorMatmul CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-matmul.yml/badge.svg)
+![TensorReductions CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-reductions.yml/badge.svg)
+![TensorSelection CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-selection.yml/badge.svg)
 ![TensorSerializer CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-serializer.yml/badge.svg)
-![TensorStorage CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-storage.yml/badge.svg)
+![TensorSlice CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-slice.yml/badge.svg)
+![TensorStatic CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-static.yml/badge.svg)
+![TensorView CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-view.yml/badge.svg)
 ![Tensor CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor.yml/badge.svg)
 ![ThreadPool CI](https://github.com/schroedermatthew/FatP/actions/workflows/thread-pool.yml/badge.svg)
 ![ValueGuard CI](https://github.com/schroedermatthew/FatP/actions/workflows/value-guard.yml/badge.svg)
@@ -131,6 +139,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![StateMachine Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/statemachine-benchmarks.yml/badge.svg)
 ![StringPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/stringpool-benchmarks.yml/badge.svg)
 ![StrongId Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/strongid-benchmarks.yml/badge.svg)
+![Tensor Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-benchmarks.yml/badge.svg)
 ![ThreadPool Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/threadpool-benchmarks.yml/badge.svg)
 ![WorkQueue Benchmarks](https://github.com/schroedermatthew/FatP/actions/workflows/workqueue-benchmarks.yml/badge.svg)
 
@@ -250,7 +259,13 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 
 | Component | Description |
 |-----------|-------------|
-| Tensor | N-dimensional tensor with math, einsum, and serialization |
+| Tensor / TensorView / TensorLayout | Allocator-aware contiguous owners and validated signed-stride views |
+| TensorAlgorithms | Serial owner/view arithmetic, broadcasting, transforms, equality, and hashing |
+| TensorSlice / TensorReductions | Python-style metadata slicing and deterministic checked axis reductions |
+| TensorInterop / TensorMatmul | Span/descriptor/fixed-size bridges and native vector, matrix, and batched multiplication |
+| TensorSelection | Stack, concatenate, take, take-along-axis, and gather-ND algorithms |
+| TensorEinsum | Documented common-contraction subset for dynamic tensors |
+| TensorStatic | Fixed-size stack/constexpr tensor math |
 | CSRMatrix | Compressed Sparse Row matrix with parallel/HPC variants |
 | SimdVector | Universal SIMD wrapper for vectorized operations |
 | FloatingPointComparison | ULP, relative, and absolute float comparison |

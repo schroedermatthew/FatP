@@ -16,7 +16,7 @@ FATP_META:
       - components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp
   hygiene:
     pragma_once: true
-    include_guard: true
+    include_guard: false
     defines_total: 6
     defines_unprefixed: 0
     undefs_total: 0
@@ -34,20 +34,20 @@ FATP_META:
  * @version 1.0
  *
  * Provides compile-time-configurable lifetime tracking to detect:
- * - Dangling references (view outlives source)
+ * - References used after their associated lifetime token is invalidated
  * - Use-after-free errors
  * - Invalid weak pointer access
  *
  * Features:
- * - Zero overhead in release builds (NDEBUG)
- * - Thread-safe tracking (optional)
+ * - Token checks compiled out in release builds (NDEBUG)
+ * - Atomic token state in debug builds
  * - Integration with Tensor views and std::weak_ptr
  * - Clear error messages with source location
  *
  * Usage:
  *   LifetimeTracker<Tensor<int>> tracker(tensor);
  *   auto view = tracker.create_view();
- *   // view.check_valid() throws if tensor destroyed
+ *   // view.check_valid() throws after the tracker invalidates its token
  *
  * Requires: C++20
  */
@@ -58,6 +58,8 @@ FATP_META:
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 namespace fat_p
 {
@@ -120,7 +122,85 @@ private:
 };
 
 /**
- * @brief RAII wrapper tracking object lifetime
+ * @brief Tensor-like view value guarded by an owning object's lifetime token.
+ * @tparam T View value type.
+ *
+ * The view owns its ordinary shared-storage handle, while the token records the
+ * lifetime of the object from which the view was requested. Access is rejected
+ * after that source object is destroyed, even though the shared storage itself
+ * remains memory-safe.
+ */
+template <typename T>
+class LifetimeTrackedView
+{
+public:
+    LifetimeTrackedView(T view, std::shared_ptr<LifetimeToken> token, const char* name)
+        : mView(std::move(view))
+        , mToken(std::move(token))
+        , mName(name != nullptr ? name : "Object")
+    {
+    }
+
+    LifetimeTrackedView(const LifetimeTrackedView&) = delete;
+    LifetimeTrackedView& operator=(const LifetimeTrackedView&) = delete;
+    LifetimeTrackedView(LifetimeTrackedView&&) noexcept(std::is_nothrow_move_constructible_v<T>) = default;
+    LifetimeTrackedView& operator=(LifetimeTrackedView&&) noexcept(std::is_nothrow_move_assignable_v<T>) = default;
+
+    T* get()
+    {
+        check_valid();
+        return std::addressof(mView);
+    }
+
+    const T* get() const
+    {
+        check_valid();
+        return std::addressof(mView);
+    }
+
+    T& operator*()
+    {
+        return *get();
+    }
+
+    const T& operator*() const
+    {
+        return *get();
+    }
+
+    T* operator->()
+    {
+        return get();
+    }
+
+    const T* operator->() const
+    {
+        return get();
+    }
+
+    bool is_valid() const noexcept
+    {
+        return mToken && mToken->is_valid();
+    }
+
+    void check_valid() const
+    {
+        if (!is_valid())
+        {
+            std::ostringstream oss;
+            oss << "Dangling reference: " << mName << " source has been destroyed";
+            throw DanglingReferenceError(oss.str());
+        }
+    }
+
+private:
+    T mView;
+    std::shared_ptr<LifetimeToken> mToken;
+    std::string mName;
+};
+
+/**
+ * @brief RAII wrapper associating an object reference with a lifetime token
  * @tparam T Type of object being tracked
  */
 template <typename T>
@@ -131,12 +211,21 @@ public:
         : mObj(&obj)
         , mName(name)
         , mToken(std::make_shared<LifetimeToken>())
+        , mInvalidateOnDestruction(true)
+    {
+    }
+
+    LifetimeTracker(T& obj, std::shared_ptr<LifetimeToken> token, const char* name)
+        : mObj(&obj)
+        , mName(name)
+        , mToken(std::move(token))
+        , mInvalidateOnDestruction(false)
     {
     }
 
     ~LifetimeTracker()
     {
-        if (mToken)
+        if (mInvalidateOnDestruction && mToken)
         {
             mToken->invalidate();
         }
@@ -147,18 +236,26 @@ public:
         : mObj(other.mObj)
         , mName(other.mName)
         , mToken(std::move(other.mToken))
+        , mInvalidateOnDestruction(other.mInvalidateOnDestruction)
     {
         other.mObj = nullptr;
+        other.mInvalidateOnDestruction = false;
     }
 
     LifetimeTracker& operator=(LifetimeTracker&& other) noexcept
     {
         if (this != &other)
         {
+            if (mInvalidateOnDestruction && mToken)
+            {
+                mToken->invalidate();
+            }
             mObj = other.mObj;
             mName = other.mName;
             mToken = std::move(other.mToken);
+            mInvalidateOnDestruction = other.mInvalidateOnDestruction;
             other.mObj = nullptr;
+            other.mInvalidateOnDestruction = false;
         }
         return *this;
     }
@@ -239,12 +336,74 @@ private:
     T* mObj;
     const char* mName;
     std::shared_ptr<LifetimeToken> mToken;
+    bool mInvalidateOnDestruction;
 };
 
 #else // NDEBUG - Release build
 
 /**
- * @brief No-op lifetime tracker for release builds (zero overhead)
+ * @brief Release-mode owning view with the same access API as the debug wrapper.
+ * @tparam T View value type.
+ */
+template <typename T>
+class LifetimeTrackedView
+{
+public:
+    explicit LifetimeTrackedView(T view, const char* = nullptr)
+        : mView(std::move(view))
+    {
+    }
+
+    LifetimeTrackedView(const LifetimeTrackedView&) = delete;
+    LifetimeTrackedView& operator=(const LifetimeTrackedView&) = delete;
+    LifetimeTrackedView(LifetimeTrackedView&&) noexcept(std::is_nothrow_move_constructible_v<T>) = default;
+    LifetimeTrackedView& operator=(LifetimeTrackedView&&) noexcept(std::is_nothrow_move_assignable_v<T>) = default;
+
+    T* get() noexcept
+    {
+        return std::addressof(mView);
+    }
+
+    const T* get() const noexcept
+    {
+        return std::addressof(mView);
+    }
+
+    T& operator*() noexcept
+    {
+        return mView;
+    }
+
+    const T& operator*() const noexcept
+    {
+        return mView;
+    }
+
+    T* operator->() noexcept
+    {
+        return std::addressof(mView);
+    }
+
+    const T* operator->() const noexcept
+    {
+        return std::addressof(mView);
+    }
+
+    bool is_valid() const noexcept
+    {
+        return true;
+    }
+
+    void check_valid() const noexcept
+    {
+    }
+
+private:
+    T mView;
+};
+
+/**
+ * @brief Lifetime tracker with token checks omitted in release builds
  */
 template <typename T>
 class LifetimeTracker
@@ -253,6 +412,25 @@ public:
     explicit LifetimeTracker(T& obj, const char* = nullptr)
         : mObj(&obj)
     {
+    }
+
+    LifetimeTracker(const LifetimeTracker&) = delete;
+    LifetimeTracker& operator=(const LifetimeTracker&) = delete;
+
+    LifetimeTracker(LifetimeTracker&& other) noexcept
+        : mObj(other.mObj)
+    {
+        other.mObj = nullptr;
+    }
+
+    LifetimeTracker& operator=(LifetimeTracker&& other) noexcept
+    {
+        if (this != &other)
+        {
+            mObj = other.mObj;
+            other.mObj = nullptr;
+        }
+        return *this;
     }
 
     class TrackedView

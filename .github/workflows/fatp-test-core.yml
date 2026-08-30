@@ -45,6 +45,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - version: 12
+            std: 20
           - version: 13
             std: 20
           - version: 14
@@ -254,6 +256,7 @@ jobs:
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \
             -I./include/fat_p \
             -c test_include.cpp -o /dev/null
+
 
           echo "Header is self-contained"
 

@@ -49,7 +49,7 @@ FATP_META:
  *
  * @subsection tensor_concepts Tensor Concepts
  * - `tensor_type<T>` - Is a Tensor
- * - `fixed_tensor_type<T>` - Is a FixedTensor
+ * - `fixed_tensor_type<T>` - Is a StaticTensor
  * - `csr_matrix_type<T>` - Is a CSRMatrix
  * - `simd_vector_type<T>` - Is a SimdVector
  * - `tensor_like<T>` - Has shape() method (duck-typed)
@@ -117,11 +117,17 @@ class SparseSetWithData;
 template <typename T, typename GenerationType, typename Allocator>
 class SlotMap;
 
-template <typename T, typename Allocator, typename IteratorPolicy, typename ConcurrencyPolicy>
+template <typename T, typename Allocator>
 class Tensor;
 
-template <typename T, std::size_t... Dims>
-class FixedTensor;
+template <typename T>
+class TensorView;
+
+template <typename T>
+class SharedTensorView;
+
+template <typename T, typename ShapeT, typename Policy>
+class StaticTensor;
 
 template <typename T, typename IndexType>
 class CSRMatrix;
@@ -270,19 +276,34 @@ struct is_tensor_impl : std::false_type
 {
 };
 
-template <typename T, typename A, typename I, typename C>
-struct is_tensor_impl<Tensor<T, A, I, C>> : std::true_type
+template <typename T, typename A>
+struct is_tensor_impl<Tensor<T, A>> : std::true_type
 {
 };
 
-// FixedTensor detection
+template <typename T>
+struct is_tensor_view_impl : std::false_type
+{
+};
+
+template <typename T>
+struct is_tensor_view_impl<TensorView<T>> : std::true_type
+{
+};
+
+template <typename T>
+struct is_tensor_view_impl<SharedTensorView<T>> : std::true_type
+{
+};
+
+// StaticTensor detection
 template <typename T>
 struct is_fixed_tensor_impl : std::false_type
 {
 };
 
-template <typename T, std::size_t... Dims>
-struct is_fixed_tensor_impl<FixedTensor<T, Dims...>> : std::true_type
+template <typename T, typename ShapeT, typename Policy>
+struct is_fixed_tensor_impl<StaticTensor<T, ShapeT, Policy>> : std::true_type
 {
 };
 
@@ -521,36 +542,44 @@ concept object_pool_type = detail::is_object_pool_impl<T>::value;
  * @tparam T The type to check
  */
 template <typename T>
-concept tensor_type = detail::is_tensor_impl<T>::value;
+concept tensor_type = detail::is_tensor_impl<std::remove_cvref_t<T>>::value;
+
+/** @brief Checks if T is a borrowed or shared Tensor view. */
+template <typename T>
+concept tensor_view_type = detail::is_tensor_view_impl<std::remove_cvref_t<T>>::value;
 
 /**
- * @brief Checks if T is a FixedTensor.
+ * @brief Checks if T is a StaticTensor.
  * @tparam T The type to check
  */
 template <typename T>
-concept fixed_tensor_type = detail::is_fixed_tensor_impl<T>::value;
+concept fixed_tensor_type = detail::is_fixed_tensor_impl<std::remove_cvref_t<T>>::value;
 
 /**
  * @brief Checks if T is a CSRMatrix.
  * @tparam T The type to check
  */
 template <typename T>
-concept csr_matrix_type = detail::is_csr_matrix_impl<T>::value;
+concept csr_matrix_type = detail::is_csr_matrix_impl<std::remove_cvref_t<T>>::value;
 
 /**
  * @brief Checks if T is a SimdVector.
  * @tparam T The type to check
  */
 template <typename T>
-concept simd_vector_type = detail::is_simd_vector_impl<T>::value;
+concept simd_vector_type = detail::is_simd_vector_impl<std::remove_cvref_t<T>>::value;
 
 /**
- * @brief Checks if T behaves like a tensor (has shape() method).
+ * @brief Checks if T exposes the dynamic readable Tensor vocabulary.
  * @tparam T The type to check
  */
 template <typename T>
 concept tensor_like = requires(const T& val) {
-    { val.shape() };
+    typename std::remove_cvref_t<T>::value_type;
+    { val.extents() };
+    { val.layout() };
+    { val.size() };
+    val[std::size_t{0}];
 };
 
 /**
@@ -558,7 +587,8 @@ concept tensor_like = requires(const T& val) {
  * @tparam T The type to check
  */
 template <typename T>
-concept any_tensor_type = tensor_type<T> || fixed_tensor_type<T> || csr_matrix_type<T> || simd_vector_type<T>;
+concept any_tensor_type = tensor_type<T> || tensor_view_type<T> || fixed_tensor_type<T> || csr_matrix_type<T> ||
+    simd_vector_type<T>;
 
 // =============================================================================
 // Concurrency Concepts

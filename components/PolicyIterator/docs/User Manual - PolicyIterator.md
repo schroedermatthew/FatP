@@ -3,7 +3,7 @@ doc_id: UM-POLICYITERATOR-001
 doc_type: "User Manual"
 title: "PolicyIterator"
 fatp_components: ["PolicyIterator"]
-topics: ["iterator usage", "policy configuration", "STL integration", "filter iteration", "transform iteration", "stride iteration", "zero-overhead abstraction"]
+topics: ["iterator usage", "policy configuration", "STL integration", "filter iteration", "transform iteration", "stride iteration", "static dispatch"]
 constraints: ["iterator category requirements", "predicate storage", "bounds checking overhead", "factory method initialization", "virtual dispatch avoidance"]
 cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
@@ -25,15 +25,15 @@ status: "reviewed"
 **Integration pattern:** Replace manual iterator classes with `PolicyIterator<T, YourPolicy>`; use static factory methods `begin()` and `end()`  
 **Key API:** `PolicyIterator<T, Policy>::begin(base, end)`, `PolicyIterator<T, Policy>::end(base, end)`, `operator++`, `operator*`  
 **Common mistakes:** Using constructors instead of factory methods; forgetting predicate for filter policy; assuming random-access capability; passing predicates by reference instead of value  
-**Performance notes:** Zero overhead for standard/stride/transform policies in optimized builds; filter policies may show 2-5% overhead due to predicate storage  
-**Debug vs Release:** Debug builds include `enforce()` bounds checks; Release builds elide all checks for zero overhead  
+**Performance notes:** Policies use static dispatch and are designed to inline; measure the selected policy and workload on the target compiler.
+**Debug vs Release:** Debug builds include `enforce()` bounds checks; Release builds elide those debug-only checks.
 **Read next:** Companion Guide - PolicyIterator, Overview - TensorStridePolicy
 
 ---
 
 ## Scope
 
-This document covers practical usage of PolicyIterator: how to integrate it into existing code, how to use each built-in policy, how to write custom policies, common patterns and recipes, debugging techniques, performance considerations, and migration strategies. It provides the depth needed to use PolicyIterator effectively in production code, including assembly-level verification of the zero-overhead principle and domain-specific case studies.
+This document covers practical usage of PolicyIterator: how to integrate it into existing code, how to use each built-in policy, how to write custom policies, common patterns and recipes, debugging techniques, performance considerations, and migration strategies. It also explains how to inspect target-specific code generation and benchmark domain-specific cases.
 
 ## Not Covered
 
@@ -64,7 +64,7 @@ This document covers practical usage of PolicyIterator: how to integrate it into
 9. [Transform Policy: Mapping on Dereference](#transform-policy-mapping-on-dereference)
 10. [Tensor Policies: Multi-Dimensional Traversal](#tensor-policies-multi-dimensional-traversal)
 11. [Writing Custom Policies](#writing-custom-policies)
-12. [The Zero-Overhead Principle: Assembly Evidence](#the-zero-overhead-principle-assembly-evidence)
+12. [Inspecting Optimized Code](#inspecting-optimized-code)
 13. [Common Patterns and Recipes](#common-patterns-and-recipes)
 14. [Case Study: SIMD Vectorization Pipeline](#case-study-simd-vectorization-pipeline)
 15. [Case Study: Sparse Matrix Row Iteration](#case-study-sparse-matrix-row-iteration)
@@ -207,7 +207,7 @@ This was elegant but required C++20 for standardization and added runtime overhe
 
 Andrei Alexandrescu's *Modern C++ Design* introduced policy-based class design: decompose a class's behavior into orthogonal *policies* as template parameters. The compiler resolves them at compile time—no virtual dispatch, no type erasure.
 
-PolicyIterator applies this insight to iteration. The mechanics are fixed; the strategy is a policy parameter. The compiler inlines everything, producing code identical to hand-written loops.
+PolicyIterator applies this insight to iteration. The mechanics are fixed; the strategy is a policy parameter. Static dispatch lets the optimizer see policy operations and commonly inline them.
 
 ---
 
@@ -215,15 +215,15 @@ PolicyIterator applies this insight to iteration. The mechanics are fixed; the s
 
 ### Approaches to Iterator Customization
 
-| Approach | Runtime Overhead | Boilerplate | Composition | Debug Safety |
-|----------|-----------------|-------------|-------------|--------------|
-| Manual loops | None | Low | No | Manual |
-| Separate classes | None | High | No | Manual |
-| Virtual dispatch | 15-25% | Medium | Partial | Manual |
-| Type erasure | 10-20% | Medium | Yes | Manual |
-| **Policy templates** | **None** | **Low** | **Yes** | **Built-in** |
+| Approach | Dispatch model | Boilerplate | Composition | Debug Safety |
+|----------|----------------|-------------|-------------|--------------|
+| Manual loops | Direct | Low | No | Manual |
+| Separate classes | Usually direct | High | No | Manual |
+| Virtual dispatch | Runtime | Medium | Partial | Manual |
+| Type erasure | Runtime indirection | Medium | Yes | Manual |
+| **Policy templates** | **Compile time** | **Low** | **Yes** | **Built-in** |
 
-PolicyIterator occupies a specific niche: **compile-time strategy selection with zero overhead**. If you need runtime strategy changes, use virtual dispatch. If you don't need abstraction, use manual loops. But if you have multiple compile-time-known patterns and care about performance, PolicyIterator is the right choice.
+PolicyIterator occupies a specific niche: **compile-time strategy selection without virtual dispatch**. If you need runtime strategy changes, use virtual dispatch. If you don't need abstraction, use manual loops. When multiple compile-time-known traversal patterns are useful, benchmark PolicyIterator against the corresponding manual loop on the target build.
 
 ---
 
@@ -325,7 +325,7 @@ namespace fat_p::iterator {
 ### Build Configuration
 
 Debug builds (NDEBUG not defined): All `enforce()` checks are active.
-Release builds (NDEBUG defined): All checks are elided—zero overhead.
+Release builds (NDEBUG defined): Debug-only `enforce()` checks are elided.
 
 ```bash
 g++ -std=c++20 -g -O0 my_code.cpp           # Debug: checks active
@@ -746,11 +746,11 @@ If your policy needs the end pointer, define `static constexpr bool kNeedsEndCla
 
 ---
 
-## The Zero-Overhead Principle: Assembly Evidence
+## Inspecting Optimized Code
 
 ### Verifying the Abstraction Vanishes
 
-The zero-overhead principle states: what you don't use, you don't pay for; what you do use, you couldn't hand-code better. PolicyIterator aims to match hand-written loops exactly.
+PolicyIterator uses static dispatch so an optimizer can inline policy operations. Whether it matches a hand-written loop depends on the compiler, flags, policy state, and surrounding code.
 
 Consider this comparison:
 
@@ -815,7 +815,7 @@ sum_policy:
     ret
 ```
 
-**Fact:** The inner loops are identical. The PolicyIterator abstraction has zero overhead at the assembly level.
+This is the intended optimized shape, but generated code depends on the compiler, flags, policy state, and surrounding loop. Inspect or benchmark the actual target build before making a performance claim.
 
 ### When Overhead Appears
 
@@ -1115,13 +1115,13 @@ const auto& policy = it.policy();
 
 ## Performance Considerations
 
-### Zero-Overhead Principle
+### Static-Dispatch Performance
 
-PolicyIterator follows the zero-overhead principle. In optimized builds:
+In optimized builds:
 
 - Policy methods are inlined
 - `enforce()` checks are elided
-- Iterator operations compile to same code as manual loops
+- Iterator operations are visible to the optimizer; inspect generated code for hot paths
 
 ### When Overhead Appears
 
@@ -1132,16 +1132,12 @@ PolicyIterator follows the zero-overhead principle. In optimized builds:
 | Post-increment | Iterator copy | Prefer pre-increment `++it` |
 | Filter with low match rate | Scanning overhead | Unavoidable for filtering |
 
-### Benchmark Results
+### Benchmark Guidance
 
-| Operation | Manual Loop | PolicyIterator | Overhead |
-|-----------|-------------|----------------|----------|
-| Sequential sum (1M elements) | 0.89 ms | 0.89 ms | 0% |
-| Stride-4 sum (1M elements) | 0.23 ms | 0.23 ms | 0% |
-| Filter (50% match) | 1.12 ms | 1.15 ms | ~3% |
-| Transform (double) | 0.91 ms | 0.91 ms | 0% |
-
-Filter overhead comes from predicate storage; stateless predicates eliminate it.
+Compare a manual loop and PolicyIterator using the same data, compiler, flags,
+and workload. Include predicate selectivity for filter policies and record the
+benchmark environment with the result. Predicate state and filtering work may
+affect code generation even when dispatch itself is static.
 
 ---
 
@@ -1443,11 +1439,11 @@ auto b = PolicyIterator<int, Policy>::begin(data, end, Policy{}, predicate);
 
 ## Summary
 
-PolicyIterator provides zero-overhead iterator abstraction through compile-time policy dispatch. Key takeaways:
+PolicyIterator provides iterator abstraction through compile-time policy dispatch. Key takeaways:
 
 1. **Use factory methods** (`begin()`, `end()`) rather than constructors
 2. **Choose the right policy** for your traversal pattern
-3. **Verify zero-overhead** with assembly inspection for hot paths
+3. **Verify performance** with assembly inspection and benchmarks for hot paths
 4. **Leverage debug checks** in development, release builds for production
 5. **Consider stateless functors** to avoid predicate storage overhead
 
@@ -1462,7 +1458,7 @@ For design rationale and architectural decisions, see Companion Guide - PolicyIt
 - **Factory method:** A static method that constructs and returns an object, used instead of public constructors.
 - **Iterator category:** A tag type indicating what operations an iterator supports.
 - **End clamping:** Ensuring an iterator never advances past the end pointer.
-- **Zero-overhead principle:** Abstractions that compile to the same code as hand-written equivalents.
+- **Zero-overhead principle:** A design goal that must be verified for the target compiler and workload.
 
 ---
 

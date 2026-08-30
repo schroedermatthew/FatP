@@ -210,9 +210,9 @@ FATP_TEST_CASE(complex_updates)
     {
         auto guard = rcu_tensor.read();
         const auto& tensor = *guard;
-        FATP_ASSERT_TRUE(tensor.shape().size() == 2, "Should be 2D");
-        FATP_ASSERT_TRUE(tensor.shape()[0] == 100, "First dim should be 100");
-        FATP_ASSERT_TRUE(tensor.shape()[1] == 100, "Second dim should be 100");
+        FATP_ASSERT_TRUE(tensor.rank() == 2, "Should be 2D");
+        FATP_ASSERT_TRUE(tensor.extent(0) == 100, "First dim should be 100");
+        FATP_ASSERT_TRUE(tensor.extent(1) == 100, "Second dim should be 100");
         FATP_ASSERT_TRUE(tensor.size() == 10000, "Total size should be 10000");
     }
 

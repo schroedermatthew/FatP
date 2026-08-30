@@ -91,6 +91,7 @@ BENCH = {
     "featuremanager": "FeatureManager",
     "stringpool": "StringPool",
     "skeleton": "Skeleton",
+    "tensor": "Tensor",
 }
 
 CORE = [

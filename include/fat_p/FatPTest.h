@@ -89,11 +89,12 @@ FATP_META:
       - components/StringPool/tests/test_StringPool.cpp
       - components/StrongId/tests/test_StrongId.cpp
       - components/Tensor/tests/test_Tensor.cpp
-      - components/Tensor/tests/test_TensorComparison.cpp
+      - components/Tensor/tests/test_TensorEquality.cpp
       - components/Tensor/tests/test_TensorEinsum.cpp
-      - components/Tensor/tests/test_TensorMath.cpp
+      - components/Tensor/tests/test_TensorStatic.cpp
       - components/Tensor/tests/test_TensorSerializer.cpp
-      - components/Tensor/tests/test_TensorStorage.cpp
+      - components/Tensor/tests/test_TensorView.cpp
+      - components/Tensor/tests/test_TensorAlgorithms.cpp
       - components/ThreadPool/tests/test_ThreadPool.cpp
       - components/ValueGuard/tests/test_ValueGuard.cpp
       - components/ViewLifetimeTracking/tests/test_ViewLifetimeTracking.cpp

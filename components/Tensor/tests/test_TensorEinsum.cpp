@@ -66,8 +66,8 @@ FATP_TEST_CASE(matmul)
     // Matrix multiplication: ij,jk->ik
     auto C = einsum("ij,jk->ik", A, B);
 
-    FATP_ASSERT_EQ(C.shape()[0], 2u, "Result should have 2 rows");
-    FATP_ASSERT_EQ(C.shape()[1], 2u, "Result should have 2 columns");
+    FATP_ASSERT_EQ(C.extent(0), 2u, "Result should have 2 rows");
+    FATP_ASSERT_EQ(C.extent(1), 2u, "Result should have 2 columns");
 
     // C[0][0] = 1*7 + 2*9 + 3*11 = 58
     FATP_ASSERT_CLOSE_EPS(C(0, 0), 58.0f, 1e-5f, "C(0,0) should be 58.0");
@@ -135,9 +135,9 @@ FATP_TEST_CASE(batch_matmul)
     // Batch matrix multiplication: bij,bjk->bik
     auto C = einsum("bij,bjk->bik", A, B);
 
-    FATP_ASSERT_EQ(C.shape()[0], 2u, "Result should have batch_size=2");
-    FATP_ASSERT_EQ(C.shape()[1], 2u, "Result should have 2 rows");
-    FATP_ASSERT_EQ(C.shape()[2], 2u, "Result should have 2 columns");
+    FATP_ASSERT_EQ(C.extent(0), 2u, "Result should have batch_size=2");
+    FATP_ASSERT_EQ(C.extent(1), 2u, "Result should have 2 rows");
+    FATP_ASSERT_EQ(C.extent(2), 2u, "Result should have 2 columns");
 
     // Batch 0, C[0][0][0] = 1*1 + 2*3 + 3*5 = 22
     FATP_ASSERT_CLOSE_EPS(C(0, 0, 0), 22.0f, 1e-5f, "C(0,0,0) should be 22.0");
@@ -178,8 +178,8 @@ FATP_TEST_CASE(outer)
     // Outer product: i,j->ij
     auto C = einsum("i,j->ij", a, b);
 
-    FATP_ASSERT_EQ(C.shape()[0], 3u, "Result should have 3 rows");
-    FATP_ASSERT_EQ(C.shape()[1], 4u, "Result should have 4 columns");
+    FATP_ASSERT_EQ(C.extent(0), 3u, "Result should have 3 rows");
+    FATP_ASSERT_EQ(C.extent(1), 4u, "Result should have 4 columns");
 
     FATP_ASSERT_CLOSE_EPS(C(0, 0), 4.0f, 1e-5f, "C(0,0) = 1*4 = 4");
     FATP_ASSERT_CLOSE_EPS(C(0, 3), 7.0f, 1e-5f, "C(0,3) = 1*7 = 7");
@@ -229,6 +229,35 @@ FATP_TEST_CASE(dot)
     return true;
 }
 
+FATP_TEST_CASE(frobenius_inner_product)
+{
+    Tensor<float> a({2, 2});
+    Tensor<float> b({2, 2});
+    for (size_t i = 0; i < 4; ++i)
+    {
+        a[i] = static_cast<float>(i + 1);
+        b[i] = static_cast<float>(i + 5);
+    }
+
+    auto result = einsum("ij,ij->", a, b);
+    FATP_ASSERT_EQ(result.size(), 1u, "Frobenius inner product should return a scalar tensor");
+    FATP_ASSERT_CLOSE_EPS(result[0], 70.0f, 1e-5f, "Frobenius inner product should sum element-wise products");
+
+    bool mismatch_rejected = false;
+    try
+    {
+        Tensor<float> mismatched({2, 3});
+        [[maybe_unused]] auto invalid = einsum("ij,ij->", a, mismatched);
+    }
+    catch (const std::exception&)
+    {
+        mismatch_rejected = true;
+    }
+    FATP_ASSERT_TRUE(mismatch_rejected, "Frobenius inner product must reject mismatched shapes");
+
+    return true;
+}
+
 // =============================================================================
 // Test Suite 5: Transpose
 // =============================================================================
@@ -249,8 +278,8 @@ FATP_TEST_CASE(transpose)
     // Transpose: ij->ji
     auto AT = einsum("ij->ji", A);
 
-    FATP_ASSERT_EQ(AT.shape()[0], 3u, "Transposed should have 3 rows");
-    FATP_ASSERT_EQ(AT.shape()[1], 2u, "Transposed should have 2 columns");
+    FATP_ASSERT_EQ(AT.extent(0), 3u, "Transposed should have 3 rows");
+    FATP_ASSERT_EQ(AT.extent(1), 2u, "Transposed should have 2 columns");
 
     FATP_ASSERT_CLOSE_EPS(AT(0, 0), 1.0f, 1e-5f, "AT(0,0) should be 1.0");
     FATP_ASSERT_CLOSE_EPS(AT(1, 0), 2.0f, 1e-5f, "AT(1,0) should be 2.0");
@@ -396,6 +425,34 @@ FATP_TEST_CASE(elementwise)
 // Test Suite 10: Error Handling
 // =============================================================================
 
+FATP_TEST_CASE(diagonal_and_strided_inputs)
+{
+    Tensor<int> square({2, 2});
+    square(0, 0) = 1;
+    square(0, 1) = 2;
+    square(1, 0) = 3;
+    square(1, 1) = 4;
+    auto diagonal = einsum("ii->i", square);
+    FATP_ASSERT_EQ(diagonal[0], 1, "Diagonal element 0");
+    FATP_ASSERT_EQ(diagonal[1], 4, "Diagonal element 1");
+
+    Tensor<int> matrix({3, 3});
+    for (size_t i = 0; i < matrix.size(); ++i)
+    {
+        matrix[i] = static_cast<int>(i);
+    }
+    auto column = matrix.columnView(1);
+    auto sum = einsum("ij->", column);
+    FATP_ASSERT_EQ(sum[0], 12, "Sum-all must traverse a strided column logically");
+
+    auto product = einsum("ij,ij->ij", column, column);
+    FATP_ASSERT_EQ(product[0], 1, "Strided element-wise product 0");
+    FATP_ASSERT_EQ(product[1], 16, "Strided element-wise product 1");
+    FATP_ASSERT_EQ(product[2], 49, "Strided element-wise product 2");
+
+    return true;
+}
+
 FATP_TEST_CASE(errors)
 {
     std::cout << colors::cyan() << "Test Suite 10: Error Handling" << colors::reset() << "\n";
@@ -439,6 +496,17 @@ FATP_TEST_CASE(errors)
     }
     FATP_ASSERT_TRUE(caught, "Should throw on unsupported pattern");
 
+    caught = false;
+    try
+    {
+        [[maybe_unused]] auto C = einsum("i,i->i", A, B);
+    }
+    catch (const std::exception&)
+    {
+        caught = true;
+    }
+    FATP_ASSERT_TRUE(caught, "Label count must match each tensor rank");
+
     return true;
 }
 
@@ -471,11 +539,13 @@ bool test_TensorEinsum()
     FATP_RUN_TEST_NS(runner, tensoreinsum, batch_matmul);
     FATP_RUN_TEST_NS(runner, tensoreinsum, outer);
     FATP_RUN_TEST_NS(runner, tensoreinsum, dot);
+    FATP_RUN_TEST_NS(runner, tensoreinsum, frobenius_inner_product);
     FATP_RUN_TEST_NS(runner, tensoreinsum, transpose);
     FATP_RUN_TEST_NS(runner, tensoreinsum, trace);
     FATP_RUN_TEST_NS(runner, tensoreinsum, sum_axis);
     FATP_RUN_TEST_NS(runner, tensoreinsum, sum_all);
     FATP_RUN_TEST_NS(runner, tensoreinsum, elementwise);
+    FATP_RUN_TEST_NS(runner, tensoreinsum, diagonal_and_strided_inputs);
     FATP_RUN_TEST_NS(runner, tensoreinsum, errors);
 
     return 0 == runner.print_summary();

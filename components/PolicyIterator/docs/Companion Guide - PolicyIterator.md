@@ -3,7 +3,7 @@ doc_id: CG-POLICYITERATOR-001
 doc_type: "Companion Guide"
 title: "PolicyIterator"
 fatp_components: ["PolicyIterator"]
-topics: ["policy-based design", "static dispatch", "iterator design", "template metaprogramming", "zero-overhead abstraction", "Alexandrescu patterns"]
+topics: ["policy-based design", "static dispatch", "iterator design", "template metaprogramming", "Alexandrescu patterns"]
 constraints: ["virtual dispatch overhead", "type erasure costs", "iterator category requirements", "bounds checking in release builds", "ABI stability"]
 cxx_standard: "C++20"
 build_modes: ["Debug", "Release"]
@@ -23,7 +23,7 @@ status: "reviewed"
 **Key tradeoff:** Compile-time flexibility vs runtime flexibility; static dispatch eliminates overhead but prevents runtime strategy changes  
 **Decision made:** Template-based policy dispatch with trait detection for automatic overload selection  
 **Rejected alternatives:** Virtual iterator base class (runtime overhead), std::function storage (size and indirection overhead), separate iterator classes (boilerplate explosion)  
-**Historical context:** Policy-based design from Alexandrescu's "Modern C++ Design" (2001); applied to iterator patterns to achieve STL-compatible abstractions with zero overhead
+**Historical context:** Policy-based design from Alexandrescu's "Modern C++ Design" (2001); applied here to provide STL-compatible abstractions with compile-time dispatch
 
 ---
 
@@ -227,16 +227,11 @@ sequenceDiagram
     Note over Loop,DerivedAdvance: Repeated 1,000,000 times
 ```
 
-### Measured Overhead
+### Performance Consequence
 
-**Fact:** Benchmarks show 15-25% overhead for virtual dispatch in tight loops.
-
-| Implementation | Sum 100M elements |
-|----------------|-------------------|
-| Raw pointer | 89 ms |
-| Manual iterator | 89 ms |
-| Virtual iterator | 108 ms (+21%) |
-| PolicyIterator | 89 ms |
+Virtual dispatch introduces an indirect call and can inhibit inlining. Its
+measured cost is workload- and target-dependent, so compare it with static
+dispatch using the actual compiler and traversal workload.
 
 Worse, the indirection defeats compiler optimizations. The compiler can't see through the virtual call to know what `advance()` actually does. It can't:
 - Inline the advance logic
@@ -350,7 +345,7 @@ In debug builds, this catches the bug immediately with file/line information. In
 | Guarantee | Provided | Notes |
 |-----------|----------|-------|
 | Debug-mode bounds checking | Yes | enforce() fires on violation |
-| Release-mode zero overhead | Yes | enforce() elided with NDEBUG |
+| Release-mode debug-check removal | Yes | `enforce()` is elided with NDEBUG |
 | Consistent across policies | Yes | Checking in PolicyIterator, not policies |
 
 ---
@@ -461,7 +456,7 @@ int sum_policy(int* data, int* end) {
 }
 ```
 
-Both functions compile to identical assembly:
+An optimizing compiler may reduce both functions to a similar loop:
 
 ```asm
 .loop:
@@ -471,7 +466,7 @@ Both functions compile to identical assembly:
     jl      .loop
 ```
 
-**Fact:** The PolicyIterator abstraction has zero overhead at the assembly level.
+This assembly is illustrative, not a cross-compiler guarantee. Verify the generated code or benchmark the target workload when performance is material.
 
 ---
 
@@ -906,7 +901,7 @@ class BaseIterator {
 };
 ```
 
-**Why rejected:** 15-25% overhead in tight loops. Prevents inlining and vectorization.
+**Why rejected:** Adds an indirect call and can inhibit inlining and vectorization; the exact cost is target-dependent.
 
 ### Rejected: std::function Storage
 
@@ -931,7 +926,7 @@ std::function<void(T*&)> advance_;
 ### Accepted: Template Policy
 
 **Why accepted:**
-- Zero overhead (verified by assembly inspection)
+- Static dispatch that is amenable to inlining; target-specific code generation must be verified
 - Type-safe (compiler catches errors)
 - Debuggable (step through inlined code)
 - Composable (policies can nest)
@@ -946,7 +941,7 @@ std::function<void(T*&)> advance_;
 - **Type erasure:** Hiding concrete types behind an interface using virtual functions or function pointers.
 - **Trait detection:** Using SFINAE or concepts to detect type properties.
 - **if constexpr:** C++17 feature for compile-time conditional compilation.
-- **Zero-overhead principle:** Abstractions that compile to the same code as hand-written equivalents.
+- **Zero-overhead principle:** A design goal that must be verified for the target compiler and workload.
 
 ---
 

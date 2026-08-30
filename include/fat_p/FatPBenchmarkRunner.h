@@ -25,6 +25,7 @@ FATP_META:
       - components/PolicyIterator/benchmarks/benchmark_PolicyIterator.cpp
       - components/SlotMap/benchmarks/benchmark_SlotMap.cpp
       - components/SmallVector/benchmarks/benchmark_SmallVector.cpp
+      - components/Tensor/benchmarks/benchmark_Tensor.cpp
   hygiene:
     pragma_once: true
     include_guard: false

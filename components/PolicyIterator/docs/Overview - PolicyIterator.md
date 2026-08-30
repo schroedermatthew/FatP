@@ -3,7 +3,7 @@ doc_id: OV-POLICYITERATOR-001
 doc_type: "Overview"
 title: "PolicyIterator"
 fatp_components: ["PolicyIterator"]
-topics: ["policy-based design", "iterator abstraction", "compile-time dispatch", "zero-overhead abstraction", "traversal patterns"]
+topics: ["policy-based design", "iterator abstraction", "compile-time dispatch", "traversal patterns"]
 constraints: ["virtual dispatch overhead", "iterator boilerplate", "STL algorithm compatibility", "debug-mode bounds checking"]
 cxx_standard: "C++20"
 last_verified: "2025-12-30"
@@ -20,10 +20,10 @@ status: "reviewed"
 ## Overview Card
 
 **Component:** PolicyIterator  
-**Problem solved:** Eliminates iterator boilerplate while maintaining zero runtime overhead through compile-time policy dispatch  
+**Problem solved:** Eliminates iterator boilerplate through compile-time policy dispatch.
 **When to use:** Multiple traversal patterns over the same data; need STL algorithm compatibility; want debug-mode bounds checking  
 **When NOT to use:** Single-use iteration; need runtime-variable traversal strategy; need random-access iterator  
-**Key guarantee:** Policy dispatch resolved at compile time; identical codegen to hand-written loops  
+**Key guarantee:** Policy dispatch is resolved at compile time; exact code generation remains compiler- and workload-dependent.
 **Alternatives:** Manual iterators, Boost.Iterator, C++20 ranges, range-v3  
 **Read next:** User Manual - PolicyIterator, Companion Guide - PolicyIterator, Overview - TensorStridePolicy
 
@@ -96,7 +96,7 @@ Because policies are template parameters, dispatch is resolved at compile timeâ€
 
 | Feature | Mechanism | Benefit |
 |---------|-----------|---------|
-| Zero-overhead abstraction | Static dispatch via templates | Same codegen as manual loop |
+| Static-dispatch abstraction | Policy templates | Optimizer-visible policy operations |
 | Bounds-safe by default | Debug-mode `enforce` checks | Catches past-end dereference |
 | STL algorithm compatible | Proper iterator category tags | Works with `std::accumulate`, etc. |
 | Policy composition | Nest policies or combine at call site | Filter + transform without new class |
@@ -105,17 +105,15 @@ Because policies are template parameters, dispatch is resolved at compile timeâ€
 
 ## Performance
 
-| Operation | Manual Loop | PolicyIterator | Overhead |
-|-----------|-------------|----------------|----------|
-| Sequential sum (1M elements) | 0.89 ms | 0.89 ms | **0%** |
-| Stride-4 sum (1M elements) | 0.23 ms | 0.23 ms | **0%** |
-| Filter (50% pass rate) | 1.12 ms | 1.15 ms | **~3%** |
+Static dispatch avoids a required virtual call, but target code generation and
+runtime cost depend on the compiler, flags, selected policy, predicate state,
+and workload. Benchmark hot paths against the corresponding manual traversal.
 
 ---
 
 ## Where PolicyIterator Wins
 
-- **Code reuse without performance loss**
+- **Code reuse with compile-time dispatch**
 - **Debug-mode safety** via `enforce()` checks
 - **STL compatibility** for algorithms
 
@@ -131,7 +129,7 @@ Because policies are template parameters, dispatch is resolved at compile timeâ€
 
 | Criterion | Manual | C++20 Ranges | Boost.Iterator | PolicyIterator |
 |-----------|--------|--------------|----------------|----------------|
-| Zero overhead | Yes | Varies | Varies | **Yes** |
+| Compile-time dispatch | N/A | Usually | Depends on adaptor | **Yes** |
 | No dependencies | Yes | C++20 | Boost | **Header-only** |
 | Debug safety | Manual | No | No | **Yes** |
 

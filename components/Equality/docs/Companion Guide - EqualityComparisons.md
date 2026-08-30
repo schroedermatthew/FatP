@@ -4,7 +4,7 @@
 
 ---
 
-**Scope:** This guide covers FAT-P's equality comparison framework: `EqualityComparisons.h` for recursive tolerance-based comparison through containers and composites, `EqualityAny.h` for type-erased comparison via registry, and `EqualityTensor.h` as a worked example of custom type integration. Ordering comparisons (`<`, `>`), hashing, and serialization are not covered.
+**Scope:** This guide covers FAT-P's equality comparison framework: `EqualityComparisons.h` for recursive tolerance-based comparison through containers and composites, `EqualityAny.h` for type-erased comparison via registry, and `TensorEquality.h` as a worked example of custom type integration. Ordering comparisons (`<`, `>`), hashing, and serialization are not covered.
 
 ---
 
@@ -33,7 +33,7 @@
 
 12. [Case Study: Serialization Round-Trip Testing](#chapter-12--case-study-serialization-round-trip-testing)
 13. [Case Study: Scientific Simulation Validation](#chapter-13--case-study-scientific-simulation-validation)
-14. [Case Study: EqualityTensor - Building a Custom Integration](#chapter-14--case-study-equalitytensor---building-a-custom-integration)
+14. [Case Study: TensorEquality - Building a Custom Integration](#chapter-14--case-study-tensorequality---building-a-custom-integration)
 15. [Choosing Your Comparison Strategy](#chapter-15--choosing-your-comparison-strategy)
 16. [Migration from Manual Comparison Code](#chapter-16--migration-from-manual-comparison-code)
 
@@ -1542,19 +1542,20 @@ ASSERT(areEqual<RelativeComparisonPolicy>(computed.velocity, reference.velocity,
 
 ---
 
-# **CHAPTER 14 -- Case Study: EqualityTensor -- Building a Custom Integration**
+# **CHAPTER 14 -- Case Study: TensorEquality -- Building a Custom Integration**
 
 ## The Challenge
 
 The `Tensor<T>` class represents multi-dimensional numerical arrays with configurable memory layout, striding, and iterator policies. Standard comparison approaches fall short:
 
 - `operator==` is exact--no tolerance for floating-point elements
-- Element-by-element loops don't understand strided layouts
+- Owner-only dispatcher loops compare canonical owner values; general owner/view
+  comparison uses `exactEqual` or `approxEqual` from `TensorAlgorithms.h`
 - Diagnostics report linear indices, not multi-dimensional coordinates
 
 We need to integrate Tensor with EqualityComparisons, preserving:
 1. Shape comparison (dimensions must match)
-2. Stride awareness (views may have non-contiguous memory)
+2. Logical-value semantics independent of allocator state
 3. Element-wise tolerance for floating-point data
 4. Policy propagation (same tolerance rules as scalars)
 5. Structural diagnostics (which element, in which dimension)
@@ -1572,17 +1573,14 @@ flowchart TB
     end
     
     subgraph New["New Tensor Specialization"]
-        Tensor["Tensor<T, Alloc, IteratorPolicy>"]
+        Tensor["Tensor<T, Alloc>"]
         Shape["Check shape match"]
-        Stride["Check stride match"]
         Elem["Element-wise via iterators"]
         Diag["Multi-dimensional diagnostics"]
         
         Tensor --> Shape
         Shape -->|"mismatch"| Fail1["Return false + log shapes"]
-        Shape -->|"match"| Stride
-        Stride -->|"mismatch"| Fail2["Return false + log strides"]
-        Stride -->|"match"| Elem
+        Shape -->|"match"| Elem
         Elem -->|"element differs"| Diag
         Diag --> Log["Log index [i, j, k] + values"]
     end
@@ -1593,30 +1591,22 @@ flowchart TB
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Shape mismatch | Return false, log both shapes | Can't meaningfully compare different-shaped tensors |
-| Stride comparison | Compare strides explicitly | Different layouts may indicate semantic difference (view vs copy) |
-| Element traversal | Use tensor's own iterators | Handles non-contiguous views correctly |
+| Layout comparison | Ignore physical layout | Equality is a logical value relation |
+| Element traversal | Use the shared Tensor iteration kernel | Owners and views follow one logical order |
 | Index reporting | Linear + multi-dimensional | "[847] = [8, 4, 7]" is more useful than just "847" |
 
 ## The Implementation
 
 ```cpp
-template <typename T, typename Alloc, typename IteratorPolicy, typename Policy>
-struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
+template <typename T, typename Alloc, typename Policy>
+struct EqualDispatcher<Tensor<T, Alloc>, Policy> {
     template <typename... EpsParams>
-    static bool compare(const Tensor<T, Alloc, IteratorPolicy>& a,
-                        const Tensor<T, Alloc, IteratorPolicy>& b,
+    static bool compare(const Tensor<T, Alloc>& a,
+                        const Tensor<T, Alloc>& b,
                         EpsParams... eps) {
         // Shape check
-        if (a.shape() != b.shape()) {
-            LOG_ERROR("Tensor shapes differ: " + formatShape(a.shape()) +
-                      " vs " + formatShape(b.shape()));
-            return false;
-        }
-        
-        // Stride check
-        if (a.strides() != b.strides()) {
-            LOG_ERROR("Tensor strides differ: " + formatStrides(a.strides()) +
-                      " vs " + formatStrides(b.strides()));
+        if (a.extents() != b.extents()) {
+            LOG_ERROR("Tensor extents differ");
             return false;
         }
         
@@ -1627,7 +1617,7 @@ struct EqualDispatcher<Tensor<T, Alloc, IteratorPolicy>, Policy> {
         for (size_t i = 0; i < a.size(); ++i, ++it_a, ++it_b) {
             if constexpr (std::is_floating_point_v<T>) {
                 if (!Policy::epsilonMatch(*it_a, *it_b, eps...)) {
-                    auto coords = linearToMultiIndex(i, a.shape());
+                    auto coords = linearToMultiIndex(i, a.extents().values());
                     LOG_ERROR("Tensor elements differ at index " + 
                               std::to_string(i) + " " + formatCoords(coords) +
                               ":\n  Expected: " + toString(*it_a) +
@@ -1665,7 +1655,7 @@ std::vector<size_t> linearToMultiIndex(size_t linear, const std::vector<size_t>&
 ```cpp
 #include "Tensor.h"
 #include "EqualityComparisons.h"
-#include "EqualityTensor.h"  // The specialization
+#include "TensorEquality.h"  // The specialization
 
 Tensor<float> computed({100, 100}, 0.0f);
 Tensor<float> reference({100, 100}, 0.0f);

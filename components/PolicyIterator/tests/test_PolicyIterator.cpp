@@ -894,17 +894,14 @@ FATP_TEST_CASE(tensor_padded_layout)
 
 FATP_TEST_CASE(stride1d_basic)
 {
-    // Basic 1D strided iteration
-    // Contract: end must equal base + count*stride
-    // So buffer must be at least count*stride = 4*3 = 12 elements
-    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    // The real allocation ends immediately after the last visited element.
+    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     // Every 3rd element starting at 0: indices 0, 3, 6, 9
     Stride1DPolicy<int> policy(4, 3); // 4 elements, stride 3
 
-    // end = base + count*stride = base + 12
     int* base = data.data();
-    int* end = base + 4 * 3; // Contract-compliant end
+    int* end = base + data.size();
 
     auto it = PolicyIterator<int, Stride1DPolicy<int>>::begin(base, end, policy);
     auto endIt = PolicyIterator<int, Stride1DPolicy<int>>::end(base, end, policy);
@@ -947,12 +944,11 @@ FATP_TEST_CASE(stride1d_column_sum)
 
 FATP_TEST_CASE(stride1d_bidirectional)
 {
-    // Contract: end must equal base + count*stride
-    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
     Stride1DPolicy<int> policy(4, 3);
     int* base = data.data();
-    int* end = base + 4 * 3; // Contract-compliant end
+    int* end = base + data.size();
 
     auto it = PolicyIterator<int, Stride1DPolicy<int>>::begin(base, end, policy);
     auto endIt = PolicyIterator<int, Stride1DPolicy<int>>::end(base, end, policy);
@@ -1029,13 +1025,15 @@ FATP_TEST_CASE(tensor_column_major_traversal_correct)
 
 FATP_TEST_CASE(stride2d_single_column)
 {
-    // Iterate just one column of a matrix
+    // Iterate a nonzero column without constructing parent_end + column.
     std::vector<int> data = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
 
-    // 3 rows, 1 col, rowStride=4, colStride=1
+    // 3 rows, column 1, rowStride=4, colStride=1
     Stride2DPolicy<int> policy(3, 1, 4, 1);
-    auto it = PolicyIterator<int, Stride2DPolicy<int>>::begin(data.data(), data.data() + data.size(), policy);
-    auto end = PolicyIterator<int, Stride2DPolicy<int>>::end(data.data(), data.data() + data.size(), policy);
+    int* base = data.data() + 1;
+    int* allocationEnd = data.data() + data.size();
+    auto it = PolicyIterator<int, Stride2DPolicy<int>>::begin(base, allocationEnd, policy);
+    auto end = PolicyIterator<int, Stride2DPolicy<int>>::end(base, allocationEnd, policy);
 
     std::vector<int> result;
     for (; it != end; ++it)
@@ -1043,8 +1041,8 @@ FATP_TEST_CASE(stride2d_single_column)
         result.push_back(*it);
     }
 
-    std::vector<int> expected = {0, 4, 8}; // First column
-    return check_sequence(result, expected, "Stride2D single column");
+    std::vector<int> expected = {1, 5, 9};
+    return check_sequence(result, expected, "Stride2D nonzero column");
 }
 
 FATP_TEST_CASE(stride2d_bidirectional)
@@ -1249,7 +1247,7 @@ FATP_TEST_CASE(reverse_iterator_transform)
 
 FATP_TEST_CASE(iterate_nd_1d_basic)
 {
-    // 1D iteration should work and use Stride1DPolicy internally
+    // 1D iteration follows the requested stride.
     std::vector<int> data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
     int64_t sum = 0;
@@ -1275,9 +1273,21 @@ FATP_TEST_CASE(iterate_nd_1d_strided)
     return true;
 }
 
+FATP_TEST_CASE(iterate_nd_nonzero_column_minimal_span)
+{
+    std::vector<int> matrix = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+    std::vector<int> values;
+
+    iterateND(matrix.data() + 1, {3}, {3}, [&](int value) {
+        values.push_back(value);
+    });
+
+    return check_sequence(values, {1, 4, 7}, "iterateND nonzero column");
+}
+
 FATP_TEST_CASE(iterate_nd_2d_basic)
 {
-    // 2D iteration should work and use Stride2DPolicy internally
+    // 2D iteration follows both requested strides.
     std::vector<int> data = {1, 2, 3, 4, 5, 6};
 
     int64_t sum = 0;
@@ -1306,7 +1316,7 @@ FATP_TEST_CASE(iterate_nd_2d_contiguous)
 
 FATP_TEST_CASE(iterate_nd_3d_basic)
 {
-    // 3D iteration: outer loop + Stride2DPolicy for inner 2D
+    // 3D iteration recurses over the outer dimension.
     std::vector<int> data(2 * 3 * 4);
     std::iota(data.begin(), data.end(), 1); // 1..24
 
@@ -1336,7 +1346,7 @@ FATP_TEST_CASE(iterate_nd_3d_contiguous)
 
 FATP_TEST_CASE(iterate_nd_4d_basic)
 {
-    // 4D iteration: 2 outer loops + Stride2DPolicy for inner 2D
+    // 4D iteration recurses over the outer dimensions.
     std::vector<int> data(2 * 2 * 3 * 4);
     std::iota(data.begin(), data.end(), 1); // 1..48
 
@@ -1561,6 +1571,22 @@ FATP_TEST_CASE(iterate_nd_zero_dim_contract)
     }
 
     FATP_ASSERT_TRUE(caught, "Zero dimension should throw");
+    return true;
+}
+
+FATP_TEST_CASE(iterate_nd_null_base_contract)
+{
+    bool caught = false;
+    try
+    {
+        iterateND(static_cast<int*>(nullptr), {1}, {1}, [](int) {});
+    }
+    catch (const std::logic_error&)
+    {
+        caught = true;
+    }
+
+    FATP_ASSERT_TRUE(caught, "Null base should throw");
     return true;
 }
 
@@ -1819,11 +1845,10 @@ FATP_TEST_CASE(contract_stride2d_non_monotonic)
 
 FATP_TEST_CASE(contract_stride1d_span_mismatch)
 {
-    // Verify: end - base must equal count * stride
+    // The allocation must extend through the last logical element.
     std::vector<int> data(10); // Span = 10
 
-    // Policy expects span = count * stride = 5 * 3 = 15
-    // But we pass end = base + 10, so span mismatch
+    // Last offset is 12, so the minimum span is 13.
     Stride1DPolicy<int> policy(5, 3);
 
     bool caught = false;
@@ -1838,17 +1863,16 @@ FATP_TEST_CASE(contract_stride1d_span_mismatch)
         caught = true;
     }
 
-    FATP_ASSERT_TRUE(caught, "Stride1D span mismatch should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride1D short buffer should throw in debug");
     return true;
 }
 
 FATP_TEST_CASE(contract_stride2d_span_mismatch)
 {
-    // Verify: end - base must equal rows * rowStride
+    // The allocation must extend through the last logical element.
     std::vector<int> data(10); // Span = 10
 
-    // Policy expects span = rows * rowStride = 3 * 4 = 12
-    // But we pass end = base + 10, so span mismatch
+    // Last offset is 11, so the minimum span is 12.
     Stride2DPolicy<int> policy(3, 4); // 3 rows, 4 cols
 
     bool caught = false;
@@ -1863,7 +1887,7 @@ FATP_TEST_CASE(contract_stride2d_span_mismatch)
         caught = true;
     }
 
-    FATP_ASSERT_TRUE(caught, "Stride2D span mismatch should throw in debug");
+    FATP_ASSERT_TRUE(caught, "Stride2D short buffer should throw in debug");
     return true;
 }
 
@@ -2238,6 +2262,7 @@ bool test_PolicyIterator()
     std::cout << "\n" << colors::blue() << "--- TensorIteration Composition Helpers ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_basic);
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_1d_strided);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_nonzero_column_minimal_span);
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_basic);
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_2d_contiguous);
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_3d_basic);
@@ -2260,6 +2285,7 @@ bool test_PolicyIterator()
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_mismatch_contract);
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_stride_contract);
     FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_zero_dim_contract);
+    FATP_RUN_TEST_NS(runner, policyiterator, iterate_nd_null_base_contract);
     FATP_RUN_TEST_NS(runner, policyiterator, for_each_slice_zero_stride_contract);
     FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_advance_past_end);
     FATP_RUN_TEST_NS(runner, policyiterator, contract_tensor_retreat_before_begin);

@@ -3,7 +3,7 @@
 **Status:** Active  
 **Applies to:** All `.github/workflows/*.yml` files for Fat-P components  
 **Authority:** Subordinate to the *Fat-P Library Development Guidelines*  
-**Version:** 3.0 (February 2026)
+**Version:** 3.1 (February 2026)
 
 ---
 
@@ -47,7 +47,12 @@ scripts/                                    # Verification scripts
 ### 3.1 Component CI Workflows
 
 **Component CI workflows trigger on push, pull_request, and support manual dispatch.**
-Each component workflow triggers on pushes and PRs that modify its own files, plus manual dispatch for on-demand runs. Component CI workflows do **not** contain benchmark jobs.
+Each component workflow triggers on pushes and PRs that modify its public header,
+implementation headers, benchmark source, or workflow definition, plus manual
+dispatch for on-demand runs. Test-source changes are covered by the aggregate
+`fatp-test-core.yml` workflow so the same edit does not start both the component
+and aggregate test matrices. Component CI workflows do **not** contain benchmark
+jobs.
 
 **Required trigger block (component CI workflows):**
 ```yaml
@@ -56,20 +61,28 @@ on:
   push:
     paths:
       - 'include/fat_p/<Header>.h'
-      - 'components/<Component>/tests/<test_file>.cpp'
       - 'components/<Component>/benchmarks/<bench_file>.cpp'
       - '.github/workflows/<component-name>.yml'
   pull_request:
     paths:
       - 'include/fat_p/<Header>.h'
-      - 'components/<Component>/tests/<test_file>.cpp'
       - 'components/<Component>/benchmarks/<bench_file>.cpp'
       - '.github/workflows/<component-name>.yml'
 ```
 
-Replace `<Header>`, `<Component>`, `<test_file>`, `<bench_file>`, and `<component-name>` with the actual component names. The `push` and `pull_request` paths must be identical.
+Replace `<Header>`, `<Component>`, `<bench_file>`, and `<component-name>` with the actual component names. The `push` and `pull_request` paths must be identical.
+
+When a public facade owns implementation headers under
+`include/fat_p/<component_group>/`, the component workflow MUST also list those
+implementation paths. An implementation-only change must trigger the same
+component CI as a facade change.
 
 Benchmark source paths are included so that CI validates benchmark code compiles (via the strict-warnings and header-check jobs that exercise the include graph), even though benchmarks run in the separate benchmark workflow.
+
+Component test sources, including `*_HeaderSelfContained.cpp`, MUST be matched by
+the aggregate test workflow's `components/**/tests/test_*.cpp` trigger. Do not
+also list them in a component workflow unless the duplicate CI run is deliberate
+and documented.
 
 Rationale:
 - Push triggers with path filtering ensure changes are validated immediately without running unrelated workflows.

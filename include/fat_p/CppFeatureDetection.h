@@ -158,6 +158,12 @@ FATP_META:
 #define FATP_HAS_STACKTRACE 0
 #endif
 
+#if FATP_CPP23_OR_LATER && defined(__has_include)
+#if __has_include(<mdspan>)
+#include <mdspan>
+#endif
+#endif
+
 #if defined(__cpp_lib_mdspan) && __cpp_lib_mdspan >= 202207L
 #define FATP_HAS_MDSPAN 1
 #else
@@ -206,4 +212,3 @@ inline constexpr const char* cplusplus_string() noexcept
 }
 
 } // namespace fat_p
-

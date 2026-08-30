@@ -4,7 +4,7 @@
 #   component: Tooling
 #   file_role: tooling
 #   path: tools/validate_layers.py
-#   summary: "Validator for layer assignments across public headers."
+#   summary: "Recursive validator for layer assignments across Fat-P headers."
 #   api_stability: in_work
 #   layer: Infrastructure
 #   related:
@@ -44,7 +44,7 @@ def extract_layer(content: str) -> str:
         return match.group(1)
     return None
 
-def extract_includes(content: str) -> list:
+def extract_includes(content: str) -> list[str]:
     """Extract all fat_p includes from file content (ignoring comments)."""
     includes = []
     for line in content.split('\n'):
@@ -52,11 +52,29 @@ def extract_includes(content: str) -> list:
         stripped = line.strip()
         if stripped.startswith('//') or stripped.startswith('*'):
             continue
-        # Match #include "Something.h" or #include "fat_p/Something.h"
-        match = re.search(r'#include\s*[<"](?:fat_p/)?(\w+\.h)[>"]', line)
+        # Match root headers and owned implementation paths.
+        match = re.search(r'#include\s*[<"](?:fat_p/)?([A-Za-z0-9_./-]+\.h)[>"]', line)
         if match:
             includes.append(match.group(1))
     return includes
+
+
+def resolve_include(header: str, included: str, header_layers: dict[str, str]) -> str | None:
+    """Resolve an include using quoted-include sibling precedence, then the include root."""
+    normalized = included.replace('\\', '/')
+    if '/' in normalized and normalized in header_layers:
+        return normalized
+
+    parent = Path(header).parent
+    sibling = (parent / normalized).as_posix()
+    if sibling in header_layers:
+        return sibling
+
+    if normalized in header_layers:
+        return normalized
+
+    matches = [candidate for candidate in header_layers if Path(candidate).name == normalized]
+    return matches[0] if len(matches) == 1 else None
 
 def main():
     # Auto-detect repo root: script is in tools/, headers in include/fat_p/
@@ -78,8 +96,8 @@ def main():
     header_layers = {}
     header_contents = {}
     
-    for header_path in sorted(headers_dir.glob('*.h')):
-        name = header_path.name
+    for header_path in sorted(headers_dir.rglob('*.h')):
+        name = header_path.relative_to(headers_dir).as_posix()
         content = header_path.read_text(encoding='utf-8', errors='replace')
         header_contents[name] = content
         layer = extract_layer(content)
@@ -119,10 +137,11 @@ def main():
         includes = extract_includes(content)
         
         for inc in includes:
-            if inc not in header_layers:
+            resolved = resolve_include(header, inc, header_layers)
+            if resolved is None:
                 # External or std include, skip
                 continue
-            inc_layer = header_layers[inc]
+            inc_layer = header_layers[resolved]
             if inc_layer is None:
                 continue
             if inc_layer not in LAYER_RANK:
@@ -133,7 +152,7 @@ def main():
                 violations.append({
                     'header': header,
                     'header_layer': layer,
-                    'includes': inc,
+                    'includes': resolved,
                     'inc_layer': inc_layer
                 })
     

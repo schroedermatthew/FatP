@@ -14,7 +14,7 @@ FATP_META:
     docs_search: "EqualityComparisons"
     tests:
       - components/Equality/tests/test_EqualityComparisons.cpp
-      - components/Tensor/tests/test_TensorComparison.cpp
+      - components/Tensor/tests/test_TensorEquality.cpp
   hygiene:
     pragma_once: true
     include_guard: false

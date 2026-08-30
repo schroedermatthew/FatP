@@ -230,6 +230,12 @@ FatP/
 â””â”€â”€ .github/workflows/          # CI workflows (metadata-exempt; YAML)
 ```
 
+Public API names remain flat under `include/fat_p/`. A component with several
+tightly related headers may keep stable public facades in that directory and
+place facade-owned implementation headers under
+`include/fat_p/<component_group>/`. Nested implementation headers are installed
+dependencies of their facades; they are not the user-facing include path.
+
 #### 1.7.1 Path conventions
 
 **FATP_META.path**
@@ -237,6 +243,9 @@ FatP/
 - `FATP_META.path` MUST be the **repo-relative path** using forward slashes.
 - Public headers under `include/fat_p/` MUST use:
   - `include/fat_p/<Header>.h`
+- Facade-owned implementation headers MUST use their real nested path, for
+  example `include/fat_p/tensor/Tensor.h`, and MUST use
+  `file_role: internal_header`.
 - Component-local sources MUST use their real location, for example:
   - `components/AlignedVector/tests/test_AlignedVector.cpp`
   - `components/Stringify/benchmarks/benchmark_Stringify.cpp`
@@ -245,6 +254,8 @@ FatP/
 
 - Include public headers as:
   - `#include "Stringify.h"`
+- A flat public facade MAY include its owned implementation with a relative
+  grouped path, for example `#include "tensor/Tensor.h"`.
 - The build system MUST provide `include/fat_p/` on the include path for all targets that consume Fat-P.
 - **Ordering:** Group includes by architectural layer with alphabetical sort within each group. See §5.11 for details.
 

@@ -47,6 +47,154 @@ COMPONENT_GCC_CPP23_EXTRA_LIBS = {
 
 FATP_AGGREGATE_WORKFLOW = "fatp-test-core.yml"
 
+# Public facades stay flat, while these components own implementation headers
+# in grouped subdirectories. Keep both paths in the component trigger so a
+# facade-only API and its implementation cannot drift outside CI coverage.
+EXTRA_TRIGGER_PATHS = {
+    "policy-iterator.yml": [
+        "include/fat_p/TensorIteration.h",
+        "include/fat_p/TensorStridePolicy.h",
+        "include/fat_p/policy_iterator/**",
+        "components/PolicyIterator/docs/*TensorStridePolicy.md",
+        "components/PolicyIterator/tests/test_TensorIteration_HeaderSelfContained.cpp",
+        "components/PolicyIterator/tests/test_TensorStridePolicy_HeaderSelfContained.cpp",
+    ],
+    "tensor.yml": [
+        "include/fat_p/AlignedVector.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorExtents.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorIterationPlan.h",
+        "include/fat_p/tensor/TensorKernels.h",
+    ],
+    "tensor-layout.yml": [
+        "include/fat_p/tensor/TensorExtents.h",
+        "include/fat_p/tensor/TensorLayout.h",
+    ],
+    "tensor-view.yml": [
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorExtents.h",
+        "include/fat_p/tensor/TensorLayout.h",
+    ],
+    "tensor-algorithms.yml": [
+        "include/fat_p/tensor/TensorAlgorithms.h",
+        "include/fat_p/tensor/TensorIterationPlan.h",
+        "include/fat_p/tensor/TensorKernels.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-slice.yml": [
+        "include/fat_p/tensor/TensorSlice.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+        "include/fat_p/tensor/Tensor.h",
+    ],
+    "tensor-reductions.yml": [
+        "include/fat_p/tensor/TensorReductions.h",
+        "include/fat_p/tensor/TensorAlgorithms.h",
+        "include/fat_p/tensor/TensorIterationPlan.h",
+        "include/fat_p/tensor/TensorKernels.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-interop.yml": [
+        "include/fat_p/tensor/TensorInterop.h",
+        "include/fat_p/tensor/TensorStatic.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-matmul.yml": [
+        "include/fat_p/tensor/TensorMatmul.h",
+        "include/fat_p/tensor/TensorReductions.h",
+        "include/fat_p/tensor/TensorAlgorithms.h",
+        "include/fat_p/tensor/TensorIterationPlan.h",
+        "include/fat_p/tensor/TensorKernels.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-selection.yml": [
+        "include/fat_p/tensor/TensorSelection.h",
+        "include/fat_p/tensor/TensorAlgorithms.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-equality.yml": [
+        "include/fat_p/tensor/TensorEquality.h",
+        "include/fat_p/tensor/TensorKernels.h",
+        "include/fat_p/tensor/TensorIterationPlan.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-einsum.yml": [
+        "include/fat_p/tensor/TensorEinsum.h",
+        "include/fat_p/tensor/TensorKernels.h",
+        "include/fat_p/tensor/TensorIterationPlan.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+    "tensor-static.yml": ["include/fat_p/tensor/TensorStatic.h"],
+    "tensor-serializer.yml": [
+        "include/fat_p/tensor/TensorSerializer.h",
+        "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorView.h",
+        "include/fat_p/tensor/TensorLayout.h",
+        "include/fat_p/tensor/TensorExtents.h",
+    ],
+}
+
+# Tensor's semantic contract requires assertions-enabled Debug coverage in
+# addition to the ordinary optimized matrix. Keep this opt-in so the generated
+# workflow cost is deliberate rather than silently multiplied for every
+# component.
+DEBUG_WORKFLOWS = {
+    "tensor.yml",
+    "tensor-layout.yml",
+    "tensor-view.yml",
+    "tensor-algorithms.yml",
+    "tensor-slice.yml",
+    "tensor-reductions.yml",
+    "tensor-interop.yml",
+    "tensor-matmul.yml",
+    "tensor-selection.yml",
+}
+
+# Sanitizer sources are compiled and executed one translation unit at a time.
+# Future Tensor layout/kernel conformance files belong in this list so they do
+# not accidentally miss pointer and signed-offset instrumentation.
+SANITIZER_TEST_SOURCES = {
+    "tensor.yml": [
+        "components/Tensor/tests/test_Tensor.cpp",
+        "components/Tensor/tests/test_TensorLayout.cpp",
+        "components/Tensor/tests/test_TensorView.cpp",
+        "components/Tensor/tests/test_TensorAlgorithms.cpp",
+        "components/Tensor/tests/test_TensorSlice.cpp",
+        "components/Tensor/tests/test_TensorReductions.cpp",
+        "components/Tensor/tests/test_TensorInterop.cpp",
+        "components/Tensor/tests/test_TensorMatmul.cpp",
+        "components/Tensor/tests/test_TensorSelection.cpp",
+    ],
+}
+
+ADDITIONAL_HEADER_CHECKS = {
+    "policy-iterator.yml": ["TensorIteration.h", "TensorStridePolicy.h"],
+}
+
 STANDARD_COMPONENTS = [
     # =========================================================================
     # Components WITH benchmarks
@@ -159,24 +307,45 @@ STANDARD_COMPONENTS = [
     ("xml-lite.yml", "XmlLite", "XmlLite.h",
      "components/Xml/tests/test_XmlLite.cpp", None),
 
-    # --- Tensor (6 test files) ---
+    # --- Tensor ---
     ("tensor.yml", "Tensor", "Tensor.h",
-     "components/Tensor/tests/test_Tensor.cpp", None),
+     "components/Tensor/tests/test_Tensor.cpp", "components/Tensor/benchmarks/benchmark_Tensor.cpp"),
 
-    ("tensor-comparison.yml", "TensorComparison", "EqualityTensor.h",
-     "components/Tensor/tests/test_TensorComparison.cpp", None),
+    ("tensor-layout.yml", "TensorLayout", "TensorLayout.h",
+     "components/Tensor/tests/test_TensorLayout.cpp", None),
+
+    ("tensor-view.yml", "TensorView", "TensorView.h",
+     "components/Tensor/tests/test_TensorView.cpp", None),
+
+    ("tensor-algorithms.yml", "TensorAlgorithms", "TensorAlgorithms.h",
+     "components/Tensor/tests/test_TensorAlgorithms.cpp", None),
+
+    ("tensor-slice.yml", "TensorSlice", "TensorSlice.h",
+     "components/Tensor/tests/test_TensorSlice.cpp", None),
+
+    ("tensor-reductions.yml", "TensorReductions", "TensorReductions.h",
+     "components/Tensor/tests/test_TensorReductions.cpp", None),
+
+    ("tensor-interop.yml", "TensorInterop", "TensorInterop.h",
+     "components/Tensor/tests/test_TensorInterop.cpp", None),
+
+    ("tensor-matmul.yml", "TensorMatmul", "TensorMatmul.h",
+     "components/Tensor/tests/test_TensorMatmul.cpp", None),
+
+    ("tensor-selection.yml", "TensorSelection", "TensorSelection.h",
+     "components/Tensor/tests/test_TensorSelection.cpp", None),
+
+    ("tensor-equality.yml", "TensorEquality", "TensorEquality.h",
+     "components/Tensor/tests/test_TensorEquality.cpp", None),
 
     ("tensor-einsum.yml", "TensorEinsum", "TensorEinsum.h",
      "components/Tensor/tests/test_TensorEinsum.cpp", None),
 
-    ("tensor-math.yml", "TensorMath", "TensorMath.h",
-     "components/Tensor/tests/test_TensorMath.cpp", None),
+    ("tensor-static.yml", "TensorStatic", "TensorStatic.h",
+     "components/Tensor/tests/test_TensorStatic.cpp", None),
 
     ("tensor-serializer.yml", "TensorSerializer", "TensorSerializer.h",
      "components/Tensor/tests/test_TensorSerializer.cpp", None),
-
-    ("tensor-storage.yml", "TensorStorage", "TensorStorage.h",
-     "components/Tensor/tests/test_TensorStorage.cpp", None),
 
     # --- CSRMatrix (4 test files) ---
     ("csr-matrix.yml", "CSRMatrix", "CSRMatrix.h",
@@ -360,6 +529,7 @@ def generate_header_block(filename, component, header, test_src, bench_src):
     ]
     if bench_src:
         lines.append(f"#   Benchmarks: {bench_src}")
+        lines.append("#   Execution:  separate manual benchmark workflow")
     lines.append(f"# =============================================================================")
     return "\n".join(lines)
 
@@ -412,7 +582,7 @@ def aggregate_unix_build(compiler_line, extra_flags="", link_setup=""):
             "${{TEST_SRCS[@]}}" -o test_bin $LINK_EXTRA"""
 
 
-def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src):
+def generate_trigger_block(filename, header, test_src, bench_src):
     """Generate the on: trigger block with push/pull_request path triggers."""
     # Unit test .cpp changes are covered by fatp-test-core.yml (aggregate link +
     # full suite). Listing test_src here too would fire this workflow on every
@@ -420,30 +590,14 @@ def generate_trigger_block(has_benchmarks, filename, header, test_src, bench_src
     paths = [
         f"include/fat_p/{header}",
     ]
+    paths.extend(EXTRA_TRIGGER_PATHS.get(filename, []))
     if bench_src:
         paths.append(bench_src)
     paths.append(f".github/workflows/{filename}")
 
     path_yaml = "\n".join(f"      - '{p}'" for p in paths)
 
-    if has_benchmarks:
-        return f"""
-on:
-  workflow_dispatch:
-    inputs:
-      run_benchmarks:
-        description: 'Run benchmarks'
-        required: false
-        default: 'false'
-        type: boolean
-  push:
-    paths:
-{path_yaml}
-  pull_request:
-    paths:
-{path_yaml}"""
-    else:
-        return f"""
+    return f"""
 on:
   workflow_dispatch:
   push:
@@ -454,7 +608,7 @@ on:
 {path_yaml}"""
 
 
-def generate_env_block(header, test_src, bench_src):
+def generate_env_block(header, test_src, sanitizer_sources=None):
     """Generate the env: block."""
     lines = [
         "",
@@ -462,9 +616,68 @@ def generate_env_block(header, test_src, bench_src):
         f"  HEADER: {header}",
         f"  TEST_SRC: {test_src}",
     ]
-    if bench_src:
-        lines.append(f"  BENCH_SRC: {bench_src}")
+    if sanitizer_sources:
+        lines.append(f"  SANITIZER_TEST_SRCS: {' '.join(sanitizer_sources)}")
     return "\n".join(lines)
+
+
+def generate_debug_jobs(test_src, include_msvc=True):
+    """Generate assertions-enabled C++20 jobs for contract-heavy components."""
+    bs_test = backslash_path(test_src)
+    msvc_job = ""
+    if include_msvc:
+        msvc_job = f"""
+
+  debug-windows-msvc:
+    name: Debug Windows MSVC C++20
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Setup MSVC
+        uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+      - name: Build assertions-enabled tests
+        shell: cmd
+        run: cl /std:c++20 /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /Od /Zi /DENABLE_TEST_APPLICATION /I.\\include\\fat_p {bs_test} /Fe:test_debug.exe /link advapi32.lib
+      - name: Run tests
+        run: .\\test_debug.exe"""
+
+    return f"""
+  # ===========================================================================
+  # Assertions-enabled Debug builds (C++20)
+  # ===========================================================================
+  debug-linux-gcc:
+    name: Debug Linux GCC-13 C++20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build assertions-enabled tests
+        run: |
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \\
+            -O0 -g3 -DENABLE_TEST_APPLICATION -I./include/fat_p \\
+            ${{{{ env.TEST_SRC }}}} -o test_debug
+      - name: Run tests
+        run: ./test_debug
+
+  debug-linux-clang:
+    name: Debug Linux Clang-16 C++20
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Clang
+        run: |
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 16
+      - name: Build assertions-enabled tests
+        run: |
+          clang++-16 -std=c++20 -Wall -Wextra -Wpedantic -Werror \\
+            -Wno-gnu-zero-variadic-macro-arguments \\
+            -O0 -g3 -DENABLE_TEST_APPLICATION -I./include/fat_p \\
+            ${{{{ env.TEST_SRC }}}} -o test_debug
+      - name: Run tests
+        run: ./test_debug{msvc_job}"""
 
 
 def generate_linux_gcc_job(gcc_cpp23_extra_libs="", aggregate=False):
@@ -502,6 +715,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - version: 12
+            std: 20
           - version: 13
             std: 20
           - version: 14
@@ -615,9 +830,27 @@ def generate_windows_msvc_job(test_src, aggregate=False):
         run: .\\test_bin.exe"""
 
 
-def generate_sanitizers(aggregate=False):
+def generate_sanitizers(aggregate=False, multiple_sources=False):
     compiler = "sccache g++-13 -std=c++20" if aggregate else "g++-13 -std=c++20"
-    build_prefix = (
+    if multiple_sources and not aggregate:
+        build_prefix = """          index=0
+          for src in ${{ env.SANITIZER_TEST_SRCS }}; do
+            bin="test_bin_${index}"
+            g++-13 -std=c++20 -Wall -Wextra -g -O1 \\
+              {flags} \\
+              -DENABLE_TEST_APPLICATION \\
+              -I./include/fat_p \\
+              "${src}" -o "${bin}"
+            index=$((index + 1))
+          done"""
+        run_command = """        run: |
+          index=0
+          for src in ${{ env.SANITIZER_TEST_SRCS }}; do
+            ./"test_bin_${index}"
+            index=$((index + 1))
+          done"""
+    else:
+        build_prefix = (
         f"""          mapfile -t TEST_SRCS < <(python tools/collect_fatp_test_sources.py)
           {compiler} -Wall -Wextra -g -O1 \\
             {{flags}} \\
@@ -629,7 +862,8 @@ def generate_sanitizers(aggregate=False):
             -DENABLE_TEST_APPLICATION \\
             -I./include/fat_p \\
             ${{ env.TEST_SRC }} -o test_bin"""
-    )
+        )
+        run_command = "        run: ./test_bin"
     sccache_before = sccache_setup_step() if aggregate else ""
     sccache_after = sccache_stats_step() if aggregate else ""
     return f"""
@@ -650,7 +884,7 @@ def generate_sanitizers(aggregate=False):
       - name: Run with ASan
         env:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
-        run: ./test_bin
+{run_command}
 
   sanitizer-ubsan:
 
@@ -666,7 +900,7 @@ def generate_sanitizers(aggregate=False):
       - name: Run with UBSan
         env:
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
-        run: ./test_bin
+{run_command}
 
   sanitizer-tsan:
 
@@ -682,10 +916,21 @@ def generate_sanitizers(aggregate=False):
       - name: Run with TSan
         env:
           TSAN_OPTIONS: halt_on_error=1
-        run: ./test_bin"""
+{run_command}"""
 
 
-def generate_header_check(component, header):
+def generate_header_check(component, header, additional_headers=None):
+    extra_checks = ""
+    if additional_headers:
+        commands = []
+        for extra_header in additional_headers:
+            commands.append(
+                f"""          echo '#include "{extra_header}"' > test_extra_include.cpp
+          echo 'int main() {{ return 0; }}' >> test_extra_include.cpp
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \\
+            -I./include/fat_p -c test_extra_include.cpp -o /dev/null"""
+            )
+        extra_checks = "\n\n" + "\n".join(commands)
     return f"""
   # ===========================================================================
   # Header Self-Containment (C++20)
@@ -705,6 +950,7 @@ def generate_header_check(component, header):
           g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror \\
             -I./include/fat_p \\
             -c test_include.cpp -o /dev/null
+{extra_checks}
 
           echo "Header is self-contained"
 
@@ -771,229 +1017,32 @@ def generate_strict_warnings(aggregate=False):
 {sccache_after}"""
 
 
-def generate_benchmark_jobs(component, bench_src):
-    bs_bench = backslash_path(bench_src)
-    return f"""
-  # ===========================================================================
-  # Benchmarks - Linux GCC (Manual)
-  # ===========================================================================
-  benchmarks-gcc:
-    name: Benchmark GCC-${{{{ matrix.version }}}} C++${{{{ matrix.std }}}}
-    runs-on: ubuntu-latest
-    if: ${{{{ inputs.run_benchmarks }}}}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - version: 13
-            std: 20
-          - version: 14
-            std: 23
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install GCC
-        run: sudo apt-get update && sudo apt-get install -y g++-${{{{ matrix.version }}}}
-
-      - name: Check AVX2 support
-        run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "AVX2 supported"
-          else
-            echo "AVX2 not supported on this runner"
-          fi
-
-      - name: Build benchmark
-        run: |
-          g++-${{{{ matrix.version }}}} -std=c++${{{{ matrix.std }}}} \\
-            -O3 -DNDEBUG -mavx2 -mfma \\
-            -I./include/fat_p \\
-            ${{{{ env.BENCH_SRC }}}} -o bench_bin -pthread
-
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_gcc${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.csv
-        run: ./bench_bin 2>&1 | tee benchmark_gcc${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v5
-        with:
-          name: benchmark-gcc${{{{ matrix.version }}}}-cpp${{{{ matrix.std }}}}
-          path: |
-            results_gcc${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.csv
-            benchmark_gcc${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.log
-
-  # ===========================================================================
-  # Benchmarks - Linux Clang (Manual)
-  # ===========================================================================
-  benchmarks-clang:
-    name: Benchmark Clang-${{{{ matrix.version }}}} C++${{{{ matrix.std }}}}
-    runs-on: ubuntu-22.04
-    if: ${{{{ inputs.run_benchmarks }}}}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - version: 16
-            std: 20
-          - version: 17
-            std: 23
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install Clang
-        run: |
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh ${{{{ matrix.version }}}}
-
-      - name: Check AVX2 support
-        run: |
-          if grep -q avx2 /proc/cpuinfo; then
-            echo "AVX2 supported"
-          else
-            echo "AVX2 not supported on this runner"
-          fi
-
-      - name: Build benchmark
-        run: |
-          clang++-${{{{ matrix.version }}}} -std=c++${{{{ matrix.std }}}} \\
-            -O3 -DNDEBUG -mavx2 -mfma \\
-            -I./include/fat_p \\
-            ${{{{ env.BENCH_SRC }}}} -o bench_bin -pthread
-
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: 1
-          FATP_BENCH_OUTPUT_CSV: results_clang${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.csv
-        run: ./bench_bin 2>&1 | tee benchmark_clang${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v5
-        with:
-          name: benchmark-clang${{{{ matrix.version }}}}-cpp${{{{ matrix.std }}}}
-          path: |
-            results_clang${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.csv
-            benchmark_clang${{{{ matrix.version }}}}_cpp${{{{ matrix.std }}}}.log
-
-  # ===========================================================================
-  # Benchmarks - Windows MSVC (Manual)
-  # ===========================================================================
-  benchmarks-msvc:
-    name: Benchmark MSVC C++${{{{ matrix.std }}}}
-    runs-on: windows-latest
-    if: ${{{{ inputs.run_benchmarks }}}}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - std: 20
-            flag: "/std:c++20"
-          - std: 23
-            flag: "/std:c++latest"
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup MSVC
-        uses: TheMrMilchmann/setup-msvc-dev@v4
-        with:
-          arch: x64
-
-      - name: Build benchmark
-        shell: cmd
-        run: cl /nologo ${{{{ matrix.flag }}}} /W4 /wd4324 /wd4127 /O2 /DNDEBUG /arch:AVX2 /EHsc /permissive- /Zc:preprocessor /I.\\include\\fat_p {bs_bench} /Fe:bench_bin.exe /link advapi32.lib
-
-      - name: Run benchmarks
-        env:
-          FATP_BENCH_WARMUP_RUNS: 3
-          FATP_BENCH_BATCHES: 20
-          FATP_BENCH_NO_STABILIZE: "1"
-          FATP_BENCH_OUTPUT_CSV: results_msvc_cpp${{{{ matrix.std }}}}.csv
-        run: |
-          .\\bench_bin.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp${{{{ matrix.std }}}}.log
-
-      - name: Upload results
-        uses: actions/upload-artifact@v5
-        with:
-          name: benchmark-msvc-cpp${{{{ matrix.std }}}}
-          path: |
-            results_msvc_cpp${{{{ matrix.std }}}}.csv
-            benchmark_msvc_cpp${{{{ matrix.std }}}}.log
-
-  # ===========================================================================
-  # Benchmark Summary
-  # ===========================================================================
-  benchmark-summary:
-    name: Benchmark Summary
-    needs: [benchmarks-gcc, benchmarks-clang, benchmarks-msvc]
-    runs-on: ubuntu-latest
-    if: ${{{{ always() && inputs.run_benchmarks }}}}
-    steps:
-      - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v5
-        with:
-          pattern: benchmark-*
-          path: all-benchmarks
-          merge-multiple: false
-
-      - name: Aggregate results
-        run: |
-          echo "# Benchmark Summary - {component}" > summary.md
-          echo "" >> summary.md
-          echo "| Compiler | Status |" >> summary.md
-          echo "|----------|--------|" >> summary.md
-
-          for dir in all-benchmarks/benchmark-*/; do
-            name=$(basename "$dir")
-            if ls "$dir"/*.csv 1>/dev/null 2>&1; then
-              echo "| $name | [PASS] |" >> summary.md
-            else
-              echo "| $name | [FAIL] |" >> summary.md
-            fi
-          done
-
-          echo "" >> summary.md
-          echo "## Individual Results" >> summary.md
-
-          for dir in all-benchmarks/benchmark-*/; do
-            name=$(basename "$dir")
-            echo "" >> summary.md
-            echo "### $name" >> summary.md
-            if [ -f "$dir"/*.log ]; then
-              echo '```' >> summary.md
-              tail -50 "$dir"/*.log >> summary.md
-              echo '```' >> summary.md
-            fi
-          done
-
-          cat summary.md
-
-      - name: Upload combined results
-        uses: actions/upload-artifact@v5
-        with:
-          name: benchmark-summary
-          path: |
-            all-benchmarks/
-            summary.md"""
+# Benchmark execution is intentionally generated in standalone manual workflows,
+# never in component CI workflows.
 
 
-def generate_ci_gate(include_msvc=True):
+
+def generate_ci_gate(include_msvc=True, include_debug=False):
+    debug_needs = ""
+    debug_checks = ""
+    if include_debug:
+        debug_jobs = ["debug-linux-gcc", "debug-linux-clang"]
+        if include_msvc:
+            debug_jobs.append("debug-windows-msvc")
+        debug_needs = ", " + ", ".join(debug_jobs)
+        debug_checks = "\n" + "\n".join(
+            f'          if [[ "${{{{ needs.{job}.result }}}}" != "success" ]]; then exit 1; fi'
+            for job in debug_jobs
+        )
+
     if include_msvc:
-        return """
+        gate = """
   # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, windows-msvc, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings__DEBUG_NEEDS__]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -1006,17 +1055,18 @@ def generate_ci_gate(include_msvc=True):
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi__DEBUG_CHECKS__
           echo "All checks passed"
 """
+        return gate.replace("__DEBUG_NEEDS__", debug_needs).replace("__DEBUG_CHECKS__", debug_checks)
     else:
-        return """
+        gate = """
   # ===========================================================================
   # CI Gate
   # ===========================================================================
   ci-success:
     name: CI Success
-    needs: [linux-gcc, linux-clang, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings]
+    needs: [linux-gcc, linux-clang, sanitizer-asan, sanitizer-ubsan, sanitizer-tsan, header-check, strict-warnings__DEBUG_NEEDS__]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -1028,9 +1078,10 @@ def generate_ci_gate(include_msvc=True):
           if [[ "${{ needs.sanitizer-ubsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.sanitizer-tsan.result }}" != "success" ]]; then exit 1; fi
           if [[ "${{ needs.header-check.result }}" != "success" ]]; then exit 1; fi
-          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi
+          if [[ "${{ needs.strict-warnings.result }}" != "success" ]]; then exit 1; fi__DEBUG_CHECKS__
           echo "All checks passed"
 """
+        return gate.replace("__DEBUG_NEEDS__", debug_needs).replace("__DEBUG_CHECKS__", debug_checks)
 
 
 def generate_workflow(filename, component, header, test_src, bench_src, include_msvc=True):
@@ -1048,10 +1099,11 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     if aggregate:
         parts.append(generate_aggregate_trigger_block(filename))
     else:
-        parts.append(generate_trigger_block(bench_src is not None, filename, header, test_src, bench_src))
+        parts.append(generate_trigger_block(filename, header, test_src, bench_src))
 
     # Env block
-    parts.append(generate_env_block(header, test_src, bench_src))
+    sanitizer_sources = SANITIZER_TEST_SOURCES.get(filename)
+    parts.append(generate_env_block(header, test_src, sanitizer_sources))
 
     # Jobs
     gcc_extra = COMPONENT_GCC_CPP23_EXTRA_LIBS.get(component, "")
@@ -1061,14 +1113,15 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     if include_msvc:
         parts.append(generate_windows_msvc_job(test_src, aggregate=aggregate))
 
-    parts.append(generate_sanitizers(aggregate=aggregate))
-    parts.append(generate_header_check(component, header))
+    include_debug = filename in DEBUG_WORKFLOWS
+    if include_debug:
+        parts.append(generate_debug_jobs(test_src, include_msvc=include_msvc))
+
+    parts.append(generate_sanitizers(aggregate=aggregate, multiple_sources=bool(sanitizer_sources)))
+    parts.append(generate_header_check(component, header, ADDITIONAL_HEADER_CHECKS.get(filename)))
     parts.append(generate_strict_warnings(aggregate=aggregate))
 
-    if bench_src:
-        parts.append(generate_benchmark_jobs(component, bench_src))
-
-    parts.append(generate_ci_gate(include_msvc))
+    parts.append(generate_ci_gate(include_msvc, include_debug=include_debug))
 
     return "\n".join(parts)
 

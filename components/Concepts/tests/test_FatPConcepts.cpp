@@ -53,6 +53,7 @@ FATP_META:
 #include "SmallVector.h"
 #include "StrongId.h"
 #include "Tensor.h"
+#include "TensorStatic.h"
 
 namespace fat_p::testing::fatpconcepts
 {
@@ -64,6 +65,15 @@ namespace fat_p::testing::fatpconcepts
 struct HasShape
 {
     std::vector<int> shape() const { return {1, 2, 3}; }
+};
+
+struct HasTensorVocabulary
+{
+    using value_type = int;
+    std::vector<std::size_t> extents() const { return {}; }
+    int layout() const { return 0; }
+    std::size_t size() const { return 0; }
+    int operator[](std::size_t) const { return 0; }
 };
 
 struct HasIsInline
@@ -233,7 +243,13 @@ FATP_TEST_CASE(slot_map_type_concept)
 
 FATP_TEST_CASE(tensor_type_concept)
 {
-    static_assert(fat_p::concepts::tensor_type<fat_p::Tensor<float, std::allocator<float>, void, void>>);
+    static_assert(fat_p::concepts::tensor_type<fat_p::Tensor<float, std::allocator<float>>>);
+    static_assert(fat_p::concepts::tensor_type<const fat_p::Tensor<float, std::allocator<float>>&>);
+    static_assert(fat_p::concepts::tensor_view_type<fat_p::TensorView<float>>);
+    static_assert(fat_p::concepts::tensor_view_type<fat_p::SharedTensorView<const float>>);
+    static_assert(fat_p::concepts::fixed_tensor_type<fat_p::StaticTensor<float, fat_p::Vector<3>>>);
+    static_assert(fat_p::concepts::fixed_tensor_type<const fat_p::StaticTensor<float, fat_p::Vector<3>>&>);
+    static_assert(fat_p::concepts::any_tensor_type<fat_p::StaticTensor<float, fat_p::Vector<3>>>);
     static_assert(!fat_p::concepts::tensor_type<std::vector<float>>);
     static_assert(!fat_p::concepts::tensor_type<MockTensor<float>>);
 
@@ -243,10 +259,12 @@ FATP_TEST_CASE(tensor_type_concept)
 
 FATP_TEST_CASE(tensor_like_concept)
 {
-    // Duck-typed: anything with shape() method
-    static_assert(fat_p::concepts::tensor_like<HasShape>);
-    static_assert(fat_p::concepts::tensor_like<MockTensor<float>>);
-    static_assert(fat_p::concepts::tensor_like<MockFixedTensor<float, 2, 3>>);
+    static_assert(fat_p::concepts::tensor_like<fat_p::Tensor<float>>);
+    static_assert(fat_p::concepts::tensor_like<fat_p::TensorView<const float>>);
+    static_assert(fat_p::concepts::tensor_like<HasTensorVocabulary>);
+    static_assert(!fat_p::concepts::tensor_like<HasShape>);
+    static_assert(!fat_p::concepts::tensor_like<MockTensor<float>>);
+    static_assert(!fat_p::concepts::tensor_like<MockFixedTensor<float, 2, 3>>);
 
     static_assert(!fat_p::concepts::tensor_like<std::vector<int>>);
     static_assert(!fat_p::concepts::tensor_like<PlainType>);
