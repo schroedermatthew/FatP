@@ -62,7 +62,7 @@ void fillKernel(Destination& destination, const Value& value)
 }
 
 template <ReadableTensor Source, WritableTensor Destination>
-void copyKernel(const Source& source, Destination& destination)
+void validateCopy(const Source& source, Destination& destination)
 {
     TensorAccess::validate(source);
     TensorAccess::validate(destination);
@@ -74,6 +74,30 @@ void copyKernel(const Source& source, Destination& destination)
     {
         throw std::invalid_argument("Tensor copy destination must be injective");
     }
+}
+
+// Requires validated, live mappings of the same element type. Empty mappings
+// must be handled before pointer arithmetic; endpoints are reachable elements,
+// not potentially out-of-allocation sentinels. Interleaved spans are conservative.
+template <ReadableTensor Source, ReadableTensor Destination>
+[[nodiscard]] bool reachableRangesDisjoint(const Source& source, const Destination& destination)
+{
+    if (source.size() == 0 || destination.size() == 0)
+    {
+        return true;
+    }
+    const auto* input = TensorAccess::storageBase(source);
+    const auto* output = TensorAccess::storageBase(destination);
+    const std::less<const typename Source::value_type*> before;
+    return before(input + *source.layout().maximumOffset(), output + *destination.layout().minimumOffset()) ||
+           before(output + *destination.layout().maximumOffset(), input + *source.layout().minimumOffset());
+}
+
+// Internal primitive: the caller must establish disjointness or stage aliases.
+template <ReadableTensor Source, WritableTensor Destination>
+void copyKernel(const Source& source, Destination& destination)
+{
+    validateCopy(source, destination);
     const auto* input = TensorAccess::storageBase(source);
     auto* output = TensorAccess::storageBase(destination);
     const TensorIterationPlan plan(source.extents(),

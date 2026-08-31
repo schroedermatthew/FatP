@@ -10,16 +10,16 @@ std_equivalent: "std::mdspan (partial layout and view overlap)"
 std_since: "C++23"
 boost_equivalent: "Boost.MultiArray (partial semantic overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-08-19"
+last_verified: "2026-08-31"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
 status: "reviewed"
 ---
 
 # Design Note - Tensor Architecture Additions Plan
 
-**Status:** Phases 0-3 implemented; Phase 4-8 dependency-light cores implemented; remaining gates planned  
+**Status:** Phases 0-4 implemented; Phase 5-8 dependency-light cores implemented; remaining gates planned\
 **Decided:** The owner/view/layout/kernel foundation and dependency-light algorithm expansion are implemented  
-**Last reviewed:** 2026-08-19
+**Last reviewed:** 2026-08-30
 
 ## Scope
 
@@ -68,8 +68,8 @@ harness. It now also has the extended slice language, deterministic reductions,
 borrowed interop descriptors, composition/selection operations, and native
 vector/matrix/batched multiplication. The remaining work is architectural:
 
-- Mixed-type elementwise promotion and the remaining boolean/numeric operation
-  families are not stable contracts.
+- Compound arithmetic is implemented; remaining unary/numeric operation
+  families do not yet have implemented contracts.
 - Parallel execution contexts have not landed; current dynamic algorithms are
   deliberately serial.
 - Named contractions beyond `matmul` and contraction planning have not landed;
@@ -278,14 +278,14 @@ canonical dtype vocabulary replaces them.
 
 ## Phase Plan
 
-| Phase | Status on 2026-08-19 |
+| Phase | Status on 2026-08-30 |
 |---:|---|
 | 0 | Complete: governance, artifact relocation, Debug/sanitizer CI, and baseline harness |
 | 1 | Complete: checked extents, signed layouts, classification, and oracle tests |
 | 2 | Complete: owner-only Tensor, borrowed/shared views, explicit clone, and storage consolidation |
 | 3 | Complete: counted multi-layout iteration plan and serial base kernels |
-| 4 | Core implemented: signed slicing, ellipsis, axis insertion/removal, squeeze, unsqueeze, and permutation; materialization extensions remain |
-| 5 | Core implemented: deterministic checked sum/product/mean/extrema/argument reductions; broader numeric policy remains |
+| 4 | Complete: slice language, overlap-safe materialization, bounded exhaustive/seeded transform oracles, and element-allocation/lifetime checks |
+| 5 | Core implemented: checked axis/boolean reductions, mixed/scalar arithmetic including division, materializing casts, and transactional compound updates; unary expansion remains |
 | 6 | Interop implemented: contiguous span, validated strided descriptor, optional mdspan, and static/dynamic conversion; benchmark expansion remains |
 | 7 | Core implemented: stack, concatenate, take, takeAlongAxis, and gatherND; broader generic math remains |
 | 8 | Partial: vector, matrix, strided, and batched matmul implemented; remaining named operations and einsum removal remain |
@@ -293,8 +293,13 @@ canonical dtype vocabulary replaces them.
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
 an explicit allocator wins; otherwise the first owning input from left to right
-supplies a SOCCC-selected, result-type-rebound allocator. View-only calls use
+supplies an allocator rebound to the result type, then selected with SOCCC. View-only calls use
 the result type's default allocator.
+
+`copyFrom` returns no new owner: its overlap scratch instead uses an explicit
+scratch allocator, the destination owner's exact allocator (without SOCCC), or
+the default element allocator for a view destination. Source ownership does not
+choose scratch.
 
 ### Phase 0: Governance, inventory, CI, and evidence harness
 
@@ -453,13 +458,85 @@ the result type's default allocator.
 
 ### Phase 4: Slice language and explicit materialization
 
+**Delivered materialization step (2026-08-30)**
+
+- `TensorAlgorithms.h` now exposes `reshapeCopy` and `copyFrom` through the
+  existing public facade, with no new component files. `clone` remains the
+  canonical-copy name; the originally proposed `contiguousCopy` synonym is
+  deliberately omitted following peer review.
+- Canonical materialization always owns independent storage. Copy-forcing
+  reshape consumes logical row-major values and requires an equal element
+  count, including scalar and zero-extent cases.
+- Element transfer preserves destination storage, shape, allocator, and view
+  validity. Same-type, exact-shape inputs are required. Reachable address
+  intervals prove the direct path; all possible overlap uses a full snapshot.
+- Allocation and staging failure leave destination values unchanged; final
+  throwing assignments have a basic guarantee, not rollback. Current helpers
+  require default-initializable, copy-assignable elements.
+- Tests cover shifted storage bases, forward/backward overlap, transpose,
+  negative strides, broadcast reads, interleaved spans, shared endpoints in both
+  directions, self-copy, retained
+  shared views, expired borrowed views in Debug, scalar/empty shapes, explicit
+  and default allocator identity/counts, and injected allocation/assignment
+  failures. A fixed-seed coordinate oracle differentially checks small signed
+  and overlapping layouts for both new helpers and the existing `clone`.
+- This closed the materialization API gap. The remaining transform-oracle gate
+  is covered by the verification step below.
+- Validation: 14 TensorAlgorithms tests pass with strict MSVC C++20 Debug,
+  MSVC C++23 Release, GCC C++20, and Clang C++20 builds, plus MSVC
+  AddressSanitizer. The CMake Debug build passes all 26 Tensor component tests
+  and header checks, plus the two related PolicyIterator header checks
+  (`test_TensorIteration_HeaderSelfContained` and
+  `test_TensorStridePolicy_HeaderSelfContained`): 28 built and executed targets.
+  Metadata inventory, layer validation, and `git diff --check`
+  pass. These are local Windows results, not a claim of completed remote CI.
+
+**Delivered transform verification step (2026-08-30)**
+
+- `TensorTestSupport.h` supplies a test-only dense logical-coordinate to
+  root-storage-offset table. Axis selections enumerate coordinate lists rather
+  than reusing production slice-length, stride, or iteration-plan calculations.
+  Twenty literal list-slicing anchors check endpoint normalization; further
+  coordinate anchors check the oracle itself, including omitted versus explicit
+  negative-one reverse stops, permutation order, scalars, and empty axes.
+- `test_TensorSlice.cpp` checks all 62,208 combinations of lengths 0-5, omitted
+  or explicit bounds -8 through 8, steps -4 through -1 and 1 through 4, and
+  source strides 1, 2, -2, and 0. It also checks every permutation for ranks
+  0-4 with extents 0-2, every insertion position and valid singleton-removal
+  subset, and bounded rectangular/row/column/transpose/reshape/broadcast cases.
+- A fixed-seed suite checks 500 six-operation transform chains on signed,
+  padded, injective, broadcast, and overlapping read-only mappings. It generates
+  public slice syntax and explicit coordinate selections together, instead of
+  reimplementing the production ellipsis parser. Assertions prevent an
+  accidentally all-empty or all-injective sample from passing vacuously.
+- Checks cover exact root-address aliasing through iteration, linear access and
+  variadic multidimensional `operator()`, values, write-through effects,
+  constness, zero additional owner element allocations, and rejection of
+  mutable noninjective layouts. Shared storage retention and Debug borrowed-view
+  invalidation are checked for both nonempty and empty owners. Empty transforms
+  also check exact shapes and preservation of a nonzero external-storage origin.
+  This is bounded differential evidence for every transform family, not an
+  exhaustive proof over arbitrary ranks, layouts, or signed-integer values.
+- Two temporary mutant builds were rejected: interpreting an explicit reverse
+  stop of -1 as an omitted stop, and dropping borrowed-lifetime tracking from
+  extended slicing. Production headers were not changed by these checks.
+- The signed `Slice` descriptor's existing `ptrdiff_t` extent limit is pinned
+  and documented: `All` can preserve a huge empty axis that `Slice{}` rejects.
+  No production slicing changes were needed within the supported contract.
+- All 12 slicing test groups pass in strict MSVC C++20 Debug/C++23 Release,
+  GCC C++20, Clang C++20, and MSVC AddressSanitizer runs. The CMake Debug
+  regression run passes 26 Tensor targets plus the two related PolicyIterator
+  header checks (28 total). The aggregate CI workflow now also watches the
+  shared Tensor test-support header. Results are local Windows evidence;
+  remote CI and other operating systems were not executed here.
+
 **Work**
 
 - Add `SliceSpec` with omitted endpoints, negative indices, negative steps,
   empty slices, integer-axis removal, `newaxis`, ellipsis, squeeze, and unsqueeze.
 - Add `permuteView` and extend `sliceView` using metadata-only transforms.
-- Reimplement Phase 2 `clone` on the shared kernel, then add `contiguousCopy`,
-  `reshapeCopy`, and `copyFrom`. `copyFrom` proves disjointness or uses temporary
+- Retain Phase 2 `clone` on the shared kernel, then add `reshapeCopy` and
+  `copyFrom`. `copyFrom` proves disjointness or uses temporary
   materialization.
 - Apply the Phase 0 result-allocator and error-channel tables to every allocating
   or recoverable operation.
@@ -475,13 +552,238 @@ the result type's default allocator.
 
 ### Phase 5: Numeric contract and axis reductions
 
+**Delivered reduction-contract step (2026-08-30)**
+
+- The current arithmetic-input reductions have an explicit result/accumulator,
+  axis, order, initial, exceptional-value, empty-domain, allocator, and lifetime
+  contract in `DN-TENSOR-001`. Existing sum/product and mean type rules remain
+  unchanged; floating rounding and lack of compensated accumulation are explicit.
+- `all` and `any` now complete the planned boolean reduction surface, using the
+  existing initialized-reduction kernel and ordinary arithmetic-to-bool conversion.
+  They return bool owners, with true/false empty identities, respectively.
+- Fixed a reproduced mean defect: a valid external mapping with extents
+  `{0, SIZE_MAX, 2}` reduced over `{1, 2}` now returns an empty `{0}` result
+  instead of overflowing while counting unreachable domains. Oversized nonempty
+  outputs remain rejected by the existing checked output-shape construction.
+- An independent test oracle enumerates output coordinates and reduced-coordinate
+  domains directly, with root offsets computed from the original layout. It
+  uses no production axis normalization, index decoder, iteration plan, or
+  checked arithmetic helper. Literal anchors check the oracle itself.
+- The finite-value grid covers 4,008 shape/layout/axis/keep-dimensions cases:
+  ranks 0-3, extents 0-3, contiguous, padded/reversed, overlapping, and broadcast
+  layouts, every nonempty axis subset, and the rank-zero case. Another 600 seeded
+  layouts cover ranks 0-5 and extents 0-4, with non-vacuity checks for nonempty,
+  overlapping, and negative-stride inputs. All nine reductions are exercised.
+- Compile-time checks pin 17 input-type rows, including character signedness.
+  Dedicated runtime checks cover
+  signed/unsigned intermediate overflow, narrow widening, floating accumulation
+  order, mean conversion, long-double precision, NaNs, infinities, signed-zero
+  ties, boolean truth, initial values, invalid axes, result allocation/failure
+  cleanup, source preservation, and shared/borrowed lifetimes.
+- Two compiled temporary mutations were rejected: dropping retained-axis
+  coordinates from output indexing, and replacing the first NaN index with the
+  last. Mutation headers were isolated from the repository and restored after
+  the checks. An AddressSanitizer finding in new assertions was also corrected:
+  scalar values are copied before a temporary result owner is destroyed.
+- All 14 reduction groups pass strict MSVC C++20 Debug, MSVC C++latest Release,
+  GCC C++20, Clang C++20, and assertions-enabled MSVC AddressSanitizer runs.
+  The local CMake Debug regression passes 26 Tensor targets and the two related
+  PolicyIterator header checks (28 total). Metadata inventory, layer validation,
+  and whitespace checks pass. This is bounded local Windows evidence, not a
+  claim of completed remote CI, arbitrary-layout proof, or cross-platform
+  floating-point bitwise equivalence.
+- This closes the reduction-contract increment, not all of Phase 5. Binary
+  promotion is addressed in the subsequent increment below; division, remaining
+  unary families, and conversion semantics are covered by later increments.
+
+
+**Delivered mixed-type binary arithmetic step (2026-08-30)**
+
+- `add`, `subtract`, `multiply`, and `+`, `-`, `*` now use one symmetric
+  result lattice, exposed as `TensorArithmeticType<A, B>` and the element-type
+  concept `TensorArithmeticCompatible<A, B>`. The full table is in
+  `DN-TENSOR-001` contract 0.6.
+- Integer promotion preserves both input ranges; unrepresentable signed/unsigned
+  pairs are rejected. Same-type narrow results remain narrow and checked.
+  Floating promotion never implicitly introduces long double, and 64-bit
+  integer-to-double rounding is explicitly allowed.
+- Both operands convert to the result type before the existing checked helper
+  runs. The existing three-layout kernel needs no new walker or production
+  header. Bool binary arithmetic is rejected; character values keep numeric
+  range/signedness semantics.
+- Both inputs and broadcast shape are validated before result element allocation.
+  The first owner allocator is rebound to the result type before SOCCC.
+  Explicit result allocators remain unchanged; view-only calls use
+  `TensorAllocator<Result>`. Failure preserves inputs and reclaims partial
+  result buffers.
+- Tests pin a literal 11-by-11 type table, named/operator and explicit-allocator constraints,
+  and symmetry/range invariants across 18 standard types. Runtime coverage
+  includes all 65,536 signed/unsigned byte-value pairs, 600 seeded signed and
+  overlapping/broadcast layout cases, scalar/empty output, numeric boundaries,
+  rounding/NaN/signed zero, allocator selection, and failure cleanup.
+- All 20 algorithm groups pass strict MSVC C++20 Debug, MSVC C++latest Release,
+  GCC C++20, Clang C++20, and assertions-enabled MSVC AddressSanitizer runs.
+  The local CMake Debug regression passes all 28 Tensor-related targets.
+  Two isolated compiled header mutations were rejected by their intended tests:
+  calculating in float before widening, and SOCCC before allocator rebinding.
+  Repository headers were not changed by either mutation check. This is local
+  Windows evidence, not a claim of completed remote CI or all-platform proof.
+- No division, unary expansion, general cast, scalar-operand overload, mixed
+  copying/equality, or parallel execution is introduced. Phase 5 still has
+  remaining numeric families; this is a bounded binary-arithmetic increment.
+
+**Delivered checked-cast and scalar-arithmetic step (2026-08-30)**
+
+- `cast<To>` materializes a canonical, shape-preserving, independent result.
+  Integer destinations reject nonfinite/fractional floating values and numeric
+  overflow; bool accepts only zero/one. Floating destinations allow rounding
+  and underflow to zero but reject finite overflow. The table and precedence
+  are explicit in `DN-TENSOR-001` contract 0.7.
+- Float-to-integer checks use exclusive power-of-two upper bounds before the
+  language conversion, without assuming long double is wider than double.
+  Signed and unsigned integer range checks remain separate. Type-changing
+  floating NaNs/infinities preserve category when supported.
+- Both-order scalar `add`, `subtract`, `multiply`, and `+`, `-`, `*`
+  reuse `TensorArithmeticType`, the checked arithmetic helpers, and the unary
+  kernel. Scalar values are captured by value, including source-element
+  aliases. No scalar Tensor, extra element buffer, or private walker is added.
+- Both APIs validate borrowed lifetime before result element allocation and
+  use the existing result-rebind-before-SOCCC allocator contract. Explicit
+  result allocators remain unchanged. Mid-iteration errors preserve sources
+  and destroy unpublished results.
+- Tests cover the 19-by-19 cast type matrix, zero/one across every type pair,
+  a bounded exhaustive integer/bool domain, all fixed-width integer endpoints
+  from float/double/long double, floating narrowing/nonfinite behavior,
+  independent coordinates for 600 signed/overlapping/broadcast layouts,
+  scalar promotion and both operand orders, allocator counts/identity,
+  partial failures, and shared/borrowed lifetimes. The existing 11-by-11
+  arithmetic matrix now also checks every scalar overload and operator.
+- No division, in-place update, broad unary family, or new conversion-policy
+  framework is introduced. `CheckedArithmetic::checked_cast` was inspected
+  but not reused: its fractional, bool-target, and nonfinite contracts differ.
+  This increment adds no production header or external dependency.
+- All 28 algorithm groups pass MSVC C++20 Debug, MSVC C++latest Release,
+  assertions-enabled MSVC AddressSanitizer, GCC C++20, and Clang C++20 with
+  warnings treated as errors. The existing MSVC `/bigobj` test-build option
+  supports the larger template matrix; the direct MinGW GCC command also uses
+  its big-object assembler option. No repository build configuration changed.
+  The 28-target CMake Tensor regression passes. Metadata, layer, whitespace,
+  line-width, and named-test-reference checks pass.
+- Two compiled isolated mutations were detected by the expected tests:
+  accepting fractional floating-to-integer truncation, and using forward
+  operand order for scalar-first subtraction. Mutation headers never replaced
+  repository headers and were removed after the checks. This is bounded local
+  Windows evidence, not remote CI or universal floating-platform coverage.
+
+**Delivered division step (2026-08-30)**
+
+- `divide` and `/` cover tensor/tensor broadcasting and both scalar operand
+  orders, with optional explicit result allocators on the named operations.
+  `TensorArithmeticType` and existing allocator selection are reused.
+- Contract 0.8 specifies integral truncation toward zero, integer zero-divisor
+  domain errors, and signed-result minimum/negative-one overflow errors before
+  division. Floating results use native typed arithmetic and its environment;
+  the IEC 559 special-value guarantees require nontrapping, semantics-preserving
+  builds. Empty outputs evaluate no divisor; rank zero evaluates one.
+- Binary and scalar division reuse `binaryKernel` and `scalarArithmetic` /
+  `unaryKernel`. No new iteration walker, temporary scalar Tensor, production
+  header, external dependency, or build configuration is introduced.
+- `CheckedArithmeticInt::checked_div` was inspected. Its default enforcement
+  path does not provide Tensor's distinct domain/overflow exception contract;
+  importing and adapting its policy stack is unnecessary for these two guards.
+  The Tensor-local check matches the existing checked add/subtract/multiply
+  structure. `StaticTensor` behavior is unchanged.
+- The existing 11-by-11 arithmetic type matrix also checks division overloads
+  and result types. Eight division groups cover 15 standard integer types,
+  exhaustive bounded byte quotients, promoted/scalar cases, float/double/long
+  double special values, 1,200 seeded integer/mixed layout cases, constraints,
+  allocator identity/counts, failed-result cleanup, and borrowed/shared lifetime.
+- All 36 algorithm groups pass MSVC C++20 Debug, MSVC C++latest Release,
+  assertions-enabled MSVC AddressSanitizer, GCC C++20, and Clang C++20 with
+  warnings treated as errors. The rebuilt 28-target CMake Tensor regression
+  passes. The 15 public Tensor facades also compile together with
+  `CheckedArithmetic.h` in forward/reverse include order using the repository's
+  existing MSVC `/wd4127 /wd4324` settings; no warning configuration changed.
+- Three compiled isolated mutations are detected: accepting integer zero
+  division, omitting byte-sized signed overflow, and reversing scalar division
+  order. Mutation headers were never substituted into the repository and were
+  removed after testing. Metadata, layering, whitespace, line-width, and all
+  82 named-test documentation references pass their checks.
+- Local Claude and Grok final reviews report no blockers. Review feedback adds
+  promoted floating results with integer-source zero divisors, signed minimum
+  over zero, mixed integer-result overflow, ordinary finite floating tests
+  outside the IEC 559 gate, and precise floating-environment wording.
+  This is bounded local Windows/compiler evidence, not remote CI or universal
+  floating-platform coverage. In-place arithmetic and unary expansion remain
+  separate increments; Phase 5 as a whole is not closed.
+
+**Delivered compound-assignment step (2026-08-31)**
+
+- `addAssign`, `subtractAssign`, `multiplyAssign`, `divideAssign` and the
+  four compound operators accept non-const lvalue owners and writable views.
+  They return the original destination reference. RHS tensors broadcast only
+  into the fixed destination extents; scalar operands are captured before
+  scratch element allocation.
+- Contract 0.9 defines computation in the existing promoted type followed by
+  checked destination conversion. Integer division still truncates when the
+  compute type is integral; fractional floating results cannot be silently
+  written into integer destinations.
+- Nonempty calls compute into one destination-typed scratch buffer, then
+  commit through the shared copy kernel. All C++ exceptions preserve the
+  destination's values, mapping, storage, allocator, and view validity.
+  Overlapping RHS views observe pre-update values. Empty calls validate but
+  evaluate and allocate no elements; metadata may allocate separately.
+- Explicit scratch allocators are used unchanged. Default scratch uses the
+  destination owner's exact allocator without SOCCC/rebinding, or the default
+  Tensor allocator for view destinations. No source allocator is selected.
+- No new production header, dependency, private traversal loop, or build
+  configuration is introduced. Nine new groups cover overload constraints,
+  destination stability, checked rollback, alias snapshots, allocator
+  identity/counts, failures/lifetimes, and 15 standard integer types.
+  The existing 11-by-11 type matrix also checks scalar/tensor compound
+  overloads and return types. The independent oracle checks all four updates
+  across 1,200 seeded signed/padded/broadcast integer and mixed layouts with
+  tensor and scalar RHS forms: 9,600 operation checks.
+- All 45 standalone algorithm groups pass MSVC C++20 assertions-enabled,
+  MSVC C++latest Release, MSVC ASan, GCC C++20, and Clang C++20 with warnings
+  treated as errors. A second ASan run uses native new/delete and passes the
+  other 44 groups, retaining allocation/deallocation-mismatch diagnostics.
+  The rebuilt 28-target CMake Tensor regression passes with MSVC checked
+  iterators enabled. All 15 public Tensor facades plus CheckedArithmetic
+  compile in forward/reverse include order with the existing warning settings.
+- The registered standalone allocation-failure sweep exhausts each observed
+  ordinary allocation site across four operations, two RHS forms, and four
+  shape/layout cases. A separate instrumented MSVC probe observed 488 failures
+  with unchanged storage and no tracked allocation leaks. Non-allocating
+  failure safety separately relies on primitive nonthrowing assignment and
+  validated reachable offset arithmetic.
+- MSVC checked-iterator builds explicitly skip only the global-new sweep:
+  their std::vector move allocates a debug proxy inside a noexcept function,
+  so failing that allocation terminates in the runtime. Checked iterators
+  stay enabled for the other 44 groups. Standalone test entry points route
+  CRT assertions/errors to stderr and suppress abort/debugger dialogs.
+  The aggregate object has no replacement-new definitions, avoiding a clash
+  with the IdGenerator test's global allocation instrument.
+- Three targeted isolated mutations detect unchecked write-back, eager
+  destination writes, and incorrect scratch SOCCC. A fourth injects allocation
+  after an iteration callback: the actual standalone suite passes 44 groups
+  and fails only the allocation-transaction guard. Mutations never replace
+  repository headers. Metadata, layering, whitespace, line-width, test
+  registration, and named-test documentation checks pass.
+- Local Claude and Grok reviews report no blockers. Review feedback adds
+  the persistent commit-allocation guard, non-vacuous late-zero rollback,
+  default-view allocator isolation, rank-zero RHS broadcasting, and explicit
+  exception/initialization-cost documentation. This is bounded local evidence,
+  not remote CI or a proof for arbitrary layouts or floating platforms.
+  The remaining broad unary work and all of Phase 5 are not closed.
+
 **Work**
 
 - Decide result and accumulator types for every supported arithmetic category.
 - Define integer overflow, division, mean, boolean arithmetic, `abs(INT_MIN)`,
   NaN handling, empty-domain identities, and conversion failures.
 - Normalize single and multiple axes, negative axes, duplicate axes, and the
-  camelCase `keepDims` option.
+  camelCase `keepDimensions` option.
 - Implement `sum`, `product`, `min`, `max`, `mean`, `all`, and `any` on the
   iteration plan with an explicit deterministic serial reduction order.
 - Keep dynamic Tensor numeric rules separate from existing `StaticTensor`
@@ -692,6 +994,72 @@ between reviewers does not replace evidence.
 **Implementation started:** Yes; current executable evidence is recorded in `DN-TENSOR-001` and component tests.
 
 ## Review Record
+
+Local read-only Claude and Grok compound-arithmetic reviews completed across
+2026-08-30/31 with no implementation blockers. The owner verified the existing
+binary kernel's input broadcasting and the concrete owner/view allocator
+distinction, then addressed the reviewers' test and documentation findings.
+The allocation sweep is a registered standalone test, with explicit MSVC
+checked-iterator and aggregate-runner scope documented in contract 0.9.
+Native-new ASan complements the fault-injection ASan run. Scratch's initial
+element initialization and lifetime metadata remain disclosed reuse costs,
+not performance optimizations introduced by this increment.
+
+Local read-only Claude and Grok final reviews of division completed on
+2026-08-30 with no remaining blockers. Initial in-progress snapshot findings
+were rechecked against the completed test registrations, allocator/failure
+cases, and contract 0.8. Result-type-dependent zero-divisor behavior is now
+explicit in the header and manual and exercised in all three standard
+floating types. Follow-up tests cover signed-minimum/zero precedence and
+mixed signed overflow. Native floating arithmetic does not reconfigure the
+caller's environment; it may set status flags and does not intercept traps.
+The final compiler, sanitizer, regression, composability, and mutation evidence
+is recorded in the division step above.
+
+Local read-only Claude and Grok design and implementation reviews of checked
+casts and scalar arithmetic completed on 2026-08-30 with no remaining blockers.
+Review feedback added negative/minimum/maximum checks for seven character
+types, explicit allocator casts from borrowed and shared views, and scalar
+long-double maximum checks in both operand orders. Documentation now spells
+out scalar literal promotion, strict bool conversion, fractional error order,
+and type-changing NaN behavior even when floating representations match.
+Character signedness was resolved using the actual standard concept relation
+and compiled endpoint tests; scalar overload presence and promotion were
+confirmed by the full existing type matrix and runtime coordinate oracle.
+Compiler, sanitizer, and mutation evidence is recorded above.
+
+Local read-only Claude and Grok design and implementation reviews of mixed-type
+binary arithmetic completed on 2026-08-30 with no remaining blockers in the
+reviewed scope. Review feedback added explicit-allocator call-rejection probes
+and clearer character-platform and allocator-rebinding documentation. Existing
+matrix checks already pinned all three operator result types and rejected each
+unsupported call independently; the new explicit forms passed every compiler
+configuration listed above. Standard allocator cross-type construction remains
+a requirement, not a new permissive allocator model. Extended integers beyond
+64 value bits remain deliberately unsupported, including same-type pairs.
+The chosen rebind-before-SOCCC order is enforced by a type-sensitive allocator
+and a mutation check. Reviews do not establish correctness outside the stated
+type/layout domains or constitute remote CI evidence.
+
+Local read-only Claude and Grok reviews of the Phase 5 reduction-contract step
+completed on 2026-08-30. The mean empty-output defect was reproduced before its
+fix. Review findings added zero-middle/zero-last oversized-domain cases, both
+output-size rejection branches, character-type rows, interior extrema seeds,
+mixed zero/NaN boolean domains, and allocator identity checks on empty results.
+The coordinate oracle stayed independent of production traversal and numeric
+helpers. A disagreement about the reversed floating-point fold was resolved by
+a standalone C++ calculation: for `L = 2^24`, `-L + 1` is exactly representable,
+so its subsequent addition of `L` gives one. No expectation was weakened to
+match a review claim. Final local compiler/sanitizer evidence is recorded above.
+
+Local read-only Claude and Grok reviews of the Phase 4 transform verification
+completed on 2026-08-30. Grok found no closure blocker in the bounded oracle,
+composition grammar, aliasing, or lifetime coverage. Claude's findings led to
+explicit multidimensional-access checks, mutable-layout rejection, literal
+normalization anchors, empty-owner lifetime/allocation tests, exact empty shapes,
+nonzero empty-storage-origin preservation, and documentation of the huge-empty
+signed-slice limit. These additions passed the local validation matrix above;
+the reviews do not establish correctness outside the documented test domains.
 
 Independent read-only Claude and Grok reviews completed on 2026-08-19. Both
 reviewers accepted the dependency-first and atomic-cutover direction. Their

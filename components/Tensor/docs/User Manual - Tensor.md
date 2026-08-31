@@ -9,7 +9,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (partial overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-08-19"
+last_verified: "2026-08-31"
 audience: ["C++ developers", "library maintainers"]
 status: "in_work"
 ---
@@ -254,6 +254,71 @@ The result is canonical contiguous storage and never aliases the source. An
 explicit allocator overload is available. Without one, owner inputs use SOCCC;
 view-only calls use `TensorAllocator<T>`.
 
+Existing `clone` overloads have different element requirements: `clone(owner)`
+copy-constructs values and can handle a copy-constructible, non-default-initializable
+type. `clone(view)` and `clone(source, allocator)` default-initialize result
+elements and then copy-assign them, so those paths require both operations.
+"Unconditional copy" describes independent ownership, not support for every
+element type. This step does not change those existing overloads.
+
+`TensorAlgorithms.h` also provides copy-forcing materialization and explicit
+element transfer:
+
+```cpp
+auto packed = clone(matrix.transposeView()); // always independent
+auto flattened = reshapeCopy(matrix.transposeView(), DynamicExtents{matrix.size()});
+
+auto destination = matrix.columnView(0); // keep a named, non-const destination
+auto source = matrix.columnView(1);
+copyFrom(destination, source);          // preserves destination storage and shape
+
+Tensor<int> square({2, 2});
+// ... populate square ...
+copyFrom(square, square.transposeView()); // safe even though the mappings overlap
+```
+
+`clone` copies even an already-contiguous input. `reshapeCopy` copies
+the source's logical row-major sequence into the requested canonical shape;
+unlike `reshapeView`, it accepts noncontiguous inputs. Only the logical element
+counts must match: a scalar can reshape to `{1, 1}`, and `{2, 0}` can reshape to
+`{0, 3}`. A count mismatch throws `std::invalid_argument` before element storage
+is allocated. Both functions support an explicit allocator as the final
+argument and otherwise use the same result-allocator rule as `clone`.
+
+`copyFrom(destination, source[, scratchAllocator])` requires exactly matching
+extents and value types. It does not broadcast implicitly, resize an owner,
+rebind a view, replace storage, or invalidate existing views. The destination
+must be a non-const lvalue with an injective mapping; broadcast and overlapping
+read-only mappings are allowed as sources. Explicitly create a `broadcastView`
+first if repetition is desired.
+
+Mutable `borrow` and `share` factories reject noninjective layouts at view
+construction. Supported destinations are therefore already injective; the copy
+kernel rechecks this invariant defensively.
+
+When reachable address intervals are disjoint, `copyFrom` writes directly and
+allocates no scratch **elements**. When they overlap, or disjointness cannot be
+proved, it first snapshots all logical source values. This includes self-copy
+and conservative staging for interleaved mappings whose address intervals
+overlap even though their individual elements do not. Empty copies allocate no
+element storage, but still require exactly matching extents. Rank-sized
+metadata may allocate separately; this is not a zero-allocation API promise.
+
+Scratch uses the explicit allocator if provided; otherwise it uses the
+destination owner's exact allocator instance **without SOCCC**, or
+`TensorAllocator<T>` for a view destination. Source ownership never selects
+scratch, and scratch is released before return. Validation, allocation, and
+snapshot failure leave destination values unchanged. A user element assignment
+that throws during the final transfer can leave partially copied values; the
+storage and mapping remain intact, with element validity dependent on the
+element's own assignment guarantee. There is no rollback. Borrowed-lifetime
+diagnostics are assertions-enabled checks, not support for dangling views in
+Release builds. Callers must synchronize concurrent access through aliases.
+
+The two new helpers currently require default-initializable, copy-assignable
+elements, including when a particular copy would not require staging. They do
+not add support for move-only or non-default-initializable element copying.
+
 The same rule applies to all free allocating algorithms in this chapter:
 without an explicit allocator, the first owning argument from left to right
 supplies its allocator through SOCCC. Type-changing operations such as integral
@@ -269,22 +334,93 @@ also provides an explicit result-allocator overload.
 auto sum = add(left, right);
 auto difference = subtract(left, right);
 auto product = multiply(left, right);
+auto quotient = divide(left, right);
 auto negated = transform(input, [](auto value) { return -value; });
 
 bool exact = exactEqual(left, right);
 bool close = approxEqual(left, right, 1e-6, 1e-5);
 ```
 
-Binary operations apply trailing-axis broadcasting and produce an owning
-canonical result. Same-type arithmetic is intentional until the numeric
-promotion contract lands. For integral element types other than `bool`, current
-`add`, `subtract`, and `multiply` detect overflow or underflow and throw
-`std::overflow_error` before evaluating the invalid C++ operation. Mixed-type
-promotion and division remain future numeric-policy work. `approxEqual` is
-restricted to floating-point element and tolerance types; integral tensors use
-`exactEqual` until a wider numeric policy is defined. Same-sign infinities are
-equal; an infinity and a finite value are never approximately equal, regardless
-of relative tolerance. NaNs are not approximately equal.
+Binary operations and `+`, `-`, `*`, `/` accept different arithmetic element types,
+apply trailing-axis broadcasting, and produce a new canonical owner:
+
+```cpp
+Tensor<std::int32_t> signedValues({2}, -1);
+Tensor<std::uint32_t> unsignedValues({2}, 1);
+auto combined = signedValues + unsignedValues; // Tensor<int64_t>, values are zero
+static_assert(std::same_as<TensorArithmeticType<std::int32_t, std::uint32_t>, std::int64_t>);
+```
+
+The promotion rules preserve input integer ranges:
+
+| Inputs | Result type |
+|---|---|
+| Same non-bool type | Same type, including narrow integers |
+| Different integers, same signedness | Wider range; equal-range ties use usual C++ arithmetic conversions |
+| Signed + unsigned | Signed operand type if sufficient; otherwise a covering `int16_t`, `int32_t`, or `int64_t` |
+| Signed + `uint64_t` | Rejected at compile time |
+| `float` + integer | `float` if all integer value bits fit its binary significand; otherwise `double` |
+| `double`/`long double` + integer | That floating type; conversion may round |
+| Two floating types | Wider floating type |
+
+`TensorArithmeticCompatible<A, B>` checks support for two element types.
+Standard character types follow their numeric range/signedness, not text
+semantics. `bool`, enums, complex numbers, and user-defined numeric types are
+not accepted. Binary bool arithmetic is deliberately removed; use `all`/`any`
+for truth reductions and `sum` to count true elements.
+
+Character promotion can change with the platform. With 8-bit characters and
+32-bit `int`, `char + unsigned char` produces `int16_t` when `char` is signed,
+but `int` when it is unsigned (the equal-range tie uses integer promotion).
+Likewise, `float + wchar_t` retains float for a 16-bit `wchar_t`, but produces
+double for a 32-bit `wchar_t`. Use fixed-width integer element types when this
+distinction matters to an interface.
+
+Both inputs convert before computing. Integer results detect overflow or
+underflow and throw `std::overflow_error`; same-type `int8_t` arithmetic still
+checks the 8-bit range. Floating computation uses ordinary typed arithmetic:
+`float + int32_t` computes in double, while `float + int16_t` stays float.
+64-bit integers may round when converted to double. Long double is never
+introduced unless supplied by an operand.
+
+An explicit result allocator is used unchanged and must match the result type.
+Without one, the first owner left-to-right supplies its allocator, rebound to
+the result type and then SOCCC-selected. Views alone use
+`TensorAllocator<Result>`. Inputs and broadcast compatibility are validated
+before result element allocation; empty output allocates no result elements.
+Failure leaves both inputs unchanged and publishes no partial result.
+Borrowed lifetime checks remain Debug diagnostics, not Release lifetime safety.
+Custom owner allocators must support the standard cross-type rebinding
+constructor; supplying an explicit result allocator bypasses that selection.
+
+`transform` still retains its source value type; `copyFrom`, `exactEqual`,
+and `approxEqual` still require matching element types. `approxEqual` is also
+restricted to floating-point element and tolerance types. Same-sign infinities
+are equal; an infinity and a finite value are never approximately equal,
+regardless of relative tolerance. NaNs are not approximately equal.
+In-place arithmetic remains future work.
+
+Scalar arithmetic works in both orders, with the same promotion and overflow
+rules as tensor/tensor arithmetic:
+
+```cpp
+auto scaled = input * 2.0;
+auto shifted = 10 - input;
+auto explicitResult = subtract(10.0, input, std::allocator<double>{});
+```
+
+The result retains the tensor's exact extents; no scalar Tensor is allocated.
+The scalar is snapshotted by value, so `input + input[0]` is supported.
+The tensor operand supplies the owner allocator regardless of which side it
+appears on. Literal types matter: `Tensor<int8_t> + 100` widens to int,
+whereas an int8_t scalar retains the checked int8_t result. Supplied
+long-double scalars are supported; bool scalars remain excluded.
+
+For a float tensor, multiplying by `2.0` returns a double tensor; use `2.0f`
+to retain float. An unsigned64 tensor plus `1` is rejected because the signed
+and unsigned type domains have no covering signed result; `1u` is supported.
+An explicit scalar-operation allocator must match this promoted result type:
+it is not automatically rebound on the explicit-allocator path.
 
 Generic owner/view materialization, fill, unary, binary, policy equality, exact
 equality, and hash traversal use one `TensorIterationPlan`. Canonical owner copy
@@ -295,26 +431,207 @@ pointer. Owners expose contiguous random-access pointer iterators; views expose
 counted logical forward iterators whose equality domain is the underlying
 mapping, not the address of a particular view object.
 
+## Division: integer quotients or floating results?
+
+Division uses the same promotion rules as addition and multiplication. Two
+integer operands produce an integer quotient truncated toward zero. To retain
+fractional quotients, supply a floating operand or convert the tensor first.
+This distinction also applies to scalar literals:
+
+```cpp
+Tensor<int> values({2}, 7);
+values[1] = -7;
+auto integerQuotients = values / 2;       // int values {3, -3}
+auto fractionalQuotients = values / 2.0;  // double values {3.5, -3.5}
+auto reverseQuotients = 14 / values;      // int values {2, -2}
+auto allocated = divide(values, 2.0, std::allocator<double>{});
+```
+
+Tensor/tensor division broadcasts trailing axes; both scalar orders preserve
+the tensor's exact extents. `divide(left, right, allocator)` accepts an explicit
+result allocator in all three forms. Each call materializes independent
+storage and leaves inputs unchanged, including when the scalar refers to an
+input element.
+
+With an integral result type, an evaluated zero divisor throws `std::domain_error`. A signed
+result's minimum divided by negative one throws `std::overflow_error`, even
+for int8_t or int16_t results. Promotion happens first: an int8_t tensor holding
+`-128` divided by the int literal `-1` returns int `128`, while division by an
+int8_t negative-one scalar throws. Integer division does not round through
+double or silently wrap.
+
+Floating results use native floating division. On supported IEC 559 platforms
+in the default nontrapping environment, division by signed zero produces the
+ordinary signed infinity or NaN, infinity/infinity produces NaN, and overflow
+or underflow follows native arithmetic. Tensor does not translate these into
+integer-domain exceptions, clear floating exception flags, or intercept
+caller-enabled traps. Compiler options that discard NaN or signed-zero
+semantics cannot preserve these guarantees.
+
+Divisors are checked while computing the result, after result allocation; an
+allocation failure can therefore occur before an invalid quotient is reached.
+Any later failure releases the unpublished result. Empty output evaluates no
+quotient: an empty integer tensor divided by zero returns empty without an
+element allocation. A rank-zero tensor contains one value, so division of that
+value by integer zero throws. Shape and Debug borrowed-lifetime checks still
+precede result element allocation, including for empty inputs.
+
+## Updating values without replacing storage
+
+Compound arithmetic updates an owner or a named writable view while keeping
+its shape, storage address, allocator, and existing views intact:
+
+```cpp
+Tensor<int> counts({2, 3}, 8);
+Tensor<int> rowOffsets({3}, 2);
+counts += rowOffsets;                    // broadcast the row; all values become 10
+auto row = counts.rowView(0);
+row *= 3;                               // write through to the first row
+divideAssign(counts, 2);                 // first row 15, second row 5
+subtractAssign(counts, 1, std::allocator<int>{}); // explicit scratch allocator
+```
+
+All four operators, `+=`, `-=`, `*=`, and `/=`, accept tensor or scalar
+RHS values. Their named equivalents are `addAssign`, `subtractAssign`,
+`multiplyAssign`, and `divideAssign`. Each returns the original destination
+by reference, allowing chaining. Bind a destination view to a non-const local
+variable first: temporary views and const view handles are deliberately
+rejected, matching `copyFrom`'s destination rule.
+
+RHS broadcasting must produce exactly the destination shape. An update
+cannot grow or shrink that shape, nor add a leading singleton axis. Overlapping
+RHS views, including a transpose or a broadcast row of the destination, read
+the original values throughout the operation.
+
+The compute type follows the usual Tensor promotion table, but every result
+must also pass checked conversion back to the destination type:
+
+```cpp
+Tensor<int> whole({1}, 7);
+whole /= 2;                             // integral computation: stores 3
+whole /= 2.0;                           // throws domain_error; whole remains 3
+Tensor<std::int8_t> small({1}, std::int8_t{127});
+small += 1;                             // int result 128 cannot fit: overflow_error
+```
+
+Unsigned subtraction cannot wrap. Literal types still affect compatibility:
+a uint64_t tensor accepts `+= 1u` but rejects `+= 1` because the latter
+would require an unsupported full-range signed/unsigned compute type.
+Floating write-back allows normal rounding and tiny values rounding to zero;
+finite overflow throws. Native floating NaN/infinity behavior is retained,
+subject to the floating-environment restrictions described above.
+
+The strong failure guarantee costs one destination-sized scratch element
+buffer per nonempty call. Arithmetic, conversion, or allocation failure leaves
+all destination values and metadata unchanged, including when an error occurs
+on a later element. Completed scratch values are copied back without replacing
+the destination storage. The scratch owner value-initializes elements before
+computation and creates its usual lifetime metadata; metadata may allocate
+separately. Allocator bookkeeping and floating status flags are not rolled
+back; concurrent/reentrant alias mutation and hardware floating traps are
+outside this guarantee.
+
+The optional allocator must allocate the destination value type, not the
+promoted compute type. Otherwise owners use their exact allocator without
+SOCCC or rebinding, and views use `TensorAllocator<T>`. The RHS allocator is
+never selected. Valid empty updates allocate no scratch elements and evaluate
+no values, even for `empty /= 0`; shape and Debug lifetime checks still run.
+Rank-zero updates evaluate their one element.
+
+## Checked numeric conversion
+
+Use `cast<To>` to convert values and obtain an independent canonical owner:
+
+```cpp
+Tensor<double> samples({3}, 2.0);
+auto integers = cast<int>(samples);             // values {2, 2, 2}
+auto scaled = 0.5 * integers;                   // double values {1, 1, 1}
+auto extended = cast<long double>(samples);     // explicit precision selection
+```
+
+Shapes and logical order are preserved for owners and strided, broadcast, or
+shared views. Same-type casts still copy; they never steal or alias storage.
+
+| Destination | Conversion behavior |
+|---|---|
+| Integer | Must fit its range; floating inputs must also be finite and integral-valued |
+| Bool | Only exact zero (including negative zero) and one are accepted |
+| Floating | Rounding is allowed; finite overflow throws; tiny values may round to zero |
+
+Out-of-range values throw `std::overflow_error`. Fractional/nonfinite inputs
+to integers and values other than zero/one to bool throw `std::domain_error`.
+Fractional rejection comes first: converting -0.5 to unsigned is a domain
+error, not truncation to zero. Floating NaN/infinity conversions preserve
+their category when the target supports it, without a cross-type NaN payload
+or sign guarantee. Integer-to-floating casts may lose precision.
+Different C++ floating types still count as a type-changing cast when their
+representations happen to match, as double and long double do on MSVC.
+
+Finite magnitude above a floating destination's maximum is rejected even if
+hardware might round it down; underflow to zero is deliberately allowed.
+This is not an exactness, saturation, or truncation API. Standard character
+types follow numeric range/signedness, not text encodings. Target types must
+be unqualified arithmetic types; enums, std::byte, pointers, and user types
+are not accepted. Bool-to-integer casts provide 0/1 values for arithmetic.
+
+An explicit allocator must have value_type `To` and is used unchanged.
+Without one, an owner supplies its allocator rebound to `To` before SOCCC;
+a view uses `TensorAllocator<To>`. Source lifetime is checked before element
+allocation. Values are checked during copying; failure releases the partial
+result and preserves the source. Empty results allocate no element buffer
+and convert no values; rank-zero results convert exactly one.
+
 ## Reductions
 
-`TensorReductions.h` reduces all axes by default or an explicit normalized axis
-list. Negative axes are accepted; duplicates are rejected. `keepDimensions`
-retains reduced axes with extent one.
+Use reductions to summarize selected dimensions while keeping the others.
+`TensorReductions.h` produces an independent owning result from owners or
+validated strided views, including read-only broadcast/overlapping mappings.
+It reduces all axes by default or with an empty axis list. Negative axes are
+accepted; duplicates are rejected after normalization. `keepDimensions`
+retains reduced axes with extent one. The following calls illustrate the
+axis/output-shape choices and boolean aggregation:
 
 ```cpp
 auto total = sum(values);                  // rank-zero result
 auto rows = sum(values, {1});
 auto columns = mean(values, {0}, true);    // shape {1, columns}
 auto locations = argmax(values, {1});
+auto every = all(values, {1});             // one bool per row
+auto some = any(values);                   // rank-zero bool result
 ```
 
-`sum` and `product` widen `bool` and small integral types to `size_t`,
-`int64_t`, or `uint64_t`; checked integral overflow throws. `mean` returns
-`double` except for `long double` input. Empty sum/product domains use zero/one.
-Mean and extrema reject a nonempty output with an empty reduction domain;
-`min` and `max` accept an optional initial value. Extrema propagate the first
-NaN, and argument reductions return the first tie as a row-major flattened
-coordinate within the reduced axes.
+`sum` and `product` accumulate `bool` in `size_t`, smaller signed integers in
+`int64_t`, and smaller unsigned integers in `uint64_t`. Other input types retain
+their type, so a float sum accumulates in float. Every integral combine is
+checked: even intermediate overflow throws before a later value can cancel it.
+Floating overflow follows ordinary arithmetic rather than throwing that error.
+
+`mean` converts each value to double before summing and dividing; long-double
+inputs instead use long double throughout. Integer conversion can round, and
+`mean(values) * count` need not equal `sum(values)`. Reductions fold values in
+serial logical row-major order without compensation. That order is fixed, but
+bitwise agreement across platforms or fast-math builds is not promised.
+
+Empty sum/product domains use zero/one; empty `all`/`any` domains use true/false.
+Mean and argument extrema reject a nonempty output with an empty domain.
+`sum`, `product`, `min`, and `max` accept a final optional initial value that
+participates once per domain, even when the domain is nonempty. An initial
+value permits min/max on empty domains; without it those operations throw.
+An empty output itself has no domains and does not trigger a domain error.
+
+Extrema propagate the first NaN; tied finite values preserve the first value,
+including its signed-zero representation. Argument reductions return the first
+winning coordinate flattened row-major within the reduced axes, ordered by
+source-axis number rather than the order of the supplied axis list. `all` and
+`any` convert arithmetic values to bool: either signed zero is false; NaN,
+infinity, and other nonzero values are true. They do not promise short-circuiting.
+
+Each nonempty result allocates one element buffer; empty results allocate none.
+Metadata and extrema scratch storage can allocate separately. Explicit result
+allocators are used unchanged; defaults use rebound owner SOCCC or
+`TensorAllocator<Result>` for view inputs. Failures leave the source unchanged.
+Assertions-enabled builds reject expired borrowed sources, including empty ones;
+Release callers must still ensure borrowed storage remains alive.
 
 ## Matrix multiplication
 
@@ -413,10 +730,7 @@ choose the result memory resource.
 
 The following plan items are not yet current API promises:
 
-- mixed-type elementwise promotion, division, and the remaining broad numeric
-  operation families;
-- advanced materialization helpers such as overlap-safe `copyFrom` and
-  copy-forcing reshape;
+- the remaining broad numeric operation families, including further unary operations;
 - named dynamic linear algebra beyond `matmul`;
 - explicit parallel execution contexts;
 - a complete einsum grammar.
@@ -436,14 +750,16 @@ fixed-size type with its own checked/saturating arithmetic policies.
 | Shared lifetime | `SharedTensorView<T>::share`, `asSharedView` |
 | View transforms | `sliceView`, `rowView`, `columnView`, `transposeView`, `reshapeView`, `broadcastView` |
 | Extended transforms | `Slice`, `All`, `NewAxis`, `Ellipsis`, `permuteView`, `squeezeView`, `unsqueezeView` |
-| Materialization | `clone` |
-| Base algorithms | `add`, `subtract`, `multiply`, `transform`, `exactEqual`, `approxEqual` |
-| Reductions | `sum`, `product`, `mean`, `min`, `max`, `argmin`, `argmax` |
+| Materialization / transfer | `clone`, `reshapeCopy`, `copyFrom`, `cast<To>` |
+| Base algorithms | `add`, `subtract`, `multiply`, `divide`, `transform`, `exactEqual`, `approxEqual` |
+| Compound updates | `addAssign`, `subtractAssign`, `multiplyAssign`, `divideAssign`; `+=`, `-=`, `*=`, `/=` |
+| Reductions | `sum`, `product`, `mean`, `min`, `max`, `argmin`, `argmax`, `all`, `any` |
 | Linear algebra | `matmul` |
 | Composition/selection | `stack`, `concatenate`, `take`, `takeAlongAxis`, `gatherND` |
 | Interop | `contiguousSpan`, `describeTensor`, `StridedTensorDescriptor`, `asMdspan`, `toTensor`, `toStaticTensor` |
 | Owner queries | `extents`, `layout`, `strides`, `rank`, `extent`, `size`, `empty`, `data` |
 | Access | `operator[]`, `atLinear`, `operator()`, `at`, `begin`, `end` |
 | Owner operations | `fill`, `clone`, `swap`, `get_allocator`, `operator==` |
-| Arithmetic operators | `operator+`, `operator-`, `operator*` |
+| Arithmetic type queries | `TensorArithmeticType<A, B>`, `TensorArithmeticCompatible<A, B>` |
+| Arithmetic operators | `operator+`, `operator-`, `operator*`, `operator/`; tensor/tensor and both scalar orders |
 | Serialization | `serialize_tensor`, `deserialize_tensor`, `TensorDeserializationLimits` |

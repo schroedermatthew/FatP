@@ -32,5 +32,5 @@ FATP_META:
 int main()
 {
     fat_p::Tensor<int> value({}, 3);
-    return fat_p::sum(value)() == 3 ? 0 : 1;
+    return fat_p::sum(value)() == 3 && fat_p::all(value)() && fat_p::any(value)() ? 0 : 1;
 }

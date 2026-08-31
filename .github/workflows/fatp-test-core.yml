@@ -18,6 +18,7 @@ on:
       - 'components/FatPTest/tests/test_FatP.cpp'
       - 'components/FatPTest/tests/test_FatP.h'
       - 'components/**/tests/test_*.cpp'
+      - 'components/Tensor/tests/TensorTestSupport.h'
       - 'tools/collect_fatp_test_sources.py'
       - '.github/workflows/fatp-test-core.yml'
   pull_request:
@@ -26,6 +27,7 @@ on:
       - 'components/FatPTest/tests/test_FatP.cpp'
       - 'components/FatPTest/tests/test_FatP.h'
       - 'components/**/tests/test_*.cpp'
+      - 'components/Tensor/tests/TensorTestSupport.h'
       - 'tools/collect_fatp_test_sources.py'
       - '.github/workflows/fatp-test-core.yml'
 

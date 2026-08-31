@@ -84,6 +84,7 @@ public:
             return;
         }
 
+        // Complete all traversal allocations before the first callback; compound commit relies on this.
         std::vector<std::size_t> coordinates(rank(), 0);
         std::vector<std::ptrdiff_t> offsets = mOrigins;
         for (std::size_t linearIndex = 0; linearIndex < mLogicalSize; ++linearIndex)

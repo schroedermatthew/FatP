@@ -32,13 +32,12 @@ FATP_META:
 
 /** @file TensorReductions.h @brief Checked deterministic reductions over selected axes. */
 
-#include "TensorAlgorithms.h"
-
 #include <algorithm>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <numeric>
 #include <optional>
@@ -47,15 +46,19 @@ FATP_META:
 #include <utility>
 #include <vector>
 
+#include "TensorAlgorithms.h"
+
 namespace fat_p
 {
 
+/** @brief Sum/product accumulator: bool counts in size_t, narrow integers widen to 64 bits. */
 template <typename T>
 using TensorSumType = std::conditional_t<
     std::same_as<std::remove_cv_t<T>, bool>, std::size_t,
     std::conditional_t<std::integral<T> && (sizeof(T) < sizeof(std::int64_t)),
                        std::conditional_t<std::signed_integral<T>, std::int64_t, std::uint64_t>, T>>;
 
+/** @brief Mean accumulator and result: double, except long double remains long double. */
 template <typename T>
 using TensorMeanType = std::conditional_t<std::same_as<std::remove_cv_t<T>, long double>, long double, double>;
 
@@ -287,6 +290,20 @@ reduceArgExtremum(const Source& source, const std::vector<TensorAxis>& axes, boo
 
 } // namespace tensor_detail
 
+/**
+ * @brief Reduce arithmetic values in logical row-major order into a new owning tensor.
+ * @details An empty axis list means all axes. Negative axes normalize against source rank;
+ * duplicates are invalid. keepDimensions retains reduced axes as singletons. Each domain folds
+ * from initial (zero by default) in TensorSumType; each integral addition is checked before
+ * evaluation, including intermediate overflow. Floating arithmetic uses the accumulator type's
+ * ordinary operations, without compensation or a cross-platform bitwise reproducibility promise.
+ * Source storage is never modified. Explicit allocators are used unchanged; default overloads
+ * use rebound owner SOCCC or TensorAllocator for views. Metadata may allocate separately.
+ * @throws std::overflow_error If integral accumulation or result shape is not representable.
+ * @throws std::invalid_argument If an axis is repeated.
+ * @throws std::out_of_range If an axis is outside the source rank.
+ * @throws std::runtime_error For expired borrowed sources in assertions-enabled builds.
+ */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, TensorSumType<typename Source::value_type>>
@@ -308,6 +325,7 @@ template <ReadableTensor Source>
     return sum(source, tensor_detail::selectResultAllocator<result_type>(source), axes, keepDimensions, initial);
 }
 
+/** @brief Product uses the sum accumulator type, checked integral multiplication, and initial one. */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, TensorSumType<typename Source::value_type>>
@@ -331,6 +349,11 @@ template <ReadableTensor Source>
                    initial);
 }
 
+/**
+ * @brief Convert each input to TensorMeanType, sum serially, then divide by the domain count.
+ * @details Integral-to-floating conversion may round; no exact-integer or compensated mean is promised.
+ * @throws std::domain_error If a nonempty output contains an empty reduction domain.
+ */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, TensorMeanType<typename Source::value_type>>
@@ -340,8 +363,12 @@ template <ReadableTensor Source, typename Allocator>
     using result_type = TensorMeanType<typename Source::value_type>;
     tensor_detail::TensorAccess::validate(source);
     const auto shape = tensor_detail::makeReductionShape(source.extents(), axes, keepDimensions);
+    if (shape.outputExtents.logicalSize() == 0)
+    {
+        return Tensor<result_type, Allocator>(std::allocator_arg, allocator, shape.outputExtents);
+    }
     const auto count = tensor_detail::reductionElementCount(source.extents(), shape);
-    if (shape.outputExtents.logicalSize() != 0 && count == 0)
+    if (count == 0)
     {
         throw std::domain_error("Tensor mean reduction has an empty domain");
     }
@@ -365,6 +392,7 @@ template <ReadableTensor Source>
     return mean(source, tensor_detail::selectResultAllocator<result_type>(source), axes, keepDimensions);
 }
 
+/** @brief Minimum preserves the first tie or NaN; an initial value participates before source values. */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
@@ -384,6 +412,7 @@ template <ReadableTensor Source>
                keepDimensions, initial);
 }
 
+/** @brief Maximum preserves the first tie or NaN; an initial value also defines an empty domain. */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
@@ -403,6 +432,10 @@ template <ReadableTensor Source>
                keepDimensions, initial);
 }
 
+/**
+ * @brief Index of the first minimum/NaN in row-major order of reduced axes, sorted by source axis.
+ * @details No initial value is accepted: every reported index must refer to a source coordinate.
+ */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, std::size_t>
@@ -420,6 +453,10 @@ template <ReadableTensor Source>
     return argmin(source, tensor_detail::selectResultAllocator<std::size_t>(source), axes, keepDimensions);
 }
 
+/**
+ * @brief Index of the first maximum/NaN; empty domains with a nonempty output throw domain_error.
+ * @details No initial value is accepted: every reported index must refer to a source coordinate.
+ */
 template <ReadableTensor Source, typename Allocator>
     requires std::is_arithmetic_v<typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, std::size_t>
@@ -435,6 +472,44 @@ template <ReadableTensor Source>
                           bool keepDimensions = false)
 {
     return argmax(source, tensor_detail::selectResultAllocator<std::size_t>(source), axes, keepDimensions);
+}
+
+/**
+ * @brief Boolean conjunction over arithmetic inputs, with true for an empty domain.
+ * @details Each value converts to bool: signed zeros are false; NaNs and infinities are true.
+ * Uses the serial reduction kernel without a short-circuit or allocation-free guarantee.
+ */
+template <ReadableTensor Source, typename Allocator>
+    requires std::is_arithmetic_v<typename Source::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, bool>
+[[nodiscard]] auto all(const Source& source, const Allocator& allocator,
+                       const std::vector<TensorAxis>& axes = {}, bool keepDimensions = false)
+{
+    return tensor_detail::reduceInitialized(source, axes, keepDimensions, true, std::logical_and<bool>{}, allocator);
+}
+
+template <ReadableTensor Source>
+    requires std::is_arithmetic_v<typename Source::value_type>
+[[nodiscard]] auto all(const Source& source, const std::vector<TensorAxis>& axes = {}, bool keepDimensions = false)
+{
+    return all(source, tensor_detail::selectResultAllocator<bool>(source), axes, keepDimensions);
+}
+
+/** @brief Boolean disjunction with the same truth conversion as all, and false for an empty domain. */
+template <ReadableTensor Source, typename Allocator>
+    requires std::is_arithmetic_v<typename Source::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, bool>
+[[nodiscard]] auto any(const Source& source, const Allocator& allocator,
+                       const std::vector<TensorAxis>& axes = {}, bool keepDimensions = false)
+{
+    return tensor_detail::reduceInitialized(source, axes, keepDimensions, false, std::logical_or<bool>{}, allocator);
+}
+
+template <ReadableTensor Source>
+    requires std::is_arithmetic_v<typename Source::value_type>
+[[nodiscard]] auto any(const Source& source, const std::vector<TensorAxis>& axes = {}, bool keepDimensions = false)
+{
+    return any(source, tensor_detail::selectResultAllocator<bool>(source), axes, keepDimensions);
 }
 
 } // namespace fat_p
