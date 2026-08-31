@@ -208,6 +208,12 @@ jobs:
             compiled_libs: "boost"
             system_deps: ""
             needs_headers: "true"
+          - name: TensorMatmul
+            src: components/Tensor/benchmarks/benchmark_TensorMatmul.cpp
+            extra_includes: ""
+            extra_defines: "-march=x86-64 -ffp-contract=off"
+            compiled_libs: ""
+            system_deps: ""
           - name: ThreadPool
             src: components/ThreadPool/benchmarks/benchmark_ThreadPool.cpp
             extra_includes: ""

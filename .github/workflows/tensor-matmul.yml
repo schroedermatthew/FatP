@@ -6,6 +6,8 @@
 # Directory structure:
 #   Headers:    include/fat_p/TensorMatmul.h
 #   Tests:      components/Tensor/tests/test_TensorMatmul.cpp
+#   Benchmarks: components/Tensor/benchmarks/benchmark_TensorMatmul.cpp
+#   Execution:  separate manual benchmark workflow
 # =============================================================================
 
 name: TensorMatmul CI
@@ -24,6 +26,7 @@ on:
       - 'include/fat_p/tensor/TensorView.h'
       - 'include/fat_p/tensor/TensorLayout.h'
       - 'include/fat_p/tensor/TensorExtents.h'
+      - 'components/Tensor/benchmarks/benchmark_TensorMatmul.cpp'
       - '.github/workflows/tensor-matmul.yml'
   pull_request:
     paths:
@@ -37,6 +40,7 @@ on:
       - 'include/fat_p/tensor/TensorView.h'
       - 'include/fat_p/tensor/TensorLayout.h'
       - 'include/fat_p/tensor/TensorExtents.h'
+      - 'components/Tensor/benchmarks/benchmark_TensorMatmul.cpp'
       - '.github/workflows/tensor-matmul.yml'
 
 env:

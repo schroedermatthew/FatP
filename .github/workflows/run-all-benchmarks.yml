@@ -6,6 +6,7 @@
 #
 # Does NOT call the compiler aggregate orchestrators (run-all-benchmarks-gcc/clang/msvc).
 # Each component workflow already runs GCC, Clang, and MSVC internally.
+# tensor-benchmarks.yml covers both Tensor layout and TensorMatmul named linear algebra.
 #
 # Triggers on push/PR (benchmark paths) or manual workflow_dispatch.
 #

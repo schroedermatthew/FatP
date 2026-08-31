@@ -781,7 +781,7 @@ flowchart TD
         T3[Exception safety verification]
     end
     
-    subgraph Benchmarks["Benchmarks (22 files, 43,029 LOC)"]
+    subgraph Benchmarks["Benchmarks (26 files, 48,139 LOC; 2026-08-31)"]
         B1[Competitor comparisons]
         B2[Round-robin methodology]
         B3[Statistical reporting]
@@ -1007,11 +1007,16 @@ This methodology—the pipeline, the guidelines system, the context reset techni
 
 ## Appendix B: File Inventory Summary
 
+The benchmark row was recounted on 2026-08-31 from
+`components/*/benchmarks/benchmark_*.cpp`, including Tensor linear algebra.
+Other rows and aggregate totals retain this document's historical snapshot;
+they are not current repository counts or sums of the refreshed benchmark row.
+
 | Category | Count | Lines |
 |----------|-------|-------|
 | Header files | 107 | 102,479 |
 | Test files | 91 | 88,935 |
-| Benchmark files | 22 | 43,029 |
+| Benchmark files (2026-08-31) | 26 | 48,139 |
 | Other C++ | 16 | 1,546 |
 | **Total C++** | **684** | **480,302** |
 | Documentation (markdown) | 276 | 234,089 |

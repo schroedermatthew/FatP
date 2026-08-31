@@ -721,9 +721,10 @@ auto totals = trace(matrixA);                // ...MxN -> ..., rank two -> {}
 
 Small integral inputs use the same widened result type as reductions, and all
 integral multiply/add steps are checked. A zero contraction dimension produces
-the additive identity. Contiguous rank-two operands use a cache-blocked serial
-kernel; other validated signed-stride layouts use the general coordinate
-kernel. No external BLAS dependency is required.
+the additive identity. Contiguous matrix pairs and contiguous vector pairs use
+the shared blocked serial kernel (a vector pair is the 1-by-K / K-by-1 case).
+Mixed vector/matrix, batched, and other validated signed-stride layouts use the
+general coordinate kernel. No external BLAS dependency is required.
 
 `dot` and `outer` require exactly rank-one operands; neither flattens a matrix.
 `matmul`, `dot`, and `outer` require matching arithmetic element types. Use
@@ -863,10 +864,19 @@ choose the result memory resource.
 
 ## Current boundaries
 
+The separate `benchmark_TensorMatmul` executable covers the five named linear
+algebra operations with floating inputs, result-buffer allocation probes,
+independent scalar references, and size/layout variants. It supports the
+canonical `FATP_BENCH_*` settings and optional `--filter substring`; quick mode
+is a smoke test. Commands, raw outputs, variation, and the narrowly measured
+contiguous-dot dispatch comparison are recorded in
+[the benchmark report](../results/2026-08-31-linear-algebra/README.md).
+These measurements are not a BLAS comparison or a cross-platform speed promise.
+
 The following plan items are not yet current API promises:
 
 - the remaining broad numeric operation families, including further unary operations;
-- general tensor contraction planning and specialized-kernel benchmark expansion;
+- general tensor contraction planning and further measured kernel specialization;
 - explicit parallel execution contexts;
 - a complete einsum grammar.
 

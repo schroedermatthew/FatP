@@ -321,7 +321,7 @@ STANDARD_COMPONENTS = [
      "components/Tensor/tests/test_TensorInterop.cpp", None),
 
     ("tensor-matmul.yml", "TensorMatmul", "TensorMatmul.h",
-     "components/Tensor/tests/test_TensorMatmul.cpp", None),
+     "components/Tensor/tests/test_TensorMatmul.cpp", "components/Tensor/benchmarks/benchmark_TensorMatmul.cpp"),
 
     ("tensor-selection.yml", "TensorSelection", "TensorSelection.h",
      "components/Tensor/tests/test_TensorSelection.cpp", None),

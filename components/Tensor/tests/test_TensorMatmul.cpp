@@ -726,6 +726,97 @@ FATP_TEST_CASE(diagonal_copy_failure_cleanup)
     return true;
 }
 
+template <typename T>
+bool contiguousDotMatchesStrided()
+{
+    for (const std::size_t length : std::array<std::size_t, 6>{0, 1, 31, 32, 33, 65})
+    {
+        for (int scenario = 0; scenario < 5; ++scenario)
+        {
+            const T sentinel = std::numeric_limits<T>::quiet_NaN();
+            std::vector<T> compact(length + 15, sentinel);
+            std::vector<T> padded(length * 2 + 15, sentinel);
+            std::vector<T> rightStorage(length + 15, sentinel);
+            std::vector<T> rightPadded(length * 2 + 15, sentinel);
+            const T large = std::ldexp(T{1}, std::numeric_limits<T>::digits);
+            for (std::size_t i = 0; i < length; ++i)
+            {
+                T value = i % 3 == 0 ? large : i % 3 == 1 ? T{1} : -large;
+                if (scenario == 1 && i == length - 1) { value = std::numeric_limits<T>::quiet_NaN(); }
+                if (scenario == 2 && i == length - 1) { value = std::numeric_limits<T>::infinity(); }
+                if (scenario == 3) { value = -T{0}; }
+                if (scenario == 4) { value = (static_cast<T>((i * 17) % 23) - T{11}) / T{8}; }
+                const T rightValue = scenario == 4 ? static_cast<T>(i + 1) / T{8} : T{1};
+                compact[7 + i] = value;
+                padded[7 + 2 * i] = value;
+                rightStorage[7 + i] = rightValue;
+                rightPadded[7 + 2 * i] = rightValue;
+            }
+            const auto contiguous = TensorView<const T>::borrow(compact.data(),
+                TensorLayout(compact.size(), 7, DynamicExtents{length}, {1}));
+            const auto strided = TensorView<const T>::borrow(padded.data(),
+                TensorLayout(padded.size(), 7, DynamicExtents{length}, {2}));
+            const auto right = TensorView<const T>::borrow(rightStorage.data(),
+                TensorLayout(rightStorage.size(), 7, DynamicExtents{length}, {1}));
+            const auto rightStrided = TensorView<const T>::borrow(rightPadded.data(),
+                TensorLayout(rightPadded.size(), 7, DynamicExtents{length}, {2}));
+            const auto actual = dot(contiguous, right);
+            const auto generic = dot(strided, right);
+            const auto genericRight = dot(contiguous, rightStrided);
+            const auto genericBoth = dot(strided, rightStrided);
+            const auto viaMatmul = matmul(contiguous, right);
+            FATP_ASSERT_TRUE(actual.rank() == 0 && actual.size() == 1, "Vector dispatch preserves rank-zero output");
+            if (std::isnan(generic()))
+            {
+                FATP_ASSERT_TRUE(std::isnan(actual()) && std::isnan(viaMatmul()) &&
+                                     std::isnan(genericRight()) && std::isnan(genericBoth()),
+                                 "All operand-layout pairings propagate NaN");
+            }
+            else
+            {
+                FATP_ASSERT_TRUE(actual() == generic() && viaMatmul() == generic() &&
+                                     genericRight() == generic() && genericBoth() == generic() &&
+                                     std::signbit(actual()) == std::signbit(generic()) &&
+                                     std::signbit(genericRight()) == std::signbit(generic()) &&
+                                     std::signbit(genericBoth()) == std::signbit(generic()),
+                                 "Contiguous and generic paths retain serial cancellation, infinity, and zero signs");
+            }
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(contiguous_dot_dispatch_equivalence)
+{
+    FATP_ASSERT_TRUE(contiguousDotMatchesStrided<float>(), "Float dispatch equivalence");
+    FATP_ASSERT_TRUE(contiguousDotMatchesStrided<double>(), "Double dispatch equivalence");
+    FATP_ASSERT_TRUE(contiguousDotMatchesStrided<long double>(), "Long-double dispatch equivalence");
+    const auto empty = TensorView<const int>::borrow(nullptr, TensorLayout(0, 0, DynamicExtents{0}, {1}));
+    const auto emptyResult = dot(empty, empty);
+    FATP_ASSERT_EQ(emptyResult(), std::int64_t{0}, "Empty contiguous dot never forms a storage pointer");
+    const int value = 7;
+    const auto singleton = TensorView<const int>::borrow(&value,
+        TensorLayout(1, 0, DynamicExtents{1}, {std::numeric_limits<std::ptrdiff_t>::min()}));
+    const auto singletonResult = dot(singleton, singleton);
+    FATP_ASSERT_EQ(singletonResult(), std::int64_t{49}, "Singleton ignores its unreachable extreme stride");
+
+    Tensor<std::int64_t> left({33}, 0);
+    Tensor<std::int64_t> right({33}, 1);
+    right[32] = 2;
+    left[0] = 3;
+    left[32] = std::numeric_limits<std::int64_t>::max();
+    AllocationCounts counts;
+    const ResultAllocator<std::int64_t> allocator(19, &counts);
+    FATP_ASSERT_THROWS(dot(left, right, allocator), std::overflow_error, "Product overflow beyond the first block");
+    right.fill(1);
+    FATP_ASSERT_THROWS(dot(left, right, allocator), std::overflow_error, "Sum overflow beyond the first block");
+    FATP_ASSERT_TRUE(counts.allocations == 2 && counts.liveElements == 0,
+                     "Both checked failures reclaim the explicit-allocator result");
+    FATP_ASSERT_TRUE(left[0] == 3 && left[32] == std::numeric_limits<std::int64_t>::max(),
+                     "Failed contiguous contractions leave inputs unchanged");
+    return true;
+}
+
 FATP_TEST_CASE(retired_pattern_replacements)
 {
     Tensor<float> matrix({2, 3});
@@ -772,6 +863,7 @@ bool test_TensorMatmul()
     FATP_RUN_TEST_NS(runner, tensor_matmul, shared_and_borrowed_lifetimes);
     FATP_RUN_TEST_NS(runner, tensor_matmul, batched_vector_and_matrix_shape_table);
     FATP_RUN_TEST_NS(runner, tensor_matmul, diagonal_copy_failure_cleanup);
+    FATP_RUN_TEST_NS(runner, tensor_matmul, contiguous_dot_dispatch_equivalence);
     FATP_RUN_TEST_NS(runner, tensor_matmul, retired_pattern_replacements);
     return 0 == runner.print_summary();
 }

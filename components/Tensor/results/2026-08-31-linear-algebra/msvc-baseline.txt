@@ -1,0 +1,798 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::TensorMatmul Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1951 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::Tensor (primary)
+  [x] scalar loops + Tensor result (baseline; prevalidated, not API-equivalent)
+  [x] Tensor result allocation only (control; no arithmetic)
+
+Configuration:
+  Target work:    10000 ops/batch
+  Min batch ms:   20
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Contract: reused borrowed inputs; fresh owning result per call; result allocation, initialization,
+  observation and destruction included in both paths. Input setup excluded. No fast-math/LTO.
+  Scalar baseline omits API validation and uses the same allocator and output ownership.
+  Allocation probes count result elements ONLY; metadata/global allocations are not counted.
+  Target work means scalar products (dot/outer/matmul), diagonal visits (diagonal/trace).
+  ns/call is primary; CI95 is an approximate interval for the mean, not the median.
+  Dispersion describes batch means, not individual-call latency. Do not subtract medians.
+  Quick mode: OFF
+  Waiting for CPU to stabilize...
+[Waiting: 2506/3686 MHz (32% below base)]
+[Waiting: 2174/3686 MHz (41% below base)]
+[Ready: 3354/3686 MHz (9% below base)]
+[2026-08-31 06:45:52] linear algebra start CPU: 3354 MHz (base: 3686)
+[PASS] Full outputs and allocation reclamation checked for 126 paired cases
+[2026-08-31 06:45:52] diagonal/double/large/contiguous CPU: 2580 MHz (base: 3686)
+[2026-08-31 06:45:53] dot/float/large/contiguous CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:45:53] matmul/float/small/padded CPU: 2543 MHz (base: 3686)
+[2026-08-31 06:45:53] dot/float/medium/reversed CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:45:53] matmul/double/small/transposed CPU: 2985 MHz (base: 3686)
+[2026-08-31 06:45:53] trace/double/small/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:45:53] outer/float/large/padded CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:45:54] diagonal/float/large/reversed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:45:54] dot/float/small/reversed CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:45:54] diagonal/double/medium/reversed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:45:54] outer/double/medium/contiguous CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:45:54] matmul/double/large/padded CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:45:54] dot/double/large/padded CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:45:55] matmul/double/medium/batched CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:45:55] diagonal/float/small/contiguous CPU: 3169 MHz (base: 3686)
+[2026-08-31 06:45:55] trace/double/small/contiguous CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:45:55] matmul/float/medium/batched CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:45:55] trace/float/small/padded CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:45:56] matmul/double/small/contiguous CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:45:56] trace/float/medium/transposed CPU: 3022 MHz (base: 3686)
+[2026-08-31 06:45:56] dot/float/small/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:45:56] matmul/float/medium/transposed CPU: 2985 MHz (base: 3686)
+[2026-08-31 06:45:56] matmul/double/large/reversed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:45:56] dot/float/large/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:45:57] trace/double/medium/transposed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:45:57] diagonal/double/large/reversed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:45:57] diagonal/float/small/batched CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:45:57] trace/float/medium/batched CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:45:57] dot/double/medium/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:45:58] outer/double/small/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:45:58] matmul/float/medium/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:45:58] matmul/double/medium/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:45:58] dot/double/medium/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:45:58] outer/double/large/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:45:58] outer/float/large/reversed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:45:59] outer/float/large/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:45:59] matmul/float/small/transposed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:45:59] matmul/float/small/batched CPU: 2580 MHz (base: 3686)
+[2026-08-31 06:45:59] dot/float/medium/padded CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:45:59] trace/double/small/transposed CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:45:59] diagonal/float/medium/reversed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:00] trace/float/large/batched CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:00] matmul/double/large/transposed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:00] diagonal/float/medium/batched CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:46:00] outer/float/small/padded CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:00] matmul/float/small/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:00] diagonal/float/small/padded CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:46:01] trace/float/medium/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:01] dot/float/large/padded CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:01] diagonal/float/medium/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:01] trace/double/large/batched CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:01] trace/double/large/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:02] diagonal/float/large/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:02] outer/double/large/contiguous CPU: 2580 MHz (base: 3686)
+[2026-08-31 06:46:02] trace/double/large/reversed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:02] trace/float/small/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:02] dot/double/large/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:02] trace/float/medium/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:03] diagonal/double/large/padded CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:03] trace/float/medium/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:03] matmul/double/small/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:03] outer/float/small/reversed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:03] trace/float/large/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:03] trace/double/large/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:04] diagonal/double/large/batched CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:04] dot/float/small/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:04] diagonal/double/large/transposed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:04] trace/float/small/batched CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:46:04] diagonal/double/medium/transposed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:05] outer/double/medium/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:05] dot/double/small/padded CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:05] trace/double/large/transposed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:05] diagonal/float/small/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:05] outer/double/small/reversed CPU: 2948 MHz (base: 3686)
+[2026-08-31 06:46:05] trace/double/medium/contiguous CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:06] trace/double/small/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:06] dot/double/large/reversed CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:46:06] outer/double/large/padded CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:06] trace/float/small/contiguous CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:46:06] dot/double/small/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:06] outer/double/medium/padded CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:07] diagonal/double/small/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:07] matmul/double/large/batched CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:07] diagonal/double/medium/batched CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:07] trace/float/large/padded CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:07] diagonal/double/small/transposed CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:46:08] matmul/double/small/batched CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:08] trace/float/large/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:08] diagonal/double/small/reversed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:08] matmul/float/large/contiguous CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:08] dot/double/small/reversed CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:08] outer/float/medium/contiguous CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:09] diagonal/float/large/batched CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:46:09] matmul/float/medium/padded CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:09] matmul/double/small/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:09] matmul/double/medium/reversed CPU: 3649 MHz (base: 3686)
+[2026-08-31 06:46:09] matmul/double/large/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:10] diagonal/float/medium/padded CPU: 3501 MHz (base: 3686)
+[2026-08-31 06:46:10] matmul/float/small/contiguous CPU: 3612 MHz (base: 3686)
+[2026-08-31 06:46:10] diagonal/double/medium/padded CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:46:10] outer/float/medium/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:10] diagonal/float/small/reversed CPU: 3059 MHz (base: 3686)
+[2026-08-31 06:46:10] trace/double/medium/padded CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:11] diagonal/double/small/batched CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:11] outer/double/small/contiguous CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:11] outer/float/medium/padded CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:11] matmul/double/medium/transposed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:11] outer/float/small/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:11] diagonal/double/small/padded CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:46:12] matmul/float/large/batched CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:46:12] matmul/double/medium/padded CPU: 3059 MHz (base: 3686)
+[2026-08-31 06:46:12] dot/float/medium/contiguous CPU: 2543 MHz (base: 3686)
+[2026-08-31 06:46:12] diagonal/float/large/contiguous CPU: 2580 MHz (base: 3686)
+[2026-08-31 06:46:12] trace/double/medium/reversed CPU: 2580 MHz (base: 3686)
+[2026-08-31 06:46:13] diagonal/float/medium/contiguous CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:46:13] matmul/float/medium/reversed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:46:13] matmul/float/large/transposed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:46:13] diagonal/double/medium/contiguous CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:13] trace/double/small/batched CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:46:14] trace/double/medium/batched CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:46:14] trace/float/large/reversed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:46:14] matmul/float/large/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:46:14] dot/double/medium/padded CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:46:14] diagonal/float/large/transposed CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:46:14] trace/float/small/reversed CPU: 2985 MHz (base: 3686)
+[2026-08-31 06:46:15] matmul/float/large/padded CPU: 2948 MHz (base: 3686)
+Completed warmup 1
+Completed warmup 2
+Completed warmup 3
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+[NOTE] Short batch outer/float/large/padded implementation=2
+[NOTE] Short batch outer/float/large/reversed implementation=2
+Completed measured 4
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/double/large/batched implementation=0
+[NOTE] Short batch diagonal/float/large/transposed implementation=0
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/float/large/padded implementation=0
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+Completed measured 5
+[NOTE] Short batch outer/float/large/padded implementation=2
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+Completed measured 6
+[NOTE] Short batch diagonal/float/large/transposed implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+[NOTE] Short batch outer/float/large/padded implementation=2
+Completed measured 7
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/float/large/transposed implementation=0
+[NOTE] Short batch diagonal/double/medium/transposed implementation=1
+Completed measured 8
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+Completed measured 9
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+[NOTE] Short batch outer/float/large/padded implementation=2
+Completed measured 10
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/transposed implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+Completed measured 11
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch outer/float/large/padded implementation=2
+Completed measured 12
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/double/large/batched implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch outer/float/large/padded implementation=2
+[NOTE] Short batch diagonal/double/medium/transposed implementation=1
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+Completed measured 13
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch outer/float/large/padded implementation=2
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+Completed measured 14
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch outer/float/large/padded implementation=2
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+Completed measured 15
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/float/large/transposed implementation=0
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+Completed measured 16
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=0
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch outer/float/large/padded implementation=2
+Completed measured 17
+[NOTE] Short batch diagonal/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch outer/float/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/padded implementation=0
+[NOTE] Short batch diagonal/float/medium/reversed implementation=1
+[NOTE] Short batch matmul/float/large/reversed implementation=0
+[NOTE] Short batch outer/float/large/padded implementation=2
+Completed measured 18
+dot/float/small/contiguous left=[16] strides=[1] origin=7 right=[16] strides=[1] origin=7 output=[]
+  fat_p: 408 ns/call median; mean=409 stddev=7 mean_CI95=[405,413] result_allocations=1 bytes=4
+  scalar_prevalidated: 344 ns/call median; mean=345 stddev=6 mean_CI95=[341,348] result_allocations=1 bytes=4
+  allocation_only: 342 ns/call median; mean=341 stddev=6 mean_CI95=[337,344] result_allocations=1 bytes=4
+dot/float/small/padded left=[16] strides=[2] origin=7 right=[16] strides=[2] origin=7 output=[]
+  fat_p: 404 ns/call median; mean=406 stddev=5 mean_CI95=[404,409] result_allocations=1 bytes=4
+  scalar_prevalidated: 343 ns/call median; mean=343 stddev=5 mean_CI95=[341,346] result_allocations=1 bytes=4
+  allocation_only: 338 ns/call median; mean=339 stddev=6 mean_CI95=[335,342] result_allocations=1 bytes=4
+dot/float/small/reversed left=[16] strides=[-1] origin=22 right=[16] strides=[-1] origin=22 output=[]
+  fat_p: 410 ns/call median; mean=411 stddev=6 mean_CI95=[407,414] result_allocations=1 bytes=4
+  scalar_prevalidated: 344 ns/call median; mean=343 stddev=6 mean_CI95=[340,346] result_allocations=1 bytes=4
+  allocation_only: 338 ns/call median; mean=338 stddev=6 mean_CI95=[334,341] result_allocations=1 bytes=4
+dot/float/medium/contiguous left=[1024] strides=[1] origin=7 right=[1024] strides=[1] origin=7 output=[]
+  fat_p: 4535 ns/call median; mean=4541 stddev=139 mean_CI95=[4464,4618] result_allocations=1 bytes=4
+  scalar_prevalidated: 724 ns/call median; mean=726 stddev=14 mean_CI95=[719,734] result_allocations=1 bytes=4
+  allocation_only: 342 ns/call median; mean=343 stddev=7 mean_CI95=[339,347] result_allocations=1 bytes=4
+dot/float/medium/padded left=[1024] strides=[2] origin=7 right=[1024] strides=[2] origin=7 output=[]
+  fat_p: 4540 ns/call median; mean=4511 stddev=91 mean_CI95=[4461,4562] result_allocations=1 bytes=4
+  scalar_prevalidated: 724 ns/call median; mean=725 stddev=8 mean_CI95=[720,729] result_allocations=1 bytes=4
+  allocation_only: 339 ns/call median; mean=339 stddev=6 mean_CI95=[335,342] result_allocations=1 bytes=4
+dot/float/medium/reversed left=[1024] strides=[-1] origin=1030 right=[1024] strides=[-1] origin=1030 output=[]
+  fat_p: 4544 ns/call median; mean=4538 stddev=85 mean_CI95=[4491,4585] result_allocations=1 bytes=4
+  scalar_prevalidated: 725 ns/call median; mean=726 stddev=12 mean_CI95=[719,733] result_allocations=1 bytes=4
+  allocation_only: 340 ns/call median; mean=340 stddev=7 mean_CI95=[336,344] result_allocations=1 bytes=4
+dot/float/large/contiguous left=[65536] strides=[1] origin=7 right=[65536] strides=[1] origin=7 output=[]
+  fat_p: 263984 ns/call median; mean=265190 stddev=4606 mean_CI95=[262645,267735] result_allocations=1 bytes=4
+  scalar_prevalidated: 25421 ns/call median; mean=25345 stddev=563 mean_CI95=[25034,25656] result_allocations=1 bytes=4
+  allocation_only: 342 ns/call median; mean=342 stddev=6 mean_CI95=[339,346] result_allocations=1 bytes=4
+dot/float/large/padded left=[65536] strides=[2] origin=7 right=[65536] strides=[2] origin=7 output=[]
+  fat_p: 264638 ns/call median; mean=265174 stddev=2409 mean_CI95=[263842,266505] result_allocations=1 bytes=4
+  scalar_prevalidated: 25390 ns/call median; mean=25384 stddev=598 mean_CI95=[25053,25714] result_allocations=1 bytes=4
+  allocation_only: 341 ns/call median; mean=340 stddev=7 mean_CI95=[336,343] result_allocations=1 bytes=4
+dot/float/large/reversed left=[65536] strides=[-1] origin=65542 right=[65536] strides=[-1] origin=65542 output=[]
+  fat_p: 264953 ns/call median; mean=265622 stddev=2705 mean_CI95=[264128,267117] result_allocations=1 bytes=4
+  scalar_prevalidated: 25305 ns/call median; mean=25281 stddev=391 mean_CI95=[25065,25497] result_allocations=1 bytes=4
+  allocation_only: 340 ns/call median; mean=350 stddev=34 mean_CI95=[331,369] result_allocations=1 bytes=4
+outer/float/small/contiguous left=[8] strides=[1] origin=7 right=[12] strides=[1] origin=7 output=[8;12]
+  fat_p: 1184 ns/call median; mean=1192 stddev=44 mean_CI95=[1168,1216] result_allocations=1 bytes=384
+  scalar_prevalidated: 483 ns/call median; mean=482 stddev=8 mean_CI95=[478,487] result_allocations=1 bytes=384
+  allocation_only: 430 ns/call median; mean=429 stddev=8 mean_CI95=[425,434] result_allocations=1 bytes=384
+outer/float/small/padded left=[8] strides=[2] origin=7 right=[12] strides=[2] origin=7 output=[8;12]
+  fat_p: 1225 ns/call median; mean=1232 stddev=20 mean_CI95=[1221,1243] result_allocations=1 bytes=384
+  scalar_prevalidated: 470 ns/call median; mean=474 stddev=9 mean_CI95=[469,480] result_allocations=1 bytes=384
+  allocation_only: 435 ns/call median; mean=442 stddev=34 mean_CI95=[423,461] result_allocations=1 bytes=384
+outer/float/small/reversed left=[8] strides=[-1] origin=14 right=[12] strides=[-1] origin=18 output=[8;12]
+  fat_p: 1246 ns/call median; mean=1248 stddev=22 mean_CI95=[1236,1261] result_allocations=1 bytes=384
+  scalar_prevalidated: 485 ns/call median; mean=497 stddev=52 mean_CI95=[468,526] result_allocations=1 bytes=384
+  allocation_only: 435 ns/call median; mean=432 stddev=8 mean_CI95=[428,437] result_allocations=1 bytes=384
+outer/float/medium/contiguous left=[64] strides=[1] origin=7 right=[96] strides=[1] origin=7 output=[64;96]
+  fat_p: 21081 ns/call median; mean=21545 stddev=1057 mean_CI95=[20962,22129] result_allocations=1 bytes=24576
+  scalar_prevalidated: 4063 ns/call median; mean=4081 stddev=63 mean_CI95=[4047,4116] result_allocations=1 bytes=24576
+  allocation_only: 562 ns/call median; mean=566 stddev=8 mean_CI95=[561,570] result_allocations=1 bytes=24576
+outer/float/medium/padded left=[64] strides=[2] origin=7 right=[96] strides=[2] origin=7 output=[64;96]
+  fat_p: 20995 ns/call median; mean=21277 stddev=1103 mean_CI95=[20667,21886] result_allocations=1 bytes=24576
+  scalar_prevalidated: 4143 ns/call median; mean=4151 stddev=83 mean_CI95=[4105,4197] result_allocations=1 bytes=24576
+  allocation_only: 563 ns/call median; mean=565 stddev=9 mean_CI95=[560,570] result_allocations=1 bytes=24576
+outer/float/medium/reversed left=[64] strides=[-1] origin=70 right=[96] strides=[-1] origin=102 output=[64;96]
+  fat_p: 21331 ns/call median; mean=21619 stddev=1068 mean_CI95=[21029,22209] result_allocations=1 bytes=24576
+  scalar_prevalidated: 4052 ns/call median; mean=4071 stddev=57 mean_CI95=[4040,4102] result_allocations=1 bytes=24576
+  allocation_only: 560 ns/call median; mean=560 stddev=10 mean_CI95=[554,566] result_allocations=1 bytes=24576
+outer/float/large/contiguous left=[256] strides=[1] origin=7 right=[384] strides=[1] origin=7 output=[256;384]
+  fat_p: 332014 ns/call median; mean=331712 stddev=6508 mean_CI95=[328116,335308] result_allocations=1 bytes=393216
+  scalar_prevalidated: 58875 ns/call median; mean=58824 stddev=867 mean_CI95=[58345,59303] result_allocations=1 bytes=393216
+  allocation_only: 4785 ns/call median; mean=4808 stddev=97 mean_CI95=[4754,4862] result_allocations=1 bytes=393216
+outer/float/large/padded left=[256] strides=[2] origin=7 right=[384] strides=[2] origin=7 output=[256;384]
+  fat_p: 329675 ns/call median; mean=331912 stddev=7804 mean_CI95=[327601,336224] result_allocations=1 bytes=393216
+  scalar_prevalidated: 58395 ns/call median; mean=58457 stddev=779 mean_CI95=[58027,58887] result_allocations=1 bytes=393216
+  allocation_only: 4859 ns/call median; mean=4837 stddev=91 mean_CI95=[4787,4888] result_allocations=1 bytes=393216
+outer/float/large/reversed left=[256] strides=[-1] origin=262 right=[384] strides=[-1] origin=390 output=[256;384]
+  fat_p: 333378 ns/call median; mean=333079 stddev=6407 mean_CI95=[329539,336619] result_allocations=1 bytes=393216
+  scalar_prevalidated: 59173 ns/call median; mean=59118 stddev=1108 mean_CI95=[58505,59730] result_allocations=1 bytes=393216
+  allocation_only: 4822 ns/call median; mean=4814 stddev=93 mean_CI95=[4763,4866] result_allocations=1 bytes=393216
+matmul/float/small/contiguous left=[8;12] strides=[12;1] origin=7 right=[12;10] strides=[10;1] origin=7 output=[8;10]
+  fat_p: 802 ns/call median; mean=815 stddev=54 mean_CI95=[785,845] result_allocations=1 bytes=320
+  scalar_prevalidated: 1286 ns/call median; mean=1290 stddev=12 mean_CI95=[1284,1297] result_allocations=1 bytes=320
+  allocation_only: 425 ns/call median; mean=439 stddev=46 mean_CI95=[413,464] result_allocations=1 bytes=320
+matmul/float/small/padded left=[8;12] strides=[24;2] origin=7 right=[12;10] strides=[20;2] origin=7 output=[8;10]
+  fat_p: 4348 ns/call median; mean=4378 stddev=79 mean_CI95=[4334,4422] result_allocations=1 bytes=320
+  scalar_prevalidated: 1278 ns/call median; mean=1284 stddev=24 mean_CI95=[1271,1297] result_allocations=1 bytes=320
+  allocation_only: 433 ns/call median; mean=431 stddev=6 mean_CI95=[428,435] result_allocations=1 bytes=320
+matmul/float/small/reversed left=[8;12] strides=[12;-1] origin=18 right=[12;10] strides=[10;-1] origin=16 output=[8;10]
+  fat_p: 4462 ns/call median; mean=4468 stddev=60 mean_CI95=[4435,4501] result_allocations=1 bytes=320
+  scalar_prevalidated: 1283 ns/call median; mean=1281 stddev=24 mean_CI95=[1267,1294] result_allocations=1 bytes=320
+  allocation_only: 435 ns/call median; mean=434 stddev=4 mean_CI95=[432,437] result_allocations=1 bytes=320
+matmul/float/small/transposed left=[8;12] strides=[1;8] origin=7 right=[12;10] strides=[1;12] origin=7 output=[8;10]
+  fat_p: 4408 ns/call median; mean=4428 stddev=98 mean_CI95=[4374,4482] result_allocations=1 bytes=320
+  scalar_prevalidated: 1307 ns/call median; mean=1313 stddev=23 mean_CI95=[1300,1325] result_allocations=1 bytes=320
+  allocation_only: 429 ns/call median; mean=429 stddev=6 mean_CI95=[426,433] result_allocations=1 bytes=320
+matmul/float/small/batched left=[4;8;12] strides=[96;12;1] origin=7 right=[1;12;10] strides=[120;10;1] origin=7 output=[4;8;10]
+  fat_p: 16136 ns/call median; mean=16140 stddev=244 mean_CI95=[16005,16275] result_allocations=1 bytes=1280
+  scalar_prevalidated: 4714 ns/call median; mean=4727 stddev=76 mean_CI95=[4685,4769] result_allocations=1 bytes=1280
+  allocation_only: 466 ns/call median; mean=464 stddev=8 mean_CI95=[460,469] result_allocations=1 bytes=1280
+matmul/float/medium/contiguous left=[48;64] strides=[64;1] origin=7 right=[64;40] strides=[40;1] origin=7 output=[48;40]
+  fat_p: 40602 ns/call median; mean=40598 stddev=555 mean_CI95=[40292,40905] result_allocations=1 bytes=7680
+  scalar_prevalidated: 98404 ns/call median; mean=99535 stddev=2198 mean_CI95=[98321,100749] result_allocations=1 bytes=7680
+  allocation_only: 465 ns/call median; mean=465 stddev=7 mean_CI95=[462,469] result_allocations=1 bytes=7680
+matmul/float/medium/padded left=[48;64] strides=[128;2] origin=7 right=[64;40] strides=[80;2] origin=7 output=[48;40]
+  fat_p: 502008 ns/call median; mean=507497 stddev=9732 mean_CI95=[502120,512874] result_allocations=1 bytes=7680
+  scalar_prevalidated: 100193 ns/call median; mean=100573 stddev=1461 mean_CI95=[99765,101380] result_allocations=1 bytes=7680
+  allocation_only: 465 ns/call median; mean=465 stddev=7 mean_CI95=[461,469] result_allocations=1 bytes=7680
+matmul/float/medium/reversed left=[48;64] strides=[64;-1] origin=70 right=[64;40] strides=[40;-1] origin=46 output=[48;40]
+  fat_p: 509567 ns/call median; mean=511505 stddev=7549 mean_CI95=[507333,515676] result_allocations=1 bytes=7680
+  scalar_prevalidated: 99638 ns/call median; mean=99315 stddev=1177 mean_CI95=[98665,99965] result_allocations=1 bytes=7680
+  allocation_only: 466 ns/call median; mean=476 stddev=46 mean_CI95=[451,502] result_allocations=1 bytes=7680
+matmul/float/medium/transposed left=[48;64] strides=[1;48] origin=7 right=[64;40] strides=[1;64] origin=7 output=[48;40]
+  fat_p: 504058 ns/call median; mean=507125 stddev=7263 mean_CI95=[503111,511138] result_allocations=1 bytes=7680
+  scalar_prevalidated: 100515 ns/call median; mean=100486 stddev=1909 mean_CI95=[99431,101540] result_allocations=1 bytes=7680
+  allocation_only: 470 ns/call median; mean=467 stddev=9 mean_CI95=[462,472] result_allocations=1 bytes=7680
+matmul/float/medium/batched left=[4;48;64] strides=[3072;64;1] origin=7 right=[1;64;40] strides=[2560;40;1] origin=7 output=[4;48;40]
+  fat_p: 2010194 ns/call median; mean=2016767 stddev=22014 mean_CI95=[2004603,2028931] result_allocations=1 bytes=30720
+  scalar_prevalidated: 509141 ns/call median; mean=511291 stddev=5733 mean_CI95=[508123,514459] result_allocations=1 bytes=30720
+  allocation_only: 622 ns/call median; mean=635 stddev=48 mean_CI95=[608,661] result_allocations=1 bytes=30720
+matmul/float/large/contiguous left=[128;192] strides=[192;1] origin=7 right=[192;96] strides=[96;1] origin=7 output=[128;96]
+  fat_p: 760812 ns/call median; mean=759079 stddev=15539 mean_CI95=[750493,767665] result_allocations=1 bytes=49152
+  scalar_prevalidated: 1805912 ns/call median; mean=1803832 stddev=20884 mean_CI95=[1792293,1815372] result_allocations=1 bytes=49152
+  allocation_only: 980 ns/call median; mean=984 stddev=14 mean_CI95=[976,992] result_allocations=1 bytes=49152
+matmul/float/large/padded left=[128;192] strides=[384;2] origin=7 right=[192;96] strides=[192;2] origin=7 output=[128;96]
+  fat_p: 9731075 ns/call median; mean=9765222 stddev=148780 mean_CI95=[9683014,9847430] result_allocations=1 bytes=49152
+  scalar_prevalidated: 2012144 ns/call median; mean=2013964 stddev=31044 mean_CI95=[1996811,2031117] result_allocations=1 bytes=49152
+  allocation_only: 991 ns/call median; mean=991 stddev=19 mean_CI95=[980,1002] result_allocations=1 bytes=49152
+matmul/float/large/reversed left=[128;192] strides=[192;-1] origin=198 right=[192;96] strides=[96;-1] origin=102 output=[128;96]
+  fat_p: 9794300 ns/call median; mean=9795223 stddev=161964 mean_CI95=[9705731,9884716] result_allocations=1 bytes=49152
+  scalar_prevalidated: 1767756 ns/call median; mean=1778313 stddev=30082 mean_CI95=[1761692,1794934] result_allocations=1 bytes=49152
+  allocation_only: 983 ns/call median; mean=983 stddev=18 mean_CI95=[973,993] result_allocations=1 bytes=49152
+matmul/float/large/transposed left=[128;192] strides=[1;128] origin=7 right=[192;96] strides=[1;192] origin=7 output=[128;96]
+  fat_p: 9696400 ns/call median; mean=9743507 stddev=147743 mean_CI95=[9661872,9825141] result_allocations=1 bytes=49152
+  scalar_prevalidated: 2158419 ns/call median; mean=2161648 stddev=24496 mean_CI95=[2148113,2175184] result_allocations=1 bytes=49152
+  allocation_only: 974 ns/call median; mean=990 stddev=55 mean_CI95=[960,1021] result_allocations=1 bytes=49152
+matmul/float/large/batched left=[4;128;192] strides=[24576;192;1] origin=7 right=[1;192;96] strides=[18432;96;1] origin=7 output=[4;128;96]
+  fat_p: 38609000 ns/call median; mean=38842940 stddev=743656 mean_CI95=[38432036,39253844] result_allocations=1 bytes=196608
+  scalar_prevalidated: 9194775 ns/call median; mean=9215618 stddev=113964 mean_CI95=[9152648,9278589] result_allocations=1 bytes=196608
+  allocation_only: 2241 ns/call median; mean=2253 stddev=38 mean_CI95=[2232,2274] result_allocations=1 bytes=196608
+diagonal/float/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[8]
+  fat_p: 666 ns/call median; mean=666 stddev=14 mean_CI95=[658,674] result_allocations=1 bytes=32
+  scalar_prevalidated: 409 ns/call median; mean=409 stddev=7 mean_CI95=[405,413] result_allocations=1 bytes=32
+  allocation_only: 401 ns/call median; mean=402 stddev=5 mean_CI95=[400,405] result_allocations=1 bytes=32
+diagonal/float/small/padded left=[8;12] strides=[24;2] origin=7 output=[8]
+  fat_p: 656 ns/call median; mean=662 stddev=14 mean_CI95=[654,669] result_allocations=1 bytes=32
+  scalar_prevalidated: 408 ns/call median; mean=409 stddev=8 mean_CI95=[405,413] result_allocations=1 bytes=32
+  allocation_only: 401 ns/call median; mean=404 stddev=10 mean_CI95=[398,409] result_allocations=1 bytes=32
+diagonal/float/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[8]
+  fat_p: 665 ns/call median; mean=666 stddev=11 mean_CI95=[660,672] result_allocations=1 bytes=32
+  scalar_prevalidated: 405 ns/call median; mean=409 stddev=6 mean_CI95=[405,412] result_allocations=1 bytes=32
+  allocation_only: 400 ns/call median; mean=402 stddev=5 mean_CI95=[399,405] result_allocations=1 bytes=32
+diagonal/float/small/transposed left=[8;12] strides=[1;8] origin=7 output=[8]
+  fat_p: 669 ns/call median; mean=667 stddev=13 mean_CI95=[660,674] result_allocations=1 bytes=32
+  scalar_prevalidated: 410 ns/call median; mean=409 stddev=5 mean_CI95=[406,411] result_allocations=1 bytes=32
+  allocation_only: 403 ns/call median; mean=404 stddev=6 mean_CI95=[401,407] result_allocations=1 bytes=32
+diagonal/float/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4;8]
+  fat_p: 772 ns/call median; mean=801 stddev=83 mean_CI95=[755,846] result_allocations=1 bytes=128
+  scalar_prevalidated: 458 ns/call median; mean=458 stddev=9 mean_CI95=[453,463] result_allocations=1 bytes=128
+  allocation_only: 432 ns/call median; mean=444 stddev=41 mean_CI95=[421,466] result_allocations=1 bytes=128
+diagonal/float/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[128]
+  fat_p: 962 ns/call median; mean=972 stddev=41 mean_CI95=[949,995] result_allocations=1 bytes=512
+  scalar_prevalidated: 496 ns/call median; mean=506 stddev=45 mean_CI95=[482,531] result_allocations=1 bytes=512
+  allocation_only: 402 ns/call median; mean=404 stddev=4 mean_CI95=[402,406] result_allocations=1 bytes=512
+diagonal/float/medium/padded left=[128;192] strides=[384;2] origin=7 output=[128]
+  fat_p: 974 ns/call median; mean=990 stddev=65 mean_CI95=[954,1026] result_allocations=1 bytes=512
+  scalar_prevalidated: 503 ns/call median; mean=500 stddev=11 mean_CI95=[494,506] result_allocations=1 bytes=512
+  allocation_only: 403 ns/call median; mean=406 stddev=7 mean_CI95=[402,409] result_allocations=1 bytes=512
+diagonal/float/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[128]
+  fat_p: 968 ns/call median; mean=968 stddev=14 mean_CI95=[961,976] result_allocations=1 bytes=512
+  scalar_prevalidated: 490 ns/call median; mean=495 stddev=11 mean_CI95=[489,501] result_allocations=1 bytes=512
+  allocation_only: 403 ns/call median; mean=404 stddev=7 mean_CI95=[400,408] result_allocations=1 bytes=512
+diagonal/float/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[128]
+  fat_p: 967 ns/call median; mean=992 stddev=96 mean_CI95=[939,1045] result_allocations=1 bytes=512
+  scalar_prevalidated: 493 ns/call median; mean=493 stddev=4 mean_CI95=[491,496] result_allocations=1 bytes=512
+  allocation_only: 405 ns/call median; mean=416 stddev=43 mean_CI95=[393,440] result_allocations=1 bytes=512
+diagonal/float/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4;128]
+  fat_p: 2077 ns/call median; mean=2066 stddev=71 mean_CI95=[2027,2105] result_allocations=1 bytes=2048
+  scalar_prevalidated: 922 ns/call median; mean=924 stddev=10 mean_CI95=[918,930] result_allocations=1 bytes=2048
+  allocation_only: 436 ns/call median; mean=438 stddev=7 mean_CI95=[434,442] result_allocations=1 bytes=2048
+diagonal/float/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[512]
+  fat_p: 1993 ns/call median; mean=1996 stddev=43 mean_CI95=[1973,2020] result_allocations=1 bytes=2048
+  scalar_prevalidated: 837 ns/call median; mean=844 stddev=16 mean_CI95=[836,853] result_allocations=1 bytes=2048
+  allocation_only: 411 ns/call median; mean=411 stddev=4 mean_CI95=[409,414] result_allocations=1 bytes=2048
+diagonal/float/large/padded left=[512;768] strides=[1536;2] origin=7 output=[512]
+  fat_p: 2091 ns/call median; mean=2095 stddev=67 mean_CI95=[2058,2132] result_allocations=1 bytes=2048
+  scalar_prevalidated: 858 ns/call median; mean=858 stddev=17 mean_CI95=[849,868] result_allocations=1 bytes=2048
+  allocation_only: 406 ns/call median; mean=410 stddev=7 mean_CI95=[406,413] result_allocations=1 bytes=2048
+diagonal/float/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[512]
+  fat_p: 1971 ns/call median; mean=1980 stddev=65 mean_CI95=[1945,2016] result_allocations=1 bytes=2048
+  scalar_prevalidated: 836 ns/call median; mean=838 stddev=10 mean_CI95=[832,843] result_allocations=1 bytes=2048
+  allocation_only: 408 ns/call median; mean=410 stddev=7 mean_CI95=[406,413] result_allocations=1 bytes=2048
+diagonal/float/large/transposed left=[512;768] strides=[1;512] origin=7 output=[512]
+  fat_p: 1985 ns/call median; mean=1988 stddev=55 mean_CI95=[1957,2018] result_allocations=1 bytes=2048
+  scalar_prevalidated: 836 ns/call median; mean=848 stddev=44 mean_CI95=[823,872] result_allocations=1 bytes=2048
+  allocation_only: 411 ns/call median; mean=413 stddev=6 mean_CI95=[410,417] result_allocations=1 bytes=2048
+diagonal/float/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4;512]
+  fat_p: 6715 ns/call median; mean=6754 stddev=123 mean_CI95=[6686,6822] result_allocations=1 bytes=8192
+  scalar_prevalidated: 2852 ns/call median; mean=2879 stddev=65 mean_CI95=[2843,2915] result_allocations=1 bytes=8192
+  allocation_only: 474 ns/call median; mean=474 stddev=9 mean_CI95=[469,479] result_allocations=1 bytes=8192
+trace/float/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[]
+  fat_p: 706 ns/call median; mean=706 stddev=13 mean_CI95=[699,713] result_allocations=1 bytes=4
+  scalar_prevalidated: 345 ns/call median; mean=345 stddev=7 mean_CI95=[342,349] result_allocations=1 bytes=4
+  allocation_only: 340 ns/call median; mean=341 stddev=8 mean_CI95=[337,346] result_allocations=1 bytes=4
+trace/float/small/padded left=[8;12] strides=[24;2] origin=7 output=[]
+  fat_p: 702 ns/call median; mean=702 stddev=14 mean_CI95=[695,710] result_allocations=1 bytes=4
+  scalar_prevalidated: 344 ns/call median; mean=345 stddev=5 mean_CI95=[342,348] result_allocations=1 bytes=4
+  allocation_only: 340 ns/call median; mean=340 stddev=6 mean_CI95=[337,343] result_allocations=1 bytes=4
+trace/float/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[]
+  fat_p: 720 ns/call median; mean=721 stddev=40 mean_CI95=[699,743] result_allocations=1 bytes=4
+  scalar_prevalidated: 347 ns/call median; mean=344 stddev=7 mean_CI95=[341,348] result_allocations=1 bytes=4
+  allocation_only: 340 ns/call median; mean=341 stddev=6 mean_CI95=[338,344] result_allocations=1 bytes=4
+trace/float/small/transposed left=[8;12] strides=[1;8] origin=7 output=[]
+  fat_p: 707 ns/call median; mean=715 stddev=39 mean_CI95=[693,737] result_allocations=1 bytes=4
+  scalar_prevalidated: 345 ns/call median; mean=344 stddev=6 mean_CI95=[341,347] result_allocations=1 bytes=4
+  allocation_only: 342 ns/call median; mean=343 stddev=7 mean_CI95=[339,347] result_allocations=1 bytes=4
+trace/float/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4]
+  fat_p: 1086 ns/call median; mean=1090 stddev=22 mean_CI95=[1078,1103] result_allocations=1 bytes=16
+  scalar_prevalidated: 425 ns/call median; mean=426 stddev=6 mean_CI95=[423,430] result_allocations=1 bytes=16
+  allocation_only: 402 ns/call median; mean=403 stddev=6 mean_CI95=[400,406] result_allocations=1 bytes=16
+trace/float/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[]
+  fat_p: 1339 ns/call median; mean=1348 stddev=52 mean_CI95=[1320,1377] result_allocations=1 bytes=4
+  scalar_prevalidated: 412 ns/call median; mean=413 stddev=7 mean_CI95=[409,416] result_allocations=1 bytes=4
+  allocation_only: 343 ns/call median; mean=355 stddev=53 mean_CI95=[326,385] result_allocations=1 bytes=4
+trace/float/medium/padded left=[128;192] strides=[384;2] origin=7 output=[]
+  fat_p: 1338 ns/call median; mean=1352 stddev=43 mean_CI95=[1328,1376] result_allocations=1 bytes=4
+  scalar_prevalidated: 415 ns/call median; mean=438 stddev=65 mean_CI95=[402,473] result_allocations=1 bytes=4
+  allocation_only: 338 ns/call median; mean=350 stddev=44 mean_CI95=[326,374] result_allocations=1 bytes=4
+trace/float/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[]
+  fat_p: 1332 ns/call median; mean=1332 stddev=19 mean_CI95=[1322,1343] result_allocations=1 bytes=4
+  scalar_prevalidated: 411 ns/call median; mean=412 stddev=5 mean_CI95=[409,414] result_allocations=1 bytes=4
+  allocation_only: 341 ns/call median; mean=350 stddev=39 mean_CI95=[328,371] result_allocations=1 bytes=4
+trace/float/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[]
+  fat_p: 1336 ns/call median; mean=1334 stddev=27 mean_CI95=[1319,1349] result_allocations=1 bytes=4
+  scalar_prevalidated: 417 ns/call median; mean=415 stddev=6 mean_CI95=[412,419] result_allocations=1 bytes=4
+  allocation_only: 340 ns/call median; mean=342 stddev=7 mean_CI95=[338,346] result_allocations=1 bytes=4
+trace/float/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4]
+  fat_p: 5470 ns/call median; mean=5474 stddev=91 mean_CI95=[5424,5524] result_allocations=1 bytes=16
+  scalar_prevalidated: 793 ns/call median; mean=795 stddev=10 mean_CI95=[789,801] result_allocations=1 bytes=16
+  allocation_only: 402 ns/call median; mean=404 stddev=6 mean_CI95=[400,407] result_allocations=1 bytes=16
+trace/float/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[]
+  fat_p: 3346 ns/call median; mean=3355 stddev=57 mean_CI95=[3323,3386] result_allocations=1 bytes=4
+  scalar_prevalidated: 653 ns/call median; mean=668 stddev=53 mean_CI95=[639,697] result_allocations=1 bytes=4
+  allocation_only: 342 ns/call median; mean=350 stddev=34 mean_CI95=[331,369] result_allocations=1 bytes=4
+trace/float/large/padded left=[512;768] strides=[1536;2] origin=7 output=[]
+  fat_p: 3322 ns/call median; mean=3338 stddev=49 mean_CI95=[3311,3366] result_allocations=1 bytes=4
+  scalar_prevalidated: 660 ns/call median; mean=661 stddev=14 mean_CI95=[653,669] result_allocations=1 bytes=4
+  allocation_only: 341 ns/call median; mean=341 stddev=8 mean_CI95=[336,345] result_allocations=1 bytes=4
+trace/float/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[]
+  fat_p: 3318 ns/call median; mean=3333 stddev=37 mean_CI95=[3312,3354] result_allocations=1 bytes=4
+  scalar_prevalidated: 649 ns/call median; mean=649 stddev=9 mean_CI95=[644,654] result_allocations=1 bytes=4
+  allocation_only: 337 ns/call median; mean=337 stddev=4 mean_CI95=[335,340] result_allocations=1 bytes=4
+trace/float/large/transposed left=[512;768] strides=[1;512] origin=7 output=[]
+  fat_p: 3334 ns/call median; mean=3329 stddev=37 mean_CI95=[3309,3349] result_allocations=1 bytes=4
+  scalar_prevalidated: 649 ns/call median; mean=650 stddev=13 mean_CI95=[643,657] result_allocations=1 bytes=4
+  allocation_only: 341 ns/call median; mean=341 stddev=5 mean_CI95=[338,344] result_allocations=1 bytes=4
+trace/float/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4]
+  fat_p: 19561 ns/call median; mean=19608 stddev=352 mean_CI95=[19414,19803] result_allocations=1 bytes=16
+  scalar_prevalidated: 2396 ns/call median; mean=2402 stddev=78 mean_CI95=[2359,2445] result_allocations=1 bytes=16
+  allocation_only: 402 ns/call median; mean=404 stddev=7 mean_CI95=[400,408] result_allocations=1 bytes=16
+dot/double/small/contiguous left=[16] strides=[1] origin=7 right=[16] strides=[1] origin=7 output=[]
+  fat_p: 409 ns/call median; mean=419 stddev=37 mean_CI95=[399,440] result_allocations=1 bytes=8
+  scalar_prevalidated: 344 ns/call median; mean=344 stddev=6 mean_CI95=[340,348] result_allocations=1 bytes=8
+  allocation_only: 340 ns/call median; mean=340 stddev=6 mean_CI95=[337,344] result_allocations=1 bytes=8
+dot/double/small/padded left=[16] strides=[2] origin=7 right=[16] strides=[2] origin=7 output=[]
+  fat_p: 408 ns/call median; mean=409 stddev=6 mean_CI95=[406,413] result_allocations=1 bytes=8
+  scalar_prevalidated: 347 ns/call median; mean=347 stddev=6 mean_CI95=[343,350] result_allocations=1 bytes=8
+  allocation_only: 343 ns/call median; mean=342 stddev=6 mean_CI95=[338,345] result_allocations=1 bytes=8
+dot/double/small/reversed left=[16] strides=[-1] origin=22 right=[16] strides=[-1] origin=22 output=[]
+  fat_p: 410 ns/call median; mean=418 stddev=33 mean_CI95=[399,436] result_allocations=1 bytes=8
+  scalar_prevalidated: 342 ns/call median; mean=353 stddev=44 mean_CI95=[329,377] result_allocations=1 bytes=8
+  allocation_only: 340 ns/call median; mean=351 stddev=47 mean_CI95=[325,376] result_allocations=1 bytes=8
+dot/double/medium/contiguous left=[1024] strides=[1] origin=7 right=[1024] strides=[1] origin=7 output=[]
+  fat_p: 4547 ns/call median; mean=4520 stddev=80 mean_CI95=[4476,4564] result_allocations=1 bytes=8
+  scalar_prevalidated: 721 ns/call median; mean=719 stddev=10 mean_CI95=[713,724] result_allocations=1 bytes=8
+  allocation_only: 341 ns/call median; mean=340 stddev=3 mean_CI95=[338,342] result_allocations=1 bytes=8
+dot/double/medium/padded left=[1024] strides=[2] origin=7 right=[1024] strides=[2] origin=7 output=[]
+  fat_p: 4438 ns/call median; mean=4475 stddev=90 mean_CI95=[4425,4525] result_allocations=1 bytes=8
+  scalar_prevalidated: 727 ns/call median; mean=729 stddev=11 mean_CI95=[723,735] result_allocations=1 bytes=8
+  allocation_only: 341 ns/call median; mean=342 stddev=4 mean_CI95=[340,345] result_allocations=1 bytes=8
+dot/double/medium/reversed left=[1024] strides=[-1] origin=1030 right=[1024] strides=[-1] origin=1030 output=[]
+  fat_p: 4479 ns/call median; mean=4507 stddev=82 mean_CI95=[4462,4552] result_allocations=1 bytes=8
+  scalar_prevalidated: 725 ns/call median; mean=725 stddev=11 mean_CI95=[719,732] result_allocations=1 bytes=8
+  allocation_only: 342 ns/call median; mean=341 stddev=5 mean_CI95=[338,344] result_allocations=1 bytes=8
+dot/double/large/contiguous left=[65536] strides=[1] origin=7 right=[65536] strides=[1] origin=7 output=[]
+  fat_p: 267302 ns/call median; mean=268044 stddev=3630 mean_CI95=[266039,270050] result_allocations=1 bytes=8
+  scalar_prevalidated: 25403 ns/call median; mean=25390 stddev=430 mean_CI95=[25152,25628] result_allocations=1 bytes=8
+  allocation_only: 338 ns/call median; mean=342 stddev=7 mean_CI95=[338,346] result_allocations=1 bytes=8
+dot/double/large/padded left=[65536] strides=[2] origin=7 right=[65536] strides=[2] origin=7 output=[]
+  fat_p: 264532 ns/call median; mean=265555 stddev=5427 mean_CI95=[262557,268554] result_allocations=1 bytes=8
+  scalar_prevalidated: 25415 ns/call median; mean=25444 stddev=491 mean_CI95=[25173,25715] result_allocations=1 bytes=8
+  allocation_only: 338 ns/call median; mean=342 stddev=8 mean_CI95=[337,346] result_allocations=1 bytes=8
+dot/double/large/reversed left=[65536] strides=[-1] origin=65542 right=[65536] strides=[-1] origin=65542 output=[]
+  fat_p: 267142 ns/call median; mean=267577 stddev=3307 mean_CI95=[265750,269404] result_allocations=1 bytes=8
+  scalar_prevalidated: 25294 ns/call median; mean=25175 stddev=547 mean_CI95=[24873,25477] result_allocations=1 bytes=8
+  allocation_only: 344 ns/call median; mean=343 stddev=6 mean_CI95=[339,346] result_allocations=1 bytes=8
+outer/double/small/contiguous left=[8] strides=[1] origin=7 right=[12] strides=[1] origin=7 output=[8;12]
+  fat_p: 1175 ns/call median; mean=1171 stddev=12 mean_CI95=[1165,1178] result_allocations=1 bytes=768
+  scalar_prevalidated: 478 ns/call median; mean=478 stddev=7 mean_CI95=[473,482] result_allocations=1 bytes=768
+  allocation_only: 434 ns/call median; mean=434 stddev=7 mean_CI95=[430,438] result_allocations=1 bytes=768
+outer/double/small/padded left=[8] strides=[2] origin=7 right=[12] strides=[2] origin=7 output=[8;12]
+  fat_p: 1220 ns/call median; mean=1227 stddev=24 mean_CI95=[1213,1240] result_allocations=1 bytes=768
+  scalar_prevalidated: 482 ns/call median; mean=483 stddev=14 mean_CI95=[475,490] result_allocations=1 bytes=768
+  allocation_only: 432 ns/call median; mean=433 stddev=8 mean_CI95=[428,437] result_allocations=1 bytes=768
+outer/double/small/reversed left=[8] strides=[-1] origin=14 right=[12] strides=[-1] origin=18 output=[8;12]
+  fat_p: 1223 ns/call median; mean=1227 stddev=17 mean_CI95=[1218,1237] result_allocations=1 bytes=768
+  scalar_prevalidated: 479 ns/call median; mean=479 stddev=8 mean_CI95=[474,483] result_allocations=1 bytes=768
+  allocation_only: 437 ns/call median; mean=435 stddev=7 mean_CI95=[431,440] result_allocations=1 bytes=768
+outer/double/medium/contiguous left=[64] strides=[1] origin=7 right=[96] strides=[1] origin=7 output=[64;96]
+  fat_p: 22363 ns/call median; mean=22353 stddev=503 mean_CI95=[22075,22631] result_allocations=1 bytes=49152
+  scalar_prevalidated: 4800 ns/call median; mean=4823 stddev=80 mean_CI95=[4779,4867] result_allocations=1 bytes=49152
+  allocation_only: 972 ns/call median; mean=974 stddev=11 mean_CI95=[967,980] result_allocations=1 bytes=49152
+outer/double/medium/padded left=[64] strides=[2] origin=7 right=[96] strides=[2] origin=7 output=[64;96]
+  fat_p: 22623 ns/call median; mean=22455 stddev=784 mean_CI95=[22022,22888] result_allocations=1 bytes=49152
+  scalar_prevalidated: 4660 ns/call median; mean=4680 stddev=76 mean_CI95=[4638,4722] result_allocations=1 bytes=49152
+  allocation_only: 974 ns/call median; mean=982 stddev=36 mean_CI95=[963,1002] result_allocations=1 bytes=49152
+outer/double/medium/reversed left=[64] strides=[-1] origin=70 right=[96] strides=[-1] origin=102 output=[64;96]
+  fat_p: 22382 ns/call median; mean=22392 stddev=508 mean_CI95=[22111,22673] result_allocations=1 bytes=49152
+  scalar_prevalidated: 4615 ns/call median; mean=4635 stddev=84 mean_CI95=[4588,4681] result_allocations=1 bytes=49152
+  allocation_only: 969 ns/call median; mean=970 stddev=14 mean_CI95=[962,977] result_allocations=1 bytes=49152
+outer/double/large/contiguous left=[256] strides=[1] origin=7 right=[384] strides=[1] origin=7 output=[256;384]
+  fat_p: 338277 ns/call median; mean=338761 stddev=8020 mean_CI95=[334329,343192] result_allocations=1 bytes=786432
+  scalar_prevalidated: 64237 ns/call median; mean=64641 stddev=1001 mean_CI95=[64088,65194] result_allocations=1 bytes=786432
+  allocation_only: 9257 ns/call median; mean=9279 stddev=157 mean_CI95=[9192,9366] result_allocations=1 bytes=786432
+outer/double/large/padded left=[256] strides=[2] origin=7 right=[384] strides=[2] origin=7 output=[256;384]
+  fat_p: 341030 ns/call median; mean=342527 stddev=5904 mean_CI95=[339265,345790] result_allocations=1 bytes=786432
+  scalar_prevalidated: 63871 ns/call median; mean=64278 stddev=1136 mean_CI95=[63650,64906] result_allocations=1 bytes=786432
+  allocation_only: 9290 ns/call median; mean=9259 stddev=166 mean_CI95=[9167,9351] result_allocations=1 bytes=786432
+outer/double/large/reversed left=[256] strides=[-1] origin=262 right=[384] strides=[-1] origin=390 output=[256;384]
+  fat_p: 338525 ns/call median; mean=338710 stddev=6951 mean_CI95=[334870,342551] result_allocations=1 bytes=786432
+  scalar_prevalidated: 64436 ns/call median; mean=64607 stddev=920 mean_CI95=[64098,65115] result_allocations=1 bytes=786432
+  allocation_only: 9273 ns/call median; mean=9252 stddev=130 mean_CI95=[9180,9324] result_allocations=1 bytes=786432
+matmul/double/small/contiguous left=[8;12] strides=[12;1] origin=7 right=[12;10] strides=[10;1] origin=7 output=[8;10]
+  fat_p: 802 ns/call median; mean=805 stddev=13 mean_CI95=[798,812] result_allocations=1 bytes=640
+  scalar_prevalidated: 1278 ns/call median; mean=1281 stddev=18 mean_CI95=[1271,1291] result_allocations=1 bytes=640
+  allocation_only: 433 ns/call median; mean=433 stddev=9 mean_CI95=[429,438] result_allocations=1 bytes=640
+matmul/double/small/padded left=[8;12] strides=[24;2] origin=7 right=[12;10] strides=[20;2] origin=7 output=[8;10]
+  fat_p: 4384 ns/call median; mean=4410 stddev=103 mean_CI95=[4354,4467] result_allocations=1 bytes=640
+  scalar_prevalidated: 1279 ns/call median; mean=1284 stddev=15 mean_CI95=[1275,1292] result_allocations=1 bytes=640
+  allocation_only: 428 ns/call median; mean=441 stddev=43 mean_CI95=[417,465] result_allocations=1 bytes=640
+matmul/double/small/reversed left=[8;12] strides=[12;-1] origin=18 right=[12;10] strides=[10;-1] origin=16 output=[8;10]
+  fat_p: 4479 ns/call median; mean=4474 stddev=104 mean_CI95=[4417,4532] result_allocations=1 bytes=640
+  scalar_prevalidated: 1296 ns/call median; mean=1302 stddev=48 mean_CI95=[1275,1328] result_allocations=1 bytes=640
+  allocation_only: 430 ns/call median; mean=443 stddev=43 mean_CI95=[418,467] result_allocations=1 bytes=640
+matmul/double/small/transposed left=[8;12] strides=[1;8] origin=7 right=[12;10] strides=[1;12] origin=7 output=[8;10]
+  fat_p: 4397 ns/call median; mean=4395 stddev=87 mean_CI95=[4347,4443] result_allocations=1 bytes=640
+  scalar_prevalidated: 1283 ns/call median; mean=1302 stddev=61 mean_CI95=[1269,1336] result_allocations=1 bytes=640
+  allocation_only: 433 ns/call median; mean=433 stddev=7 mean_CI95=[429,437] result_allocations=1 bytes=640
+matmul/double/small/batched left=[4;8;12] strides=[96;12;1] origin=7 right=[1;12;10] strides=[120;10;1] origin=7 output=[4;8;10]
+  fat_p: 16415 ns/call median; mean=16391 stddev=266 mean_CI95=[16244,16538] result_allocations=1 bytes=2560
+  scalar_prevalidated: 4744 ns/call median; mean=4747 stddev=70 mean_CI95=[4708,4786] result_allocations=1 bytes=2560
+  allocation_only: 461 ns/call median; mean=465 stddev=11 mean_CI95=[459,471] result_allocations=1 bytes=2560
+matmul/double/medium/contiguous left=[48;64] strides=[64;1] origin=7 right=[64;40] strides=[40;1] origin=7 output=[48;40]
+  fat_p: 42472 ns/call median; mean=42444 stddev=876 mean_CI95=[41960,42928] result_allocations=1 bytes=15360
+  scalar_prevalidated: 101678 ns/call median; mean=101176 stddev=2099 mean_CI95=[100016,102336] result_allocations=1 bytes=15360
+  allocation_only: 538 ns/call median; mean=553 stddev=52 mean_CI95=[524,582] result_allocations=1 bytes=15360
+matmul/double/medium/padded left=[48;64] strides=[128;2] origin=7 right=[64;40] strides=[80;2] origin=7 output=[48;40]
+  fat_p: 506128 ns/call median; mean=505829 stddev=6025 mean_CI95=[502500,509159] result_allocations=1 bytes=15360
+  scalar_prevalidated: 103034 ns/call median; mean=102935 stddev=2007 mean_CI95=[101826,104044] result_allocations=1 bytes=15360
+  allocation_only: 543 ns/call median; mean=541 stddev=8 mean_CI95=[537,545] result_allocations=1 bytes=15360
+matmul/double/medium/reversed left=[48;64] strides=[64;-1] origin=70 right=[64;40] strides=[40;-1] origin=46 output=[48;40]
+  fat_p: 504575 ns/call median; mean=506251 stddev=5145 mean_CI95=[503408,509094] result_allocations=1 bytes=15360
+  scalar_prevalidated: 101036 ns/call median; mean=100937 stddev=1746 mean_CI95=[99972,101901] result_allocations=1 bytes=15360
+  allocation_only: 538 ns/call median; mean=553 stddev=59 mean_CI95=[521,586] result_allocations=1 bytes=15360
+matmul/double/medium/transposed left=[48;64] strides=[1;48] origin=7 right=[64;40] strides=[1;64] origin=7 output=[48;40]
+  fat_p: 502425 ns/call median; mean=505173 stddev=6872 mean_CI95=[501377,508970] result_allocations=1 bytes=15360
+  scalar_prevalidated: 100588 ns/call median; mean=100764 stddev=2008 mean_CI95=[99655,101874] result_allocations=1 bytes=15360
+  allocation_only: 544 ns/call median; mean=555 stddev=47 mean_CI95=[529,582] result_allocations=1 bytes=15360
+matmul/double/medium/batched left=[4;48;64] strides=[3072;64;1] origin=7 right=[1;64;40] strides=[2560;40;1] origin=7 output=[4;48;40]
+  fat_p: 2025412 ns/call median; mean=2031327 stddev=31565 mean_CI95=[2013885,2048768] result_allocations=1 bytes=61440
+  scalar_prevalidated: 510503 ns/call median; mean=512038 stddev=6891 mean_CI95=[508231,515846] result_allocations=1 bytes=61440
+  allocation_only: 1097 ns/call median; mean=1097 stddev=17 mean_CI95=[1087,1106] result_allocations=1 bytes=61440
+matmul/double/large/contiguous left=[128;192] strides=[192;1] origin=7 right=[192;96] strides=[96;1] origin=7 output=[128;96]
+  fat_p: 771700 ns/call median; mean=773392 stddev=16565 mean_CI95=[764240,782545] result_allocations=1 bytes=98304
+  scalar_prevalidated: 2072762 ns/call median; mean=2082332 stddev=37287 mean_CI95=[2061730,2102935] result_allocations=1 bytes=98304
+  allocation_only: 1378 ns/call median; mean=1376 stddev=23 mean_CI95=[1363,1388] result_allocations=1 bytes=98304
+matmul/double/large/padded left=[128;192] strides=[384;2] origin=7 right=[192;96] strides=[192;2] origin=7 output=[128;96]
+  fat_p: 9615825 ns/call median; mean=9709412 stddev=175899 mean_CI95=[9612220,9806604] result_allocations=1 bytes=98304
+  scalar_prevalidated: 2197162 ns/call median; mean=2201020 stddev=26207 mean_CI95=[2186540,2215500] result_allocations=1 bytes=98304
+  allocation_only: 1374 ns/call median; mean=1379 stddev=25 mean_CI95=[1365,1393] result_allocations=1 bytes=98304
+matmul/double/large/reversed left=[128;192] strides=[192;-1] origin=198 right=[192;96] strides=[96;-1] origin=102 output=[128;96]
+  fat_p: 9857550 ns/call median; mean=9824912 stddev=154651 mean_CI95=[9739460,9910364] result_allocations=1 bytes=98304
+  scalar_prevalidated: 2063550 ns/call median; mean=2064698 stddev=24417 mean_CI95=[2051207,2078189] result_allocations=1 bytes=98304
+  allocation_only: 1369 ns/call median; mean=1372 stddev=27 mean_CI95=[1358,1387] result_allocations=1 bytes=98304
+matmul/double/large/transposed left=[128;192] strides=[1;128] origin=7 right=[192;96] strides=[1;192] origin=7 output=[128;96]
+  fat_p: 9662625 ns/call median; mean=9721697 stddev=137485 mean_CI95=[9645730,9797663] result_allocations=1 bytes=98304
+  scalar_prevalidated: 2225469 ns/call median; mean=2236778 stddev=38759 mean_CI95=[2215362,2258194] result_allocations=1 bytes=98304
+  allocation_only: 1395 ns/call median; mean=1394 stddev=27 mean_CI95=[1379,1409] result_allocations=1 bytes=98304
+matmul/double/large/batched left=[4;128;192] strides=[24576;192;1] origin=7 right=[1;192;96] strides=[18432;96;1] origin=7 output=[4;128;96]
+  fat_p: 38825400 ns/call median; mean=38723147 stddev=403018 mean_CI95=[38500461,38945832] result_allocations=1 bytes=393216
+  scalar_prevalidated: 10721400 ns/call median; mean=10704583 stddev=258103 mean_CI95=[10561970,10847197] result_allocations=1 bytes=393216
+  allocation_only: 4787 ns/call median; mean=4781 stddev=50 mean_CI95=[4753,4808] result_allocations=1 bytes=393216
+diagonal/double/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[8]
+  fat_p: 670 ns/call median; mean=667 stddev=12 mean_CI95=[660,674] result_allocations=1 bytes=64
+  scalar_prevalidated: 405 ns/call median; mean=406 stddev=5 mean_CI95=[404,409] result_allocations=1 bytes=64
+  allocation_only: 401 ns/call median; mean=401 stddev=4 mean_CI95=[399,403] result_allocations=1 bytes=64
+diagonal/double/small/padded left=[8;12] strides=[24;2] origin=7 output=[8]
+  fat_p: 669 ns/call median; mean=668 stddev=12 mean_CI95=[661,674] result_allocations=1 bytes=64
+  scalar_prevalidated: 407 ns/call median; mean=408 stddev=6 mean_CI95=[404,411] result_allocations=1 bytes=64
+  allocation_only: 401 ns/call median; mean=404 stddev=10 mean_CI95=[399,409] result_allocations=1 bytes=64
+diagonal/double/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[8]
+  fat_p: 675 ns/call median; mean=675 stddev=17 mean_CI95=[665,684] result_allocations=1 bytes=64
+  scalar_prevalidated: 404 ns/call median; mean=408 stddev=8 mean_CI95=[404,412] result_allocations=1 bytes=64
+  allocation_only: 401 ns/call median; mean=404 stddev=7 mean_CI95=[400,407] result_allocations=1 bytes=64
+diagonal/double/small/transposed left=[8;12] strides=[1;8] origin=7 output=[8]
+  fat_p: 665 ns/call median; mean=668 stddev=17 mean_CI95=[658,677] result_allocations=1 bytes=64
+  scalar_prevalidated: 409 ns/call median; mean=411 stddev=6 mean_CI95=[407,415] result_allocations=1 bytes=64
+  allocation_only: 404 ns/call median; mean=405 stddev=5 mean_CI95=[403,408] result_allocations=1 bytes=64
+diagonal/double/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4;8]
+  fat_p: 775 ns/call median; mean=772 stddev=14 mean_CI95=[764,779] result_allocations=1 bytes=256
+  scalar_prevalidated: 452 ns/call median; mean=455 stddev=7 mean_CI95=[451,458] result_allocations=1 bytes=256
+  allocation_only: 432 ns/call median; mean=432 stddev=5 mean_CI95=[429,435] result_allocations=1 bytes=256
+diagonal/double/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[128]
+  fat_p: 960 ns/call median; mean=968 stddev=20 mean_CI95=[957,979] result_allocations=1 bytes=1024
+  scalar_prevalidated: 503 ns/call median; mean=504 stddev=7 mean_CI95=[500,508] result_allocations=1 bytes=1024
+  allocation_only: 407 ns/call median; mean=407 stddev=4 mean_CI95=[405,410] result_allocations=1 bytes=1024
+diagonal/double/medium/padded left=[128;192] strides=[384;2] origin=7 output=[128]
+  fat_p: 983 ns/call median; mean=979 stddev=24 mean_CI95=[965,992] result_allocations=1 bytes=1024
+  scalar_prevalidated: 507 ns/call median; mean=510 stddev=10 mean_CI95=[504,516] result_allocations=1 bytes=1024
+  allocation_only: 408 ns/call median; mean=410 stddev=10 mean_CI95=[404,415] result_allocations=1 bytes=1024
+diagonal/double/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[128]
+  fat_p: 977 ns/call median; mean=974 stddev=14 mean_CI95=[966,981] result_allocations=1 bytes=1024
+  scalar_prevalidated: 498 ns/call median; mean=501 stddev=9 mean_CI95=[496,506] result_allocations=1 bytes=1024
+  allocation_only: 406 ns/call median; mean=411 stddev=15 mean_CI95=[403,420] result_allocations=1 bytes=1024
+diagonal/double/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[128]
+  fat_p: 970 ns/call median; mean=967 stddev=12 mean_CI95=[961,974] result_allocations=1 bytes=1024
+  scalar_prevalidated: 500 ns/call median; mean=506 stddev=16 mean_CI95=[497,514] result_allocations=1 bytes=1024
+  allocation_only: 410 ns/call median; mean=410 stddev=5 mean_CI95=[407,412] result_allocations=1 bytes=1024
+diagonal/double/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4;128]
+  fat_p: 2169 ns/call median; mean=2175 stddev=69 mean_CI95=[2137,2213] result_allocations=1 bytes=4096
+  scalar_prevalidated: 958 ns/call median; mean=957 stddev=12 mean_CI95=[950,963] result_allocations=1 bytes=4096
+  allocation_only: 447 ns/call median; mean=446 stddev=5 mean_CI95=[444,449] result_allocations=1 bytes=4096
+diagonal/double/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[512]
+  fat_p: 2209 ns/call median; mean=2200 stddev=64 mean_CI95=[2164,2236] result_allocations=1 bytes=4096
+  scalar_prevalidated: 859 ns/call median; mean=860 stddev=10 mean_CI95=[855,866] result_allocations=1 bytes=4096
+  allocation_only: 415 ns/call median; mean=417 stddev=8 mean_CI95=[413,421] result_allocations=1 bytes=4096
+diagonal/double/large/padded left=[512;768] strides=[1536;2] origin=7 output=[512]
+  fat_p: 2266 ns/call median; mean=2256 stddev=83 mean_CI95=[2210,2302] result_allocations=1 bytes=4096
+  scalar_prevalidated: 953 ns/call median; mean=967 stddev=63 mean_CI95=[932,1001] result_allocations=1 bytes=4096
+  allocation_only: 417 ns/call median; mean=418 stddev=6 mean_CI95=[414,421] result_allocations=1 bytes=4096
+diagonal/double/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[512]
+  fat_p: 2219 ns/call median; mean=2217 stddev=50 mean_CI95=[2189,2245] result_allocations=1 bytes=4096
+  scalar_prevalidated: 879 ns/call median; mean=883 stddev=14 mean_CI95=[875,890] result_allocations=1 bytes=4096
+  allocation_only: 416 ns/call median; mean=416 stddev=6 mean_CI95=[413,419] result_allocations=1 bytes=4096
+diagonal/double/large/transposed left=[512;768] strides=[1;512] origin=7 output=[512]
+  fat_p: 2170 ns/call median; mean=2160 stddev=49 mean_CI95=[2133,2187] result_allocations=1 bytes=4096
+  scalar_prevalidated: 870 ns/call median; mean=868 stddev=12 mean_CI95=[861,874] result_allocations=1 bytes=4096
+  allocation_only: 418 ns/call median; mean=420 stddev=5 mean_CI95=[417,422] result_allocations=1 bytes=4096
+diagonal/double/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4;512]
+  fat_p: 8012 ns/call median; mean=8069 stddev=268 mean_CI95=[7921,8217] result_allocations=1 bytes=16384
+  scalar_prevalidated: 3418 ns/call median; mean=3421 stddev=52 mean_CI95=[3392,3450] result_allocations=1 bytes=16384
+  allocation_only: 537 ns/call median; mean=540 stddev=11 mean_CI95=[534,546] result_allocations=1 bytes=16384
+trace/double/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[]
+  fat_p: 704 ns/call median; mean=704 stddev=12 mean_CI95=[697,711] result_allocations=1 bytes=8
+  scalar_prevalidated: 345 ns/call median; mean=344 stddev=8 mean_CI95=[339,348] result_allocations=1 bytes=8
+  allocation_only: 343 ns/call median; mean=343 stddev=6 mean_CI95=[340,346] result_allocations=1 bytes=8
+trace/double/small/padded left=[8;12] strides=[24;2] origin=7 output=[]
+  fat_p: 706 ns/call median; mean=706 stddev=16 mean_CI95=[697,715] result_allocations=1 bytes=8
+  scalar_prevalidated: 344 ns/call median; mean=345 stddev=7 mean_CI95=[341,349] result_allocations=1 bytes=8
+  allocation_only: 342 ns/call median; mean=340 stddev=7 mean_CI95=[337,344] result_allocations=1 bytes=8
+trace/double/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[]
+  fat_p: 707 ns/call median; mean=705 stddev=9 mean_CI95=[700,710] result_allocations=1 bytes=8
+  scalar_prevalidated: 344 ns/call median; mean=346 stddev=6 mean_CI95=[342,349] result_allocations=1 bytes=8
+  allocation_only: 342 ns/call median; mean=341 stddev=7 mean_CI95=[337,345] result_allocations=1 bytes=8
+trace/double/small/transposed left=[8;12] strides=[1;8] origin=7 output=[]
+  fat_p: 706 ns/call median; mean=703 stddev=13 mean_CI95=[696,710] result_allocations=1 bytes=8
+  scalar_prevalidated: 345 ns/call median; mean=344 stddev=5 mean_CI95=[341,347] result_allocations=1 bytes=8
+  allocation_only: 346 ns/call median; mean=342 stddev=7 mean_CI95=[338,346] result_allocations=1 bytes=8
+trace/double/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4]
+  fat_p: 1085 ns/call median; mean=1081 stddev=19 mean_CI95=[1071,1092] result_allocations=1 bytes=32
+  scalar_prevalidated: 425 ns/call median; mean=435 stddev=33 mean_CI95=[417,453] result_allocations=1 bytes=32
+  allocation_only: 402 ns/call median; mean=404 stddev=8 mean_CI95=[399,408] result_allocations=1 bytes=32
+trace/double/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[]
+  fat_p: 1330 ns/call median; mean=1332 stddev=22 mean_CI95=[1320,1345] result_allocations=1 bytes=8
+  scalar_prevalidated: 411 ns/call median; mean=413 stddev=6 mean_CI95=[409,416] result_allocations=1 bytes=8
+  allocation_only: 339 ns/call median; mean=340 stddev=5 mean_CI95=[337,343] result_allocations=1 bytes=8
+trace/double/medium/padded left=[128;192] strides=[384;2] origin=7 output=[]
+  fat_p: 1369 ns/call median; mean=1366 stddev=22 mean_CI95=[1353,1378] result_allocations=1 bytes=8
+  scalar_prevalidated: 421 ns/call median; mean=423 stddev=7 mean_CI95=[419,427] result_allocations=1 bytes=8
+  allocation_only: 345 ns/call median; mean=345 stddev=7 mean_CI95=[341,349] result_allocations=1 bytes=8
+trace/double/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[]
+  fat_p: 1329 ns/call median; mean=1331 stddev=18 mean_CI95=[1321,1341] result_allocations=1 bytes=8
+  scalar_prevalidated: 414 ns/call median; mean=414 stddev=6 mean_CI95=[410,417] result_allocations=1 bytes=8
+  allocation_only: 342 ns/call median; mean=343 stddev=7 mean_CI95=[339,347] result_allocations=1 bytes=8
+trace/double/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[]
+  fat_p: 1333 ns/call median; mean=1332 stddev=29 mean_CI95=[1315,1348] result_allocations=1 bytes=8
+  scalar_prevalidated: 410 ns/call median; mean=412 stddev=6 mean_CI95=[409,415] result_allocations=1 bytes=8
+  allocation_only: 340 ns/call median; mean=342 stddev=5 mean_CI95=[339,345] result_allocations=1 bytes=8
+trace/double/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4]
+  fat_p: 5445 ns/call median; mean=5462 stddev=105 mean_CI95=[5404,5519] result_allocations=1 bytes=32
+  scalar_prevalidated: 801 ns/call median; mean=802 stddev=10 mean_CI95=[796,807] result_allocations=1 bytes=32
+  allocation_only: 401 ns/call median; mean=403 stddev=4 mean_CI95=[401,405] result_allocations=1 bytes=32
+trace/double/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[]
+  fat_p: 3330 ns/call median; mean=3334 stddev=32 mean_CI95=[3316,3352] result_allocations=1 bytes=8
+  scalar_prevalidated: 664 ns/call median; mean=661 stddev=11 mean_CI95=[655,667] result_allocations=1 bytes=8
+  allocation_only: 341 ns/call median; mean=340 stddev=5 mean_CI95=[337,343] result_allocations=1 bytes=8
+trace/double/large/padded left=[512;768] strides=[1536;2] origin=7 output=[]
+  fat_p: 3327 ns/call median; mean=3336 stddev=41 mean_CI95=[3314,3359] result_allocations=1 bytes=8
+  scalar_prevalidated: 730 ns/call median; mean=728 stddev=15 mean_CI95=[720,737] result_allocations=1 bytes=8
+  allocation_only: 340 ns/call median; mean=341 stddev=7 mean_CI95=[338,345] result_allocations=1 bytes=8
+trace/double/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[]
+  fat_p: 3319 ns/call median; mean=3337 stddev=54 mean_CI95=[3308,3367] result_allocations=1 bytes=8
+  scalar_prevalidated: 659 ns/call median; mean=662 stddev=12 mean_CI95=[655,669] result_allocations=1 bytes=8
+  allocation_only: 339 ns/call median; mean=341 stddev=6 mean_CI95=[338,344] result_allocations=1 bytes=8
+trace/double/large/transposed left=[512;768] strides=[1;512] origin=7 output=[]
+  fat_p: 3327 ns/call median; mean=3336 stddev=46 mean_CI95=[3310,3361] result_allocations=1 bytes=8
+  scalar_prevalidated: 657 ns/call median; mean=661 stddev=16 mean_CI95=[652,670] result_allocations=1 bytes=8
+  allocation_only: 340 ns/call median; mean=342 stddev=8 mean_CI95=[337,346] result_allocations=1 bytes=8
+trace/double/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4]
+  fat_p: 19514 ns/call median; mean=19481 stddev=475 mean_CI95=[19219,19744] result_allocations=1 bytes=32
+  scalar_prevalidated: 2717 ns/call median; mean=2749 stddev=80 mean_CI95=[2704,2793] result_allocations=1 bytes=32
+  allocation_only: 408 ns/call median; mean=406 stddev=6 mean_CI95=[402,409] result_allocations=1 bytes=32

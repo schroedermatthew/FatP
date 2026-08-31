@@ -317,8 +317,11 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
     const auto shape = tensor_detail::makeMatmulShape(left.layout(), right.layout());
-    if (left.rank() == 2 && right.rank() == 2 && left.layout().isContiguous() &&
-        right.layout().isContiguous())
+    // A contiguous vector pair is the same 1 x K by K x 1 traversal with a scalar result.
+    // Mixed vector/matrix and batched forms retain the generic signed-stride path.
+    const bool contiguousKernelShape = (left.rank() == 2 && right.rank() == 2) ||
+                                       (left.rank() == 1 && right.rank() == 1);
+    if (contiguousKernelShape && left.layout().isContiguous() && right.layout().isContiguous())
     {
         return tensor_detail::matmulContiguousMatrices<result_type>(left, right, shape, allocator);
     }

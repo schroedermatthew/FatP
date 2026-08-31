@@ -1,0 +1,1341 @@
+[BenchmarkScope] High priority, CPU non-0 affinity
+================================================================================
+  fat_p::TensorMatmul Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 GCC-16.1 | warmup=3 measured=15 seed=12345
+
+Competitors:
+  [x] fat_p::Tensor (primary)
+  [x] scalar loops + Tensor result (baseline; prevalidated, not API-equivalent)
+  [x] Tensor result allocation only (control; no arithmetic)
+
+Configuration:
+  Target work:    10000 ops/batch
+  Min batch ms:   20
+  Scope:          ON
+  Stabilize:      ON
+  Cooldown:       ON
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+  6. CPU frequency stabilized before measurement
+
+Contract: reused borrowed inputs; fresh owning result per call; result allocation, initialization,
+  observation and destruction included in both paths. Input setup excluded. No fast-math/LTO.
+  Scalar baseline omits API validation and uses the same allocator and output ownership.
+  Allocation probes count result elements ONLY; metadata/global allocations are not counted.
+  Target work means scalar products (dot/outer/matmul), diagonal visits (diagonal/trace).
+  ns/call is primary; CI95 is an approximate interval for the mean, not the median.
+  Dispersion describes batch means, not individual-call latency. Do not subtract medians.
+  Quick mode: OFF
+  Waiting for CPU to stabilize...
+[Waiting: 2432/3686 MHz (34% below base)]
+[Waiting: 2322/3686 MHz (37% below base)]
+[Waiting: 2506/3686 MHz (32% below base)]
+[Ready: 3538/3686 MHz]
+[2026-08-31 06:50:46] linear algebra start CPU: 3538 MHz (base: 3686)
+[PASS] Full outputs and allocation reclamation checked for 126 paired cases
+[2026-08-31 06:50:46] trace/float/medium/padded CPU: 2506 MHz (base: 3686)
+[2026-08-31 06:50:46] diagonal/double/large/transposed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:50:46] matmul/double/small/reversed CPU: 2580 MHz (base: 3686)
+[2026-08-31 06:50:47] trace/float/large/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:50:47] diagonal/float/large/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:47] trace/double/small/contiguous CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:50:47] trace/double/small/batched CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:50:47] matmul/float/medium/contiguous CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:50:48] trace/double/medium/contiguous CPU: 3059 MHz (base: 3686)
+[2026-08-31 06:50:48] diagonal/double/medium/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:48] matmul/double/small/padded CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:48] dot/float/large/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:50:48] matmul/double/small/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:48] matmul/float/medium/reversed CPU: 3022 MHz (base: 3686)
+[2026-08-31 06:50:49] diagonal/float/medium/contiguous CPU: 3022 MHz (base: 3686)
+[2026-08-31 06:50:49] matmul/double/medium/reversed CPU: 3059 MHz (base: 3686)
+[2026-08-31 06:50:49] matmul/float/medium/transposed CPU: 3096 MHz (base: 3686)
+[2026-08-31 06:50:49] matmul/float/medium/batched CPU: 3096 MHz (base: 3686)
+[2026-08-31 06:50:49] diagonal/float/large/contiguous CPU: 3169 MHz (base: 3686)
+[2026-08-31 06:50:49] outer/float/small/reversed CPU: 3022 MHz (base: 3686)
+[2026-08-31 06:50:50] trace/float/small/contiguous CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:50:50] outer/float/small/contiguous CPU: 3206 MHz (base: 3686)
+[2026-08-31 06:50:50] diagonal/double/medium/batched CPU: 2948 MHz (base: 3686)
+[2026-08-31 06:50:50] trace/double/medium/batched CPU: 3096 MHz (base: 3686)
+[2026-08-31 06:50:50] outer/double/medium/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:50] matmul/float/large/contiguous CPU: 3538 MHz (base: 3686)
+[2026-08-31 06:50:51] dot/float/large/padded CPU: 3243 MHz (base: 3686)
+[2026-08-31 06:50:51] matmul/double/medium/transposed CPU: 3133 MHz (base: 3686)
+[2026-08-31 06:50:51] dot/double/small/padded CPU: 3169 MHz (base: 3686)
+[2026-08-31 06:50:51] dot/float/large/reversed CPU: 3243 MHz (base: 3686)
+[2026-08-31 06:50:51] dot/float/medium/contiguous CPU: 3317 MHz (base: 3686)
+[2026-08-31 06:50:51] matmul/double/large/contiguous CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:50:52] dot/float/small/contiguous CPU: 3059 MHz (base: 3686)
+[2026-08-31 06:50:52] diagonal/double/small/contiguous CPU: 3427 MHz (base: 3686)
+[2026-08-31 06:50:52] outer/double/large/reversed CPU: 3464 MHz (base: 3686)
+[2026-08-31 06:50:52] outer/float/medium/contiguous CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:50:52] matmul/double/medium/contiguous CPU: 3059 MHz (base: 3686)
+[2026-08-31 06:50:53] diagonal/double/medium/padded CPU: 3575 MHz (base: 3686)
+[2026-08-31 06:50:53] diagonal/double/large/batched CPU: 3649 MHz (base: 3686)
+[2026-08-31 06:50:53] dot/double/medium/padded CPU: 3575 MHz (base: 3686)
+[2026-08-31 06:50:53] diagonal/float/medium/batched CPU: 3575 MHz (base: 3686)
+[2026-08-31 06:50:53] trace/float/small/reversed CPU: 3612 MHz (base: 3686)
+[2026-08-31 06:50:53] diagonal/float/small/padded CPU: 3427 MHz (base: 3686)
+[2026-08-31 06:50:54] diagonal/float/large/transposed CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:50:54] outer/float/large/padded CPU: 3133 MHz (base: 3686)
+[2026-08-31 06:50:54] dot/float/small/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:50:54] trace/double/small/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:50:54] matmul/float/large/batched CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:50:55] trace/double/medium/reversed CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:50:55] matmul/float/large/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:50:55] dot/float/medium/padded CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:50:55] outer/double/small/contiguous CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:55] trace/float/large/contiguous CPU: 2948 MHz (base: 3686)
+[2026-08-31 06:50:55] trace/double/small/padded CPU: 2948 MHz (base: 3686)
+[2026-08-31 06:50:56] trace/double/large/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:56] diagonal/double/small/transposed CPU: 3096 MHz (base: 3686)
+[2026-08-31 06:50:56] dot/double/large/reversed CPU: 3169 MHz (base: 3686)
+[2026-08-31 06:50:56] diagonal/float/small/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:50:56] trace/double/medium/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:56] diagonal/float/small/transposed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:50:57] dot/double/medium/reversed CPU: 3133 MHz (base: 3686)
+[2026-08-31 06:50:57] trace/float/large/transposed CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:50:57] trace/float/large/batched CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:50:57] diagonal/float/medium/transposed CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:50:57] diagonal/double/small/reversed CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:50:57] outer/float/small/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:50:58] outer/double/large/padded CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:50:58] matmul/double/large/batched CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:50:58] outer/float/large/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:58] dot/double/small/reversed CPU: 3206 MHz (base: 3686)
+[2026-08-31 06:50:58] trace/float/small/transposed CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:50:58] trace/float/large/reversed CPU: 2911 MHz (base: 3686)
+[2026-08-31 06:50:59] diagonal/float/medium/reversed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:50:59] dot/double/medium/contiguous CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:50:59] matmul/double/small/batched CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:50:59] outer/float/medium/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:50:59] diagonal/double/small/padded CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:50:59] diagonal/double/large/padded CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:00] outer/double/large/contiguous CPU: 3022 MHz (base: 3686)
+[2026-08-31 06:51:00] diagonal/float/large/batched CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:00] trace/double/medium/padded CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:00] trace/double/large/batched CPU: 2948 MHz (base: 3686)
+[2026-08-31 06:51:00] matmul/double/medium/padded CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:51:01] dot/double/large/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:01] dot/float/small/reversed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:51:01] outer/double/medium/reversed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:51:01] matmul/float/small/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:01] trace/float/medium/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:01] outer/float/medium/padded CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:02] trace/float/medium/transposed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:51:02] matmul/double/small/transposed CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:51:02] trace/float/small/batched CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:02] diagonal/double/medium/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:02] matmul/float/large/transposed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:02] matmul/float/small/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:51:03] trace/float/medium/contiguous CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:51:03] diagonal/float/small/reversed CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:51:03] outer/double/small/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:03] trace/double/large/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:03] matmul/float/medium/padded CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:51:03] matmul/float/large/reversed CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:51:04] diagonal/float/large/padded CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:04] diagonal/float/small/batched CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:51:04] matmul/double/medium/batched CPU: 2617 MHz (base: 3686)
+[2026-08-31 06:51:04] matmul/double/large/transposed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:51:04] matmul/double/large/padded CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:51:04] outer/double/small/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:51:05] trace/float/medium/batched CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:05] dot/double/large/padded CPU: 3391 MHz (base: 3686)
+[2026-08-31 06:51:05] trace/double/large/transposed CPU: 3612 MHz (base: 3686)
+[2026-08-31 06:51:05] dot/float/medium/reversed CPU: 3133 MHz (base: 3686)
+[2026-08-31 06:51:05] outer/float/large/contiguous CPU: 3096 MHz (base: 3686)
+[2026-08-31 06:51:06] diagonal/double/small/batched CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:06] matmul/float/small/padded CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:06] matmul/float/small/batched CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:51:06] dot/double/small/contiguous CPU: 2727 MHz (base: 3686)
+[2026-08-31 06:51:06] diagonal/double/large/contiguous CPU: 2875 MHz (base: 3686)
+[2026-08-31 06:51:06] trace/double/small/transposed CPU: 2838 MHz (base: 3686)
+[2026-08-31 06:51:06] outer/double/medium/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:51:07] diagonal/double/medium/contiguous CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:51:07] matmul/double/large/reversed CPU: 2801 MHz (base: 3686)
+[2026-08-31 06:51:07] trace/float/small/padded CPU: 2948 MHz (base: 3686)
+[2026-08-31 06:51:07] diagonal/float/medium/padded CPU: 2690 MHz (base: 3686)
+[2026-08-31 06:51:07] diagonal/double/large/reversed CPU: 2653 MHz (base: 3686)
+[2026-08-31 06:51:07] matmul/float/small/transposed CPU: 2764 MHz (base: 3686)
+[2026-08-31 06:51:08] trace/double/large/padded CPU: 2653 MHz (base: 3686)
+Completed warmup 1
+Completed warmup 2
+Completed warmup 3
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=2
+Completed measured 4
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch trace/double/large/batched implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+Completed measured 5
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=0
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch dot/double/medium/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+Completed measured 6
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch dot/double/large/padded implementation=2
+Completed measured 7
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch matmul/double/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+Completed measured 8
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch matmul/double/medium/contiguous implementation=2
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch dot/double/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+Completed measured 9
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch matmul/float/small/contiguous implementation=1
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=0
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch dot/double/medium/padded implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch matmul/double/medium/contiguous implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+Completed measured 10
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch matmul/double/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch outer/float/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+Completed measured 11
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/double/medium/padded implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch dot/double/medium/padded implementation=1
+Completed measured 12
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch matmul/double/medium/padded implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+Completed measured 13
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch dot/double/large/padded implementation=2
+Completed measured 14
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+Completed measured 15
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch matmul/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=0
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/medium/padded implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+Completed measured 16
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+Completed measured 17
+[NOTE] Short batch trace/float/small/padded implementation=1
+[NOTE] Short batch trace/float/small/padded implementation=2
+[NOTE] Short batch trace/float/small/padded implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=0
+[NOTE] Short batch trace/double/small/transposed implementation=1
+[NOTE] Short batch trace/double/small/transposed implementation=2
+[NOTE] Short batch matmul/double/medium/reversed implementation=2
+[NOTE] Short batch dot/double/medium/padded implementation=1
+[NOTE] Short batch matmul/float/small/reversed implementation=2
+[NOTE] Short batch matmul/double/large/padded implementation=2
+[NOTE] Short batch trace/double/large/transposed implementation=2
+[NOTE] Short batch trace/float/medium/contiguous implementation=1
+[NOTE] Short batch trace/float/medium/contiguous implementation=2
+[NOTE] Short batch matmul/double/large/reversed implementation=2
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=1
+[NOTE] Short batch diagonal/double/medium/contiguous implementation=2
+[NOTE] Short batch matmul/double/medium/transposed implementation=2
+[NOTE] Short batch matmul/float/medium/padded implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=2
+[NOTE] Short batch trace/float/medium/batched implementation=1
+[NOTE] Short batch matmul/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=2
+[NOTE] Short batch diagonal/double/large/contiguous implementation=0
+[NOTE] Short batch diagonal/double/large/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=1
+[NOTE] Short batch dot/double/small/contiguous implementation=2
+[NOTE] Short batch dot/double/small/contiguous implementation=0
+[NOTE] Short batch dot/double/large/padded implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=2
+[NOTE] Short batch diagonal/double/small/batched implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=1
+[NOTE] Short batch diagonal/double/large/reversed implementation=2
+[NOTE] Short batch matmul/double/large/transposed implementation=2
+[NOTE] Short batch trace/double/large/contiguous implementation=2
+[NOTE] Short batch matmul/float/small/padded implementation=2
+[NOTE] Short batch diagonal/float/small/batched implementation=1
+[NOTE] Short batch diagonal/float/small/batched implementation=2
+[NOTE] Short batch outer/double/small/reversed implementation=1
+[NOTE] Short batch outer/double/small/padded implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=1
+[NOTE] Short batch dot/float/medium/reversed implementation=2
+[NOTE] Short batch trace/double/large/padded implementation=2
+[NOTE] Short batch matmul/double/medium/contiguous implementation=2
+[NOTE] Short batch diagonal/float/large/padded implementation=2
+[NOTE] Short batch matmul/double/medium/padded implementation=2
+[NOTE] Short batch matmul/float/small/transposed implementation=2
+[NOTE] Short batch matmul/float/medium/transposed implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=1
+[NOTE] Short batch diagonal/float/medium/padded implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=1
+[NOTE] Short batch diagonal/float/small/reversed implementation=2
+[NOTE] Short batch diagonal/float/small/reversed implementation=0
+Completed measured 18
+dot/float/small/contiguous left=[16] strides=[1] origin=7 right=[16] strides=[1] origin=7 output=[]
+  fat_p: 171 ns/call median; mean=191 stddev=55 mean_CI95=[160,221] result_allocations=1 bytes=4
+  scalar_prevalidated: 103 ns/call median; mean=123 stddev=53 mean_CI95=[94,153] result_allocations=1 bytes=4
+  allocation_only: 98 ns/call median; mean=119 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=4
+dot/float/small/padded left=[16] strides=[2] origin=7 right=[16] strides=[2] origin=7 output=[]
+  fat_p: 173 ns/call median; mean=192 stddev=55 mean_CI95=[162,223] result_allocations=1 bytes=4
+  scalar_prevalidated: 105 ns/call median; mean=126 stddev=55 mean_CI95=[96,156] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=4
+dot/float/small/reversed left=[16] strides=[-1] origin=22 right=[16] strides=[-1] origin=22 output=[]
+  fat_p: 174 ns/call median; mean=193 stddev=54 mean_CI95=[163,223] result_allocations=1 bytes=4
+  scalar_prevalidated: 105 ns/call median; mean=126 stddev=56 mean_CI95=[96,157] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=4
+dot/float/medium/contiguous left=[1024] strides=[1] origin=7 right=[1024] strides=[1] origin=7 output=[]
+  fat_p: 4175 ns/call median; mean=4173 stddev=92 mean_CI95=[4123,4224] result_allocations=1 bytes=4
+  scalar_prevalidated: 482 ns/call median; mean=505 stddev=57 mean_CI95=[473,536] result_allocations=1 bytes=4
+  allocation_only: 98 ns/call median; mean=119 stddev=56 mean_CI95=[88,150] result_allocations=1 bytes=4
+dot/float/medium/padded left=[1024] strides=[2] origin=7 right=[1024] strides=[2] origin=7 output=[]
+  fat_p: 4182 ns/call median; mean=4190 stddev=113 mean_CI95=[4128,4253] result_allocations=1 bytes=4
+  scalar_prevalidated: 487 ns/call median; mean=506 stddev=60 mean_CI95=[473,539] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=4
+dot/float/medium/reversed left=[1024] strides=[-1] origin=1030 right=[1024] strides=[-1] origin=1030 output=[]
+  fat_p: 4257 ns/call median; mean=4273 stddev=97 mean_CI95=[4219,4327] result_allocations=1 bytes=4
+  scalar_prevalidated: 492 ns/call median; mean=513 stddev=59 mean_CI95=[481,546] result_allocations=1 bytes=4
+  allocation_only: 100 ns/call median; mean=120 stddev=54 mean_CI95=[90,150] result_allocations=1 bytes=4
+dot/float/large/contiguous left=[65536] strides=[1] origin=7 right=[65536] strides=[1] origin=7 output=[]
+  fat_p: 261868 ns/call median; mean=262075 stddev=3990 mean_CI95=[259871,264280] result_allocations=1 bytes=4
+  scalar_prevalidated: 24925 ns/call median; mean=24907 stddev=465 mean_CI95=[24650,25163] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=54 mean_CI95=[91,150] result_allocations=1 bytes=4
+dot/float/large/padded left=[65536] strides=[2] origin=7 right=[65536] strides=[2] origin=7 output=[]
+  fat_p: 260798 ns/call median; mean=259942 stddev=2297 mean_CI95=[258673,261211] result_allocations=1 bytes=4
+  scalar_prevalidated: 25003 ns/call median; mean=25063 stddev=501 mean_CI95=[24786,25340] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=57 mean_CI95=[88,152] result_allocations=1 bytes=4
+dot/float/large/reversed left=[65536] strides=[-1] origin=65542 right=[65536] strides=[-1] origin=65542 output=[]
+  fat_p: 265493 ns/call median; mean=266086 stddev=3714 mean_CI95=[264034,268138] result_allocations=1 bytes=4
+  scalar_prevalidated: 25160 ns/call median; mean=25129 stddev=518 mean_CI95=[24843,25415] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=119 stddev=54 mean_CI95=[90,149] result_allocations=1 bytes=4
+outer/float/small/contiguous left=[8] strides=[1] origin=7 right=[12] strides=[1] origin=7 output=[8;12]
+  fat_p: 964 ns/call median; mean=974 stddev=69 mean_CI95=[936,1012] result_allocations=1 bytes=384
+  scalar_prevalidated: 219 ns/call median; mean=238 stddev=58 mean_CI95=[206,270] result_allocations=1 bytes=384
+  allocation_only: 196 ns/call median; mean=218 stddev=59 mean_CI95=[185,250] result_allocations=1 bytes=384
+outer/float/small/padded left=[8] strides=[2] origin=7 right=[12] strides=[2] origin=7 output=[8;12]
+  fat_p: 1006 ns/call median; mean=1020 stddev=75 mean_CI95=[979,1062] result_allocations=1 bytes=384
+  scalar_prevalidated: 223 ns/call median; mean=244 stddev=58 mean_CI95=[212,276] result_allocations=1 bytes=384
+  allocation_only: 198 ns/call median; mean=231 stddev=98 mean_CI95=[176,285] result_allocations=1 bytes=384
+outer/float/small/reversed left=[8] strides=[-1] origin=14 right=[12] strides=[-1] origin=18 output=[8;12]
+  fat_p: 1010 ns/call median; mean=1023 stddev=88 mean_CI95=[974,1072] result_allocations=1 bytes=384
+  scalar_prevalidated: 222 ns/call median; mean=255 stddev=93 mean_CI95=[203,307] result_allocations=1 bytes=384
+  allocation_only: 198 ns/call median; mean=230 stddev=90 mean_CI95=[180,280] result_allocations=1 bytes=384
+outer/float/medium/contiguous left=[64] strides=[1] origin=7 right=[96] strides=[1] origin=7 output=[64;96]
+  fat_p: 15538 ns/call median; mean=15881 stddev=716 mean_CI95=[15485,16276] result_allocations=1 bytes=24576
+  scalar_prevalidated: 585 ns/call median; mean=603 stddev=64 mean_CI95=[567,638] result_allocations=1 bytes=24576
+  allocation_only: 330 ns/call median; mean=357 stddev=68 mean_CI95=[320,395] result_allocations=1 bytes=24576
+outer/float/medium/padded left=[64] strides=[2] origin=7 right=[96] strides=[2] origin=7 output=[64;96]
+  fat_p: 15751 ns/call median; mean=15814 stddev=453 mean_CI95=[15564,16064] result_allocations=1 bytes=24576
+  scalar_prevalidated: 994 ns/call median; mean=1012 stddev=55 mean_CI95=[982,1043] result_allocations=1 bytes=24576
+  allocation_only: 323 ns/call median; mean=343 stddev=57 mean_CI95=[312,375] result_allocations=1 bytes=24576
+outer/float/medium/reversed left=[64] strides=[-1] origin=70 right=[96] strides=[-1] origin=102 output=[64;96]
+  fat_p: 15779 ns/call median; mean=16093 stddev=757 mean_CI95=[15674,16511] result_allocations=1 bytes=24576
+  scalar_prevalidated: 1004 ns/call median; mean=1020 stddev=54 mean_CI95=[990,1050] result_allocations=1 bytes=24576
+  allocation_only: 325 ns/call median; mean=344 stddev=59 mean_CI95=[312,377] result_allocations=1 bytes=24576
+outer/float/large/contiguous left=[256] strides=[1] origin=7 right=[384] strides=[1] origin=7 output=[256;384]
+  fat_p: 254059 ns/call median; mean=254734 stddev=5504 mean_CI95=[251693,257775] result_allocations=1 bytes=393216
+  scalar_prevalidated: 10374 ns/call median; mean=10359 stddev=265 mean_CI95=[10213,10506] result_allocations=1 bytes=393216
+  allocation_only: 4554 ns/call median; mean=4568 stddev=90 mean_CI95=[4518,4618] result_allocations=1 bytes=393216
+outer/float/large/padded left=[256] strides=[2] origin=7 right=[384] strides=[2] origin=7 output=[256;384]
+  fat_p: 256073 ns/call median; mean=256701 stddev=6527 mean_CI95=[253095,260308] result_allocations=1 bytes=393216
+  scalar_prevalidated: 15843 ns/call median; mean=15869 stddev=239 mean_CI95=[15737,16001] result_allocations=1 bytes=393216
+  allocation_only: 4566 ns/call median; mean=4572 stddev=89 mean_CI95=[4523,4621] result_allocations=1 bytes=393216
+outer/float/large/reversed left=[256] strides=[-1] origin=262 right=[384] strides=[-1] origin=390 output=[256;384]
+  fat_p: 256786 ns/call median; mean=258824 stddev=5850 mean_CI95=[255592,262056] result_allocations=1 bytes=393216
+  scalar_prevalidated: 16184 ns/call median; mean=16107 stddev=225 mean_CI95=[15983,16231] result_allocations=1 bytes=393216
+  allocation_only: 4543 ns/call median; mean=4595 stddev=105 mean_CI95=[4537,4654] result_allocations=1 bytes=393216
+matmul/float/small/contiguous left=[8;12] strides=[12;1] origin=7 right=[12;10] strides=[10;1] origin=7 output=[8;10]
+  fat_p: 385 ns/call median; mean=405 stddev=55 mean_CI95=[375,435] result_allocations=1 bytes=320
+  scalar_prevalidated: 457 ns/call median; mean=473 stddev=53 mean_CI95=[444,502] result_allocations=1 bytes=320
+  allocation_only: 201 ns/call median; mean=220 stddev=56 mean_CI95=[189,251] result_allocations=1 bytes=320
+matmul/float/small/padded left=[8;12] strides=[24;2] origin=7 right=[12;10] strides=[20;2] origin=7 output=[8;10]
+  fat_p: 3973 ns/call median; mean=3947 stddev=98 mean_CI95=[3892,4001] result_allocations=1 bytes=320
+  scalar_prevalidated: 501 ns/call median; mean=516 stddev=52 mean_CI95=[487,545] result_allocations=1 bytes=320
+  allocation_only: 199 ns/call median; mean=220 stddev=54 mean_CI95=[190,250] result_allocations=1 bytes=320
+matmul/float/small/reversed left=[8;12] strides=[12;-1] origin=18 right=[12;10] strides=[10;-1] origin=16 output=[8;10]
+  fat_p: 3994 ns/call median; mean=3988 stddev=54 mean_CI95=[3959,4018] result_allocations=1 bytes=320
+  scalar_prevalidated: 493 ns/call median; mean=512 stddev=58 mean_CI95=[480,545] result_allocations=1 bytes=320
+  allocation_only: 202 ns/call median; mean=220 stddev=55 mean_CI95=[190,251] result_allocations=1 bytes=320
+matmul/float/small/transposed left=[8;12] strides=[1;8] origin=7 right=[12;10] strides=[1;12] origin=7 output=[8;10]
+  fat_p: 3943 ns/call median; mean=3956 stddev=108 mean_CI95=[3897,4016] result_allocations=1 bytes=320
+  scalar_prevalidated: 495 ns/call median; mean=517 stddev=59 mean_CI95=[484,550] result_allocations=1 bytes=320
+  allocation_only: 200 ns/call median; mean=221 stddev=58 mean_CI95=[189,253] result_allocations=1 bytes=320
+matmul/float/small/batched left=[4;8;12] strides=[96;12;1] origin=7 right=[1;12;10] strides=[120;10;1] origin=7 output=[4;8;10]
+  fat_p: 15230 ns/call median; mean=15213 stddev=331 mean_CI95=[15030,15396] result_allocations=1 bytes=1280
+  scalar_prevalidated: 4079 ns/call median; mean=4063 stddev=108 mean_CI95=[4004,4123] result_allocations=1 bytes=1280
+  allocation_only: 226 ns/call median; mean=246 stddev=57 mean_CI95=[215,278] result_allocations=1 bytes=1280
+matmul/float/medium/contiguous left=[48;64] strides=[64;1] origin=7 right=[64;40] strides=[40;1] origin=7 output=[48;40]
+  fat_p: 10970 ns/call median; mean=11034 stddev=220 mean_CI95=[10912,11155] result_allocations=1 bytes=7680
+  scalar_prevalidated: 32709 ns/call median; mean=32810 stddev=410 mean_CI95=[32584,33037] result_allocations=1 bytes=7680
+  allocation_only: 239 ns/call median; mean=258 stddev=55 mean_CI95=[228,288] result_allocations=1 bytes=7680
+matmul/float/medium/padded left=[48;64] strides=[128;2] origin=7 right=[64;40] strides=[80;2] origin=7 output=[48;40]
+  fat_p: 483381 ns/call median; mean=487626 stddev=8122 mean_CI95=[483139,492114] result_allocations=1 bytes=7680
+  scalar_prevalidated: 32672 ns/call median; mean=32835 stddev=511 mean_CI95=[32552,33117] result_allocations=1 bytes=7680
+  allocation_only: 238 ns/call median; mean=260 stddev=83 mean_CI95=[214,306] result_allocations=1 bytes=7680
+matmul/float/medium/reversed left=[48;64] strides=[64;-1] origin=70 right=[64;40] strides=[40;-1] origin=46 output=[48;40]
+  fat_p: 487623 ns/call median; mean=489702 stddev=7847 mean_CI95=[485366,494038] result_allocations=1 bytes=7680
+  scalar_prevalidated: 32931 ns/call median; mean=32834 stddev=527 mean_CI95=[32543,33126] result_allocations=1 bytes=7680
+  allocation_only: 239 ns/call median; mean=259 stddev=55 mean_CI95=[229,289] result_allocations=1 bytes=7680
+matmul/float/medium/transposed left=[48;64] strides=[1;48] origin=7 right=[64;40] strides=[1;64] origin=7 output=[48;40]
+  fat_p: 487233 ns/call median; mean=487357 stddev=7428 mean_CI95=[483252,491461] result_allocations=1 bytes=7680
+  scalar_prevalidated: 33044 ns/call median; mean=33127 stddev=794 mean_CI95=[32688,33566] result_allocations=1 bytes=7680
+  allocation_only: 241 ns/call median; mean=272 stddev=93 mean_CI95=[220,323] result_allocations=1 bytes=7680
+matmul/float/medium/batched left=[4;48;64] strides=[3072;64;1] origin=7 right=[1;64;40] strides=[2560;40;1] origin=7 output=[4;48;40]
+  fat_p: 1946025 ns/call median; mean=1952565 stddev=26921 mean_CI95=[1937690,1967440] result_allocations=1 bytes=30720
+  scalar_prevalidated: 372248 ns/call median; mean=373572 stddev=10846 mean_CI95=[367579,379565] result_allocations=1 bytes=30720
+  allocation_only: 374 ns/call median; mean=401 stddev=76 mean_CI95=[359,443] result_allocations=1 bytes=30720
+matmul/float/large/contiguous left=[128;192] strides=[192;1] origin=7 right=[192;96] strides=[96;1] origin=7 output=[128;96]
+  fat_p: 160838 ns/call median; mean=160909 stddev=3169 mean_CI95=[159157,162660] result_allocations=1 bytes=49152
+  scalar_prevalidated: 755219 ns/call median; mean=758300 stddev=10920 mean_CI95=[752267,764334] result_allocations=1 bytes=49152
+  allocation_only: 743 ns/call median; mean=754 stddev=49 mean_CI95=[727,781] result_allocations=1 bytes=49152
+matmul/float/large/padded left=[128;192] strides=[384;2] origin=7 right=[192;96] strides=[192;2] origin=7 output=[128;96]
+  fat_p: 9379025 ns/call median; mean=9396897 stddev=160246 mean_CI95=[9308353,9485440] result_allocations=1 bytes=49152
+  scalar_prevalidated: 786256 ns/call median; mean=784664 stddev=17252 mean_CI95=[775132,794197] result_allocations=1 bytes=49152
+  allocation_only: 730 ns/call median; mean=750 stddev=50 mean_CI95=[722,777] result_allocations=1 bytes=49152
+matmul/float/large/reversed left=[128;192] strides=[192;-1] origin=198 right=[192;96] strides=[96;-1] origin=102 output=[128;96]
+  fat_p: 9409150 ns/call median; mean=9418368 stddev=187728 mean_CI95=[9314640,9522097] result_allocations=1 bytes=49152
+  scalar_prevalidated: 769453 ns/call median; mean=771454 stddev=19908 mean_CI95=[760454,782454] result_allocations=1 bytes=49152
+  allocation_only: 750 ns/call median; mean=764 stddev=44 mean_CI95=[739,788] result_allocations=1 bytes=49152
+matmul/float/large/transposed left=[128;192] strides=[1;128] origin=7 right=[192;96] strides=[1;192] origin=7 output=[128;96]
+  fat_p: 9499125 ns/call median; mean=9479040 stddev=162181 mean_CI95=[9389428,9568652] result_allocations=1 bytes=49152
+  scalar_prevalidated: 838119 ns/call median; mean=856879 stddev=64867 mean_CI95=[821037,892720] result_allocations=1 bytes=49152
+  allocation_only: 748 ns/call median; mean=764 stddev=53 mean_CI95=[735,793] result_allocations=1 bytes=49152
+matmul/float/large/batched left=[4;128;192] strides=[24576;192;1] origin=7 right=[1;192;96] strides=[18432;96;1] origin=7 output=[4;128;96]
+  fat_p: 37648900 ns/call median; mean=37620633 stddev=549619 mean_CI95=[37316944,37924323] result_allocations=1 bytes=196608
+  scalar_prevalidated: 6525375 ns/call median; mean=6497288 stddev=114477 mean_CI95=[6434035,6560542] result_allocations=1 bytes=196608
+  allocation_only: 2046 ns/call median; mean=2066 stddev=72 mean_CI95=[2026,2106] result_allocations=1 bytes=196608
+diagonal/float/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[8]
+  fat_p: 414 ns/call median; mean=435 stddev=54 mean_CI95=[405,464] result_allocations=1 bytes=32
+  scalar_prevalidated: 176 ns/call median; mean=196 stddev=52 mean_CI95=[167,225] result_allocations=1 bytes=32
+  allocation_only: 167 ns/call median; mean=187 stddev=53 mean_CI95=[158,217] result_allocations=1 bytes=32
+diagonal/float/small/padded left=[8;12] strides=[24;2] origin=7 output=[8]
+  fat_p: 420 ns/call median; mean=440 stddev=54 mean_CI95=[410,470] result_allocations=1 bytes=32
+  scalar_prevalidated: 177 ns/call median; mean=197 stddev=54 mean_CI95=[168,227] result_allocations=1 bytes=32
+  allocation_only: 172 ns/call median; mean=191 stddev=55 mean_CI95=[160,221] result_allocations=1 bytes=32
+diagonal/float/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[8]
+  fat_p: 420 ns/call median; mean=437 stddev=52 mean_CI95=[408,466] result_allocations=1 bytes=32
+  scalar_prevalidated: 175 ns/call median; mean=196 stddev=55 mean_CI95=[165,226] result_allocations=1 bytes=32
+  allocation_only: 168 ns/call median; mean=188 stddev=53 mean_CI95=[159,217] result_allocations=1 bytes=32
+diagonal/float/small/transposed left=[8;12] strides=[1;8] origin=7 output=[8]
+  fat_p: 420 ns/call median; mean=440 stddev=60 mean_CI95=[407,473] result_allocations=1 bytes=32
+  scalar_prevalidated: 175 ns/call median; mean=196 stddev=55 mean_CI95=[166,227] result_allocations=1 bytes=32
+  allocation_only: 169 ns/call median; mean=190 stddev=58 mean_CI95=[158,222] result_allocations=1 bytes=32
+diagonal/float/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4;8]
+  fat_p: 513 ns/call median; mean=535 stddev=59 mean_CI95=[502,567] result_allocations=1 bytes=128
+  scalar_prevalidated: 219 ns/call median; mean=238 stddev=54 mean_CI95=[208,268] result_allocations=1 bytes=128
+  allocation_only: 194 ns/call median; mean=214 stddev=54 mean_CI95=[184,243] result_allocations=1 bytes=128
+diagonal/float/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[128]
+  fat_p: 684 ns/call median; mean=710 stddev=59 mean_CI95=[677,742] result_allocations=1 bytes=512
+  scalar_prevalidated: 210 ns/call median; mean=228 stddev=52 mean_CI95=[199,257] result_allocations=1 bytes=512
+  allocation_only: 171 ns/call median; mean=192 stddev=55 mean_CI95=[161,222] result_allocations=1 bytes=512
+diagonal/float/medium/padded left=[128;192] strides=[384;2] origin=7 output=[128]
+  fat_p: 683 ns/call median; mean=707 stddev=57 mean_CI95=[675,738] result_allocations=1 bytes=512
+  scalar_prevalidated: 209 ns/call median; mean=229 stddev=53 mean_CI95=[200,258] result_allocations=1 bytes=512
+  allocation_only: 171 ns/call median; mean=191 stddev=56 mean_CI95=[160,222] result_allocations=1 bytes=512
+diagonal/float/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[128]
+  fat_p: 678 ns/call median; mean=695 stddev=53 mean_CI95=[665,724] result_allocations=1 bytes=512
+  scalar_prevalidated: 208 ns/call median; mean=218 stddev=40 mean_CI95=[196,240] result_allocations=1 bytes=512
+  allocation_only: 170 ns/call median; mean=180 stddev=40 mean_CI95=[158,202] result_allocations=1 bytes=512
+diagonal/float/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[128]
+  fat_p: 679 ns/call median; mean=713 stddev=96 mean_CI95=[660,766] result_allocations=1 bytes=512
+  scalar_prevalidated: 206 ns/call median; mean=229 stddev=59 mean_CI95=[197,262] result_allocations=1 bytes=512
+  allocation_only: 170 ns/call median; mean=193 stddev=59 mean_CI95=[160,225] result_allocations=1 bytes=512
+diagonal/float/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4;128]
+  fat_p: 1587 ns/call median; mean=1610 stddev=69 mean_CI95=[1572,1648] result_allocations=1 bytes=2048
+  scalar_prevalidated: 507 ns/call median; mean=530 stddev=62 mean_CI95=[496,565] result_allocations=1 bytes=2048
+  allocation_only: 199 ns/call median; mean=221 stddev=56 mean_CI95=[190,252] result_allocations=1 bytes=2048
+diagonal/float/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[512]
+  fat_p: 1639 ns/call median; mean=1651 stddev=71 mean_CI95=[1612,1690] result_allocations=1 bytes=2048
+  scalar_prevalidated: 319 ns/call median; mean=340 stddev=55 mean_CI95=[310,371] result_allocations=1 bytes=2048
+  allocation_only: 175 ns/call median; mean=197 stddev=55 mean_CI95=[166,227] result_allocations=1 bytes=2048
+diagonal/float/large/padded left=[512;768] strides=[1536;2] origin=7 output=[512]
+  fat_p: 1642 ns/call median; mean=1662 stddev=70 mean_CI95=[1624,1701] result_allocations=1 bytes=2048
+  scalar_prevalidated: 321 ns/call median; mean=343 stddev=58 mean_CI95=[310,375] result_allocations=1 bytes=2048
+  allocation_only: 177 ns/call median; mean=198 stddev=59 mean_CI95=[165,230] result_allocations=1 bytes=2048
+diagonal/float/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[512]
+  fat_p: 1628 ns/call median; mean=1645 stddev=67 mean_CI95=[1608,1682] result_allocations=1 bytes=2048
+  scalar_prevalidated: 320 ns/call median; mean=340 stddev=56 mean_CI95=[309,371] result_allocations=1 bytes=2048
+  allocation_only: 174 ns/call median; mean=196 stddev=57 mean_CI95=[164,227] result_allocations=1 bytes=2048
+diagonal/float/large/transposed left=[512;768] strides=[1;512] origin=7 output=[512]
+  fat_p: 1627 ns/call median; mean=1659 stddev=88 mean_CI95=[1610,1708] result_allocations=1 bytes=2048
+  scalar_prevalidated: 315 ns/call median; mean=337 stddev=59 mean_CI95=[305,370] result_allocations=1 bytes=2048
+  allocation_only: 176 ns/call median; mean=197 stddev=58 mean_CI95=[165,229] result_allocations=1 bytes=2048
+diagonal/float/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4;512]
+  fat_p: 5071 ns/call median; mean=5149 stddev=292 mean_CI95=[4987,5310] result_allocations=1 bytes=8192
+  scalar_prevalidated: 1912 ns/call median; mean=1925 stddev=90 mean_CI95=[1875,1974] result_allocations=1 bytes=8192
+  allocation_only: 231 ns/call median; mean=254 stddev=59 mean_CI95=[221,286] result_allocations=1 bytes=8192
+trace/float/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[]
+  fat_p: 448 ns/call median; mean=470 stddev=58 mean_CI95=[438,502] result_allocations=1 bytes=4
+  scalar_prevalidated: 103 ns/call median; mean=125 stddev=55 mean_CI95=[94,155] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=4
+trace/float/small/padded left=[8;12] strides=[24;2] origin=7 output=[]
+  fat_p: 451 ns/call median; mean=471 stddev=54 mean_CI95=[441,501] result_allocations=1 bytes=4
+  scalar_prevalidated: 108 ns/call median; mean=127 stddev=54 mean_CI95=[97,157] result_allocations=1 bytes=4
+  allocation_only: 98 ns/call median; mean=119 stddev=58 mean_CI95=[87,151] result_allocations=1 bytes=4
+trace/float/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[]
+  fat_p: 453 ns/call median; mean=472 stddev=60 mean_CI95=[439,506] result_allocations=1 bytes=4
+  scalar_prevalidated: 104 ns/call median; mean=125 stddev=55 mean_CI95=[95,155] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=4
+trace/float/small/transposed left=[8;12] strides=[1;8] origin=7 output=[]
+  fat_p: 451 ns/call median; mean=471 stddev=57 mean_CI95=[440,503] result_allocations=1 bytes=4
+  scalar_prevalidated: 103 ns/call median; mean=124 stddev=56 mean_CI95=[93,155] result_allocations=1 bytes=4
+  allocation_only: 98 ns/call median; mean=119 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=4
+trace/float/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4]
+  fat_p: 812 ns/call median; mean=835 stddev=59 mean_CI95=[802,867] result_allocations=1 bytes=16
+  scalar_prevalidated: 191 ns/call median; mean=212 stddev=55 mean_CI95=[181,242] result_allocations=1 bytes=16
+  allocation_only: 166 ns/call median; mean=187 stddev=56 mean_CI95=[156,218] result_allocations=1 bytes=16
+trace/float/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[]
+  fat_p: 1078 ns/call median; mean=1094 stddev=55 mean_CI95=[1064,1124] result_allocations=1 bytes=4
+  scalar_prevalidated: 145 ns/call median; mean=164 stddev=53 mean_CI95=[135,194] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=119 stddev=54 mean_CI95=[90,149] result_allocations=1 bytes=4
+trace/float/medium/padded left=[128;192] strides=[384;2] origin=7 output=[]
+  fat_p: 1073 ns/call median; mean=1093 stddev=67 mean_CI95=[1056,1130] result_allocations=1 bytes=4
+  scalar_prevalidated: 144 ns/call median; mean=165 stddev=56 mean_CI95=[134,196] result_allocations=1 bytes=4
+  allocation_only: 100 ns/call median; mean=121 stddev=56 mean_CI95=[90,152] result_allocations=1 bytes=4
+trace/float/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[]
+  fat_p: 1077 ns/call median; mean=1090 stddev=57 mean_CI95=[1059,1122] result_allocations=1 bytes=4
+  scalar_prevalidated: 143 ns/call median; mean=164 stddev=55 mean_CI95=[133,194] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=4
+trace/float/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[]
+  fat_p: 1069 ns/call median; mean=1095 stddev=64 mean_CI95=[1060,1131] result_allocations=1 bytes=4
+  scalar_prevalidated: 146 ns/call median; mean=166 stddev=55 mean_CI95=[136,196] result_allocations=1 bytes=4
+  allocation_only: 100 ns/call median; mean=121 stddev=55 mean_CI95=[90,151] result_allocations=1 bytes=4
+trace/float/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4]
+  fat_p: 5077 ns/call median; mean=5113 stddev=121 mean_CI95=[5046,5180] result_allocations=1 bytes=16
+  scalar_prevalidated: 453 ns/call median; mean=473 stddev=58 mean_CI95=[441,504] result_allocations=1 bytes=16
+  allocation_only: 168 ns/call median; mean=188 stddev=54 mean_CI95=[158,217] result_allocations=1 bytes=16
+trace/float/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[]
+  fat_p: 3047 ns/call median; mean=3069 stddev=68 mean_CI95=[3032,3106] result_allocations=1 bytes=4
+  scalar_prevalidated: 297 ns/call median; mean=317 stddev=53 mean_CI95=[287,346] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=119 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=4
+trace/float/large/padded left=[512;768] strides=[1536;2] origin=7 output=[]
+  fat_p: 3069 ns/call median; mean=3074 stddev=67 mean_CI95=[3037,3111] result_allocations=1 bytes=4
+  scalar_prevalidated: 298 ns/call median; mean=316 stddev=54 mean_CI95=[286,346] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=4
+trace/float/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[]
+  fat_p: 3052 ns/call median; mean=3075 stddev=65 mean_CI95=[3039,3110] result_allocations=1 bytes=4
+  scalar_prevalidated: 293 ns/call median; mean=313 stddev=54 mean_CI95=[284,343] result_allocations=1 bytes=4
+  allocation_only: 98 ns/call median; mean=119 stddev=55 mean_CI95=[88,149] result_allocations=1 bytes=4
+trace/float/large/transposed left=[512;768] strides=[1;512] origin=7 output=[]
+  fat_p: 3064 ns/call median; mean=3083 stddev=98 mean_CI95=[3029,3137] result_allocations=1 bytes=4
+  scalar_prevalidated: 297 ns/call median; mean=318 stddev=56 mean_CI95=[287,349] result_allocations=1 bytes=4
+  allocation_only: 99 ns/call median; mean=128 stddev=82 mean_CI95=[83,173] result_allocations=1 bytes=4
+trace/float/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4]
+  fat_p: 18604 ns/call median; mean=18653 stddev=361 mean_CI95=[18454,18853] result_allocations=1 bytes=16
+  scalar_prevalidated: 1695 ns/call median; mean=1714 stddev=59 mean_CI95=[1681,1747] result_allocations=1 bytes=16
+  allocation_only: 166 ns/call median; mean=187 stddev=55 mean_CI95=[156,217] result_allocations=1 bytes=16
+dot/double/small/contiguous left=[16] strides=[1] origin=7 right=[16] strides=[1] origin=7 output=[]
+  fat_p: 170 ns/call median; mean=190 stddev=55 mean_CI95=[159,220] result_allocations=1 bytes=8
+  scalar_prevalidated: 106 ns/call median; mean=126 stddev=56 mean_CI95=[95,157] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=119 stddev=53 mean_CI95=[89,148] result_allocations=1 bytes=8
+dot/double/small/padded left=[16] strides=[2] origin=7 right=[16] strides=[2] origin=7 output=[]
+  fat_p: 170 ns/call median; mean=202 stddev=94 mean_CI95=[151,254] result_allocations=1 bytes=8
+  scalar_prevalidated: 106 ns/call median; mean=136 stddev=85 mean_CI95=[89,183] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=120 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=8
+dot/double/small/reversed left=[16] strides=[-1] origin=22 right=[16] strides=[-1] origin=22 output=[]
+  fat_p: 173 ns/call median; mean=193 stddev=55 mean_CI95=[163,224] result_allocations=1 bytes=8
+  scalar_prevalidated: 106 ns/call median; mean=138 stddev=90 mean_CI95=[88,188] result_allocations=1 bytes=8
+  allocation_only: 100 ns/call median; mean=128 stddev=81 mean_CI95=[84,173] result_allocations=1 bytes=8
+dot/double/medium/contiguous left=[1024] strides=[1] origin=7 right=[1024] strides=[1] origin=7 output=[]
+  fat_p: 4095 ns/call median; mean=4148 stddev=102 mean_CI95=[4092,4204] result_allocations=1 bytes=8
+  scalar_prevalidated: 486 ns/call median; mean=497 stddev=44 mean_CI95=[473,521] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=109 stddev=41 mean_CI95=[87,132] result_allocations=1 bytes=8
+dot/double/medium/padded left=[1024] strides=[2] origin=7 right=[1024] strides=[2] origin=7 output=[]
+  fat_p: 4171 ns/call median; mean=4179 stddev=93 mean_CI95=[4128,4231] result_allocations=1 bytes=8
+  scalar_prevalidated: 492 ns/call median; mean=513 stddev=57 mean_CI95=[482,544] result_allocations=1 bytes=8
+  allocation_only: 98 ns/call median; mean=119 stddev=56 mean_CI95=[88,150] result_allocations=1 bytes=8
+dot/double/medium/reversed left=[1024] strides=[-1] origin=1030 right=[1024] strides=[-1] origin=1030 output=[]
+  fat_p: 4213 ns/call median; mean=4234 stddev=106 mean_CI95=[4175,4293] result_allocations=1 bytes=8
+  scalar_prevalidated: 488 ns/call median; mean=509 stddev=58 mean_CI95=[477,541] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=119 stddev=54 mean_CI95=[89,149] result_allocations=1 bytes=8
+dot/double/large/contiguous left=[65536] strides=[1] origin=7 right=[65536] strides=[1] origin=7 output=[]
+  fat_p: 262091 ns/call median; mean=262174 stddev=4461 mean_CI95=[259709,264640] result_allocations=1 bytes=8
+  scalar_prevalidated: 25061 ns/call median; mean=25127 stddev=347 mean_CI95=[24935,25319] result_allocations=1 bytes=8
+  allocation_only: 100 ns/call median; mean=130 stddev=86 mean_CI95=[83,177] result_allocations=1 bytes=8
+dot/double/large/padded left=[65536] strides=[2] origin=7 right=[65536] strides=[2] origin=7 output=[]
+  fat_p: 262116 ns/call median; mean=262389 stddev=4357 mean_CI95=[259981,264796] result_allocations=1 bytes=8
+  scalar_prevalidated: 25130 ns/call median; mean=25231 stddev=661 mean_CI95=[24866,25596] result_allocations=1 bytes=8
+  allocation_only: 101 ns/call median; mean=112 stddev=40 mean_CI95=[89,134] result_allocations=1 bytes=8
+dot/double/large/reversed left=[65536] strides=[-1] origin=65542 right=[65536] strides=[-1] origin=65542 output=[]
+  fat_p: 265496 ns/call median; mean=267143 stddev=7976 mean_CI95=[262736,271550] result_allocations=1 bytes=8
+  scalar_prevalidated: 25156 ns/call median; mean=25089 stddev=533 mean_CI95=[24795,25384] result_allocations=1 bytes=8
+  allocation_only: 101 ns/call median; mean=121 stddev=53 mean_CI95=[91,150] result_allocations=1 bytes=8
+outer/double/small/contiguous left=[8] strides=[1] origin=7 right=[12] strides=[1] origin=7 output=[8;12]
+  fat_p: 973 ns/call median; mean=970 stddev=51 mean_CI95=[942,998] result_allocations=1 bytes=768
+  scalar_prevalidated: 223 ns/call median; mean=243 stddev=53 mean_CI95=[214,273] result_allocations=1 bytes=768
+  allocation_only: 201 ns/call median; mean=220 stddev=54 mean_CI95=[190,250] result_allocations=1 bytes=768
+outer/double/small/padded left=[8] strides=[2] origin=7 right=[12] strides=[2] origin=7 output=[8;12]
+  fat_p: 1002 ns/call median; mean=1008 stddev=47 mean_CI95=[982,1034] result_allocations=1 bytes=768
+  scalar_prevalidated: 240 ns/call median; mean=257 stddev=55 mean_CI95=[226,287] result_allocations=1 bytes=768
+  allocation_only: 199 ns/call median; mean=219 stddev=55 mean_CI95=[189,249] result_allocations=1 bytes=768
+outer/double/small/reversed left=[8] strides=[-1] origin=14 right=[12] strides=[-1] origin=18 output=[8;12]
+  fat_p: 1007 ns/call median; mean=1004 stddev=53 mean_CI95=[975,1033] result_allocations=1 bytes=768
+  scalar_prevalidated: 235 ns/call median; mean=262 stddev=79 mean_CI95=[218,306] result_allocations=1 bytes=768
+  allocation_only: 200 ns/call median; mean=231 stddev=91 mean_CI95=[181,282] result_allocations=1 bytes=768
+outer/double/medium/contiguous left=[64] strides=[1] origin=7 right=[96] strides=[1] origin=7 output=[64;96]
+  fat_p: 17800 ns/call median; mean=17702 stddev=785 mean_CI95=[17269,18136] result_allocations=1 bytes=49152
+  scalar_prevalidated: 1417 ns/call median; mean=1443 stddev=91 mean_CI95=[1393,1493] result_allocations=1 bytes=49152
+  allocation_only: 763 ns/call median; mean=783 stddev=75 mean_CI95=[741,824] result_allocations=1 bytes=49152
+outer/double/medium/padded left=[64] strides=[2] origin=7 right=[96] strides=[2] origin=7 output=[64;96]
+  fat_p: 17784 ns/call median; mean=17728 stddev=755 mean_CI95=[17311,18145] result_allocations=1 bytes=49152
+  scalar_prevalidated: 1490 ns/call median; mean=1521 stddev=84 mean_CI95=[1475,1568] result_allocations=1 bytes=49152
+  allocation_only: 782 ns/call median; mean=785 stddev=48 mean_CI95=[759,812] result_allocations=1 bytes=49152
+outer/double/medium/reversed left=[64] strides=[-1] origin=70 right=[96] strides=[-1] origin=102 output=[64;96]
+  fat_p: 18058 ns/call median; mean=17779 stddev=790 mean_CI95=[17342,18215] result_allocations=1 bytes=49152
+  scalar_prevalidated: 1490 ns/call median; mean=1507 stddev=66 mean_CI95=[1470,1543] result_allocations=1 bytes=49152
+  allocation_only: 754 ns/call median; mean=766 stddev=44 mean_CI95=[742,790] result_allocations=1 bytes=49152
+outer/double/large/contiguous left=[256] strides=[1] origin=7 right=[384] strides=[1] origin=7 output=[256;384]
+  fat_p: 268152 ns/call median; mean=268813 stddev=6217 mean_CI95=[265377,272248] result_allocations=1 bytes=786432
+  scalar_prevalidated: 20288 ns/call median; mean=20335 stddev=354 mean_CI95=[20140,20530] result_allocations=1 bytes=786432
+  allocation_only: 9063 ns/call median; mean=9130 stddev=322 mean_CI95=[8952,9308] result_allocations=1 bytes=786432
+outer/double/large/padded left=[256] strides=[2] origin=7 right=[384] strides=[2] origin=7 output=[256;384]
+  fat_p: 265352 ns/call median; mean=267328 stddev=6396 mean_CI95=[263793,270862] result_allocations=1 bytes=786432
+  scalar_prevalidated: 21198 ns/call median; mean=21088 stddev=473 mean_CI95=[20827,21349] result_allocations=1 bytes=786432
+  allocation_only: 9005 ns/call median; mean=9057 stddev=138 mean_CI95=[8981,9134] result_allocations=1 bytes=786432
+outer/double/large/reversed left=[256] strides=[-1] origin=262 right=[384] strides=[-1] origin=390 output=[256;384]
+  fat_p: 265147 ns/call median; mean=265952 stddev=5372 mean_CI95=[262984,268921] result_allocations=1 bytes=786432
+  scalar_prevalidated: 21016 ns/call median; mean=21127 stddev=385 mean_CI95=[20915,21340] result_allocations=1 bytes=786432
+  allocation_only: 8960 ns/call median; mean=8959 stddev=114 mean_CI95=[8896,9022] result_allocations=1 bytes=786432
+matmul/double/small/contiguous left=[8;12] strides=[12;1] origin=7 right=[12;10] strides=[10;1] origin=7 output=[8;10]
+  fat_p: 437 ns/call median; mean=454 stddev=54 mean_CI95=[424,484] result_allocations=1 bytes=640
+  scalar_prevalidated: 505 ns/call median; mean=521 stddev=52 mean_CI95=[492,550] result_allocations=1 bytes=640
+  allocation_only: 200 ns/call median; mean=220 stddev=54 mean_CI95=[190,250] result_allocations=1 bytes=640
+matmul/double/small/padded left=[8;12] strides=[24;2] origin=7 right=[12;10] strides=[20;2] origin=7 output=[8;10]
+  fat_p: 3966 ns/call median; mean=3969 stddev=111 mean_CI95=[3907,4030] result_allocations=1 bytes=640
+  scalar_prevalidated: 508 ns/call median; mean=532 stddev=54 mean_CI95=[502,561] result_allocations=1 bytes=640
+  allocation_only: 198 ns/call median; mean=219 stddev=55 mean_CI95=[189,250] result_allocations=1 bytes=640
+matmul/double/small/reversed left=[8;12] strides=[12;-1] origin=18 right=[12;10] strides=[10;-1] origin=16 output=[8;10]
+  fat_p: 3994 ns/call median; mean=3988 stddev=106 mean_CI95=[3930,4047] result_allocations=1 bytes=640
+  scalar_prevalidated: 506 ns/call median; mean=528 stddev=60 mean_CI95=[495,561] result_allocations=1 bytes=640
+  allocation_only: 196 ns/call median; mean=219 stddev=57 mean_CI95=[188,251] result_allocations=1 bytes=640
+matmul/double/small/transposed left=[8;12] strides=[1;8] origin=7 right=[12;10] strides=[1;12] origin=7 output=[8;10]
+  fat_p: 3949 ns/call median; mean=3960 stddev=110 mean_CI95=[3899,4020] result_allocations=1 bytes=640
+  scalar_prevalidated: 512 ns/call median; mean=532 stddev=52 mean_CI95=[503,561] result_allocations=1 bytes=640
+  allocation_only: 200 ns/call median; mean=219 stddev=55 mean_CI95=[189,250] result_allocations=1 bytes=640
+matmul/double/small/batched left=[4;8;12] strides=[96;12;1] origin=7 right=[1;12;10] strides=[120;10;1] origin=7 output=[4;8;10]
+  fat_p: 15057 ns/call median; mean=15179 stddev=445 mean_CI95=[14933,15425] result_allocations=1 bytes=2560
+  scalar_prevalidated: 4060 ns/call median; mean=4056 stddev=81 mean_CI95=[4011,4100] result_allocations=1 bytes=2560
+  allocation_only: 224 ns/call median; mean=236 stddev=42 mean_CI95=[213,259] result_allocations=1 bytes=2560
+matmul/double/medium/contiguous left=[48;64] strides=[64;1] origin=7 right=[64;40] strides=[40;1] origin=7 output=[48;40]
+  fat_p: 15531 ns/call median; mean=15591 stddev=229 mean_CI95=[15464,15717] result_allocations=1 bytes=15360
+  scalar_prevalidated: 32849 ns/call median; mean=33094 stddev=590 mean_CI95=[32768,33420] result_allocations=1 bytes=15360
+  allocation_only: 308 ns/call median; mean=328 stddev=55 mean_CI95=[298,359] result_allocations=1 bytes=15360
+matmul/double/medium/padded left=[48;64] strides=[128;2] origin=7 right=[64;40] strides=[80;2] origin=7 output=[48;40]
+  fat_p: 483570 ns/call median; mean=484704 stddev=7548 mean_CI95=[480533,488874] result_allocations=1 bytes=15360
+  scalar_prevalidated: 33159 ns/call median; mean=33277 stddev=526 mean_CI95=[32986,33568] result_allocations=1 bytes=15360
+  allocation_only: 312 ns/call median; mean=330 stddev=56 mean_CI95=[299,361] result_allocations=1 bytes=15360
+matmul/double/medium/reversed left=[48;64] strides=[64;-1] origin=70 right=[64;40] strides=[40;-1] origin=46 output=[48;40]
+  fat_p: 485855 ns/call median; mean=488055 stddev=8062 mean_CI95=[483600,492510] result_allocations=1 bytes=15360
+  scalar_prevalidated: 32980 ns/call median; mean=32875 stddev=616 mean_CI95=[32534,33215] result_allocations=1 bytes=15360
+  allocation_only: 304 ns/call median; mean=328 stddev=59 mean_CI95=[295,360] result_allocations=1 bytes=15360
+matmul/double/medium/transposed left=[48;64] strides=[1;48] origin=7 right=[64;40] strides=[1;64] origin=7 output=[48;40]
+  fat_p: 484205 ns/call median; mean=485916 stddev=6741 mean_CI95=[482191,489640] result_allocations=1 bytes=15360
+  scalar_prevalidated: 32883 ns/call median; mean=32919 stddev=499 mean_CI95=[32644,33195] result_allocations=1 bytes=15360
+  allocation_only: 304 ns/call median; mean=329 stddev=61 mean_CI95=[295,362] result_allocations=1 bytes=15360
+matmul/double/medium/batched left=[4;48;64] strides=[3072;64;1] origin=7 right=[1;64;40] strides=[2560;40;1] origin=7 output=[4;48;40]
+  fat_p: 1943381 ns/call median; mean=1947744 stddev=33837 mean_CI95=[1929047,1966440] result_allocations=1 bytes=61440
+  scalar_prevalidated: 395109 ns/call median; mean=397235 stddev=7544 mean_CI95=[393067,401403] result_allocations=1 bytes=61440
+  allocation_only: 831 ns/call median; mean=862 stddev=63 mean_CI95=[827,897] result_allocations=1 bytes=61440
+matmul/double/large/contiguous left=[128;192] strides=[192;1] origin=7 right=[192;96] strides=[96;1] origin=7 output=[128;96]
+  fat_p: 254455 ns/call median; mean=254803 stddev=3031 mean_CI95=[253128,256478] result_allocations=1 bytes=98304
+  scalar_prevalidated: 781378 ns/call median; mean=781228 stddev=12456 mean_CI95=[774345,788110] result_allocations=1 bytes=98304
+  allocation_only: 1147 ns/call median; mean=1174 stddev=64 mean_CI95=[1138,1209] result_allocations=1 bytes=98304
+matmul/double/large/padded left=[128;192] strides=[384;2] origin=7 right=[192;96] strides=[192;2] origin=7 output=[128;96]
+  fat_p: 9254825 ns/call median; mean=9280135 stddev=100879 mean_CI95=[9224395,9335875] result_allocations=1 bytes=98304
+  scalar_prevalidated: 982806 ns/call median; mean=982679 stddev=12757 mean_CI95=[975630,989728] result_allocations=1 bytes=98304
+  allocation_only: 1141 ns/call median; mean=1169 stddev=61 mean_CI95=[1135,1203] result_allocations=1 bytes=98304
+matmul/double/large/reversed left=[128;192] strides=[192;-1] origin=198 right=[192;96] strides=[96;-1] origin=102 output=[128;96]
+  fat_p: 9321525 ns/call median; mean=9322813 stddev=101612 mean_CI95=[9266668,9378958] result_allocations=1 bytes=98304
+  scalar_prevalidated: 780388 ns/call median; mean=779774 stddev=13549 mean_CI95=[772287,787260] result_allocations=1 bytes=98304
+  allocation_only: 1145 ns/call median; mean=1161 stddev=58 mean_CI95=[1129,1193] result_allocations=1 bytes=98304
+matmul/double/large/transposed left=[128;192] strides=[1;128] origin=7 right=[192;96] strides=[1;192] origin=7 output=[128;96]
+  fat_p: 9348875 ns/call median; mean=9364363 stddev=179125 mean_CI95=[9265389,9463338] result_allocations=1 bytes=98304
+  scalar_prevalidated: 878094 ns/call median; mean=874763 stddev=21947 mean_CI95=[862636,886889] result_allocations=1 bytes=98304
+  allocation_only: 1158 ns/call median; mean=1178 stddev=57 mean_CI95=[1147,1209] result_allocations=1 bytes=98304
+matmul/double/large/batched left=[4;128;192] strides=[24576;192;1] origin=7 right=[1;192;96] strides=[18432;96;1] origin=7 output=[4;128;96]
+  fat_p: 37399800 ns/call median; mean=37546627 stddev=746833 mean_CI95=[37133967,37959286] result_allocations=1 bytes=393216
+  scalar_prevalidated: 7332725 ns/call median; mean=7344090 stddev=102178 mean_CI95=[7287632,7400548] result_allocations=1 bytes=393216
+  allocation_only: 4585 ns/call median; mean=4574 stddev=98 mean_CI95=[4520,4628] result_allocations=1 bytes=393216
+diagonal/double/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[8]
+  fat_p: 419 ns/call median; mean=441 stddev=60 mean_CI95=[407,474] result_allocations=1 bytes=64
+  scalar_prevalidated: 175 ns/call median; mean=196 stddev=56 mean_CI95=[165,227] result_allocations=1 bytes=64
+  allocation_only: 169 ns/call median; mean=189 stddev=56 mean_CI95=[158,220] result_allocations=1 bytes=64
+diagonal/double/small/padded left=[8;12] strides=[24;2] origin=7 output=[8]
+  fat_p: 417 ns/call median; mean=439 stddev=60 mean_CI95=[406,472] result_allocations=1 bytes=64
+  scalar_prevalidated: 176 ns/call median; mean=196 stddev=55 mean_CI95=[165,226] result_allocations=1 bytes=64
+  allocation_only: 170 ns/call median; mean=190 stddev=56 mean_CI95=[159,221] result_allocations=1 bytes=64
+diagonal/double/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[8]
+  fat_p: 415 ns/call median; mean=436 stddev=58 mean_CI95=[404,469] result_allocations=1 bytes=64
+  scalar_prevalidated: 176 ns/call median; mean=194 stddev=51 mean_CI95=[166,223] result_allocations=1 bytes=64
+  allocation_only: 172 ns/call median; mean=190 stddev=54 mean_CI95=[160,220] result_allocations=1 bytes=64
+diagonal/double/small/transposed left=[8;12] strides=[1;8] origin=7 output=[8]
+  fat_p: 413 ns/call median; mean=449 stddev=95 mean_CI95=[396,501] result_allocations=1 bytes=64
+  scalar_prevalidated: 177 ns/call median; mean=197 stddev=54 mean_CI95=[167,226] result_allocations=1 bytes=64
+  allocation_only: 168 ns/call median; mean=190 stddev=56 mean_CI95=[159,220] result_allocations=1 bytes=64
+diagonal/double/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4;8]
+  fat_p: 511 ns/call median; mean=541 stddev=88 mean_CI95=[492,589] result_allocations=1 bytes=256
+  scalar_prevalidated: 217 ns/call median; mean=239 stddev=54 mean_CI95=[209,268] result_allocations=1 bytes=256
+  allocation_only: 193 ns/call median; mean=214 stddev=54 mean_CI95=[184,244] result_allocations=1 bytes=256
+diagonal/double/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[128]
+  fat_p: 694 ns/call median; mean=722 stddev=96 mean_CI95=[669,775] result_allocations=1 bytes=1024
+  scalar_prevalidated: 209 ns/call median; mean=230 stddev=55 mean_CI95=[200,261] result_allocations=1 bytes=1024
+  allocation_only: 175 ns/call median; mean=194 stddev=56 mean_CI95=[163,225] result_allocations=1 bytes=1024
+diagonal/double/medium/padded left=[128;192] strides=[384;2] origin=7 output=[128]
+  fat_p: 685 ns/call median; mean=707 stddev=65 mean_CI95=[671,743] result_allocations=1 bytes=1024
+  scalar_prevalidated: 213 ns/call median; mean=234 stddev=59 mean_CI95=[202,267] result_allocations=1 bytes=1024
+  allocation_only: 174 ns/call median; mean=195 stddev=55 mean_CI95=[164,225] result_allocations=1 bytes=1024
+diagonal/double/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[128]
+  fat_p: 687 ns/call median; mean=704 stddev=64 mean_CI95=[668,739] result_allocations=1 bytes=1024
+  scalar_prevalidated: 209 ns/call median; mean=230 stddev=58 mean_CI95=[198,262] result_allocations=1 bytes=1024
+  allocation_only: 173 ns/call median; mean=194 stddev=56 mean_CI95=[163,225] result_allocations=1 bytes=1024
+diagonal/double/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[128]
+  fat_p: 676 ns/call median; mean=692 stddev=43 mean_CI95=[668,715] result_allocations=1 bytes=1024
+  scalar_prevalidated: 208 ns/call median; mean=219 stddev=40 mean_CI95=[196,241] result_allocations=1 bytes=1024
+  allocation_only: 174 ns/call median; mean=183 stddev=41 mean_CI95=[160,205] result_allocations=1 bytes=1024
+diagonal/double/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4;128]
+  fat_p: 1772 ns/call median; mean=1789 stddev=77 mean_CI95=[1746,1831] result_allocations=1 bytes=4096
+  scalar_prevalidated: 558 ns/call median; mean=576 stddev=64 mean_CI95=[541,612] result_allocations=1 bytes=4096
+  allocation_only: 205 ns/call median; mean=227 stddev=58 mean_CI95=[195,259] result_allocations=1 bytes=4096
+diagonal/double/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[512]
+  fat_p: 1775 ns/call median; mean=1798 stddev=70 mean_CI95=[1759,1837] result_allocations=1 bytes=4096
+  scalar_prevalidated: 338 ns/call median; mean=358 stddev=63 mean_CI95=[323,393] result_allocations=1 bytes=4096
+  allocation_only: 182 ns/call median; mean=203 stddev=57 mean_CI95=[172,235] result_allocations=1 bytes=4096
+diagonal/double/large/padded left=[512;768] strides=[1536;2] origin=7 output=[512]
+  fat_p: 1783 ns/call median; mean=1789 stddev=65 mean_CI95=[1753,1825] result_allocations=1 bytes=4096
+  scalar_prevalidated: 343 ns/call median; mean=362 stddev=58 mean_CI95=[330,394] result_allocations=1 bytes=4096
+  allocation_only: 185 ns/call median; mean=206 stddev=58 mean_CI95=[173,238] result_allocations=1 bytes=4096
+diagonal/double/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[512]
+  fat_p: 1775 ns/call median; mean=1789 stddev=69 mean_CI95=[1751,1827] result_allocations=1 bytes=4096
+  scalar_prevalidated: 338 ns/call median; mean=362 stddev=64 mean_CI95=[327,398] result_allocations=1 bytes=4096
+  allocation_only: 185 ns/call median; mean=204 stddev=57 mean_CI95=[173,236] result_allocations=1 bytes=4096
+diagonal/double/large/transposed left=[512;768] strides=[1;512] origin=7 output=[512]
+  fat_p: 1772 ns/call median; mean=1785 stddev=79 mean_CI95=[1741,1829] result_allocations=1 bytes=4096
+  scalar_prevalidated: 336 ns/call median; mean=361 stddev=60 mean_CI95=[328,394] result_allocations=1 bytes=4096
+  allocation_only: 182 ns/call median; mean=203 stddev=58 mean_CI95=[172,235] result_allocations=1 bytes=4096
+diagonal/double/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4;512]
+  fat_p: 5486 ns/call median; mean=5495 stddev=128 mean_CI95=[5424,5566] result_allocations=1 bytes=16384
+  scalar_prevalidated: 2386 ns/call median; mean=2418 stddev=100 mean_CI95=[2363,2474] result_allocations=1 bytes=16384
+  allocation_only: 297 ns/call median; mean=317 stddev=56 mean_CI95=[286,348] result_allocations=1 bytes=16384
+trace/double/small/contiguous left=[8;12] strides=[12;1] origin=7 output=[]
+  fat_p: 448 ns/call median; mean=470 stddev=58 mean_CI95=[439,502] result_allocations=1 bytes=8
+  scalar_prevalidated: 104 ns/call median; mean=125 stddev=55 mean_CI95=[95,156] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=8
+trace/double/small/padded left=[8;12] strides=[24;2] origin=7 output=[]
+  fat_p: 451 ns/call median; mean=474 stddev=62 mean_CI95=[440,508] result_allocations=1 bytes=8
+  scalar_prevalidated: 104 ns/call median; mean=125 stddev=56 mean_CI95=[94,156] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=8
+trace/double/small/reversed left=[8;12] strides=[12;-1] origin=18 output=[]
+  fat_p: 449 ns/call median; mean=471 stddev=58 mean_CI95=[439,503] result_allocations=1 bytes=8
+  scalar_prevalidated: 104 ns/call median; mean=124 stddev=55 mean_CI95=[94,154] result_allocations=1 bytes=8
+  allocation_only: 98 ns/call median; mean=119 stddev=55 mean_CI95=[89,150] result_allocations=1 bytes=8
+trace/double/small/transposed left=[8;12] strides=[1;8] origin=7 output=[]
+  fat_p: 445 ns/call median; mean=457 stddev=42 mean_CI95=[434,480] result_allocations=1 bytes=8
+  scalar_prevalidated: 104 ns/call median; mean=114 stddev=41 mean_CI95=[92,137] result_allocations=1 bytes=8
+  allocation_only: 100 ns/call median; mean=109 stddev=39 mean_CI95=[87,130] result_allocations=1 bytes=8
+trace/double/small/batched left=[4;8;12] strides=[96;12;1] origin=7 output=[4]
+  fat_p: 818 ns/call median; mean=851 stddev=96 mean_CI95=[798,904] result_allocations=1 bytes=32
+  scalar_prevalidated: 190 ns/call median; mean=212 stddev=57 mean_CI95=[180,243] result_allocations=1 bytes=32
+  allocation_only: 168 ns/call median; mean=189 stddev=58 mean_CI95=[157,221] result_allocations=1 bytes=32
+trace/double/medium/contiguous left=[128;192] strides=[192;1] origin=7 output=[]
+  fat_p: 1082 ns/call median; mean=1102 stddev=62 mean_CI95=[1068,1137] result_allocations=1 bytes=8
+  scalar_prevalidated: 144 ns/call median; mean=164 stddev=54 mean_CI95=[134,194] result_allocations=1 bytes=8
+  allocation_only: 100 ns/call median; mean=121 stddev=57 mean_CI95=[89,152] result_allocations=1 bytes=8
+trace/double/medium/padded left=[128;192] strides=[384;2] origin=7 output=[]
+  fat_p: 1072 ns/call median; mean=1098 stddev=66 mean_CI95=[1061,1134] result_allocations=1 bytes=8
+  scalar_prevalidated: 145 ns/call median; mean=165 stddev=53 mean_CI95=[136,195] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=8
+trace/double/medium/reversed left=[128;192] strides=[192;-1] origin=198 output=[]
+  fat_p: 1062 ns/call median; mean=1088 stddev=61 mean_CI95=[1054,1122] result_allocations=1 bytes=8
+  scalar_prevalidated: 143 ns/call median; mean=163 stddev=53 mean_CI95=[134,192] result_allocations=1 bytes=8
+  allocation_only: 99 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=8
+trace/double/medium/transposed left=[128;192] strides=[1;128] origin=7 output=[]
+  fat_p: 1067 ns/call median; mean=1101 stddev=128 mean_CI95=[1031,1172] result_allocations=1 bytes=8
+  scalar_prevalidated: 142 ns/call median; mean=153 stddev=41 mean_CI95=[130,176] result_allocations=1 bytes=8
+  allocation_only: 98 ns/call median; mean=109 stddev=41 mean_CI95=[86,132] result_allocations=1 bytes=8
+trace/double/medium/batched left=[4;128;192] strides=[24576;192;1] origin=7 output=[4]
+  fat_p: 5037 ns/call median; mean=5047 stddev=135 mean_CI95=[4972,5122] result_allocations=1 bytes=32
+  scalar_prevalidated: 473 ns/call median; mean=501 stddev=66 mean_CI95=[464,537] result_allocations=1 bytes=32
+  allocation_only: 166 ns/call median; mean=186 stddev=56 mean_CI95=[155,217] result_allocations=1 bytes=32
+trace/double/large/contiguous left=[512;768] strides=[768;1] origin=7 output=[]
+  fat_p: 3073 ns/call median; mean=3091 stddev=74 mean_CI95=[3050,3132] result_allocations=1 bytes=8
+  scalar_prevalidated: 295 ns/call median; mean=314 stddev=55 mean_CI95=[283,344] result_allocations=1 bytes=8
+  allocation_only: 101 ns/call median; mean=122 stddev=56 mean_CI95=[91,153] result_allocations=1 bytes=8
+trace/double/large/padded left=[512;768] strides=[1536;2] origin=7 output=[]
+  fat_p: 3070 ns/call median; mean=3098 stddev=108 mean_CI95=[3038,3158] result_allocations=1 bytes=8
+  scalar_prevalidated: 298 ns/call median; mean=317 stddev=56 mean_CI95=[286,348] result_allocations=1 bytes=8
+  allocation_only: 101 ns/call median; mean=120 stddev=57 mean_CI95=[89,152] result_allocations=1 bytes=8
+trace/double/large/reversed left=[512;768] strides=[768;-1] origin=774 output=[]
+  fat_p: 3077 ns/call median; mean=3082 stddev=66 mean_CI95=[3045,3118] result_allocations=1 bytes=8
+  scalar_prevalidated: 293 ns/call median; mean=312 stddev=55 mean_CI95=[282,343] result_allocations=1 bytes=8
+  allocation_only: 100 ns/call median; mean=120 stddev=56 mean_CI95=[89,151] result_allocations=1 bytes=8
+trace/double/large/transposed left=[512;768] strides=[1;512] origin=7 output=[]
+  fat_p: 3025 ns/call median; mean=3037 stddev=59 mean_CI95=[3004,3069] result_allocations=1 bytes=8
+  scalar_prevalidated: 292 ns/call median; mean=312 stddev=52 mean_CI95=[283,340] result_allocations=1 bytes=8
+  allocation_only: 102 ns/call median; mean=121 stddev=55 mean_CI95=[91,151] result_allocations=1 bytes=8
+trace/double/large/batched left=[4;512;768] strides=[393216;768;1] origin=7 output=[4]
+  fat_p: 18645 ns/call median; mean=18738 stddev=422 mean_CI95=[18504,18971] result_allocations=1 bytes=32
+  scalar_prevalidated: 2036 ns/call median; mean=2053 stddev=75 mean_CI95=[2012,2094] result_allocations=1 bytes=32
+  allocation_only: 170 ns/call median; mean=190 stddev=57 mean_CI95=[158,221] result_allocations=1 bytes=32

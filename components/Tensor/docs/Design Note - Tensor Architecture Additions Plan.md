@@ -75,8 +75,9 @@ The remaining work is architectural:
   deliberately serial.
 - Named linear algebra has replaced the partial einsum API atomically;
   general contraction planning has not landed.
-- The expanded benchmark matrix and execution-backed specialized kernels remain
-  future work.
+- The named linear-algebra benchmark matrix now covers five operations, sizes,
+  and supported layout classes; additional specialized kernels still require
+  their own direct measurement evidence.
 
 The pre-cutover RFC called some APIs transitional and described later
 deprecation. Fat-P governance required an atomic correction with no
@@ -287,9 +288,9 @@ canonical dtype vocabulary replaces them.
 | 3 | Complete: counted multi-layout iteration plan and serial base kernels |
 | 4 | Complete: slice language, overlap-safe materialization, bounded exhaustive/seeded transform oracles, and element-allocation/lifetime checks |
 | 5 | Core implemented: checked axis/boolean reductions, mixed/scalar arithmetic including division, materializing casts, compound updates, checked negate/abs, and floating sqrt/exp/log; broader numeric expansion remains |
-| 6 | Interop implemented: contiguous span, validated strided descriptor, optional mdspan, and static/dynamic conversion; benchmark expansion remains |
+| 6 | Interop implemented; named linear-algebra allocation/layout benchmark matrix recorded; broader benchmark domains remain |
 | 7 | Core implemented: stack, concatenate, take, takeAlongAxis, and gatherND; broader generic math remains |
-| 8 | Named APIs and subset einsum retirement implemented; expanded specialization benchmarks remain open |
+| 8 | Named APIs, subset einsum retirement, and measured contiguous-vector dispatch implemented; broader specialization remains |
 | 9-11 | Planned, except bounded serialization and static/dynamic conversion work already delivered |
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
@@ -967,8 +968,48 @@ choose scratch.
   and Frobenius examples. The user manual explicitly documents migration
   differences; no compatibility aliases or parser remain.
 - Expanded small/large/layout benchmarks and further specialized dispatch are
-  still open. This cutover adds no new specialized default kernel and makes no
-  new throughput claim. The existing blocked matmul path is unchanged.
+  addressed by the following increment. This initial API cutover itself added
+  no new specialized default kernel or throughput claim.
+
+**Implemented serial measurement increment (2026-08-31)**
+
+- A separate `benchmark_TensorMatmul.cpp` covers dot, outer, matmul, diagonal,
+  and trace across float/double, three size tiers, and applicable contiguous,
+  padded, reversed, transposed, and batched layouts: 126 problems. Inputs have
+  nonzero origins and deterministic nonconstant values. Every output element
+  and shape is checked against independent scalar loops outside timing.
+- Public allocating calls, prevalidated scalar loops with matching Tensor
+  result storage, and an allocation-only control are measured separately.
+  The result buffer escapes through a volatile indirect observer. A separate
+  allocator probe records result-buffer counts/bytes and checks reclamation;
+  metadata and global allocations are explicitly excluded.
+- Full MSVC and GCC Release runs record three warmups and fifteen randomized
+  measured rounds, calibrated batches, raw durations, CPU context, variation,
+  and CSV/JSON exports. Quick mode remains a smoke test. The manual component
+  workflow, unified compiler sweeps, workflow generator, local quick runner,
+  and CMake benchmark target include the new suite without external dependencies.
+- Direct, fresh-seed, randomized process-pair measurements justify routing
+  contiguous vector pairs through the existing checked contiguous kernel.
+  No new contraction loop, API, allocator, or thread pool was added. Validation,
+  widening, zero seed, and serial accumulation remain shared; mixed-rank,
+  batched, and noncontiguous operands retain the generic path.
+- The linear-algebra suite now has sixteen groups. New cases compare contiguous
+  and strided floating results around block boundaries, including cancellation,
+  NaN/infinity/signed zero, zero and singleton lengths, extreme unused strides,
+  late checked overflow, allocator cleanup, and unchanged inputs. MSVC Debug,
+  Release, AddressSanitizer, GCC, and Clang pass; all 26 Tensor CMake tests pass.
+- Local Claude/Grok reviews found no blocking production defect. Claude's test
+  feedback added nonuniform right-hand values, NaN padding, and all four
+  contiguous/strided pairings. The new group rejects isolated right-index and
+  right-contiguity-predicate mutations; both compiler matrices remain green.
+- A results-review follow-up separates exact-input benchmark correctness from
+  rounding-order tests, records actual API batch quality, and adds paired
+  small-vector checks. No small-case regression was observed on MSVC or GCC.
+- Commands, raw measurements, statistical limits, and exact comparison results
+  live in [the benchmark report](../results/2026-08-31-linear-algebra/README.md),
+  not performance tables in public API documentation. This does not close
+  broader integer/interop benchmarks, additional kernel specialization,
+  general contraction planning, or explicit execution contexts.
 
 ### Phase 9: Explicit execution context
 

@@ -74,6 +74,7 @@ $ResultsDir = Join-Path $Output $Timestamp
 
 # Quick mode environment
 if ($Quick) {
+    $env:FATP_BENCH_QUICK = "1"
     $env:FATP_BENCH_WARMUP_RUNS = "1"
     $env:FATP_BENCH_BATCHES = "5"
     $env:FATP_BENCH_NO_STABILIZE = "1"
