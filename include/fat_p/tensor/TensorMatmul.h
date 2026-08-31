@@ -184,22 +184,19 @@ inline std::pair<std::ptrdiff_t, std::ptrdiff_t> matmulBatchOrigins(std::size_t 
 }
 
 template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator>
-[[nodiscard]] Tensor<Result, Allocator> matmulGeneric(const Left& left, const Right& right,
-                                                     const MatmulShape& shape, const Allocator& allocator)
+void matmulGenericRows(const Left& left, const Right& right, const MatmulShape& shape,
+                       Tensor<Result, Allocator>& result, std::size_t firstRow, std::size_t lastRow)
 {
-    Tensor<Result, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, Result{0});
-    if (result.empty() || shape.inner == 0)
-    {
-        return result;
-    }
     const auto* leftData = TensorAccess::storageBase(left);
     const auto* rightData = TensorAccess::storageBase(right);
-    const auto batchCount = checkedLogicalSize(shape.batchExtents);
-    std::size_t outputLinear = 0;
-    for (std::size_t batch = 0; batch < batchCount; ++batch)
+    std::size_t outputLinear = firstRow * shape.columns;
+    while (firstRow < lastRow)
     {
+        const auto batch = firstRow / shape.rows;
+        const auto rowBegin = firstRow % shape.rows;
+        const auto rowEnd = rowBegin + std::min(shape.rows - rowBegin, lastRow - firstRow);
         const auto [leftBatch, rightBatch] = matmulBatchOrigins(batch, shape, left.layout(), right.layout());
-        for (std::size_t row = 0; row < shape.rows; ++row)
+        for (std::size_t row = rowBegin; row < rowEnd; ++row)
         {
             auto leftRow = leftBatch;
             if (!shape.leftVector)
@@ -248,30 +245,24 @@ template <typename Result, ReadableTensor Left, ReadableTensor Right, typename A
                 result[outputLinear++] = total;
             }
         }
+        firstRow += rowEnd - rowBegin;
     }
-    return result;
 }
 
 template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator>
-[[nodiscard]] Tensor<Result, Allocator> matmulContiguousMatrices(const Left& left, const Right& right,
-                                                                const MatmulShape& shape,
-                                                                const Allocator& allocator)
+void matmulContiguousRows(const Left& left, const Right& right, const MatmulShape& shape,
+                          Tensor<Result, Allocator>& result, std::size_t firstRow, std::size_t lastRow)
 {
-    Tensor<Result, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, Result{0});
-    if (result.empty() || shape.inner == 0)
-    {
-        return result;
-    }
     const auto* leftData = TensorAccess::storageBase(left) + left.layout().originOffset();
     const auto* rightData = TensorAccess::storageBase(right) + right.layout().originOffset();
     constexpr std::size_t block = 32;
-    for (std::size_t rowBlock = 0; rowBlock < shape.rows; rowBlock += block)
+    for (std::size_t rowBlock = firstRow; rowBlock < lastRow; rowBlock += block)
     {
         for (std::size_t innerBlock = 0; innerBlock < shape.inner; innerBlock += block)
         {
             for (std::size_t columnBlock = 0; columnBlock < shape.columns; columnBlock += block)
             {
-                const auto rowEnd = std::min(rowBlock + block, shape.rows);
+                const auto rowEnd = std::min(rowBlock + block, lastRow);
                 const auto innerEnd = std::min(innerBlock + block, shape.inner);
                 const auto columnEnd = std::min(columnBlock + block, shape.columns);
                 for (std::size_t row = rowBlock; row < rowEnd; ++row)
@@ -291,7 +282,28 @@ template <typename Result, ReadableTensor Left, ReadableTensor Right, typename A
             }
         }
     }
-    return result;
+}
+
+template <ReadableTensor Left, ReadableTensor Right>
+[[nodiscard]] bool matmulUsesContiguousKernel(const Left& left, const Right& right)
+{
+    const bool suitableShape = (left.rank() == 2 && right.rank() == 2) ||
+                               (left.rank() == 1 && right.rank() == 1);
+    return suitableShape && left.layout().isContiguous() && right.layout().isContiguous();
+}
+
+template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator>
+void matmulRows(const Left& left, const Right& right, const MatmulShape& shape,
+                Tensor<Result, Allocator>& result, std::size_t firstRow, std::size_t lastRow)
+{
+    if (matmulUsesContiguousKernel(left, right))
+    {
+        matmulContiguousRows(left, right, shape, result, firstRow, lastRow);
+    }
+    else
+    {
+        matmulGenericRows(left, right, shape, result, firstRow, lastRow);
+    }
 }
 
 } // namespace tensor_detail
@@ -317,15 +329,12 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
     const auto shape = tensor_detail::makeMatmulShape(left.layout(), right.layout());
-    // A contiguous vector pair is the same 1 x K by K x 1 traversal with a scalar result.
-    // Mixed vector/matrix and batched forms retain the generic signed-stride path.
-    const bool contiguousKernelShape = (left.rank() == 2 && right.rank() == 2) ||
-                                       (left.rank() == 1 && right.rank() == 1);
-    if (contiguousKernelShape && left.layout().isContiguous() && right.layout().isContiguous())
+    Tensor<result_type, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, result_type{0});
+    if (!result.empty() && shape.inner != 0)
     {
-        return tensor_detail::matmulContiguousMatrices<result_type>(left, right, shape, allocator);
+        tensor_detail::matmulRows(left, right, shape, result, 0, result.size() / shape.columns);
     }
-    return tensor_detail::matmulGeneric<result_type>(left, right, shape, allocator);
+    return result;
 }
 
 /** @brief Matmul with rebound first-owner SOCCC, or TensorAllocator for view-only inputs. */

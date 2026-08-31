@@ -43,6 +43,7 @@ FATP_META:
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <future>
 #include <iostream>
 #include <numeric>
@@ -51,6 +52,10 @@ FATP_META:
 
 #include "FatPTest.h"
 #include "ThreadPool.h"
+
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
 
 // ============================================================================
 // Tests in nested namespace per Fat-P guidelines
@@ -546,9 +551,104 @@ FATP_TEST_CASE(wait_idle_concurrent_stress)
     return true;
 }
 
-// ----------------------------------------------------------------------------
-// Benchmarks
-// ----------------------------------------------------------------------------
+FATP_TEST_CASE(worker_identity_and_shutdown_race)
+{
+    FATP_ASSERT_TRUE(!ThreadPool::isAnyPoolWorkerThread(), "Caller is not a worker");
+    for (int round = 0; round < 50; ++round)
+    {
+        ThreadPool pool(4, 0);
+        auto worker = pool.submit([&]
+        {
+            if (!ThreadPool::isAnyPoolWorkerThread()) { return false; }
+            try { pool.shutdown(); }
+            catch (const std::logic_error&) { return !pool.is_shutdown(); }
+            return false;
+        });
+        FATP_ASSERT_TRUE(worker.get(), "Own-worker shutdown must fail before changing pool state");
+        std::vector<std::future<int>> accepted;
+        std::atomic<bool> begin{false};
+        std::thread submitter([&]
+        {
+            while (!begin.load()) { std::this_thread::yield(); }
+            for (int i = 0; i < 100; ++i)
+            {
+                try { accepted.emplace_back(pool.submit([i] { return i; })); }
+                catch (const std::runtime_error&) { break; }
+            }
+        });
+        begin = true;
+        std::thread secondShutdown([&] { pool.shutdown(); });
+        pool.shutdown();
+        submitter.join();
+        secondShutdown.join();
+        for (auto& future : accepted)
+        {
+            FATP_ASSERT_TRUE(future.wait_for(std::chrono::seconds(0)) == std::future_status::ready,
+                             "Every accepted task must complete across shutdown races");
+            (void)future.get();
+        }
+        FATP_ASSERT_EQ(pool.pending_tasks(), std::size_t{0}, "Shutdown drains queue accounting");
+        FATP_ASSERT_EQ(pool.active_tasks(), std::size_t{0}, "Concurrent shutdown callers both join");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(submission_after_shutdown)
+{
+    ThreadPool pool(2, 0);
+    pool.shutdown();
+    bool rejected = false;
+    try
+    {
+        (void)pool.submit([] {});
+    }
+    catch (const std::runtime_error&)
+    {
+        rejected = true;
+    }
+    FATP_ASSERT_TRUE(rejected, "Shutdown must reject submissions, not return stranded futures");
+    return true;
+}
+
+struct ThrowOnCopy
+{
+    bool* enabled;
+    explicit ThrowOnCopy(bool& flag) : enabled(&flag) {}
+    ThrowOnCopy(const ThrowOnCopy& other) : enabled(other.enabled)
+    {
+        if (*enabled)
+        {
+            throw std::runtime_error("injected batch copy failure");
+        }
+    }
+    void operator()() const {}
+};
+
+FATP_TEST_CASE(partial_batch_failure_accounting)
+{
+    ThreadPool pool(2, 0);
+    std::atomic<int> completed{0};
+    bool failCopy = false;
+    std::vector<std::function<void()>> tasks;
+    tasks.emplace_back([&] { ++completed; });
+    tasks.emplace_back(ThrowOnCopy(failCopy));
+    failCopy = true;
+    bool failed = false;
+    try
+    {
+        pool.submit_batch(tasks);
+    }
+    catch (const std::runtime_error&)
+    {
+        failed = true;
+    }
+    pool.shutdown();
+    FATP_ASSERT_TRUE(failed, "The second task copy must fail");
+    FATP_ASSERT_EQ(completed.load(), 1, "An accepted batch prefix must drain");
+    FATP_ASSERT_EQ(pool.pending_tasks(), std::size_t{0}, "Failure must preserve task accounting");
+    return true;
+}
+
 } // namespace fat_p::testing::thread_pool
 
 // ============================================================================
@@ -588,6 +688,9 @@ bool test_ThreadPool()
     FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_stress);
     FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_completion_guarantee);
     FATP_RUN_TEST_NS(runner, thread_pool, wait_idle_concurrent_stress);
+    FATP_RUN_TEST_NS(runner, thread_pool, submission_after_shutdown);
+    FATP_RUN_TEST_NS(runner, thread_pool, partial_batch_failure_accounting);
+    FATP_RUN_TEST_NS(runner, thread_pool, worker_identity_and_shutdown_race);
 
 
     return 0 == runner.print_summary();
@@ -601,6 +704,16 @@ bool test_ThreadPool()
 #ifdef ENABLE_TEST_APPLICATION
 int main()
 {
+#ifdef _MSC_VER
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+    _set_error_mode(_OUT_TO_STDERR);
+#ifdef _DEBUG
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+#endif
+#endif
     return fat_p::testing::test_ThreadPool() ? 0 : 1;
 }
 #endif

@@ -1,0 +1,136 @@
+================================================================================
+  fat_p::TensorExecution Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 GCC-16.1 | warmup=3 measured=9 seed=12345
+
+Competitors:
+  [x] Tensor serial (matched baseline)
+  [x] explicit context (default cutoff and forced scheduling)
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+
+Workers=1,2,4 (deliberately capped); pool spin=0us plus default-2000us probes.
+No affinity or priority override; FATP_BENCH_NO_SCOPE is immaterial to this suite.
+Reused inputs; fresh result allocation/init/destruction and scheduling included.
+Pool/caller construction excluded; concurrent batches include start/finish barriers.
+All output bits checked outside timing. Same kernel and result ownership in every path.
+No cold-cache claim. Batch-mean dispersion is NOT per-call p95/p99 latency.
+Concurrent rows are inverse throughput per completed call, not individual-call latency.
+Measuring batch_one_row
+Measuring near_cutoff48
+Measuring square16/workers4
+Measuring padded128
+Measuring square32/workers1
+Measuring grain1
+Measuring square256/workers1
+Measuring concurrent2
+Measuring square16/workers1
+Measuring square64/workers1
+Measuring nested4
+Measuring square32/workers2
+Measuring square128/workers1
+Measuring spin2000_square32
+Measuring square16/workers2
+Measuring square128/workers4
+Measuring spin2000_square64
+Measuring spin2000_square128
+Measuring small_grain16
+Measuring square32/workers4
+Measuring square64/workers4
+Measuring square256/workers2
+Measuring small_grain32
+Measuring grain8
+Measuring square256/workers4
+Measuring square128/workers2
+Measuring square64/workers2
+Measuring grain64
+batch_one_row serial median=2.13874e+06 ns/completed_call throughput=467.566 calls/s
+batch_one_row context_default median=2.16309e+06 ns/completed_call throughput=462.302 calls/s
+batch_one_row context_forced median=605161 ns/completed_call throughput=1652.45 calls/s
+near_cutoff48 serial median=13005.5 ns/completed_call throughput=76890.7 calls/s
+near_cutoff48 context_default median=12945 ns/completed_call throughput=77249.8 calls/s
+near_cutoff48 context_forced median=25502.3 ns/completed_call throughput=39212.1 calls/s
+square16/workers4 serial median=1053.99 ns/completed_call throughput=948777 calls/s
+square16/workers4 context_default median=1285.01 ns/completed_call throughput=778202 calls/s
+square16/workers4 context_forced median=1138.77 ns/completed_call throughput=878143 calls/s
+padded128 serial median=9.1523e+06 ns/completed_call throughput=109.262 calls/s
+padded128 context_default median=3.6549e+06 ns/completed_call throughput=273.605 calls/s
+padded128 context_forced median=3.1302e+06 ns/completed_call throughput=319.468 calls/s
+square32/workers1 serial median=3836.68 ns/completed_call throughput=260642 calls/s
+square32/workers1 context_default median=3839.16 ns/completed_call throughput=260474 calls/s
+square32/workers1 context_forced median=3731.82 ns/completed_call throughput=267965 calls/s
+grain1 serial median=318014 ns/completed_call throughput=3144.52 calls/s
+grain1 context_default median=118005 ns/completed_call throughput=8474.24 calls/s
+grain1 context_forced median=113548 ns/completed_call throughput=8806.87 calls/s
+square256/workers1 serial median=3.02031e+06 ns/completed_call throughput=331.092 calls/s
+square256/workers1 context_default median=3.02805e+06 ns/completed_call throughput=330.246 calls/s
+square256/workers1 context_forced median=3.64286e+06 ns/completed_call throughput=274.509 calls/s
+concurrent2 serial median=156791 ns/completed_call throughput=6377.9 calls/s
+concurrent2 context_default median=87611.3 ns/completed_call throughput=11414 calls/s
+concurrent2 context_forced median=89084 ns/completed_call throughput=11225.4 calls/s
+square16/workers1 serial median=869.547 ns/completed_call throughput=1.15002e+06 calls/s
+square16/workers1 context_default median=895.34 ns/completed_call throughput=1.11689e+06 calls/s
+square16/workers1 context_forced median=837.329 ns/completed_call throughput=1.19427e+06 calls/s
+square64/workers1 serial median=41404.5 ns/completed_call throughput=24152 calls/s
+square64/workers1 context_default median=43585.7 ns/completed_call throughput=22943.3 calls/s
+square64/workers1 context_forced median=41812.3 ns/completed_call throughput=23916.4 calls/s
+nested4 serial median=89678.1 ns/completed_call throughput=11151 calls/s
+nested4 context_default median=86914.5 ns/completed_call throughput=11505.6 calls/s
+nested4 context_forced median=85090.2 ns/completed_call throughput=11752.2 calls/s
+square32/workers2 serial median=5164.17 ns/completed_call throughput=193642 calls/s
+square32/workers2 context_default median=5225.09 ns/completed_call throughput=191384 calls/s
+square32/workers2 context_forced median=5120.29 ns/completed_call throughput=195302 calls/s
+square128/workers1 serial median=354455 ns/completed_call throughput=2821.24 calls/s
+square128/workers1 context_default median=337102 ns/completed_call throughput=2966.47 calls/s
+square128/workers1 context_forced median=379973 ns/completed_call throughput=2631.76 calls/s
+spin2000_square32 serial median=4962.55 ns/completed_call throughput=201509 calls/s
+spin2000_square32 context_default median=5122.83 ns/completed_call throughput=195205 calls/s
+spin2000_square32 context_forced median=31115 ns/completed_call throughput=32138.8 calls/s
+square16/workers2 serial median=970.34 ns/completed_call throughput=1.03057e+06 calls/s
+square16/workers2 context_default median=978.683 ns/completed_call throughput=1.02178e+06 calls/s
+square16/workers2 context_forced median=974.899 ns/completed_call throughput=1.02575e+06 calls/s
+square128/workers4 serial median=309998 ns/completed_call throughput=3225.83 calls/s
+square128/workers4 context_default median=112291 ns/completed_call throughput=8905.46 calls/s
+square128/workers4 context_forced median=115774 ns/completed_call throughput=8637.53 calls/s
+spin2000_square64 serial median=39030.9 ns/completed_call throughput=25620.8 calls/s
+spin2000_square64 context_default median=38971.1 ns/completed_call throughput=25660 calls/s
+spin2000_square64 context_forced median=36211.9 ns/completed_call throughput=27615.2 calls/s
+spin2000_square128 serial median=309495 ns/completed_call throughput=3231.07 calls/s
+spin2000_square128 context_default median=119768 ns/completed_call throughput=8349.45 calls/s
+spin2000_square128 context_forced median=117208 ns/completed_call throughput=8531.85 calls/s
+small_grain16 serial median=1055.26 ns/completed_call throughput=947638 calls/s
+small_grain16 context_default median=993.744 ns/completed_call throughput=1.0063e+06 calls/s
+small_grain16 context_forced median=26172.2 ns/completed_call throughput=38208.5 calls/s
+square32/workers4 serial median=5419.58 ns/completed_call throughput=184516 calls/s
+square32/workers4 context_default median=5480.88 ns/completed_call throughput=182452 calls/s
+square32/workers4 context_forced median=6647.29 ns/completed_call throughput=150437 calls/s
+square64/workers4 serial median=40719.2 ns/completed_call throughput=24558.4 calls/s
+square64/workers4 context_default median=39068.6 ns/completed_call throughput=25596 calls/s
+square64/workers4 context_forced median=39827.2 ns/completed_call throughput=25108.4 calls/s
+square256/workers2 serial median=3.4025e+06 ns/completed_call throughput=293.902 calls/s
+square256/workers2 context_default median=1.54569e+06 ns/completed_call throughput=646.961 calls/s
+square256/workers2 context_forced median=1.54381e+06 ns/completed_call throughput=647.747 calls/s
+small_grain32 serial median=5080.57 ns/completed_call throughput=196828 calls/s
+small_grain32 context_default median=5142.48 ns/completed_call throughput=194459 calls/s
+small_grain32 context_forced median=33174.9 ns/completed_call throughput=30143.3 calls/s
+grain8 serial median=308373 ns/completed_call throughput=3242.82 calls/s
+grain8 context_default median=119407 ns/completed_call throughput=8374.72 calls/s
+grain8 context_forced median=113141 ns/completed_call throughput=8838.53 calls/s
+square256/workers4 serial median=2.73648e+06 ns/completed_call throughput=365.434 calls/s
+square256/workers4 context_default median=851419 ns/completed_call throughput=1174.51 calls/s
+square256/workers4 context_forced median=863878 ns/completed_call throughput=1157.57 calls/s
+square128/workers2 serial median=352183 ns/completed_call throughput=2839.43 calls/s
+square128/workers2 context_default median=182527 ns/completed_call throughput=5478.63 calls/s
+square128/workers2 context_forced median=174374 ns/completed_call throughput=5734.79 calls/s
+square64/workers2 serial median=43435 ns/completed_call throughput=23022.9 calls/s
+square64/workers2 context_default median=41036.8 ns/completed_call throughput=24368.4 calls/s
+square64/workers2 context_forced median=36132.5 ns/completed_call throughput=27675.9 calls/s
+grain64 serial median=329274 ns/completed_call throughput=3036.98 calls/s
+grain64 context_default median=180993 ns/completed_call throughput=5525.08 calls/s
+grain64 context_forced median=175908 ns/completed_call throughput=5684.8 calls/s

@@ -51,6 +51,12 @@ FATP_AGGREGATE_WORKFLOW = "fatp-test-core.yml"
 # in grouped subdirectories. Keep both paths in the component trigger so a
 # facade-only API and its implementation cannot drift outside CI coverage.
 EXTRA_TRIGGER_PATHS = {
+    "tensor-execution.yml": [
+        "include/fat_p/tensor/**",
+        "include/fat_p/ThreadPool.h",
+        "include/fat_p/AlignedVector.h",
+        "components/ThreadPool/tests/test_ThreadPool.cpp",
+    ],
     "policy-iterator.yml": [
         "include/fat_p/TensorIteration.h",
         "include/fat_p/TensorStridePolicy.h",
@@ -154,6 +160,7 @@ EXTRA_TRIGGER_PATHS = {
 # workflow cost is deliberate rather than silently multiplied for every
 # component.
 DEBUG_WORKFLOWS = {
+    "tensor-execution.yml",
     "tensor.yml",
     "tensor-layout.yml",
     "tensor-view.yml",
@@ -169,6 +176,10 @@ DEBUG_WORKFLOWS = {
 # Future Tensor layout/kernel conformance files belong in this list so they do
 # not accidentally miss pointer and signed-offset instrumentation.
 SANITIZER_TEST_SOURCES = {
+    "tensor-execution.yml": [
+        "components/Tensor/tests/test_TensorExecution.cpp",
+        "components/ThreadPool/tests/test_ThreadPool.cpp",
+    ],
     "tensor.yml": [
         "components/Tensor/tests/test_Tensor.cpp",
         "components/Tensor/tests/test_TensorLayout.cpp",
@@ -178,6 +189,7 @@ SANITIZER_TEST_SOURCES = {
         "components/Tensor/tests/test_TensorReductions.cpp",
         "components/Tensor/tests/test_TensorInterop.cpp",
         "components/Tensor/tests/test_TensorMatmul.cpp",
+        "components/Tensor/tests/test_TensorExecution.cpp",
         "components/Tensor/tests/test_TensorSelection.cpp",
     ],
 }
@@ -187,6 +199,9 @@ ADDITIONAL_HEADER_CHECKS = {
 }
 
 STANDARD_COMPONENTS = [
+    ("tensor-execution.yml", "TensorExecution", "TensorExecution.h",
+     "components/Tensor/tests/test_TensorExecution.cpp",
+     "components/Tensor/benchmarks/benchmark_TensorExecution.cpp"),
     # =========================================================================
     # Components WITH benchmarks
     # =========================================================================
@@ -819,7 +834,7 @@ def generate_windows_msvc_job(test_src, aggregate=False):
         run: .\\test_bin.exe"""
 
 
-def generate_sanitizers(aggregate=False, multiple_sources=False):
+def generate_sanitizers(aggregate=False, multiple_sources=False, extra_flags=""):
     compiler = "sccache g++-13 -std=c++20" if aggregate else "g++-13 -std=c++20"
     if multiple_sources and not aggregate:
         build_prefix = """          index=0
@@ -853,6 +868,8 @@ def generate_sanitizers(aggregate=False, multiple_sources=False):
             ${{ env.TEST_SRC }} -o test_bin"""
         )
         run_command = "        run: ./test_bin"
+    if extra_flags:
+        build_prefix = build_prefix.replace("{flags}", "{flags} " + extra_flags)
     sccache_before = sccache_setup_step() if aggregate else ""
     sccache_after = sccache_stats_step() if aggregate else ""
     return f"""
@@ -1106,7 +1123,11 @@ def generate_workflow(filename, component, header, test_src, bench_src, include_
     if include_debug:
         parts.append(generate_debug_jobs(test_src, include_msvc=include_msvc))
 
-    parts.append(generate_sanitizers(aggregate=aggregate, multiple_sources=bool(sanitizer_sources)))
+    sanitizer_flags = "-DFATP_TENSOR_DISABLE_ALLOCATION_PROBE" if filename in {
+        "tensor-execution.yml", "tensor.yml"
+    } else ""
+    parts.append(generate_sanitizers(aggregate=aggregate, multiple_sources=bool(sanitizer_sources),
+                                     extra_flags=sanitizer_flags))
     parts.append(generate_header_check(component, header, ADDITIONAL_HEADER_CHECKS.get(filename)))
     parts.append(generate_strict_warnings(aggregate=aggregate))
 

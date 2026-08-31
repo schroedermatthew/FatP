@@ -1030,6 +1030,35 @@ choose scratch.
 - Serial and deterministic-parallel modes satisfy their documented result rules.
 - Oversubscription and small-input thresholds have recorded measurements.
 
+**Implemented bounded increment (2026-08-31; Phase 9 not closed)**
+
+- Added opt-in TensorExecution.h with default-serial TensorExecutionContext and
+  caller-owned native ThreadPool scheduling for matmul. Context-aware dot accepts
+  cancellation but retains its single serial fold. Other algorithms remain serial.
+- Shared serial/parallel row writers preserve fold order, signed-stride layouts,
+  batch broadcasting, checked arithmetic, result ownership, and allocator selection.
+- Context options cover grain, task cap, cooperative stop token, and PMR scheduler
+  scratch. Parallel submission is bounded; all accepted futures are drained before
+  submission/task/cancellation errors are propagated. Any Fat-P pool worker takes
+  the serial path. Same-build/same-floating-environment determinism is documented.
+- Hardened the existing ThreadPool prerequisite: shutdown admission cutoff,
+  enqueue-allocation rollback, partial-batch accounting, concurrent shutdown joins,
+  and explicit any-pool worker identity. Regression tests first reproduced both
+  stranded post-shutdown futures and an underflowing batch pending counter.
+- Checked MSVC Debug exposed allocator-backed vector proxy allocation in a noexcept
+  constructor; scheduler scratch now uses a directly allocated future array so
+  allocation failure remains catchable on that configuration too.
+- The 1,048,576-product default cutoff and 32-row grain are conservative choices
+  informed by 1/2/4-worker, small-input, grain, nested, and concurrent-caller measurements.
+  See [results and review record](../results/2026-08-31-execution-contexts/README.md).
+
+**Remaining exit gate:** Linux ThreadSanitizer execution. The workflow includes
+execution and prerequisite ThreadPool tests, but no Linux/WSL distribution is
+installed on the implementation machine. Windows ASan and ordinary stress tests
+do not substitute for TSan. Broader algorithm scheduling, column tiling for
+single-row products, foreign-pool coordination, and other backends remain outside
+this increment; they are not implied by the context API.
+
 ### Phase 10: Contractions and optional complete einsum
 
 **Work**

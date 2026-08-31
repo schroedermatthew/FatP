@@ -117,6 +117,7 @@ bool test_TensorView();
 bool test_TensorAlgorithms();
 bool test_TensorInterop();
 bool test_TensorMatmul();
+bool test_TensorExecution();
 bool test_TensorReductions();
 bool test_TensorSelection();
 bool test_TensorSlice();

@@ -224,6 +224,13 @@ jobs:
             extra_defines: "/fp:strict /volatile:iso"
             extra_link: ""
             exe_name: bench_tensor_matmul
+          - name: TensorExecution
+            src: components\Tensor\benchmarks\benchmark_TensorExecution.cpp
+            vcpkg_deps: ""
+            extra_includes: ""
+            extra_defines: "/fp:strict /volatile:iso"
+            extra_link: ""
+            exe_name: bench_tensor_execution
           - name: ThreadPool
             src: components\ThreadPool\benchmarks\benchmark_ThreadPool.cpp
             vcpkg_deps: "boost-asio:x64-windows-release tbb:x64-windows-release"

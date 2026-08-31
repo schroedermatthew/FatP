@@ -1007,6 +1007,11 @@ This methodology—the pipeline, the guidelines system, the context reset techni
 
 ## Appendix B: File Inventory Summary
 
+Current inventory (2026-08-31): 142 include/fat_p/**/*.h files,
+124 components/*/tests/test_*.cpp sources, 27 component benchmark sources,
+and 127 .github/workflows/*.yml files, including explicit Tensor execution.
+This current inventory is separate from the historical table below.
+
 The benchmark row was recounted on 2026-08-31 from
 `components/*/benchmarks/benchmark_*.cpp`, including Tensor linear algebra.
 Other rows and aggregate totals retain this document's historical snapshot;
@@ -1016,7 +1021,7 @@ they are not current repository counts or sums of the refreshed benchmark row.
 |----------|-------|-------|
 | Header files | 107 | 102,479 |
 | Test files | 91 | 88,935 |
-| Benchmark files (2026-08-31) | 26 | 48,139 |
+| Benchmark files (2026-08-31) | 27 | 48,696 |
 | Other C++ | 16 | 1,546 |
 | **Total C++** | **684** | **480,302** |
 | Documentation (markdown) | 276 | 234,089 |

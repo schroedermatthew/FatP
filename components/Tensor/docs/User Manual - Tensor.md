@@ -841,6 +841,78 @@ standard equality law.
 `TensorEquality.h` integrates owning tensors with `areEqual`. `exactEqual` and
 `approxEqual` accept any readable owner/view pair with the same value type.
 
+## Explicit execution contexts
+
+Existing calls remain serial. Include the optional facade only when you want
+context-aware matrix multiplication; the serial Tensor headers do not include
+ThreadPool or create workers.
+
+~~~cpp
+#include "TensorExecution.h"
+
+fat_p::ThreadPool workers(4); // application-owned; reuse across calls
+auto context = fat_p::TensorExecutionContext::parallel(workers);
+auto result = fat_p::matmul(left, right, context);
+auto exactAllocator = fat_p::matmul(left, right, context, resultAllocator);
+
+fat_p::TensorExecutionContext serial; // default construction is serial
+auto same = fat_p::matmul(left, right, serial);
+
+std::stop_source stop;
+fat_p::TensorExecutionOptions options;
+options.grainSize = 32;        // flattened batch-times-rows per cancellation tile
+options.minimumWork = 1048576; // scalar products required before scheduling
+options.maxTasks = 4;          // zero means no additional cap beyond pool size
+options.cancellation = stop.get_token();
+auto cancellable = fat_p::TensorExecutionContext::parallel(workers, options);
+~~~
+
+This increment supports context overloads of **matmul and dot only**.
+The native backend partitions disjoint output rows, including batch rows.
+It does not split the inner reduction: each output retains its increasing-inner
+fold and checked integral arithmetic. A one-output dot, an unbatched vector
+times matrix, or a one-row matrix multiplication remains serial. All other
+Tensor algorithms retain their existing serial APIs.
+
+The default scheduling cutoff is conservative, not a hardware-independent
+performance guarantee. Calls with fewer than two row tiles, work below the
+cutoff, a one-worker pool, or maxTasks=1 execute serially. At most
+min(pool size, nonzero task cap, row-tile count) tasks are submitted per call.
+There is no hidden pool and no process-wide thread-count setting. Calls from
+**any Fat-P pool worker** run serially, including cross-pool calls; this prevents
+saturated nested calls from waiting on another pool. Foreign worker pools are
+not detected, so coordinate their concurrency in the application.
+
+Every return or throw drains all tasks accepted for that call. Submission
+failure wins over task failure; task failures are selected in increasing
+submission index, not completion order. Cancellation is reported last as
+TensorExecutionCancelled. No failed or cancelled call returns a partial owner.
+Cancellation is checked after input validation but before element allocation,
+between row tiles, and after draining. It does not interrupt a tile or promise
+a maximum response time. A stop observed by the final check discards even a
+fully computed result. Empty outputs and empty contractions still observe
+cancellation. A stopped pool throws when scheduling is attempted; serial
+fallback paths do not submit and can still succeed.
+
+The context borrows its pool and scratch resource: keep both alive until the
+call returns, and do not mutate, resize, or destroy inputs concurrently.
+options.scratch must be nonnull and defaults to the standard default PMR resource.
+It owns only the bounded future array, allocated and released on the calling
+thread; it does not replace Tensor metadata, pool task/promise, or result-element
+allocators. Shared contexts require a thread-safe scratch resource or external
+serialization. Result allocator selection remains unchanged (first owner SOCCC,
+or TensorAllocator for view-only operands), with an explicit final allocator
+argument when needed.
+
+Floating serial/parallel bitwise agreement requires the same build and floating
+environment on the caller and workers. Contexts do not propagate caller thread-local
+state, rounding modes, or exception flags. This is not cross-platform reproducibility
+or a parallel reduction-combine policy. The only supported choices are serial and
+deterministic row-parallel execution; no BLAS/GPU/backend placeholder flags are exposed.
+
+See [execution measurements and validation](../results/2026-08-31-execution-contexts/README.md).
+Linux ThreadSanitizer is a CI gate; this Windows implementation session did not run it.
+
 ## Serialization
 
 ```cpp

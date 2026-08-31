@@ -1,48 +1,42 @@
 # =============================================================================
-# .github/workflows/tensor.yml
+# .github/workflows/tensor-execution.yml
 # =============================================================================
-# CI workflow for Tensor component
+# CI workflow for TensorExecution component
 #
 # Directory structure:
-#   Headers:    include/fat_p/Tensor.h
-#   Tests:      components/Tensor/tests/test_Tensor.cpp
-#   Benchmarks: components/Tensor/benchmarks/benchmark_Tensor.cpp
+#   Headers:    include/fat_p/TensorExecution.h
+#   Tests:      components/Tensor/tests/test_TensorExecution.cpp
+#   Benchmarks: components/Tensor/benchmarks/benchmark_TensorExecution.cpp
 #   Execution:  separate manual benchmark workflow
 # =============================================================================
 
-name: Tensor CI
+name: TensorExecution CI
 
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'include/fat_p/Tensor.h'
+      - 'include/fat_p/TensorExecution.h'
+      - 'include/fat_p/tensor/**'
+      - 'include/fat_p/ThreadPool.h'
       - 'include/fat_p/AlignedVector.h'
-      - 'include/fat_p/tensor/Tensor.h'
-      - 'include/fat_p/tensor/TensorExtents.h'
-      - 'include/fat_p/tensor/TensorLayout.h'
-      - 'include/fat_p/tensor/TensorView.h'
-      - 'include/fat_p/tensor/TensorIterationPlan.h'
-      - 'include/fat_p/tensor/TensorKernels.h'
-      - 'components/Tensor/benchmarks/benchmark_Tensor.cpp'
-      - '.github/workflows/tensor.yml'
+      - 'components/ThreadPool/tests/test_ThreadPool.cpp'
+      - 'components/Tensor/benchmarks/benchmark_TensorExecution.cpp'
+      - '.github/workflows/tensor-execution.yml'
   pull_request:
     paths:
-      - 'include/fat_p/Tensor.h'
+      - 'include/fat_p/TensorExecution.h'
+      - 'include/fat_p/tensor/**'
+      - 'include/fat_p/ThreadPool.h'
       - 'include/fat_p/AlignedVector.h'
-      - 'include/fat_p/tensor/Tensor.h'
-      - 'include/fat_p/tensor/TensorExtents.h'
-      - 'include/fat_p/tensor/TensorLayout.h'
-      - 'include/fat_p/tensor/TensorView.h'
-      - 'include/fat_p/tensor/TensorIterationPlan.h'
-      - 'include/fat_p/tensor/TensorKernels.h'
-      - 'components/Tensor/benchmarks/benchmark_Tensor.cpp'
-      - '.github/workflows/tensor.yml'
+      - 'components/ThreadPool/tests/test_ThreadPool.cpp'
+      - 'components/Tensor/benchmarks/benchmark_TensorExecution.cpp'
+      - '.github/workflows/tensor-execution.yml'
 
 env:
-  HEADER: Tensor.h
-  TEST_SRC: components/Tensor/tests/test_Tensor.cpp
-  SANITIZER_TEST_SRCS: components/Tensor/tests/test_Tensor.cpp components/Tensor/tests/test_TensorLayout.cpp components/Tensor/tests/test_TensorView.cpp components/Tensor/tests/test_TensorAlgorithms.cpp components/Tensor/tests/test_TensorSlice.cpp components/Tensor/tests/test_TensorReductions.cpp components/Tensor/tests/test_TensorInterop.cpp components/Tensor/tests/test_TensorMatmul.cpp components/Tensor/tests/test_TensorExecution.cpp components/Tensor/tests/test_TensorSelection.cpp
+  HEADER: TensorExecution.h
+  TEST_SRC: components/Tensor/tests/test_TensorExecution.cpp
+  SANITIZER_TEST_SRCS: components/Tensor/tests/test_TensorExecution.cpp components/ThreadPool/tests/test_ThreadPool.cpp
 
 jobs:
   # ===========================================================================
@@ -143,7 +137,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_Tensor.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorExecution.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -194,7 +188,7 @@ jobs:
           arch: x64
       - name: Build assertions-enabled tests
         shell: cmd
-        run: cl /std:c++20 /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /Od /Zi /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_Tensor.cpp /Fe:test_debug.exe /link advapi32.lib
+        run: cl /std:c++20 /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /Od /Zi /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorExecution.cpp /Fe:test_debug.exe /link advapi32.lib
       - name: Run tests
         run: .\test_debug.exe
 
@@ -316,7 +310,7 @@ jobs:
       - name: Test include order independence
         run: |
           cat > test1.cpp << 'EOF'
-          #include "Tensor.h"
+          #include "TensorExecution.h"
           #include <vector>
           #include <algorithm>
           int main() {{ return 0; }}
@@ -325,7 +319,7 @@ jobs:
           cat > test2.cpp << 'EOF'
           #include <algorithm>
           #include <vector>
-          #include "Tensor.h"
+          #include "TensorExecution.h"
           int main() {{ return 0; }}
           EOF
 

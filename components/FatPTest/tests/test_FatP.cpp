@@ -166,6 +166,7 @@ int main()
     RUN_AND_RECORD(test_TensorAlgorithms);
     RUN_AND_RECORD(test_TensorInterop);
     RUN_AND_RECORD(test_TensorMatmul);
+    RUN_AND_RECORD(test_TensorExecution);
     RUN_AND_RECORD(test_TensorReductions);
     RUN_AND_RECORD(test_TensorSelection);
     RUN_AND_RECORD(test_TensorSlice);

@@ -66,6 +66,7 @@ FATP_META:
 #include <numeric>
 #include <queue>
 #include <random>
+#include <stdexcept>
 #include <thread>
 #include <tuple>
 #include <type_traits>
@@ -406,7 +407,9 @@ public:
             return;
         }
 
-        size_t count = 0;
+        std::scoped_lock admission(mSubmissionMutex);
+        reject_shutdown();
+        try
         {
             std::scoped_lock lock(mGlobalMutex);
             for (const auto& func : tasks)
@@ -414,15 +417,24 @@ public:
                 if (func)
                 {
                     mGlobalQueue.emplace(func, Priority::Normal);
-                    ++count;
+                    // Publish accounting before a worker can acquire the queue lock.
+                    mPendingTasks.fetch_add(1, std::memory_order_release);
                 }
             }
         }
-        if (count > 0)
+        catch (...)
         {
-            mPendingTasks.fetch_add(count, std::memory_order_release);
+            // A successfully enqueued prefix still belongs to the pool.
             mGlobalCv.notify_all();
+            throw;
         }
+        mGlobalCv.notify_all();
+    }
+
+    /** @brief Whether this thread is a worker of any Fat-P ThreadPool. */
+    [[nodiscard]] static bool isAnyPoolWorkerThread() noexcept
+    {
+        return sCurrentPool != nullptr;
     }
 
     /**
@@ -452,12 +464,7 @@ public:
     /**
      * @brief Check if shutdown has been initiated
      *
-     * Can be used to reject submissions during shutdown if desired:
-     * @code
-     * if (!pool.is_shutdown()) {
-     *     pool.submit(...);
-     * }
-     * @endcode
+     * Diagnostic snapshot only; submit and submit_batch enforce the cutoff atomically.
      */
     [[nodiscard]] bool is_shutdown() const noexcept
     {
@@ -493,14 +500,24 @@ public:
      * Waits for all currently executing tasks to complete.
      * Tasks in queues at shutdown time will be executed.
      *
-     * @note Submissions during shutdown are NOT rejected - they will execute
-     *       if workers haven't drained yet. For immediate rejection semantics,
-     *       check is_shutdown() before submitting.
+     * Submissions admitted before the cutoff drain; later nonempty submissions throw
+     * std::runtime_error. Concurrent shutdown callers all wait for completion.
+     * @throws std::logic_error If called from this pool's own worker (cannot self-join).
+     * The pool must not be destroyed by one of its own tasks.
      */
     void shutdown()
     {
-        bool expected = false;
-        if (mStop.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+        if (sCurrentPool == this)
+        {
+            throw std::logic_error("ThreadPool cannot shut down from its own worker");
+        }
+        std::scoped_lock shutdownLock(mShutdownMutex);
+        bool initiate = false;
+        {
+            std::scoped_lock admission(mSubmissionMutex);
+            initiate = !mStop.exchange(true, std::memory_order_acq_rel);
+        }
+        if (initiate)
         {
             // Wake all workers to check stop flag
             mGlobalCv.notify_all();
@@ -522,34 +539,45 @@ public:
     }
 
 private:
+    void reject_shutdown() const
+    {
+        if (mStop.load(std::memory_order_acquire))
+        {
+            throw std::runtime_error("ThreadPool is shut down");
+        }
+    }
+
     /**
      * @brief Internal task enqueue with optional notification
      */
     void enqueue_task(ThreadPoolTask task, Priority priority, bool notify)
     {
+        std::scoped_lock admission(mSubmissionMutex);
+        reject_shutdown();
         mPendingTasks.fetch_add(1, std::memory_order_release);
-
-        if (priority >= Priority::High)
+        try
         {
-            // High/Critical goes to global queue for immediate visibility
+            if (priority >= Priority::High)
             {
                 std::scoped_lock lock(mGlobalMutex);
                 mGlobalQueue.push(std::move(task));
             }
-            if (notify)
+            else
             {
-                mGlobalCv.notify_one();
+                size_t idx = mNextQueue.fetch_add(1, std::memory_order_relaxed) % mNumThreads;
+                mWorkerQueues[idx].queue.push(std::move(task));
             }
         }
-        else
+        catch (...)
         {
-            // Normal/Low goes to per-thread queue (round-robin)
-            size_t idx = mNextQueue.fetch_add(1, std::memory_order_relaxed) % mNumThreads;
-            mWorkerQueues[idx].queue.push(std::move(task));
-            if (notify)
-            {
-                mGlobalCv.notify_one();
-            }
+            mPendingTasks.fetch_sub(1, std::memory_order_release);
+            std::scoped_lock idleLock(mIdle_mutex);
+            mIdle_cv.notify_all();
+            throw;
+        }
+        if (notify)
+        {
+            mGlobalCv.notify_one();
         }
     }
 
@@ -567,6 +595,7 @@ private:
      */
     void worker_thread(size_t thread_idx)
     {
+        sCurrentPool = this;
         ThreadPoolTask task;
 
         while (true)
@@ -632,7 +661,14 @@ private:
                 // No work available
                 if (mStop.load(std::memory_order_acquire))
                 {
-                    break;
+                    // A submission may have arrived in an already-scanned queue
+                    // immediately before the shutdown cutoff. Re-scan until drained.
+                    if (mPendingTasks.load(std::memory_order_acquire) == 0)
+                    {
+                        break;
+                    }
+                    std::this_thread::yield();
+                    continue;
                 }
 
                 // PHASE 1: Spin-wait for low latency
@@ -667,6 +703,7 @@ private:
                 });
             }
         }
+        sCurrentPool = nullptr;
     }
 
     /**
@@ -726,6 +763,10 @@ private:
     // ========================================================================
     // Member Variables
     // ========================================================================
+
+    inline static thread_local const ThreadPool* sCurrentPool = nullptr;
+    std::mutex mSubmissionMutex;
+    std::mutex mShutdownMutex;
 
     // Shutdown flag
     std::atomic<bool> mStop{false};

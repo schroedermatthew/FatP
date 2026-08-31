@@ -911,31 +911,23 @@ std::future<std::vector<T>> fan_out(
 
 ### Rejection During Shutdown
 
-ThreadPool does not reject tasks submitted after `shutdown()` begins. Tasks submitted during the drain phase may or may not execute, depending on timing. If you need strict rejection semantics, wrap the pool:
+Submission and shutdown share an admission cutoff. Tasks accepted before that
+cutoff execute and drain; later nonempty submissions throw std::runtime_error.
+is_shutdown() is a diagnostic snapshot, not a check-then-submit synchronization
+mechanism. An empty submit_batch is a no-op even after shutdown.
 
-```cpp
-class RejectingPool {
-    fat_p::ThreadPool pool_;
-    std::mutex mutex_;
-    bool shutting_down_ = false;
+If a batch functor copy or queue allocation throws after a prefix was accepted,
+that prefix still executes and remains included in pending_tasks(). Single-task
+queue allocation failure rolls back its pending count and returns no future.
 
-public:
-    template<typename F, typename... Args>
-    auto try_submit(F&& f, Args&&... args)
-        -> std::optional<std::future<std::invoke_result_t<F, Args...>>>
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (shutting_down_) return std::nullopt;
-        return pool_.submit(std::forward<F>(f), std::forward<Args>(args)...);
-    }
+Concurrent shutdown callers all wait for the joined workers. Calling shutdown
+from this pool's own worker throws std::logic_error before changing pool state;
+the pool must never be destroyed by one of its own tasks. No destructor can make
+that ownership cycle safe. Keep the pool alive until every external caller is done.
 
-    void shutdown() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        shutting_down_ = true;
-        pool_.shutdown();
-    }
-};
-```
+ThreadPool::isAnyPoolWorkerThread() identifies a worker of any Fat-P pool, not
+membership in a particular instance. Algorithms can use it to choose a serial
+nested path without acquiring or waiting on another pool.
 
 ---
 
@@ -1097,7 +1089,7 @@ Every public method on ThreadPool is thread-safe:
 | `submit_priority()` | Yes | Same as submit() |
 | `submit_batch()` | Yes | Same as submit() |
 | `wait_idle()` | Yes | Multiple threads can wait concurrently |
-| `shutdown()` | Yes | Idempotent, callable from any thread |
+| `shutdown()` | Yes | Idempotent and joining; rejected on this pool's own workers |
 | All diagnostic methods | Yes | Atomic reads |
 
 What is NOT guaranteed: execution order across threads, which worker executes which task, or timing of completion relative to submission.
@@ -2120,7 +2112,7 @@ Yes. Each pool is independent with its own workers and queues. A common pattern 
 
 **Q: What happens if I submit after shutdown?**
 
-The task is enqueued but may or may not execute, depending on whether workers have already drained their queues and exited. Check `is_shutdown()` before submitting if you need rejection semantics.
+Nonempty submissions after the admission cutoff throw std::runtime_error; accepted tasks drain before shutdown returns. Do not use an is_shutdown() check as a synchronization substitute.
 
 **Q: Is submit() thread-safe?**
 
