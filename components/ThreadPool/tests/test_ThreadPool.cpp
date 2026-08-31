@@ -467,7 +467,7 @@ FATP_TEST_CASE(wait_idle_completion_guarantee)
             volatile int dummy = 0;
             for (int k = 0; k < 50; ++k)
             {
-                dummy += k;
+                dummy = dummy + k;
             }
             (void)dummy;
 

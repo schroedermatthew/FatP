@@ -292,7 +292,7 @@ inline TensorLayout extendedSliceLayout(const TensorLayout& source, const std::v
     auto origin = source.originOffset();
     if (extents.logicalSize() != 0)
     {
-        for (const auto [axis, index] : originTerms)
+        for (const auto& [axis, index] : originTerms)
         {
             origin = checkedOffsetAdd(origin,
                                       checkedStrideContribution(index, source.strides()[axis]));

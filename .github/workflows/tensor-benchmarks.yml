@@ -28,7 +28,7 @@ jobs:
       fail-fast: false
       matrix:
         version: [12, 13, 14]
-        suite: [Tensor, TensorMatmul, TensorExecution]
+        suite: [Tensor, TensorMatmul, TensorExecution, TensorContractions]
     steps:
       - uses: actions/checkout@v6
       - name: Install GCC
@@ -68,7 +68,7 @@ jobs:
       fail-fast: false
       matrix:
         version: [16, 17]
-        suite: [Tensor, TensorMatmul, TensorExecution]
+        suite: [Tensor, TensorMatmul, TensorExecution, TensorContractions]
     steps:
       - uses: actions/checkout@v6
       - name: Install Clang
@@ -106,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [Tensor, TensorMatmul, TensorExecution]
+        suite: [Tensor, TensorMatmul, TensorExecution, TensorContractions]
     steps:
       - uses: actions/checkout@v6
       - uses: TheMrMilchmann/setup-msvc-dev@v4

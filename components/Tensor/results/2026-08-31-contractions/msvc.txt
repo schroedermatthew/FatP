@@ -1,0 +1,49 @@
+================================================================================
+  fat_p::TensorContractions Benchmark Suite
+================================================================================
+
+Platform: Windows-x64 MSVC-1951 | warmup=3 measured=9 seed=12345
+
+Competitors:
+  [x] Tensor tensorDot (serial and explicit native contexts)
+  [x] prevalidated scalar (same K-then-Q fold and result ownership)
+
+Design Invariants:
+  1. Round-robin execution with randomized order per run
+  2. Setup/teardown outside timed regions
+  3. All libraries observe same distribution of machine states
+  4. Medians are the primary reported statistic
+  5. Correctness verified after each benchmark
+
+target_work=10000 min_batch_ms=20
+No affinity/priority override; 4 workers, default 2000us spin, grain 32.
+Shapes A[M,Q,K], B[K,N,Q]; paired axes {2,1}/{0,2}; K-then-Q fold.
+Reused inputs; fresh result allocation/init/observation/destruction included.
+Scalar baseline excludes validation/planning. Full output bits checked outside timing.
+Pool construction excluded; idle pool exists for every variant. No cache flushing.
+Batch-mean dispersion is NOT per-call tail latency. No external competitors.
+Measuring medium
+Measuring cutoff
+Measuring scalar_output
+Measuring small
+Measuring reversed
+medium tensor_dot_serial median=3.14179e+06 ns/call
+medium context_default median=3.1022e+06 ns/call
+medium context_forced median=821803 ns/call
+medium scalar_prevalidated median=102575 ns/call
+cutoff tensor_dot_serial median=1.2078e+07 ns/call
+cutoff context_default median=3.2398e+06 ns/call
+cutoff context_forced median=3.17872e+06 ns/call
+cutoff scalar_prevalidated median=355216 ns/call
+scalar_output tensor_dot_serial median=47674.6 ns/call
+scalar_output context_default median=48354.7 ns/call
+scalar_output context_forced median=48038.9 ns/call
+scalar_output scalar_prevalidated median=1710.71 ns/call
+small tensor_dot_serial median=43738.1 ns/call
+small context_default median=44085.2 ns/call
+small context_forced median=19659.7 ns/call
+small scalar_prevalidated median=1887.7 ns/call
+reversed tensor_dot_serial median=3.12186e+06 ns/call
+reversed context_default median=3.11209e+06 ns/call
+reversed context_forced median=838275 ns/call
+reversed scalar_prevalidated median=100813 ns/call

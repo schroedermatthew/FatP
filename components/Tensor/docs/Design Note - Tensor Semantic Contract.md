@@ -767,6 +767,7 @@ In this table `B` denotes an arbitrary batch prefix and `D = min(M,N)`:
 | `matmul` matrix/matrix | `B1+{M,K}`, `B2+{K,N}` | `broadcast(B1,B2)+{M,N}` | Zero batch/M/N yields empty |
 | `diagonal` | `B+{M,N}`, rank at least two | `B+{D}` | Zero batch or D yields empty |
 | `trace` | `B+{M,N}`, rank at least two | `B` | D=0 yields zeros; zero batch yields empty |
+| `tensorDot` | Arbitrary ranks, explicit paired axes | Left free axes + right free axes | Zero contracted extent yields zeros; zero free extent yields empty |
 
 Neither dot nor outer flattens higher-rank operands. Diagonal and trace select
 the main diagonal of the final two axes only; no offset or axis arguments are
@@ -780,6 +781,22 @@ intermediate addition are checked. Dot/matmul/trace start at zero and visit
 contraction indices in increasing order. Outer performs a direct product with
 no additive seed, preserving ordinary floating signed-zero multiplication.
 Floating NaNs, infinities, and overflow follow ordinary scalar operations.
+TensorDot uses the same result type and checked product/sum rules but visits
+contracted axes in the caller's listed pair order, last pair fastest. Empty
+axis lists mean an outer product with a positive-zero additive seed, so unlike
+outer, negative-zero products can become positive zero. Reordering pairs is
+not guaranteed to preserve floating bits or integral overflow behavior.
+Free axes are not broadcast or aligned with each other. Each axis must be
+unique per operand after normalization, paired extents must match, and axis
+counts must agree. Invalid axes raise out_of_range; duplicates and shape
+mismatches raise invalid_argument.
+
+The contraction plan contains O(left rank + right rank) metadata, not packed
+operands or tensor-size offset tables. It checks the output shape before the
+contracted product; unreachable contracted subdomains of an empty output are
+not multiplied. The final contracted axis is traversed as a signed-stride run
+with no post-end offset advancement. Context scheduling partitions outputs,
+preserving each fold and all result-allocator/lifetime guarantees.
 Diagonal copies the original dtype without arithmetic.
 Under the default floating environment, all-negative-zero dot/trace terms
 produce positive zero through the positive-zero additive seed. Bool is accepted
@@ -987,9 +1004,10 @@ iteration, or checked arithmetic helpers. Its finite-value grid has 4,008 cases
 (ranks 0-3, extents 0-3, four layout families, every nonempty axis subset, both
 dimension-retention modes, plus the rank-zero case) and 600 seeded layouts up
 to rank 5 with extents 0-4. Boundary tests supplement that bounded coverage.
-Further numeric families, execution contexts, expanded benchmarks,
-and contraction planning remain target-only.
-Their phase exit gates require named tests before introduction.
+Further numeric families, contraction-order optimizers, and broader execution
+backends remain target-only. Named tensorDot contractions and native explicit
+matmul/dot/tensorDot contexts have bounded implementations and named tests;
+their full cross-platform closure gates are recorded in the additions plan.
 
 ## Implementation Status
 
@@ -1004,10 +1022,11 @@ overlap-safe element transfer, mixed-type and scalar checked arithmetic includin
 transactional compound updates, checked negation/absolute value, floating sqrt/exp/log,
 materializing numeric casts, unified serial kernels, extended slicing, checked
 axis reductions, borrowed interop,
-named linear algebra, indexed selection, and serializer resource limits have current
-executable evidence. Further numeric families, execution contexts, expanded
-benchmark evidence, and general contractions remain target-only until
-their named phase exit gates pass in the architecture additions plan.
+named linear algebra, explicit-axis tensorDot, native explicit execution contexts,
+indexed selection, and serializer resource limits have current executable evidence.
+Further numeric families, contraction-path optimization, and complete einsum
+remain target-only. New contraction Linux matrix/sanitizer runs remain pending
+until the implementation is pushed; earlier execution-context TSan passed.
 
 The remaining policy decisions are deliberately owned by later phase contracts:
 

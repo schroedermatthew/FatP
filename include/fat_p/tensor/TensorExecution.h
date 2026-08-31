@@ -8,7 +8,7 @@ FATP_META:
   path: include/fat_p/tensor/TensorExecution.h
   namespace: fat_p
   layer: Domain
-  summary: "Bounded deterministic row scheduling for Tensor matrix multiplication."
+  summary: "Bounded deterministic output scheduling for Tensor matmul and explicit-axis contractions."
   api_stability: in_work
   hygiene:
     pragma_once: true
@@ -23,12 +23,15 @@ FATP_META:
       - include/fat_p/TensorExecution.h
       - include/fat_p/ThreadPool.h
       - include/fat_p/tensor/TensorMatmul.h
+      - include/fat_p/tensor/TensorContractions.h
     tests:
       - components/Tensor/tests/test_TensorExecution.cpp
+      - components/Tensor/tests/test_TensorContractions.cpp
 */
 
 #include "../ThreadPool.h"
 #include "TensorMatmul.h"
+#include "TensorContractions.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -45,7 +48,7 @@ namespace fat_p
 /** @brief Scheduling metadata only; result elements still use the result allocator. */
 struct TensorExecutionOptions
 {
-    std::size_t grainSize = 32;        ///< Flattened batch-times-rows per cancellation tile; must be positive.
+    std::size_t grainSize = 32;        ///< Matmul rows or tensorDot output elements per cancellation tile.
     std::size_t minimumWork = 1048576; ///< Scalar products below this count stay serial (zero disables).
     std::size_t maxTasks = 0;          ///< Zero uses pool size; otherwise caps submitted tasks per call.
     std::stop_token cancellation;
@@ -338,6 +341,62 @@ template <ReadableTensor Left, ReadableTensor Right>
 {
     using result_type = TensorMatmulType<typename Left::value_type>;
     return dot(left, right, context, tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
+}
+
+/**
+ * @brief tensorDot with explicit synchronous execution; default fold order is unchanged.
+ * @details Scheduling partitions flattened output elements, never an inner fold.
+ * grainSize counts output elements here (flattened rows for matmul). The existing
+ * minimumWork threshold counts output-size times contracted-size scalar products.
+ * Cancellation, draining, nested fallback, scratch, and error precedence match context matmul.
+ */
+template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
+[[nodiscard]] auto tensorDot(const Left& left,
+                             const Right& right,
+                             const std::vector<TensorAxis>& leftAxes,
+                             const std::vector<TensorAxis>& rightAxes,
+                             const TensorExecutionContext& context,
+                             const Allocator& allocator)
+    -> Tensor<TensorMatmulType<typename Left::value_type>, Allocator>
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    tensor_detail::TensorAccess::validate(left);
+    tensor_detail::TensorAccess::validate(right);
+    const auto shape = tensor_detail::makeContractionShape(left.layout(), right.layout(), leftAxes, rightAxes);
+    tensor_detail::checkTensorCancellation(context.options().cancellation);
+    Tensor<result_type, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, result_type{0});
+    if (!result.empty() && shape.inner != 0)
+    {
+        tensor_detail::executeTensorRows(context,
+                                         result.size(),
+                                         result.size(),
+                                         shape.inner,
+                                         [&](std::size_t first, std::size_t last) {
+                                             tensor_detail::contractionRows(left, right, shape, result, first, last);
+                                         });
+    }
+    tensor_detail::checkTensorCancellation(context.options().cancellation);
+    return result;
+}
+
+/** @brief Context tensorDot with the same allocator selection as the serial overload. */
+template <ReadableTensor Left, ReadableTensor Right>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
+[[nodiscard]] auto tensorDot(const Left& left,
+                             const Right& right,
+                             const std::vector<TensorAxis>& leftAxes,
+                             const std::vector<TensorAxis>& rightAxes,
+                             const TensorExecutionContext& context)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    return tensorDot(left,
+                     right,
+                     leftAxes,
+                     rightAxes,
+                     context,
+                     tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
 }
 
 } // namespace fat_p

@@ -2,7 +2,7 @@
 doc_id: UM-TENSOR-001
 doc_type: "User Manual"
 title: "Tensor"
-fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorEquality", "TensorSerializer"]
+fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer"]
 topics: ["dynamic tensor", "tensor owner", "tensor view", "signed strides", "slicing", "broadcasting", "reductions", "interop", "matrix multiplication", "indexed selection", "tensor serialization"]
 constraints: ["C++20", "header-only", "canonical owning storage", "borrowed lifetime", "injective mutation"]
 cxx_standard: "C++20"
@@ -40,6 +40,7 @@ The separation is deliberate:
 #include "TensorReductions.h"   // deterministic axis reductions
 #include "TensorInterop.h"      // span, descriptor, mdspan, and static conversion
 #include "TensorMatmul.h"       // matmul, dot, outer, diagonal, and trace
+#include "TensorContractions.h" // tensorDot with explicitly paired axes
 #include "TensorSelection.h"    // stack, concatenate, take, and gather
 #include "TensorSlice.h"        // extended slice vocabulary
 #include "TensorEquality.h"     // EqualityComparisons integration
@@ -841,10 +842,58 @@ standard equality law.
 `TensorEquality.h` integrates owning tensors with `areEqual`. `exactEqual` and
 `approxEqual` accept any readable owner/view pair with the same value type.
 
+## Explicit-axis contractions
+
+`TensorContractions.h` adds `tensorDot` for arithmetic owners and readable views
+with matching value types. It contracts exactly the paired axes you supply:
+
+~~~cpp
+#include "TensorContractions.h"
+
+fat_p::Tensor<double> a({2, 3, 4}, 1.0);
+fat_p::Tensor<double> b({4, 5, 3}, 2.0);
+auto c = fat_p::tensorDot(a, b, {2, 1}, {0, 2}); // shape {2,5}, every value 24
+auto same = fat_p::tensorDot(a, b, {-1, -2}, {0, -1});
+auto full = fat_p::tensorDot(a, a, {0, 1, 2}, {0, 1, 2}); // rank-zero result
+auto products = fat_p::tensorDot(a, b, {}, {}); // shape {2,3,4,4,5,3}
+~~~
+
+The axis lists must have equal lengths, be unique within each operand after
+negative-axis normalization, and pair equal extents. There is no implicit batch
+broadcasting, repeated-axis diagonalization, or complex conjugation. The output
+contains left free axes in original order, followed by right free axes in original
+order. Empty axis lists mean a generalized outer product, not "all axes";
+rank-zero operands are supported. Contracting every axis gives rank zero.
+
+Each result folds from positive zero. Contracted coordinates follow the supplied
+pair order, with the last pair varying fastest. Reordering pairs can change
+floating results and the point at which checked integer overflow is reported.
+The result type is `TensorMatmulType<T>`: bool counts in size_t, narrow signed
+and unsigned integers widen to 64 bits before multiplication, and floating types
+remain unchanged. Every integral product and sum is checked. Unlike `outer`,
+even an empty-axis `tensorDot` includes the zero seed, so negative-zero products
+can become positive zero.
+
+A zero contracted extent produces zeros without reading either input. An empty
+output performs no folds; unreachable contracted subdomain sizes are not
+multiplied, but all axes and paired extents are still validated. Negative,
+zero, padded, overlapping-read, and permuted strides use the same layout contract
+as other readable Tensor operations. A result is always a fresh owner.
+
+The optional fifth argument is an exact result allocator. Without it, the first
+owning input supplies a rebound SOCCC allocator, or view-only inputs use
+TensorAllocator. Planning uses O(left rank + right rank) standard-allocated
+metadata and does not pack inputs or build tensor-size offset tables. The
+innermost contracted axis is a strided run; its outer coordinates are decoded
+once per run. There is no contraction-order optimizer or einsum parser.
+
+See [measurements and validation](../results/2026-08-31-contractions/README.md)
+for the measured scope and remaining CI gate.
+
 ## Explicit execution contexts
 
 Existing calls remain serial. Include the optional facade only when you want
-context-aware matrix multiplication; the serial Tensor headers do not include
+context-aware matrix multiplication or contractions; the serial Tensor headers do not include
 ThreadPool or create workers.
 
 ~~~cpp
@@ -854,25 +903,29 @@ fat_p::ThreadPool workers(4); // application-owned; reuse across calls
 auto context = fat_p::TensorExecutionContext::parallel(workers);
 auto result = fat_p::matmul(left, right, context);
 auto exactAllocator = fat_p::matmul(left, right, context, resultAllocator);
+auto contracted = fat_p::tensorDot(left, right, {1}, {0}, context);
+auto allocated = fat_p::tensorDot(left, right, {1}, {0}, context, resultAllocator);
 
 fat_p::TensorExecutionContext serial; // default construction is serial
 auto same = fat_p::matmul(left, right, serial);
 
 std::stop_source stop;
 fat_p::TensorExecutionOptions options;
-options.grainSize = 32;        // flattened batch-times-rows per cancellation tile
+options.grainSize = 32;        // matmul rows or tensorDot output elements per tile
 options.minimumWork = 1048576; // scalar products required before scheduling
 options.maxTasks = 4;          // zero means no additional cap beyond pool size
 options.cancellation = stop.get_token();
 auto cancellable = fat_p::TensorExecutionContext::parallel(workers, options);
 ~~~
 
-This increment supports context overloads of **matmul and dot only**.
-The native backend partitions disjoint output rows, including batch rows.
+Context overloads support **matmul, dot, and tensorDot**.
+The native backend partitions disjoint output rows, including batch rows, for
+matmul; tensorDot partitions flattened output elements.
 It does not split the inner reduction: each output retains its increasing-inner
 fold and checked integral arithmetic. A one-output dot, an unbatched vector
 times matrix, or a one-row matrix multiplication remains serial. All other
-Tensor algorithms retain their existing serial APIs.
+Tensor algorithms retain their existing serial APIs. A one-element tensorDot
+result also stays serial; its contracted fold is never split across workers.
 
 The default scheduling cutoff is conservative, not a hardware-independent
 performance guarantee. Calls with fewer than two row tiles, work below the
@@ -948,8 +1001,8 @@ These measurements are not a BLAS comparison or a cross-platform speed promise.
 The following plan items are not yet current API promises:
 
 - the remaining broad numeric operation families, including further unary operations;
-- general tensor contraction planning and further measured kernel specialization;
-- explicit parallel execution contexts;
+- contraction-order optimization, input packing, and further measured kernel specialization;
+- parallel contexts for algorithms beyond matmul, dot, and tensorDot;
 - a complete einsum grammar.
 
 The partial einsum API has been retired. `StaticTensor` remains a separate,
@@ -973,6 +1026,8 @@ fixed-size type with its own checked/saturating arithmetic policies.
 | Compound updates | `addAssign`, `subtractAssign`, `multiplyAssign`, `divideAssign`; `+=`, `-=`, `*=`, `/=` |
 | Reductions | `sum`, `product`, `mean`, `min`, `max`, `argmin`, `argmax`, `all`, `any` |
 | Linear algebra | `matmul`, `dot`, `outer`, `diagonal`, `trace` |
+| Explicit-axis contraction | `tensorDot(left, right, leftAxes, rightAxes[, allocator])` |
+| Explicit execution | `TensorExecutionContext`, `TensorExecutionOptions`; matmul/dot/tensorDot context overloads |
 | Composition/selection | `stack`, `concatenate`, `take`, `takeAlongAxis`, `gatherND` |
 | Interop | `contiguousSpan`, `describeTensor`, `StridedTensorDescriptor`, `asMdspan`, `toTensor`, `toStaticTensor` |
 | Owner queries | `extents`, `layout`, `strides`, `rank`, `extent`, `size`, `empty`, `data` |

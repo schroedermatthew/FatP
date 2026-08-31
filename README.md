@@ -101,6 +101,7 @@ A header-only C++20 utility library. Zero external dependencies.
 ![TensorAlgorithms CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-algorithms.yml/badge.svg)
 ![TensorEquality CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-equality.yml/badge.svg)
 ![TensorExecution CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-execution.yml/badge.svg)
+![TensorContractions CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-contractions.yml/badge.svg)
 ![TensorInterop CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-interop.yml/badge.svg)
 ![TensorLayout CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-layout.yml/badge.svg)
 ![TensorMatmul CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-matmul.yml/badge.svg)
@@ -263,7 +264,8 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 | TensorAlgorithms | Serial owner/view arithmetic, broadcasting, transforms, equality, and hashing |
 | TensorSlice / TensorReductions | Python-style metadata slicing and deterministic checked axis reductions |
 | TensorInterop / TensorMatmul | Span/descriptor/fixed-size bridges and native matmul, dot, outer, diagonal, and trace |
-| TensorExecution | Opt-in caller-owned execution contexts; serial defaults and deterministic row-parallel matmul |
+| TensorExecution | Opt-in caller-owned contexts; serial defaults and deterministic matmul/tensorDot output scheduling |
+| TensorContractions | Explicit-axis tensorDot; ordered checked folds over owners and strided views |
 | TensorSelection | Stack, concatenate, take, take-along-axis, and gather-ND algorithms |
 | TensorStatic | Fixed-size stack/constexpr tensor math |
 | CSRMatrix | Compressed Sparse Row matrix with parallel/HPC variants |
@@ -313,9 +315,9 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 
 ## Project Structure
 
-Inventory checked 2026-08-31: 142 library .h files under include/fat_p
-(including internal headers), 124 component test_*.cpp sources, 27 component
-benchmark_*.cpp sources, and 127 .github/workflows/*.yml files.
+Inventory checked 2026-08-31: 144 library .h files under include/fat_p
+(including internal headers), 126 component test_*.cpp sources, 28 component
+benchmark_*.cpp sources, and 128 .github/workflows/*.yml files.
 
 ```
 FatP/

@@ -89,7 +89,7 @@ The whole point of the experiment was to see what AI can do. The answer is: all 
 
 FAT-P is what that partnership produces.
 
-Current file inventory (2026-08-31): 142 library .h files, 124 component
-test_*.cpp sources, 27 component benchmark_*.cpp sources, and 127 CI .yml
-workflows. Counts include internal Tensor headers and execution-context coverage;
+Current file inventory (2026-08-31): 144 library .h files, 126 component
+test_*.cpp sources, 28 component benchmark_*.cpp sources, and 128 CI .yml
+workflows. Counts include internal Tensor headers and explicit-axis contractions;
 they are inventory counts, not evidence of production adoption or completed CI.

@@ -83,7 +83,8 @@ function(fatp_add_component_tests component_name)
         fatp_configure_executable(${test_name})
 
         add_test(NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}>)
-        if(test_name STREQUAL "test_TensorExecution" OR test_name STREQUAL "test_ThreadPool")
+        if(test_name STREQUAL "test_TensorExecution" OR test_name STREQUAL "test_TensorContractions" OR
+           test_name STREQUAL "test_ThreadPool")
             set_tests_properties(${test_name} PROPERTIES TIMEOUT 120)
         endif()
     endforeach()
@@ -110,7 +111,8 @@ function(fatp_add_component_benchmarks component_name)
         endif()
         fatp_configure_executable(${benchmark_name})
         if(benchmark_name STREQUAL "benchmark_TensorMatmul" OR
-           benchmark_name STREQUAL "benchmark_TensorExecution")
+           benchmark_name STREQUAL "benchmark_TensorExecution" OR
+           benchmark_name STREQUAL "benchmark_TensorContractions")
             # Match the documented scalar-reference floating contract in CMake and manual CI builds.
             if(MSVC)
                 target_compile_options(${benchmark_name} PRIVATE /fp:strict /volatile:iso)

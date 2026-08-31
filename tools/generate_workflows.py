@@ -51,6 +51,12 @@ FATP_AGGREGATE_WORKFLOW = "fatp-test-core.yml"
 # in grouped subdirectories. Keep both paths in the component trigger so a
 # facade-only API and its implementation cannot drift outside CI coverage.
 EXTRA_TRIGGER_PATHS = {
+    "tensor-contractions.yml": [
+        "include/fat_p/tensor/**",
+        "include/fat_p/AlignedVector.h",
+        "include/fat_p/ThreadPool.h",
+        "include/fat_p/TensorExecution.h",
+    ],
     "tensor-execution.yml": [
         "include/fat_p/tensor/**",
         "include/fat_p/ThreadPool.h",
@@ -160,6 +166,7 @@ EXTRA_TRIGGER_PATHS = {
 # workflow cost is deliberate rather than silently multiplied for every
 # component.
 DEBUG_WORKFLOWS = {
+    "tensor-contractions.yml",
     "tensor-execution.yml",
     "tensor.yml",
     "tensor-layout.yml",
@@ -176,7 +183,11 @@ DEBUG_WORKFLOWS = {
 # Future Tensor layout/kernel conformance files belong in this list so they do
 # not accidentally miss pointer and signed-offset instrumentation.
 SANITIZER_TEST_SOURCES = {
+    "tensor-contractions.yml": [
+        "components/Tensor/tests/test_TensorContractions.cpp",
+    ],
     "tensor-execution.yml": [
+        "components/Tensor/tests/test_TensorContractions.cpp",
         "components/Tensor/tests/test_TensorExecution.cpp",
         "components/ThreadPool/tests/test_ThreadPool.cpp",
     ],
@@ -189,6 +200,7 @@ SANITIZER_TEST_SOURCES = {
         "components/Tensor/tests/test_TensorReductions.cpp",
         "components/Tensor/tests/test_TensorInterop.cpp",
         "components/Tensor/tests/test_TensorMatmul.cpp",
+        "components/Tensor/tests/test_TensorContractions.cpp",
         "components/Tensor/tests/test_TensorExecution.cpp",
         "components/Tensor/tests/test_TensorSelection.cpp",
     ],
@@ -199,6 +211,9 @@ ADDITIONAL_HEADER_CHECKS = {
 }
 
 STANDARD_COMPONENTS = [
+    ("tensor-contractions.yml", "TensorContractions", "TensorContractions.h",
+     "components/Tensor/tests/test_TensorContractions.cpp",
+     "components/Tensor/benchmarks/benchmark_TensorContractions.cpp"),
     ("tensor-execution.yml", "TensorExecution", "TensorExecution.h",
      "components/Tensor/tests/test_TensorExecution.cpp",
      "components/Tensor/benchmarks/benchmark_TensorExecution.cpp"),

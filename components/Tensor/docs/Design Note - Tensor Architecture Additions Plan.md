@@ -207,7 +207,7 @@ include/fat_p/tensor/TensorInterop.h
 include/fat_p/tensor/TensorSelection.h
 include/fat_p/tensor/TensorMatmul.h
 include/fat_p/tensor/TensorExecution.h
-include/fat_p/tensor/TensorContraction.h
+include/fat_p/tensor/TensorContractions.h
 include/fat_p/tensor/TensorEquality.h
 include/fat_p/tensor/TensorSerializer.h
 include/fat_p/tensor/TensorStatic.h
@@ -1052,10 +1052,14 @@ choose scratch.
   informed by 1/2/4-worker, small-input, grain, nested, and concurrent-caller measurements.
   See [results and review record](../results/2026-08-31-execution-contexts/README.md).
 
-**Remaining exit gate:** Linux ThreadSanitizer execution. The workflow includes
-execution and prerequisite ThreadPool tests, but no Linux/WSL distribution is
-installed on the implementation machine. Windows ASan and ordinary stress tests
-do not substitute for TSan. Broader algorithm scheduling, column tiling for
+**Gate update (2026-08-31):** Linux ThreadSanitizer, AddressSanitizer, and
+UndefinedBehaviorSanitizer passed for execution and its ThreadPool prerequisite
+on commit 42fca1a, in [TensorExecution CI](https://github.com/schroedermatthew/FatP/actions/runs/33415615587)
+and [ThreadPool CI](https://github.com/schroedermatthew/FatP/actions/runs/33415615551).
+Ordinary Linux builds failed on a copied structured binding in TensorSlice;
+GCC 12 also rejected a volatile compound assignment in the ThreadPool test.
+Both warning-as-error causes are corrected locally. A fresh pushed CI run must
+confirm the complete matrix before Phase 9 is closed. Broader algorithm scheduling, column tiling for
 single-row products, foreign-pool coordination, and other backends remain outside
 this increment; they are not implied by the context API.
 
@@ -1077,6 +1081,28 @@ this increment; they are not implied by the context API.
   valid notation with named operations or scalar references.
 - Contraction order, temporary allocation, and numeric accumulation are explicit.
 - No hard-coded pattern-list implementation is presented as general einsum.
+
+**Implemented bounded increment (2026-08-31; fresh remote CI pending)**
+
+- TensorContractions.h provides tensorDot with explicit paired axis lists,
+  negative-axis normalization, fixed free-axis output ordering, and no broadcasting.
+- A metadata-only contraction plan shares validated layouts and checked numeric
+  primitives. Its range writer handles arbitrary output partitions; unlike
+  TensorIterationPlan's full traversal, it needs neither per-worker coordinate
+  allocation nor sub-layouts over empty storage.
+- The last supplied contracted axis forms a strided run. Its offset advances
+  only to reachable elements and never advances after the last term. Earlier
+  axes are decoded once per run, preserving exactly the specified fold order.
+- Serial remains the default. TensorExecution.h alone adds context overloads;
+  scheduling partitions output elements, never the contracted fold.
+- Seven test groups include 720 seeded recursive scalar differentials over bool,
+  signed/unsigned integer, float, double, and long double strided mappings.
+- Dedicated benchmarks compare serial/default-context/forced-context calls with
+  matching prevalidated scalar folds and result storage. No einsum grammar,
+  path optimizer, operand packing, or external backend is exposed.
+- [Validation, peer review, and measurements](../results/2026-08-31-contractions/README.md)
+  record the bounded evidence; the new Linux sanitizer/matrix workflow remains
+  an explicit post-push gate.
 
 ### Phase 11: Serializer, dtype vocabulary, and StaticTensor closure
 

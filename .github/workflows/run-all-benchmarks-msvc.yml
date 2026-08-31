@@ -224,6 +224,13 @@ jobs:
             extra_defines: "/fp:strict /volatile:iso"
             extra_link: ""
             exe_name: bench_tensor_matmul
+          - name: TensorContractions
+            src: components\Tensor\benchmarks\benchmark_TensorContractions.cpp
+            vcpkg_deps: ""
+            extra_includes: ""
+            extra_defines: "/fp:strict /volatile:iso"
+            extra_link: ""
+            exe_name: bench_tensor_contractions
           - name: TensorExecution
             src: components\Tensor\benchmarks\benchmark_TensorExecution.cpp
             vcpkg_deps: ""

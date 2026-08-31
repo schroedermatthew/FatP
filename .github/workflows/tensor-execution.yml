@@ -36,7 +36,7 @@ on:
 env:
   HEADER: TensorExecution.h
   TEST_SRC: components/Tensor/tests/test_TensorExecution.cpp
-  SANITIZER_TEST_SRCS: components/Tensor/tests/test_TensorExecution.cpp components/ThreadPool/tests/test_ThreadPool.cpp
+  SANITIZER_TEST_SRCS: components/Tensor/tests/test_TensorContractions.cpp components/Tensor/tests/test_TensorExecution.cpp components/ThreadPool/tests/test_ThreadPool.cpp
 
 jobs:
   # ===========================================================================
