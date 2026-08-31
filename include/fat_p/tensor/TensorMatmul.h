@@ -8,7 +8,7 @@ FATP_META:
   path: include/fat_p/tensor/TensorMatmul.h
   namespace: fat_p
   layer: Domain
-  summary: "Native serial vector, matrix, and batched Tensor multiplication."
+  summary: "Named Tensor linear algebra with checked products, diagonal extraction, and trace."
   api_stability: in_work
   related:
     docs:
@@ -30,7 +30,7 @@ FATP_META:
     mode: manual
 */
 
-/** @file TensorMatmul.h @brief Dependency-free deterministic Tensor matmul kernels. */
+/** @file TensorMatmul.h @brief Dependency-free named Tensor linear algebra. */
 
 #include "TensorReductions.h"
 
@@ -51,6 +51,45 @@ using TensorMatmulType = TensorSumType<T>;
 
 namespace tensor_detail
 {
+
+template <ReadableTensor Source>
+[[nodiscard]] auto diagonalReadMapping(const Source& source)
+{
+    TensorAccess::validate(source);
+    if (source.rank() < 2)
+    {
+        throw std::invalid_argument("diagonal and trace require rank two or greater");
+    }
+    const auto rowAxis = source.rank() - 2;
+    const auto length = std::min(source.extents()[rowAxis], source.extents()[rowAxis + 1]);
+    auto extents = source.extents().values();
+    extents.pop_back();
+    extents.back() = length;
+    auto strides = source.strides();
+    strides.pop_back();
+    // No diagonal transition exists in an empty mapping or a singleton diagonal.
+    // Such layouts may legally contain otherwise unrepresentable stride sums.
+    strides.back() = !source.empty() && length > 1
+                         ? checkedOffsetAdd(source.strides()[rowAxis], source.strides()[rowAxis + 1])
+                         : 0;
+    TensorLayout layout(source.layout().storageLength(), source.layout().originOffset(),
+                        DynamicExtents(std::move(extents)), std::move(strides));
+    // These const mappings are consumed synchronously, never exposed as escaping views.
+    return TensorAccess::makeView(TensorAccess::storageBase(source), std::move(layout),
+                                  TensorAccess::lifetime(source), TensorAccess::tracked(source));
+}
+
+template <ReadableTensor Source>
+[[nodiscard]] auto outerReadMapping(const Source& source, bool column)
+{
+    const auto length = source.extents()[0];
+    const auto stride = source.strides()[0];
+    TensorLayout layout(source.layout().storageLength(), source.layout().originOffset(),
+                        column ? DynamicExtents{length, 1} : DynamicExtents{1, length},
+                        column ? TensorStrides{stride, 0} : TensorStrides{0, stride});
+    return TensorAccess::makeView(TensorAccess::storageBase(source), std::move(layout),
+                                  TensorAccess::lifetime(source), TensorAccess::tracked(source));
+}
 
 struct MatmulShape
 {
@@ -149,7 +188,7 @@ template <typename Result, ReadableTensor Left, ReadableTensor Right, typename A
                                                      const MatmulShape& shape, const Allocator& allocator)
 {
     Tensor<Result, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, Result{0});
-    if (result.empty())
+    if (result.empty() || shape.inner == 0)
     {
         return result;
     }
@@ -257,8 +296,20 @@ template <typename Result, ReadableTensor Left, ReadableTensor Right, typename A
 
 } // namespace tensor_detail
 
+/**
+ * @brief Multiply vectors, matrices, or broadcasted batches into a new owner.
+ * @param left Left arithmetic operand of rank one or greater.
+ * @param right Same-element-type right operand with matching contraction extent.
+ * @param allocator Exact result allocator for TensorMatmulType (TensorSumType).
+ * @return Canonical owner; two vectors produce rank zero. Empty contractions sum to zero.
+ * @throws std::invalid_argument If ranks, inner dimensions, or batch dimensions disagree.
+ * @throws std::overflow_error If integral products, sums, or output layout overflow.
+ * @throws std::bad_alloc If element or metadata allocation fails.
+ * @throws std::runtime_error For expired borrowed sources in assertions-enabled builds.
+ */
 template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
-    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
 [[nodiscard]] auto matmul(const Left& left, const Right& right, const Allocator& allocator)
     -> Tensor<TensorMatmulType<typename Left::value_type>, Allocator>
 {
@@ -274,23 +325,144 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     return tensor_detail::matmulGeneric<result_type>(left, right, shape, allocator);
 }
 
+/** @brief Matmul with rebound first-owner SOCCC, or TensorAllocator for view-only inputs. */
 template <ReadableTensor Left, ReadableTensor Right>
     requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
 [[nodiscard]] auto matmul(const Left& left, const Right& right)
 {
     using result_type = TensorMatmulType<typename Left::value_type>;
-    if constexpr (requires { left.get_allocator(); })
+    return matmul(left, right, tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
+}
+
+/**
+ * @brief Compute a checked vector dot product into a rank-zero owner.
+ * @param left Rank-one arithmetic operand.
+ * @param right Rank-one operand with the same element type and length.
+ * @param allocator Exact allocator for the TensorMatmulType result.
+ * @return Sum of widened products, starting at zero; an empty dot product is zero.
+ * @throws std::invalid_argument If either rank is not one or lengths differ.
+ * @throws std::overflow_error If an integral product or intermediate sum overflows.
+ * @throws std::bad_alloc If element or metadata allocation fails.
+ * @throws std::runtime_error For expired borrowed sources in assertions-enabled builds.
+ */
+template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
+[[nodiscard]] auto dot(const Left& left, const Right& right, const Allocator& allocator)
+{
+    tensor_detail::TensorAccess::validate(left);
+    tensor_detail::TensorAccess::validate(right);
+    if (left.rank() != 1 || right.rank() != 1)
     {
-        return matmul(left, right, tensor_detail::selectResultAllocator<result_type>(left));
+        throw std::invalid_argument("dot requires two rank-one operands");
     }
-    else if constexpr (requires { right.get_allocator(); })
+    if (left.extents()[0] != right.extents()[0])
     {
-        return matmul(left, right, tensor_detail::selectResultAllocator<result_type>(right));
+        throw std::invalid_argument("dot vector lengths must match");
     }
-    else
+    return matmul(left, right, allocator);
+}
+
+/** @brief Dot product with rebound first-owner SOCCC, or TensorAllocator for views. */
+template <ReadableTensor Left, ReadableTensor Right>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
+[[nodiscard]] auto dot(const Left& left, const Right& right)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    return dot(left, right, tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
+}
+
+/**
+ * @brief Compute pairwise vector products into a new rank-two owner.
+ * @param left Rank-one arithmetic operand of length M.
+ * @param right Same-element-type rank-one operand of length N.
+ * @param allocator Exact allocator for the TensorMatmulType result.
+ * @return Shape {M,N}, with operands widened before each product and no additive fold.
+ * @throws std::invalid_argument If either operand is not rank one.
+ * @throws std::overflow_error If an integral product or output layout overflows.
+ * @throws std::bad_alloc If element or metadata allocation fails.
+ * @throws std::runtime_error For expired borrowed sources in assertions-enabled builds.
+ */
+template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
+[[nodiscard]] auto outer(const Left& left, const Right& right, const Allocator& allocator)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    tensor_detail::TensorAccess::validate(left);
+    tensor_detail::TensorAccess::validate(right);
+    if (left.rank() != 1 || right.rank() != 1)
     {
-        return matmul(left, right, TensorAllocator<result_type>{});
+        throw std::invalid_argument("outer requires two rank-one operands");
     }
+    const auto column = tensor_detail::outerReadMapping(left, true);
+    const auto row = tensor_detail::outerReadMapping(right, false);
+    Tensor<result_type, Allocator> result(std::allocator_arg, allocator,
+                                         DynamicExtents{left.extents()[0], right.extents()[0]});
+    tensor_detail::binaryKernel(column, row, result, [](const auto& a, const auto& b) {
+        return tensor_detail::checkedSameTypeMultiply(static_cast<result_type>(a), static_cast<result_type>(b));
+    });
+    return result;
+}
+
+/** @brief Outer product with rebound first-owner SOCCC, or TensorAllocator for views. */
+template <ReadableTensor Left, ReadableTensor Right>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
+[[nodiscard]] auto outer(const Left& left, const Right& right)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    return outer(left, right, tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
+}
+
+/**
+ * @brief Copy the main diagonal of the final two axes into an independent owner.
+ * @param source Rank-two or batched source with default-initializable, copy-assignable elements.
+ * @param allocator Exact allocator for the unchanged element type.
+ * @return Shape {...,min(M,N)} for source shape {...,M,N}; no source storage is aliased.
+ * @throws std::invalid_argument If source rank is less than two.
+ * @throws std::overflow_error If output layout arithmetic is not representable.
+ * @throws std::bad_alloc If element or metadata allocation fails.
+ * @throws std::runtime_error For expired borrowed sources in assertions-enabled builds.
+ * @details Element construction or copying exceptions propagate without modifying the source.
+ */
+template <tensor_detail::CopyMaterializableTensor Source, typename Allocator>
+    requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] auto diagonal(const Source& source, const Allocator& allocator)
+{
+    return clone(tensor_detail::diagonalReadMapping(source), allocator);
+}
+
+/** @brief Diagonal copy with owner SOCCC, or TensorAllocator for a view input. */
+template <tensor_detail::CopyMaterializableTensor Source>
+[[nodiscard]] auto diagonal(const Source& source)
+{
+    return diagonal(source, tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
+
+/**
+ * @brief Sum the main diagonal of the final two axes, retaining all batch axes.
+ * @param source Rank-two or batched arithmetic source, including rectangular matrices.
+ * @param allocator Exact allocator for the TensorSumType result.
+ * @return Shape {...} for source shape {...,M,N}; rank two gives rank zero. Folds from positive zero.
+ * @throws std::invalid_argument If source rank is less than two.
+ * @throws std::overflow_error If an integral intermediate sum or output layout overflows.
+ * @throws std::bad_alloc If element or metadata allocation fails.
+ * @throws std::runtime_error For expired borrowed sources in assertions-enabled builds.
+ */
+template <ReadableTensor Source, typename Allocator>
+    requires std::is_arithmetic_v<typename Source::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorSumType<typename Source::value_type>>
+[[nodiscard]] auto trace(const Source& source, const Allocator& allocator)
+{
+    return sum(tensor_detail::diagonalReadMapping(source), allocator, {TensorAxis{-1}});
+}
+
+/** @brief Trace with rebound owner SOCCC, or TensorAllocator for a view input. */
+template <ReadableTensor Source>
+    requires std::is_arithmetic_v<typename Source::value_type>
+[[nodiscard]] auto trace(const Source& source)
+{
+    return trace(source, tensor_detail::selectResultAllocator<TensorSumType<typename Source::value_type>>(source));
 }
 
 } // namespace fat_p

@@ -139,15 +139,6 @@ EXTRA_TRIGGER_PATHS = {
         "include/fat_p/tensor/TensorLayout.h",
         "include/fat_p/tensor/TensorExtents.h",
     ],
-    "tensor-einsum.yml": [
-        "include/fat_p/tensor/TensorEinsum.h",
-        "include/fat_p/tensor/TensorKernels.h",
-        "include/fat_p/tensor/TensorIterationPlan.h",
-        "include/fat_p/tensor/Tensor.h",
-        "include/fat_p/tensor/TensorView.h",
-        "include/fat_p/tensor/TensorLayout.h",
-        "include/fat_p/tensor/TensorExtents.h",
-    ],
     "tensor-static.yml": ["include/fat_p/tensor/TensorStatic.h"],
     "tensor-serializer.yml": [
         "include/fat_p/tensor/TensorSerializer.h",
@@ -338,8 +329,6 @@ STANDARD_COMPONENTS = [
     ("tensor-equality.yml", "TensorEquality", "TensorEquality.h",
      "components/Tensor/tests/test_TensorEquality.cpp", None),
 
-    ("tensor-einsum.yml", "TensorEinsum", "TensorEinsum.h",
-     "components/Tensor/tests/test_TensorEinsum.cpp", None),
 
     ("tensor-static.yml", "TensorStatic", "TensorStatic.h",
      "components/Tensor/tests/test_TensorStatic.cpp", None),

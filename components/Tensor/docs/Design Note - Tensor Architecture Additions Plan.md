@@ -2,7 +2,7 @@
 doc_id: DN-TENSOR-002
 doc_type: "Design Note"
 title: "Tensor Architecture Additions Plan"
-fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorExecution", "TensorEinsum", "TensorSerializer", "TensorStatic"]
+fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorExecution", "TensorSerializer", "TensorStatic"]
 topics: ["tensor layout", "tensor views", "strided iteration", "numeric promotion", "axis reductions", "tensor execution", "tensor contractions"]
 constraints: ["signed stride reachability", "aliasing and lifetime", "checked shape arithmetic", "deterministic reduction order", "header-only C++20"]
 cxx_standard: "C++20"
@@ -19,7 +19,7 @@ status: "reviewed"
 
 **Status:** Phases 0-4 implemented; Phase 5-8 dependency-light cores implemented; remaining gates planned\
 **Decided:** The owner/view/layout/kernel foundation and dependency-light algorithm expansion are implemented  
-**Last reviewed:** 2026-08-30
+**Last reviewed:** 2026-08-31
 
 ## Scope
 
@@ -66,14 +66,15 @@ validated signed-stride layouts, a reusable multi-operand iteration plan,
 bounded serialization, randomized conformance tests, and a repeatable benchmark
 harness. It now also has the extended slice language, deterministic reductions,
 borrowed interop descriptors, composition/selection operations, and native
-vector/matrix/batched multiplication. The remaining work is architectural:
+vector/matrix/batched multiplication, dot, outer, diagonal extraction, and trace.
+The remaining work is architectural:
 
 - Compound arithmetic, checked negation/absolute value, and floating sqrt/exp/log are implemented;
   remaining numeric operation families do not yet have implemented contracts.
 - Parallel execution contexts have not landed; current dynamic algorithms are
   deliberately serial.
-- Named contractions beyond `matmul` and contraction planning have not landed;
-  einsum remains a documented subset.
+- Named linear algebra has replaced the partial einsum API atomically;
+  general contraction planning has not landed.
 - The expanded benchmark matrix and execution-backed specialized kernels remain
   future work.
 
@@ -288,7 +289,7 @@ canonical dtype vocabulary replaces them.
 | 5 | Core implemented: checked axis/boolean reductions, mixed/scalar arithmetic including division, materializing casts, compound updates, checked negate/abs, and floating sqrt/exp/log; broader numeric expansion remains |
 | 6 | Interop implemented: contiguous span, validated strided descriptor, optional mdspan, and static/dynamic conversion; benchmark expansion remains |
 | 7 | Core implemented: stack, concatenate, take, takeAlongAxis, and gatherND; broader generic math remains |
-| 8 | Partial: vector, matrix, strided, and batched matmul implemented; remaining named operations and einsum removal remain |
+| 8 | Named APIs and subset einsum retirement implemented; expanded specialization benchmarks remain open |
 | 9-11 | Planned, except bounded serialization and static/dynamic conversion work already delivered |
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
@@ -932,6 +933,42 @@ choose scratch.
 - Benchmark evidence covers small and large shapes and layout variants before a
   specialized kernel becomes the default.
 - No subset einsum symbol, parser, facade, or duplicate contraction loop remains.
+
+**Implemented named-API cutover (2026-08-31)**
+
+- `TensorMatmul.h` now owns dynamic `dot`, `outer`, `matmul`, `diagonal`, and
+  `trace`. Their rank, empty-domain, dtype, allocation, and lifetime rules are
+  recorded in semantic contract 0.12 and the user manual. No new facade or
+  dependency was introduced.
+- Dot delegates to matmul. Outer maps vectors to const column/row operands and
+  uses the shared binary kernel, preserving direct floating multiplication
+  without an additive seed. Diagonal and trace use a validated internal const
+  mapping with the existing copy/reduction kernels. No intermediate element
+  buffer or duplicate contraction traversal was introduced.
+- The mapped operations select allocators from original operands and retain
+  lifetime tracking. Empty/singleton diagonal mappings avoid forming unused
+  overflowing stride sums. Integral products widen before checked arithmetic.
+  Generic matmul also returns its initialized zero result before addressing
+  unreachable row/column strides when the contraction dimension is zero.
+- These constrained operations extend the existing Tensor numeric vocabulary
+  across owners and views. Existing StaticTensor dot/outer remain distinct
+  overloads. The Include-All header retains the TensorMatmul facade, and
+  forward/reverse facade-order probes exercise these names alongside
+  StaticTensor, CheckedArithmetic, and Jet without namespace re-exports.
+- `test_TensorMatmul.cpp` has 15 groups, including compile-time dtype and
+  allocator rejection tables, all matmul rank forms, 625 outer and 125 dot
+  signed-stride cases, 768 batched diagonal/trace cases, and 36 matrix-layout
+  pairings with independently computed scalar offsets. Tests also cover
+  unused extreme strides, shared/expired lifetimes, signed zero, late numeric
+  and copy failures, allocator identity, and result-buffer cleanup.
+- Both subset einsum headers, both tests, the dedicated workflow, its generator
+  entry, and aggregate/metadata registrations are removed together. Named
+  composition tests retain transpose, reductions, elementwise multiplication,
+  and Frobenius examples. The user manual explicitly documents migration
+  differences; no compatibility aliases or parser remain.
+- Expanded small/large/layout benchmarks and further specialized dispatch are
+  still open. This cutover adds no new specialized default kernel and makes no
+  new throughput claim. The existing blocked matmul path is unchanged.
 
 ### Phase 9: Explicit execution context
 

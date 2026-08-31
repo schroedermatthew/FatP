@@ -99,7 +99,6 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Stringify CI](https://github.com/schroedermatthew/FatP/actions/workflows/stringify.yml/badge.svg)
 ![StrongId CI](https://github.com/schroedermatthew/FatP/actions/workflows/strong-id.yml/badge.svg)
 ![TensorAlgorithms CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-algorithms.yml/badge.svg)
-![TensorEinsum CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-einsum.yml/badge.svg)
 ![TensorEquality CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-equality.yml/badge.svg)
 ![TensorInterop CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-interop.yml/badge.svg)
 ![TensorLayout CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-layout.yml/badge.svg)
@@ -262,9 +261,8 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 | Tensor / TensorView / TensorLayout | Allocator-aware contiguous owners and validated signed-stride views |
 | TensorAlgorithms | Serial owner/view arithmetic, broadcasting, transforms, equality, and hashing |
 | TensorSlice / TensorReductions | Python-style metadata slicing and deterministic checked axis reductions |
-| TensorInterop / TensorMatmul | Span/descriptor/fixed-size bridges and native vector, matrix, and batched multiplication |
+| TensorInterop / TensorMatmul | Span/descriptor/fixed-size bridges and native matmul, dot, outer, diagonal, and trace |
 | TensorSelection | Stack, concatenate, take, take-along-axis, and gather-ND algorithms |
-| TensorEinsum | Documented common-contraction subset for dynamic tensors |
 | TensorStatic | Fixed-size stack/constexpr tensor math |
 | CSRMatrix | Compressed Sparse Row matrix with parallel/HPC variants |
 | SimdVector | Universal SIMD wrapper for vectorized operations |

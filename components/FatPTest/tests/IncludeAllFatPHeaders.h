@@ -112,7 +112,6 @@ FATP_META:
       - include/fat_p/TensorReductions.h
       - include/fat_p/TensorSelection.h
       - include/fat_p/TensorSlice.h
-      - include/fat_p/TensorEinsum.h
       - include/fat_p/TensorIteration.h
       - include/fat_p/TensorLayout.h
       - include/fat_p/TensorView.h
@@ -258,7 +257,6 @@ FATP_META:
 #include "TensorReductions.h"
 #include "TensorSelection.h"
 #include "TensorSlice.h"
-#include "TensorEinsum.h"
 #include "TensorIteration.h"
 #include "TensorLayout.h"
 #include "TensorView.h"

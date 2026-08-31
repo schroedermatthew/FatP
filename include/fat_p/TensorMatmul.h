@@ -1,6 +1,6 @@
 #pragma once
 
-/** @file TensorMatmul.h @brief Dependency-free vector, matrix, and batched Tensor multiplication. */
+/** @file TensorMatmul.h @brief Dependency-free named Tensor linear algebra. */
 
 /*
 FATP_META:
@@ -10,7 +10,7 @@ FATP_META:
   path: include/fat_p/TensorMatmul.h
   namespace: fat_p
   layer: Domain
-  summary: "Public facade for native serial Tensor matrix multiplication."
+  summary: "Public facade for Tensor matmul, dot, outer, diagonal, and trace."
   api_stability: in_work
   related:
     docs:

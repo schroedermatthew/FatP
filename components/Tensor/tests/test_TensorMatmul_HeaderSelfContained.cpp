@@ -33,5 +33,9 @@ int main()
 {
     fat_p::Tensor<int> left({1}, 2);
     fat_p::Tensor<int> right({1}, 3);
-    return fat_p::matmul(left, right)() == 6 ? 0 : 1;
+    const auto scalar = fat_p::dot(left, right);
+    const auto matrix = fat_p::outer(left, right);
+    const auto values = fat_p::diagonal(matrix);
+    const auto total = fat_p::trace(matrix);
+    return fat_p::matmul(left, right)() == 6 && scalar() == 6 && values[0] == 6 && total() == 6 ? 0 : 1;
 }

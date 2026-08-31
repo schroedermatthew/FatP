@@ -17,7 +17,7 @@ status: "draft"
 # Design Note - Tensor Semantic Contract
 
 **Status:** Experimental  
-**Contract version:** 0.11\
+**Contract version:** 0.12\
 **Applies to:** `Tensor`, `StaticTensor`, tensor views, and tensor algorithms  
 **Stability:** This design note is intentionally not an API or wire-format stability promise.
 
@@ -747,6 +747,65 @@ RAII releases any unpublished result buffer. Shape arithmetic can throw
 lifetime diagnostics apply in assertions-enabled builds; dangling borrowed
 sources remain invalid in Release. Shared sources retain storage lifetime.
 
+#### Named linear algebra
+
+`TensorMatmul.h` is the single facade for `matmul`, `dot`, `outer`, `diagonal`,
+and `trace`. Each returns a canonical independent owner. Binary operations
+require matching arithmetic element types, not implicit mixed-type promotion.
+Use explicit `cast` for a different common type. Diagonal extraction requires
+only default initialization and copy assignment; trace requires arithmetic.
+
+In this table `B` denotes an arbitrary batch prefix and `D = min(M,N)`:
+
+| Operation | Input shape | Output shape | Empty rule |
+|---|---|---|---|
+| `dot` | `{K}`, `{K}` only | `{}` | `K=0` returns scalar zero |
+| `outer` | `{M}`, `{N}` only | `{M,N}` | Either zero length yields empty |
+| `matmul` vector/vector | `{K}`, `{K}` | `{}` | Empty contraction returns zero |
+| `matmul` matrix/vector | `B+{M,K}`, `{K}` | `B+{M}` | Empty contraction returns zeros |
+| `matmul` vector/matrix | `{K}`, `B+{K,N}` | `B+{N}` | Empty contraction returns zeros |
+| `matmul` matrix/matrix | `B1+{M,K}`, `B2+{K,N}` | `broadcast(B1,B2)+{M,N}` | Zero batch/M/N yields empty |
+| `diagonal` | `B+{M,N}`, rank at least two | `B+{D}` | Zero batch or D yields empty |
+| `trace` | `B+{M,N}`, rank at least two | `B` | D=0 yields zeros; zero batch yields empty |
+
+Neither dot nor outer flattens higher-rank operands. Diagonal and trace select
+the main diagonal of the final two axes only; no offset or axis arguments are
+supported. Rank-two trace returns a rank-zero tensor, not a C++ scalar.
+
+`TensorMatmulType<T>` aliases `TensorSumType<T>` for dot, outer, and matmul;
+trace also uses `TensorSumType<T>`. Narrow signed/unsigned integers widen to
+64 bits, bool becomes `size_t`, and other arithmetic types remain unchanged.
+Operands are converted before multiplication; integral products and every
+intermediate addition are checked. Dot/matmul/trace start at zero and visit
+contraction indices in increasing order. Outer performs a direct product with
+no additive seed, preserving ordinary floating signed-zero multiplication.
+Floating NaNs, infinities, and overflow follow ordinary scalar operations.
+Diagonal copies the original dtype without arithmetic.
+Under the default floating environment, all-negative-zero dot/trace terms
+produce positive zero through the positive-zero additive seed. Bool is accepted
+here intentionally, unlike the elementwise binary-arithmetic family.
+
+Validated transposed, padded, signed-stride, and overlapping read-only mappings
+are supported. The internal diagonal mapping combines the final two strides
+only when the whole source is nonempty and D exceeds one; otherwise its unused
+diagonal stride is zero. The existing layout constructor validates the combined
+reachable interval. Original source lifetime is validated before mapping,
+and mapped intermediates retain the borrow token. Shared inputs remain alive
+through the synchronous call. No mapped intermediate escapes to the caller.
+
+Explicit allocators must have the exact result value type and are used unchanged.
+Default selection uses the original operands, never the mapped intermediates:
+first-owner rebound SOCCC or the default view allocator. Each nonempty result
+uses one element buffer; empty results use none. There is no intermediate
+element materialization, but metadata may allocate. Shape/rank/lifetime checks
+precede result element allocation; allocation, copy, or checked arithmetic
+failures leave sources unchanged and release unpublished result storage.
+
+The subset einsum facade, parser, convenience wrappers, and duplicate kernels
+are removed. The user manual records replacements and their intentional dtype,
+scalar-return, rectangular-diagonal, and broadcasting differences. Any future
+complete einsum is a separate API decision, not a promised compatibility layer.
+
 ### 10. Errors and execution
 
 #### Result allocation
@@ -893,7 +952,14 @@ sources remain invalid in Release. Shared sources retain storage lifetime.
 | Numeric boundaries, floating order, NaNs, ties, and boolean truth rules are explicit | `test_TensorReductions.cpp::integral_accumulator_boundaries`; `test_TensorReductions.cpp::floating_order_nan_infinity_and_signed_zero`; `test_TensorReductions.cpp::boolean_truth_and_identities` |
 | Reduction axes, allocation failures, and shared/borrowed lifetimes follow the contract | `test_TensorReductions.cpp::axis_validation_and_source_preservation`; `test_TensorReductions.cpp::result_allocation_and_failure_contract`; `test_TensorReductions.cpp::shared_retention_and_borrowed_invalidation` |
 | Interop rejects temporaries and preserves mapping, constness, and Debug lifetime | `test_TensorInterop.cpp::contiguous_span_contract`; `test_TensorInterop.cpp::strided_descriptor_roundtrip` |
-| Matmul covers vector, matrix, strided, batched, and zero-contraction forms | `test_TensorMatmul.cpp::vector_and_matrix_forms`; `test_TensorMatmul.cpp::contiguous_strided_and_batched`; `test_TensorMatmul.cpp::empty_and_zero_inner_dimensions` |
+| Matmul covers vector, matrix, strided, batched, and zero-contraction forms | `test_TensorMatmul.cpp::vector_and_matrix_forms`; `test_TensorMatmul.cpp::contiguous_strided_and_batched`; `test_TensorMatmul.cpp::empty_and_zero_inner_dimensions`; `test_TensorMatmul.cpp::batched_vector_and_matrix_shape_table` |
+| Named operations preserve shape, dtype, and independent ownership | `test_TensorMatmul.cpp::named_shapes_and_ownership`; compile-time `linearAlgebraTypes` assertions |
+| Signed, padded, transposed, and overlapping read layouts match scalar references | `test_TensorMatmul.cpp::vector_layout_scalar_references`; `test_TensorMatmul.cpp::diagonal_layout_scalar_references`; `test_TensorMatmul.cpp::matmul_layout_scalar_references` |
+| Empty domains and unused extreme strides retain valid outputs | `test_TensorMatmul.cpp::empty_singleton_and_extreme_metadata` |
+| Widening precedes checked arithmetic; failures preserve sources and reclaim storage | `test_TensorMatmul.cpp::numeric_policy_and_failures`; `test_TensorMatmul.cpp::allocator_selection_and_validation` |
+| Mapped intermediates preserve allocator provenance and lifetime checks | `test_TensorMatmul.cpp::allocator_selection_and_validation`; `test_TensorMatmul.cpp::shared_and_borrowed_lifetimes` |
+| Named compositions replace the retired pattern subset | `test_TensorMatmul.cpp::retired_pattern_replacements` |
+| Throwing diagonal element copies reclaim unpublished storage | `test_TensorMatmul.cpp::diagonal_copy_failure_cleanup` |
 | Composition and indexed selection validate shape and bounds before evaluation | `test_TensorSelection.cpp::stack_pair_and_many`; `test_TensorSelection.cpp::take_and_take_along_axis`; `test_TensorSelection.cpp::gather_nd_and_zero_depth` |
 
 These tests are conformance seeds, not a proof over arbitrary layouts.
@@ -938,7 +1004,7 @@ overlap-safe element transfer, mixed-type and scalar checked arithmetic includin
 transactional compound updates, checked negation/absolute value, floating sqrt/exp/log,
 materializing numeric casts, unified serial kernels, extended slicing, checked
 axis reductions, borrowed interop,
-native matmul, indexed selection, and serializer resource limits have current
+named linear algebra, indexed selection, and serializer resource limits have current
 executable evidence. Further numeric families, execution contexts, expanded
 benchmark evidence, and general contractions remain target-only until
 their named phase exit gates pass in the architecture additions plan.
@@ -949,7 +1015,7 @@ The remaining policy decisions are deliberately owned by later phase contracts:
 - Raw `data()` semantics for arbitrary negative-stride mappings; descriptor and
   optional `mdspan` interop are explicit alternatives.
 - Numeric families beyond the current binary/scalar operations, materializing
-  casts, compound updates, negation/absolute value, sqrt/exp/log, reductions, and matmul.
+  casts, compound updates, negation/absolute value, sqrt/exp/log, reductions, and named linear algebra.
 - Serializer extension framing and checksums.
 - Any storage model that supports allocator fancy pointers; the current public
   constraint remains `allocator_traits<Allocator>::pointer == T*`.

@@ -121,7 +121,6 @@ bool test_TensorReductions();
 bool test_TensorSelection();
 bool test_TensorSlice();
 bool test_TensorEquality();
-bool test_TensorEinsum();
 bool test_TensorStatic();
 bool test_TensorSerializer();
 bool test_ThreadPool();

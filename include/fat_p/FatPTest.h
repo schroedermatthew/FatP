@@ -90,7 +90,6 @@ FATP_META:
       - components/StrongId/tests/test_StrongId.cpp
       - components/Tensor/tests/test_Tensor.cpp
       - components/Tensor/tests/test_TensorEquality.cpp
-      - components/Tensor/tests/test_TensorEinsum.cpp
       - components/Tensor/tests/test_TensorStatic.cpp
       - components/Tensor/tests/test_TensorSerializer.cpp
       - components/Tensor/tests/test_TensorView.cpp

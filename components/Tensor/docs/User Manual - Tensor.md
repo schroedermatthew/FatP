@@ -39,7 +39,7 @@ The separation is deliberate:
 #include "TensorAlgorithms.h"   // serial owner/view algorithms
 #include "TensorReductions.h"   // deterministic axis reductions
 #include "TensorInterop.h"      // span, descriptor, mdspan, and static conversion
-#include "TensorMatmul.h"       // vector, matrix, and batched multiplication
+#include "TensorMatmul.h"       // matmul, dot, outer, diagonal, and trace
 #include "TensorSelection.h"    // stack, concatenate, take, and gather
 #include "TensorSlice.h"        // extended slice vocabulary
 #include "TensorEquality.h"     // EqualityComparisons integration
@@ -704,7 +704,7 @@ allocators are used unchanged; defaults use rebound owner SOCCC or
 Assertions-enabled builds reject expired borrowed sources, including empty ones;
 Release callers must still ensure borrowed storage remains alive.
 
-## Matrix multiplication
+## Named linear algebra
 
 `TensorMatmul.h` supports rank-one vectors, rank-two matrices, and trailing-axis
 broadcasted batches:
@@ -713,6 +713,10 @@ broadcasted batches:
 auto scalar = matmul(vectorA, vectorB);       // K @ K -> {}
 auto output = matmul(matrixA, matrixB);       // MxK @ KxN -> MxN
 auto batches = matmul(leftBatches, right);    // ...MxK @ ...KxN
+auto inner = dot(vectorA, vectorB);          // K, K -> {}, read with inner()
+auto pairs = outer(vectorA, vectorB);        // M, N -> MxN
+auto entries = diagonal(matrixA);            // ...MxN -> ...min(M,N), copied
+auto totals = trace(matrixA);                // ...MxN -> ..., rank two -> {}
 ```
 
 Small integral inputs use the same widened result type as reductions, and all
@@ -720,6 +724,66 @@ integral multiply/add steps are checked. A zero contraction dimension produces
 the additive identity. Contiguous rank-two operands use a cache-blocked serial
 kernel; other validated signed-stride layouts use the general coordinate
 kernel. No external BLAS dependency is required.
+
+`dot` and `outer` require exactly rank-one operands; neither flattens a matrix.
+`matmul`, `dot`, and `outer` require matching arithmetic element types. Use
+`cast<To>` explicitly for mixed types. Their result type is `TensorMatmulType<T>`,
+an alias of `TensorSumType<T>`: signed/unsigned integers narrower than 64 bits
+widen to `int64_t`/`uint64_t`, `bool` produces `size_t`, and other arithmetic
+types retain their type. Widening happens before multiplication. Dot and matmul
+fold from zero; outer performs just a product, so floating negative zero is
+not lost to an extra addition. Floating operations use ordinary scalar semantics,
+not compensated arithmetic or a bitwise cross-platform reproducibility promise.
+Under the default floating environment, a dot product or trace containing only
+negative-zero terms returns positive zero because its fold starts at positive zero.
+Unlike the elementwise arithmetic family, these contractions accept bool and count
+true values/products in `size_t`.
+
+`diagonal` and `trace` use the main diagonal of the final two axes. Rectangular
+matrices are accepted; batch axes are preserved without broadcasting them.
+No offset or arbitrary-axis option is currently provided. Diagonal extraction
+returns a same-type independent owner and supports default-initializable,
+copy-assignable nonnumeric elements too. Trace is arithmetic-only, returns
+`TensorSumType<T>`, and accumulates in increasing diagonal-index order.
+
+Empty vectors give a scalar zero dot product. An outer product with either
+length zero is empty but retains shape `{M,N}`. A trace of shape `{B,0,N}`
+returns `B` zeros, while a trace of `{0,M,N}` is empty. All operations accept
+validated signed-stride, padded, transposed, and overlapping read-only inputs.
+They allocate no intermediate element buffers: diagonal and trace pass an
+internal const mapping directly to the existing copy/reduction kernels.
+
+Every operation accepts an explicit result allocator as its final argument.
+Defaults select the first original owner, rebind to the result type, and apply
+SOCCC once; a view-only call uses `TensorAllocator<Result>`. Invalid ranks and
+shapes are rejected before element allocation. Integer overflow, allocation,
+and element-copy failures publish no result and leave sources unchanged.
+Borrowed lifetime checks also apply to empty inputs in assertions-enabled builds;
+Release callers remain responsible for keeping borrowed storage alive.
+
+### Replacing the retired einsum subset
+
+`TensorEinsum.h`, its parser, and all `_einsum` wrappers have been removed.
+There is no compatibility shim. Include `TensorMatmul.h` for the named linear
+algebra and `TensorAlgorithms.h` / `TensorReductions.h` for the compositions:
+
+| Retired pattern | Current operation |
+|---|---|
+| `ij,jk->ik`, `bij,bjk->bik` | `matmul(a, b)` |
+| `i,i->`, `i,j->ij` | `dot(a, b)`, `outer(a, b)` |
+| `ii->i`, `ii->` | `diagonal(a)`, `trace(a)` |
+| `ij->ji` | `clone(a.transposeView())` |
+| `ij->i`, `ij->j`, `ij->` | `sum(a, {1})`, `sum(a, {0})`, `sum(a)` |
+| Elementwise product, `ij,ij->` | `multiply(a, b)`, `sum(multiply(a, b))` |
+
+This is a semantic replacement, not source compatibility. Scalar results are
+rank-zero owners, extracted with `result()`, rather than the old scalar-returning
+dot/trace wrappers. Reductions and contractions now use the checked/widened
+types above. `multiply` uses the separate binary-arithmetic promotion contract:
+for a widened integer Frobenius product, cast both operands before multiplication.
+Matmul batches and elementwise multiplication permit broadcasting; explicitly
+check equal extents when the application requires the old exact-shape restriction.
+Diagonal/trace now also accept rectangular matrices and batch prefixes.
 
 ## Composition and indexed selection
 
@@ -802,12 +866,11 @@ choose the result memory resource.
 The following plan items are not yet current API promises:
 
 - the remaining broad numeric operation families, including further unary operations;
-- named dynamic linear algebra beyond `matmul`;
+- general tensor contraction planning and specialized-kernel benchmark expansion;
 - explicit parallel execution contexts;
 - a complete einsum grammar.
 
-The existing einsum facade remains a documented pattern subset until named
-linear algebra replaces it atomically. `StaticTensor` remains a separate,
+The partial einsum API has been retired. `StaticTensor` remains a separate,
 fixed-size type with its own checked/saturating arithmetic policies.
 
 ## API summary
@@ -827,7 +890,7 @@ fixed-size type with its own checked/saturating arithmetic policies.
 | Floating unary math | `sqrt`, `exp`, `log`; float/double/long double, native scalar math behavior |
 | Compound updates | `addAssign`, `subtractAssign`, `multiplyAssign`, `divideAssign`; `+=`, `-=`, `*=`, `/=` |
 | Reductions | `sum`, `product`, `mean`, `min`, `max`, `argmin`, `argmax`, `all`, `any` |
-| Linear algebra | `matmul` |
+| Linear algebra | `matmul`, `dot`, `outer`, `diagonal`, `trace` |
 | Composition/selection | `stack`, `concatenate`, `take`, `takeAlongAxis`, `gatherND` |
 | Interop | `contiguousSpan`, `describeTensor`, `StridedTensorDescriptor`, `asMdspan`, `toTensor`, `toStaticTensor` |
 | Owner queries | `extents`, `layout`, `strides`, `rank`, `extent`, `size`, `empty`, `data` |
