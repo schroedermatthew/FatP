@@ -36,6 +36,8 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
+#include <cfenv>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
@@ -2450,6 +2452,771 @@ FATP_TEST_CASE(division_failure_and_lifetime)
 }
 
 
+template <typename Source>
+concept CanUnaryArithmetic = requires(const Source& source) {
+    fat_p::negate(source);
+    -source;
+    fat_p::abs(source);
+};
+
+template <typename Source>
+[[nodiscard]] consteval bool rejectsUnaryArithmetic()
+{
+    static_assert(!requires(const Source& source) { fat_p::negate(source); });
+    static_assert(!requires(const Source& source) { fat_p::abs(source); });
+    if constexpr (ReadableTensor<Source>)
+    {
+        using allocator = std::allocator<typename Source::value_type>;
+        static_assert(!requires(const Source& source) { -source; });
+        static_assert(!requires(const Source& source) { fat_p::negate(source, allocator{}); });
+        static_assert(!requires(const Source& source) { fat_p::abs(source, allocator{}); });
+    }
+    return true;
+}
+
+template <typename Source, typename Allocator>
+concept CanUnaryAllocate = requires(const Source& source, const Allocator& allocator) {
+    fat_p::negate(source, allocator);
+    fat_p::abs(source, allocator);
+};
+
+template <typename Source>
+[[nodiscard]] consteval bool unarySourceConstraints()
+{
+    using value_type = typename Source::value_type;
+    static_assert(CanUnaryArithmetic<Source> && CanUnaryArithmetic<const Source>);
+    static_assert(CanUnaryAllocate<Source, std::allocator<value_type>>);
+    static_assert(!CanUnaryAllocate<Source, std::allocator<bool>>);
+    static_assert(!CanUnaryAllocate<Source, int>);
+    static_assert(!requires(const Source& source) { fat_p::negate(source, std::allocator<bool>{}); });
+    static_assert(!requires(const Source& source) { fat_p::abs(source, std::allocator<bool>{}); });
+    static_assert(!requires(const Source& source) { fat_p::negate(source, 0); });
+    static_assert(!requires(const Source& source) { fat_p::abs(source, 0); });
+    static_assert(std::same_as<decltype(negate(std::declval<Source>())), Tensor<value_type>>);
+    static_assert(std::same_as<decltype(-std::declval<Source>()), Tensor<value_type>>);
+    static_assert(std::same_as<decltype(fat_p::abs(std::declval<Source>())), Tensor<value_type>>);
+    return true;
+}
+
+template <typename... Types>
+[[nodiscard]] consteval bool unaryTypeConstraints(std::tuple<Types...>)
+{
+    return ((unarySourceConstraints<Tensor<Types>>() && unarySourceConstraints<TensorView<Types>>() &&
+             unarySourceConstraints<TensorView<const Types>>() && unarySourceConstraints<SharedTensorView<Types>>() &&
+             unarySourceConstraints<SharedTensorView<const Types>>()) && ...);
+}
+
+FATP_TEST_CASE(unary_constraints)
+{
+    using Types = std::tuple<signed char, unsigned char, short, unsigned short, int, unsigned int,
+                             long, unsigned long, long long, unsigned long long,
+                             char, wchar_t, char8_t, char16_t, char32_t, float, double, long double>;
+    static_assert(unaryTypeConstraints(Types{}));
+    enum class Code { One };
+    static_assert(!CanUnaryArithmetic<Tensor<bool>> && !CanUnaryArithmetic<TensorView<const bool>>);
+    static_assert(!CanUnaryArithmetic<SharedTensorView<bool>> && !CanUnaryArithmetic<Tensor<Code>>);
+    static_assert(!CanUnaryArithmetic<Tensor<int*>> && !CanUnaryArithmetic<Tensor<NoDefaultValue>>);
+    static_assert(!CanUnaryArithmetic<int> && !CanUnaryArithmetic<double>);
+    static_assert(!CanUnaryAllocate<Tensor<bool>, std::allocator<bool>>);
+    static_assert(rejectsUnaryArithmetic<Tensor<bool>>() && rejectsUnaryArithmetic<TensorView<const bool>>());
+    static_assert(rejectsUnaryArithmetic<SharedTensorView<bool>>() && rejectsUnaryArithmetic<Tensor<Code>>());
+    static_assert(rejectsUnaryArithmetic<Tensor<int*>>() && rejectsUnaryArithmetic<Tensor<NoDefaultValue>>());
+    static_assert(rejectsUnaryArithmetic<int>() && rejectsUnaryArithmetic<double>());
+#if defined(__SIZEOF_INT128__)
+    __extension__ using WideSigned = __int128;
+    __extension__ using WideUnsigned = unsigned __int128;
+    static_assert(rejectsUnaryArithmetic<Tensor<WideSigned>>());
+    static_assert(rejectsUnaryArithmetic<TensorView<const WideUnsigned>>());
+#endif
+    const auto temporary = -Tensor<int>({}, 3);
+    const auto magnitude = fat_p::abs(Tensor<int>({}, -3));
+    FATP_ASSERT_TRUE(temporary[0] == -3 && magnitude[0] == 3, "Temporary readable owners are accepted");
+    return true;
+}
+
+template <typename T>
+[[nodiscard]] bool verifyUnaryInteger()
+{
+    constexpr T kMaximum = std::numeric_limits<T>::max();
+    constexpr T kMinimum = std::numeric_limits<T>::lowest();
+    Tensor<T> source({2}, T{0});
+    const auto zero = -source;
+    FATP_ASSERT_TRUE(zero[0] == T{0} && zero[1] == T{0}, "Zero negation preserves every integer dtype");
+    source[1] = kMaximum;
+    auto magnitude = fat_p::abs(source);
+    FATP_ASSERT_TRUE(magnitude[0] == T{0} && magnitude[1] == kMaximum, "Positive maxima are valid absolute values");
+    magnitude[1] = T{0};
+    FATP_ASSERT_TRUE(source[1] == kMaximum, "Absolute value always returns independent storage");
+    if constexpr (std::signed_integral<T>)
+    {
+        const T negativeMaximum = static_cast<T>(-kMaximum);
+        const auto negative = negate(source);
+        FATP_ASSERT_TRUE(negative[1] == negativeMaximum, "Positive signed maximum can be negated");
+        source[0] = T{-3};
+        source[1] = negativeMaximum;
+        const auto positive = -source;
+        const auto absolute = fat_p::abs(source);
+        FATP_ASSERT_TRUE(positive[0] == T{3} && positive[1] == kMaximum &&
+                         absolute[0] == T{3} && absolute[1] == kMaximum, "Negative signed endpoints are handled");
+        source[1] = kMinimum;
+        FATP_ASSERT_THROWS(negate(source), std::overflow_error, "Signed lowest cannot be negated in its dtype");
+        FATP_ASSERT_THROWS(-source, std::overflow_error, "Unary minus does not silently promote narrow integers");
+        FATP_ASSERT_THROWS(fat_p::abs(source), std::overflow_error, "Signed lowest has no representable magnitude");
+        FATP_ASSERT_TRUE(source[0] == T{-3} && source[1] == kMinimum, "Later overflow never changes the input");
+    }
+    else
+    {
+        for (const T value : {T{1}, kMaximum})
+        {
+            source[1] = value;
+            FATP_ASSERT_THROWS(negate(source), std::overflow_error, "Unsigned nonzero negation must not wrap");
+            FATP_ASSERT_THROWS(-source, std::overflow_error, "Unsigned unary minus is checked too");
+            FATP_ASSERT_TRUE(source[0] == T{0} && source[1] == value, "Unsigned failure preserves input values");
+        }
+    }
+    return true;
+}
+
+template <typename... Types>
+[[nodiscard]] bool verifyUnaryIntegers(std::tuple<Types...>)
+{
+    return (verifyUnaryInteger<Types>() && ...);
+}
+
+FATP_TEST_CASE(unary_integer_boundaries)
+{
+    using Types = std::tuple<signed char, unsigned char, short, unsigned short, int, unsigned int,
+                             long, unsigned long, long long, unsigned long long,
+                             char, wchar_t, char8_t, char16_t, char32_t>;
+    FATP_ASSERT_TRUE(verifyUnaryIntegers(Types{}), "Every standard integer and character dtype is checked");
+    const Tensor<std::uint8_t> bytes({2}, std::uint8_t{255});
+    const auto widened = -cast<std::int16_t>(bytes);
+    FATP_ASSERT_EQ(widened[0], -255, "Explicit signed widening enables unsigned negation without modular arithmetic");
+    try
+    {
+        (void)negate(bytes);
+        FATP_ASSERT_TRUE(false, "Nonzero unsigned negation must throw");
+    }
+    catch (const std::overflow_error& error)
+    {
+        FATP_ASSERT_CONTAINS(std::string(error.what()), "unsigned negation requires zero",
+                             "Unsigned overflow explains the zero-only domain");
+    }
+    const Tensor<int> minimum({}, std::numeric_limits<int>::lowest());
+    for (const bool absolute : {false, true})
+    {
+        try
+        {
+            (void)(absolute ? fat_p::abs(minimum) : negate(minimum));
+            FATP_ASSERT_TRUE(false, "Signed minimum must be rejected by both unary operations");
+        }
+        catch (const std::overflow_error& error)
+        {
+            const std::string expected = absolute ? "absolute value overflow" : "integer negation overflow";
+            FATP_ASSERT_CONTAINS(std::string(error.what()), expected, "Each unary diagnostic names its operation");
+        }
+    }
+    const Tensor<unsigned> empty({2, 0});
+    const auto negativeEmpty = -empty;
+    const auto magnitudeEmpty = fat_p::abs(empty);
+    FATP_ASSERT_TRUE(negativeEmpty.extents() == empty.extents() && magnitudeEmpty.extents() == empty.extents(),
+                     "Empty unsigned inputs do not evaluate forbidden nonzero negation");
+    return true;
+}
+
+FATP_TEST_CASE(unary_exhaustive_byte_values)
+{
+    for (int value = -128; value <= 127; ++value)
+    {
+        const Tensor<std::int8_t> source({}, static_cast<std::int8_t>(value));
+        if (value == -128)
+        {
+            FATP_ASSERT_THROWS(negate(source), std::overflow_error, "Byte minimum negate is rejected");
+            FATP_ASSERT_THROWS(fat_p::abs(source), std::overflow_error, "Byte minimum abs is rejected");
+        }
+        else
+        {
+            const auto named = negate(source);
+            const auto minus = -source;
+            const auto absolute = fat_p::abs(source);
+            FATP_ASSERT_TRUE(named[0] == -value && minus[0] == -value && absolute[0] == std::abs(value),
+                             "Every signed byte matches an independent widened scalar oracle");
+        }
+    }
+    for (int value = 0; value <= 255; ++value)
+    {
+        const Tensor<std::uint8_t> source({}, static_cast<std::uint8_t>(value));
+        const auto absolute = fat_p::abs(source);
+        FATP_ASSERT_EQ(static_cast<int>(absolute[0]), value, "Every unsigned byte has identity magnitude");
+        if (value != 0)
+        {
+            FATP_ASSERT_THROWS(negate(source), std::overflow_error, "Every nonzero unsigned byte rejects negation");
+        }
+        else
+        {
+            const auto minus = -source;
+            FATP_ASSERT_EQ(static_cast<int>(minus[0]), 0, "Unsigned zero remains representable");
+        }
+    }
+    return true;
+}
+
+template <typename T>
+[[nodiscard]] bool verifyUnaryFloating()
+{
+    std::vector<T> values{T{0}, -T{0}, T{3.5}, T{-3.5}, std::numeric_limits<T>::max(),
+                           std::numeric_limits<T>::lowest(), std::numeric_limits<T>::min(),
+                           -std::numeric_limits<T>::min(), std::numeric_limits<T>::denorm_min(),
+                           -std::numeric_limits<T>::denorm_min()};
+    if constexpr (std::numeric_limits<T>::has_infinity)
+    {
+        values.push_back(std::numeric_limits<T>::infinity());
+        values.push_back(-std::numeric_limits<T>::infinity());
+    }
+    if constexpr (std::numeric_limits<T>::has_quiet_NaN)
+    {
+        values.push_back(std::numeric_limits<T>::quiet_NaN());
+        values.push_back(-std::numeric_limits<T>::quiet_NaN());
+    }
+    for (const T value : values)
+    {
+        const Tensor<T> source({}, value);
+        const auto negative = negate(source);
+        const auto minus = -source;
+        const auto magnitude = fat_p::abs(source);
+        FATP_ASSERT_EQ(negative.rank(), std::size_t{0}, "Unary scalar output remains rank zero");
+        const T expectedNegative = -value;
+        const T expectedMagnitude = std::fabs(value);
+        if (std::isnan(value))
+        {
+            FATP_ASSERT_TRUE(std::isnan(negative[0]) && std::isnan(minus[0]) && std::isnan(magnitude[0]),
+                             "NaN category survives all unary entry points");
+        }
+        else
+        {
+            FATP_ASSERT_TRUE(negative[0] == expectedNegative && minus[0] == expectedNegative &&
+                             magnitude[0] == expectedMagnitude, "Unary floating results match native values");
+            if constexpr (std::numeric_limits<T>::is_iec559)
+            {
+                FATP_ASSERT_TRUE(std::signbit(negative[0]) == std::signbit(expectedNegative) &&
+                                 std::signbit(minus[0]) == std::signbit(expectedNegative) &&
+                                 !std::signbit(magnitude[0]), "Zero and infinity signs follow native unary rules");
+            }
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(unary_floating_special_values)
+{
+    return verifyUnaryFloating<float>() && verifyUnaryFloating<double>() && verifyUnaryFloating<long double>();
+}
+
+FATP_TEST_CASE(unary_layout_oracle)
+{
+    std::mt19937 generator(0xA85U);
+    std::uniform_int_distribution<int> extents(0, 4);
+    std::uniform_int_distribution<int> strides(-5, 5);
+    std::uniform_int_distribution<int> values(-9, 9);
+    for (std::size_t trial = 0; trial < 600; ++trial)
+    {
+        const auto rank = trial % 5;
+        std::vector<std::size_t> shape(rank);
+        TensorStrides sourceStrides(rank);
+        for (std::size_t axis = 0; axis < rank; ++axis)
+        {
+            shape[axis] = static_cast<std::size_t>(extents(generator));
+            sourceStrides[axis] = strides(generator);
+        }
+        const auto layout = makeSmallLayout(shape, sourceStrides);
+        std::vector<std::int16_t> storage(layout.storageLength());
+        for (auto& value : storage)
+        {
+            value = static_cast<std::int16_t>(values(generator));
+        }
+        const auto original = storage;
+        const auto source = TensorView<const std::int16_t>::borrow(storage.data(), layout);
+        const auto negative = negate(source);
+        const auto minus = -source;
+        auto magnitude = fat_p::abs(source);
+        FATP_ASSERT_TRUE(negative.extents() == source.extents() && minus.extents() == source.extents() &&
+                         magnitude.extents() == source.extents(), "All layouts preserve extents, including empty axes");
+        const auto canonical = TensorLayout::canonicalStrides(source.extents());
+        FATP_ASSERT_TRUE(negative.strides() == canonical && minus.strides() == canonical &&
+                         magnitude.strides() == canonical,
+                         "Signed, zero-stride, gapped, permuted and overlapping sources materialize canonically");
+        for (std::size_t index = 0; index < source.size(); ++index)
+        {
+            const auto offset = static_cast<std::size_t>(expectedBroadcastOffset(source.extents(), layout, index));
+            const int value = storage[offset];
+            FATP_ASSERT_TRUE(negative[index] == -value && minus[index] == -value && magnitude[index] == std::abs(value),
+                             "Logical-coordinate oracle is independent of production traversal");
+            magnitude[index] = 42;
+        }
+        FATP_ASSERT_TRUE(storage == original, "Even writable result owners cannot alias the source");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(unary_allocator_contract)
+{
+    CopyAllocationState ownerState;
+    CopyAllocationState explicitState;
+    Tensor<int, ArithmeticAllocator<int>> source(
+        std::allocator_arg, ArithmeticAllocator<int>(ownerState, 7), DynamicExtents{2}, -3);
+    const ArithmeticAllocator<int> allocator(explicitState, 23);
+    {
+        const auto negative = negate(source);
+        const auto minus = -source;
+        const auto magnitude = fat_p::abs(source);
+        static_assert(std::same_as<typename decltype(negative)::allocator_type, ArithmeticAllocator<int>>);
+        FATP_ASSERT_TRUE(negative.get_allocator().id() == 107 && minus.get_allocator().id() == 107 &&
+                         magnitude.get_allocator().id() == 107, "Each unary owner result uses same-type SOCCC");
+        FATP_ASSERT_EQ(ownerState.allocations, std::size_t{4}, "Exactly one result buffer per owner operation");
+        const auto explicitNegative = negate(source, allocator);
+        const auto explicitMagnitude = fat_p::abs(source, allocator);
+        const auto viewNegative = negate(source.asConstView(), allocator);
+        const auto viewMagnitude = fat_p::abs(source.asSharedView(), allocator);
+        FATP_ASSERT_TRUE(explicitNegative.get_allocator().id() == 23 && explicitMagnitude.get_allocator().id() == 23 &&
+                         viewNegative.get_allocator().id() == 23 && viewMagnitude.get_allocator().id() == 23,
+                         "Explicit result allocator is used unchanged for owners and views");
+        FATP_ASSERT_EQ(explicitState.allocations, std::size_t{4}, "No unary scratch element buffers are allocated");
+        FATP_ASSERT_EQ(explicitState.lastCount, std::size_t{2}, "Result element count equals logical source size");
+        const auto borrowed = -source.asConstView();
+        const auto shared = fat_p::abs(source.asSharedView());
+        static_assert(std::same_as<typename decltype(borrowed)::allocator_type, TensorAllocator<int>>);
+        static_assert(std::same_as<typename decltype(shared)::allocator_type, TensorAllocator<int>>);
+        FATP_ASSERT_TRUE(borrowed[0] == 3 && shared[0] == 3, "Views do not expose the owner's stateful allocator");
+    }
+    FATP_ASSERT_EQ(ownerState.deallocations, std::size_t{3}, "Owner results release their selected buffers");
+    FATP_ASSERT_EQ(explicitState.allocations, explicitState.deallocations, "All explicit results release buffers");
+    return true;
+}
+
+FATP_TEST_CASE(unary_failure_and_lifetime)
+{
+    CopyAllocationState state;
+    state.fail = true;
+    const CopyAllocator<int> allocator(state, 11);
+    Tensor<int> source({2}, -3);
+    source[1] = std::numeric_limits<int>::lowest();
+#ifndef NDEBUG
+    TensorView<int> expired;
+    TensorView<int> expiredEmpty;
+    {
+        Tensor<int> temporary({2}, -3);
+        Tensor<int> temporaryEmpty({0, 2});
+        expired = temporary.asView();
+        expiredEmpty = temporaryEmpty.asView();
+    }
+    FATP_ASSERT_THROWS(negate(expired, allocator), std::runtime_error,
+                       "Lifetime is checked before element allocation");
+    FATP_ASSERT_THROWS(fat_p::abs(expired, allocator), std::runtime_error, "Abs validates borrowed lifetimes");
+    FATP_ASSERT_THROWS(-expired, std::runtime_error, "Unary minus validates borrowed lifetimes");
+    FATP_ASSERT_THROWS(negate(expiredEmpty, allocator), std::runtime_error, "Empty negate still validates lifetime");
+    FATP_ASSERT_THROWS(fat_p::abs(expiredEmpty, allocator), std::runtime_error, "Empty abs still validates lifetime");
+#endif
+    FATP_ASSERT_EQ(state.attempts, std::size_t{0}, "Invalid lifetime never allocates result elements");
+    const Tensor<int> empty({2, 0, 3});
+    const auto emptyNegative = negate(empty, allocator);
+    const auto emptyMagnitude = fat_p::abs(empty, allocator);
+    FATP_ASSERT_TRUE(emptyNegative.extents() == empty.extents() && emptyMagnitude.extents() == empty.extents(),
+                     "Zero extents are preserved even with a failing element allocator");
+    FATP_ASSERT_EQ(state.attempts, std::size_t{0}, "Empty unary results allocate no element buffer");
+    FATP_ASSERT_THROWS(negate(source, allocator), std::bad_alloc, "Allocation can precede later negation overflow");
+    FATP_ASSERT_THROWS(fat_p::abs(source, allocator), std::bad_alloc, "Abs propagates element allocation failures");
+    state.fail = false;
+    FATP_ASSERT_THROWS(negate(source, allocator), std::overflow_error, "Later negate overflow discards partial output");
+    FATP_ASSERT_THROWS(fat_p::abs(source, allocator), std::overflow_error,
+                       "Later abs overflow discards partial output");
+    FATP_ASSERT_EQ(state.allocations, std::size_t{2}, "Each failed evaluation allocated one unpublished result");
+    FATP_ASSERT_EQ(state.allocations, state.deallocations, "Failed unary results do not leak buffers");
+    FATP_ASSERT_TRUE(source[0] == -3 && source[1] == std::numeric_limits<int>::lowest(),
+                     "Overflow after a changed prospective first value leaves the input intact");
+    SharedTensorView<const int> retained;
+    {
+        Tensor<int> temporary({2}, -3);
+        retained = std::as_const(temporary).asSharedView();
+    }
+    const auto negative = negate(retained);
+    const auto minus = -retained;
+    const auto magnitude = fat_p::abs(retained);
+    FATP_ASSERT_TRUE(negative[0] == 3 && minus[0] == 3 && magnitude[0] == 3,
+                     "Const shared views retain their storage after the owner is destroyed");
+    return true;
+}
+
+template <typename Source, bool Supported>
+[[nodiscard]] consteval bool floatingMathAvailability()
+{
+    using value_type = typename Source::value_type;
+    using allocator = std::allocator<value_type>;
+    static_assert((requires(const Source& source) { fat_p::sqrt(source); }) == Supported);
+    static_assert((requires(const Source& source) { fat_p::exp(source); }) == Supported);
+    static_assert((requires(const Source& source) { fat_p::log(source); }) == Supported);
+    static_assert((requires(const Source& source) { fat_p::sqrt(source, allocator{}); }) == Supported);
+    static_assert((requires(const Source& source) { fat_p::exp(source, allocator{}); }) == Supported);
+    static_assert((requires(const Source& source) { fat_p::log(source, allocator{}); }) == Supported);
+    static_assert(!requires(const Source& source) { fat_p::sqrt(source, std::allocator<bool>{}); });
+    static_assert(!requires(const Source& source) { fat_p::exp(source, std::allocator<bool>{}); });
+    static_assert(!requires(const Source& source) { fat_p::log(source, std::allocator<bool>{}); });
+    static_assert(!requires(const Source& source) { fat_p::sqrt(source, 0); });
+    static_assert(!requires(const Source& source) { fat_p::exp(source, 0); });
+    static_assert(!requires(const Source& source) { fat_p::log(source, 0); });
+    if constexpr (Supported)
+    {
+        static_assert(std::same_as<decltype(fat_p::sqrt(std::declval<Source>())), Tensor<value_type>>);
+        static_assert(std::same_as<decltype(fat_p::exp(std::declval<Source>())), Tensor<value_type>>);
+        static_assert(std::same_as<decltype(fat_p::log(std::declval<Source>())), Tensor<value_type>>);
+        static_assert(std::same_as<decltype(fat_p::sqrt(std::declval<Source>(), allocator{})),
+                                   Tensor<value_type, allocator>>);
+        static_assert(std::same_as<decltype(fat_p::exp(std::declval<Source>(), allocator{})),
+                                   Tensor<value_type, allocator>>);
+        static_assert(std::same_as<decltype(fat_p::log(std::declval<Source>(), allocator{})),
+                                   Tensor<value_type, allocator>>);
+    }
+    return true;
+}
+
+template <typename T, bool Supported>
+[[nodiscard]] consteval bool floatingMathHandles()
+{
+    return floatingMathAvailability<Tensor<T>, Supported>() &&
+           floatingMathAvailability<const Tensor<T>, Supported>() &&
+           floatingMathAvailability<TensorView<T>, Supported>() &&
+           floatingMathAvailability<TensorView<const T>, Supported>() &&
+           floatingMathAvailability<SharedTensorView<T>, Supported>() &&
+           floatingMathAvailability<SharedTensorView<const T>, Supported>();
+}
+
+template <typename... Types>
+[[nodiscard]] consteval bool rejectsIntegerMath(std::tuple<Types...>)
+{
+    return (floatingMathHandles<Types, false>() && ...);
+}
+
+FATP_TEST_CASE(floating_math_constraints)
+{
+    static_assert(floatingMathHandles<float, true>() && floatingMathHandles<double, true>() &&
+                  floatingMathHandles<long double, true>());
+    using Integers = std::tuple<bool, signed char, unsigned char, short, unsigned short, int, unsigned int,
+                                long, unsigned long, long long, unsigned long long,
+                                char, wchar_t, char8_t, char16_t, char32_t>;
+    static_assert(rejectsIntegerMath(Integers{}));
+    enum class Code { One };
+    static_assert(floatingMathHandles<Code, false>() && floatingMathHandles<int*, false>() &&
+                  floatingMathHandles<NoDefaultValue, false>());
+#if defined(__SIZEOF_INT128__)
+    __extension__ using WideSigned = __int128;
+    static_assert(floatingMathHandles<WideSigned, false>());
+#endif
+    const auto root = fat_p::sqrt(cast<double>(Tensor<int>({}, 9)));
+    const auto exponential = fat_p::exp(Tensor<float>({}, 0.0F));
+    const auto logarithm = fat_p::log(Tensor<long double>({}, 1.0L));
+    FATP_ASSERT_TRUE(root[0] == 3.0 && exponential[0] == 1.0F && logarithm[0] == 0.0L,
+                     "Explicit casts and temporary floating owners preserve the selected dtype");
+    return true;
+}
+
+template <typename Source, typename... Allocator>
+[[nodiscard]] auto runFloatingMath(int operation, const Source& source, const Allocator&... allocator)
+{
+    switch (operation)
+    {
+        case 0: return fat_p::sqrt(source, allocator...);
+        case 1: return fat_p::exp(source, allocator...);
+        default: return fat_p::log(source, allocator...);
+    }
+}
+
+template <typename T>
+[[nodiscard]] T nativeFloatingMath(int operation, T value)
+{
+    switch (operation)
+    {
+        case 0: return std::sqrt(value);
+        case 1: return std::exp(value);
+        default: return std::log(value);
+    }
+}
+
+template <typename T>
+[[nodiscard]] bool matchesFloatingMath(T actual, T expected)
+{
+    if (std::isnan(expected))
+    {
+        return std::isnan(actual);
+    }
+    if (std::isinf(expected))
+    {
+        return std::isinf(actual) && std::signbit(actual) == std::signbit(expected);
+    }
+    if (expected == T{0})
+    {
+        return actual == T{0} && (!std::numeric_limits<T>::is_iec559 ||
+                                  std::signbit(actual) == std::signbit(expected));
+    }
+    if (!std::isfinite(actual) || std::signbit(actual) != std::signbit(expected))
+    {
+        return false;
+    }
+    const T tolerance = T{8} * std::numeric_limits<T>::epsilon() * std::fabs(expected) +
+                        T{4} * std::numeric_limits<T>::denorm_min();
+    return std::fabs(actual - expected) <= tolerance;
+}
+
+template <typename T>
+[[nodiscard]] bool verifyFloatingMathValues()
+{
+    std::vector<T> values{T{0}, -T{0}, T{1}, T{-1}, T{4}, T{0.25}, T{2}, T{-2}, T{1000}, T{-1000},
+                           std::numeric_limits<T>::max(), std::numeric_limits<T>::lowest(),
+                           std::numeric_limits<T>::min(), std::numeric_limits<T>::denorm_min(),
+                           T{1} + T{8} * std::numeric_limits<T>::epsilon()};
+    if constexpr (std::numeric_limits<T>::has_infinity)
+    {
+        values.push_back(std::numeric_limits<T>::infinity());
+        values.push_back(-std::numeric_limits<T>::infinity());
+    }
+    if constexpr (std::numeric_limits<T>::has_quiet_NaN)
+    {
+        values.push_back(std::numeric_limits<T>::quiet_NaN());
+    }
+    std::mt19937 generator(0xF10A7U);
+    std::uniform_real_distribution<T> distribution(T{-10}, T{10});
+    for (std::size_t trial = 0; trial < 128; ++trial)
+    {
+        values.push_back(distribution(generator));
+    }
+    for (const T value : values)
+    {
+        const Tensor<T> source({}, value);
+        for (int operation = 0; operation < 3; ++operation)
+        {
+            const auto result = runFloatingMath(operation, source);
+            FATP_ASSERT_EQ(result.rank(), std::size_t{0}, "Floating math preserves rank-zero scalar shape");
+            const T expected = nativeFloatingMath(operation, value);
+            FATP_ASSERT_TRUE(matchesFloatingMath(result[0], expected),
+                             "Scalar results match typed native math at domains, poles, and range limits");
+            FATP_ASSERT_TRUE(std::isnan(expected) ? std::isnan(result[0]) : result[0] == expected,
+                             "Within this build, scalar output uses the native dtype without a double round-trip");
+        }
+    }
+    if constexpr (std::numeric_limits<T>::is_iec559)
+    {
+        const auto negativeRoot = fat_p::sqrt(Tensor<T>({}, T{-1}));
+        const auto negativeLog = fat_p::log(Tensor<T>({}, T{-1}));
+        const auto zeroLog = fat_p::log(Tensor<T>({}, -T{0}));
+        const auto zeroRoot = fat_p::sqrt(Tensor<T>({}, -T{0}));
+        FATP_ASSERT_TRUE(std::isnan(negativeRoot[0]) && std::isnan(negativeLog[0]),
+                         "Domain errors return NaN instead of throwing or clamping");
+        FATP_ASSERT_TRUE(std::isinf(zeroLog[0]) && std::signbit(zeroLog[0]), "Logarithm of zero is negative infinity");
+        FATP_ASSERT_TRUE(zeroRoot[0] == T{0} && std::signbit(zeroRoot[0]), "Square root preserves negative zero");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(floating_math_values)
+{
+    return verifyFloatingMathValues<float>() && verifyFloatingMathValues<double>() &&
+           verifyFloatingMathValues<long double>();
+}
+
+template <typename T>
+[[nodiscard]] bool verifyFloatingMathLayouts()
+{
+    std::mt19937 generator(0x5A17U);
+    std::uniform_int_distribution<int> extentDistribution(0, 4);
+    std::uniform_int_distribution<int> strideDistribution(-5, 5);
+    std::uniform_int_distribution<int> valueDistribution(-4, 9);
+    for (std::size_t trial = 0; trial < 300; ++trial)
+    {
+        std::vector<std::size_t> shape(trial % 5);
+        TensorStrides strides(shape.size());
+        for (std::size_t axis = 0; axis < shape.size(); ++axis)
+        {
+            shape[axis] = static_cast<std::size_t>(extentDistribution(generator));
+            strides[axis] = strideDistribution(generator);
+        }
+        const auto layout = makeSmallLayout(shape, strides);
+        std::vector<T> storage(layout.storageLength());
+        for (auto& value : storage)
+        {
+            value = static_cast<T>(valueDistribution(generator)) / T{4};
+        }
+        const auto original = storage;
+        const auto source = TensorView<const T>::borrow(storage.data(), layout);
+        for (int operation = 0; operation < 3; ++operation)
+        {
+            auto result = runFloatingMath(operation, source);
+            FATP_ASSERT_TRUE(result.extents() == source.extents() &&
+                             result.strides() == TensorLayout::canonicalStrides(source.extents()),
+                             "Every math function returns a canonical owner preserving even empty extents");
+            for (std::size_t index = 0; index < source.size(); ++index)
+            {
+                const auto offset = static_cast<std::size_t>(expectedBroadcastOffset(source.extents(), layout, index));
+                const T expected = nativeFloatingMath(operation, storage[offset]);
+                FATP_ASSERT_TRUE(matchesFloatingMath(result[index], expected),
+                                 "Rank-0-through-4 signed/broadcast/overlap layouts match independent coordinates");
+                result[index] = T{42};
+            }
+            FATP_ASSERT_TRUE(storage == original, "Result writes cannot alias any source element or padding");
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(floating_math_layout_oracle)
+{
+    return verifyFloatingMathLayouts<float>() && verifyFloatingMathLayouts<double>() &&
+           verifyFloatingMathLayouts<long double>();
+}
+
+template <typename T>
+[[nodiscard]] bool verifyFloatingMathAllocators()
+{
+    for (int operation = 0; operation < 3; ++operation)
+    {
+        CopyAllocationState ownerState;
+        CopyAllocationState explicitState;
+        Tensor<T, ArithmeticAllocator<T>> source(
+            std::allocator_arg, ArithmeticAllocator<T>(ownerState, 7), DynamicExtents{2}, T{1});
+        const ArithmeticAllocator<T> allocator(explicitState, 23);
+        {
+            const auto selected = runFloatingMath(operation, source);
+            static_assert(std::same_as<typename decltype(selected)::allocator_type, ArithmeticAllocator<T>>);
+            FATP_ASSERT_EQ(selected.get_allocator().id(), 1007, "Default floating owner allocation uses typed SOCCC");
+            FATP_ASSERT_EQ(ownerState.allocations, std::size_t{2},
+                           "Exactly one result buffer, without element scratch");
+            const auto explicitOwner = runFloatingMath(operation, source, allocator);
+            const auto explicitBorrowed = runFloatingMath(operation, source.asConstView(), allocator);
+            const auto explicitShared = runFloatingMath(operation, source.asSharedView(), allocator);
+            FATP_ASSERT_TRUE(explicitOwner.get_allocator().id() == 23 &&
+                             explicitBorrowed.get_allocator().id() == 23 && explicitShared.get_allocator().id() == 23,
+                             "Explicit allocator is unchanged for owner, borrowed and shared inputs");
+            FATP_ASSERT_EQ(explicitState.allocations, std::size_t{3}, "Each explicit result has one element buffer");
+            FATP_ASSERT_EQ(explicitState.lastCount, std::size_t{2}, "Output allocation counts logical elements");
+            const auto borrowed = runFloatingMath(operation, source.asConstView());
+            const auto shared = runFloatingMath(operation, std::as_const(source).asSharedView());
+            const auto mutableBorrowed = runFloatingMath(operation, source.asView());
+            static_assert(std::same_as<typename decltype(borrowed)::allocator_type, TensorAllocator<T>>);
+            static_assert(std::same_as<typename decltype(shared)::allocator_type, TensorAllocator<T>>);
+            FATP_ASSERT_TRUE(matchesFloatingMath(borrowed[0], nativeFloatingMath(operation, T{1})) &&
+                             matchesFloatingMath(shared[0], borrowed[0]) &&
+                             matchesFloatingMath(mutableBorrowed[0], borrowed[0]),
+                             "Mutable and const views use the default result allocator");
+        }
+        FATP_ASSERT_EQ(ownerState.deallocations, std::size_t{1}, "Selected result buffer is released");
+        FATP_ASSERT_EQ(explicitState.allocations, explicitState.deallocations, "Explicit result buffers are released");
+    }
+    return true;
+}
+
+FATP_TEST_CASE(floating_math_allocator_contract)
+{
+    return verifyFloatingMathAllocators<float>() && verifyFloatingMathAllocators<double>() &&
+           verifyFloatingMathAllocators<long double>();
+}
+
+FATP_TEST_CASE(floating_math_failure_and_lifetime)
+{
+    const Tensor<double> source({2}, -4.0);
+    const Tensor<double> empty({2, 0, 3});
+    SharedTensorView<const double> retained;
+#ifndef NDEBUG
+    TensorView<const double> expired;
+    TensorView<const double> expiredEmpty;
+#endif
+    {
+        const Tensor<double> temporary({2}, 4.0);
+        // Tensor destruction invalidates mLifetime even when a shared view retains mStorage.
+        retained = temporary.asSharedView();
+#ifndef NDEBUG
+        const Tensor<double> temporaryEmpty({0, 2});
+        expired = temporary.asConstView();
+        expiredEmpty = temporaryEmpty.asConstView();
+#endif
+    }
+    for (int operation = 0; operation < 3; ++operation)
+    {
+        CopyAllocationState state;
+        state.fail = true;
+        const CopyAllocator<double> allocator(state, 11);
+#ifndef NDEBUG
+        FATP_ASSERT_THROWS(runFloatingMath(operation, expired, allocator), std::runtime_error,
+                           "Borrowed lifetime validation precedes result allocation");
+        FATP_ASSERT_THROWS(runFloatingMath(operation, expiredEmpty, allocator), std::runtime_error,
+                           "Empty inputs still validate borrowed lifetime");
+        FATP_ASSERT_THROWS(runFloatingMath(operation, expired), std::runtime_error,
+                           "Default allocator does not bypass lifetime validation");
+#endif
+        FATP_ASSERT_EQ(state.attempts, std::size_t{0}, "Invalid lifetime does not allocate result elements");
+        const auto emptyResult = runFloatingMath(operation, empty, allocator);
+        FATP_ASSERT_TRUE(emptyResult.extents() == empty.extents(), "Empty result preserves every extent");
+        FATP_ASSERT_EQ(state.attempts, std::size_t{0}, "Empty math allocates no element buffer");
+        FATP_ASSERT_THROWS(runFloatingMath(operation, source, allocator), std::bad_alloc,
+                           "A failed output allocation occurs before evaluating domain-invalid values");
+        FATP_ASSERT_EQ(state.attempts, std::size_t{1}, "Nonempty input attempts exactly one output element allocation");
+        FATP_ASSERT_TRUE(source[0] == -4.0 && source[1] == -4.0, "Allocation failure never changes the source");
+        state.fail = false;
+        {
+            const auto result = runFloatingMath(operation, source, allocator);
+            FATP_ASSERT_TRUE(matchesFloatingMath(result[0], nativeFloatingMath(operation, -4.0)),
+                             "Native domain results publish normally instead of throwing C++ exceptions");
+        }
+        FATP_ASSERT_EQ(state.allocations, state.deallocations, "Native-domain result storage is reclaimed");
+        const auto sharedResult = runFloatingMath(operation, retained);
+        FATP_ASSERT_TRUE(matchesFloatingMath(sharedResult[0], nativeFloatingMath(operation, 4.0)),
+                         "Const shared views retain readable storage after owner destruction");
+    }
+    return true;
+}
+
+class MathEnvironmentScope
+{
+public:
+    MathEnvironmentScope() : mErrno(errno), mActive(std::feholdexcept(&mEnvironment) == 0) {}
+    ~MathEnvironmentScope()
+    {
+        if (mActive)
+        {
+            (void)std::fesetenv(&mEnvironment);
+        }
+        errno = mErrno;
+    }
+    [[nodiscard]] bool active() const noexcept { return mActive; }
+private:
+    std::fenv_t mEnvironment{};
+    int mErrno;
+    bool mActive;
+};
+
+FATP_TEST_CASE(floating_math_environment)
+{
+    MathEnvironmentScope scope;
+    if (!scope.active())
+    {
+        std::cout << "[SKIP] floating_math_environment: floating environment unavailable.\n";
+        return true;
+    }
+    // The test disables traps in its own scope, never in the production algorithms.
+    // Probe explicit flag clearing, not exact libm exception sets or rounding-mode behavior.
+    volatile double runtimeInput = 1.0;
+    for (int operation = 0; operation < 3; ++operation)
+    {
+        const Tensor<double> source({}, static_cast<double>(runtimeInput));
+        (void)std::feclearexcept(FE_ALL_EXCEPT);
+        if (std::feraiseexcept(FE_INVALID) == 0)
+        {
+            const auto result = runFloatingMath(operation, source);
+            FATP_ASSERT_TRUE((std::fetestexcept(FE_INVALID) & FE_INVALID) != 0,
+                             "Floating math does not erase a pre-existing exception flag");
+            FATP_ASSERT_TRUE(matchesFloatingMath(result[0], nativeFloatingMath(operation, 1.0)),
+                             "A pre-existing flag does not change ordinary output");
+        }
+    }
+    return true;
+}
+
 template <typename Destination, typename Operand, typename... Allocator>
 Destination& runCompound(int operation, Destination& destination, const Operand& operand,
                          const Allocator&... allocator)
@@ -3110,6 +3877,19 @@ bool test_TensorAlgorithms()
     FATP_RUN_TEST_NS(runner, tensor_algorithms, division_constraints);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, division_allocator_contract);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, division_failure_and_lifetime);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_constraints);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_integer_boundaries);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_exhaustive_byte_values);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_floating_special_values);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_layout_oracle);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_allocator_contract);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, unary_failure_and_lifetime);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, floating_math_constraints);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, floating_math_values);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, floating_math_layout_oracle);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, floating_math_allocator_contract);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, floating_math_failure_and_lifetime);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, floating_math_environment);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, compound_constraints);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, compound_broadcast_and_storage);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, compound_checked_conversion_rollback);

@@ -68,8 +68,8 @@ harness. It now also has the extended slice language, deterministic reductions,
 borrowed interop descriptors, composition/selection operations, and native
 vector/matrix/batched multiplication. The remaining work is architectural:
 
-- Compound arithmetic is implemented; remaining unary/numeric operation
-  families do not yet have implemented contracts.
+- Compound arithmetic, checked negation/absolute value, and floating sqrt/exp/log are implemented;
+  remaining numeric operation families do not yet have implemented contracts.
 - Parallel execution contexts have not landed; current dynamic algorithms are
   deliberately serial.
 - Named contractions beyond `matmul` and contraction planning have not landed;
@@ -285,7 +285,7 @@ canonical dtype vocabulary replaces them.
 | 2 | Complete: owner-only Tensor, borrowed/shared views, explicit clone, and storage consolidation |
 | 3 | Complete: counted multi-layout iteration plan and serial base kernels |
 | 4 | Complete: slice language, overlap-safe materialization, bounded exhaustive/seeded transform oracles, and element-allocation/lifetime checks |
-| 5 | Core implemented: checked axis/boolean reductions, mixed/scalar arithmetic including division, materializing casts, and transactional compound updates; unary expansion remains |
+| 5 | Core implemented: checked axis/boolean reductions, mixed/scalar arithmetic including division, materializing casts, compound updates, checked negate/abs, and floating sqrt/exp/log; broader numeric expansion remains |
 | 6 | Interop implemented: contiguous span, validated strided descriptor, optional mdspan, and static/dynamic conversion; benchmark expansion remains |
 | 7 | Core implemented: stack, concatenate, take, takeAlongAxis, and gatherND; broader generic math remains |
 | 8 | Partial: vector, matrix, strided, and batched matmul implemented; remaining named operations and einsum removal remain |
@@ -777,6 +777,83 @@ choose scratch.
   not remote CI or a proof for arbitrary layouts or floating platforms.
   The remaining broad unary work and all of Phase 5 are not closed.
 
+**Delivered negation/absolute-value step (2026-08-31)**
+
+- `negate(source[, allocator])`, unary `-source`, and `abs(source[, allocator])`
+  return fresh canonical owners with unchanged dtype and extents. Signed minima
+  throw; unsigned negation accepts only zero, while unsigned absolute value
+  copies. Widening requires an explicit checked cast. Boolean and non-arithmetic
+  elements do not participate. Floating negation uses native unary minus and
+  absolute value uses typed `std::fabs`, preserving their signed-zero behavior.
+- The existing unary kernel and result allocator selection are reused. There is
+  no new traversal loop, element scratch buffer, dependency, or production
+  header. Lifetimes are validated before result element allocation; failures
+  release unpublished output and never modify the source.
+- These constrained overloads extend the existing `fat_p` Tensor numeric core
+  across owners, borrowed views, and shared views. They are not generic scalar
+  functions or namespace re-exports. The existing Include-All TU includes
+  `TensorAlgorithms.h`; all-header and reversed Tensor-facade checks exercise
+  the new names alongside scalar math and CheckedArithmetic.
+- Seven test groups cover all 18 standard arithmetic dtypes other than bool,
+  all 15 standard integer/character endpoint categories, exhaustive 8-bit values,
+  native floating special values, 600 deterministic rank-0-through-4
+  signed/broadcast/overlapping layouts, allocator selection, independent output, expired borrowed sources,
+  retained shared storage, empty results, and late-overflow cleanup.
+- Local validation passes 52 algorithm groups under MSVC C++20 assertions,
+  MSVC latest-standard Release, MSVC AddressSanitizer, GCC C++20, and Clang
+  C++20. The native-allocation ASan leg passes 51 groups, with the existing
+  global-allocation injection group disabled. All 28 CMake Tensor targets pass
+  in MSVC checked-iterator Debug; its existing injection-group skip remains.
+  A GCC GNU++20 compile probe also rejects signed/unsigned 128-bit unary
+  operands while confirming that this mode recognizes both as integral types.
+- Include-all and forward/reverse Tensor-facade builds exercise the new APIs
+  alongside `autodiff::Jet` absolute value, scalar `abs`, `std::negate`, binary
+  subtraction, and `approxEqual`. Three isolated mutation probes detect a
+  missing signed-minimum check, zero-subtraction negation, and conditional
+  floating absolute value that retains negative zero. Repository headers are
+  never replaced with mutated copies. These are local checks, not remote CI
+  results or proof for every platform and layout.
+- This closes negation and absolute value only. Transcendental functions and
+  other broader numeric families remain separate increments, not implicit
+  promises of Phase 5 completion.
+
+**Delivered floating-unary math step (2026-08-31)**
+
+- `sqrt(source[, allocator])`, `exp(source[, allocator])`, and
+  `log(source[, allocator])` preserve floating dtype and shape. The public
+  overloads accept only float/double/long double readable owners and views;
+  integer callers explicitly cast before evaluation.
+- The existing unary kernel and allocator selection materialize one result
+  element buffer without an intermediate tensor, new traversal loop, or new
+  dependency. Typed standard-library calls retain native domain, pole, range,
+  signed-zero, NaN, and infinity behavior rather than throwing Tensor numeric
+  exceptions. Lifetime and allocation failures retain the usual source guarantee.
+- The three constrained names extend the existing Tensor numeric core across
+  all owner/view forms. Header-composition checks cover the existing Include-All
+  TU and both Tensor/Jet/CheckedArithmetic orders, exercising scalar math and
+  `autodiff::Jet` through their existing namespaces and ADL.
+- Six new test groups cover accepted/rejected types, typed native values and
+  range boundaries, 900 seeded layouts spanning ranks 0-4 across three dtypes,
+  independent result storage, all allocator paths, empty/expired/retained
+  inputs, allocation failures, and preservation of pre-existing floating flags
+  when the environment supports that probe. Test-only environment changes are
+  scoped and restored; production algorithms never alter trap settings.
+- Local verification passes 58 algorithm groups on MSVC C++20 assertions,
+  latest-standard Release, MSVC AddressSanitizer, GCC C++20, and Clang C++20.
+  The native-allocation ASan configuration passes 57 groups with only the
+  existing global-new injection group disabled. All 28 MSVC checked-iterator
+  Debug Tensor CMake targets pass, retaining the existing injection-test skip.
+  Include-all and forward/reverse header compositions pass. Metadata, layer,
+  whitespace, line-width, registration, and named-test evidence checks pass.
+- Isolated GCC mutation probes detect negative-domain clamping, lost square-root
+  signed zero, a double round-trip for long-double logarithms, and explicit
+  clearing of a pre-existing floating flag. The flag probe uses volatile input
+  under optimization; it does not test exact libm flag sets or rounding modes.
+  These checks leave repository headers unmutated and are local evidence, not
+  remote CI results or cross-platform accuracy claims.
+- This increment does not add general transcendental families, configurable
+  floating-error policies, or parallel execution, and does not close Phase 5.
+
 **Work**
 
 - Decide result and accumulator types for every supported arithmetic category.
@@ -994,6 +1071,31 @@ between reviewers does not replace evidence.
 **Implementation started:** Yes; current executable evidence is recorded in `DN-TENSOR-001` and component tests.
 
 ## Review Record
+
+Local read-only Claude and Grok design reviews approved floating sqrt/exp/log
+on 2026-08-31. Claude's final source review supported shipping; its remaining
+documentation/test findings added attached exception tags, volatile input for
+the flag probe, and a comment explaining the deliberately shared owner in the
+borrowed-expiry/shared-retention test. The owner confirmed `Tensor` destroys its
+borrowed lifetime token independently of shared storage retention. An optimized
+flag-clearing mutation verified the scope of the environment check without
+claiming exact libm exception sets or rounding-mode coverage.
+
+Grok's initial final-source review was cancelled after more than six minutes
+without a verdict. A subsequent bounded review of the implementation excerpt,
+shared helper, contract, and owner-reported evidence returned no blockers.
+Neither peer executed tests; all compiler, sanitizer, and mutation evidence
+above was produced by the owner. No browser connection was used.
+
+Local read-only Claude and Grok unary-arithmetic reviews completed on
+2026-08-31 with no implementation blockers. Review feedback produced
+operation-specific overflow diagnostics, internal unsupported-type assertions,
+conditional extended-integer rejection probes, rank-0-through-4 layout oracles,
+and include-composition checks with Jet/scalar math. Jet's `abs` is actually in
+`fat_p::autodiff`, not the root namespace; the owner verified that source detail
+and tested ADL without changing or re-exporting the existing Jet API. An initial
+Grok job failed without a verdict; its bounded local retry completed. All
+execution evidence above is from the owner's tools, not reviewer execution.
 
 Local read-only Claude and Grok compound-arithmetic reviews completed across
 2026-08-30/31 with no implementation blockers. The owner verified the existing

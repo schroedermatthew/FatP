@@ -17,7 +17,7 @@ status: "draft"
 # Design Note - Tensor Semantic Contract
 
 **Status:** Experimental  
-**Contract version:** 0.9\
+**Contract version:** 0.11\
 **Applies to:** `Tensor`, `StaticTensor`, tensor views, and tensor algorithms  
 **Stability:** This design note is intentionally not an API or wire-format stability promise.
 
@@ -33,7 +33,7 @@ execution, and contraction contracts.
 ## Not covered
 
 - General einsum, sparse storage, GPU execution, or automatic differentiation.
-- In-place arithmetic, configurable conversion policies, or compensated/parallel reductions.
+- Configurable conversion policies, further transcendental families, or compensated/parallel reductions.
 - A stable C++ ABI or stable tensor wire format.
 
 ## Prerequisites
@@ -278,7 +278,7 @@ constness rule at compile time.
   shared view retains the source storage, preserving that alias. A unique source
   may move its elements. A non-copyable shared source is rejected before
   destination element storage allocation.
-- `is_contiguous()` is only a query; conversion APIs must not sometimes alias
+- `layout().isContiguous()` is only a query; conversion APIs must not sometimes alias
   and sometimes allocate under the same name.
 - View and materializing transforms must have visibly different names, such as
   `transposeView` and `transposeCopy`.
@@ -381,8 +381,103 @@ Callers synchronize concurrent writes through aliases.
 `transform` retains its source value type and existing callback conversions.
 `copyFrom`, `exactEqual`, and `approxEqual` still require matching element
 types. `approxEqual` also requires floating-point values and tolerances.
-Compound updates have the transactional contract below; additional unary
+Compound updates, checked negation/absolute value, and floating square root,
+exponential, and natural logarithm have the contracts below; further numeric
 families remain future work.
+
+#### Negation and absolute value
+
+`negate(source)`, unary `-source`, and `abs(source)` return independent canonical
+owners with exactly the source dtype and extents. They accept readable owners,
+borrowed views, and shared views, including const elements and temporary readable
+handles. Standard arithmetic types are supported except `bool`; the existing
+integer limit of 64 value bits applies. Enums, pointers, and custom element
+types are not arithmetic operands. Narrow integers and character types are
+**not** promoted to `int`. Character behavior follows the platform's signedness.
+
+| Element category | `negate` / unary `-` | `abs` |
+|---|---|---|
+| Signed integer | Throw `std::overflow_error` for `lowest()`; otherwise negate | Throw for `lowest()`; otherwise return nonnegative magnitude |
+| Unsigned integer | Zero becomes zero; every nonzero value throws `std::overflow_error` | Copy unchanged values into new storage |
+| Floating point | Native typed unary minus | Typed `std::fabs` |
+
+This deliberately follows checked same-dtype arithmetic rather than C++ scalar
+promotion or unsigned wraparound. Cast first when widening is required:
+`-cast<std::int16_t>(byteTensor)` can represent negative `uint8_t` values, and
+`abs(cast<std::int64_t>(int32Tensor))` can represent the magnitude of `INT32_MIN`.
+There is no implicit widening, saturating mode, or unary in-place update.
+
+In an IEC 559 environment, negation reverses the sign of both zeros and
+infinities; absolute value maps either zero to positive zero and either
+infinity to positive infinity. NaNs remain NaNs, without a sign/payload
+promise. Operations use the caller's native floating environment; they do not
+intercept traps or restore flags. Fast-math modes are outside these promises.
+
+Named functions also accept an explicit allocator of the unchanged value type,
+used as supplied. Default calls, including unary minus, use the owner's
+same-type rebound allocator followed by SOCCC; view-only calls use
+`TensorAllocator<Value>`. All source mappings are traversed logically by the
+existing unary kernel, including signed, zero, and overlapping read strides.
+Each nonempty result has one element buffer and no element scratch buffer;
+metadata may allocate separately. Rank-zero inputs evaluate once, and empty
+inputs preserve all extents without evaluating values or allocating elements.
+
+Source lifetime validation precedes result element allocation, including for
+empty inputs; dangling untracked/Release borrowed views remain unsupported.
+An allocation failure can precede a later numeric overflow. Any exception
+discards the unpublished result and leaves source values, storage, and metadata
+unchanged. Concurrent reads require stable source storage without concurrent
+writes through aliases. For `n = size()` and `r = max(rank(), 1)`, worst-case
+work is O(n * r + r * r), including iteration-plan construction; result and
+metadata space is O(n + r). The rank-squared setup term comes from repeated
+axis coalescing and is not an element buffer.
+
+#### Floating square root, exponential, and logarithm
+
+`sqrt(source)`, `exp(source)`, and `log(source)` accept only `float`, `double`,
+and `long double` tensors. Each returns an independent canonical owner with
+unchanged dtype and extents, calling the corresponding typed `std::sqrt`,
+`std::exp`, or `std::log` for each logical value. `log` is the natural logarithm.
+Integers, bool, enums, and user-defined number types are excluded rather than
+silently truncating a floating result into source storage. Cast explicitly,
+for example `sqrt(cast<double>(integerTensor))`.
+
+These operations follow native floating math, consistently with floating
+division. Tensor does **not** translate math domain/pole/range errors into C++
+exceptions or clamp inputs. Under IEC 559 semantics in a nontrapping environment:
+
+| Input | `sqrt` | `exp` | `log` |
+|---|---|---|---|
+| Positive zero | Positive zero | One | Negative infinity |
+| Negative zero | Negative zero | One | Negative infinity |
+| Negative finite value | NaN | Native positive result, possibly underflowing | NaN |
+| Positive infinity | Positive infinity | Positive infinity | Positive infinity |
+| Negative infinity | NaN | Positive zero | NaN |
+| Quiet NaN | NaN | NaN | NaN |
+
+Finite exponential overflow and underflow use the native library's range and
+rounding behavior; results can be infinity, a finite limit, subnormal, or zero
+as appropriate to that environment. There is no portable bitwise accuracy or
+correct-rounding promise beyond the selected scalar library, and no NaN sign or
+payload promise. `errno` may be set and floating-point flags may be raised.
+Tensor neither clears, aggregates, nor restores this state, and does not
+intercept enabled traps. Fast-math modes are outside these promises. On other
+floating implementations, the typed standard function's native behavior applies.
+
+Owner, borrowed/shared-view, constness, lifetime, shape, allocator, and failure
+rules are the same as negation/absolute value. Named explicit-allocator
+overloads require the exact source value type and use the allocator unchanged;
+default owner calls apply same-type allocator copy selection and view calls use
+`TensorAllocator<Value>`. Nonempty results allocate one element buffer without
+element scratch; metadata can allocate separately. Empty inputs preserve all
+extents and evaluate no scalar math, but still validate tracked lifetimes.
+Rank-zero inputs evaluate once. Allocation/lifetime exceptions propagate and
+leave source values, storage, and metadata unchanged. Returning a native NaN or
+infinity is a successful materialization, not a partial-result failure.
+
+For `n = size()` and `r = max(rank(), 1)`, setup/traversal costs
+O(n * r + r * r), plus `n` scalar math calls; result and metadata space is
+O(n + r). Concurrent reads require stable source storage without concurrent writes.
 
 #### Division
 
@@ -767,6 +862,16 @@ sources remain invalid in Release. Shared sources retain storage lifetime.
 | Floating division preserves native values, NaN category, and signed zero/infinity | `test_TensorAlgorithms.cpp::division_floating_special_values` |
 | Division handles signed/broadcast layouts and both operand orders | `test_TensorAlgorithms.cpp::division_layout_oracle` |
 | Division allocators, empty/scalar distinctions, failures, and lifetimes follow the contract | `test_TensorAlgorithms.cpp::division_allocator_contract`; `test_TensorAlgorithms.cpp::division_failure_and_lifetime` |
+| Unary operations preserve dtype and reject unsupported types/allocators | `test_TensorAlgorithms.cpp::unary_constraints` |
+| Signed minima and unsigned negation are checked before unsafe arithmetic | `test_TensorAlgorithms.cpp::unary_integer_boundaries`; `test_TensorAlgorithms.cpp::unary_exhaustive_byte_values` |
+| Unary floating results preserve native zero/infinity signs and NaN category | `test_TensorAlgorithms.cpp::unary_floating_special_values` |
+| Unary layouts materialize independently in logical coordinate order | `test_TensorAlgorithms.cpp::unary_layout_oracle` |
+| Unary allocator selection, empty results, failure cleanup, and lifetimes are explicit | `test_TensorAlgorithms.cpp::unary_allocator_contract`; `test_TensorAlgorithms.cpp::unary_failure_and_lifetime` |
+| Floating math accepts only float/double/long double, preserving owner/view result dtype | `test_TensorAlgorithms.cpp::floating_math_constraints` |
+| Typed square root/exp/log match native results, including domains, poles, and range limits | `test_TensorAlgorithms.cpp::floating_math_values` |
+| Floating math follows independent rank-0-through-4 logical coordinates without aliasing | `test_TensorAlgorithms.cpp::floating_math_layout_oracle` |
+| Floating math allocator selection, empty inputs, failures, and lifetimes follow the shared unary contract | `test_TensorAlgorithms.cpp::floating_math_allocator_contract`; `test_TensorAlgorithms.cpp::floating_math_failure_and_lifetime` |
+| Floating math does not clear pre-existing exception flags when the environment is supported | `test_TensorAlgorithms.cpp::floating_math_environment` |
 | Compound overloads require writable non-const lvalues and preserve the existing promotion matrix | `test_TensorAlgorithms.cpp::mixed_arithmetic_type_matrix`; `test_TensorAlgorithms.cpp::compound_constraints` |
 | Compound broadcasting preserves destination storage, shape, and view validity | `test_TensorAlgorithms.cpp::compound_broadcast_and_storage` |
 | Checked write-back rejects narrowing/fractional results without partial updates | `test_TensorAlgorithms.cpp::compound_checked_conversion_rollback`; `test_TensorAlgorithms.cpp::compound_integer_types` |
@@ -830,7 +935,7 @@ The public runtime vocabulary is fixed as `DynamicExtents`, `TensorLayout`,
 Rank/scalar rules, checked signed layouts, distinct owner/view types, allocator
 propagation, read-only broadcasting, explicit clone/reshape materialization,
 overlap-safe element transfer, mixed-type and scalar checked arithmetic including division,
-transactional compound updates,
+transactional compound updates, checked negation/absolute value, floating sqrt/exp/log,
 materializing numeric casts, unified serial kernels, extended slicing, checked
 axis reductions, borrowed interop,
 native matmul, indexed selection, and serializer resource limits have current
@@ -844,7 +949,7 @@ The remaining policy decisions are deliberately owned by later phase contracts:
 - Raw `data()` semantics for arbitrary negative-stride mappings; descriptor and
   optional `mdspan` interop are explicit alternatives.
 - Numeric families beyond the current binary/scalar operations, materializing
-  casts, compound updates, reductions, and matmul, including further unary operations.
+  casts, compound updates, negation/absolute value, sqrt/exp/log, reductions, and matmul.
 - Serializer extension framing and checksums.
 - Any storage model that supports allocator fancy pointers; the current public
   constraint remains `allocator_traits<Allocator>::pointer == T*`.

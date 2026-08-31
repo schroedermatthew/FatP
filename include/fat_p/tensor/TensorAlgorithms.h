@@ -174,6 +174,12 @@ concept CopyMaterializableTensor = ReadableTensor<Source> &&
     std::default_initializable<typename Source::value_type> &&
     std::assignable_from<typename Source::value_type&, const typename Source::value_type&>;
 
+template <typename Source>
+concept FloatingMathTensor = ReadableTensor<Source> &&
+    (std::same_as<typename Source::value_type, float> ||
+     std::same_as<typename Source::value_type, double> ||
+     std::same_as<typename Source::value_type, long double>);
+
 template <typename T>
 [[nodiscard]] constexpr T checkedSameTypeAdd(const T& left, const T& right)
 {
@@ -218,6 +224,55 @@ template <typename T>
         }
     }
     return static_cast<T>(left - right);
+}
+
+template <typename T>
+[[nodiscard]] constexpr T checkedSameTypeNegate(const T& value)
+{
+    static_assert(!std::same_as<typename decltype(arithmeticTypeIdentity<T, T>())::type, void>);
+    if constexpr (std::unsigned_integral<T>)
+    {
+        if (value != 0)
+        {
+            throw std::overflow_error("Tensor unsigned negation requires zero");
+        }
+        return value;
+    }
+    else
+    {
+        if constexpr (std::signed_integral<T>)
+        {
+            if (value == std::numeric_limits<T>::lowest())
+            {
+                throw std::overflow_error("Tensor integer negation overflow");
+            }
+        }
+        // Subtracting from zero would lose the required +0 -> -0 sign change.
+        return static_cast<T>(-value);
+    }
+}
+
+template <typename T>
+[[nodiscard]] T checkedSameTypeAbs(const T& value)
+{
+    static_assert(!std::same_as<typename decltype(arithmeticTypeIdentity<T, T>())::type, void>);
+    if constexpr (std::floating_point<T>)
+    {
+        // std::fabs is not required to be constexpr in the C++20 baseline.
+        return std::fabs(value);
+    }
+    else if constexpr (std::signed_integral<T>)
+    {
+        if (value == std::numeric_limits<T>::lowest())
+        {
+            throw std::overflow_error("Tensor integer absolute value overflow");
+        }
+        return value < 0 ? static_cast<T>(-value) : value;
+    }
+    else
+    {
+        return value;
+    }
 }
 
 template <typename T>
@@ -379,6 +434,16 @@ template <CastValue To, CastValue From>
         // All supported <=64-bit integers fit the range of standard floating types.
         return static_cast<To>(value);
     }
+}
+
+template <ReadableTensor Source, typename Allocator, typename Operation>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+unaryArithmetic(const Source& source, const Allocator& allocator, Operation operation)
+{
+    TensorAccess::validate(source);
+    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator, source.extents());
+    unaryKernel(source, result, operation);
+    return result;
 }
 
 template <bool ScalarFirst, typename Result, ReadableTensor Source, typename Scalar,
@@ -992,6 +1057,173 @@ template <ReadableTensor Source, typename Scalar>
     return divide(scalar, source);
 }
 
+
+/**
+ * @brief Negate each logical value into an independent canonical owner, preserving dtype and extents.
+ * @param source Readable owner or view, never modified; bool and non-arithmetic elements are excluded.
+ * @param allocator Result allocator with the source value_type, used unchanged.
+ * @return Tensor<Source::value_type, Allocator>, with no implicit narrow-integer promotion.
+ * @details Signed integers reject lowest(); unsigned integers accept only zero. Cast explicitly before
+ * negation when a wider signed result is needed. Floating negation uses native unary minus, including
+ * signed zero, infinity, and NaN behavior under the caller's floating-point environment.
+ * Empty inputs evaluate no elements. A nonempty result uses one element buffer and no element scratch.
+ * @throws std::overflow_error An integer result is not representable in the source dtype.
+ * @throws std::runtime_error A tracked borrowed source has expired (debug lifetime checking).
+ * @throws std::bad_alloc Result or iteration metadata allocation fails; unpublished storage is released.
+ * @note O(n * r + r * r) worst-case work and O(n + r) space, for n=size() and r=max(rank(),1).
+ * Concurrent reads require stable storage without writes. Validation precedes result element allocation;
+ * allocation failure may precede numeric overflow. Floating flags and traps are not intercepted.
+ */
+template <ReadableTensor Source, typename Allocator>
+    requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+negate(const Source& source, const Allocator& allocator)
+{
+    return tensor_detail::unaryArithmetic(source, allocator,
+                                         tensor_detail::checkedSameTypeNegate<typename Source::value_type>);
+}
+
+/**
+ * @brief Negate values with the owner's copy-selected allocator, or the default allocator for views.
+ * @param source Readable owner or view; never modified.
+ * @return Fresh canonical owner preserving the source dtype and extents.
+ * @throws std::overflow_error, std::runtime_error, std::bad_alloc As in negate(source, allocator).
+ * @note Same complexity, numeric rules, lifetime requirements, and thread safety as the explicit overload.
+ */
+template <ReadableTensor Source>
+    requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type>
+[[nodiscard]] auto negate(const Source& source)
+{
+    return negate(source, tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
+
+/**
+ * @brief Unary minus; equivalent to negate(source), including checked unsigned and narrow integer rules.
+ * @param source Readable owner or view; never modified.
+ * @return Fresh canonical owner preserving dtype and extents, with negate's allocator selection.
+ * @throws std::overflow_error, std::runtime_error, std::bad_alloc As in negate(source).
+ * @note Same complexity and thread safety as negate(source).
+ */
+template <ReadableTensor Source>
+    requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type>
+[[nodiscard]] auto operator-(const Source& source)
+{
+    return negate(source);
+}
+
+/**
+ * @brief Materialize absolute values without changing dtype or extents.
+ * @param source Readable owner or view, never modified; bool and non-arithmetic elements are excluded.
+ * @param allocator Result allocator with the source value_type, used unchanged.
+ * @return Independent canonical Tensor<Source::value_type, Allocator>; unsigned values are copied.
+ * @details Signed lowest() throws before negation; floating values use std::fabs, including -0 -> +0,
+ * negative infinity -> positive infinity, and NaN category preservation on IEC 559 implementations.
+ * No NaN sign/payload or floating-environment restoration guarantee is made.
+ * @throws std::overflow_error A signed integer absolute value is not representable.
+ * @throws std::runtime_error A tracked borrowed source has expired (debug lifetime checking).
+ * @throws std::bad_alloc Result or iteration metadata allocation fails; unpublished storage is released.
+ * @note Same allocation, validation, empty-input, complexity, and thread-safety rules as negate(source, allocator).
+ */
+template <ReadableTensor Source, typename Allocator>
+    requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+abs(const Source& source, const Allocator& allocator)
+{
+    return tensor_detail::unaryArithmetic(source, allocator,
+                                         tensor_detail::checkedSameTypeAbs<typename Source::value_type>);
+}
+
+/**
+ * @brief Materialize absolute values with owner copy-selection, or the default allocator for views.
+ * @param source Readable owner or view; never modified.
+ * @return Fresh canonical owner preserving the source dtype and extents.
+ * @throws std::overflow_error, std::runtime_error, std::bad_alloc As in abs(source, allocator).
+ * @note Same complexity, numeric rules, lifetime requirements, and thread safety as the explicit overload.
+ */
+template <ReadableTensor Source>
+    requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type>
+[[nodiscard]] auto abs(const Source& source)
+{
+    return abs(source, tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
+
+// Floating math shares negate/abs's owner/view, allocation, lifetime, and exception-safety contract.
+// Only float, double, and long double participate; integers require an explicit cast before evaluation.
+// Each element uses its typed standard-library overload. Domain/range errors are not translated into
+// C++ exceptions: native NaN/infinity/underflow behavior, errno, flags, and enabled traps apply.
+// No errno/flag clearing, restoration, cross-platform accuracy, or fast-math guarantee is provided.
+// Validation precedes element allocation; std::bad_alloc and tracked-lifetime std::runtime_error propagate.
+// Empty inputs evaluate no math, rank-zero inputs evaluate once, and source storage is never modified.
+// Complexity: O(n * r + r * r) traversal/setup plus n scalar math calls, O(n + r) result/metadata space,
+// where n=size() and r=max(rank(),1). Concurrent reads require stable storage without concurrent writes.
+
+/** @brief Materialize typed std::sqrt values with unchanged dtype and extents.
+ * @param source Readable floating owner/view. @param allocator Same-value-type allocator, used unchanged.
+ * @return Independent canonical owner with native floating results; no Tensor numeric exceptions.
+ * @throws std::bad_alloc Allocation fails. @throws std::runtime_error A tracked borrowed source expired. */
+template <tensor_detail::FloatingMathTensor Source, typename Allocator>
+    requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+sqrt(const Source& source, const Allocator& allocator)
+{
+    using value_type = typename Source::value_type;
+    return tensor_detail::unaryArithmetic(source, allocator, [](value_type value) { return std::sqrt(value); });
+}
+
+/** @brief Materialize square roots using owner copy-selection, or the default allocator for views.
+ * @param source Readable floating owner/view, never modified.
+ * @return Independent same-dtype owner; all rules of sqrt(source, allocator) apply. */
+template <tensor_detail::FloatingMathTensor Source>
+[[nodiscard]] auto sqrt(const Source& source)
+{
+    return sqrt(source, tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
+
+/** @brief Materialize typed std::exp values with unchanged dtype and extents.
+ * @param source Readable floating owner/view. @param allocator Same-value-type allocator, used unchanged.
+ * @return Independent canonical owner with native floating results; no Tensor numeric exceptions.
+ * @throws std::bad_alloc Allocation fails. @throws std::runtime_error A tracked borrowed source expired. */
+template <tensor_detail::FloatingMathTensor Source, typename Allocator>
+    requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+exp(const Source& source, const Allocator& allocator)
+{
+    using value_type = typename Source::value_type;
+    return tensor_detail::unaryArithmetic(source, allocator, [](value_type value) { return std::exp(value); });
+}
+
+/** @brief Materialize exponentials using owner copy-selection, or the default allocator for views.
+ * @param source Readable floating owner/view, never modified.
+ * @return Independent same-dtype owner; all rules of exp(source, allocator) apply. */
+template <tensor_detail::FloatingMathTensor Source>
+[[nodiscard]] auto exp(const Source& source)
+{
+    return exp(source, tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
+
+/** @brief Materialize typed std::log (natural logarithm) values with unchanged dtype and extents.
+ * @param source Readable floating owner/view. @param allocator Same-value-type allocator, used unchanged.
+ * @return Independent canonical owner with native floating results; no Tensor numeric exceptions.
+ * @throws std::bad_alloc Allocation fails. @throws std::runtime_error A tracked borrowed source expired. */
+template <tensor_detail::FloatingMathTensor Source, typename Allocator>
+    requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+log(const Source& source, const Allocator& allocator)
+{
+    using value_type = typename Source::value_type;
+    return tensor_detail::unaryArithmetic(source, allocator, [](value_type value) { return std::log(value); });
+}
+
+/** @brief Materialize natural logarithms using owner copy-selection, or the default allocator for views.
+ * @param source Readable floating owner/view, never modified.
+ * @return Independent same-dtype owner; all rules of log(source, allocator) apply. */
+template <tensor_detail::FloatingMathTensor Source>
+[[nodiscard]] auto log(const Source& source)
+{
+    return log(source, tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
 
 namespace tensor_detail
 {

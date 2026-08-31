@@ -476,6 +476,77 @@ element allocation. A rank-zero tensor contains one value, so division of that
 value by integer zero throws. Shape and Debug borrowed-lifetime checks still
 precede result element allocation, including for empty inputs.
 
+## Negation and absolute value
+
+Use `negate`, unary minus, or `abs` for checked elementwise operations. Each
+returns a new contiguous owner and preserves the source shape and element type,
+including narrow integers. Owners, borrowed views, and shared views are accepted.
+
+```cpp
+fat_p::Tensor<int> values({2}, -3);
+auto negative = -values;                        // {3, 3}, Tensor<int>
+auto named = fat_p::negate(values.asConstView()); // {3, 3}, independent storage
+auto magnitude = fat_p::abs(values);            // {3, 3}, Tensor<int>
+auto allocated = fat_p::abs(values, std::allocator<int>{});
+
+fat_p::Tensor<std::uint8_t> bytes({2}, std::uint8_t{255});
+auto signedNegative = -fat_p::cast<std::int16_t>(bytes); // {-255, -255}
+// -bytes throws std::overflow_error: negative nonzero values do not fit uint8_t.
+```
+
+Signed integer `lowest()` throws `std::overflow_error` for both negation and
+absolute value; cast to a sufficiently wide type first if that result is
+needed. Unsigned `abs` copies the values; unsigned negation accepts only zero.
+There is no wraparound or implicit promotion to `int`. Boolean tensors do not
+participate in these operations.
+
+Floating negation uses native unary minus, including `+0` becoming `-0`.
+Floating `abs` uses `std::fabs`: on IEC 559 platforms either zero becomes `+0`,
+either infinity becomes positive infinity, and NaNs remain NaNs. NaN sign and
+payload are not specified. The caller's floating environment is used without
+trap interception or flag restoration; fast-math is outside this contract.
+
+The default result allocator comes from the owner through copy selection;
+view-only calls use `TensorAllocator<T>`. The named functions accept an explicit
+allocator with the same `value_type`, used unchanged. Nonempty calls allocate
+one result element buffer, with no element scratch buffer; metadata may allocate
+separately. Empty shapes allocate no elements and evaluate no values. Rank-zero
+inputs still evaluate their single value. Failures discard the unpublished
+result without changing the source. Tracked borrowed lifetimes are checked
+before element allocation, even for empty inputs.
+
+## Square roots, exponentials, and logarithms
+
+`sqrt`, `exp`, and `log` operate on floating-point tensors and materialize new
+owners without changing dtype or shape. `log` means natural logarithm.
+
+```cpp
+fat_p::Tensor<double> values({3}, 4.0);
+auto roots = fat_p::sqrt(values);                // {2, 2, 2}
+auto exponentials = fat_p::exp(values.asConstView());
+auto logarithms = fat_p::log(values.asSharedView());
+auto allocated = fat_p::sqrt(values, std::allocator<double>{});
+
+fat_p::Tensor<int> counts({2}, 9);
+auto countRoots = fat_p::sqrt(fat_p::cast<double>(counts)); // {3, 3}
+// fat_p::sqrt(counts) does not compile: cast integers explicitly first.
+```
+
+Only `float`, `double`, and `long double` participate. The matching scalar
+standard-library function is called directly; no intermediate `double` tensor
+or new dependency is introduced. Owners and mutable/const borrowed or shared
+views use the same allocation and lifetime rules as `abs` above. Empty tensors
+evaluate no values, whereas a rank-zero tensor evaluates its single value.
+
+Floating domain errors are **not C++ exceptions**. On IEC 559 platforms with
+traps disabled, negative square roots and logarithms return NaN, `log(0)` and
+`log(-0)` return negative infinity, and `sqrt(-0)` preserves negative zero.
+Exponential overflow/underflow follows native scalar math. NaN payloads and
+cross-platform bitwise results are not promised. The scalar library may set
+`errno` or floating flags; Tensor does not clear or restore them, suppress traps,
+or promise fast-math behavior. Allocation and tracked-lifetime failures still
+throw normally without changing the source.
+
 ## Updating values without replacing storage
 
 Compound arithmetic updates an owner or a named writable view while keeping
@@ -752,6 +823,8 @@ fixed-size type with its own checked/saturating arithmetic policies.
 | Extended transforms | `Slice`, `All`, `NewAxis`, `Ellipsis`, `permuteView`, `squeezeView`, `unsqueezeView` |
 | Materialization / transfer | `clone`, `reshapeCopy`, `copyFrom`, `cast<To>` |
 | Base algorithms | `add`, `subtract`, `multiply`, `divide`, `transform`, `exactEqual`, `approxEqual` |
+| Checked unary arithmetic | `negate`, unary `operator-`, `abs`; dtype-preserving materialized results |
+| Floating unary math | `sqrt`, `exp`, `log`; float/double/long double, native scalar math behavior |
 | Compound updates | `addAssign`, `subtractAssign`, `multiplyAssign`, `divideAssign`; `+=`, `-=`, `*=`, `/=` |
 | Reductions | `sum`, `product`, `mean`, `min`, `max`, `argmin`, `argmax`, `all`, `any` |
 | Linear algebra | `matmul` |
