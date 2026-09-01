@@ -34,6 +34,7 @@ FATP_META:
 #include <limits>
 #include <new>
 #include <random>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -43,6 +44,19 @@ FATP_META:
 
 namespace fat_p::testing::tensorserializer
 {
+
+template <typename T>
+concept TensorSerializableElement = requires(const Tensor<T>& tensor, const std::vector<std::uint8_t>& bytes) {
+    serialize_tensor(tensor);
+    deserialize_tensor<T>(bytes);
+};
+
+static_assert(TensorSerializableElement<std::int8_t>);
+static_assert(TensorSerializableElement<std::uint64_t>);
+static_assert(TensorSerializableElement<float>);
+static_assert(TensorSerializableElement<double>);
+static_assert(!TensorSerializableElement<bool>);
+static_assert(!TensorSerializableElement<long double>);
 
 template <typename T>
 class CountingSerializerAllocator
@@ -590,6 +604,27 @@ FATP_TEST_CASE(type_mismatch)
 
     auto result = deserialize_tensor<double>(*serialized);
     FATP_ASSERT_TRUE(!result.has_value(), "Type mismatch should fail");
+    FATP_ASSERT_TRUE(result.error().code == TensorSerializationErrorCode::TypeMismatch,
+                     "A known but different canonical dtype should report TypeMismatch");
+    FATP_ASSERT_TRUE(result.error().message.find("expected float64 but got float32 (type ID 9)") != std::string::npos,
+                     "TypeMismatch diagnostics should use canonical names and the encoded identifier");
+
+    return true;
+}
+
+FATP_TEST_CASE(invalid_dtype_id)
+{
+    Tensor<std::int32_t> tensor({1}, 7);
+    auto serialized = serialize_tensor(tensor);
+    FATP_ASSERT_TRUE(serialized.has_value(), "Setup serialization should succeed");
+    (*serialized)[5] = 255;
+
+    auto result = deserialize_tensor<std::int32_t>(*serialized);
+    FATP_ASSERT_FALSE(result.has_value(), "An unknown dtype identifier should fail");
+    FATP_ASSERT_TRUE(result.error().code == TensorSerializationErrorCode::TypeMismatch,
+                     "An unknown dtype identifier should retain the TypeMismatch channel");
+    FATP_ASSERT_TRUE(result.error().message.find("expected int32 but got unknown (type ID 255)") != std::string::npos,
+                     "Unknown dtype diagnostics should use the canonical fallback name");
 
     return true;
 }
@@ -994,6 +1029,7 @@ bool test_TensorSerializer()
     FATP_RUN_TEST_NS(runner, tensorserializer, wrong_magic);
     FATP_RUN_TEST_NS(runner, tensorserializer, wrong_version);
     FATP_RUN_TEST_NS(runner, tensorserializer, type_mismatch);
+    FATP_RUN_TEST_NS(runner, tensorserializer, invalid_dtype_id);
     FATP_RUN_TEST_NS(runner, tensorserializer, zero_extent_empty_roundtrip);
     FATP_RUN_TEST_NS(runner, tensorserializer, rank_zero_scalar_roundtrip);
     FATP_RUN_TEST_NS(runner, tensorserializer, rank_zero_scalar_payload_validation);

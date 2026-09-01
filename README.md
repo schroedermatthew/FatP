@@ -254,13 +254,13 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 | CborLite / CborStreamLite | Low-level CBOR encoder/decoder and streaming parser |
 | FatPCbor / FatPCborStream | Expected-based CBOR bridge |
 | BinaryLite / FatPBinary | Binary serialization (lite and Fat-P integrated) |
-| TensorSerializer | Tensor snapshot encoding/decoding |
+| TensorSerializer | Tensor snapshot encoding/decoding using canonical dtype metadata |
 
 ### Math and HPC
 
 | Component | Description |
 |-----------|-------------|
-| Tensor / TensorView / TensorLayout | Allocator-aware contiguous owners and validated signed-stride views |
+| Tensor / TensorView / TensorLayout / TensorDType | Owners, signed-stride views, layouts, and scalar metadata |
 | TensorAlgorithms | Serial owner/view arithmetic, broadcasting, transforms, equality, and hashing |
 | TensorSlice / TensorReductions | Python-style metadata slicing and deterministic checked axis reductions |
 | TensorInterop / TensorMatmul | Span/descriptor/fixed-size bridges and native matmul, dot, outer, diagonal, and trace |

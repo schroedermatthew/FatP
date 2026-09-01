@@ -36,11 +36,14 @@ FATP_META:
 #include "Tensor.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <numeric>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -70,6 +73,78 @@ static_assert(ReadableTensor<Tensor<int>>);
 static_assert(WritableTensor<Tensor<int>>);
 static_assert(ReadableTensor<TensorView<const int>>);
 static_assert(!WritableTensor<TensorView<const int>>);
+static_assert(TensorDTypeElement<std::int8_t>);
+static_assert(TensorDTypeElement<std::uint8_t>);
+static_assert(TensorDTypeElement<std::int16_t>);
+static_assert(TensorDTypeElement<std::uint16_t>);
+static_assert(TensorDTypeElement<std::int32_t>);
+static_assert(TensorDTypeElement<std::uint32_t>);
+static_assert(TensorDTypeElement<std::int64_t>);
+static_assert(TensorDTypeElement<std::uint64_t>);
+static_assert(TensorDTypeElement<float>);
+static_assert(TensorDTypeElement<double>);
+static_assert(TensorDTypeElement<const std::int32_t&>);
+static_assert(!TensorDTypeElement<bool>);
+static_assert(!TensorDTypeElement<char>);
+static_assert(!TensorDTypeElement<long double>);
+static_assert(tensorDTypeOf<const std::int32_t&>() == TensorDType::Int32);
+static_assert(tensorDTypeName<double>() == std::string_view{"float64"});
+
+FATP_TEST_CASE(canonical_dtype_vocabulary)
+{
+    constexpr std::array expectedDTypes{TensorDType::Int8,
+                                        TensorDType::Uint8,
+                                        TensorDType::Int16,
+                                        TensorDType::Uint16,
+                                        TensorDType::Int32,
+                                        TensorDType::Uint32,
+                                        TensorDType::Int64,
+                                        TensorDType::Uint64,
+                                        TensorDType::Float32,
+                                        TensorDType::Float64};
+    constexpr std::array<std::string_view, 10>
+        expectedNames{"int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float32", "float64"};
+    constexpr std::array<std::size_t, 10> expectedWidths{8, 8, 16, 16, 32, 32, 64, 64, 32, 64};
+    const auto& descriptors = tensorDTypeDescriptors();
+
+    FATP_ASSERT_EQ(descriptors.size(), expectedDTypes.size(), "Canonical dtype table should have ten entries");
+    for (std::size_t index = 0; index < descriptors.size(); ++index)
+    {
+        const auto& descriptor = descriptors[index];
+        FATP_ASSERT_TRUE(descriptor.dtype == expectedDTypes[index], "Canonical dtype order should remain explicit");
+        FATP_ASSERT_TRUE(descriptor.name == expectedNames[index],
+                         "Canonical dtype name should be compiler-independent");
+        FATP_ASSERT_EQ(descriptor.bitWidth, expectedWidths[index], "Canonical dtype width should match its name");
+        FATP_ASSERT_EQ(static_cast<std::uint8_t>(descriptor.dtype),
+                       static_cast<std::uint8_t>(index + 1),
+                       "Canonical dtype identifiers should retain the version-2 wire values");
+
+        const auto decoded = tensorDTypeFromId(static_cast<std::uint8_t>(index + 1));
+        FATP_ASSERT_TRUE(decoded.has_value() && *decoded == descriptor.dtype,
+                         "Every canonical dtype identifier should decode to its descriptor");
+        FATP_ASSERT_TRUE(tensorDTypeDescriptor(descriptor.dtype) == &descriptor,
+                         "Runtime descriptor lookup should return the canonical table entry");
+        FATP_ASSERT_TRUE(tensorDTypeName(descriptor.dtype) == descriptor.name,
+                         "Runtime dtype name should come from the canonical descriptor");
+        FATP_ASSERT_EQ(tensorDTypeBitWidth(descriptor.dtype),
+                       descriptor.bitWidth,
+                       "Runtime dtype width should come from the canonical descriptor");
+    }
+
+    for (const std::uint8_t invalidId : {std::uint8_t{0}, std::uint8_t{11}, std::uint8_t{255}})
+    {
+        const auto invalidDType = static_cast<TensorDType>(invalidId);
+        FATP_ASSERT_FALSE(tensorDTypeFromId(invalidId).has_value(), "Unknown dtype identifiers should not decode");
+        FATP_ASSERT_TRUE(tensorDTypeDescriptor(invalidDType) == nullptr,
+                         "Unknown dtype enum values should have no descriptor");
+        FATP_ASSERT_TRUE(tensorDTypeName(invalidDType) == std::string_view{"unknown"},
+                         "Unknown dtype enum values should have a stable diagnostic name");
+        FATP_ASSERT_EQ(tensorDTypeBitWidth(invalidDType),
+                       std::size_t{0},
+                       "Unknown dtype enum values should have no logical width");
+    }
+    return true;
+}
 
 template <typename T, bool CopyPropagation, bool MovePropagation, bool SwapPropagation>
 class TestAllocator
@@ -441,6 +516,7 @@ bool test_Tensor()
 {
     FATP_PRINT_HEADER(TENSOR OWNER AND VIEWS)
     TestRunner runner;
+    FATP_RUN_TEST_NS(runner, tensor, canonical_dtype_vocabulary);
     FATP_RUN_TEST_NS(runner, tensor, owner_scalar_empty_and_access);
     FATP_RUN_TEST_NS(runner, tensor, owner_copy_move_fill_and_hash);
     FATP_RUN_TEST_NS(runner, tensor, owner_allocator_semantics);

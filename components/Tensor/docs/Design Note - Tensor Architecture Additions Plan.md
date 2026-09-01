@@ -10,7 +10,7 @@ std_equivalent: "std::mdspan (partial layout and view overlap)"
 std_since: "C++23"
 boost_equivalent: "Boost.MultiArray (partial semantic overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-08-31"
+last_verified: "2026-09-01"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
 status: "reviewed"
 ---
@@ -20,7 +20,7 @@ status: "reviewed"
 **Status:** Phases 0-4 complete; Phase 5-8 dependency-light cores and bounded Phase 9-11 increments implemented and validated
 
 **Decided:** The owner/view/layout/kernel foundation and dependency-light algorithm expansion are implemented  
-**Last reviewed:** 2026-08-31
+**Last reviewed:** 2026-09-01
 
 ## Scope
 
@@ -198,6 +198,7 @@ Facade-owned implementation is centralized:
 
 ```text
 include/fat_p/tensor/Tensor.h
+include/fat_p/tensor/TensorDType.h
 include/fat_p/tensor/TensorExtents.h
 include/fat_p/tensor/TensorLayout.h
 include/fat_p/tensor/TensorSlice.h
@@ -278,13 +279,14 @@ rg -n --glob '!Artifacts/**' `
 ```
 
 Phase 2 owns the first expression and the storage names in the third. Phase 3
-owns the second. Phase 8 owns the einsum names in the third. Phase 11 owns the
-duplicate dtype helpers identified by `type_name|get_tensor_type_name` until one
-canonical dtype vocabulary replaces them.
+owns the second. Phase 8 owns the einsum names in the third. Phase 11 removed
+the serializer helpers `get_tensor_type_id` and `get_tensor_type_name` when the
+canonical dtype vocabulary landed. Reflection's general `type_name<T>()` remains
+separate because source type spelling is not dtype identity.
 
 ## Phase Plan
 
-| Phase | Status on 2026-08-31 |
+| Phase | Status on 2026-09-01 |
 |---:|---|
 | 0 | Complete: governance, artifact relocation, Debug/sanitizer CI, and baseline harness |
 | 1 | Complete: checked extents, signed layouts, classification, and oracle tests |
@@ -297,7 +299,7 @@ canonical dtype vocabulary replaces them.
 | 8 | Named APIs, subset einsum retirement, and measured contiguous-vector dispatch implemented; broader specialization remains |
 | 9 | Bounded native execution contexts implemented and remotely validated for `matmul` and `dot`; wider scheduling and backend work remains optional |
 | 10 | Explicit-axis `tensorDot`, context overloads, tests, and measurements implemented and remotely validated; packing, path optimization, and complete einsum remain absent |
-| 11 | Version 2 serialization limits and same-element-type static/dynamic conversion implemented; canonical dtype, framing, checksums, and stable wire compatibility remain open |
+| 11 | Bounded v2 serialization, dtype metadata, and static/dynamic conversion implemented; stability work remains |
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
 an explicit allocator wins; otherwise the first owning input from left to right
@@ -1145,9 +1147,23 @@ they are not implied by the context API.
   the exact result allocator.
 - `toTensor` and `toStaticTensor` provide same-element-type static/dynamic conversion.
   Tests cover exact shapes, mismatched shapes, rank-zero values, and view materialization.
-- Extension framing, checksums, a canonical dtype vocabulary, cross-version
-  compatibility policy, and any broader numeric conversion surface remain open.
+- Extension framing, checksums, cross-version compatibility policy, and any
+  broader numeric conversion surface remain open.
   The current experimental wire format is not a stability promise.
+
+**Delivered canonical dtype increment (2026-09-01; Phase 11 not closed)**
+
+- `TensorDType` defines ten implementation-independent fixed-width integer and
+  floating entries. Each entry has one explicit identifier, lowercase name,
+  and logical bit width and is exported through the existing `Tensor.h` facade.
+- `TensorSerializer` consumes the shared vocabulary and no longer owns a second
+  enum or type-name helper. Its version 2 identifiers and golden bytes are
+  unchanged. Serializer-only representation checks remain at the wire boundary.
+- Compile-time constraints reject scalar types without a canonical entry.
+  Tests cover every mapping, invalid identifiers, serializer participation, and
+  canonical mismatch diagnostics. Both Tensor workflows track the owned header.
+- The vocabulary and wire format remain `in_work`; this increment does not make
+  an API, ABI, or wire-compatibility promise.
 
 **Exit gate**
 

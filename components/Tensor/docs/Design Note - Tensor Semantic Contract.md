@@ -9,7 +9,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (partial semantic overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-08-31"
+last_verified: "2026-09-01"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "draft"
 ---
@@ -17,7 +17,7 @@ status: "draft"
 # Design Note - Tensor Semantic Contract
 
 **Status:** Experimental  
-**Contract version:** 0.13\
+**Contract version:** 0.14\
 **Applies to:** `Tensor`, `StaticTensor`, tensor views, and tensor algorithms  
 **Stability:** This design note is intentionally not an API or wire-format stability promise.
 
@@ -888,6 +888,15 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 
 - Portable serialization stores canonical logical values, not allocator state,
   storage ownership, OS handles, or arbitrary physical view strides.
+- `TensorDType` is the shared runtime and wire vocabulary for `std::int8_t`,
+  `std::uint8_t`, `std::int16_t`, `std::uint16_t`, `std::int32_t`,
+  `std::uint32_t`, `std::int64_t`, `std::uint64_t`, `float`, and `double`.
+  Its identifiers, lowercase names, and logical bit widths are explicit and do
+  not depend on RTTI or compiler type spelling.
+- `TensorDTypeElement` admits exactly types with a canonical entry after
+  cv-reference removal. Tensor ownership itself remains generic; serialization
+  participates only for canonical dtype elements. `bool`, plain `char`,
+  `long double`, and user-defined types have no canonical entry.
 - Rank-zero scalars encode one payload element. Empty tensors encode a shape with
   at least one zero extent and no payload elements.
 - Portable big-endian interchange and native memory-mapped images are different
@@ -895,7 +904,8 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 - Version 2 interoperability requires 8-bit bytes, pure little- or big-endian
   storage, two's-complement signed integers, and IEEE-754 binary32/binary64
   floating point. The implementation rejects unsupported representations at
-  compile time.
+  compile time. These checks are wire requirements, not properties of the
+  general dtype vocabulary.
 - Wire format version 2 distinguishes a rank-zero scalar from an empty tensor.
   The decoder accepts only version 2 and rejects every other wire-version value.
   Version 1 is incompatible because it encoded dynamic rank zero as empty; it is
@@ -921,6 +931,9 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 | Constness propagates and public broadcast is read-only | Compile-time assertions and `test_TensorView.cpp::readonly_broadcast` |
 | Clone materializes strided and broadcast logical values | `test_Tensor.cpp::view_transforms_constness_and_clone` |
 | Rank-zero and empty serialization are distinct | `test_TensorSerializer.cpp::rank_zero_scalar_roundtrip`; `test_TensorSerializer.cpp::zero_extent_empty_roundtrip` |
+| Canonical dtype table and invalid enum behavior | `test_Tensor.cpp::canonical_dtype_vocabulary` |
+| Serializer dtype mismatch diagnostics | `test_TensorSerializer.cpp::type_mismatch` |
+| Unknown serializer dtype identifiers | `test_TensorSerializer.cpp::invalid_dtype_id` |
 | Serializer trust limits precede Tensor element storage | `test_TensorSerializer.cpp::deserialization_resource_limits` |
 | Signed pointer-forming views stay within validated storage | `test_TensorView.cpp::external_mapping_validation` |
 | Checked runtime extents and signed layout reachability | `test_TensorLayout.cpp::dynamic_extents_and_axes`; `test_TensorLayout.cpp::validation_boundaries`; `test_TensorLayout.cpp::randomized_scalar_oracle` |
@@ -1028,9 +1041,9 @@ completed cross-platform compiler/sanitizer gates recorded in the additions plan
 ## Implementation Status
 
 The public runtime vocabulary is fixed as `DynamicExtents`, `TensorLayout`,
-`SliceSpec`, `TensorView<T>`, `TensorView<const T>`, and
-`SharedTensorView<T>`. Borrowed factories are lvalue-qualified. Compile-time
-`Shape` remains the `StaticTensor` vocabulary.
+`SliceSpec`, `TensorView<T>`, `TensorView<const T>`, `SharedTensorView<T>`, and
+`TensorDType`. Borrowed factories are lvalue-qualified. Compile-time `Shape`
+remains the `StaticTensor` vocabulary.
 
 Rank/scalar rules, checked signed layouts, distinct owner/view types, allocator
 propagation, read-only broadcasting, explicit clone/reshape materialization,
@@ -1039,7 +1052,8 @@ transactional compound updates, checked negation/absolute value, floating sqrt/e
 materializing numeric casts, unified serial kernels, extended slicing, checked
 axis reductions, borrowed interop,
 named linear algebra, explicit-axis tensorDot, native explicit execution contexts,
-indexed selection, and serializer resource limits have current executable evidence.
+indexed selection, canonical dtype metadata, and serializer resource limits have
+current executable evidence.
 Further numeric families, contraction-path optimization, and complete einsum
 remain target-only. The dedicated
 [TensorContractions CI run](https://github.com/schroedermatthew/FatP/actions/runs/33419554296)

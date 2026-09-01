@@ -16,6 +16,7 @@ on:
     paths:
       - 'include/fat_p/TensorSerializer.h'
       - 'include/fat_p/tensor/TensorSerializer.h'
+      - 'include/fat_p/tensor/TensorDType.h'
       - 'include/fat_p/tensor/Tensor.h'
       - 'include/fat_p/tensor/TensorView.h'
       - 'include/fat_p/tensor/TensorLayout.h'
@@ -25,6 +26,7 @@ on:
     paths:
       - 'include/fat_p/TensorSerializer.h'
       - 'include/fat_p/tensor/TensorSerializer.h'
+      - 'include/fat_p/tensor/TensorDType.h'
       - 'include/fat_p/tensor/Tensor.h'
       - 'include/fat_p/tensor/TensorView.h'
       - 'include/fat_p/tensor/TensorLayout.h'

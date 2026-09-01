@@ -3,13 +3,14 @@ doc_id: UM-TENSOR-001
 doc_type: "User Manual"
 title: "Tensor"
 fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer"]
-topics: ["dynamic tensor", "tensor owner", "tensor view", "signed strides", "slicing", "broadcasting", "reductions", "interop", "matrix multiplication", "indexed selection", "tensor serialization"]
+topics: ["dynamic tensor", "tensor owner", "tensor view", "tensor dtype", "signed strides", "slicing", "broadcasting",
+  "reductions", "interop", "matrix multiplication", "indexed selection", "tensor serialization"]
 constraints: ["C++20", "header-only", "canonical owning storage", "borrowed lifetime", "injective mutation"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (partial overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-08-31"
+last_verified: "2026-09-01"
 audience: ["C++ developers", "library maintainers"]
 status: "in_work"
 ---
@@ -36,7 +37,7 @@ The separation is deliberate:
 ## Headers
 
 ```cpp
-#include "Tensor.h"             // owner plus view factories
+#include "Tensor.h"             // owner, view factories, and dtype metadata
 #include "TensorView.h"         // explicit view-facing include
 #include "TensorLayout.h"       // extents, axes, strides, layouts
 #include "TensorAlgorithms.h"   // serial owner/view algorithms
@@ -972,6 +973,44 @@ See [execution measurements and validation](../results/2026-08-31-execution-cont
 Linux AddressSanitizer, UndefinedBehaviorSanitizer, and ThreadSanitizer coverage,
 along with the supported compiler matrix, passed in the published CI record linked there.
 
+## Canonical dtype vocabulary
+
+`Tensor.h` exports canonical metadata for the ten scalar types shared with
+`TensorSerializer`:
+
+```cpp
+static_assert(TensorDTypeElement<std::int32_t>);
+static_assert(tensorDTypeOf<std::int32_t>() == TensorDType::Int32);
+static_assert(tensorDTypeName<std::int32_t>() == "int32");
+static_assert(tensorDTypeBitWidth(TensorDType::Int32) == 32);
+
+auto decoded = tensorDTypeFromId(5); // TensorDType::Int32
+```
+
+| C++ type | Enum | ID | Name | Bits |
+|---|---|---:|---|---:|
+| `std::int8_t` | `Int8` | 1 | `int8` | 8 |
+| `std::uint8_t` | `Uint8` | 2 | `uint8` | 8 |
+| `std::int16_t` | `Int16` | 3 | `int16` | 16 |
+| `std::uint16_t` | `Uint16` | 4 | `uint16` | 16 |
+| `std::int32_t` | `Int32` | 5 | `int32` | 32 |
+| `std::uint32_t` | `Uint32` | 6 | `uint32` | 32 |
+| `std::int64_t` | `Int64` | 7 | `int64` | 64 |
+| `std::uint64_t` | `Uint64` | 8 | `uint64` | 64 |
+| `float` | `Float32` | 9 | `float32` | 32 |
+| `double` | `Float64` | 10 | `float64` | 64 |
+
+`tensorDTypeDescriptors()` enumerates the table in identifier order.
+`tensorDTypeDescriptor`, `tensorDTypeName`, and `tensorDTypeBitWidth` also accept
+a runtime enum. Invalid identifiers decode to `std::nullopt`; an invalid enum
+has no descriptor, the name `unknown`, and bit width zero.
+
+The names and identifiers never use RTTI or compiler-specific type text. A
+`Tensor` may own another element type, but serialization is constrained to the
+table above. `bool`, plain `char`, `long double`, and user-defined element types
+have no canonical dtype entry. The vocabulary remains `in_work` and does not
+yet promise API, ABI, or permanent wire compatibility.
+
 ## Serialization
 
 ```cpp
@@ -988,6 +1027,9 @@ Serialization writes canonical logical values and accepts owners or views.
 Deserialization always produces an owner. Version 2 distinguishes a rank-zero
 scalar from an empty tensor and uses portable big-endian fields on supported
 integer and IEEE-754 targets.
+Its type identifiers come from `TensorDType`. A known mismatch names both
+canonical dtypes; an unknown identifier is reported as `unknown` with its byte
+value.
 
 Deserializer rank, extent, element, and byte budgets are checked before Tensor
 element storage allocation. A supplied-allocator overload lets applications
@@ -1025,6 +1067,9 @@ fixed-size type with its own checked/saturating arithmetic policies.
 |---|---|
 | Owner | `Tensor<T, Allocator>` |
 | Runtime metadata | `DynamicExtents`, `TensorStrides`, `TensorLayout`, `TensorLayoutKind` |
+| Dtype identity | `TensorDType`, `TensorDTypeElement`, `tensorDTypeOf` |
+| Dtype table | `tensorDTypeDescriptors`, `tensorDTypeDescriptor`, `tensorDTypeFromId` |
+| Dtype properties | `tensorDTypeName`, `tensorDTypeBitWidth` |
 | Ownership transfer | `Tensor::adopt` |
 | Borrowing | `TensorView<T>::borrow`, `asView`, `asConstView` |
 | Shared lifetime | `SharedTensorView<T>::share`, `asSharedView` |

@@ -79,6 +79,7 @@ EXTRA_TRIGGER_PATHS = {
     "tensor.yml": [
         "include/fat_p/AlignedVector.h",
         "include/fat_p/tensor/Tensor.h",
+        "include/fat_p/tensor/TensorDType.h",
         "include/fat_p/tensor/TensorExtents.h",
         "include/fat_p/tensor/TensorLayout.h",
         "include/fat_p/tensor/TensorView.h",
@@ -159,6 +160,7 @@ EXTRA_TRIGGER_PATHS = {
     "tensor-static.yml": ["include/fat_p/tensor/TensorStatic.h"],
     "tensor-serializer.yml": [
         "include/fat_p/tensor/TensorSerializer.h",
+        "include/fat_p/tensor/TensorDType.h",
         "include/fat_p/tensor/Tensor.h",
         "include/fat_p/tensor/TensorView.h",
         "include/fat_p/tensor/TensorLayout.h",

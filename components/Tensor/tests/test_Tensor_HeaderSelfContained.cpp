@@ -30,6 +30,11 @@ FATP_META:
 
 #include "Tensor.h"
 
+#include <cstdint>
+
+static_assert(fat_p::TensorDTypeElement<std::int32_t>);
+static_assert(fat_p::tensorDTypeOf<std::int32_t>() == fat_p::TensorDType::Int32);
+
 int main()
 {
     return 0;

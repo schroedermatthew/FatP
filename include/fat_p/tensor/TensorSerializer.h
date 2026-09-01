@@ -12,6 +12,8 @@ FATP_META:
   api_stability: in_work
   related:
     docs_search: "TensorSerializer"
+    headers:
+      - include/fat_p/tensor/TensorDType.h
     tests:
       - components/Tensor/tests/test_TensorSerializer.cpp
   hygiene:
@@ -54,6 +56,7 @@ FATP_META:
 
 #include "Expected.h"
 #include "Tensor.h"
+#include "TensorDType.h"
 
 namespace fat_p
 {
@@ -140,145 +143,37 @@ inline std::uint64_t bswap64(std::uint64_t val)
 } // namespace detail
 
 // ============================================================================
-// Fixed Type IDs (Portable Across Compilers/Platforms)
-// ============================================================================
-
-enum class TensorTypeID : std::uint8_t
-{
-    Int8 = 1,
-    Uint8 = 2,
-    Int16 = 3,
-    Uint16 = 4,
-    Int32 = 5,
-    Uint32 = 6,
-    Int64 = 7,
-    Uint64 = 8,
-    Float32 = 9,
-    Float64 = 10
-};
-
-template <typename T>
-constexpr TensorTypeID get_tensor_type_id()
-{
-    static_assert(std::endian::native == std::endian::little || std::endian::native == std::endian::big,
-                  "Tensor serialization requires a pure little- or big-endian target");
-    static_assert(std::numeric_limits<unsigned char>::digits == 8, "Tensor serialization requires eight-bit bytes");
-    if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
-    {
-        static_assert(static_cast<T>(~T{0}) == T{-1}, "Tensor serialization requires two's-complement signed integers");
-    }
-    if constexpr (std::is_same_v<T, float>)
-    {
-        static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
-                      "Tensor Float32 serialization requires IEEE-754 binary32 float");
-    }
-    if constexpr (std::is_same_v<T, double>)
-    {
-        static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559,
-                      "Tensor Float64 serialization requires IEEE-754 binary64 double");
-    }
-
-    if constexpr (std::is_same_v<T, std::int8_t>)
-    {
-        return TensorTypeID::Int8;
-    }
-    else if constexpr (std::is_same_v<T, std::uint8_t>)
-    {
-        return TensorTypeID::Uint8;
-    }
-    else if constexpr (std::is_same_v<T, std::int16_t>)
-    {
-        return TensorTypeID::Int16;
-    }
-    else if constexpr (std::is_same_v<T, std::uint16_t>)
-    {
-        return TensorTypeID::Uint16;
-    }
-    else if constexpr (std::is_same_v<T, std::int32_t>)
-    {
-        return TensorTypeID::Int32;
-    }
-    else if constexpr (std::is_same_v<T, std::uint32_t>)
-    {
-        return TensorTypeID::Uint32;
-    }
-    else if constexpr (std::is_same_v<T, std::int64_t>)
-    {
-        return TensorTypeID::Int64;
-    }
-    else if constexpr (std::is_same_v<T, std::uint64_t>)
-    {
-        return TensorTypeID::Uint64;
-    }
-    else if constexpr (std::is_same_v<T, float>)
-    {
-        return TensorTypeID::Float32;
-    }
-    else if constexpr (std::is_same_v<T, double>)
-    {
-        return TensorTypeID::Float64;
-    }
-    else
-    {
-        static_assert(sizeof(T) == 0, "Unsupported tensor element type");
-    }
-}
-
-template <typename T>
-constexpr const char* get_tensor_type_name()
-{
-    if constexpr (std::is_same_v<T, std::int8_t>)
-    {
-        return "int8";
-    }
-    else if constexpr (std::is_same_v<T, std::uint8_t>)
-    {
-        return "uint8";
-    }
-    else if constexpr (std::is_same_v<T, std::int16_t>)
-    {
-        return "int16";
-    }
-    else if constexpr (std::is_same_v<T, std::uint16_t>)
-    {
-        return "uint16";
-    }
-    else if constexpr (std::is_same_v<T, std::int32_t>)
-    {
-        return "int32";
-    }
-    else if constexpr (std::is_same_v<T, std::uint32_t>)
-    {
-        return "uint32";
-    }
-    else if constexpr (std::is_same_v<T, std::int64_t>)
-    {
-        return "int64";
-    }
-    else if constexpr (std::is_same_v<T, std::uint64_t>)
-    {
-        return "uint64";
-    }
-    else if constexpr (std::is_same_v<T, float>)
-    {
-        return "float32";
-    }
-    else if constexpr (std::is_same_v<T, double>)
-    {
-        return "float64";
-    }
-    else
-    {
-        return "unknown";
-    }
-}
-
-// ============================================================================
 // Big-Endian Read/Write Helpers
 // ============================================================================
 
 namespace detail
 {
+
+template <TensorDTypeElement T>
+[[nodiscard]] consteval TensorDType tensorWireDType()
+{
+    using Element = std::remove_cvref_t<T>;
+
+    static_assert(std::endian::native == std::endian::little || std::endian::native == std::endian::big,
+                  "Tensor serialization requires a pure little- or big-endian target");
+    static_assert(std::numeric_limits<unsigned char>::digits == 8, "Tensor serialization requires eight-bit bytes");
+    if constexpr (std::is_integral_v<Element> && std::is_signed_v<Element>)
+    {
+        static_assert(static_cast<Element>(~Element{0}) == Element{-1},
+                      "Tensor serialization requires two's-complement signed integers");
+    }
+    if constexpr (std::is_same_v<Element, float>)
+    {
+        static_assert(sizeof(float) == 4 && std::numeric_limits<float>::is_iec559,
+                      "Tensor Float32 serialization requires IEEE-754 binary32 float");
+    }
+    if constexpr (std::is_same_v<Element, double>)
+    {
+        static_assert(sizeof(double) == 8 && std::numeric_limits<double>::is_iec559,
+                      "Tensor Float64 serialization requires IEEE-754 binary64 double");
+    }
+    return tensorDTypeOf<Element>();
+}
 
 template <typename T>
 void write_be(std::vector<std::uint8_t>& buffer, T value)
@@ -401,7 +296,7 @@ T read_be(const std::vector<std::uint8_t>& data, std::size_t& pos)
 // All multi-byte values in big-endian (network byte order):
 //   - magic: uint32_t = 0x544E5352 ("TNSR")
 //   - version: uint8_t = 2
-//   - type_id: uint8_t = TensorTypeID enum value
+//   - type_id: uint8_t = TensorDType enum value
 //   - ndim: uint16_t = number of dimensions
 //   - dims: ndim Ã— uint64_t = dimension sizes
 //   - strides: ndim Ã— int64_t = canonical row-major strides
@@ -437,8 +332,8 @@ struct TensorDeserializationLimits
  * @return Binary buffer in big-endian format, or error
  */
 template <ReadableTensor R>
-TensorSerializationResult<std::vector<std::uint8_t>>
-serialize_tensor(const R& tensor)
+    requires TensorDTypeElement<typename R::value_type>
+TensorSerializationResult<std::vector<std::uint8_t>> serialize_tensor(const R& tensor)
 {
     using T = typename R::value_type;
     try
@@ -463,7 +358,7 @@ serialize_tensor(const R& tensor)
 
         buffer.push_back(TENSOR_FORMAT_VERSION);
 
-        buffer.push_back(static_cast<std::uint8_t>(get_tensor_type_id<T>()));
+        buffer.push_back(static_cast<std::uint8_t>(detail::tensorWireDType<T>()));
 
         detail::write_be<std::uint16_t>(buffer, static_cast<std::uint16_t>(ndim));
 
@@ -527,11 +422,10 @@ serialize_tensor(const R& tensor)
  * @param limits Rank, extent, element-count, and payload-byte allocation limits
  * @return Deserialized tensor, or error
  */
-template <typename T, typename Allocator = TensorAllocator<T>>
-TensorSerializationResult<Tensor<T, Allocator>>
-deserialize_tensor(const std::vector<std::uint8_t>& data,
-                   const Allocator& allocator,
-                   const TensorDeserializationLimits& limits = {})
+template <TensorDTypeElement T, typename Allocator = TensorAllocator<T>>
+TensorSerializationResult<Tensor<T, Allocator>> deserialize_tensor(const std::vector<std::uint8_t>& data,
+                                                                   const Allocator& allocator,
+                                                                   const TensorDeserializationLimits& limits = {})
 {
     try
     {
@@ -555,13 +449,20 @@ deserialize_tensor(const std::vector<std::uint8_t>& data,
                                                             "Unsupported tensor format version"));
         }
 
-        const auto type_id = static_cast<TensorTypeID>(data[pos++]);
-        if (type_id != get_tensor_type_id<T>())
+        const std::uint8_t typeId = data[pos++];
+        const auto encodedDType = tensorDTypeFromId(typeId);
+        const TensorDType expectedDType = detail::tensorWireDType<T>();
+        if (!encodedDType || *encodedDType != expectedDType)
         {
-            return make_unexpected(TensorSerializationError(TensorSerializationErrorCode::TypeMismatch,
-                                                            std::string("Type mismatch: expected ") +
-                                                                get_tensor_type_name<T>() + " but got type ID " +
-                                                                std::to_string(static_cast<int>(type_id))));
+            std::string message("Type mismatch: expected ");
+            message.append(tensorDTypeName(expectedDType));
+            message.append(" but got ");
+            message.append(encodedDType ? tensorDTypeName(*encodedDType) : std::string_view{"unknown"});
+            message.append(" (type ID ");
+            message.append(std::to_string(typeId));
+            message.push_back(')');
+            return make_unexpected(
+                TensorSerializationError(TensorSerializationErrorCode::TypeMismatch, std::move(message)));
         }
 
         const std::uint16_t ndim = detail::read_be<std::uint16_t>(data, pos);
@@ -683,9 +584,9 @@ deserialize_tensor(const std::vector<std::uint8_t>& data,
 /**
  * @brief Deserialize using a default-constructed allocator instance.
  */
-template <typename T, typename Allocator = TensorAllocator<T>>
-TensorSerializationResult<Tensor<T, Allocator>>
-deserialize_tensor(const std::vector<std::uint8_t>& data, const TensorDeserializationLimits& limits = {})
+template <TensorDTypeElement T, typename Allocator = TensorAllocator<T>>
+TensorSerializationResult<Tensor<T, Allocator>> deserialize_tensor(const std::vector<std::uint8_t>& data,
+                                                                   const TensorDeserializationLimits& limits = {})
 {
     try
     {

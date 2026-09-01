@@ -1,10 +1,5 @@
 #pragma once
 
-/**
- * @file Tensor.h
- * @brief Public facade for allocator-aware dynamic Tensor ownership and views.
- */
-
 /*
 FATP_META:
   meta_version: 1
@@ -35,4 +30,10 @@ FATP_META:
     mode: manual
 */
 
+/**
+ * @file Tensor.h
+ * @brief Public facade for allocator-aware dynamic Tensor ownership, views, and dtype metadata.
+ */
+
 #include "tensor/Tensor.h"
+#include "tensor/TensorDType.h"
