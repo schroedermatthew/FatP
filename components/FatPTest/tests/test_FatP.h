@@ -124,7 +124,6 @@ bool test_TensorSelection();
 bool test_TensorSlice();
 bool test_TensorEquality();
 bool test_TensorStatic();
-bool test_TensorSerializer();
 bool test_ThreadPool();
 bool test_ValueGuard();
 bool test_ViewLifetimeTracking();

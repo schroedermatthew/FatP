@@ -117,7 +117,7 @@ FATP_TEST_CASE(canonical_dtype_vocabulary)
         FATP_ASSERT_EQ(descriptor.bitWidth, expectedWidths[index], "Canonical dtype width should match its name");
         FATP_ASSERT_EQ(static_cast<std::uint8_t>(descriptor.dtype),
                        static_cast<std::uint8_t>(index + 1),
-                       "Canonical dtype identifiers should retain the version-2 wire values");
+                       "Canonical dtype identifiers should remain explicit and ordered");
 
         const auto decoded = tensorDTypeFromId(static_cast<std::uint8_t>(index + 1));
         FATP_ASSERT_TRUE(decoded.has_value() && *decoded == descriptor.dtype,

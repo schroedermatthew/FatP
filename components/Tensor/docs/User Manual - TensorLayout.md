@@ -10,7 +10,7 @@ std_equivalent: "std::mdspan (partial metadata overlap)"
 std_since: "C++23"
 boost_equivalent: "Boost.MultiArray (partial layout overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-08-19"
+last_verified: "2026-09-01"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "draft"
 ---
@@ -163,6 +163,6 @@ usable layout is returned.
 ## Current boundary
 
 `TensorLayout` is the single runtime metadata authority consumed by dynamic
-`Tensor`, `TensorView`, `SharedTensorView`, serializers, and iteration plans.
+`Tensor`, `TensorView`, `SharedTensorView`, and iteration plans.
 It never owns or allocates Tensor element storage. Exact classification of small
 higher-rank layouts may use bounded operation-local metadata scratch.

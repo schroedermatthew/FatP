@@ -173,7 +173,6 @@ int main()
     RUN_AND_RECORD(test_TensorSlice);
     RUN_AND_RECORD(test_TensorEquality);
     RUN_AND_RECORD(test_TensorStatic);
-    RUN_AND_RECORD(test_TensorSerializer);
     RUN_AND_RECORD(test_ThreadPool);
     RUN_AND_RECORD(test_ValueGuard);
     RUN_AND_RECORD(test_ViewLifetimeTracking);

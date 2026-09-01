@@ -2,9 +2,11 @@
 doc_id: DN-TENSOR-001
 doc_type: "Design Note"
 title: "Tensor Semantic Contract"
-fatp_components: ["Tensor", "TensorLayout", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer", "TensorStatic"]
-topics: ["rank-zero tensor", "zero-extent tensor", "tensor ownership", "strided layout", "broadcast aliasing", "tensor serialization"]
-constraints: ["owner and view lifetime", "signed stride reachability", "overlapping tensor mappings", "portable wire format"]
+fatp_components: ["Tensor", "TensorLayout", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop",
+  "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorStatic"]
+topics: ["rank-zero tensor", "zero-extent tensor", "tensor ownership", "strided layout", "broadcast aliasing",
+  "tensor dtype"]
+constraints: ["owner and view lifetime", "signed stride reachability", "overlapping tensor mappings"]
 cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (partial semantic overlap)"
@@ -17,16 +19,16 @@ status: "draft"
 # Design Note - Tensor Semantic Contract
 
 **Status:** Experimental  
-**Contract version:** 0.14\
+**Contract version:** 0.15\
 **Applies to:** `Tensor`, `StaticTensor`, tensor views, and tensor algorithms  
-**Stability:** This design note is intentionally not an API or wire-format stability promise.
+**Stability:** This design note is intentionally not an API or ABI stability promise.
 
 ## Scope
 
 This design note records the shared semantic decisions implemented by the Tensor
 layout, owner/view, and serial-kernel foundation. It covers rank, extents, size,
 strides, layouts, ownership, lifetime, constness, aliasing, copying, transforms,
-iteration, numeric boundaries, errors, execution, and serialization. It
+iteration, numeric boundaries, errors, execution, and dtype metadata. It
 distinguishes current decisions enforced by tests from target-only numeric-family,
 execution-backend, contraction-optimization, and complete-einsum work.
 
@@ -34,7 +36,7 @@ execution-backend, contraction-optimization, and complete-einsum work.
 
 - General einsum, sparse storage, GPU execution, or automatic differentiation.
 - Configurable conversion policies, further transcendental families, or compensated/parallel reductions.
-- A stable C++ ABI or stable tensor wire format.
+- Persistence and interchange formats, which remain application concerns.
 
 ## Prerequisites
 
@@ -45,7 +47,8 @@ execution-backend, contraction-optimization, and complete-einsum work.
 ## Design Note Card
 
 **Decision:** Establish one experimental semantic contract before extending the Tensor API.  
-**Context:** Dynamic Tensor, StaticTensor, views, iteration, and serialization previously disagreed on foundational meanings.  
+**Context:** Dynamic Tensor, StaticTensor, views, iteration, and dtype metadata
+previously disagreed on foundational meanings.
 **Options considered:** Preserve legacy behavior; add algorithms first; or settle semantics and executable conformance first.  
 **Chosen option:** Settle semantics first, enforce implemented decisions with tests, and mark unimplemented portions as target contract.  
 **Rationale:** Ownership, rank, layout, aliasing, and numeric rules constrain every later Tensor API.  
@@ -133,7 +136,7 @@ public promise testable.
 
 ### Negative
 
-- The owner/view cutover touches headers, tests, docs, serializers, concepts,
+- The owner/view cutover touches headers, tests, docs, concepts,
   workflows, and call sites together.
 - Readable views add public vocabulary that simple contiguous use cases do not
   otherwise need.
@@ -175,8 +178,7 @@ public promise testable.
 - Size and canonical stride products must be checked before allocation and must
   be representable by both `size_t` and `ptrdiff_t`.
 - In-memory layouts have no intrinsic rank cap. Tests use named representative
-  ranks and generated ranges; serializer rank limits are configurable trust
-  policy, not an in-memory semantic limit.
+  ranks and generated ranges.
 - In nonempty layouts, a zero stride on an axis with extent greater than one is
   reserved for read-only broadcast mappings. Zero strides in empty layouts do
   not create aliases because the layout addresses no elements.
@@ -884,40 +886,20 @@ complete einsum is a separate API decision, not a promised compatibility layer.
   Submission failure precedes the lowest-index task failure, which precedes
   cancellation. A failed or cancelled call publishes no partial owner.
 
-### 11. Serialization
+### 11. Dtype metadata and static/dynamic interop
 
-- Portable serialization stores canonical logical values, not allocator state,
-  storage ownership, OS handles, or arbitrary physical view strides.
-- `TensorDType` is the shared runtime and wire vocabulary for `std::int8_t`,
+- `TensorDType` is the canonical runtime vocabulary for `std::int8_t`,
   `std::uint8_t`, `std::int16_t`, `std::uint16_t`, `std::int32_t`,
   `std::uint32_t`, `std::int64_t`, `std::uint64_t`, `float`, and `double`.
   Its identifiers, lowercase names, and logical bit widths are explicit and do
   not depend on RTTI or compiler type spelling.
 - `TensorDTypeElement` admits exactly types with a canonical entry after
-  cv-reference removal. Tensor ownership itself remains generic; serialization
-  participates only for canonical dtype elements. `bool`, plain `char`,
-  `long double`, and user-defined types have no canonical entry.
-- Rank-zero scalars encode one payload element. Empty tensors encode a shape with
-  at least one zero extent and no payload elements.
-- Portable big-endian interchange and native memory-mapped images are different
-  formats and must remain separate.
-- Version 2 interoperability requires 8-bit bytes, pure little- or big-endian
-  storage, two's-complement signed integers, and IEEE-754 binary32/binary64
-  floating point. The implementation rejects unsupported representations at
-  compile time. These checks are wire requirements, not properties of the
-  general dtype vocabulary.
-- Wire format version 2 distinguishes a rank-zero scalar from an empty tensor.
-  The decoder accepts only version 2 and rejects every other wire-version value.
-  Version 1 is incompatible because it encoded dynamic rank zero as empty; it is
-  not reinterpreted under the new scalar rule.
-- The wire format remains experimental until extension, checksum, and compatibility
-  rules are finalized.
-- Deserialization applies caller-configurable rank, extent, element-count, and
-  payload byte limits before allocating Tensor element storage. Defaults cap one
-  payload at 64 MiB; applications should normally choose a smaller trust-specific
-  budget. Callers may supply the allocator instance used for the result.
-- C++ source compatibility, binary ABI compatibility, and wire compatibility are
-  separate promises.
+  cv-reference removal. Tensor ownership itself remains generic; `bool`, plain
+  `char`, `long double`, and user-defined types have no canonical entry.
+- `toTensor` and `toStaticTensor` perform same-element-type conversion while
+  preserving the rank-zero rule and rejecting mismatched fixed extents.
+- Tensor owns no persistence or interchange format. Dtype identifiers are
+  runtime metadata and do not imply a byte-level compatibility contract.
 
 ## Current conformance evidence
 
@@ -930,11 +912,8 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 | Borrowed and shared lifetime models are distinct | `test_TensorView.cpp::shared_and_borrowed_lifetime` |
 | Constness propagates and public broadcast is read-only | Compile-time assertions and `test_TensorView.cpp::readonly_broadcast` |
 | Clone materializes strided and broadcast logical values | `test_Tensor.cpp::view_transforms_constness_and_clone` |
-| Rank-zero and empty serialization are distinct | `test_TensorSerializer.cpp::rank_zero_scalar_roundtrip`; `test_TensorSerializer.cpp::zero_extent_empty_roundtrip` |
 | Canonical dtype table and invalid enum behavior | `test_Tensor.cpp::canonical_dtype_vocabulary` |
-| Serializer dtype mismatch diagnostics | `test_TensorSerializer.cpp::type_mismatch` |
-| Unknown serializer dtype identifiers | `test_TensorSerializer.cpp::invalid_dtype_id` |
-| Serializer trust limits precede Tensor element storage | `test_TensorSerializer.cpp::deserialization_resource_limits` |
+| Static/dynamic value and extent checks | `test_TensorInterop.cpp::static_dynamic_conversion` |
 | Signed pointer-forming views stay within validated storage | `test_TensorView.cpp::external_mapping_validation` |
 | Checked runtime extents and signed layout reachability | `test_TensorLayout.cpp::dynamic_extents_and_axes`; `test_TensorLayout.cpp::validation_boundaries`; `test_TensorLayout.cpp::randomized_scalar_oracle` |
 | Empty, contiguous, injective, broadcast, overlap, and indeterminate classification | `test_TensorLayout.cpp::canonical_layouts`; `test_TensorLayout.cpp::signed_reachability_and_classification` |
@@ -1052,8 +1031,8 @@ transactional compound updates, checked negation/absolute value, floating sqrt/e
 materializing numeric casts, unified serial kernels, extended slicing, checked
 axis reductions, borrowed interop,
 named linear algebra, explicit-axis tensorDot, native explicit execution contexts,
-indexed selection, canonical dtype metadata, and serializer resource limits have
-current executable evidence.
+indexed selection, canonical dtype metadata, and same-element-type static/dynamic
+interop have current executable evidence.
 Further numeric families, contraction-path optimization, and complete einsum
 remain target-only. The dedicated
 [TensorContractions CI run](https://github.com/schroedermatthew/FatP/actions/runs/33419554296)
@@ -1067,6 +1046,5 @@ The remaining policy decisions are deliberately owned by later phase contracts:
   optional `mdspan` interop are explicit alternatives.
 - Numeric families beyond the current binary/scalar operations, materializing
   casts, compound updates, negation/absolute value, sqrt/exp/log, reductions, and named linear algebra.
-- Serializer extension framing and checksums.
 - Any storage model that supports allocator fancy pointers; the current public
   constraint remains `allocator_traits<Allocator>::pointer == T*`.

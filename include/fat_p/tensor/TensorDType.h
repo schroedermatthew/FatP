@@ -17,10 +17,8 @@ FATP_META:
       - components/Tensor/docs/User Manual - Tensor.md
     headers:
       - include/fat_p/Tensor.h
-      - include/fat_p/TensorSerializer.h
     tests:
       - components/Tensor/tests/test_Tensor.cpp
-      - components/Tensor/tests/test_TensorSerializer.cpp
   hygiene:
     pragma_once: true
     include_guard: false

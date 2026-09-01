@@ -2,9 +2,10 @@
 doc_id: UM-TENSOR-001
 doc_type: "User Manual"
 title: "Tensor"
-fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer"]
+fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions",
+  "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality"]
 topics: ["dynamic tensor", "tensor owner", "tensor view", "tensor dtype", "signed strides", "slicing", "broadcasting",
-  "reductions", "interop", "matrix multiplication", "indexed selection", "tensor serialization"]
+  "reductions", "interop", "matrix multiplication", "indexed selection"]
 constraints: ["C++20", "header-only", "canonical owning storage", "borrowed lifetime", "injective mutation"]
 cxx_standard: "C++20"
 std_equivalent: null
@@ -22,7 +23,7 @@ store values in canonical contiguous row-major order. Non-owning mappings use
 `TensorView<T>`, `TensorView<const T>`, or `SharedTensorView<T>`.
 
 The dynamic Tensor API is currently `in_work`. This manual describes the tested
-surface at the revision above; it is not an API, ABI, or wire-compatibility promise.
+surface at the revision above; it is not an API or ABI compatibility promise.
 
 The separation is deliberate:
 
@@ -49,7 +50,6 @@ The separation is deliberate:
 #include "TensorSelection.h"    // stack, concatenate, take, and gather
 #include "TensorSlice.h"        // extended slice vocabulary
 #include "TensorEquality.h"     // EqualityComparisons integration
-#include "TensorSerializer.h"   // portable logical-value serialization
 ```
 
 All public facades live in `include/fat_p/`. Implementation-owned headers are
@@ -959,7 +959,7 @@ to the standard default PMR resource.
 It owns only the bounded future array, allocated and released on the calling
 thread; it does not replace Tensor metadata, pool task/promise, or result-element
 allocators. Shared contexts require a thread-safe scratch resource or external
-serialization. Result allocator selection remains unchanged (first owner SOCCC,
+synchronization. Result allocator selection remains unchanged (first owner SOCCC,
 or TensorAllocator for view-only operands), with an explicit final allocator
 argument when needed.
 
@@ -975,8 +975,7 @@ along with the supported compiler matrix, passed in the published CI record link
 
 ## Canonical dtype vocabulary
 
-`Tensor.h` exports canonical metadata for the ten scalar types shared with
-`TensorSerializer`:
+`Tensor.h` exports canonical metadata for ten common scalar types:
 
 ```cpp
 static_assert(TensorDTypeElement<std::int32_t>);
@@ -1006,41 +1005,15 @@ a runtime enum. Invalid identifiers decode to `std::nullopt`; an invalid enum
 has no descriptor, the name `unknown`, and bit width zero.
 
 The names and identifiers never use RTTI or compiler-specific type text. A
-`Tensor` may own another element type, but serialization is constrained to the
-table above. `bool`, plain `char`, `long double`, and user-defined element types
-have no canonical dtype entry. The vocabulary remains `in_work` and does not
-yet promise API, ABI, or permanent wire compatibility.
-
-## Serialization
-
-```cpp
-auto bytes = serialize_tensor(readable);
-auto loaded = deserialize_tensor<float>(*bytes);
-
-TensorDeserializationLimits limits;
-limits.max_elements = 1'000'000;
-limits.max_payload_bytes = 8 * 1024 * 1024;
-auto bounded = deserialize_tensor<float>(*bytes, limits);
-```
-
-Serialization writes canonical logical values and accepts owners or views.
-Deserialization always produces an owner. Version 2 distinguishes a rank-zero
-scalar from an empty tensor and uses portable big-endian fields on supported
-integer and IEEE-754 targets.
-Its type identifiers come from `TensorDType`. A known mismatch names both
-canonical dtypes; an unknown identifier is reported as `unknown` with its byte
-value.
-
-Deserializer rank, extent, element, and byte budgets are checked before Tensor
-element storage allocation. A supplied-allocator overload lets applications
-choose the result memory resource.
-
-The version 2 wire format is experimental, not a compatibility promise. The
-decoder accepts only version 2 and rejects every other wire-version value.
-Version 1 is incompatible because it encoded rank zero as empty. Extension
-framing, checksums, and cross-version compatibility policy remain open design work.
+`Tensor` may own another element type; `bool`, plain `char`, `long double`, and
+user-defined element types simply have no canonical dtype entry. The vocabulary
+remains `in_work` and does not yet promise API or ABI compatibility.
 
 ## Current boundaries
+
+Tensor deliberately provides no persistence or wire-format API. Applications
+choose an external representation appropriate to their own compatibility and
+trust requirements.
 
 The separate `benchmark_TensorMatmul` executable covers the five named linear
 algebra operations with floating inputs, result-buffer allocation probes,
@@ -1091,4 +1064,3 @@ fixed-size type with its own checked/saturating arithmetic policies.
 | Owner operations | `fill`, `clone`, `swap`, `get_allocator`, `operator==` |
 | Arithmetic type queries | `TensorArithmeticType<A, B>`, `TensorArithmeticCompatible<A, B>` |
 | Arithmetic operators | `operator+`, `operator-`, `operator*`, `operator/`; tensor/tensor and both scalar orders |
-| Serialization | `serialize_tensor`, `deserialize_tensor`, `TensorDeserializationLimits` |

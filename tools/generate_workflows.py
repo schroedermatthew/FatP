@@ -158,14 +158,6 @@ EXTRA_TRIGGER_PATHS = {
         "include/fat_p/tensor/TensorExtents.h",
     ],
     "tensor-static.yml": ["include/fat_p/tensor/TensorStatic.h"],
-    "tensor-serializer.yml": [
-        "include/fat_p/tensor/TensorSerializer.h",
-        "include/fat_p/tensor/TensorDType.h",
-        "include/fat_p/tensor/Tensor.h",
-        "include/fat_p/tensor/TensorView.h",
-        "include/fat_p/tensor/TensorLayout.h",
-        "include/fat_p/tensor/TensorExtents.h",
-    ],
 }
 
 # Tensor's semantic contract requires assertions-enabled Debug coverage in
@@ -369,9 +361,6 @@ STANDARD_COMPONENTS = [
 
     ("tensor-static.yml", "TensorStatic", "TensorStatic.h",
      "components/Tensor/tests/test_TensorStatic.cpp", None),
-
-    ("tensor-serializer.yml", "TensorSerializer", "TensorSerializer.h",
-     "components/Tensor/tests/test_TensorSerializer.cpp", None),
 
     # --- CSRMatrix (4 test files) ---
     ("csr-matrix.yml", "CSRMatrix", "CSRMatrix.h",

@@ -99,15 +99,14 @@ A header-only C++20 utility library. Zero external dependencies.
 ![Stringify CI](https://github.com/schroedermatthew/FatP/actions/workflows/stringify.yml/badge.svg)
 ![StrongId CI](https://github.com/schroedermatthew/FatP/actions/workflows/strong-id.yml/badge.svg)
 ![TensorAlgorithms CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-algorithms.yml/badge.svg)
+![TensorContractions CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-contractions.yml/badge.svg)
 ![TensorEquality CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-equality.yml/badge.svg)
 ![TensorExecution CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-execution.yml/badge.svg)
-![TensorContractions CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-contractions.yml/badge.svg)
 ![TensorInterop CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-interop.yml/badge.svg)
 ![TensorLayout CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-layout.yml/badge.svg)
 ![TensorMatmul CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-matmul.yml/badge.svg)
 ![TensorReductions CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-reductions.yml/badge.svg)
 ![TensorSelection CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-selection.yml/badge.svg)
-![TensorSerializer CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-serializer.yml/badge.svg)
 ![TensorSlice CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-slice.yml/badge.svg)
 ![TensorStatic CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-static.yml/badge.svg)
 ![TensorView CI](https://github.com/schroedermatthew/FatP/actions/workflows/tensor-view.yml/badge.svg)
@@ -254,7 +253,6 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 | CborLite / CborStreamLite | Low-level CBOR encoder/decoder and streaming parser |
 | FatPCbor / FatPCborStream | Expected-based CBOR bridge |
 | BinaryLite / FatPBinary | Binary serialization (lite and Fat-P integrated) |
-| TensorSerializer | Tensor snapshot encoding/decoding using canonical dtype metadata |
 
 ### Math and HPC
 
@@ -315,9 +313,9 @@ Per-component tests, benchmarks, and user manuals live under [`components/`](com
 
 ## Project Structure
 
-Inventory checked 2026-08-31: 144 library .h files under include/fat_p
-(including internal headers), 126 component test_*.cpp sources, 28 component
-benchmark_*.cpp sources, and 128 .github/workflows/*.yml files.
+Inventory checked 2026-09-01: 143 library .h files under include/fat_p
+(including internal headers), 124 component test_*.cpp sources, 28 component
+benchmark_*.cpp sources, and 127 .github/workflows/*.yml files.
 
 ```
 FatP/

@@ -2,7 +2,9 @@
 doc_id: DN-TENSOR-002
 doc_type: "Design Note"
 title: "Tensor Architecture Additions Plan"
-fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer", "TensorStatic"]
+fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions",
+  "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality",
+  "TensorStatic"]
 topics: ["tensor layout", "tensor views", "strided iteration", "numeric promotion", "axis reductions", "tensor execution", "tensor contractions"]
 constraints: ["signed stride reachability", "aliasing and lifetime", "checked shape arithmetic", "deterministic reduction order", "header-only C++20"]
 cxx_standard: "C++20"
@@ -64,8 +66,8 @@ with layout vocabulary and owner/view separation before adding more algorithms.
 The current foundation has explicit scalar and empty semantics, checked shape
 arithmetic, allocator-aware ownership, distinct borrowed/shared view types,
 validated signed-stride layouts, a reusable multi-operand iteration plan,
-bounded serialization, randomized conformance tests, and a repeatable benchmark
-harness. It now also has the extended slice language, deterministic reductions,
+randomized conformance tests, and a repeatable benchmark harness. It now also
+has the extended slice language, deterministic reductions,
 borrowed interop descriptors, composition/selection operations, and native
 vector/matrix/batched multiplication, dot, outer, diagonal extraction, and trace.
 The remaining work is architectural:
@@ -126,7 +128,7 @@ replacement work.
 
 ### Option B: Replace the complete Tensor subsystem in one rewrite
 
-Design every type, kernel, algorithm, execution backend, and serializer change
+Design every type, kernel, algorithm, execution backend, and integration change
 before merging any part.
 
 **Pros:** One theoretical endpoint; no intermediate architectural states.  
@@ -161,7 +163,7 @@ semantic contract
     -> named linear algebra
     -> execution context
     -> contractions and optional complete einsum
-    -> serializer and StaticTensor closure
+    -> dtype and StaticTensor closure
 ```
 
 Algorithms cannot correctly precede the mappings they consume. Parallel
@@ -185,7 +187,6 @@ include/fat_p/TensorMatmul.h
 include/fat_p/TensorContractions.h
 include/fat_p/TensorExecution.h
 include/fat_p/TensorEquality.h
-include/fat_p/TensorSerializer.h
 include/fat_p/TensorStatic.h
 ```
 
@@ -214,7 +215,6 @@ include/fat_p/tensor/TensorMatmul.h
 include/fat_p/tensor/TensorExecution.h
 include/fat_p/tensor/TensorContractions.h
 include/fat_p/tensor/TensorEquality.h
-include/fat_p/tensor/TensorSerializer.h
 include/fat_p/tensor/TensorStatic.h
 ```
 
@@ -244,7 +244,6 @@ of the plan rather than an implied side effect.
 | `create_tracker` and `create_tracked_*` | Replace with borrowed-view Debug tracking and explicit shared-view lifetime | 2 |
 | `at_linear` and view `operator[]` | Rename the checked method `atLinear`; define both as logical row-major indexing | 2 |
 | Subset `TensorEinsum` parser and kernels | Remove when named linear-algebra operations land | 8 |
-| Duplicate runtime/serializer type-name helpers | Replace with one canonical dtype vocabulary | 11 |
 | Owner constructors, allocator-extended constructors, copy/move assignment, `get_allocator`, member/ADL `swap` | Keep allocator-aware value semantics on the owner-only type | 2 |
 | `operator()`, `at`, `operator[]`, iterators | Keep logical access; rename `at_linear` as listed and make view behavior explicit | 2 |
 | `shape`, `strides`, `size`, `ndim`, `dim`, `empty`, `data` | Replace shape/stride returns with layout vocabulary; keep ordinary size/empty queries; restrict `data` interop by layout | 1, 2, and 6 |
@@ -253,7 +252,7 @@ of the plan rather than an implied side effect.
 | `approx_equal`, `approx_not_equal`, `default_epsilon` | Replace with readable concepts, camelCase names, and explicit tolerance policy | 3 and 5 |
 | `compute_broadcast_shape`, `is_broadcastable`, `is_broadcast_compatible`, `broadcast_view_to` | Replace with checked layout broadcasting and camelCase public vocabulary | 2 and 3 |
 | `add_safe`, `sub_safe`, `mul_safe`, `view_safe`, `reshape_safe` | Replace with the Phase 0 error table and camelCase operations; retain no old wrapper | 2 through 4 |
-| Tensor serializers and serialization error/result types | Keep the component; adapt owner/view input and unify dtype/resource contracts | 2 and 11 |
+| Tensor persistence surface | Remove; formats are outside Tensor ownership | 11 |
 | `StaticTensor`, compile-time `Shape`, arithmetic policies, fixed aliases and algorithms | Keep the deliberately narrow fixed-size component; align shared semantics/conversions only | 11 |
 
 ### Mechanical Removal Manifest
@@ -280,9 +279,9 @@ rg -n --glob '!Artifacts/**' `
 
 Phase 2 owns the first expression and the storage names in the third. Phase 3
 owns the second. Phase 8 owns the einsum names in the third. Phase 11 removed
-the serializer helpers `get_tensor_type_id` and `get_tensor_type_name` when the
-canonical dtype vocabulary landed. Reflection's general `type_name<T>()` remains
-separate because source type spelling is not dtype identity.
+the standalone Tensor serializer and retained one canonical dtype vocabulary.
+Reflection's general `type_name<T>()` remains separate because source type
+spelling is not dtype identity.
 
 ## Phase Plan
 
@@ -299,7 +298,7 @@ separate because source type spelling is not dtype identity.
 | 8 | Named APIs, subset einsum retirement, and measured contiguous-vector dispatch implemented; broader specialization remains |
 | 9 | Bounded native execution contexts implemented and remotely validated for `matmul` and `dot`; wider scheduling and backend work remains optional |
 | 10 | Explicit-axis `tensorDot`, context overloads, tests, and measurements implemented and remotely validated; packing, path optimization, and complete einsum remain absent |
-| 11 | Bounded v2 serialization, dtype metadata, and static/dynamic conversion implemented; stability work remains |
+| 11 | Serializer removed; dtype and same-type conversions implemented; numeric conversion remains |
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
 an explicit allocator wins; otherwise the first owning input from left to right
@@ -335,9 +334,9 @@ choose scratch.
   convenience functions, views, explicit allocators, and scratch storage.
 - Define the error-channel table: direct contract violations, bounds failures,
   recoverable `Expected` results, allocation failure, and partial-mutation rules.
-- State that in-memory layouts have no intrinsic rank cap. Serialization retains
-  its configurable trust boundary; tests use named representative and generated
-  rank ranges rather than a fictitious runtime maximum.
+- State that in-memory layouts have no intrinsic rank cap; tests use named
+  representative and generated rank ranges rather than a fictitious runtime
+  maximum.
 - Add non-`NDEBUG` Debug CI jobs and route future layout/kernel tests into the
   sanitizer jobs.
 - Create the repeatable Tensor benchmark harness and record current contiguous,
@@ -407,7 +406,7 @@ choose scratch.
 - Remove the public `TensorStorage` component and use one internal storage/control
   block implementation for owners and explicitly shared views.
 - Replace current Tensor concepts with readable-owner/view and writable-injective
-  concepts; update equality, serializer, lifetime tracking, RCU integration,
+  concepts; update equality, lifetime tracking, RCU integration,
   docs, workflows, and every call site in the same change.
 - Replace the `std::hash` specialization signature so it targets the owner-only
   Tensor type; Phase 3 replaces its traversal body with the shared kernel.
@@ -1119,59 +1118,50 @@ they are not implied by the context API.
   [aggregate FatP CI run](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
   passed on commit 72d3495b with the compiler and sanitizer matrix described above.
 
-### Phase 11: Serializer, dtype vocabulary, and StaticTensor closure
+### Phase 11: Dtype vocabulary and StaticTensor closure
 
 **Work**
 
-- Serialize owners and views by canonical logical value without ownership or
-  physical-layout leakage.
-- Finalize extension framing, checksum policy, error codes, and trust-specific
-  limits before declaring a stable wire version. Any byte-level format change
-  increments the wire version.
-- Replace duplicate runtime and serializer type-name helpers with one canonical
-  dtype vocabulary that never depends on implementation-defined `typeid` text.
+- Maintain one canonical dtype vocabulary that never depends on
+  implementation-defined `typeid` text.
 - Add explicit `StaticTensor` to/from dynamic owner conversions with checked
   extent and numeric conversion rules.
 - Share only traits and kernels whose semantics are identical; checked and
   saturating policies remain StaticTensor-only unless separately justified.
+- Keep persistence and interchange formats outside Tensor ownership.
 
-**Implemented bounded increment (2026-08-31; Phase 11 not closed)**
+**Implemented conversion increment (2026-08-31; Phase 11 not closed)**
 
-- Wire format version 2 serializes owners and views in logical order, distinguishes
-  rank-zero scalars from empty tensors, and supports the documented big-endian
-  scalar representations. The decoder accepts only version 2 and rejects every
-  other wire-version value; version 1 is incompatible because it encoded dynamic
-  rank zero as empty.
-- Deserialization enforces caller-configurable rank, extent, element-count, and
-  payload-byte limits before allocating Tensor element storage. An overload accepts
-  the exact result allocator.
 - `toTensor` and `toStaticTensor` provide same-element-type static/dynamic conversion.
   Tests cover exact shapes, mismatched shapes, rank-zero values, and view materialization.
-- Extension framing, checksums, cross-version compatibility policy, and any
-  broader numeric conversion surface remain open.
-  The current experimental wire format is not a stability promise.
+- Checked numeric conversion between different element types remains open.
 
 **Delivered canonical dtype increment (2026-09-01; Phase 11 not closed)**
 
 - `TensorDType` defines ten implementation-independent fixed-width integer and
   floating entries. Each entry has one explicit identifier, lowercase name,
   and logical bit width and is exported through the existing `Tensor.h` facade.
-- `TensorSerializer` consumes the shared vocabulary and no longer owns a second
-  enum or type-name helper. Its version 2 identifiers and golden bytes are
-  unchanged. Serializer-only representation checks remain at the wire boundary.
 - Compile-time constraints reject scalar types without a canonical entry.
-  Tests cover every mapping, invalid identifiers, serializer participation, and
-  canonical mismatch diagnostics. Both Tensor workflows track the owned header.
-- The vocabulary and wire format remain `in_work`; this increment does not make
-  an API, ABI, or wire-compatibility promise.
+  Tests cover every mapping and invalid identifier. The Tensor workflow tracks
+  the owned header.
+- The vocabulary remains `in_work`; this increment does not make an API or ABI
+  compatibility promise.
+
+**Removed experimental persistence increment (2026-09-01)**
+
+- The standalone Tensor serializer, its experimental byte format, error types,
+  tests, aggregate registrations, public/internal headers, workflow, and
+  documentation were removed together.
+- `TensorDType` remains runtime metadata and carries no byte-level compatibility
+  promise. Applications own any persistence or interchange representation.
 
 **Exit gate**
 
-- Golden wire tests cover scalar, empty, multidimensional, endian, malformed,
-  checksum, version, resource-limit, and view-materialization cases.
 - Static/dynamic conversion tests cover exact match, mismatch, overflow, and
   rank-zero behavior.
-- Public docs state the final supported surface without transitional language.
+- Dtype tests cover every canonical entry and invalid identifier behavior.
+- No Tensor persistence facade, implementation, test, workflow, aggregate
+  registration, or public documentation surface remains.
 
 ## Cross-Phase Delivery Gate
 
@@ -1205,7 +1195,7 @@ review reconciles findings by evidence:
   exception guarantees.
 - **Iteration and numerics:** traversal, broadcasting, axes, promotion,
   reduction order, and algorithmic complexity.
-- **Storage and integration:** serialization, resource limits, interop, build
+- **Storage and integration:** persistence boundaries, interop, build
   boundaries, metadata, and documentation claims.
 
 Review findings require a source citation and concrete counterexample. Agreement
@@ -1254,9 +1244,8 @@ between reviewers does not replace evidence.
 Local read-only Claude and Grok documentation-closure reviews completed on
 2026-08-31 with no remaining blockers. Claude identified stale opening context,
 missing facade/component inventory, incomplete execution and cancellation terms,
-and missing consumer-facing API/wire stability language. Grok independently
-separated Phase 9 `matmul`/`dot` ownership from the Phase 10 `tensorDot` context
-extension and required the decoder's version-2-only behavior to be explicit.
+and missing consumer-facing stability language. Grok independently separated
+Phase 9 `matmul`/`dot` ownership from the Phase 10 `tensorDot` context extension.
 Those findings are incorporated above. Neither peer edited files or substituted
 its opinion for the executable and remote-CI evidence.
 

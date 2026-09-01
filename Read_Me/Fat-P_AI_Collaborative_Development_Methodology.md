@@ -1007,9 +1007,9 @@ This methodology—the pipeline, the guidelines system, the context reset techni
 
 ## Appendix B: File Inventory Summary
 
-Current inventory (2026-08-31): 144 include/fat_p/**/*.h files,
-126 components/*/tests/test_*.cpp sources, 28 component benchmark sources,
-and 128 .github/workflows/*.yml files, including explicit-axis Tensor contractions.
+Current inventory (2026-09-01): 143 include/fat_p/**/*.h files,
+124 components/*/tests/test_*.cpp sources, 28 component benchmark sources,
+and 127 .github/workflows/*.yml files, including explicit-axis Tensor contractions.
 This current inventory is separate from the historical table below.
 
 The benchmark row was recounted on 2026-08-31 from
