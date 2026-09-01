@@ -62,7 +62,7 @@ FATP_TEST_CASE(timer_basic)
     volatile int sum = 0;
     for (int i = 0; i < 1000; ++i)
     {
-        sum += i;
+        sum = sum + i;
     }
     DoNotOptimize(sum);
 

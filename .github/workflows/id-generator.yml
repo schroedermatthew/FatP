@@ -15,10 +15,12 @@ on:
   push:
     paths:
       - 'include/fat_p/IdGenerator.h'
+      - 'components/IdGenerator/tests/test_IdGenerator.cpp'
       - '.github/workflows/id-generator.yml'
   pull_request:
     paths:
       - 'include/fat_p/IdGenerator.h'
+      - 'components/IdGenerator/tests/test_IdGenerator.cpp'
       - '.github/workflows/id-generator.yml'
 
 env:

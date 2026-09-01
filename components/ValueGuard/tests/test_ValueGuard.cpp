@@ -627,14 +627,14 @@ FATP_TEST_CASE(self_move_assignment)
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wself-move"
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && (__GNUC__ >= 13)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wself-move"
 #endif
         guard = std::move(guard);
 #if defined(__clang__)
 #pragma clang diagnostic pop
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && (__GNUC__ >= 13)
 #pragma GCC diagnostic pop
 #endif
 
@@ -1054,14 +1054,14 @@ FATP_TEST_CASE(self_assignment_prevention)
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wself-move"
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && (__GNUC__ >= 13)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wself-move"
 #endif
         guard = std::move(guard);
 #if defined(__clang__)
 #pragma clang diagnostic pop
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && (__GNUC__ >= 13)
 #pragma GCC diagnostic pop
 #endif
 

@@ -278,8 +278,7 @@ FATP_TEST_CASE(range_constructor)
     FATP_ASSERT_TRUE(set.contains(3), "Should contain 3");
 
     // Verify sorted order
-    std::vector<int> values(set.begin(), set.end());
-    FATP_ASSERT_TRUE(std::is_sorted(values.begin(), values.end()), "Values should be sorted");
+    FATP_ASSERT_TRUE(std::is_sorted(set.begin(), set.end()), "Values should be sorted");
 
     return true;
 }
@@ -520,8 +519,7 @@ FATP_TEST_CASE(sorted_order)
     set.insert(2);
     set.insert(4);
 
-    std::vector<int> values(set.begin(), set.end());
-    FATP_ASSERT_TRUE(std::is_sorted(values.begin(), values.end()), "Values should be sorted");
+    FATP_ASSERT_TRUE(std::is_sorted(set.begin(), set.end()), "Values should be sorted");
 
     return true;
 }

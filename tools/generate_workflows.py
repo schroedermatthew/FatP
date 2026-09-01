@@ -51,6 +51,11 @@ FATP_AGGREGATE_WORKFLOW = "fatp-test-core.yml"
 # in grouped subdirectories. Keep both paths in the component trigger so a
 # facade-only API and its implementation cannot drift outside CI coverage.
 EXTRA_TRIGGER_PATHS = {
+    # These allocation-fault tests require the standalone executable's global
+    # new/delete probe and therefore are intentionally absent from FatP aggregate CI.
+    "id-generator.yml": [
+        "components/IdGenerator/tests/test_IdGenerator.cpp",
+    ],
     "tensor-contractions.yml": [
         "include/fat_p/tensor/**",
         "include/fat_p/AlignedVector.h",
@@ -560,6 +565,7 @@ def generate_aggregate_trigger_block(filename):
         "components/FatPTest/tests/test_FatP.cpp",
         "components/FatPTest/tests/test_FatP.h",
         "components/**/tests/test_*.cpp",
+        "components/Tensor/tests/TensorTestSupport.h",
         "tools/collect_fatp_test_sources.py",
         f".github/workflows/{filename}",
     ]

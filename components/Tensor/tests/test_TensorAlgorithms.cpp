@@ -66,8 +66,8 @@ FATP_META:
 
 #if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE) && \
     (!defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0)
-// Standalone-only replacement: aggregate runners may already replace global new (IdGenerator).
-// This executable must not link another global-new replacement such as the IdGenerator test TU.
+// Standalone-only replacement: aggregate runners must not interpose global new from any test TU.
+// Keeping every allocation probe standalone prevents cross-component allocator contamination.
 // MSVC checked iterators allocate proxies inside noexcept vector moves; injected failure terminates
 // in that standard-library path instead of throwing. Keep checked-iterator builds intact and run this
 // sweep in the other standalone configurations. The disable switch also permits unmodified-new ASan.

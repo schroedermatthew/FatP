@@ -132,7 +132,9 @@ bool checkResult(const Result& actual, const std::vector<std::size_t>& extents,
     FATP_ASSERT_EQ(actual.size(), expected.size(), "Every output coordinate needs one result");
     for (std::size_t index = 0; index < expected.size(); ++index)
     {
-        FATP_ASSERT_EQ(actual[index], expected[index], "Reduction value differs at output " + std::to_string(index));
+        using actual_value_type = typename Result::value_type;
+        FATP_ASSERT_EQ(actual[index], static_cast<actual_value_type>(expected[index]),
+                       "Reduction value differs at output " + std::to_string(index));
     }
     return true;
 }

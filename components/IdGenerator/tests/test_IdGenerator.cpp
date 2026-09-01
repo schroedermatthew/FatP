@@ -59,18 +59,20 @@ FATP_META:
 #include "StrongId.h"
 
 // -----------------------------------------------------------------------------
-// Global allocation counter, declared before first use.
+// Standalone allocation counter, declared before first use.
 //
 // Replacing global operator new is a heavy instrument and is used deliberately:
 // the return-credit mechanism's whole claim is about WHERE allocation happens,
 // and no count-based oracle can see that. See allocprobe below for the arming
-// interface. When disarmed -- which is every test but two -- this costs one
-// relaxed atomic load per allocation.
+// interface. Keep the replacement in this component's standalone executable;
+// installing it in the aggregate runner would change allocation for every FatP
+// component linked into that process.
 //
 // Aligned (over-aligned) allocations are deliberately not replaced: nothing on
 // the measured paths over-aligns, and replacing them widens the blast radius
 // across the whole executable for no coverage.
 // -----------------------------------------------------------------------------
+#ifdef ENABLE_TEST_APPLICATION
 namespace fat_p::testing::idgenerator::allocprobe
 {
 extern std::atomic<bool> counting;
@@ -129,6 +131,7 @@ void operator delete[](void* p, std::size_t) noexcept
 {
     std::free(p);
 }
+#endif
 
 namespace fat_p::testing::idgenerator
 {
@@ -2572,7 +2575,7 @@ struct ThrowingSwapLess
         return lhs < rhs;
     }
 
-    friend void swap(ThrowingSwapLess&, ThrowingSwapLess&) noexcept(false)
+    [[maybe_unused]] friend void swap(ThrowingSwapLess&, ThrowingSwapLess&) noexcept(false)
     {
     }
 };
@@ -2678,6 +2681,7 @@ private:
 /// this file allocate on several threads through this same replacement.
 } // namespace (the replaced operator new must see these at EXTERNAL linkage)
 
+#ifdef ENABLE_TEST_APPLICATION
 namespace allocprobe
 {
 
@@ -2721,6 +2725,7 @@ public:
 };
 
 } // namespace allocprobe
+#endif
 
 namespace
 {
@@ -2842,6 +2847,7 @@ FATP_TEST_CASE(non_sparse_batch_reverts_the_throwing_candidate)
     return true;
 }
 
+#ifdef ENABLE_TEST_APPLICATION
 FATP_TEST_CASE(non_sparse_single_issue_rolls_back_allocation_failure)
 {
     size_t allocation_count = 0;
@@ -2930,6 +2936,7 @@ FATP_TEST_CASE(non_sparse_recycled_issue_restores_allocation_failure)
     }
     return true;
 }
+#endif
 
 FATP_TEST_CASE(non_sparse_batch_restores_the_exact_fifo_sequence)
 {
@@ -3144,12 +3151,6 @@ FATP_TEST_CASE(sparse_claim_cost_is_independent_of_the_gap)
 // where the revert IS expected.
 FATP_TEST_CASE(sparse_batch_rollback_does_not_revert_the_allocation_policy)
 {
-    using SparseGen = IdGenerator<uint64_t,
-                                  CountingRevertPolicy<uint64_t>,
-                                  SparseRecyclingPolicy<uint64_t>,
-                                  id_generator::ExpectedErrorPolicy<uint64_t, IdError>,
-                                  SingleThreadedPolicy>;
-
     // Domain exhaustion can no longer reach rollback: the capacity preflight is
     // exact for any domain narrower than SIZE_MAX+1, so an infeasible count is
     // refused before the loop. Reaching the ROLLBACK path therefore means
@@ -3897,6 +3898,7 @@ FATP_TEST_CASE(sparse_moved_from_policy_reports_no_credits)
     return true;
 }
 
+#ifdef ENABLE_TEST_APPLICATION
 // The credit mechanism's PURPOSE, measured. Every other oracle in this file is a
 // count, and no count can tell a node taken from the credit stack from one
 // freshly allocated: both decrement the count and leave identical structure.
@@ -4027,6 +4029,7 @@ FATP_TEST_CASE(sparse_split_reservation_unwinds_its_first_credit)
     FATP_ASSERT_EQ(policy.reserve_claim_credits(5), size_t(2), "usable after every failure");
     return true;
 }
+#endif
 
 } // namespace fat_p::testing::idgenerator
 
@@ -4138,8 +4141,10 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_contract_holds_under_mutex_synchronization);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_policy_does_not_reach_the_existing_aliases);
     FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_batch_reverts_the_throwing_candidate);
+#ifdef ENABLE_TEST_APPLICATION
     FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_single_issue_rolls_back_allocation_failure);
     FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_recycled_issue_restores_allocation_failure);
+#endif
     FATP_RUN_TEST_NS(runner, idgenerator, non_sparse_batch_restores_the_exact_fifo_sequence);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_credit_failure_leaves_the_free_set_untouched);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_unwinds_a_throwing_id_constructor);
@@ -4151,8 +4156,10 @@ bool test_IdGenerator()
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_generate_constructs_the_id_type_before_mutating);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_batch_preflight_uses_the_configured_domain);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_moved_from_policy_reports_no_credits);
+#ifdef ENABLE_TEST_APPLICATION
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_return_paths_allocate_nothing);
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_split_reservation_unwinds_its_first_credit);
+#endif
 #if FATP_USE_SHARED_MUTEX
     FATP_RUN_TEST_NS(runner, idgenerator, sparse_claims_are_serialized_under_contention);
 #endif
