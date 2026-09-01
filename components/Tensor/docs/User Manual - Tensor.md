@@ -20,6 +20,9 @@ status: "in_work"
 store values in canonical contiguous row-major order. Non-owning mappings use
 `TensorView<T>`, `TensorView<const T>`, or `SharedTensorView<T>`.
 
+The dynamic Tensor API is currently `in_work`. This manual describes the tested
+surface at the revision above; it is not an API, ABI, or wire-compatibility promise.
+
 The separation is deliberate:
 
 | Type | Storage lifetime | Writable | Layout |
@@ -41,6 +44,7 @@ The separation is deliberate:
 #include "TensorInterop.h"      // span, descriptor, mdspan, and static conversion
 #include "TensorMatmul.h"       // matmul, dot, outer, diagonal, and trace
 #include "TensorContractions.h" // tensorDot with explicitly paired axes
+#include "TensorExecution.h"    // optional explicit contexts; includes ThreadPool
 #include "TensorSelection.h"    // stack, concatenate, take, and gather
 #include "TensorSlice.h"        // extended slice vocabulary
 #include "TensorEquality.h"     // EqualityComparisons integration
@@ -398,8 +402,8 @@ constructor; supplying an explicit result allocator bypasses that selection.
 and `approxEqual` still require matching element types. `approxEqual` is also
 restricted to floating-point element and tolerance types. Same-sign infinities
 are equal; an infinity and a finite value are never approximately equal,
-regardless of relative tolerance. NaNs are not approximately equal.
-In-place arithmetic remains future work.
+regardless of relative tolerance. NaNs are not approximately equal. Transactional
+compound arithmetic for owners and writable views is described below.
 
 Scalar arithmetic works in both orders, with the same promotion and overflow
 rules as tensor/tensor arithmetic:
@@ -888,7 +892,7 @@ innermost contracted axis is a strided run; its outer coordinates are decoded
 once per run. There is no contraction-order optimizer or einsum parser.
 
 See [measurements and validation](../results/2026-08-31-contractions/README.md)
-for the measured scope and remaining CI gate.
+for the measured scope and completed validation record.
 
 ## Explicit execution contexts
 
@@ -949,7 +953,8 @@ fallback paths do not submit and can still succeed.
 
 The context borrows its pool and scratch resource: keep both alive until the
 call returns, and do not mutate, resize, or destroy inputs concurrently.
-options.scratch must be nonnull and defaults to the standard default PMR resource.
+options.grainSize must be positive. options.scratch must be nonnull and defaults
+to the standard default PMR resource.
 It owns only the bounded future array, allocated and released on the calling
 thread; it does not replace Tensor metadata, pool task/promise, or result-element
 allocators. Shared contexts require a thread-safe scratch resource or external
@@ -964,7 +969,8 @@ or a parallel reduction-combine policy. The only supported choices are serial an
 deterministic row-parallel execution; no BLAS/GPU/backend placeholder flags are exposed.
 
 See [execution measurements and validation](../results/2026-08-31-execution-contexts/README.md).
-Linux ThreadSanitizer is a CI gate; this Windows implementation session did not run it.
+Linux AddressSanitizer, UndefinedBehaviorSanitizer, and ThreadSanitizer coverage,
+along with the supported compiler matrix, passed in the published CI record linked there.
 
 ## Serialization
 
@@ -986,6 +992,11 @@ integer and IEEE-754 targets.
 Deserializer rank, extent, element, and byte budgets are checked before Tensor
 element storage allocation. A supplied-allocator overload lets applications
 choose the result memory resource.
+
+The version 2 wire format is experimental, not a compatibility promise. The
+decoder accepts only version 2 and rejects every other wire-version value.
+Version 1 is incompatible because it encoded rank zero as empty. Extension
+framing, checksums, and cross-version compatibility policy remain open design work.
 
 ## Current boundaries
 

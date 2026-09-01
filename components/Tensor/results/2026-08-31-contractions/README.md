@@ -1,8 +1,8 @@
 # Tensor contractions: implementation and validation
 
-Implemented 2026-08-31 on top of 42fca1a. This report records pre-publication
-local validation. The new Linux matrix and sanitizer jobs require a successful
-CI run on the published commit.
+Implemented 2026-08-31 on top of 42fca1a. The local evidence below was recorded
+before publication; the later remote compiler and sanitizer closure is recorded
+separately.
 
 ## Delivered surface
 
@@ -41,10 +41,9 @@ Public job status and authenticated build logs for commit 42fca1a establish:
   The race-window test now uses dummy = dummy + k, preserving the volatile
   accesses without deprecated compound assignment.
 
-These are narrow corrections to the observed diagnostics. Remote sanitizer
-success applies to the prior execution commit, NOT to the unpublished contraction
-implementation. Fresh CI is necessary; this report does not call the overall
-Linux matrix green.
+At that point, remote sanitizer success applied only to the prior execution commit,
+not to the then-unpublished contraction implementation. The later publication
+and full remote closure are recorded below.
 
 ## Local validation
 
@@ -77,7 +76,20 @@ Linux matrix green.
   of the new C++ files, and git diff --check pass.
 - This Windows host has no Linux distribution/TSan runtime. New Linux ASan/UBSan/TSan
   coverage is wired into tensor-contractions.yml and the existing Tensor/execution
-  sanitizer source lists; it is not a locally completed gate.
+  sanitizer source lists; it was not a locally completed gate. Remote completion
+  is recorded below.
+
+## Remote CI closure
+
+- The dedicated [TensorContractions CI run](https://github.com/schroedermatthew/FatP/actions/runs/33419554296)
+  passed on commit ee08ead1, covering the generated compiler, facade/header,
+  strict-warning, and Linux sanitizer jobs for the bounded contraction surface.
+- The later [aggregate FatP CI run](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
+  passed on commit 72d3495b across GCC 12/13/14, Clang 16/17, MSVC C++20/C++23,
+  strict warnings, self-containment, AddressSanitizer, UndefinedBehaviorSanitizer,
+  and ThreadSanitizer. That revision isolates global-new allocation probes from
+  incompatible aggregate and checked-iterator modes; it does not expand the
+  contraction API. The publication gate described above is complete.
 
 ## Measurements
 
@@ -224,12 +236,11 @@ benchmarks; validation and timing evidence above came from the owner's tools.
 
 ## Remaining work
 
-After publication, require the complete Linux compiler/sanitizer matrix to pass.
 Further output-iteration optimization, axis coalescing, packing,
 and contraction-path search need their own measurements and contracts. Full
 einsum remains deliberately absent.
 
-## ModifiedFiles
+## Modified Files
 
 The manifest below includes source, integration, documentation, and raw evidence
 files for this increment. Temporary local build products are not repository changes.

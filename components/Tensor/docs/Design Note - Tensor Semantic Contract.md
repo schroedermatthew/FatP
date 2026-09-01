@@ -2,7 +2,7 @@
 doc_id: DN-TENSOR-001
 doc_type: "Design Note"
 title: "Tensor Semantic Contract"
-fatp_components: ["Tensor", "TensorStatic", "TensorSerializer"]
+fatp_components: ["Tensor", "TensorLayout", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer", "TensorStatic"]
 topics: ["rank-zero tensor", "zero-extent tensor", "tensor ownership", "strided layout", "broadcast aliasing", "tensor serialization"]
 constraints: ["owner and view lifetime", "signed stride reachability", "overlapping tensor mappings", "portable wire format"]
 cxx_standard: "C++20"
@@ -17,7 +17,7 @@ status: "draft"
 # Design Note - Tensor Semantic Contract
 
 **Status:** Experimental  
-**Contract version:** 0.12\
+**Contract version:** 0.13\
 **Applies to:** `Tensor`, `StaticTensor`, tensor views, and tensor algorithms  
 **Stability:** This design note is intentionally not an API or wire-format stability promise.
 
@@ -27,8 +27,8 @@ This design note records the shared semantic decisions implemented by the Tensor
 layout, owner/view, and serial-kernel foundation. It covers rank, extents, size,
 strides, layouts, ownership, lifetime, constness, aliasing, copying, transforms,
 iteration, numeric boundaries, errors, execution, and serialization. It
-distinguishes current decisions enforced by tests from later numeric-family,
-execution, and contraction contracts.
+distinguishes current decisions enforced by tests from target-only numeric-family,
+execution-backend, contraction-optimization, and complete-einsum work.
 
 ## Not covered
 
@@ -749,11 +749,13 @@ sources remain invalid in Release. Shared sources retain storage lifetime.
 
 #### Named linear algebra
 
-`TensorMatmul.h` is the single facade for `matmul`, `dot`, `outer`, `diagonal`,
-and `trace`. Each returns a canonical independent owner. Binary operations
-require matching arithmetic element types, not implicit mixed-type promotion.
-Use explicit `cast` for a different common type. Diagonal extraction requires
-only default initialization and copy assignment; trace requires arithmetic.
+`TensorMatmul.h` is the facade for `matmul`, `dot`, `outer`, `diagonal`, and
+`trace`; `TensorContractions.h` adds explicit-axis `tensorDot`. Context overloads
+live in the optional `TensorExecution.h` facade. Each operation returns a canonical
+independent owner. Binary operations require matching arithmetic element types,
+not implicit mixed-type promotion. Use explicit `cast` for a different common
+type. Diagonal extraction requires only default initialization and copy assignment;
+trace requires arithmetic.
 
 In this table `B` denotes an arbitrary batch prefix and `D = min(M,N)`:
 
@@ -855,6 +857,7 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 | User element operation throws during a new result | Original exception | No published partial result; input operands are unchanged. |
 | User element assignment throws during `copyFrom` | Original exception | Validation and overlap staging occur first; element assignment provides the documented basic guarantee. |
 | Compound arithmetic validation, allocation, arithmetic, or conversion fails | Original documented exception | All destination values, storage, and metadata remain unchanged; scratch is reclaimed. |
+| Explicit execution observes cooperative cancellation | `TensorExecutionCancelled` | All accepted tasks drain; no owner is returned; inputs remain unchanged and unpublished result storage is reclaimed. |
 
 - `copyFrom` validates before mutation. Validation, allocation, or source
   snapshot failure leaves the destination unchanged. If assignment throws in
@@ -867,10 +870,19 @@ complete einsum is a separate API decision, not a promised compatibility layer.
   guarantee. Both new helpers use the shared iteration plan and copy
   kernel rather than private offset walkers.
 
-- An execution context belongs to algorithms, not tensor ownership. It controls
-  executor, grain size, scratch allocation, determinism, and backend selection.
-- Synchronous algorithms complete all submitted work before returning or
-  throwing.
+- `TensorExecutionContext` belongs to algorithms, not tensor ownership. Default
+  construction is serial; `parallel(ThreadPool&)` borrows an application-owned
+  pool. Current context overloads cover `matmul`, `dot`, and `tensorDot`.
+- `TensorExecutionOptions` controls positive grain size, minimum-work threshold,
+  task cap, cooperative stop token, and a nonnull PMR scratch resource used only
+  for the bounded future array. Result element allocation follows the ordinary
+  operation allocator rule.
+- Calls from any Fat-P pool worker run serially. Parallel work partitions output
+  rows or elements but never divides a numeric fold, preserving the documented
+  fold order in the same build and floating environment.
+- Synchronous algorithms drain all accepted work before returning or throwing.
+  Submission failure precedes the lowest-index task failure, which precedes
+  cancellation. A failed or cancelled call publishes no partial owner.
 
 ### 11. Serialization
 
@@ -885,10 +897,11 @@ complete einsum is a separate API decision, not a promised compatibility layer.
   floating point. The implementation rejects unsupported representations at
   compile time.
 - Wire format version 2 distinguishes a rank-zero scalar from an empty tensor.
-  Version 1 encoded dynamic rank zero as empty and is deliberately rejected
-  rather than reinterpreted under the new scalar rule.
-- The wire format remains experimental until limits, extension, checksum, and
-  compatibility rules are finalized.
+  The decoder accepts only version 2 and rejects every other wire-version value.
+  Version 1 is incompatible because it encoded dynamic rank zero as empty; it is
+  not reinterpreted under the new scalar rule.
+- The wire format remains experimental until extension, checksum, and compatibility
+  rules are finalized.
 - Deserialization applies caller-configurable rank, extent, element-count, and
   payload byte limits before allocating Tensor element storage. Defaults cap one
   payload at 64 MiB; applications should normally choose a smaller trust-specific
@@ -969,6 +982,7 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 | Numeric boundaries, floating order, NaNs, ties, and boolean truth rules are explicit | `test_TensorReductions.cpp::integral_accumulator_boundaries`; `test_TensorReductions.cpp::floating_order_nan_infinity_and_signed_zero`; `test_TensorReductions.cpp::boolean_truth_and_identities` |
 | Reduction axes, allocation failures, and shared/borrowed lifetimes follow the contract | `test_TensorReductions.cpp::axis_validation_and_source_preservation`; `test_TensorReductions.cpp::result_allocation_and_failure_contract`; `test_TensorReductions.cpp::shared_retention_and_borrowed_invalidation` |
 | Interop rejects temporaries and preserves mapping, constness, and Debug lifetime | `test_TensorInterop.cpp::contiguous_span_contract`; `test_TensorInterop.cpp::strided_descriptor_roundtrip` |
+| Static/dynamic conversions preserve exact shapes, rank-zero values, and logical view order | `test_TensorInterop.cpp::static_dynamic_conversion` |
 | Matmul covers vector, matrix, strided, batched, and zero-contraction forms | `test_TensorMatmul.cpp::vector_and_matrix_forms`; `test_TensorMatmul.cpp::contiguous_strided_and_batched`; `test_TensorMatmul.cpp::empty_and_zero_inner_dimensions`; `test_TensorMatmul.cpp::batched_vector_and_matrix_shape_table` |
 | Named operations preserve shape, dtype, and independent ownership | `test_TensorMatmul.cpp::named_shapes_and_ownership`; compile-time `linearAlgebraTypes` assertions |
 | Signed, padded, transposed, and overlapping read layouts match scalar references | `test_TensorMatmul.cpp::vector_layout_scalar_references`; `test_TensorMatmul.cpp::diagonal_layout_scalar_references`; `test_TensorMatmul.cpp::matmul_layout_scalar_references` |
@@ -977,6 +991,8 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 | Mapped intermediates preserve allocator provenance and lifetime checks | `test_TensorMatmul.cpp::allocator_selection_and_validation`; `test_TensorMatmul.cpp::shared_and_borrowed_lifetimes` |
 | Named compositions replace the retired pattern subset | `test_TensorMatmul.cpp::retired_pattern_replacements` |
 | Throwing diagonal element copies reclaim unpublished storage | `test_TensorMatmul.cpp::diagonal_copy_failure_cleanup` |
+| Explicit-axis contractions preserve axis order, checked folds, ownership, and arbitrary readable layouts | `test_TensorContractions.cpp::shapes_and_axis_order`; `test_TensorContractions.cpp::randomized_layout_differentials`; `test_TensorContractions.cpp::numeric_folds_and_failures`; `test_TensorContractions.cpp::ownership_allocators_and_lifetimes` |
+| Explicit contexts retain serial defaults, deterministic folds, bounded scheduling, draining, and allocator rules | `test_TensorExecution.cpp::serial_defaults_and_thresholds`; `test_TensorExecution.cpp::layouts_and_deterministic_folds`; `test_TensorExecution.cpp::scheduler_draining_and_task_bounds`; `test_TensorExecution.cpp::result_allocator_contract`; `test_TensorContractions.cpp::explicit_execution` |
 | Composition and indexed selection validate shape and bounds before evaluation | `test_TensorSelection.cpp::stack_pair_and_many`; `test_TensorSelection.cpp::take_and_take_along_axis`; `test_TensorSelection.cpp::gather_nd_and_zero_depth` |
 
 These tests are conformance seeds, not a proof over arbitrary layouts.
@@ -1006,8 +1022,8 @@ dimension-retention modes, plus the rank-zero case) and 600 seeded layouts up
 to rank 5 with extents 0-4. Boundary tests supplement that bounded coverage.
 Further numeric families, contraction-order optimizers, and broader execution
 backends remain target-only. Named tensorDot contractions and native explicit
-matmul/dot/tensorDot contexts have bounded implementations and named tests;
-their full cross-platform closure gates are recorded in the additions plan.
+matmul/dot/tensorDot contexts have bounded implementations, named tests, and
+completed cross-platform compiler/sanitizer gates recorded in the additions plan.
 
 ## Implementation Status
 
@@ -1025,8 +1041,10 @@ axis reductions, borrowed interop,
 named linear algebra, explicit-axis tensorDot, native explicit execution contexts,
 indexed selection, and serializer resource limits have current executable evidence.
 Further numeric families, contraction-path optimization, and complete einsum
-remain target-only. New contraction Linux matrix/sanitizer runs remain pending
-until the implementation is pushed; earlier execution-context TSan passed.
+remain target-only. The dedicated
+[TensorContractions CI run](https://github.com/schroedermatthew/FatP/actions/runs/33419554296)
+and later [aggregate FatP CI run](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
+passed the delivered contraction/execution compiler and sanitizer gates.
 
 The remaining policy decisions are deliberately owned by later phase contracts:
 

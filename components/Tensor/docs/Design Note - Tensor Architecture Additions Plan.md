@@ -2,7 +2,7 @@
 doc_id: DN-TENSOR-002
 doc_type: "Design Note"
 title: "Tensor Architecture Additions Plan"
-fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorExecution", "TensorSerializer", "TensorStatic"]
+fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorSerializer", "TensorStatic"]
 topics: ["tensor layout", "tensor views", "strided iteration", "numeric promotion", "axis reductions", "tensor execution", "tensor contractions"]
 constraints: ["signed stride reachability", "aliasing and lifetime", "checked shape arithmetic", "deterministic reduction order", "header-only C++20"]
 cxx_standard: "C++20"
@@ -17,7 +17,8 @@ status: "reviewed"
 
 # Design Note - Tensor Architecture Additions Plan
 
-**Status:** Phases 0-4 implemented; Phase 5-8 dependency-light cores implemented; remaining gates planned\
+**Status:** Phases 0-4 complete; Phase 5-8 dependency-light cores and bounded Phase 9-11 increments implemented and validated
+
 **Decided:** The owner/view/layout/kernel foundation and dependency-light algorithm expansion are implemented  
 **Last reviewed:** 2026-08-31
 
@@ -71,10 +72,12 @@ The remaining work is architectural:
 
 - Compound arithmetic, checked negation/absolute value, and floating sqrt/exp/log are implemented;
   remaining numeric operation families do not yet have implemented contracts.
-- Parallel execution contexts have not landed; current dynamic algorithms are
-  deliberately serial.
-- Named linear algebra has replaced the partial einsum API atomically;
-  general contraction planning has not landed.
+- Existing calls remain serial by default. Phase 9 added opt-in native execution
+  contexts for `matmul` and `dot`; Phase 10 extended that surface to `tensorDot`.
+  Broader algorithm scheduling and alternate backends remain separate work.
+- Named linear algebra and explicit-axis `tensorDot` have replaced the partial
+  einsum API atomically. The current contraction plan is metadata-only; path
+  optimization, packing, and a complete einsum grammar have not landed.
 - The named linear-algebra benchmark matrix now covers five operations, sizes,
   and supported layout classes; additional specialized kernels still require
   their own direct measurement evidence.
@@ -179,6 +182,7 @@ include/fat_p/TensorReductions.h
 include/fat_p/TensorInterop.h
 include/fat_p/TensorSelection.h
 include/fat_p/TensorMatmul.h
+include/fat_p/TensorContractions.h
 include/fat_p/TensorExecution.h
 include/fat_p/TensorEquality.h
 include/fat_p/TensorSerializer.h
@@ -280,7 +284,7 @@ canonical dtype vocabulary replaces them.
 
 ## Phase Plan
 
-| Phase | Status on 2026-08-30 |
+| Phase | Status on 2026-08-31 |
 |---:|---|
 | 0 | Complete: governance, artifact relocation, Debug/sanitizer CI, and baseline harness |
 | 1 | Complete: checked extents, signed layouts, classification, and oracle tests |
@@ -291,7 +295,9 @@ canonical dtype vocabulary replaces them.
 | 6 | Interop implemented; named linear-algebra allocation/layout benchmark matrix recorded; broader benchmark domains remain |
 | 7 | Core implemented: stack, concatenate, take, takeAlongAxis, and gatherND; broader generic math remains |
 | 8 | Named APIs, subset einsum retirement, and measured contiguous-vector dispatch implemented; broader specialization remains |
-| 9-11 | Planned, except bounded serialization and static/dynamic conversion work already delivered |
+| 9 | Bounded native execution contexts implemented and remotely validated for `matmul` and `dot`; wider scheduling and backend work remains optional |
+| 10 | Explicit-axis `tensorDot`, context overloads, tests, and measurements implemented and remotely validated; packing, path optimization, and complete einsum remain absent |
+| 11 | Version 2 serialization limits and same-element-type static/dynamic conversion implemented; canonical dtype, framing, checksums, and stable wire compatibility remain open |
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
 an explicit allocator wins; otherwise the first owning input from left to right
@@ -716,8 +722,8 @@ choose scratch.
   over zero, mixed integer-result overflow, ordinary finite floating tests
   outside the IEC 559 gate, and precise floating-environment wording.
   This is bounded local Windows/compiler evidence, not remote CI or universal
-  floating-platform coverage. In-place arithmetic and unary expansion remain
-  separate increments; Phase 5 as a whole is not closed.
+  floating-platform coverage. The compound and unary increments delivered later
+  are recorded below; broader Phase 5 numeric expansion remains open.
 
 **Delivered compound-assignment step (2026-08-31)**
 
@@ -1009,7 +1015,8 @@ choose scratch.
   live in [the benchmark report](../results/2026-08-31-linear-algebra/README.md),
   not performance tables in public API documentation. This does not close
   broader integer/interop benchmarks, additional kernel specialization,
-  general contraction planning, or explicit execution contexts.
+  general contraction planning, or execution-context coverage beyond the
+  bounded operations delivered below.
 
 ### Phase 9: Explicit execution context
 
@@ -1053,15 +1060,18 @@ choose scratch.
   See [results and review record](../results/2026-08-31-execution-contexts/README.md).
 
 **Gate update (2026-08-31):** Linux ThreadSanitizer, AddressSanitizer, and
-UndefinedBehaviorSanitizer passed for execution and its ThreadPool prerequisite
+UndefinedBehaviorSanitizer first passed for execution and its ThreadPool prerequisite
 on commit 42fca1a, in [TensorExecution CI](https://github.com/schroedermatthew/FatP/actions/runs/33415615587)
 and [ThreadPool CI](https://github.com/schroedermatthew/FatP/actions/runs/33415615551).
-Ordinary Linux builds failed on a copied structured binding in TensorSlice;
-GCC 12 also rejected a volatile compound assignment in the ThreadPool test.
-Both warning-as-error causes are corrected locally. A fresh pushed CI run must
-confirm the complete matrix before Phase 9 is closed. Broader algorithm scheduling, column tiling for
-single-row products, foreign-pool coordination, and other backends remain outside
-this increment; they are not implied by the context API.
+Those runs also exposed a copied structured binding in TensorSlice and a deprecated
+volatile compound assignment in the ThreadPool test under ordinary warning-as-error
+builds. After both corrections, [aggregate FatP CI](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
+passed on commit 72d3495b across GCC 12/13/14, Clang 16/17, MSVC C++20/C++23,
+strict warnings, self-containment, AddressSanitizer, UndefinedBehaviorSanitizer,
+and ThreadSanitizer. This closes remote validation for the delivered context
+surface. Broader algorithm scheduling, column tiling for single-row products,
+foreign-pool coordination, and other backends remain outside this increment;
+they are not implied by the context API.
 
 ### Phase 10: Contractions and optional complete einsum
 
@@ -1082,7 +1092,7 @@ this increment; they are not implied by the context API.
 - Contraction order, temporary allocation, and numeric accumulation are explicit.
 - No hard-coded pattern-list implementation is presented as general einsum.
 
-**Implemented bounded increment (2026-08-31; fresh remote CI pending)**
+**Implemented bounded increment (2026-08-31; remote gate complete)**
 
 - TensorContractions.h provides tensorDot with explicit paired axis lists,
   negative-axis normalization, fixed free-axis output ordering, and no broadcasting.
@@ -1101,8 +1111,11 @@ this increment; they are not implied by the context API.
   matching prevalidated scalar folds and result storage. No einsum grammar,
   path optimizer, operand packing, or external backend is exposed.
 - [Validation, peer review, and measurements](../results/2026-08-31-contractions/README.md)
-  record the bounded evidence; the new Linux sanitizer/matrix workflow remains
-  an explicit post-push gate.
+  record the bounded evidence. The dedicated
+  [TensorContractions CI run](https://github.com/schroedermatthew/FatP/actions/runs/33419554296)
+  passed on commit ee08ead1, and the later
+  [aggregate FatP CI run](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
+  passed on commit 72d3495b with the compiler and sanitizer matrix described above.
 
 ### Phase 11: Serializer, dtype vocabulary, and StaticTensor closure
 
@@ -1119,6 +1132,22 @@ this increment; they are not implied by the context API.
   extent and numeric conversion rules.
 - Share only traits and kernels whose semantics are identical; checked and
   saturating policies remain StaticTensor-only unless separately justified.
+
+**Implemented bounded increment (2026-08-31; Phase 11 not closed)**
+
+- Wire format version 2 serializes owners and views in logical order, distinguishes
+  rank-zero scalars from empty tensors, and supports the documented big-endian
+  scalar representations. The decoder accepts only version 2 and rejects every
+  other wire-version value; version 1 is incompatible because it encoded dynamic
+  rank zero as empty.
+- Deserialization enforces caller-configurable rank, extent, element-count, and
+  payload-byte limits before allocating Tensor element storage. An overload accepts
+  the exact result allocator.
+- `toTensor` and `toStaticTensor` provide same-element-type static/dynamic conversion.
+  Tests cover exact shapes, mismatched shapes, rank-zero values, and view materialization.
+- Extension framing, checksums, a canonical dtype vocabulary, cross-version
+  compatibility policy, and any broader numeric conversion surface remain open.
+  The current experimental wire format is not a stability promise.
 
 **Exit gate**
 
@@ -1199,11 +1228,21 @@ between reviewers does not replace evidence.
 
 ## Status
 
-**Status:** Accepted; Phases 0-3 implemented and independently reviewed design findings reconciled.  
+**Status:** Accepted; Phases 0-4, the Phase 5-8 dependency-light cores, and bounded Phase 9-11 increments are implemented, with the remaining expansion gates stated above.
+
 **Decision owner:** Fat-P maintainer.  
 **Implementation started:** Yes; current executable evidence is recorded in `DN-TENSOR-001` and component tests.
 
 ## Review Record
+
+Local read-only Claude and Grok documentation-closure reviews completed on
+2026-08-31 with no remaining blockers. Claude identified stale opening context,
+missing facade/component inventory, incomplete execution and cancellation terms,
+and missing consumer-facing API/wire stability language. Grok independently
+separated Phase 9 `matmul`/`dot` ownership from the Phase 10 `tensorDot` context
+extension and required the decoder's version-2-only behavior to be explicit.
+Those findings are incorporated above. Neither peer edited files or substituted
+its opinion for the executable and remote-CI evidence.
 
 Local read-only Claude and Grok design reviews approved floating sqrt/exp/log
 on 2026-08-31. Claude's final source review supported shipping; its remaining

@@ -1,7 +1,7 @@
 # Tensor execution contexts — implementation and measurement record
 
-Date: 2026-08-31. Base revision: eec75394.
-Phase 9 remains open until the generated Linux ThreadSanitizer gate has run.
+Date: 2026-08-31. Base revision: eec75394. The local evidence below was recorded
+before publication; the later remote gate closure is recorded separately.
 
 ## Delivered contract
 
@@ -20,6 +20,10 @@ Phase 9 remains open until the generated Linux ThreadSanitizer gate has run.
   has no hard latency bound and can discard a fully computed result at the final check.
 - Floating agreement assumes the same build and floating environment. Caller TLS
   and rounding state are not propagated.
+
+These delivered-contract bullets describe the base execution-context increment.
+The later contraction increment added the current `tensorDot` context overloads;
+see the user manual and contraction record for that extension.
 
 The ThreadPool prerequisites reject submissions after a synchronized shutdown
 cutoff, roll back failed enqueue accounting, account for partially accepted
@@ -116,9 +120,10 @@ Measured source SHA256:
   and ThreadPool all pass, including MSVC checked iterators.
 - Four existing consumers pass: CSRMatrixParallel, CSRMatrix_HPC,
   CSRMatrix_HPC_Parallel, and DiagnosticLogger_IO.
-- Execution suite passes MSVC Debug/Release, GCC 16.1 and Clang 22.1 with warnings
-  treated as errors. MSVC AddressSanitizer passes with ordinary-new interception
-  disabled. No Linux UBSan/TSan execution is claimed.
+- The pre-publication execution suite passed MSVC Debug/Release, GCC 16.1 and
+  Clang 22.1 with warnings treated as errors. MSVC AddressSanitizer passed with
+  ordinary-new interception disabled. This local evidence did not include Linux
+  UBSan/TSan; the later remote evidence is recorded below.
 - Allocation fault sweeps run in standalone non-checked-iterator builds: 48
   caller-thread allocation positions through scheduling, plus both queue kinds
   around capacity boundaries. Checked Debug and ASan still test throwing PMR
@@ -142,7 +147,22 @@ Measured source SHA256:
   One Grok file-based review failed during source changes; subsequent immutable
   source reviews completed. Reviewer opinions are not substituted for test runs.
 
-## Limits and next gate
+## Remote CI closure
+
+- [TensorExecution CI](https://github.com/schroedermatthew/FatP/actions/runs/33415615587)
+  and [ThreadPool CI](https://github.com/schroedermatthew/FatP/actions/runs/33415615551)
+  passed Linux AddressSanitizer, UndefinedBehaviorSanitizer, and ThreadSanitizer
+  for the delivered context surface and its pool prerequisite on commit 42fca1a.
+  Their ordinary warning-as-error jobs exposed two unrelated portability warnings,
+  which were corrected before the final aggregate run.
+- [Aggregate FatP CI](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
+  passed on commit 72d3495b across GCC 12/13/14, Clang 16/17, MSVC C++20/C++23,
+  strict warnings, self-containment, AddressSanitizer, UndefinedBehaviorSanitizer,
+  and ThreadSanitizer. That revision isolates global-new allocation probes from
+  incompatible aggregate and checked-iterator modes; it does not expand the
+  execution API. The remote gate for this bounded increment is complete.
+
+## Limits and remaining scope
 
 The cutoff is a conservative portable starting point, not a promise to find the
 fastest mode on every CPU, compiler, shape, or pool configuration. Keeping it high
@@ -150,11 +170,9 @@ deliberately gives up some small/batched-case speedups, including on spinning po
 to avoid scheduling regressions on sleeping pools. Applications can lower it after
 measuring their actual workloads. No hidden autotuning changes existing calls.
 
-Next: run the Linux sanitizer workflow, especially ThreadSanitizer, before closing
-Phase 9. It exercises the execution and prerequisite pool suites. This machine has
-no installed WSL/Linux distribution or other local TSan runtime, and no remote
-execution environment was provisioned. Column tiling, additional Tensor algorithms,
-foreign-executor coordination, and alternate backends remain separate increments.
+Column tiling, additional Tensor algorithms, foreign-executor coordination, and
+alternate backends remain separate increments. The completed remote gate validates
+the delivered surface; it does not imply those broader Phase 9 additions.
 
 ## Modified Files (32)
 
@@ -182,7 +200,7 @@ Paths are relative to the repository root.
 | .github/workflows/run-all-benchmarks-clang.yml | Register the Clang execution benchmark. |
 | .github/workflows/run-all-benchmarks-msvc.yml | Register the MSVC execution benchmark. |
 | components/Tensor/docs/User Manual - Tensor.md | Document public API, defaults, lifetime, cancellation, and limits. |
-| components/Tensor/docs/Design Note - Tensor Architecture Additions Plan.md | Record the bounded increment and outstanding TSan gate. |
+| components/Tensor/docs/Design Note - Tensor Architecture Additions Plan.md | Record the bounded increment, initial TSan gate, and later remote closure. |
 | components/ThreadPool/docs/User Manual - ThreadPool.md | Replace obsolete shutdown advice with the actual cutoff contract. |
 | README.md | Surface TensorExecution and refresh current inventory. |
 | Authors.md | Refresh current inventory. |
