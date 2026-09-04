@@ -123,6 +123,7 @@ bool test_TensorReductions();
 bool test_TensorSelection();
 bool test_TensorSlice();
 bool test_TensorEquality();
+bool test_TensorRanked();
 bool test_TensorStatic();
 bool test_ThreadPool();
 bool test_ValueGuard();

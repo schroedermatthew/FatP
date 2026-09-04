@@ -64,8 +64,15 @@ enum class TensorLayoutKind
     Indeterminate
 };
 
+template <std::size_t Rank>
+class BasicTensorLayout;
+
 namespace tensor_detail
 {
+
+template <std::size_t TargetRank, std::size_t SourceRank>
+[[nodiscard]] BasicTensorLayout<TargetRank>
+rebindValidatedLayout(const BasicTensorLayout<SourceRank>& source);
 
 using UnsignedOffset = std::make_unsigned_t<std::ptrdiff_t>;
 
@@ -143,11 +150,15 @@ inline std::ptrdiff_t checkedPositiveStrideProduct(std::ptrdiff_t value, std::si
 
 } // namespace tensor_detail
 
-class TensorLayout
+template <std::size_t Rank = tensor_detail::kDynamicTensorRank>
+class BasicTensorLayout
 {
 public:
-    TensorLayout(std::size_t storageLength, std::ptrdiff_t originOffset, DynamicExtents extents,
-                 TensorStrides strides)
+    using extents_type = tensor_detail::TensorExtentsFor<Rank>;
+    using strides_type = tensor_detail::TensorStridesFor<Rank>;
+
+    BasicTensorLayout(std::size_t storageLength, std::ptrdiff_t originOffset, extents_type extents,
+                      strides_type strides)
         : mStorageLength(storageLength)
         , mOriginOffset(originOffset)
         , mExtents(std::move(extents))
@@ -156,15 +167,20 @@ public:
         validateAndClassify();
     }
 
-    [[nodiscard]] static TensorLayout contiguous(DynamicExtents extents)
+    [[nodiscard]] static BasicTensorLayout contiguous(extents_type extents)
     {
         const auto storageLength = extents.logicalSize();
-        return TensorLayout(storageLength, 0, extents, canonicalStrides(extents));
+        auto strides = canonicalStrides(extents);
+        return BasicTensorLayout(storageLength, 0, std::move(extents), std::move(strides));
     }
 
-    [[nodiscard]] static TensorStrides canonicalStrides(const DynamicExtents& extents)
+    [[nodiscard]] static strides_type canonicalStrides(const extents_type& extents)
     {
-        TensorStrides result(extents.rank(), 0);
+        strides_type result{};
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            result.resize(extents.rank(), 0);
+        }
         std::ptrdiff_t runningStride = 1;
         for (std::size_t reverseAxis = extents.rank(); reverseAxis > 0; --reverseAxis)
         {
@@ -194,12 +210,12 @@ public:
         return mOriginOffset;
     }
 
-    [[nodiscard]] const DynamicExtents& extents() const noexcept
+    [[nodiscard]] const extents_type& extents() const noexcept
     {
         return mExtents;
     }
 
-    [[nodiscard]] const TensorStrides& strides() const noexcept
+    [[nodiscard]] const strides_type& strides() const noexcept
     {
         return mStrides;
     }
@@ -250,7 +266,7 @@ public:
         return mKind == TensorLayoutKind::Indeterminate;
     }
 
-    friend bool operator==(const TensorLayout&, const TensorLayout&) = default;
+    friend bool operator==(const BasicTensorLayout&, const BasicTensorLayout&) = default;
 
     [[nodiscard]] const std::optional<std::ptrdiff_t>& minimumOffset() const noexcept
     {
@@ -282,6 +298,29 @@ public:
     }
 
 private:
+    struct TrustedValidatedLayoutTag
+    {
+    };
+
+    BasicTensorLayout(TrustedValidatedLayoutTag, std::size_t storageLength,
+                      std::ptrdiff_t originOffset, extents_type extents,
+                      strides_type strides, TensorLayoutKind kind,
+                      std::optional<std::ptrdiff_t> minimumOffset,
+                      std::optional<std::ptrdiff_t> maximumOffset)
+        : mStorageLength(storageLength)
+        , mOriginOffset(originOffset)
+        , mExtents(std::move(extents))
+        , mStrides(std::move(strides))
+        , mKind(kind)
+        , mMinimumOffset(minimumOffset)
+        , mMaximumOffset(maximumOffset)
+    {
+    }
+
+    template <std::size_t TargetRank, std::size_t SourceRank>
+    friend BasicTensorLayout<TargetRank>
+    tensor_detail::rebindValidatedLayout(const BasicTensorLayout<SourceRank>& source);
+
     void validateAndClassify()
     {
         if (mExtents.rank() != mStrides.size())
@@ -387,21 +426,37 @@ private:
 
     [[nodiscard]] TensorLayoutKind classifyInjectivity() const
     {
-        std::vector<ActiveAxis> activeAxes;
-        activeAxes.reserve(rank());
+        using ActiveAxisStorage =
+            std::conditional_t<Rank == tensor_detail::kDynamicTensorRank, std::vector<ActiveAxis>,
+                               std::array<ActiveAxis, Rank>>;
+        ActiveAxisStorage activeAxes{};
+        std::size_t activeAxisCount = 0;
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            activeAxes.reserve(rank());
+        }
         for (std::size_t axis = 0; axis < rank(); ++axis)
         {
             if (mExtents[axis] > 1)
             {
-                activeAxes.push_back({tensor_detail::offsetMagnitude(mStrides[axis]), mExtents[axis]});
+                if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+                {
+                    activeAxes.push_back({tensor_detail::offsetMagnitude(mStrides[axis]), mExtents[axis]});
+                }
+                else
+                {
+                    activeAxes[activeAxisCount] =
+                        {tensor_detail::offsetMagnitude(mStrides[axis]), mExtents[axis]};
+                }
+                ++activeAxisCount;
             }
         }
 
-        if (activeAxes.size() <= 1)
+        if (activeAxisCount <= 1)
         {
             return TensorLayoutKind::InjectiveStrided;
         }
-        if (activeAxes.size() == 2)
+        if (activeAxisCount == 2)
         {
             return pairOverlaps(activeAxes[0], activeAxes[1]) ? TensorLayoutKind::Overlapping
                                                               : TensorLayoutKind::InjectiveStrided;
@@ -424,14 +479,16 @@ private:
             return TensorLayoutKind::InjectiveStrided;
         }
 
-        std::sort(activeAxes.begin(), activeAxes.end(), [](const ActiveAxis& left, const ActiveAxis& right) {
+        std::sort(activeAxes.begin(), activeAxes.begin() + static_cast<std::ptrdiff_t>(activeAxisCount),
+                  [](const ActiveAxis& left, const ActiveAxis& right) {
             return std::tie(left.magnitude, left.extent) < std::tie(right.magnitude, right.extent);
         });
 
         tensor_detail::UnsignedOffset coveredSpan = 0;
         bool greedyProof = true;
-        for (const auto& axis : activeAxes)
+        for (std::size_t index = 0; index < activeAxisCount; ++index)
         {
+            const auto& axis = activeAxes[index];
             if (axis.magnitude <= coveredSpan)
             {
                 greedyProof = false;
@@ -448,9 +505,9 @@ private:
         // A bounded two-axis collision is a constructive proof of overlap.
         // If neither that nor the packing proof decides a large higher-rank
         // mapping, report uncertainty instead of falsely calling it overlap.
-        for (std::size_t left = 0; left < activeAxes.size(); ++left)
+        for (std::size_t left = 0; left < activeAxisCount; ++left)
         {
-            for (std::size_t right = left + 1; right < activeAxes.size(); ++right)
+            for (std::size_t right = left + 1; right < activeAxisCount; ++right)
             {
                 if (pairOverlaps(activeAxes[left], activeAxes[right]))
                 {
@@ -463,11 +520,143 @@ private:
 
     std::size_t mStorageLength = 0;
     std::ptrdiff_t mOriginOffset = 0;
-    DynamicExtents mExtents;
-    TensorStrides mStrides;
+    extents_type mExtents;
+    strides_type mStrides;
     TensorLayoutKind mKind = TensorLayoutKind::Empty;
     std::optional<std::ptrdiff_t> mMinimumOffset;
     std::optional<std::ptrdiff_t> mMaximumOffset;
 };
+
+namespace tensor_detail
+{
+
+template <std::size_t TargetRank, std::size_t SourceRank>
+[[nodiscard]] BasicTensorLayout<TargetRank>
+rebindValidatedLayout(const BasicTensorLayout<SourceRank>& source)
+{
+    using target_layout = BasicTensorLayout<TargetRank>;
+    using target_extents = typename target_layout::extents_type;
+    using target_strides = typename target_layout::strides_type;
+
+    auto extents = [&]() -> target_extents {
+        if constexpr (TargetRank == kDynamicTensorRank)
+        {
+            return target_extents(source.mExtents.begin(), source.mExtents.end());
+        }
+        else
+        {
+            if (source.rank() != TargetRank)
+            {
+                throw std::invalid_argument("Tensor rank does not match the requested fixed-rank mapping");
+            }
+            std::array<std::size_t, TargetRank> values{};
+            std::copy(source.mExtents.begin(), source.mExtents.end(), values.begin());
+            return target_extents(std::move(values));
+        }
+    }();
+
+    auto strides = [&]() -> target_strides {
+        if constexpr (TargetRank == kDynamicTensorRank)
+        {
+            return target_strides(source.mStrides.begin(), source.mStrides.end());
+        }
+        else
+        {
+            std::array<std::ptrdiff_t, TargetRank> values{};
+            std::copy(source.mStrides.begin(), source.mStrides.end(), values.begin());
+            return values;
+        }
+    }();
+
+    return target_layout(typename target_layout::TrustedValidatedLayoutTag{},
+                         source.mStorageLength, source.mOriginOffset,
+                         std::move(extents), std::move(strides), source.mKind,
+                         source.mMinimumOffset, source.mMaximumOffset);
+}
+
+} // namespace tensor_detail
+
+using TensorLayout = BasicTensorLayout<>;
+
+template <std::size_t LeftRank, std::size_t RightRank>
+    requires(LeftRank != RightRank)
+[[nodiscard]] bool operator==(const BasicTensorLayout<LeftRank>& left,
+                              const BasicTensorLayout<RightRank>& right) noexcept
+{
+    return left.storageLength() == right.storageLength() &&
+        left.originOffset() == right.originOffset() && left.extents() == right.extents() &&
+        left.strides().size() == right.strides().size() &&
+        std::equal(left.strides().begin(), left.strides().end(), right.strides().begin()) &&
+        left.kind() == right.kind() && left.minimumOffset() == right.minimumOffset() &&
+        left.maximumOffset() == right.maximumOffset();
+}
+
+namespace tensor_detail
+{
+
+template <std::size_t Rank>
+using TensorLayoutFor = BasicTensorLayout<Rank>;
+
+template <typename Extents>
+[[nodiscard]] DynamicExtents makeDynamicExtents(const Extents& extents)
+{
+    DynamicExtents::container_type values;
+    values.reserve(extents.rank());
+    for (const auto extent : extents)
+    {
+        values.push_back(extent);
+    }
+    return DynamicExtents(std::move(values));
+}
+
+template <typename Strides>
+[[nodiscard]] TensorStrides makeDynamicStrides(const Strides& strides)
+{
+    TensorStrides values;
+    values.reserve(strides.size());
+    for (const auto stride : strides)
+    {
+        values.push_back(stride);
+    }
+    return values;
+}
+
+template <typename Layout>
+[[nodiscard]] TensorLayout makeDynamicLayout(const Layout& layout)
+{
+    return rebindValidatedLayout<kDynamicTensorRank>(layout);
+}
+
+template <std::size_t Rank, typename Extents>
+[[nodiscard]] FixedRankExtents<Rank> makeFixedExtents(const Extents& extents)
+{
+    if (extents.rank() != Rank)
+    {
+        throw std::invalid_argument("Tensor rank does not match the requested fixed-rank mapping");
+    }
+    std::array<std::size_t, Rank> values{};
+    std::copy(extents.begin(), extents.end(), values.begin());
+    return FixedRankExtents<Rank>(std::move(values));
+}
+
+template <std::size_t Rank, typename Strides>
+[[nodiscard]] std::array<std::ptrdiff_t, Rank> makeFixedStrides(const Strides& strides)
+{
+    if (strides.size() != Rank)
+    {
+        throw std::invalid_argument("Tensor stride rank does not match the requested fixed-rank mapping");
+    }
+    std::array<std::ptrdiff_t, Rank> values{};
+    std::copy(strides.begin(), strides.end(), values.begin());
+    return values;
+}
+
+template <std::size_t Rank, typename Layout>
+[[nodiscard]] TensorLayoutFor<Rank> makeFixedLayout(const Layout& layout)
+{
+    return rebindValidatedLayout<Rank>(layout);
+}
+
+} // namespace tensor_detail
 
 } // namespace fat_p

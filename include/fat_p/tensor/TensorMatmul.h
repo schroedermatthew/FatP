@@ -35,6 +35,7 @@ FATP_META:
 #include "TensorReductions.h"
 
 #include <algorithm>
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <functional>
@@ -62,10 +63,10 @@ template <ReadableTensor Source>
     }
     const auto rowAxis = source.rank() - 2;
     const auto length = std::min(source.extents()[rowAxis], source.extents()[rowAxis + 1]);
-    auto extents = source.extents().values();
+    auto extents = tensor_detail::makeDynamicExtents(source.extents()).values();
     extents.pop_back();
     extents.back() = length;
-    auto strides = source.strides();
+    auto strides = tensor_detail::makeDynamicStrides(source.strides());
     strides.pop_back();
     // No diagonal transition exists in an empty mapping or a singleton diagonal.
     // Such layouts may legally contain otherwise unrepresentable stride sums.
@@ -75,8 +76,21 @@ template <ReadableTensor Source>
     TensorLayout layout(source.layout().storageLength(), source.layout().originOffset(),
                         DynamicExtents(std::move(extents)), std::move(strides));
     // These const mappings are consumed synchronously, never exposed as escaping views.
-    return TensorAccess::makeView(TensorAccess::storageBase(source), std::move(layout),
-                                  TensorAccess::lifetime(source), TensorAccess::tracked(source));
+    using element_type = const typename Source::value_type;
+    constexpr auto SourceRank = tensorStaticRankValue<Source>;
+    if constexpr (SourceRank == kDynamicTensorRank)
+    {
+        return TensorAccess::makeView<element_type, kDynamicTensorRank>(
+            TensorAccess::storageBase(source), std::move(layout), TensorAccess::lifetime(source),
+            TensorAccess::tracked(source));
+    }
+    else
+    {
+        static_assert(SourceRank >= 2);
+        return TensorAccess::makeView<element_type, SourceRank - 1>(
+            TensorAccess::storageBase(source), makeFixedLayout<SourceRank - 1>(layout),
+            TensorAccess::lifetime(source), TensorAccess::tracked(source));
+    }
 }
 
 template <ReadableTensor Source>
@@ -84,11 +98,15 @@ template <ReadableTensor Source>
 {
     const auto length = source.extents()[0];
     const auto stride = source.strides()[0];
-    TensorLayout layout(source.layout().storageLength(), source.layout().originOffset(),
-                        column ? DynamicExtents{length, 1} : DynamicExtents{1, length},
-                        column ? TensorStrides{stride, 0} : TensorStrides{0, stride});
-    return TensorAccess::makeView(TensorAccess::storageBase(source), std::move(layout),
-                                  TensorAccess::lifetime(source), TensorAccess::tracked(source));
+    const std::array<std::size_t, 2> extents = column ? std::array<std::size_t, 2>{length, 1}
+                                                      : std::array<std::size_t, 2>{1, length};
+    const std::array<std::ptrdiff_t, 2> strides = column ? std::array<std::ptrdiff_t, 2>{stride, 0}
+                                                         : std::array<std::ptrdiff_t, 2>{0, stride};
+    TensorLayoutFor<2> layout(source.layout().storageLength(), source.layout().originOffset(),
+                              FixedRankExtents<2>(extents), strides);
+    return TensorAccess::makeView<const typename Source::value_type, 2>(
+        TensorAccess::storageBase(source), std::move(layout), TensorAccess::lifetime(source),
+        TensorAccess::tracked(source));
 }
 
 struct MatmulShape
@@ -104,7 +122,8 @@ struct MatmulShape
     bool rightVector = false;
 };
 
-inline MatmulShape makeMatmulShape(const TensorLayout& left, const TensorLayout& right)
+template <typename LeftLayout, typename RightLayout>
+inline MatmulShape makeMatmulShape(const LeftLayout& left, const RightLayout& right)
 {
     if (left.rank() == 0 || right.rank() == 0)
     {
@@ -162,10 +181,10 @@ inline MatmulShape makeMatmulShape(const TensorLayout& left, const TensorLayout&
             std::move(rightBatchStrides), rows, leftInner, columns, leftVector, rightVector};
 }
 
-inline std::pair<std::ptrdiff_t, std::ptrdiff_t> matmulBatchOrigins(std::size_t batchLinear,
-                                                                  const MatmulShape& shape,
-                                                                  const TensorLayout& left,
-                                                                  const TensorLayout& right)
+template <typename LeftLayout, typename RightLayout>
+inline std::pair<std::ptrdiff_t, std::ptrdiff_t>
+matmulBatchOrigins(std::size_t batchLinear, const MatmulShape& shape, const LeftLayout& left,
+                   const RightLayout& right)
 {
     auto leftOffset = left.originOffset();
     auto rightOffset = right.originOffset();
@@ -183,9 +202,11 @@ inline std::pair<std::ptrdiff_t, std::ptrdiff_t> matmulBatchOrigins(std::size_t 
     return {leftOffset, rightOffset};
 }
 
-template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator>
+template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator,
+          std::size_t OutputRank>
 void matmulGenericRows(const Left& left, const Right& right, const MatmulShape& shape,
-                       Tensor<Result, Allocator>& result, std::size_t firstRow, std::size_t lastRow)
+                       Tensor<Result, Allocator, OutputRank>& result, std::size_t firstRow,
+                       std::size_t lastRow)
 {
     const auto* leftData = TensorAccess::storageBase(left);
     const auto* rightData = TensorAccess::storageBase(right);
@@ -249,9 +270,11 @@ void matmulGenericRows(const Left& left, const Right& right, const MatmulShape& 
     }
 }
 
-template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator>
+template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator,
+          std::size_t OutputRank>
 void matmulContiguousRows(const Left& left, const Right& right, const MatmulShape& shape,
-                          Tensor<Result, Allocator>& result, std::size_t firstRow, std::size_t lastRow)
+                          Tensor<Result, Allocator, OutputRank>& result, std::size_t firstRow,
+                          std::size_t lastRow)
 {
     const auto* leftData = TensorAccess::storageBase(left) + left.layout().originOffset();
     const auto* rightData = TensorAccess::storageBase(right) + right.layout().originOffset();
@@ -292,9 +315,11 @@ template <ReadableTensor Left, ReadableTensor Right>
     return suitableShape && left.layout().isContiguous() && right.layout().isContiguous();
 }
 
-template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator>
+template <typename Result, ReadableTensor Left, ReadableTensor Right, typename Allocator,
+          std::size_t OutputRank>
 void matmulRows(const Left& left, const Right& right, const MatmulShape& shape,
-                Tensor<Result, Allocator>& result, std::size_t firstRow, std::size_t lastRow)
+                Tensor<Result, Allocator, OutputRank>& result, std::size_t firstRow,
+                std::size_t lastRow)
 {
     if (matmulUsesContiguousKernel(left, right))
     {
@@ -305,6 +330,28 @@ void matmulRows(const Left& left, const Right& right, const MatmulShape& shape,
         matmulGenericRows(left, right, shape, result, firstRow, lastRow);
     }
 }
+
+template <typename Left, typename Right>
+inline constexpr std::size_t matmulStaticRank = [] {
+    if constexpr (tensorStaticRankValue<Left> == kDynamicTensorRank ||
+                  tensorStaticRankValue<Right> == kDynamicTensorRank)
+    {
+        return kDynamicTensorRank;
+    }
+    else
+    {
+        static_assert(tensorStaticRankValue<Left> > 0 && tensorStaticRankValue<Right> > 0,
+                      "matmul fixed ranks must be positive");
+        return std::max(tensorStaticRankValue<Left> == 1
+                            ? std::size_t{0}
+                            : tensorStaticRankValue<Left> - 2,
+                        tensorStaticRankValue<Right> == 1
+                            ? std::size_t{0}
+                            : tensorStaticRankValue<Right> - 2) +
+            (tensorStaticRankValue<Left> > 1 ? 1 : 0) +
+            (tensorStaticRankValue<Right> > 1 ? 1 : 0);
+    }
+}();
 
 } // namespace tensor_detail
 
@@ -323,13 +370,18 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
              tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
 [[nodiscard]] auto matmul(const Left& left, const Right& right, const Allocator& allocator)
-    -> Tensor<TensorMatmulType<typename Left::value_type>, Allocator>
+    -> Tensor<TensorMatmulType<typename Left::value_type>, Allocator,
+              tensor_detail::matmulStaticRank<Left, Right>>
 {
     using result_type = TensorMatmulType<typename Left::value_type>;
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
     const auto shape = tensor_detail::makeMatmulShape(left.layout(), right.layout());
-    Tensor<result_type, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, result_type{0});
+    constexpr auto OutputRank = tensor_detail::matmulStaticRank<Left, Right>;
+    using OutputExtents = tensor_detail::TensorExtentsFor<OutputRank>;
+    Tensor<result_type, Allocator, OutputRank> result(
+        std::allocator_arg, allocator,
+        OutputExtents(shape.outputExtents.begin(), shape.outputExtents.end()), result_type{0});
     if (!result.empty() && shape.inner != 0)
     {
         tensor_detail::matmulRows(left, right, shape, result, 0, result.size() / shape.columns);
@@ -409,8 +461,9 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     }
     const auto column = tensor_detail::outerReadMapping(left, true);
     const auto row = tensor_detail::outerReadMapping(right, false);
-    Tensor<result_type, Allocator> result(std::allocator_arg, allocator,
-                                         DynamicExtents{left.extents()[0], right.extents()[0]});
+    Tensor<result_type, Allocator, 2> result(
+        std::allocator_arg, allocator,
+        tensor_detail::FixedRankExtents<2>{left.extents()[0], right.extents()[0]});
     tensor_detail::binaryKernel(column, row, result, [](const auto& a, const auto& b) {
         return tensor_detail::checkedSameTypeMultiply(static_cast<result_type>(a), static_cast<result_type>(b));
     });
@@ -466,7 +519,15 @@ template <ReadableTensor Source, typename Allocator>
              tensor_detail::AllocatorFor<Allocator, TensorSumType<typename Source::value_type>>
 [[nodiscard]] auto trace(const Source& source, const Allocator& allocator)
 {
-    return sum(tensor_detail::diagonalReadMapping(source), allocator, {TensorAxis{-1}});
+    auto diagonal = tensor_detail::diagonalReadMapping(source);
+    if constexpr (tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank)
+    {
+        return sum(diagonal, allocator, {TensorAxis{-1}});
+    }
+    else
+    {
+        return sum<false, TensorAxis{-1}>(diagonal, allocator);
+    }
 }
 
 /** @brief Trace with rebound owner SOCCC, or TensorAllocator for a view input. */

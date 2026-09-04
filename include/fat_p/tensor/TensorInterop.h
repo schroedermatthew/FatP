@@ -15,7 +15,7 @@ FATP_META:
       - components/Tensor/docs/Design Note - Tensor Architecture Additions Plan.md
     headers:
       - include/fat_p/TensorInterop.h
-      - include/fat_p/tensor/Tensor.h
+      - include/fat_p/tensor/TensorRanked.h
       - include/fat_p/tensor/TensorStatic.h
     tests:
       - components/Tensor/tests/test_TensorInterop.cpp
@@ -34,7 +34,7 @@ FATP_META:
 /** @file TensorInterop.h @brief Explicit borrowed descriptors and fixed/dynamic conversion. */
 
 #include "../CppFeatureDetection.h"
-#include "Tensor.h"
+#include "TensorRanked.h"
 #include "TensorStatic.h"
 
 #include <algorithm>
@@ -157,6 +157,25 @@ template <typename T, typename ShapeT, typename Policy>
     return result;
 }
 
+template <typename T, typename ShapeT, typename Policy>
+[[nodiscard]] auto toRankedTensor(const StaticTensor<T, ShapeT, Policy>& source)
+    -> RankedTensor<T, ShapeT::rank>
+{
+    static_assert(ShapeT::rank != kDynamicTensorRank,
+                  "StaticTensor conversion requires a compile-time rank");
+    for (const auto extent : ShapeT::dims)
+    {
+        if (extent == 0)
+        {
+            throw std::invalid_argument("StaticTensor zero extents cannot be converted to RankedTensor");
+        }
+    }
+    RankedExtents<ShapeT::rank> extents(ShapeT::dims.begin(), ShapeT::dims.end());
+    RankedTensor<T, ShapeT::rank> result(extents);
+    std::copy(source.begin(), source.end(), result.begin());
+    return result;
+}
+
 template <typename ShapeT, typename Policy = UncheckedPolicy, ReadableTensor Source>
 [[nodiscard]] auto toStaticTensor(const Source& source)
     -> StaticTensor<typename Source::value_type, ShapeT, Policy>
@@ -182,11 +201,20 @@ template <typename ShapeT, typename Policy = UncheckedPolicy, ReadableTensor Sou
 
 #if FATP_HAS_MDSPAN
 template <std::size_t Rank, WritableTensor Source>
+    requires(tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank ||
+             tensor_detail::tensorStaticRankValue<Source> == Rank)
 [[nodiscard]] auto asMdspan(Source& source)
 {
-    if (source.rank() != Rank || !source.layout().isInjective())
+    if constexpr (tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank)
     {
-        throw std::invalid_argument("asMdspan rank must match and its mapping must be injective");
+        if (source.rank() != Rank)
+        {
+            throw std::invalid_argument("asMdspan rank must match the Tensor mapping");
+        }
+    }
+    if (!source.layout().isInjective())
+    {
+        throw std::invalid_argument("asMdspan requires an injective Tensor mapping");
     }
     std::array<std::size_t, Rank> extents{};
     std::array<std::size_t, Rank> strides{};
@@ -208,11 +236,20 @@ template <std::size_t Rank, WritableTensor Source>
 }
 
 template <std::size_t Rank, ReadableTensor Source>
+    requires(tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank ||
+             tensor_detail::tensorStaticRankValue<Source> == Rank)
 [[nodiscard]] auto asMdspan(const Source& source)
 {
-    if (source.rank() != Rank || !source.layout().isInjective())
+    if constexpr (tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank)
     {
-        throw std::invalid_argument("asMdspan rank must match and its mapping must be injective");
+        if (source.rank() != Rank)
+        {
+            throw std::invalid_argument("asMdspan rank must match the Tensor mapping");
+        }
+    }
+    if (!source.layout().isInjective())
+    {
+        throw std::invalid_argument("asMdspan requires an injective Tensor mapping");
     }
     std::array<std::size_t, Rank> extents{};
     std::array<std::size_t, Rank> strides{};

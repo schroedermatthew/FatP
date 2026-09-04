@@ -117,13 +117,13 @@ class SparseSetWithData;
 template <typename T, typename GenerationType, typename Allocator>
 class SlotMap;
 
-template <typename T, typename Allocator>
+template <typename T, typename Allocator, std::size_t Rank>
 class Tensor;
 
-template <typename T>
+template <typename T, std::size_t Rank>
 class TensorView;
 
-template <typename T>
+template <typename T, std::size_t Rank>
 class SharedTensorView;
 
 template <typename T, typename ShapeT, typename Policy>
@@ -276,8 +276,8 @@ struct is_tensor_impl : std::false_type
 {
 };
 
-template <typename T, typename A>
-struct is_tensor_impl<Tensor<T, A>> : std::true_type
+template <typename T, typename A, std::size_t Rank>
+struct is_tensor_impl<Tensor<T, A, Rank>> : std::true_type
 {
 };
 
@@ -286,13 +286,13 @@ struct is_tensor_view_impl : std::false_type
 {
 };
 
-template <typename T>
-struct is_tensor_view_impl<TensorView<T>> : std::true_type
+template <typename T, std::size_t Rank>
+struct is_tensor_view_impl<TensorView<T, Rank>> : std::true_type
 {
 };
 
-template <typename T>
-struct is_tensor_view_impl<SharedTensorView<T>> : std::true_type
+template <typename T, std::size_t Rank>
+struct is_tensor_view_impl<SharedTensorView<T, Rank>> : std::true_type
 {
 };
 

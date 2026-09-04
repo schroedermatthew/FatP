@@ -710,7 +710,7 @@ static_assert(!CanMaterializeCopy<Tensor<std::unique_ptr<int>>>);
 FATP_TEST_CASE(counted_signed_iteration)
 {
     const TensorLayout reversed(6, 2, DynamicExtents{2, 3}, TensorStrides{3, -1});
-    const tensor_detail::TensorIterationPlan plan(DynamicExtents{2, 3}, {std::cref(reversed)});
+    const auto plan = tensor_detail::makeTensorIterationPlan(DynamicExtents{2, 3}, reversed);
     std::vector<std::ptrdiff_t> visited;
     plan.forEachOffset([&](std::size_t, const auto& offsets) { visited.push_back(offsets[0]); });
     FATP_ASSERT_TRUE(visited == std::vector<std::ptrdiff_t>({2, 1, 0, 5, 4, 3}),
@@ -718,7 +718,7 @@ FATP_TEST_CASE(counted_signed_iteration)
     FATP_ASSERT_EQ(plan.logicalSize(), std::size_t{6}, "Plan should retain the pre-coalescing logical size");
 
     const TensorLayout scalar = TensorLayout::contiguous(DynamicExtents{});
-    const tensor_detail::TensorIterationPlan scalarPlan(DynamicExtents{}, {std::cref(scalar)});
+    const auto scalarPlan = tensor_detail::makeTensorIterationPlan(DynamicExtents{}, scalar);
     std::size_t scalarVisits = 0;
     std::ptrdiff_t scalarOffset = -1;
     scalarPlan.forEachOffset([&](std::size_t, const auto& offsets) {
@@ -729,7 +729,7 @@ FATP_TEST_CASE(counted_signed_iteration)
     FATP_ASSERT_EQ(scalarOffset, std::ptrdiff_t{0}, "Rank-zero plan should visit its origin");
 
     const TensorLayout empty = TensorLayout::contiguous(DynamicExtents{2, 0, 3});
-    const tensor_detail::TensorIterationPlan emptyPlan(empty.extents(), {std::cref(empty)});
+    const auto emptyPlan = tensor_detail::makeTensorIterationPlan(empty.extents(), empty);
     std::size_t emptyVisits = 0;
     emptyPlan.forEachOffset([&](std::size_t, const auto&) { ++emptyVisits; });
     FATP_ASSERT_EQ(emptyVisits, std::size_t{0}, "Zero-extent plan should never invoke its callback");
@@ -1104,9 +1104,11 @@ FATP_TEST_CASE(randomized_materialization_and_overlap_oracle)
         std::iota(storage.begin(), storage.end(), 100);
         const auto before = storage;
         const auto sourceOffsets = tensor_support::enumerateOffsets(
-            {extents, sourceStrides, sourceLayout.originOffset()});
+            {extents, std::vector<std::ptrdiff_t>(sourceStrides.begin(), sourceStrides.end()),
+             sourceLayout.originOffset()});
         const auto destinationOffsets = tensor_support::enumerateOffsets(
-            {extents, destinationStrides, destinationLayout.originOffset()});
+            {extents, std::vector<std::ptrdiff_t>(destinationStrides.begin(), destinationStrides.end()),
+             destinationLayout.originOffset()});
         auto expected = before;
         std::vector<int> logicalValues;
         for (std::size_t index = 0; index < sourceOffsets.size(); ++index)
@@ -1163,15 +1165,16 @@ FATP_TEST_CASE(randomized_multi_layout_plan_oracle)
         const auto first = makeOperand(1);
         const auto second = makeOperand(2);
         const auto third = makeOperand(3);
-        const tensor_detail::TensorIterationPlan one(target, {std::cref(first)});
-        const tensor_detail::TensorIterationPlan two(target, {std::cref(first), std::cref(second)});
-        const tensor_detail::TensorIterationPlan three(target,
-                                                        {std::cref(first), std::cref(second), std::cref(third)});
+        const auto one = tensor_detail::makeTensorIterationPlan(target, first);
+        const auto two = tensor_detail::makeTensorIterationPlan(target, first, second);
+        const auto three = tensor_detail::makeTensorIterationPlan(target, first, second, third);
 
         const auto verify = [&](const auto& plan,
                                 const std::vector<std::reference_wrapper<const TensorLayout>>& layouts) {
             std::vector<std::vector<std::ptrdiff_t>> actual;
-            plan.forEachOffset([&](std::size_t, const auto& offsets) { actual.push_back(offsets); });
+            plan.forEachOffset([&](std::size_t, const auto& offsets) {
+                actual.emplace_back(offsets.begin(), offsets.end());
+            });
             if (actual.size() != target.logicalSize())
             {
                 return false;

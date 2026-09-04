@@ -61,7 +61,8 @@ namespace fat_p
 template <typename T>
 using TensorAllocator = AlignedAllocator<T, 64>;
 
-template <typename T, typename Allocator = TensorAllocator<T>>
+template <typename T, typename Allocator = TensorAllocator<T>,
+          std::size_t Rank = tensor_detail::kDynamicTensorRank>
 class Tensor
 {
 public:
@@ -77,6 +78,10 @@ public:
     using const_pointer = const value_type*;
     using iterator = pointer;
     using const_iterator = const_pointer;
+    using extents_type = tensor_detail::TensorExtentsFor<Rank>;
+    using layout_type = tensor_detail::TensorLayoutFor<Rank>;
+    using strides_type = tensor_detail::TensorStridesFor<Rank>;
+    static constexpr std::size_t static_rank = Rank;
 
     static_assert(std::same_as<typename allocator_traits::value_type, value_type>,
                   "Tensor allocator value_type must match Tensor value_type");
@@ -85,16 +90,16 @@ public:
 
     Tensor()
         requires std::default_initializable<allocator_type>
-        : Tensor(std::allocator_arg, allocator_type{}, DynamicExtents{0})
+        : Tensor(std::allocator_arg, allocator_type{}, defaultExtents())
     {
     }
 
     explicit Tensor(const allocator_type& allocator)
-        : Tensor(std::allocator_arg, allocator, DynamicExtents{0})
+        : Tensor(std::allocator_arg, allocator, defaultExtents())
     {
     }
 
-    explicit Tensor(DynamicExtents extents)
+    explicit Tensor(extents_type extents)
         requires std::default_initializable<allocator_type>
         : Tensor(std::allocator_arg, allocator_type{}, std::move(extents))
     {
@@ -102,17 +107,17 @@ public:
 
     Tensor(std::initializer_list<size_type> extents)
         requires std::default_initializable<allocator_type>
-        : Tensor(DynamicExtents(extents))
+        : Tensor(extents_type(extents))
     {
     }
 
     explicit Tensor(const std::vector<size_type>& extents)
         requires std::default_initializable<allocator_type>
-        : Tensor(DynamicExtents(extents))
+        : Tensor(extents_type(extents))
     {
     }
 
-    Tensor(DynamicExtents extents, const value_type& value)
+    Tensor(extents_type extents, const value_type& value)
         requires std::default_initializable<allocator_type>
         : Tensor(std::allocator_arg, allocator_type{}, std::move(extents), value)
     {
@@ -120,20 +125,20 @@ public:
 
     Tensor(std::initializer_list<size_type> extents, const value_type& value)
         requires std::default_initializable<allocator_type>
-        : Tensor(DynamicExtents(extents), value)
+        : Tensor(extents_type(extents), value)
     {
     }
 
     Tensor(const std::vector<size_type>& extents, const value_type& value)
         requires std::default_initializable<allocator_type>
-        : Tensor(DynamicExtents(extents), value)
+        : Tensor(extents_type(extents), value)
     {
     }
 
-    Tensor(std::allocator_arg_t, const allocator_type& allocator, DynamicExtents extents)
+    Tensor(std::allocator_arg_t, const allocator_type& allocator, extents_type extents)
         requires std::default_initializable<value_type>
         : mAllocator(allocator)
-        , mLayout(TensorLayout::contiguous(std::move(extents)))
+        , mLayout(layout_type::contiguous(std::move(extents)))
         , mStorage(makeStorage(mAllocator, mLayout.logicalSize(), [](allocator_type& active, pointer location,
                                                                     size_type) {
             allocator_traits::construct(active, location);
@@ -144,20 +149,20 @@ public:
 
     Tensor(std::allocator_arg_t, const allocator_type& allocator, std::initializer_list<size_type> extents)
         requires std::default_initializable<value_type>
-        : Tensor(std::allocator_arg, allocator, DynamicExtents(extents))
+        : Tensor(std::allocator_arg, allocator, extents_type(extents))
     {
     }
 
     Tensor(std::allocator_arg_t, const allocator_type& allocator, const std::vector<size_type>& extents)
         requires std::default_initializable<value_type>
-        : Tensor(std::allocator_arg, allocator, DynamicExtents(extents))
+        : Tensor(std::allocator_arg, allocator, extents_type(extents))
     {
     }
 
-    Tensor(std::allocator_arg_t, const allocator_type& allocator, DynamicExtents extents,
+    Tensor(std::allocator_arg_t, const allocator_type& allocator, extents_type extents,
            const value_type& value)
         : mAllocator(allocator)
-        , mLayout(TensorLayout::contiguous(std::move(extents)))
+        , mLayout(layout_type::contiguous(std::move(extents)))
         , mStorage(makeStorage(mAllocator, mLayout.logicalSize(), [&value](allocator_type& active,
                                                                            pointer location, size_type) {
             allocator_traits::construct(active, location, value);
@@ -168,13 +173,13 @@ public:
 
     Tensor(std::allocator_arg_t, const allocator_type& allocator, std::initializer_list<size_type> extents,
            const value_type& value)
-        : Tensor(std::allocator_arg, allocator, DynamicExtents(extents), value)
+        : Tensor(std::allocator_arg, allocator, extents_type(extents), value)
     {
     }
 
     Tensor(std::allocator_arg_t, const allocator_type& allocator, const std::vector<size_type>& extents,
            const value_type& value)
-        : Tensor(std::allocator_arg, allocator, DynamicExtents(extents), value)
+        : Tensor(std::allocator_arg, allocator, extents_type(extents), value)
     {
     }
 
@@ -194,8 +199,28 @@ public:
     {
     }
 
+    template <std::size_t OtherRank>
+        requires(OtherRank != Rank)
+    explicit Tensor(const Tensor<T, allocator_type, OtherRank>& other)
+        : mAllocator(allocator_traits::select_on_container_copy_construction(other.mAllocator))
+        , mLayout(layout_type::contiguous(convertExtents(other.extents())))
+        , mStorage(makeStorage(mAllocator, other.size(), [&other](allocator_type& active, pointer location,
+                                                                  size_type index) {
+            allocator_traits::construct(active, location, other[index]);
+        }))
+        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
+    {
+    }
+
+    template <std::size_t OtherRank>
+        requires(OtherRank != Rank)
+    explicit Tensor(Tensor<T, allocator_type, OtherRank>&& other)
+        : Tensor(CrossRankMoveTag{}, other, convertExtents(other.extents()))
+    {
+    }
+
     Tensor(Tensor&& other)
-        : mAllocator(std::move(other.mAllocator))
+        : mAllocator(moveConstructAllocator(other))
         , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
         stealStorageFrom(other);
@@ -251,7 +276,14 @@ public:
         if constexpr (allocator_traits::propagate_on_container_move_assignment::value)
         {
             auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-            mAllocator = std::move(other.mAllocator);
+            if constexpr (Rank == 0)
+            {
+                mAllocator = other.mAllocator;
+            }
+            else
+            {
+                mAllocator = std::move(other.mAllocator);
+            }
             replaceByStealing(other, std::move(nextLifetime));
         }
         else if (allocatorCompatible(other.mAllocator))
@@ -272,9 +304,9 @@ public:
         return mAllocator;
     }
 
-    [[nodiscard]] const TensorLayout& layout() const noexcept { return mLayout; }
-    [[nodiscard]] const DynamicExtents& extents() const noexcept { return mLayout.extents(); }
-    [[nodiscard]] const TensorStrides& strides() const noexcept { return mLayout.strides(); }
+    [[nodiscard]] const layout_type& layout() const noexcept { return mLayout; }
+    [[nodiscard]] const extents_type& extents() const noexcept { return mLayout.extents(); }
+    [[nodiscard]] const strides_type& strides() const noexcept { return mLayout.strides(); }
     [[nodiscard]] size_type size() const noexcept { return mLayout.logicalSize(); }
     [[nodiscard]] size_type rank() const noexcept { return mLayout.rank(); }
     [[nodiscard]] size_type extent(size_type axis) const { return mLayout.extents().at(axis); }
@@ -311,24 +343,28 @@ public:
     }
 
     template <std::integral... Indices>
+        requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] reference operator()(Indices... indices)
     {
         return atIndices(std::array<difference_type, sizeof...(Indices)>{static_cast<difference_type>(indices)...});
     }
 
     template <std::integral... Indices>
+        requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] const_reference operator()(Indices... indices) const
     {
         return atIndices(std::array<difference_type, sizeof...(Indices)>{static_cast<difference_type>(indices)...});
     }
 
     template <std::integral... Indices>
+        requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] reference at(Indices... indices)
     {
         return (*this)(indices...);
     }
 
     template <std::integral... Indices>
+        requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] const_reference at(Indices... indices) const
     {
         return (*this)(indices...);
@@ -351,107 +387,155 @@ public:
         return Tensor(*this);
     }
 
-    [[nodiscard]] TensorView<value_type> asView() &
+    [[nodiscard]] TensorView<value_type, Rank> asView() &
     {
-        return TensorView<value_type>(data(), mLayout, mLifetime, true);
+        return TensorView<value_type, Rank>(data(), mLayout, mLifetime, true);
     }
 
-    [[nodiscard]] TensorView<value_type> asView() && = delete;
+    [[nodiscard]] TensorView<value_type, Rank> asView() && = delete;
 
-    [[nodiscard]] TensorView<const value_type> asConstView() const &
+    [[nodiscard]] TensorView<const value_type, Rank> asConstView() const &
     {
-        return TensorView<const value_type>(data(), mLayout, mLifetime, true);
+        return TensorView<const value_type, Rank>(data(), mLayout, mLifetime, true);
     }
 
-    [[nodiscard]] TensorView<const value_type> asConstView() const && = delete;
+    [[nodiscard]] TensorView<const value_type, Rank> asConstView() const && = delete;
 
-    [[nodiscard]] SharedTensorView<value_type> asSharedView() &
+    [[nodiscard]] SharedTensorView<value_type, Rank> asSharedView() &
     {
-        return SharedTensorView<value_type>(sharedLifetimeHandle(),
-                                            TensorView<value_type>(data(), mLayout, {}, false));
+        return SharedTensorView<value_type, Rank>(sharedLifetimeHandle(),
+                                                  TensorView<value_type, Rank>(data(), mLayout, {}, false));
     }
 
-    [[nodiscard]] SharedTensorView<value_type> asSharedView() && = delete;
+    [[nodiscard]] SharedTensorView<value_type, Rank> asSharedView() && = delete;
 
-    [[nodiscard]] SharedTensorView<const value_type> asSharedView() const &
+    [[nodiscard]] SharedTensorView<const value_type, Rank> asSharedView() const &
     {
-        return SharedTensorView<const value_type>(sharedLifetimeHandle(),
-                                                  TensorView<const value_type>(data(), mLayout, {}, false));
+        return SharedTensorView<const value_type, Rank>(
+            sharedLifetimeHandle(), TensorView<const value_type, Rank>(data(), mLayout, {}, false));
     }
 
-    [[nodiscard]] SharedTensorView<const value_type> asSharedView() const && = delete;
+    [[nodiscard]] SharedTensorView<const value_type, Rank> asSharedView() const && = delete;
 
-    [[nodiscard]] TensorView<value_type> sliceView(const std::vector<size_type>& start,
-                                                   const std::vector<size_type>& finish) &
+    [[nodiscard]] TensorView<value_type, Rank> sliceView(const std::vector<size_type>& start,
+                                                         const std::vector<size_type>& finish) &
     {
         return asView().sliceView(start, finish);
     }
 
-    [[nodiscard]] TensorView<const value_type> sliceView(const std::vector<size_type>& start,
-                                                         const std::vector<size_type>& finish) const &
+    [[nodiscard]] TensorView<const value_type, Rank> sliceView(const std::vector<size_type>& start,
+                                                               const std::vector<size_type>& finish) const &
     {
         return asConstView().sliceView(start, finish);
     }
 
-    [[nodiscard]] TensorView<value_type> sliceView(const std::vector<SliceSpec>& specifications) &
+    [[nodiscard]] auto sliceView(const std::vector<SliceSpec>& specifications) &
     {
         return asView().sliceView(specifications);
     }
 
-    [[nodiscard]] TensorView<const value_type> sliceView(const std::vector<SliceSpec>& specifications) const &
+    [[nodiscard]] auto sliceView(const std::vector<SliceSpec>& specifications) const &
     {
         return asConstView().sliceView(specifications);
     }
 
-    [[nodiscard]] TensorView<value_type> sliceView(std::initializer_list<SliceSpec> specifications) &
+    [[nodiscard]] auto sliceView(std::initializer_list<SliceSpec> specifications) &
     {
         return asView().sliceView(specifications);
     }
 
-    [[nodiscard]] TensorView<const value_type> sliceView(std::initializer_list<SliceSpec> specifications) const &
+    [[nodiscard]] auto sliceView(std::initializer_list<SliceSpec> specifications) const &
     {
         return asConstView().sliceView(specifications);
     }
 
-    [[nodiscard]] TensorView<value_type> permuteView(const std::vector<TensorAxis>& order) &
+    template <typename... Specifications>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
+                 tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
+                 ((std::constructible_from<SliceSpec, Specifications> ||
+                   tensor_detail::isSliceIndex<Specifications>) && ...))
+    [[nodiscard]] auto sliceView(Specifications&&... specifications) &
+    {
+        return asView().sliceView(std::forward<Specifications>(specifications)...);
+    }
+
+    template <typename... Specifications>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
+                 tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
+                 ((std::constructible_from<SliceSpec, Specifications> ||
+                   tensor_detail::isSliceIndex<Specifications>) && ...))
+    [[nodiscard]] auto sliceView(Specifications&&... specifications) const &
+    {
+        return asConstView().sliceView(std::forward<Specifications>(specifications)...);
+    }
+
+    [[nodiscard]] TensorView<value_type, Rank> permuteView(const std::vector<TensorAxis>& order) &
     {
         return asView().permuteView(order);
     }
 
-    [[nodiscard]] TensorView<const value_type> permuteView(const std::vector<TensorAxis>& order) const &
+    [[nodiscard]] TensorView<const value_type, Rank> permuteView(const std::vector<TensorAxis>& order) const &
     {
         return asConstView().permuteView(order);
     }
 
-    [[nodiscard]] TensorView<value_type> squeezeView(const std::vector<TensorAxis>& axes = {}) &
+    [[nodiscard]] auto squeezeView(const std::vector<TensorAxis>& axes = {}) &
     {
         return asView().squeezeView(axes);
     }
 
-    [[nodiscard]] TensorView<const value_type> squeezeView(const std::vector<TensorAxis>& axes = {}) const &
+    [[nodiscard]] auto squeezeView(const std::vector<TensorAxis>& axes = {}) const &
     {
         return asConstView().squeezeView(axes);
     }
 
-    [[nodiscard]] TensorView<value_type> unsqueezeView(TensorAxis axis) &
+    template <TensorAxis... Axes>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Axes) > 0)
+    [[nodiscard]] auto squeezeView() &
+    {
+        return asView().template squeezeView<Axes...>();
+    }
+
+    template <TensorAxis... Axes>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Axes) > 0)
+    [[nodiscard]] auto squeezeView() const &
+    {
+        return asConstView().template squeezeView<Axes...>();
+    }
+
+    [[nodiscard]] auto unsqueezeView(TensorAxis axis) &
     {
         return asView().unsqueezeView(axis);
     }
 
-    [[nodiscard]] TensorView<const value_type> unsqueezeView(TensorAxis axis) const &
+    [[nodiscard]] auto unsqueezeView(TensorAxis axis) const &
     {
         return asConstView().unsqueezeView(axis);
     }
 
-    [[nodiscard]] TensorView<value_type> rowView(size_type row) & { return asView().rowView(row); }
-    [[nodiscard]] TensorView<const value_type> rowView(size_type row) const & { return asConstView().rowView(row); }
-    [[nodiscard]] TensorView<value_type> columnView(size_type column) & { return asView().columnView(column); }
-    [[nodiscard]] TensorView<const value_type> columnView(size_type column) const &
+    [[nodiscard]] TensorView<value_type, Rank> rowView(size_type row) & { return asView().rowView(row); }
+    [[nodiscard]] TensorView<const value_type, Rank> rowView(size_type row) const &
+    {
+        return asConstView().rowView(row);
+    }
+    [[nodiscard]] TensorView<value_type, Rank> columnView(size_type column) &
+    {
+        return asView().columnView(column);
+    }
+    [[nodiscard]] TensorView<const value_type, Rank> columnView(size_type column) const &
     {
         return asConstView().columnView(column);
     }
-    [[nodiscard]] TensorView<value_type> transposeView() & { return asView().transposeView(); }
-    [[nodiscard]] TensorView<const value_type> transposeView() const & { return asConstView().transposeView(); }
+    [[nodiscard]] TensorView<value_type, Rank> transposeView() &
+        requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
+    {
+        return asView().transposeView();
+    }
+    [[nodiscard]] TensorView<const value_type, Rank> transposeView() const &
+        requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
+    {
+        return asConstView().transposeView();
+    }
     [[nodiscard]] TensorView<value_type> reshapeView(DynamicExtents target) &
     {
         return asView().reshapeView(std::move(target));
@@ -465,22 +549,44 @@ public:
         return asConstView().broadcastView(std::move(target));
     }
 
-    [[nodiscard]] SharedTensorView<value_type> sharedSliceView(const std::vector<size_type>& start,
-                                                               const std::vector<size_type>& finish) &
+    template <std::size_t NewRank>
+    [[nodiscard]] TensorView<value_type, NewRank>
+    reshapeView(tensor_detail::FixedRankExtents<NewRank> target) &
+    {
+        return asView().reshapeView(std::move(target));
+    }
+
+    template <std::size_t NewRank>
+    [[nodiscard]] TensorView<const value_type, NewRank>
+    reshapeView(tensor_detail::FixedRankExtents<NewRank> target) const &
+    {
+        return asConstView().reshapeView(std::move(target));
+    }
+
+    template <std::size_t NewRank>
+    [[nodiscard]] TensorView<const value_type, NewRank>
+    broadcastView(tensor_detail::FixedRankExtents<NewRank> target) const &
+        requires(Rank == tensor_detail::kDynamicTensorRank || NewRank >= Rank)
+    {
+        return asConstView().broadcastView(std::move(target));
+    }
+
+    [[nodiscard]] SharedTensorView<value_type, Rank> sharedSliceView(const std::vector<size_type>& start,
+                                                                     const std::vector<size_type>& finish) &
     {
         return asSharedView().sliceView(start, finish);
     }
-    [[nodiscard]] SharedTensorView<const value_type> sharedSliceView(const std::vector<size_type>& start,
-                                                                     const std::vector<size_type>& finish) const &
+    [[nodiscard]] SharedTensorView<const value_type, Rank>
+    sharedSliceView(const std::vector<size_type>& start, const std::vector<size_type>& finish) const &
     {
         return asSharedView().sliceView(start, finish);
     }
 
     template <typename Deleter>
-    [[nodiscard]] static Tensor adopt(pointer storage, DynamicExtents extents, Deleter deleter,
+    [[nodiscard]] static Tensor adopt(pointer storage, extents_type extents, Deleter deleter,
                                       const allocator_type& futureAllocator)
     {
-        auto layout = TensorLayout::contiguous(std::move(extents));
+        auto layout = layout_type::contiguous(std::move(extents));
         if (layout.logicalSize() != 0 && storage == nullptr)
         {
             throw std::invalid_argument("Cannot adopt null storage for a nonempty Tensor");
@@ -490,7 +596,7 @@ public:
     }
 
     template <typename Deleter>
-    [[nodiscard]] static Tensor adopt(pointer storage, DynamicExtents extents, Deleter deleter)
+    [[nodiscard]] static Tensor adopt(pointer storage, extents_type extents, Deleter deleter)
         requires std::default_initializable<allocator_type>
     {
         return adopt(storage, std::move(extents), std::move(deleter), allocator_type{});
@@ -543,12 +649,96 @@ public:
 
 private:
     friend struct tensor_detail::TensorAccess;
+    template <typename, typename, std::size_t>
+    friend class Tensor;
+
+    template <typename Extents>
+    [[nodiscard]] static extents_type convertExtents(const Extents& extents)
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return tensor_detail::makeDynamicExtents(extents);
+        }
+        else
+        {
+            return tensor_detail::makeFixedExtents<Rank>(extents);
+        }
+    }
+
+    [[nodiscard]] static extents_type defaultExtents()
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return extents_type{0};
+        }
+        else
+        {
+            return extents_type{};
+        }
+    }
 
     struct AdoptTag
     {
     };
 
-    Tensor(AdoptTag, const allocator_type& allocator, TensorLayout layout, std::shared_ptr<value_type[]> storage)
+    struct CrossRankMoveTag
+    {
+    };
+
+    [[nodiscard]] static allocator_type moveConstructAllocator(Tensor& other)
+    {
+        if constexpr (Rank == 0)
+        {
+            return other.mAllocator;
+        }
+        else
+        {
+            return std::move(other.mAllocator);
+        }
+    }
+
+    template <std::size_t OtherRank>
+    [[nodiscard]] static allocator_type
+    moveConstructAllocator(Tensor<T, allocator_type, OtherRank>& other)
+    {
+        if constexpr (OtherRank == 0)
+        {
+            return other.mAllocator;
+        }
+        else
+        {
+            return std::move(other.mAllocator);
+        }
+    }
+
+    template <std::size_t OtherRank>
+    Tensor(CrossRankMoveTag, Tensor<T, allocator_type, OtherRank>& other,
+           extents_type checkedExtents)
+        : mAllocator(moveConstructAllocator(other))
+        , mLayout(layout_type::contiguous(std::move(checkedExtents)))
+        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
+    {
+        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+        if constexpr (OtherRank == 0)
+        {
+            mStorage = makeStorage(mAllocator, other.size(), [&other](allocator_type& active,
+                                                                      pointer location,
+                                                                      size_type index) {
+                allocator_traits::construct(active, location, std::move(other[index]));
+            });
+            tensor_detail::invalidateLifetime(other.mLifetime);
+            other.mLifetime = std::move(nextSourceLifetime);
+        }
+        else
+        {
+            tensor_detail::invalidateLifetime(other.mLifetime);
+            mStorage = std::move(other.mStorage);
+            other.mLayout = decltype(other.mLayout)::contiguous(other.defaultExtents());
+            other.mLifetime = std::move(nextSourceLifetime);
+        }
+    }
+
+    Tensor(AdoptTag, const allocator_type& allocator, layout_type layout, std::shared_ptr<value_type[]> storage)
         : mAllocator(allocator)
         , mLayout(std::move(layout))
         , mStorage(std::move(storage))
@@ -635,33 +825,65 @@ private:
             });
         }
         auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-        resetMovedFrom(other, std::move(nextSourceLifetime));
+        if constexpr (Rank == 0)
+        {
+            tensor_detail::invalidateLifetime(other.mLifetime);
+            other.mLifetime = std::move(nextSourceLifetime);
+        }
+        else
+        {
+            resetMovedFrom(other, std::move(nextSourceLifetime));
+        }
     }
 
     void stealStorageFrom(Tensor& other)
     {
-        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-        mLayout = std::move(other.mLayout);
-        mStorage = std::move(other.mStorage);
-        resetMovedFrom(other, std::move(nextSourceLifetime));
+        if constexpr (Rank == 0)
+        {
+            materializeMoveFrom(other);
+        }
+        else
+        {
+            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+            mLayout = std::move(other.mLayout);
+            mStorage = std::move(other.mStorage);
+            resetMovedFrom(other, std::move(nextSourceLifetime));
+        }
     }
 
     void replaceByStealing(Tensor& other, std::shared_ptr<tensor_detail::TensorLifetimeState> nextLifetime)
     {
-        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-        tensor_detail::invalidateLifetime(mLifetime);
-        tensor_detail::invalidateLifetime(other.mLifetime);
-        mLayout = std::move(other.mLayout);
-        mStorage = std::move(other.mStorage);
-        mLifetime = std::move(nextLifetime);
-        other.mLayout = TensorLayout::contiguous(DynamicExtents{0});
-        other.mLifetime = std::move(nextSourceLifetime);
+        if constexpr (Rank == 0)
+        {
+            auto replacementStorage = makeStorage(
+                mAllocator, other.size(), [&other](allocator_type& active, pointer location, size_type index) {
+                    allocator_traits::construct(active, location, std::move(other.data()[index]));
+                });
+            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+            tensor_detail::invalidateLifetime(mLifetime);
+            tensor_detail::invalidateLifetime(other.mLifetime);
+            mLayout = other.mLayout;
+            mStorage = std::move(replacementStorage);
+            mLifetime = std::move(nextLifetime);
+            other.mLifetime = std::move(nextSourceLifetime);
+        }
+        else
+        {
+            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+            tensor_detail::invalidateLifetime(mLifetime);
+            tensor_detail::invalidateLifetime(other.mLifetime);
+            mLayout = std::move(other.mLayout);
+            mStorage = std::move(other.mStorage);
+            mLifetime = std::move(nextLifetime);
+            other.mLayout = layout_type::contiguous(defaultExtents());
+            other.mLifetime = std::move(nextSourceLifetime);
+        }
     }
 
     void resetMovedFrom(Tensor& other, std::shared_ptr<tensor_detail::TensorLifetimeState> nextLifetime)
     {
         tensor_detail::invalidateLifetime(other.mLifetime);
-        other.mLayout = TensorLayout::contiguous(DynamicExtents{0});
+        other.mLayout = layout_type::contiguous(defaultExtents());
         other.mStorage.reset();
         other.mLifetime = std::move(nextLifetime);
     }
@@ -684,45 +906,49 @@ private:
         return std::shared_ptr<void>(mLifetime, static_cast<void*>(mLifetime.get()));
     }
 
-    template <std::size_t Rank>
-    [[nodiscard]] reference atIndices(const std::array<difference_type, Rank>& indices)
+    template <std::size_t IndexRank>
+    [[nodiscard]] reference atIndices(const std::array<difference_type, IndexRank>& indices)
     {
         return const_cast<reference>(std::as_const(*this).atIndices(indices));
     }
 
-    template <std::size_t Rank>
-    [[nodiscard]] const_reference atIndices(const std::array<difference_type, Rank>& indices) const
+    template <std::size_t IndexRank>
+    [[nodiscard]] const_reference atIndices(const std::array<difference_type, IndexRank>& indices) const
     {
-        if (Rank != rank())
+        if (IndexRank != rank())
         {
             throw std::invalid_argument("Tensor index count does not match its rank");
         }
         difference_type offset = mLayout.originOffset();
-        for (size_type axis = 0; axis < Rank; ++axis)
+        if constexpr (IndexRank > 0)
         {
-            if (indices[axis] < 0 || static_cast<size_type>(indices[axis]) >= extent(axis))
+            for (size_type axis = 0; axis < IndexRank; ++axis)
             {
-                throw std::out_of_range("Tensor multidimensional index is out of range");
+                if (indices[axis] < 0 || static_cast<size_type>(indices[axis]) >= extent(axis))
+                {
+                    throw std::out_of_range("Tensor multidimensional index is out of range");
+                }
+                offset = tensor_detail::checkedOffsetAdd(
+                    offset, tensor_detail::checkedStrideContribution(
+                                static_cast<size_type>(indices[axis]), mLayout.strides()[axis]));
             }
-            offset = tensor_detail::checkedOffsetAdd(
-                offset, tensor_detail::checkedStrideContribution(static_cast<size_type>(indices[axis]),
-                                                                  mLayout.strides()[axis]));
         }
         return mStorage.get()[offset];
     }
 
     allocator_type mAllocator;
-    TensorLayout mLayout = TensorLayout::contiguous(DynamicExtents{0});
+    layout_type mLayout = layout_type::contiguous(defaultExtents());
     std::shared_ptr<value_type[]> mStorage;
     std::shared_ptr<tensor_detail::TensorLifetimeState> mLifetime;
 };
 
 template <ReadableTensor R, typename Allocator>
 [[nodiscard]] auto clone(const R& source, const Allocator& allocator)
-    -> Tensor<typename R::value_type, Allocator>
+    -> Tensor<typename R::value_type, Allocator, tensor_detail::tensorStaticRankValue<R>>
 {
     using value_type = typename R::value_type;
-    Tensor<value_type, Allocator> result(std::allocator_arg, allocator, source.extents());
+    Tensor<value_type, Allocator, tensor_detail::tensorStaticRankValue<R>> result(
+        std::allocator_arg, allocator, source.extents());
     tensor_detail::copyKernel(source, result);
     return result;
 }
@@ -741,15 +967,28 @@ template <ReadableTensor R>
     }
 }
 
+template <typename T, typename LeftAllocator, std::size_t LeftRank, typename RightAllocator,
+          std::size_t RightRank>
+    requires(LeftRank != RightRank || !std::same_as<LeftAllocator, RightAllocator>)
+[[nodiscard]] bool operator==(const Tensor<T, LeftAllocator, LeftRank>& left,
+                              const Tensor<T, RightAllocator, RightRank>& right)
+{
+    if (left.extents() != right.extents())
+    {
+        return false;
+    }
+    return tensor_detail::equalKernel(left, right, std::equal_to<T>{});
+}
+
 } // namespace fat_p
 
 namespace std
 {
 
-template <typename T, typename Allocator>
-struct hash<fat_p::Tensor<T, Allocator>>
+template <typename T, typename Allocator, std::size_t Rank>
+struct hash<fat_p::Tensor<T, Allocator, Rank>>
 {
-    [[nodiscard]] size_t operator()(const fat_p::Tensor<T, Allocator>& tensor) const
+    [[nodiscard]] size_t operator()(const fat_p::Tensor<T, Allocator, Rank>& tensor) const
     {
         return fat_p::tensor_detail::hashKernel(tensor, std::hash<T>{});
     }

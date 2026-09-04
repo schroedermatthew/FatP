@@ -1,0 +1,190 @@
+# =============================================================================
+# Fixed-rank, runtime-extents Tensor CI
+# =============================================================================
+
+name: TensorRanked CI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'include/fat_p/TensorRanked.h'
+      - 'include/fat_p/tensor/TensorRanked.h'
+      - 'include/fat_p/tensor/Tensor*.h'
+      - 'include/fat_p/FatPConcepts.h'
+      - 'components/Tensor/tests/test_TensorRanked*.cpp'
+      - 'components/Tensor/benchmarks/benchmark_TensorRanked.cpp'
+      - 'components/Tensor/docs/*Tensor*.md'
+      - 'components/Tensor/results/2026-09-04-ranked/**'
+      - 'components/FatPTest/tests/IncludeAllFatPHeaders.h'
+      - 'components/FatPTest/tests/test_FatP.*'
+      - 'include/fat_p/FatPTest.h'
+      - 'include/fat_p/FatPBenchmarkRunner.h'
+      - 'Read_Me/Fat-P_Library_Development_Guidelines.md'
+      - '.github/workflows/tensor-ranked.yml'
+  pull_request:
+    paths:
+      - 'include/fat_p/TensorRanked.h'
+      - 'include/fat_p/tensor/TensorRanked.h'
+      - 'include/fat_p/tensor/Tensor*.h'
+      - 'include/fat_p/FatPConcepts.h'
+      - 'components/Tensor/tests/test_TensorRanked*.cpp'
+      - 'components/Tensor/benchmarks/benchmark_TensorRanked.cpp'
+      - 'components/Tensor/docs/*Tensor*.md'
+      - 'components/Tensor/results/2026-09-04-ranked/**'
+      - 'components/FatPTest/tests/IncludeAllFatPHeaders.h'
+      - 'components/FatPTest/tests/test_FatP.*'
+      - 'include/fat_p/FatPTest.h'
+      - 'include/fat_p/FatPBenchmarkRunner.h'
+      - 'Read_Me/Fat-P_Library_Development_Guidelines.md'
+      - '.github/workflows/tensor-ranked.yml'
+
+env:
+  TEST_SRC: components/Tensor/tests/test_TensorRanked.cpp
+  HEADER_TEST_SRC: components/Tensor/tests/test_TensorRanked_HeaderSelfContained.cpp
+  BENCH_SRC: components/Tensor/benchmarks/benchmark_TensorRanked.cpp
+
+jobs:
+  linux:
+    name: ${{ matrix.compiler }} C++${{ matrix.std }} ${{ matrix.mode }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: GCC-13
+            cxx: g++-13
+            std: 20
+            mode: Debug
+            flags: -O0 -g
+          - compiler: GCC-14
+            cxx: g++-14
+            std: 23
+            mode: Release
+            flags: -O2 -DNDEBUG
+          - compiler: Clang-18
+            cxx: clang++-18
+            std: 20
+            mode: Debug
+            flags: -O0 -g
+          - compiler: Clang-18
+            cxx: clang++-18
+            std: 23
+            mode: Release
+            flags: -O2 -DNDEBUG
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build tests
+        run: >-
+          ${{ matrix.cxx }} -std=c++${{ matrix.std }}
+          -Wall -Wextra -Wpedantic -Werror
+          ${{ matrix.flags }} -DENABLE_TEST_APPLICATION
+          -iquote ./include/fat_p ${{ env.TEST_SRC }} -o test_bin
+      - name: Run tests
+        run: ./test_bin
+
+  windows-msvc:
+    name: MSVC C++${{ matrix.std }} ${{ matrix.mode }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - std: 20
+            stdflag: /std:c++20
+            mode: Debug
+            opt: /Od /Zi
+          - std: 23
+            stdflag: /std:c++latest
+            mode: Release
+            opt: /O2 /DNDEBUG
+    steps:
+      - uses: actions/checkout@v6
+      - uses: TheMrMilchmann/setup-msvc-dev@v4
+        with:
+          arch: x64
+      - name: Build tests
+        shell: cmd
+        run: >-
+          cl ${{ matrix.stdflag }} ${{ matrix.opt }} /W4 /WX /wd4324 /wd4127
+          /EHsc /permissive- /Zc:preprocessor /DENABLE_TEST_APPLICATION
+          /I.\include\fat_p ${{ env.TEST_SRC }} /Fe:test_bin.exe /link advapi32.lib
+      - name: Run tests
+        run: .\test_bin.exe
+
+  sanitizers:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: AddressSanitizer
+            sanitizer: address
+            options: ASAN_OPTIONS=detect_leaks=1:abort_on_error=1
+          - name: UndefinedBehaviorSanitizer
+            sanitizer: undefined
+            options: UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+          - name: ThreadSanitizer
+            sanitizer: thread
+            options: TSAN_OPTIONS=halt_on_error=1
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build
+        run: >-
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -O1 -g
+          -fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer
+          -DENABLE_TEST_APPLICATION -iquote ./include/fat_p
+          ${{ env.TEST_SRC }} -o test_bin
+      - name: Run
+        run: ${{ matrix.options }} ./test_bin
+
+  header-and-hygiene:
+    name: Header, warnings, and metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Header self-containment
+        run: >-
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror
+          -iquote ./include/fat_p -c ${{ env.HEADER_TEST_SRC }} -o header.o
+      - name: Include order independence
+        run: |
+          printf '#include <algorithm>\n#include <vector>\n#include "TensorRanked.h"\nint main() { return 0; }\n' > include_order.cpp
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -iquote ./include/fat_p include_order.cpp -o include_order
+      - name: Strict warnings
+        run: >-
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic
+          -Wconversion -Wsign-conversion -Wshadow -Wformat=2 -Werror
+          -DENABLE_TEST_APPLICATION -iquote ./include/fat_p
+          ${{ env.TEST_SRC }} -o strict_test
+      - name: Benchmark compile
+        run: >-
+          g++-13 -std=c++20 -O3 -DNDEBUG -Wall -Wextra -Wpedantic -Werror
+          -iquote ./include/fat_p ${{ env.BENCH_SRC }} -o benchmark_tensor_ranked
+      - name: Architecture grep manifest
+        run: |
+          ! rg -n 'same_as<.*(DynamicExtents|TensorLayout)' include/fat_p/tensor
+          ! rg -n 'validate\([^)]*\).*\{\s*\}' include/fat_p/tensor/TensorView.h
+          ! rg -n 'Tensor<[^,>]+,\s*[^,>]+>&\s+(result|destination)' include/fat_p/tensor
+          ! rg -n 'Ranked.*(forEach|while|offset)|Tensor<.*>\s+(temporary|intermediate|materialized)' include/fat_p/tensor
+          ! rg -n '^class TensorIterationPlan$' include/fat_p/tensor/TensorIterationPlan.h
+          rg -n 'TensorRanked.h' include/fat_p/TensorRanked.h include/fat_p/tensor/TensorRanked.h components/FatPTest/tests/IncludeAllFatPHeaders.h include/fat_p/FatPTest.h
+          rg -n 'test_TensorRanked' components/FatPTest/tests/test_FatP.h components/FatPTest/tests/test_FatP.cpp
+      - name: Metadata inventory
+        run: python3 tools/fatp_meta_inventory.py
+      - name: Layer validation
+        run: python3 tools/validate_layers.py
+
+  ci-success:
+    name: CI Success
+    needs: [linux, windows-msvc, sanitizers, header-and-hygiene]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required jobs
+        run: |
+          test '${{ needs.linux.result }}' = success
+          test '${{ needs.windows-msvc.result }}' = success
+          test '${{ needs.sanitizers.result }}' = success
+          test '${{ needs.header-and-hygiene.result }}' = success

@@ -1736,6 +1736,7 @@ struct Statistics
     double p95 = 0;
     double p99 = 0;
     std::size_t samples = 0;
+    std::vector<double> rawSamples;
 
     /**
      * @brief Compute statistics from samples
@@ -1750,6 +1751,7 @@ struct Statistics
             return s;
         }
 
+        s.rawSamples = rawSamples;
         std::sort(rawSamples.begin(), rawSamples.end());
         const std::size_t n = rawSamples.size();
         s.samples = n;
@@ -2595,7 +2597,17 @@ private:
         file << "      \"max\": " << result.stats.max << ",\n";
         file << "      \"p95\": " << result.stats.p95 << ",\n";
         file << "      \"p99\": " << result.stats.p99 << ",\n";
-        file << "      \"samples\": " << result.stats.samples << "\n";
+        file << "      \"samples\": " << result.stats.samples << ",\n";
+        file << "      \"rawSamples\": [";
+        for (std::size_t index = 0; index < result.stats.rawSamples.size(); ++index)
+        {
+            if (index != 0)
+            {
+                file << ", ";
+            }
+            file << result.stats.rawSamples[index];
+        }
+        file << "]\n";
         file << "    }";
     }
 

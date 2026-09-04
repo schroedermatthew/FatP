@@ -34,6 +34,7 @@ FATP_META:
 #include "TensorContractions.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <exception>
 #include <future>
@@ -41,6 +42,7 @@ FATP_META:
 #include <memory_resource>
 #include <stdexcept>
 #include <stop_token>
+#include <vector>
 
 namespace fat_p
 {
@@ -284,14 +286,19 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
              tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
 [[nodiscard]] auto
 matmul(const Left& left, const Right& right, const TensorExecutionContext& context, const Allocator& allocator)
-    -> Tensor<TensorMatmulType<typename Left::value_type>, Allocator>
+    -> Tensor<TensorMatmulType<typename Left::value_type>, Allocator,
+              tensor_detail::matmulStaticRank<Left, Right>>
 {
     using result_type = TensorMatmulType<typename Left::value_type>;
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
     const auto shape = tensor_detail::makeMatmulShape(left.layout(), right.layout());
     tensor_detail::checkTensorCancellation(context.options().cancellation);
-    Tensor<result_type, Allocator> result(std::allocator_arg, allocator, shape.outputExtents, result_type{0});
+    constexpr auto OutputRank = tensor_detail::matmulStaticRank<Left, Right>;
+    using OutputExtents = tensor_detail::TensorExtentsFor<OutputRank>;
+    Tensor<result_type, Allocator, OutputRank> result(
+        std::allocator_arg, allocator,
+        OutputExtents(shape.outputExtents.begin(), shape.outputExtents.end()), result_type{0});
     if (!result.empty() && shape.inner != 0)
     {
         tensor_detail::executeTensorRows(context,
@@ -396,6 +403,59 @@ template <ReadableTensor Left, ReadableTensor Right>
                      leftAxes,
                      rightAxes,
                      context,
+                     tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
+}
+
+template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right, typename Allocator>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
+[[nodiscard]] auto tensorDot(const Left& left, const Right& right,
+                             const std::array<TensorAxis, PairCount>& leftAxes,
+                             const std::array<TensorAxis, PairCount>& rightAxes,
+                             const TensorExecutionContext& context, const Allocator& allocator)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    constexpr auto OutputRank = tensor_detail::contractionStaticRank<PairCount, Left, Right>;
+    tensor_detail::TensorAccess::validate(left);
+    tensor_detail::TensorAccess::validate(right);
+    const auto shape = [&] {
+        if constexpr (OutputRank == tensor_detail::kDynamicTensorRank)
+        {
+            const std::vector<TensorAxis> dynamicLeft(leftAxes.begin(), leftAxes.end());
+            const std::vector<TensorAxis> dynamicRight(rightAxes.begin(), rightAxes.end());
+            return tensor_detail::makeContractionShape(
+                left.layout(), right.layout(), dynamicLeft, dynamicRight);
+        }
+        else
+        {
+            return tensor_detail::makeFixedContractionShape(
+                left.layout(), right.layout(), leftAxes, rightAxes);
+        }
+    }();
+    tensor_detail::checkTensorCancellation(context.options().cancellation);
+    Tensor<result_type, Allocator, OutputRank> result(
+        std::allocator_arg, allocator, shape.outputExtents, result_type{0});
+    if (!result.empty() && shape.inner != 0)
+    {
+        tensor_detail::executeTensorRows(
+            context, result.size(), result.size(), shape.inner,
+            [&](std::size_t first, std::size_t last) {
+                tensor_detail::contractionRows(left, right, shape, result, first, last);
+            });
+    }
+    tensor_detail::checkTensorCancellation(context.options().cancellation);
+    return result;
+}
+
+template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
+[[nodiscard]] auto tensorDot(const Left& left, const Right& right,
+                             const std::array<TensorAxis, PairCount>& leftAxes,
+                             const std::array<TensorAxis, PairCount>& rightAxes,
+                             const TensorExecutionContext& context)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    return tensorDot(left, right, leftAxes, rightAxes, context,
                      tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
 }
 

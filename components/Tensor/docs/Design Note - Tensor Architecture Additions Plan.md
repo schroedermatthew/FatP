@@ -4,25 +4,25 @@ doc_type: "Design Note"
 title: "Tensor Architecture Additions Plan"
 fatp_components: ["Tensor", "TensorLayout", "TensorSlice", "TensorView", "TensorAlgorithms", "TensorReductions",
   "TensorInterop", "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality",
-  "TensorStatic"]
-topics: ["tensor layout", "tensor views", "strided iteration", "numeric promotion", "axis reductions", "tensor execution", "tensor contractions"]
+  "TensorStatic", "TensorRanked"]
+topics: ["tensor layout", "tensor views", "strided iteration", "fixed rank", "runtime extents", "numeric promotion", "axis reductions", "tensor execution", "tensor contractions"]
 constraints: ["signed stride reachability", "aliasing and lifetime", "checked shape arithmetic", "deterministic reduction order", "header-only C++20"]
 cxx_standard: "C++20"
 std_equivalent: "std::mdspan (partial layout and view overlap)"
 std_since: "C++23"
 boost_equivalent: "Boost.MultiArray (partial semantic overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-09-01"
+last_verified: "2026-09-04"
 audience: ["C++ developers", "library maintainers", "performance engineers", "AI assistants"]
 status: "reviewed"
 ---
 
 # Design Note - Tensor Architecture Additions Plan
 
-**Status:** Phases 0-4 complete; Phase 5-8 dependency-light cores and bounded Phase 9-11 increments implemented and validated
+**Status:** Phases 0-4 complete; Phase 5-8 dependency-light cores and bounded Phase 9-11 increments implemented and validated; Phase 12 implemented and locally validated, with remote sanitizer CI pending
 
 **Decided:** The owner/view/layout/kernel foundation and dependency-light algorithm expansion are implemented  
-**Last reviewed:** 2026-09-01
+**Last reviewed:** 2026-09-04
 
 ## Scope
 
@@ -53,7 +53,7 @@ dependencies, repository boundaries, acceptance criteria, and validation gates.
 **Options considered:** Add algorithms to the current type; replace everything in one rewrite; or use dependency-ordered atomic phases.  
 **Chosen option:** Dependency-ordered atomic phases with executable entry and exit gates.  
 **Rationale:** Every later algorithm depends on layout reachability, ownership, constness, and traversal semantics.  
-**Implications:** No deprecated aliases, compatibility wrappers for replaced APIs, dual owner/view models, or partially migrated call sites may remain after a phase lands. Existing public symbols receive an explicit keep, replace, or remove decision before Phase 1.
+**Implications:** No deprecated aliases, compatibility wrappers for replaced APIs, ambiguous owner/view representation within one tensor family, or partially migrated call sites may remain after a phase lands. Distinct rank families may share one implementation core when their rank and storage invariants remain explicit. Existing public symbols receive an explicit keep, replace, or remove decision before Phase 1.
 
 ## Decision
 
@@ -164,6 +164,7 @@ semantic contract
     -> execution context
     -> contractions and optional complete einsum
     -> dtype and StaticTensor closure
+    -> fixed-rank runtime-extents family
 ```
 
 Algorithms cannot correctly precede the mappings they consume. Parallel
@@ -188,6 +189,7 @@ include/fat_p/TensorContractions.h
 include/fat_p/TensorExecution.h
 include/fat_p/TensorEquality.h
 include/fat_p/TensorStatic.h
+include/fat_p/TensorRanked.h
 ```
 
 `TensorEinsum.h` is present only if Phase 10 implements the complete grammar.
@@ -216,6 +218,7 @@ include/fat_p/tensor/TensorExecution.h
 include/fat_p/tensor/TensorContractions.h
 include/fat_p/tensor/TensorEquality.h
 include/fat_p/tensor/TensorStatic.h
+include/fat_p/tensor/TensorRanked.h
 ```
 
 These filenames are planned ownership boundaries, not permission to expose every
@@ -285,7 +288,7 @@ spelling is not dtype identity.
 
 ## Phase Plan
 
-| Phase | Status on 2026-09-01 |
+| Phase | Status on 2026-09-04 |
 |---:|---|
 | 0 | Complete: governance, artifact relocation, Debug/sanitizer CI, and baseline harness |
 | 1 | Complete: checked extents, signed layouts, classification, and oracle tests |
@@ -299,6 +302,7 @@ spelling is not dtype identity.
 | 9 | Bounded native execution contexts implemented and remotely validated for `matmul` and `dot`; wider scheduling and backend work remains optional |
 | 10 | Explicit-axis `tensorDot`, context overloads, tests, and measurements implemented and remotely validated; packing, path optimization, and complete einsum remain absent |
 | 11 | Serializer removed; dtype and same-type conversions implemented; numeric conversion remains |
+| 12 | Fixed-rank/runtime-extents family implemented and locally validated; remote sanitizer CI remains a pre-merge gate |
 
 Every delivered free allocating algorithm follows the Phase 0 allocator table:
 an explicit allocator wins; otherwise the first owning input from left to right
@@ -372,6 +376,8 @@ choose scratch.
   cannot decide safely.
 - Support rank zero, zero extents, positive strides, zero strides, and negative
   strides without forming pointers.
+- Keep ranks zero through four in Tensor-owned inline metadata storage, with an
+  unbounded heap fallback for higher ranks.
 
 **Exit gate**
 
@@ -1163,6 +1169,352 @@ they are not implied by the context API.
 - No Tensor persistence facade, implementation, test, workflow, aggregate
   registration, or public documentation surface remains.
 
+### Phase 12: Fixed-rank, runtime-extents tensors
+
+**Problem**
+
+The current public families leave a missing middle:
+
+| Family | Rank | Extents | Element storage |
+|---|---|---|---|
+| `StaticTensor<T, Shape<...>>` | compile time | compile time | inline |
+| `Tensor<T, Allocator>` | runtime | runtime | allocator-owned |
+
+Inline metadata removes the common-rank extent and stride allocations from
+dynamic `Tensor`, but it does not provide compile-time index arity, statically
+known loop rank, or fixed-size metadata for a known rank above the inline
+threshold. Users whose rank is part of the program type but whose dimensions
+arrive at runtime need a first-class C++20 representation.
+
+**Decision**
+
+- Add `RankedTensor<T, Rank, Allocator>` as the fixed-rank,
+  runtime-extents owning family. Before a public header lands, add `Ranked` to
+  the approved adjective vocabulary with the invariant "rank fixed at compile
+  time; extents remain runtime values" and add the family to the semantic
+  vocabulary. Do not retain a compatibility alias if review selects another
+  name before implementation.
+- Add `RankedExtents<Rank>`, `RankedTensorLayout<Rank>`,
+  `RankedTensorView<T, Rank>`, and `SharedRankedTensorView<T, Rank>`.
+- Store ranked extents and strides in `std::array`; do not use `SmallVector`,
+  heap metadata, or runtime rank tags for ranked objects.
+- Keep element storage allocator-owned. Ranked ownership does not imply inline
+  elements and makes no zero-allocation owner claim.
+- Preserve `Tensor<T, Allocator>` as the runtime-rank default and
+  `StaticTensor<T, Shape<...>>` as the fully fixed, inline-element family.
+- Share layout validation, traversal, algorithms, allocator semantics, and
+  lifetime rules. Ranked types must not form a parallel algorithm ecosystem.
+- Treat `TensorRanked` as a new subcomponent within `components/Tensor`, with
+  its own facade, implementation headers, tests, workflow ownership, manual,
+  benchmark coverage, and `FATP_META.component` identity.
+- Put the new opt-in names in `include/fat_p/TensorRanked.h`. The existing
+  `Tensor.h` facade does not export ranked names. Shared rank-policy machinery
+  may remain in the existing core headers when that is required to keep one
+  implementation; include-footprint changes must be measured and disclosed.
+- Subphases 12A-12E are branch implementation order, not merge boundaries. The
+  public change lands once, with ranked concepts, access, traversal, results,
+  interop, tests, and documentation complete. If that cutover cannot be
+  validated, the Phase 12 cutover is withheld rather than shipping a partial
+  family that silently decays through dynamic owners.
+
+**Rank and result rules**
+
+- `Rank` includes zero. Default ranked owners keep their static rank: positive
+  ranks use all-zero extents and are empty; rank zero owns one value-initialized
+  logical element. A moved-from positive-rank owner returns to the all-zero
+  state. A moved-from rank-zero owner remains a scalar whose element is valid
+  but has the element type's ordinary moved-from value; rank-zero move uses the
+  existing allocator-incompatible element-transfer path rather than stealing
+  the only storage allocation. It therefore retains that path's allocation and
+  exception behavior without requiring `T` to be default-initializable.
+- Constructors accept exactly `Rank` runtime extents. Multi-index access accepts
+  exactly `Rank` indices at compile time. Extent values and storage reachability
+  retain the existing checked runtime failure model.
+- `RankedExtents<Rank>::fromSpan(std::span<const std::size_t>)` accepts
+  dimensions discovered at runtime and rejects a span whose length differs from
+  `Rank`; ranked owner constructors consume `RankedExtents<Rank>`.
+- All-ranked elementwise broadcasting returns rank `max(LeftRank, RightRank)`;
+  unequal compile-time ranks are not inherently incompatible. A dynamic-rank
+  input makes an allocating result dynamic. Compound assignment always retains
+  the destination family and validates runtime broadcast compatibility.
+- Runtime extent incompatibility remains a runtime error. A compile-time error
+  is used only when the operation's rank formula itself is impossible, such as
+  ranked `matmul` with a rank-zero operand or too many template-selected axes.
+
+The following table is normative for existing operations. "Template form"
+means a new overload whose axis count or target rank is part of its template
+arguments; the current runtime form remains available and returns the dynamic
+family where its output rank is not statically determined.
+
+| Operation | All-ranked result | Runtime or mixed-rank rule |
+|---|---|---|
+| Unary, scalar, cast, `clone` | same rank | Any dynamic source returns `Tensor`; explicit-allocator `clone` follows the same family rule |
+| Binary elementwise | `max(L, R)` after runtime extent broadcast validation | Any dynamic input returns `Tensor` |
+| Compound assignment, `copyFrom`, fill | destination rank and family | Dynamic source is allowed; destination never changes family |
+| Transpose, permutation, row, column | source rank | Runtime axis values do not change the known output rank |
+| Unsqueeze | `R + 1` | Runtime insertion position is allowed because output rank is still known |
+| Explicit-axis squeeze | `R - sizeof...(Axes)` | Default/runtime axis list returns `TensorView` because singleton selection is runtime-dependent |
+| Slice | Variadic typed grammar computes index removals and `NewAxis` additions | Runtime `std::vector<SliceSpec>` returns `TensorView` |
+| Reshape/broadcast view | `NewRank` template form returns `RankedTensorView<T, NewRank>` | `DynamicExtents` target returns `TensorView` |
+| `reshapeCopy` | `NewRank` template form returns `RankedTensor<T, NewRank, Allocator>` | `DynamicExtents` target or any dynamic source returns `Tensor` |
+| Reduction | Rank `R` for compile-time keep-dimensions; `R-K` for `K` template axes; reduce-all is rank zero | Runtime axes/runtime keep-dimensions return `Tensor` |
+| Stack, concatenate | `R + 1` and `R`, respectively | Any dynamic input returns `Tensor`; ranked inputs must have one compile-time rank |
+| Take, take-along-axis | source rank and indices rank, respectively | Any dynamic rank involved returns `Tensor` |
+| `gatherND` | `IR - 1 + SR - K` only for a template tuple depth `K` | Existing runtime tuple-depth form returns `Tensor` |
+| `matmul` | `max(L==1?0:L-2, R==1?0:R-2) + (L>1) + (R>1)` | Any dynamic input returns `Tensor`; extents and batch broadcasting remain runtime-checked |
+| Dot, outer, diagonal, trace | 0, 2, `R-1`, and `R-2`, with compile-time rank constraints | Any dynamic source returns `Tensor` |
+| `tensorDot` | `L + R - 2*K` for template axis count `K` | Runtime axis-vector form or any dynamic source returns `Tensor` |
+| Equality and hashing | scalar result; rank family does not affect equal value semantics | Equal dynamic/ranked values share the existing shape/value hash algorithm |
+| Execution-context overloads | Same result rule as the serial operation | Serial remains the default; context never changes result family |
+
+Representative public spellings pin the overload model:
+
+```cpp
+ranked.template reshapeView<3>(RankedExtents<3>{2, 3, 4});
+reshapeCopy<3>(ranked, RankedExtents<3>{2, 3, 4});
+ranked.sliceView(All, Slice{1, 5}, 0, NewAxis);
+sum(ranked);                         // reduce all -> RankedTensor<Result, 0>
+sum<false, 0, 2>(ranked);            // drop two template-selected axes
+sum<true, 0, 2>(ranked);             // keep Rank axes with reduced extents set to one
+sum(ranked, runtimeAxes, false);     // runtime result rank -> Tensor<Result>
+gatherND<2>(source, indices);        // validate indices.extent(IR - 1) == 2
+tensorDot(left, right,
+          std::array<TensorAxis, 2>{0, 2},
+          std::array<TensorAxis, 2>{1, 0});
+```
+
+The same template-axis and keep-dimensions pattern applies to every existing
+reduction family. Typed slice rank is computed from the argument types after
+ellipsis expansion: integral indices remove an axis, `NewAxis` adds one, and
+`All`/`Slice` retain one. The runtime `std::vector<SliceSpec>` overload remains
+dynamic. Fixed-size `tensorDot` axis arrays deduce `K`; `gatherND<K>` validates
+the runtime tuple-depth extent before allocation.
+
+**Subphase 12A: Rank-generic metadata and layout core**
+
+- Add an internal `tensor_detail::kDynamicTensorRank` sentinel and one internal rank-policy core for
+  extents, layout analysis, iteration, and logical iterators. The fixed policy
+  owns arrays; the dynamic policy owns the existing inline/fallback metadata.
+  Preserve the existing public dynamic spellings and behavior.
+- Factor reachability and classification into range-based implementation
+  functions returning an internal validated-layout state. Public constructors
+  validate; trusted transforms and ranked/dynamic view adapters may carry an
+  already-proven state so they remain O(rank) and do not repeat bounded
+  injectivity enumeration.
+- Fixed-rank metadata uses `std::array<std::size_t, Rank>` and
+  `std::array<std::ptrdiff_t, Rank>`. Dynamic metadata retains the inline common-
+  rank storage and unbounded fallback.
+- Implement `BasicTensorIterationPlan<Rank, OperandCount>` and the logical
+  iterator once. Fixed-rank instantiations store coordinates, origins, and
+  strides in arrays; the dynamic specialization retains unbounded storage. This
+  is one traversal engine with two storage policies, not a ranked-only walker.
+  Kernel operand count is a template argument so ranked unary/binary/copy
+  traversal does not allocate plan metadata.
+- Coalescing in a fixed-rank plan retains array capacity `Rank` and updates a
+  runtime active-rank count while shifting active entries; it never erases from
+  a dynamic container or changes the type-level rank.
+- `TensorRanked.h` owns the public `kDynamicTensorRank`,
+  `TensorStaticRank<T>`, and `tensor_static_rank_v<T>` vocabulary and its
+  self-containment/metadata registrations. Their internal implementation may
+  reside in the shared core. Do not change the existing
+  `Tensor<T, Allocator>` template argument order.
+- Add array-backed normalization for compile-time axis packs and fixed-size
+  runtime axis arrays. Ranked paths must not route through the existing
+  vector-returning `normalizeAxes` when the axis count is static.
+- Replace exact-return requirements in `ReadableTensor` and `WritableTensor`
+  with rank-aware extent/layout concepts plus a registered access trait.
+  Replace the permissive `TensorAccess` catch-alls for validation, lifetime,
+  tracking, and shared ownership with a closed customization point that is
+  ill-formed for an unregistered tensor family. Compile-time probes must prove
+  that all dynamic and ranked owner/borrowed/shared families are registered.
+- Define heterogeneous extent and layout comparison for ranked/dynamic pairs;
+  shared kernels must not depend on both operands returning the same concrete
+  metadata type. Compile-time and runtime probes cover both operand orders.
+- `StaticTensor` remains outside `ReadableTensor` in this phase; it participates
+  through explicit conversion and does not acquire the dynamic algorithm
+  surface.
+
+**Subphase 12B: Owner and view family**
+
+- Put owner state and behavior in one internal rank-policy implementation used
+  by the existing dynamic public class and the new ranked public class. Do the
+  same for borrowed/shared views. Thin public surfaces may differ in rank-aware
+  signatures, but storage adoption, allocator actions, lifetime invalidation,
+  and element ownership must not be copied into a second implementation.
+- Implement ranked owners with the same allocator propagation, adoption,
+  exception safety, and invalidation rules as `Tensor`, with the rank-preserving
+  default and moved-from states specified above.
+- Implement borrowed and explicitly shared ranked views with the same signed-
+  stride, injectivity, and lifetime contracts as their dynamic counterparts.
+- Ranked views are not default-constructible. Their move construction and move
+  assignment have copy-equivalent binding semantics, like a non-owning span:
+  the source remains bound and valid. This keeps rank-zero views representable
+  without inventing a null, logically nonempty layout; optional/disengaged view
+  state belongs in `std::optional` rather than the view type.
+- Add closed access-trait registrations for each owner/view family before any
+  ranked type satisfies `ReadableTensor`. No generic no-op validation path is
+  permitted.
+- Keep canonical ranked owners contiguous. Transpose, permutation, reshape,
+  squeeze, unsqueeze, broadcast, and slice return ranked or dynamic views
+  according to the normative result table.
+- Member/free `clone`, explicit-allocator `clone`, swap, adoption, equality,
+  `EqualDispatcher`, and `std::hash` receive explicit ranked coverage. Hashing
+  uses the existing rank/extents/value algorithm so equal values do not depend
+  on whether rank was static or dynamic.
+- Make internal view factories rank-aware. `TensorAccess::makeView`, diagonal
+  read mappings, outer read mappings, and transform helpers return the ranked
+  view dictated by the result table rather than erasing rank through
+  `TensorView` before a shared kernel sees the source.
+- Reuse the rank-policy iteration plan and kernels. Source inspection must find
+  one advance/offset implementation rather than parallel dynamic and ranked
+  loops.
+
+**Subphase 12C: Interoperability**
+
+- Provide explicit zero-element-copy view adaptation between ranked and dynamic
+  families. Adapters may copy metadata but must preserve storage, constness,
+  signed strides, and lifetime tracking.
+- Name the borrowed adapters `asDynamicView()` and `asRankedView<Rank>()`; name
+  the shared adapters `asDynamicSharedView()` and
+  `asRankedSharedView<Rank>()`. Each name exposes whether lifetime is borrowed
+  or retained and whether a runtime rank check occurs.
+- Ranked-to-dynamic view adaptation is unconditional; dynamic-to-ranked
+  adaptation validates rank. Borrowed adapters are lvalue-qualified and cannot
+  extend lifetime. Only shared-to-shared adaptation may outlive an owner.
+- Adapters carry validated layout state rather than re-running classification.
+  Ranked-to-dynamic adaptation is O(rank) but can allocate dynamic metadata for
+  ranks above the inline threshold; record that cost instead of describing the
+  adapter as allocation-free.
+- Native ranked descriptors retain ranked metadata. Calling `describeTensor` on
+  a ranked source returns `RankedStridedTensorDescriptor<T, Rank>` and must not
+  silently construct a dynamic descriptor; conversion to
+  `StridedTensorDescriptor` is an explicit dynamic adaptation.
+- Provide checked owning conversions between `Tensor` and `RankedTensor`.
+  Lvalue conversion materializes independent elements; an rvalue transfer may
+  reuse compatible allocator-owned storage only when its invalidation behavior
+  matches the existing owner move contract. Rank mismatch throws
+  `std::invalid_argument`; the moved-from ranked source follows the positive-
+  rank or rank-zero state specified above.
+- A failed rank check occurs before storage or lifetime mutation and leaves an
+  rvalue source unchanged. Successful rank-zero owner transfer invalidates old
+  borrowed views, installs a fresh source lifetime token, and leaves the source
+  scalar holding its element type's moved-from value.
+- Extend `StaticTensor` conversion through exact runtime extent validation and
+  retain logical-order materialization for non-contiguous sources. Ranked shapes
+  containing a zero extent cannot convert to `StaticTensor`, and Phase 11's open
+  numeric-conversion work is not absorbed here.
+- Extend `std::mdspan` interop so its compile-time rank agrees with ranked source
+  types without a redundant runtime rank check. Preserve injectivity and
+  negative-stride checks and add deleted rvalue overloads for every new
+  `asMdspan`, descriptor, span, and view-adaptation entry point.
+
+The adapter lifetime matrix is explicit:
+
+| Source expression | Permitted adaptation |
+|---|---|
+| Mutable owner lvalue | mutable borrowed view or explicitly shared view |
+| Const owner lvalue | const-element borrowed or explicitly shared view |
+| Borrowed view lvalue | borrowed view only; original expiry tracking retained |
+| Shared view lvalue | shared view retains the same storage handle |
+| Owner or view temporary | rejected; no borrowed, descriptor, span, or mdspan escape |
+
+**Subphase 12D: Algorithm closure**
+
+- Generalize existing elementwise, cast, scalar, compound, reduction,
+  selection, composition, matrix multiplication, contraction, equality, and
+  execution-context entry points to accept ranked owners/views through shared
+  kernels.
+- Encode result-rank propagation once in traits and test it independently.
+  Implement the normative result table, including template forms for
+  rank-changing operations whose existing runtime form cannot express a ranked
+  return type. Intentional dynamic results are part of the contract, not an
+  accidental fallback.
+- Generalize concrete `Tensor<Result, Allocator>&` kernel destinations so ranked
+  results are written directly. Do not add overload families that forward
+  through a materialized dynamic owner.
+- Preserve serial defaults, numeric promotion, allocator selection, aliasing
+  snapshots, deterministic folds, and explicit execution behavior.
+- Cover only operation families already implemented when Phase 12 begins. Do
+  not close unfinished Phase 5 numeric work or Phase 11 numeric conversion as
+  part of the ranked cutover.
+
+**Subphase 12E: Evidence and delivery**
+
+- Add public/internal headers, self-containment tests, CMake and aggregate test
+  registration, CI workflow ownership, manuals, semantic-contract rows, and
+  metadata in the same atomic cutover.
+- Differential layout tests compare ranked and dynamic results for ranks 0, 1,
+  2, 4, 5, and 8 across contiguous, padded, reversed, broadcast, overlapping,
+  indeterminate, empty, exact-enumeration-limit, and arithmetic-boundary cases.
+- Compile-time probes cover exact constructor/index arity, incompatible fixed
+  rank formulas, const propagation, every result-table row, access-trait
+  registration, and forbidden temporary borrows.
+- Runtime tests cover allocator propagation, allocation failure, move
+  invalidation, borrowed expiry, shared retention, conversion mismatch, aliasing,
+  cross-family equality/hash, default/moved-from states, runtime factory arity,
+  ranked/dynamic adaptation, and every algorithm family in Subphase 12D.
+- Allocation instrumentation separately measures persistent ranked metadata,
+  public layout-validation scratch, native ranked traversal, ranked-to-dynamic
+  adaptation, element storage, and lifetime tracking. Canonical ranked metadata,
+  borrowed views, and fixed-rank iteration plans retain no heap metadata;
+  arbitrary-layout validation may use bounded classification scratch and
+  dynamic adaptation above rank four may allocate.
+- Record `sizeof` for ranks 0-8 plus construction, copy, indexing, native kernel,
+  and adaptation baselines for `RankedTensor`, dynamic `Tensor`, and
+  `StaticTensor`. Object size and timing observations are evidence, not API
+  guarantees.
+- Add a Phase 12 grep manifest covering exact dynamic metadata/layout return
+  constraints, permissive `TensorAccess` fallbacks, concrete dynamic-only kernel
+  destinations, ranked-only walkers, missing ranked facade inventory, and
+  accidental materialization through `Tensor`.
+- Run ThreadSanitizer for the generalized execution-context entry points on a
+  supported platform in addition to the shared sanitizer gate.
+
+**Non-goals**
+
+- No inline element-storage optimization for ranked owners in this phase.
+- No merge of `StaticTensor` arithmetic policies into the dynamic/ranked
+  numeric contract.
+- No source-breaking `Tensor<T, Rank>` spelling and no reinterpretation of the
+  existing allocator template parameter.
+- No implicit owning conversion, hidden per-operation materialization, fixed
+  maximum rank, or third-party dependency.
+- No claim that arbitrary layout validation or ranked-to-dynamic adaptation is
+  allocation-free, and no requirement that `StaticTensor` model
+  `ReadableTensor`.
+
+**Exit gate**
+
+- One implementation owns rank-generic layout validation and traversal; source
+  inspection finds no ranked-only duplicate walker or classifier.
+- Existing dynamic Tensor behavior and public spellings remain covered, and
+  ranked/dynamic
+  differential tests establish matching values, errors, layout classification,
+  allocator identity, aliasing, and lifetime behavior.
+- Header self-containment, include-all hygiene, Debug/Release compiler jobs,
+  sanitizers, metadata/layer validation, formatting, and benchmark recording
+  satisfy the Cross-Phase Delivery Gate.
+- Independent Claude and Grok reviews have no unresolved evidence-backed P0/P1
+  findings. Conflicts are resolved from source or executable evidence, not vote.
+
+**Pre-implementation decisions resolved by this plan**
+
+- The public family name is `RankedTensor`, subject to the required adjective-
+  vocabulary entry before implementation.
+- Unequal all-ranked broadcast operands return a ranked result with the maximum
+  input rank. Any dynamic allocating input produces a dynamic result.
+- Runtime-rank-changing APIs deliberately return dynamic results; template
+  forms preserve ranked results where the output formula is statically known.
+- Default and moved-from positive-rank owners use all-zero extents. A default
+  rank-zero owner contains one value-initialized element; a moved-from rank-zero
+  owner remains a scalar containing its element type's valid moved-from value.
+- Ranked views are never default/disengaged; moving a ranked view leaves the
+  source bound through copy-equivalent view semantics.
+- Cross-family equality and hashing use the same shape/value semantics.
+- Subphases 12A-12E land atomically. `TensorRanked` is a Tensor subcomponent, and
+  its public names are opt-in even though shared rank-policy core machinery is
+  necessarily visible to existing implementation headers.
+
 ## Cross-Phase Delivery Gate
 
 Every phase must finish all applicable items before merge:
@@ -1234,12 +1586,59 @@ between reviewers does not replace evidence.
 
 ## Status
 
-**Status:** Accepted; Phases 0-4, the Phase 5-8 dependency-light cores, and bounded Phase 9-11 increments are implemented, with the remaining expansion gates stated above.
+**Status:** Accepted; Phases 0-4, the Phase 5-8 dependency-light cores, and bounded Phase 9-11 increments are implemented. Phase 12 is implemented in the working tree and has passed local compiler, regression, metadata, layer, grep, header, and benchmark gates. The workflow-defined Linux sanitizer matrix remains a pre-merge remote-CI gate.
 
 **Decision owner:** Fat-P maintainer.  
-**Implementation started:** Yes; current executable evidence is recorded in `DN-TENSOR-001` and component tests.
+**Implementation started:** Yes; Phase 12 implementation and local evidence are complete in the working tree.
 
 ## Review Record
+
+Independent local read-only Claude and Grok implementation reviews of Phase 12
+completed on 2026-09-04 with no unresolved P0/P1 findings. Their initial passes
+identified temporary descriptor escape, mutable shared-descriptor rank erasure,
+plain reduce-all rank erasure, unequal-fixed-rank comparison failure, a live
+rank-zero source with moved-from allocator state, and the obsolete second
+iteration walker. The owner reproduced or source-verified each applicable
+finding, fixed it, added targeted tests, and removed the duplicate walker.
+
+Follow-up review also checked the explicit shallow-const view-adapter overloads,
+const-owner isolation, rvalue rejection, same-rank owning transfer, typed-slice
+arity, compile-time transpose/broadcast rejection, and the fixed-rank compound
+branch. Both reviewers returned no P0/P1 after those changes. Neither reviewer
+edited files or supplied execution evidence. Owner validation passed the
+10-case ranked suite under strict Clang, GCC, and MSVC builds, the 13 affected
+MSVC Release regressions, Debug ranked/algorithm/reduction tests, self-contained
+and include-all header checks, architecture grep, metadata/layer validation,
+diff hygiene, workflow parsing, and the recorded 16-case/144-sample benchmark.
+The workflow-defined Linux ASan, UBSan, and TSan jobs remain unexecuted remote
+CI rather than local evidence.
+
+Independent local Claude and Grok design reviews of Phase 12 completed on
+2026-09-04. Both reviewers found the fixed-rank/runtime-extents family justified
+but rejected the first draft as implementation-ready. Their evidence identified
+two shared architectural blockers: the runtime-only `TensorIterationPlan` would
+erase the claimed static-rank traversal benefit, and permissive `TensorAccess`
+fallbacks could silently disable ranked dangling-view checks. The revised plan
+therefore specifies one rank-policy traversal engine with fixed array storage
+and a closed access customization point.
+
+Review findings also produced the normative result-rank table, concrete
+compile-time overload spellings, rank-aware internal view factories,
+heterogeneous ranked/dynamic metadata comparison, explicit adapter lifetime and
+classification rules, native ranked descriptors, atomic delivery, rank-five
+boundary evidence, and separate accounting for persistent metadata,
+classification scratch, adaptation, elements, and lifetime allocations.
+Conflicts around rank-zero moved-from state were resolved without inventing an
+empty scalar: a rank-zero owner transfers its element through the existing
+element-move path and remains a valid scalar with a moved-from value; ranked
+views are non-default-constructible and use copy-equivalent move binding.
+
+Fresh blocker-only passes over the final design text returned
+`IMPLEMENTATION-READY` from both Claude and Grok with no remaining P0/P1
+findings. Neither reviewer edited files, opened a browser, used web search,
+compiled code, ran tests, or supplied execution evidence. Their conclusions are
+the pre-implementation plan review; the later implementation review is recorded
+above after its findings were reconciled against executable evidence.
 
 Local read-only Claude and Grok documentation-closure reviews completed on
 2026-08-31 with no remaining blockers. Claude identified stale opening context,

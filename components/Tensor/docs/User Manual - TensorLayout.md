@@ -3,14 +3,14 @@ doc_id: UM-TENSORLAYOUT-001
 doc_type: "User Manual"
 title: "TensorLayout"
 fatp_components: ["TensorLayout", "Tensor"]
-topics: ["dynamic extents", "signed strides", "layout reachability", "broadcast layout", "overlapping layout"]
-constraints: ["checked ptrdiff arithmetic", "pointer-free metadata", "no intrinsic rank cap"]
+topics: ["dynamic extents", "signed strides", "inline metadata", "layout reachability", "broadcast layout", "overlapping layout"]
+constraints: ["checked ptrdiff arithmetic", "pointer-free metadata", "inline common-rank storage", "no intrinsic rank cap"]
 cxx_standard: "C++20"
 std_equivalent: "std::mdspan (partial metadata overlap)"
 std_since: "C++23"
 boost_equivalent: "Boost.MultiArray (partial layout overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-09-01"
+last_verified: "2026-09-04"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "draft"
 ---
@@ -22,6 +22,11 @@ status: "draft"
 This manual covers the pointer-free runtime metadata introduced by
 `TensorLayout.h`: checked `DynamicExtents`, signed element strides, axis
 normalization, reachable storage offsets, and layout classification.
+
+`TensorRanked.h` adds `RankedExtents<Rank>` and
+`RankedTensorLayout<Rank>`, which store the same validated information in
+fixed-size arrays. See `User Manual - TensorRanked.md` for the owning/view
+family and rank-propagation rules.
 
 ## Not covered
 
@@ -42,7 +47,7 @@ normalization, reachable storage offsets, and layout classification.
 **Key types:** `DynamicExtents`, `TensorStrides`, `TensorLayout`, `TensorLayoutKind`.  
 **Key guarantee:** Every nonempty reachable offset lies in `[0, storageLength)`.  
 **Failure model:** Invalid rank, arithmetic, origin, or reachability is rejected by a standard typed exception.  
-**Allocation model:** Metadata containers may allocate; Tensor element storage is never allocated.  
+**Allocation model:** Ranks zero through four keep extents and strides inline; higher ranks use an unbounded heap fallback. Tensor element storage is never allocated.
 
 ## Include
 
@@ -69,6 +74,13 @@ irrelevant nonzero product would overflow.
 
 Use `rank()`, `logicalSize()`, `hasZeroExtent()`, `values()`, and checked `at()`
 to inspect extents.
+
+Ranks zero through four keep extent and stride values inside their metadata
+objects, so constructing and copying ordinary low-rank layouts does not allocate
+metadata buffers. Higher ranks spill transparently to heap storage; there is no
+semantic rank limit. The inline capacity makes each metadata object larger than
+a vector-only representation, trading descriptor size for fewer allocations in
+owners, views, and iterators.
 
 ## Canonical contiguous layouts
 
@@ -162,7 +174,9 @@ usable layout is returned.
 
 ## Current boundary
 
-`TensorLayout` is the single runtime metadata authority consumed by dynamic
-`Tensor`, `TensorView`, `SharedTensorView`, and iteration plans.
+The rank-policy layout core is the single metadata authority consumed by
+dynamic and ranked owners, views, and iteration plans. `TensorLayout` is its
+runtime-rank public spelling; `RankedTensorLayout<Rank>` is the array-backed
+fixed-rank spelling.
 It never owns or allocates Tensor element storage. Exact classification of small
 higher-rank layouts may use bounded operation-local metadata scratch.

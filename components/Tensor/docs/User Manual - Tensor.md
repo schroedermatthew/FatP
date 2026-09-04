@@ -11,7 +11,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (partial overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-09-01"
+last_verified: "2026-09-04"
 audience: ["C++ developers", "library maintainers"]
 status: "in_work"
 ---
@@ -21,6 +21,12 @@ status: "in_work"
 `fat_p::Tensor<T, Allocator>` is the owning dynamic tensor type. Owners always
 store values in canonical contiguous row-major order. Non-owning mappings use
 `TensorView<T>`, `TensorView<const T>`, or `SharedTensorView<T>`.
+
+When rank is known in the program but extents are runtime data, use the opt-in
+`RankedTensor<T, Rank>` family documented in
+[User Manual - TensorRanked.md](User%20Manual%20-%20TensorRanked.md). It shares
+these algorithms and semantics without changing the dynamic `Tensor<T,
+Allocator>` spelling.
 
 The dynamic Tensor API is currently `in_work`. This manual describes the tested
 surface at the revision above; it is not an API or ABI compatibility promise.
@@ -100,6 +106,12 @@ metadata containing:
 - signed element strides;
 - checked minimum and maximum reachable offsets;
 - a layout classification.
+
+Ranks zero through four store their extent and stride values inside the metadata
+objects. Higher ranks spill transparently to heap storage and remain unbounded.
+This removes separate extent and stride allocations from common-rank owners,
+views, and logical iterators; it does not remove element-storage or explicit
+shared-lifetime allocations.
 
 ```cpp
 TensorLayout reversed(
@@ -1040,6 +1052,7 @@ fixed-size type with its own checked/saturating arithmetic policies.
 |---|---|
 | Owner | `Tensor<T, Allocator>` |
 | Runtime metadata | `DynamicExtents`, `TensorStrides`, `TensorLayout`, `TensorLayoutKind` |
+| Fixed-rank/runtime-extents family | See `TensorRanked.h` and the TensorRanked manual |
 | Dtype identity | `TensorDType`, `TensorDTypeElement`, `tensorDTypeOf` |
 | Dtype table | `tensorDTypeDescriptors`, `tensorDTypeDescriptor`, `tensorDTypeFromId` |
 | Dtype properties | `tensorDTypeName`, `tensorDTypeBitWidth` |

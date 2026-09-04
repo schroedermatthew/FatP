@@ -150,6 +150,30 @@ template <typename Result, typename Source>
     }
 }
 
+template <typename Source>
+inline constexpr std::size_t unaryResultRank = tensorStaticRankValue<Source>;
+
+template <typename Left, typename Right>
+inline constexpr std::size_t binaryResultRank = [] {
+    if constexpr (tensorStaticRankValue<Left> == kDynamicTensorRank ||
+                  tensorStaticRankValue<Right> == kDynamicTensorRank)
+    {
+        return kDynamicTensorRank;
+    }
+    else
+    {
+        return tensorStaticRankValue<Left> > tensorStaticRankValue<Right>
+            ? tensorStaticRankValue<Left>
+            : tensorStaticRankValue<Right>;
+    }
+}();
+
+template <typename Value, typename Allocator, typename Source>
+using UnaryTensorResult = Tensor<Value, Allocator, unaryResultRank<Source>>;
+
+template <typename Value, typename Allocator, typename Left, typename Right>
+using BinaryTensorResult = Tensor<Value, Allocator, binaryResultRank<Left, Right>>;
+
 // The first owner wins; views have no allocator to propagate.
 template <typename Result, typename Left, typename Right>
 [[nodiscard]] auto selectBinaryResultAllocator(const Left& left, const Right& right)
@@ -437,23 +461,24 @@ template <CastValue To, CastValue From>
 }
 
 template <ReadableTensor Source, typename Allocator, typename Operation>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] UnaryTensorResult<typename Source::value_type, Allocator, Source>
 unaryArithmetic(const Source& source, const Allocator& allocator, Operation operation)
 {
     TensorAccess::validate(source);
-    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator, source.extents());
+    UnaryTensorResult<typename Source::value_type, Allocator, Source> result(
+        std::allocator_arg, allocator, source.extents());
     unaryKernel(source, result, operation);
     return result;
 }
 
 template <bool ScalarFirst, typename Result, ReadableTensor Source, typename Scalar,
           typename Allocator, typename Operation>
-[[nodiscard]] Tensor<Result, Allocator>
+[[nodiscard]] UnaryTensorResult<Result, Allocator, Source>
 scalarArithmetic(const Source& source, Scalar scalar, const Allocator& allocator, Operation operation)
 {
     TensorAccess::validate(source);
     const Result convertedScalar = static_cast<Result>(scalar);
-    Tensor<Result, Allocator> result(std::allocator_arg, allocator, source.extents());
+    UnaryTensorResult<Result, Allocator, Source> result(std::allocator_arg, allocator, source.extents());
     unaryKernel(source, result, [convertedScalar, operation](const auto& value) {
         if constexpr (ScalarFirst)
         {
@@ -508,10 +533,12 @@ concept SameTensorValue = ReadableTensor<Left> && ReadableTensor<Right> &&
  */
 template <tensor_detail::CastValue To, ReadableTensor Source, typename Allocator>
     requires tensor_detail::CastValue<typename Source::value_type> && tensor_detail::AllocatorFor<Allocator, To>
-[[nodiscard]] Tensor<To, Allocator> cast(const Source& source, const Allocator& allocator)
+[[nodiscard]] tensor_detail::UnaryTensorResult<To, Allocator, Source>
+cast(const Source& source, const Allocator& allocator)
 {
     tensor_detail::TensorAccess::validate(source);
-    Tensor<To, Allocator> result(std::allocator_arg, allocator, source.extents());
+    tensor_detail::UnaryTensorResult<To, Allocator, Source> result(std::allocator_arg, allocator,
+                                                                   source.extents());
     tensor_detail::unaryKernel(source, result,
                               tensor_detail::checkedScalarCast<To, typename Source::value_type>);
     return result;
@@ -555,6 +582,31 @@ template <tensor_detail::CopyMaterializableTensor Source, typename Allocator>
 /** @brief Reshaped copy using owner SOCCC, or TensorAllocator for a view input. */
 template <tensor_detail::CopyMaterializableTensor Source>
 [[nodiscard]] auto reshapeCopy(const Source& source, DynamicExtents target)
+{
+    return reshapeCopy(source, std::move(target),
+                       tensor_detail::selectResultAllocator<typename Source::value_type>(source));
+}
+
+template <tensor_detail::CopyMaterializableTensor Source, std::size_t NewRank, typename Allocator>
+    requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
+[[nodiscard]] auto reshapeCopy(const Source& source, tensor_detail::FixedRankExtents<NewRank> target,
+                               const Allocator& allocator)
+    -> Tensor<typename Source::value_type, Allocator, NewRank>
+{
+    tensor_detail::TensorAccess::validate(source);
+    if (source.size() != target.logicalSize())
+    {
+        throw std::invalid_argument("reshapeCopy cannot change the logical element count");
+    }
+    Tensor<typename Source::value_type, Allocator, NewRank> result(std::allocator_arg, allocator,
+                                                                   std::move(target));
+    auto destination = result.reshapeView(source.extents());
+    tensor_detail::copyKernel(source, destination);
+    return result;
+}
+
+template <tensor_detail::CopyMaterializableTensor Source, std::size_t NewRank>
+[[nodiscard]] auto reshapeCopy(const Source& source, tensor_detail::FixedRankExtents<NewRank> target)
 {
     return reshapeCopy(source, std::move(target),
                        tensor_detail::selectResultAllocator<typename Source::value_type>(source));
@@ -630,14 +682,15 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
              tensor_detail::AllocatorFor<
                  Allocator, TensorArithmeticType<typename Left::value_type, typename Right::value_type>>
 [[nodiscard]] auto add(const Left& left, const Right& right, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator>
+    -> tensor_detail::BinaryTensorResult<
+        TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator, Left, Right>
 {
     using value_type = TensorArithmeticType<typename Left::value_type, typename Right::value_type>;
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
-    const auto extents = tensor_detail::TensorIterationPlan::broadcastExtents(
-        {std::cref(left.layout()), std::cref(right.layout())});
-    Tensor<value_type, Allocator> result(std::allocator_arg, allocator, extents);
+    const auto extents = tensor_detail::broadcastExtents(left.layout(), right.layout());
+    tensor_detail::BinaryTensorResult<value_type, Allocator, Left, Right> result(std::allocator_arg, allocator,
+                                                                                 extents);
     tensor_detail::binaryKernel(left, right, result, [](const auto& leftValue, const auto& rightValue) {
         return tensor_detail::checkedSameTypeAdd(static_cast<value_type>(leftValue),
                                                       static_cast<value_type>(rightValue));
@@ -658,14 +711,15 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
              tensor_detail::AllocatorFor<
                  Allocator, TensorArithmeticType<typename Left::value_type, typename Right::value_type>>
 [[nodiscard]] auto subtract(const Left& left, const Right& right, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator>
+    -> tensor_detail::BinaryTensorResult<
+        TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator, Left, Right>
 {
     using value_type = TensorArithmeticType<typename Left::value_type, typename Right::value_type>;
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
-    const auto extents = tensor_detail::TensorIterationPlan::broadcastExtents(
-        {std::cref(left.layout()), std::cref(right.layout())});
-    Tensor<value_type, Allocator> result(std::allocator_arg, allocator, extents);
+    const auto extents = tensor_detail::broadcastExtents(left.layout(), right.layout());
+    tensor_detail::BinaryTensorResult<value_type, Allocator, Left, Right> result(std::allocator_arg, allocator,
+                                                                                 extents);
     tensor_detail::binaryKernel(left, right, result, [](const auto& leftValue, const auto& rightValue) {
         return tensor_detail::checkedSameTypeSubtract(static_cast<value_type>(leftValue),
                                                       static_cast<value_type>(rightValue));
@@ -686,14 +740,15 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
              tensor_detail::AllocatorFor<
                  Allocator, TensorArithmeticType<typename Left::value_type, typename Right::value_type>>
 [[nodiscard]] auto multiply(const Left& left, const Right& right, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator>
+    -> tensor_detail::BinaryTensorResult<
+        TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator, Left, Right>
 {
     using value_type = TensorArithmeticType<typename Left::value_type, typename Right::value_type>;
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
-    const auto extents = tensor_detail::TensorIterationPlan::broadcastExtents(
-        {std::cref(left.layout()), std::cref(right.layout())});
-    Tensor<value_type, Allocator> result(std::allocator_arg, allocator, extents);
+    const auto extents = tensor_detail::broadcastExtents(left.layout(), right.layout());
+    tensor_detail::BinaryTensorResult<value_type, Allocator, Left, Right> result(std::allocator_arg, allocator,
+                                                                                 extents);
     tensor_detail::binaryKernel(left, right, result, [](const auto& leftValue, const auto& rightValue) {
         return tensor_detail::checkedSameTypeMultiply(static_cast<value_type>(leftValue),
                                                       static_cast<value_type>(rightValue));
@@ -727,14 +782,15 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
              tensor_detail::AllocatorFor<
                  Allocator, TensorArithmeticType<typename Left::value_type, typename Right::value_type>>
 [[nodiscard]] auto divide(const Left& left, const Right& right, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator>
+    -> tensor_detail::BinaryTensorResult<
+        TensorArithmeticType<typename Left::value_type, typename Right::value_type>, Allocator, Left, Right>
 {
     using value_type = TensorArithmeticType<typename Left::value_type, typename Right::value_type>;
     tensor_detail::TensorAccess::validate(left);
     tensor_detail::TensorAccess::validate(right);
-    const auto extents = tensor_detail::TensorIterationPlan::broadcastExtents(
-        {std::cref(left.layout()), std::cref(right.layout())});
-    Tensor<value_type, Allocator> result(std::allocator_arg, allocator, extents);
+    const auto extents = tensor_detail::broadcastExtents(left.layout(), right.layout());
+    tensor_detail::BinaryTensorResult<value_type, Allocator, Left, Right> result(std::allocator_arg, allocator,
+                                                                                 extents);
     tensor_detail::binaryKernel(left, right, result, [](const auto& leftValue, const auto& rightValue) {
         return tensor_detail::checkedSameTypeDivide(static_cast<value_type>(leftValue),
                                                     static_cast<value_type>(rightValue));
@@ -762,7 +818,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto add(const Source& source, Scalar scalar, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<false, result_type>(
@@ -781,7 +838,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto add(Scalar scalar, const Source& source, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<true, result_type>(
@@ -800,7 +858,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto subtract(const Source& source, Scalar scalar, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<false, result_type>(
@@ -819,7 +878,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto subtract(Scalar scalar, const Source& source, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<true, result_type>(
@@ -838,7 +898,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto multiply(const Source& source, Scalar scalar, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<false, result_type>(
@@ -857,7 +918,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto multiply(Scalar scalar, const Source& source, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<true, result_type>(
@@ -883,7 +945,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto divide(const Source& source, Scalar scalar, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<false, result_type>(
@@ -902,7 +965,8 @@ template <ReadableTensor Source, typename Scalar, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, Scalar> &&
              tensor_detail::AllocatorFor<Allocator, TensorArithmeticType<typename Source::value_type, Scalar>>
 [[nodiscard]] auto divide(Scalar scalar, const Source& source, const Allocator& allocator)
-    -> Tensor<TensorArithmeticType<typename Source::value_type, Scalar>, Allocator>
+    -> tensor_detail::UnaryTensorResult<
+        TensorArithmeticType<typename Source::value_type, Scalar>, Allocator, Source>
 {
     using result_type = TensorArithmeticType<typename Source::value_type, Scalar>;
     return tensor_detail::scalarArithmetic<true, result_type>(
@@ -919,10 +983,11 @@ template <ReadableTensor Source, typename Scalar>
 
 template <ReadableTensor Source, typename Function, typename Allocator>
 [[nodiscard]] auto transform(const Source& source, Function&& function, const Allocator& allocator)
-    -> Tensor<typename Source::value_type, Allocator>
+    -> tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 {
     using value_type = typename Source::value_type;
-    Tensor<value_type, Allocator> result(std::allocator_arg, allocator, source.extents());
+    tensor_detail::UnaryTensorResult<value_type, Allocator, Source> result(std::allocator_arg, allocator,
+                                                                           source.extents());
     tensor_detail::unaryKernel(source, result, std::forward<Function>(function));
     return result;
 }
@@ -1077,7 +1142,7 @@ template <ReadableTensor Source, typename Scalar>
 template <ReadableTensor Source, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 negate(const Source& source, const Allocator& allocator)
 {
     return tensor_detail::unaryArithmetic(source, allocator,
@@ -1128,7 +1193,7 @@ template <ReadableTensor Source>
 template <ReadableTensor Source, typename Allocator>
     requires TensorArithmeticCompatible<typename Source::value_type, typename Source::value_type> &&
              tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 abs(const Source& source, const Allocator& allocator)
 {
     return tensor_detail::unaryArithmetic(source, allocator,
@@ -1165,7 +1230,7 @@ template <ReadableTensor Source>
  * @throws std::bad_alloc Allocation fails. @throws std::runtime_error A tracked borrowed source expired. */
 template <tensor_detail::FloatingMathTensor Source, typename Allocator>
     requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 sqrt(const Source& source, const Allocator& allocator)
 {
     using value_type = typename Source::value_type;
@@ -1187,7 +1252,7 @@ template <tensor_detail::FloatingMathTensor Source>
  * @throws std::bad_alloc Allocation fails. @throws std::runtime_error A tracked borrowed source expired. */
 template <tensor_detail::FloatingMathTensor Source, typename Allocator>
     requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 exp(const Source& source, const Allocator& allocator)
 {
     using value_type = typename Source::value_type;
@@ -1209,7 +1274,7 @@ template <tensor_detail::FloatingMathTensor Source>
  * @throws std::bad_alloc Allocation fails. @throws std::runtime_error A tracked borrowed source expired. */
 template <tensor_detail::FloatingMathTensor Source, typename Allocator>
     requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 log(const Source& source, const Allocator& allocator)
 {
     using value_type = typename Source::value_type;
@@ -1289,37 +1354,62 @@ Destination& compoundArithmetic(Destination& destination, const Operand& operand
     if constexpr (ReadableTensor<Operand>)
     {
         TensorAccess::validate(operand);
-        const auto extents = TensorIterationPlan::broadcastExtents(
-            {std::cref(destination.layout()), std::cref(operand.layout())});
-        if (extents != destination.extents())
-        {
-            throw std::invalid_argument("Tensor compound assignment cannot change destination extents");
-        }
-    }
-    if (destination.size() == 0)
-    {
-        return destination;
     }
 
-    if constexpr (ReadableTensor<Operand>)
+    constexpr auto destinationRank = tensorStaticRankValue<Destination>;
+    constexpr auto operandRank = [] {
+        if constexpr (ReadableTensor<Operand>)
+        {
+            return tensorStaticRankValue<Operand>;
+        }
+        else
+        {
+            return kDynamicTensorRank;
+        }
+    }();
+    if constexpr (ReadableTensor<Operand> && destinationRank != kDynamicTensorRank &&
+                  operandRank != kDynamicTensorRank && operandRank > destinationRank)
     {
-        Tensor<value_type, Allocator> scratch(std::allocator_arg, allocator, destination.extents());
-        binaryKernel(destination, operand, scratch, [operation](const auto& left, const auto& right) {
-            return checkedScalarCast<value_type>(
-                std::invoke(operation, static_cast<result_type>(left), static_cast<result_type>(right)));
-        });
-        commitCompoundResult(scratch, destination);
+        throw std::invalid_argument("Tensor compound assignment cannot change destination extents");
     }
     else
     {
-        const result_type scalar = static_cast<result_type>(operand);
-        Tensor<value_type, Allocator> scratch(std::allocator_arg, allocator, destination.extents());
-        unaryKernel(destination, scratch, [scalar, operation](const auto& left) {
-            return checkedScalarCast<value_type>(std::invoke(operation, static_cast<result_type>(left), scalar));
-        });
-        commitCompoundResult(scratch, destination);
+        if constexpr (ReadableTensor<Operand>)
+        {
+            const auto extents = broadcastExtents(destination.layout(), operand.layout());
+            if (extents != destination.extents())
+            {
+                throw std::invalid_argument("Tensor compound assignment cannot change destination extents");
+            }
+        }
+        if (destination.size() == 0)
+        {
+            return destination;
+        }
+
+        if constexpr (ReadableTensor<Operand>)
+        {
+            Tensor<value_type, Allocator, tensorStaticRankValue<Destination>> scratch(
+                std::allocator_arg, allocator, destination.extents());
+            binaryKernel(destination, operand, scratch, [operation](const auto& left, const auto& right) {
+                return checkedScalarCast<value_type>(
+                    std::invoke(operation, static_cast<result_type>(left), static_cast<result_type>(right)));
+            });
+            commitCompoundResult(scratch, destination);
+        }
+        else
+        {
+            const result_type scalar = static_cast<result_type>(operand);
+            Tensor<value_type, Allocator, tensorStaticRankValue<Destination>> scratch(
+                std::allocator_arg, allocator, destination.extents());
+            unaryKernel(destination, scratch, [scalar, operation](const auto& left) {
+                return checkedScalarCast<value_type>(
+                    std::invoke(operation, static_cast<result_type>(left), scalar));
+            });
+            commitCompoundResult(scratch, destination);
+        }
+        return destination;
     }
-    return destination;
 }
 
 } // namespace tensor_detail

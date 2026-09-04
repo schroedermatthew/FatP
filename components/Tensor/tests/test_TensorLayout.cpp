@@ -11,7 +11,7 @@ FATP_META:
   path: components/Tensor/tests/test_TensorLayout.cpp
   namespace: fat_p::testing::tensor_layout
   layer: Testing
-  summary: "Checked extents, signed reachability, classification, and oracle tests."
+  summary: "Checked inline extents, signed reachability, classification, and oracle tests."
   api_stability: in_work
   related:
     docs:
@@ -79,6 +79,57 @@ FATP_TEST_CASE(dynamic_extents_and_axes)
     }
     FATP_ASSERT_THROWS(DynamicExtents({std::numeric_limits<std::size_t>::max(), 2}), std::overflow_error,
                        "Nonempty extent multiplication should be checked");
+    return true;
+}
+
+FATP_TEST_CASE(inline_metadata_storage)
+{
+    const DynamicExtents commonRank{2, 3, 4, 5};
+    FATP_ASSERT_TRUE(commonRank.values().usesInlineStorage(),
+                     "Ranks through four should keep extent metadata inline");
+
+    const auto commonLayout = TensorLayout::contiguous(commonRank);
+    FATP_ASSERT_TRUE(commonLayout.extents().values().usesInlineStorage(),
+                     "Copying a common-rank layout should retain inline extents");
+    FATP_ASSERT_TRUE(commonLayout.strides().usesInlineStorage(),
+                     "Canonical common-rank strides should remain inline");
+    FATP_ASSERT_TRUE(commonLayout.strides() == TensorStrides({60, 20, 5, 1}),
+                     "Inline canonical strides should preserve row-major values");
+
+    const DynamicExtents higherRank{1, 1, 1, 1, 1};
+    FATP_ASSERT_FALSE(higherRank.values().usesInlineStorage(),
+                      "Ranks above four should use the unbounded heap fallback");
+    FATP_ASSERT_EQ(higherRank.logicalSize(), std::size_t{1},
+                   "Heap-backed extent metadata should preserve logical size");
+
+    TensorStrides transitioning{4, 3, 2, 1};
+    transitioning.insert(transitioning.begin(), 5);
+    FATP_ASSERT_FALSE(transitioning.usesInlineStorage(),
+                      "Growing stride metadata past four should spill to heap storage");
+    transitioning.erase(transitioning.begin());
+    FATP_ASSERT_TRUE(transitioning.usesInlineStorage(),
+                     "Shrinking stride metadata to four should return it to inline storage");
+    FATP_ASSERT_TRUE(transitioning == TensorStrides({4, 3, 2, 1}),
+                     "Inline/heap transitions should preserve stride order and values");
+
+    TensorStrides resized(6, 9);
+    resized.resize(3);
+    FATP_ASSERT_TRUE(resized.usesInlineStorage() && resized == TensorStrides({9, 9, 9}),
+                     "Resizing heap metadata below the threshold should retain values inline");
+    resized.resize(5, 7);
+    FATP_ASSERT_FALSE(resized.usesInlineStorage(),
+                      "Growing resized metadata above the threshold should restore heap storage");
+    FATP_ASSERT_TRUE(resized == TensorStrides({9, 9, 9, 7, 7}),
+                     "Repeated inline/heap resizing should preserve and initialize values");
+
+    TensorStrides assigned{1};
+    assigned = transitioning;
+    FATP_ASSERT_TRUE(assigned.usesInlineStorage() && assigned == transitioning,
+                     "Copy assignment should preserve inline metadata independently");
+    assigned = resized;
+    FATP_ASSERT_FALSE(assigned.usesInlineStorage(),
+                      "Copy assignment should preserve heap fallback for higher ranks");
+    FATP_ASSERT_TRUE(assigned == resized, "Heap metadata copy assignment should preserve every value");
     return true;
 }
 
@@ -250,6 +301,7 @@ bool test_TensorLayout()
     FATP_PRINT_HEADER(TENSOR LAYOUT)
     TestRunner runner;
     FATP_RUN_TEST_NS(runner, tensor_layout, dynamic_extents_and_axes);
+    FATP_RUN_TEST_NS(runner, tensor_layout, inline_metadata_storage);
     FATP_RUN_TEST_NS(runner, tensor_layout, canonical_layouts);
     FATP_RUN_TEST_NS(runner, tensor_layout, signed_reachability_and_classification);
     FATP_RUN_TEST_NS(runner, tensor_layout, validation_boundaries);

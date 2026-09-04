@@ -52,13 +52,13 @@ FATP_META:
 namespace fat_p
 {
 
-template <typename T, typename Allocator>
+template <typename T, typename Allocator, std::size_t Rank>
 class Tensor;
 
-template <typename T>
+template <typename T, std::size_t Rank = tensor_detail::kDynamicTensorRank>
 class TensorView;
 
-template <typename T>
+template <typename T, std::size_t Rank = tensor_detail::kDynamicTensorRank>
 class SharedTensorView;
 
 namespace tensor_detail
@@ -96,15 +96,21 @@ inline void checkLifetime(const std::weak_ptr<TensorLifetimeState>& state, bool 
 #endif
 }
 
-inline TensorLayout sliceLayout(const TensorLayout& source, const std::vector<std::size_t>& start,
-                                const std::vector<std::size_t>& end)
+template <std::size_t Rank>
+[[nodiscard]] BasicTensorLayout<Rank>
+sliceLayout(const BasicTensorLayout<Rank>& source, const std::vector<std::size_t>& start,
+            const std::vector<std::size_t>& end)
 {
     if (start.size() != source.rank() || end.size() != source.rank())
     {
         throw std::invalid_argument("Tensor slice bounds must match the source rank");
     }
 
-    std::vector<std::size_t> resultExtents(source.rank());
+    typename BasicTensorLayout<Rank>::extents_type::container_type resultExtents{};
+    if constexpr (Rank == kDynamicTensorRank)
+    {
+        resultExtents.resize(source.rank());
+    }
     bool empty = false;
     for (std::size_t axis = 0; axis < source.rank(); ++axis)
     {
@@ -124,21 +130,37 @@ inline TensorLayout sliceLayout(const TensorLayout& source, const std::vector<st
             origin = checkedOffsetAdd(origin, checkedStrideContribution(start[axis], source.strides()[axis]));
         }
     }
-    return TensorLayout(source.storageLength(), origin, DynamicExtents(std::move(resultExtents)), source.strides());
+    return BasicTensorLayout<Rank>(source.storageLength(), origin,
+                                   typename BasicTensorLayout<Rank>::extents_type(std::move(resultExtents)),
+                                   source.strides());
 }
 
-inline TensorLayout transposeLayout(const TensorLayout& source)
+template <std::size_t Rank>
+[[nodiscard]] BasicTensorLayout<Rank> transposeLayout(const BasicTensorLayout<Rank>& source)
 {
     if (source.rank() != 2)
     {
         throw std::invalid_argument("transposeView requires a rank-two Tensor mapping");
     }
-    return TensorLayout(source.storageLength(), source.originOffset(),
-                        DynamicExtents{source.extents()[1], source.extents()[0]},
-                        TensorStrides{source.strides()[1], source.strides()[0]});
+    typename BasicTensorLayout<Rank>::extents_type::container_type extents{};
+    typename BasicTensorLayout<Rank>::strides_type strides{};
+    if constexpr (Rank == kDynamicTensorRank)
+    {
+        extents.resize(2);
+        strides.resize(2);
+    }
+    extents[0] = source.extents()[1];
+    extents[1] = source.extents()[0];
+    strides[0] = source.strides()[1];
+    strides[1] = source.strides()[0];
+    return BasicTensorLayout<Rank>(source.storageLength(), source.originOffset(),
+                                   typename BasicTensorLayout<Rank>::extents_type(std::move(extents)),
+                                   std::move(strides));
 }
 
-inline TensorLayout reshapeLayout(const TensorLayout& source, DynamicExtents target)
+template <std::size_t SourceRank, std::size_t TargetRank>
+[[nodiscard]] BasicTensorLayout<TargetRank>
+reshapeLayoutImpl(const BasicTensorLayout<SourceRank>& source, TensorExtentsFor<TargetRank> target)
 {
     if (!source.isContiguous())
     {
@@ -148,17 +170,39 @@ inline TensorLayout reshapeLayout(const TensorLayout& source, DynamicExtents tar
     {
         throw std::invalid_argument("reshapeView cannot change the logical element count");
     }
-    return TensorLayout(source.storageLength(), source.originOffset(), target, TensorLayout::canonicalStrides(target));
+    auto strides = BasicTensorLayout<TargetRank>::canonicalStrides(target);
+    return BasicTensorLayout<TargetRank>(source.storageLength(), source.originOffset(),
+                                         std::move(target), std::move(strides));
 }
 
-inline TensorLayout broadcastLayout(const TensorLayout& source, DynamicExtents target)
+template <std::size_t SourceRank>
+[[nodiscard]] TensorLayout reshapeLayout(const BasicTensorLayout<SourceRank>& source,
+                                         DynamicExtents target)
+{
+    return reshapeLayoutImpl<SourceRank, kDynamicTensorRank>(source, std::move(target));
+}
+
+template <std::size_t TargetRank, std::size_t SourceRank>
+[[nodiscard]] BasicTensorLayout<TargetRank>
+reshapeLayout(const BasicTensorLayout<SourceRank>& source, FixedRankExtents<TargetRank> target)
+{
+    return reshapeLayoutImpl<SourceRank, TargetRank>(source, std::move(target));
+}
+
+template <std::size_t SourceRank, std::size_t TargetRank>
+[[nodiscard]] BasicTensorLayout<TargetRank>
+broadcastLayoutImpl(const BasicTensorLayout<SourceRank>& source, TensorExtentsFor<TargetRank> target)
 {
     if (source.rank() > target.rank())
     {
         throw std::invalid_argument("broadcastView target rank is smaller than the source rank");
     }
 
-    TensorStrides resultStrides(target.rank(), 0);
+    TensorStridesFor<TargetRank> resultStrides{};
+    if constexpr (TargetRank == kDynamicTensorRank)
+    {
+        resultStrides.resize(target.rank(), 0);
+    }
     const auto rankPadding = target.rank() - source.rank();
     for (std::size_t targetAxis = 0; targetAxis < target.rank(); ++targetAxis)
     {
@@ -176,12 +220,27 @@ inline TensorLayout broadcastLayout(const TensorLayout& source, DynamicExtents t
         }
         resultStrides[targetAxis] = sourceExtent == 1 && targetExtent != 1 ? 0 : source.strides()[sourceAxis];
     }
-    return TensorLayout(source.storageLength(), source.originOffset(), std::move(target), std::move(resultStrides));
+    return BasicTensorLayout<TargetRank>(source.storageLength(), source.originOffset(), std::move(target),
+                                         std::move(resultStrides));
+}
+
+template <std::size_t SourceRank>
+[[nodiscard]] TensorLayout broadcastLayout(const BasicTensorLayout<SourceRank>& source,
+                                           DynamicExtents target)
+{
+    return broadcastLayoutImpl<SourceRank, kDynamicTensorRank>(source, std::move(target));
+}
+
+template <std::size_t TargetRank, std::size_t SourceRank>
+[[nodiscard]] BasicTensorLayout<TargetRank>
+broadcastLayout(const BasicTensorLayout<SourceRank>& source, FixedRankExtents<TargetRank> target)
+{
+    return broadcastLayoutImpl<SourceRank, TargetRank>(source, std::move(target));
 }
 
 } // namespace tensor_detail
 
-template <typename Element>
+template <typename Element, std::size_t Rank = tensor_detail::kDynamicTensorRank>
 class TensorLogicalIterator
 {
 public:
@@ -194,7 +253,9 @@ public:
 
     TensorLogicalIterator() = default;
 
-    TensorLogicalIterator(pointer storageBase, TensorLayout layout, std::size_t linearIndex,
+    using layout_type = tensor_detail::TensorLayoutFor<Rank>;
+
+    TensorLogicalIterator(pointer storageBase, layout_type layout, std::size_t linearIndex,
                           std::weak_ptr<tensor_detail::TensorLifetimeState> lifetime = {}, bool tracked = false)
         : mStorageBase(storageBase)
         , mLayout(std::move(layout))
@@ -245,13 +306,22 @@ public:
 
 private:
     pointer mStorageBase = nullptr;
-    TensorLayout mLayout = TensorLayout::contiguous(DynamicExtents{0});
+    layout_type mLayout = [] {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return layout_type::contiguous(DynamicExtents{0});
+        }
+        else
+        {
+            return layout_type::contiguous(typename layout_type::extents_type{});
+        }
+    }();
     std::size_t mLinearIndex = 0;
     std::weak_ptr<tensor_detail::TensorLifetimeState> mLifetime;
     bool mTracked = false;
 };
 
-template <typename T>
+template <typename T, std::size_t Rank>
 class TensorView
 {
 public:
@@ -259,19 +329,49 @@ public:
     using value_type = std::remove_const_t<T>;
     using reference = T&;
     using pointer = T*;
-    using iterator = TensorLogicalIterator<T>;
-    using const_iterator = TensorLogicalIterator<const value_type>;
+    using extents_type = tensor_detail::TensorExtentsFor<Rank>;
+    using layout_type = tensor_detail::TensorLayoutFor<Rank>;
+    using strides_type = tensor_detail::TensorStridesFor<Rank>;
+    using iterator = TensorLogicalIterator<T, Rank>;
+    using const_iterator = TensorLogicalIterator<const value_type, Rank>;
+    static constexpr std::size_t static_rank = Rank;
 
-    TensorView() = default;
+    TensorView()
+        requires(Rank == tensor_detail::kDynamicTensorRank)
+    = default;
     TensorView(const TensorView&) = default;
-    TensorView(TensorView&&) noexcept = default;
+    TensorView(TensorView&& other) noexcept
+        : mStorageBase(other.mStorageBase)
+        , mLayout(moveOrCopyLayout(other))
+        , mLifetime(moveOrCopyLifetime(other))
+        , mTracked(other.mTracked)
+    {
+    }
     TensorView& operator=(const TensorView&) = default;
-    TensorView& operator=(TensorView&&) noexcept = default;
+    TensorView& operator=(TensorView&& other) noexcept
+    {
+        if (this != &other)
+        {
+            mStorageBase = other.mStorageBase;
+            if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+            {
+                mLayout = std::move(other.mLayout);
+                mLifetime = std::move(other.mLifetime);
+            }
+            else
+            {
+                mLayout = other.mLayout;
+                mLifetime = other.mLifetime;
+            }
+            mTracked = other.mTracked;
+        }
+        return *this;
+    }
 
     template <typename U>
         requires(std::is_const_v<T> && std::same_as<std::remove_const_t<T>, std::remove_const_t<U>> &&
                  !std::is_const_v<U>)
-    TensorView(const TensorView<U>& other)
+    TensorView(const TensorView<U, Rank>& other)
         : mStorageBase(other.mStorageBase)
         , mLayout(other.mLayout)
         , mLifetime(other.mLifetime)
@@ -279,7 +379,7 @@ public:
     {
     }
 
-    [[nodiscard]] static TensorView borrow(pointer storageBase, TensorLayout layout)
+    [[nodiscard]] static TensorView borrow(pointer storageBase, layout_type layout)
     {
         if (layout.logicalSize() != 0 && storageBase == nullptr)
         {
@@ -289,17 +389,17 @@ public:
         return TensorView(storageBase, std::move(layout), {}, false);
     }
 
-    [[nodiscard]] const TensorLayout& layout() const noexcept
+    [[nodiscard]] const layout_type& layout() const noexcept
     {
         return mLayout;
     }
 
-    [[nodiscard]] const DynamicExtents& extents() const noexcept
+    [[nodiscard]] const extents_type& extents() const noexcept
     {
         return mLayout.extents();
     }
 
-    [[nodiscard]] const TensorStrides& strides() const noexcept
+    [[nodiscard]] const strides_type& strides() const noexcept
     {
         return mLayout.strides();
     }
@@ -336,6 +436,7 @@ public:
     }
 
     template <std::integral... Indices>
+        requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] reference operator()(Indices... indices) const
     {
         return atIndices(std::array<std::ptrdiff_t, sizeof...(Indices)>{static_cast<std::ptrdiff_t>(indices)...});
@@ -371,37 +472,113 @@ public:
                                        const std::vector<std::size_t>& end) const
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::sliceLayout(mLayout, start, end), mLifetime, mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView(mStorageBase, tensor_detail::sliceLayout(mLayout, start, end), mLifetime, mTracked);
+        }
+        else
+        {
+            return TensorView(mStorageBase, tensor_detail::sliceLayout(mLayout, start, end), mLifetime, mTracked);
+        }
     }
 
-    [[nodiscard]] TensorView sliceView(const std::vector<SliceSpec>& specifications) const
+    [[nodiscard]] auto sliceView(const std::vector<SliceSpec>& specifications) const
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::extendedSliceLayout(mLayout, specifications), mLifetime,
-                          mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView<T>(mStorageBase, tensor_detail::extendedSliceLayout(mLayout, specifications),
+                                 mLifetime, mTracked);
+        }
+        else
+        {
+            return TensorView<T>(mStorageBase,
+                                 tensor_detail::extendedSliceLayout(
+                                     tensor_detail::makeDynamicLayout(mLayout), specifications),
+                                 mLifetime, mTracked);
+        }
     }
 
-    [[nodiscard]] TensorView sliceView(std::initializer_list<SliceSpec> specifications) const
+    [[nodiscard]] auto sliceView(std::initializer_list<SliceSpec> specifications) const
     {
         return sliceView(std::vector<SliceSpec>(specifications));
+    }
+
+    template <typename... Specifications>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
+                 tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
+                 ((std::constructible_from<SliceSpec, Specifications> ||
+                   tensor_detail::isSliceIndex<Specifications>) && ...))
+    [[nodiscard]] auto sliceView(Specifications&&... specifications) const
+    {
+        constexpr auto ResultRank = tensor_detail::typedSliceResultRank<Rank, Specifications...>;
+        checkAlive();
+        std::vector<SliceSpec> dynamicSpecifications;
+        dynamicSpecifications.reserve(sizeof...(Specifications));
+        (dynamicSpecifications.push_back(
+             tensor_detail::makeSliceSpec(std::forward<Specifications>(specifications))),
+         ...);
+        auto transformed = tensor_detail::extendedSliceLayout(
+            tensor_detail::makeDynamicLayout(mLayout), dynamicSpecifications);
+        return TensorView<T, ResultRank>(mStorageBase, tensor_detail::makeFixedLayout<ResultRank>(transformed),
+                                         mLifetime, mTracked);
     }
 
     [[nodiscard]] TensorView permuteView(const std::vector<TensorAxis>& order) const
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::permuteLayout(mLayout, order), mLifetime, mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView(mStorageBase, tensor_detail::permuteLayout(mLayout, order), mLifetime, mTracked);
+        }
+        else
+        {
+            auto transformed = tensor_detail::permuteLayout(tensor_detail::makeDynamicLayout(mLayout), order);
+            return TensorView(mStorageBase, tensor_detail::makeFixedLayout<Rank>(transformed), mLifetime, mTracked);
+        }
     }
 
-    [[nodiscard]] TensorView squeezeView(const std::vector<TensorAxis>& axes = {}) const
+    [[nodiscard]] auto squeezeView(const std::vector<TensorAxis>& axes = {}) const
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::squeezeLayout(mLayout, axes), mLifetime, mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView<T>(mStorageBase, tensor_detail::squeezeLayout(mLayout, axes), mLifetime, mTracked);
+        }
+        else
+        {
+            return TensorView<T>(mStorageBase,
+                                 tensor_detail::squeezeLayout(tensor_detail::makeDynamicLayout(mLayout), axes),
+                                 mLifetime, mTracked);
+        }
     }
 
-    [[nodiscard]] TensorView unsqueezeView(TensorAxis axis) const
+    template <TensorAxis... Axes>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Axes) > 0)
+    [[nodiscard]] auto squeezeView() const
+    {
+        static_assert(sizeof...(Axes) <= Rank, "Tensor squeeze removes more axes than the source rank");
+        checkAlive();
+        const std::vector<TensorAxis> axes{Axes...};
+        auto transformed = tensor_detail::squeezeLayout(tensor_detail::makeDynamicLayout(mLayout), axes);
+        return TensorView<T, Rank - sizeof...(Axes)>(
+            mStorageBase, tensor_detail::makeFixedLayout<Rank - sizeof...(Axes)>(transformed),
+            mLifetime, mTracked);
+    }
+
+    [[nodiscard]] auto unsqueezeView(TensorAxis axis) const
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::unsqueezeLayout(mLayout, axis), mLifetime, mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView<T>(mStorageBase, tensor_detail::unsqueezeLayout(mLayout, axis), mLifetime, mTracked);
+        }
+        else
+        {
+            auto transformed = tensor_detail::unsqueezeLayout(tensor_detail::makeDynamicLayout(mLayout), axis);
+            return TensorView<T, Rank + 1>(mStorageBase, tensor_detail::makeFixedLayout<Rank + 1>(transformed),
+                                           mLifetime, mTracked);
+        }
     }
 
     [[nodiscard]] TensorView rowView(std::size_t row) const
@@ -423,41 +600,91 @@ public:
     }
 
     [[nodiscard]] TensorView transposeView() const
+        requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::transposeLayout(mLayout), mLifetime, mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView(mStorageBase, tensor_detail::transposeLayout(mLayout), mLifetime, mTracked);
+        }
+        else
+        {
+            return TensorView(mStorageBase, tensor_detail::transposeLayout(mLayout), mLifetime, mTracked);
+        }
     }
 
     [[nodiscard]] TensorView reshapeView(DynamicExtents target) const
     {
         checkAlive();
-        return TensorView(mStorageBase, tensor_detail::reshapeLayout(mLayout, std::move(target)), mLifetime, mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView<T>(mStorageBase, tensor_detail::reshapeLayout(mLayout, std::move(target)),
+                                 mLifetime, mTracked);
+        }
+        else
+        {
+            return TensorView<T>(mStorageBase,
+                                 tensor_detail::reshapeLayout(tensor_detail::makeDynamicLayout(mLayout),
+                                                              std::move(target)),
+                                 mLifetime, mTracked);
+        }
+    }
+
+    template <std::size_t NewRank>
+    [[nodiscard]] TensorView<T, NewRank>
+    reshapeView(tensor_detail::FixedRankExtents<NewRank> target) const
+    {
+        checkAlive();
+        return TensorView<T, NewRank>(mStorageBase,
+                                      tensor_detail::reshapeLayout(mLayout, std::move(target)),
+                                      mLifetime, mTracked);
     }
 
     [[nodiscard]] TensorView<const value_type> broadcastView(DynamicExtents target) const
     {
         checkAlive();
-        return TensorView<const value_type>(mStorageBase,
-                                            tensor_detail::broadcastLayout(mLayout, std::move(target)), mLifetime,
-                                            mTracked);
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return TensorView<const value_type>(mStorageBase,
+                                                tensor_detail::broadcastLayout(mLayout, std::move(target)),
+                                                mLifetime, mTracked);
+        }
+        else
+        {
+            return TensorView<const value_type>(
+                mStorageBase,
+                tensor_detail::broadcastLayout(tensor_detail::makeDynamicLayout(mLayout), std::move(target)),
+                mLifetime, mTracked);
+        }
     }
 
-    [[nodiscard]] TensorView<const value_type> asConstView() const
+    template <std::size_t NewRank>
+    [[nodiscard]] TensorView<const value_type, NewRank>
+    broadcastView(tensor_detail::FixedRankExtents<NewRank> target) const
+        requires(Rank == tensor_detail::kDynamicTensorRank || NewRank >= Rank)
+    {
+        checkAlive();
+        return TensorView<const value_type, NewRank>(
+            mStorageBase, tensor_detail::broadcastLayout(mLayout, std::move(target)),
+            mLifetime, mTracked);
+    }
+
+    [[nodiscard]] TensorView<const value_type, Rank> asConstView() const
         requires(!std::is_const_v<T>)
     {
-        return TensorView<const value_type>(*this);
+        return TensorView<const value_type, Rank>(*this);
     }
 
 private:
-    template <typename>
+    template <typename, std::size_t>
     friend class TensorView;
-    template <typename>
+    template <typename, std::size_t>
     friend class SharedTensorView;
-    template <typename, typename>
+    template <typename, typename, std::size_t>
     friend class Tensor;
     friend struct tensor_detail::TensorAccess;
 
-    TensorView(pointer storageBase, TensorLayout layout,
+    TensorView(pointer storageBase, layout_type layout,
                std::weak_ptr<tensor_detail::TensorLifetimeState> lifetime, bool tracked)
         : mStorageBase(storageBase)
         , mLayout(std::move(layout))
@@ -467,7 +694,7 @@ private:
         enforceWritableInjectivity(mLayout);
     }
 
-    static void enforceWritableInjectivity(const TensorLayout& layout)
+    static void enforceWritableInjectivity(const layout_type& layout)
     {
         if constexpr (!std::is_const_v<T>)
         {
@@ -483,35 +710,76 @@ private:
         tensor_detail::checkLifetime(mLifetime, mTracked);
     }
 
-    template <std::size_t Rank>
-    [[nodiscard]] reference atIndices(const std::array<std::ptrdiff_t, Rank>& indices) const
+    template <std::size_t IndexRank>
+    [[nodiscard]] reference atIndices(const std::array<std::ptrdiff_t, IndexRank>& indices) const
     {
         checkAlive();
-        if (Rank != rank())
+        if (IndexRank != rank())
         {
             throw std::invalid_argument("TensorView index count does not match its rank");
         }
         std::ptrdiff_t offset = mLayout.originOffset();
-        for (std::size_t axis = 0; axis < Rank; ++axis)
+        if constexpr (IndexRank > 0)
         {
-            if (indices[axis] < 0 || static_cast<std::size_t>(indices[axis]) >= mLayout.extents()[axis])
+            for (std::size_t axis = 0; axis < IndexRank; ++axis)
             {
-                throw std::out_of_range("TensorView multidimensional index is out of range");
+                if (indices[axis] < 0 ||
+                    static_cast<std::size_t>(indices[axis]) >= mLayout.extents()[axis])
+                {
+                    throw std::out_of_range("TensorView multidimensional index is out of range");
+                }
+                offset = tensor_detail::checkedOffsetAdd(
+                    offset, tensor_detail::checkedStrideContribution(
+                                static_cast<std::size_t>(indices[axis]), mLayout.strides()[axis]));
             }
-            offset = tensor_detail::checkedOffsetAdd(
-                offset, tensor_detail::checkedStrideContribution(static_cast<std::size_t>(indices[axis]),
-                                                                  mLayout.strides()[axis]));
         }
         return mStorageBase[offset];
     }
 
+    [[nodiscard]] static layout_type moveOrCopyLayout(TensorView& other) noexcept
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return std::move(other.mLayout);
+        }
+        else
+        {
+            return other.mLayout;
+        }
+    }
+
+    [[nodiscard]] static std::weak_ptr<tensor_detail::TensorLifetimeState>
+    moveOrCopyLifetime(TensorView& other) noexcept
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return std::move(other.mLifetime);
+        }
+        else
+        {
+            return other.mLifetime;
+        }
+    }
+
+    [[nodiscard]] static layout_type defaultLayout()
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return layout_type::contiguous(DynamicExtents{0});
+        }
+        else
+        {
+            return layout_type::contiguous(extents_type{});
+        }
+    }
+
     pointer mStorageBase = nullptr;
-    TensorLayout mLayout = TensorLayout::contiguous(DynamicExtents{0});
+    layout_type mLayout = defaultLayout();
     std::weak_ptr<tensor_detail::TensorLifetimeState> mLifetime;
     bool mTracked = false;
 };
 
-template <typename T>
+template <typename T, std::size_t Rank>
 class SharedTensorView
 {
 public:
@@ -519,25 +787,51 @@ public:
     using value_type = std::remove_const_t<T>;
     using reference = T&;
     using pointer = T*;
-    using iterator = typename TensorView<T>::iterator;
+    using extents_type = tensor_detail::TensorExtentsFor<Rank>;
+    using layout_type = tensor_detail::TensorLayoutFor<Rank>;
+    using strides_type = tensor_detail::TensorStridesFor<Rank>;
+    using iterator = typename TensorView<T, Rank>::iterator;
+    static constexpr std::size_t static_rank = Rank;
 
-    SharedTensorView() = default;
+    SharedTensorView()
+        requires(Rank == tensor_detail::kDynamicTensorRank)
+    = default;
     SharedTensorView(const SharedTensorView&) = default;
-    SharedTensorView(SharedTensorView&&) noexcept = default;
+    SharedTensorView(SharedTensorView&& other) noexcept
+        : mLifetime(moveOrCopySharedLifetime(other))
+        , mView(moveOrCopyView(other))
+    {
+    }
     SharedTensorView& operator=(const SharedTensorView&) = default;
-    SharedTensorView& operator=(SharedTensorView&&) noexcept = default;
+    SharedTensorView& operator=(SharedTensorView&& other) noexcept
+    {
+        if (this != &other)
+        {
+            if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+            {
+                mLifetime = std::move(other.mLifetime);
+                mView = std::move(other.mView);
+            }
+            else
+            {
+                mLifetime = other.mLifetime;
+                mView = other.mView;
+            }
+        }
+        return *this;
+    }
 
     template <typename U>
         requires(std::is_const_v<T> && std::same_as<std::remove_const_t<T>, std::remove_const_t<U>> &&
                  !std::is_const_v<U>)
-    SharedTensorView(const SharedTensorView<U>& other)
+    SharedTensorView(const SharedTensorView<U, Rank>& other)
         : mLifetime(other.mLifetime)
         , mView(other.mView)
     {
     }
 
     [[nodiscard]] static SharedTensorView share(std::shared_ptr<void> lifetime, pointer storageBase,
-                                                TensorLayout layout)
+                                                layout_type layout)
     {
         if (!lifetime)
         {
@@ -547,12 +841,12 @@ public:
         {
             throw std::invalid_argument("Cannot share a nonempty Tensor layout from a null pointer");
         }
-        return SharedTensorView(std::move(lifetime), TensorView<T>::borrow(storageBase, std::move(layout)));
+        return SharedTensorView(std::move(lifetime), TensorView<T, Rank>::borrow(storageBase, std::move(layout)));
     }
 
-    [[nodiscard]] const TensorLayout& layout() const noexcept { return mView.layout(); }
-    [[nodiscard]] const DynamicExtents& extents() const noexcept { return mView.extents(); }
-    [[nodiscard]] const TensorStrides& strides() const noexcept { return mView.strides(); }
+    [[nodiscard]] const layout_type& layout() const noexcept { return mView.layout(); }
+    [[nodiscard]] const extents_type& extents() const noexcept { return mView.extents(); }
+    [[nodiscard]] const strides_type& strides() const noexcept { return mView.strides(); }
     [[nodiscard]] std::size_t size() const noexcept { return mView.size(); }
     [[nodiscard]] std::size_t rank() const noexcept { return mView.rank(); }
     [[nodiscard]] std::size_t extent(std::size_t axis) const { return mView.extent(axis); }
@@ -561,6 +855,7 @@ public:
     [[nodiscard]] reference atLinear(std::size_t index) const { return mView.atLinear(index); }
 
     template <std::integral... Indices>
+        requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] reference operator()(Indices... indices) const
     {
         return mView(indices...);
@@ -576,14 +871,35 @@ public:
         return SharedTensorView(mLifetime, mView.sliceView(start, end));
     }
 
-    [[nodiscard]] SharedTensorView sliceView(const std::vector<SliceSpec>& specifications) const
+    [[nodiscard]] auto sliceView(const std::vector<SliceSpec>& specifications) const
     {
-        return SharedTensorView(mLifetime, mView.sliceView(specifications));
+        auto view = mView.sliceView(specifications);
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
     }
 
-    [[nodiscard]] SharedTensorView sliceView(std::initializer_list<SliceSpec> specifications) const
+    template <TensorAxis... Axes>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Axes) > 0)
+    [[nodiscard]] auto squeezeView() const
     {
-        return SharedTensorView(mLifetime, mView.sliceView(specifications));
+        auto view = mView.template squeezeView<Axes...>();
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
+    }
+
+    [[nodiscard]] auto sliceView(std::initializer_list<SliceSpec> specifications) const
+    {
+        auto view = mView.sliceView(specifications);
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
+    }
+
+    template <typename... Specifications>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
+                 tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
+                 ((std::constructible_from<SliceSpec, Specifications> ||
+                   tensor_detail::isSliceIndex<Specifications>) && ...))
+    [[nodiscard]] auto sliceView(Specifications&&... specifications) const
+    {
+        auto view = mView.sliceView(std::forward<Specifications>(specifications)...);
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
     }
 
     [[nodiscard]] SharedTensorView permuteView(const std::vector<TensorAxis>& order) const
@@ -591,14 +907,16 @@ public:
         return SharedTensorView(mLifetime, mView.permuteView(order));
     }
 
-    [[nodiscard]] SharedTensorView squeezeView(const std::vector<TensorAxis>& axes = {}) const
+    [[nodiscard]] auto squeezeView(const std::vector<TensorAxis>& axes = {}) const
     {
-        return SharedTensorView(mLifetime, mView.squeezeView(axes));
+        auto view = mView.squeezeView(axes);
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
     }
 
-    [[nodiscard]] SharedTensorView unsqueezeView(TensorAxis axis) const
+    [[nodiscard]] auto unsqueezeView(TensorAxis axis) const
     {
-        return SharedTensorView(mLifetime, mView.unsqueezeView(axis));
+        auto view = mView.unsqueezeView(axis);
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
     }
 
     [[nodiscard]] SharedTensorView rowView(std::size_t row) const
@@ -612,48 +930,123 @@ public:
     }
 
     [[nodiscard]] SharedTensorView transposeView() const
+        requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
     {
         return SharedTensorView(mLifetime, mView.transposeView());
     }
 
-    [[nodiscard]] SharedTensorView reshapeView(DynamicExtents target) const
+    [[nodiscard]] auto reshapeView(DynamicExtents target) const
     {
-        return SharedTensorView(mLifetime, mView.reshapeView(std::move(target)));
+        auto view = mView.reshapeView(std::move(target));
+        return SharedTensorView<T, decltype(view)::static_rank>(mLifetime, std::move(view));
     }
 
-    [[nodiscard]] SharedTensorView<const value_type> broadcastView(DynamicExtents target) const
+    template <std::size_t NewRank>
+    [[nodiscard]] auto reshapeView(tensor_detail::FixedRankExtents<NewRank> target) const
     {
-        return SharedTensorView<const value_type>(mLifetime, mView.broadcastView(std::move(target)));
+        auto view = mView.reshapeView(std::move(target));
+        return SharedTensorView<T, NewRank>(mLifetime, std::move(view));
     }
 
-    [[nodiscard]] SharedTensorView<const value_type> asConstView() const
+    [[nodiscard]] auto broadcastView(DynamicExtents target) const
+    {
+        auto view = mView.broadcastView(std::move(target));
+        return SharedTensorView<const value_type, decltype(view)::static_rank>(mLifetime, std::move(view));
+    }
+
+    template <std::size_t NewRank>
+    [[nodiscard]] auto broadcastView(tensor_detail::FixedRankExtents<NewRank> target) const
+        requires(Rank == tensor_detail::kDynamicTensorRank || NewRank >= Rank)
+    {
+        auto view = mView.broadcastView(std::move(target));
+        return SharedTensorView<const value_type, NewRank>(mLifetime, std::move(view));
+    }
+
+    [[nodiscard]] SharedTensorView<const value_type, Rank> asConstView() const
         requires(!std::is_const_v<T>)
     {
-        return SharedTensorView<const value_type>(*this);
+        return SharedTensorView<const value_type, Rank>(*this);
     }
 
 private:
-    template <typename>
+    template <typename, std::size_t>
     friend class SharedTensorView;
-    template <typename, typename>
+    template <typename, typename, std::size_t>
     friend class Tensor;
     friend struct tensor_detail::TensorAccess;
 
-    SharedTensorView(std::shared_ptr<void> lifetime, TensorView<T> view)
+    SharedTensorView(std::shared_ptr<void> lifetime, TensorView<T, Rank> view)
         : mLifetime(std::move(lifetime))
         , mView(std::move(view))
     {
     }
 
+    [[nodiscard]] static std::shared_ptr<void> moveOrCopySharedLifetime(SharedTensorView& other) noexcept
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return std::move(other.mLifetime);
+        }
+        else
+        {
+            return other.mLifetime;
+        }
+    }
+
+    [[nodiscard]] static TensorView<T, Rank> moveOrCopyView(SharedTensorView& other) noexcept
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            return std::move(other.mView);
+        }
+        else
+        {
+            return other.mView;
+        }
+    }
+
     std::shared_ptr<void> mLifetime;
-    TensorView<T> mView;
+    TensorView<T, Rank> mView;
 };
 
+namespace tensor_detail
+{
+
+template <typename T>
+struct IsRegisteredTensorFamily : std::false_type
+{
+};
+
+template <typename T, typename Allocator, std::size_t Rank>
+struct IsRegisteredTensorFamily<Tensor<T, Allocator, Rank>> : std::true_type
+{
+};
+
+template <typename T, std::size_t Rank>
+struct IsRegisteredTensorFamily<TensorView<T, Rank>> : std::true_type
+{
+};
+
+template <typename T, std::size_t Rank>
+struct IsRegisteredTensorFamily<SharedTensorView<T, Rank>> : std::true_type
+{
+};
+
+template <typename T>
+inline constexpr bool isRegisteredTensorFamily =
+    IsRegisteredTensorFamily<std::remove_cvref_t<T>>::value;
+
+} // namespace tensor_detail
+
 template <typename R>
-concept ReadableTensor = requires(const R& readable, std::size_t index) {
+concept ReadableTensor = tensor_detail::isRegisteredTensorFamily<R> && requires(const R& readable, std::size_t index) {
     typename R::value_type;
-    { readable.extents() } -> std::same_as<const DynamicExtents&>;
-    { readable.layout() } -> std::same_as<const TensorLayout&>;
+    typename R::element_type;
+    typename R::extents_type;
+    typename R::layout_type;
+    { readable.extents() } -> std::same_as<const typename R::extents_type&>;
+    { readable.layout() } -> std::same_as<const typename R::layout_type&>;
+    { readable.rank() } -> std::convertible_to<std::size_t>;
     { readable.size() } -> std::convertible_to<std::size_t>;
     readable[index];
 };
@@ -667,127 +1060,153 @@ concept WritableTensor = ReadableTensor<W> && !std::is_const_v<typename W::eleme
 namespace tensor_detail
 {
 
+template <typename T, typename = void>
+struct TensorStaticRankValue : std::integral_constant<std::size_t, kDynamicTensorRank>
+{
+};
+
+template <typename T>
+struct TensorStaticRankValue<T, std::void_t<decltype(std::remove_cvref_t<T>::static_rank)>>
+    : std::integral_constant<std::size_t, std::remove_cvref_t<T>::static_rank>
+{
+};
+
+template <typename T>
+inline constexpr std::size_t tensorStaticRankValue = TensorStaticRankValue<T>::value;
+
+} // namespace tensor_detail
+
+namespace tensor_detail
+{
+
 struct TensorAccess
 {
     template <typename R>
-    static void validate(const R&) noexcept
+    static void validate(const R&) = delete;
+
+    template <typename T, typename Allocator, std::size_t Rank>
+    static void validate(const Tensor<T, Allocator, Rank>&) noexcept
     {
     }
 
-    template <typename T>
-    static void validate(const TensorView<T>& view)
+    template <typename T, std::size_t Rank>
+    static void validate(const TensorView<T, Rank>& view)
     {
         view.checkAlive();
     }
 
-    template <typename T>
-    static void validate(const SharedTensorView<T>& view)
+    template <typename T, std::size_t Rank>
+    static void validate(const SharedTensorView<T, Rank>& view)
     {
         view.mView.checkAlive();
     }
 
-    template <typename T, typename Allocator>
-    [[nodiscard]] static T* storageBase(Tensor<T, Allocator>& owner) noexcept
+    template <typename T, typename Allocator, std::size_t Rank>
+    [[nodiscard]] static T* storageBase(Tensor<T, Allocator, Rank>& owner) noexcept
     {
         return owner.mStorage.get();
     }
 
-    template <typename T, typename Allocator>
-    [[nodiscard]] static const T* storageBase(const Tensor<T, Allocator>& owner) noexcept
+    template <typename T, typename Allocator, std::size_t Rank>
+    [[nodiscard]] static const T* storageBase(const Tensor<T, Allocator, Rank>& owner) noexcept
     {
         return owner.mStorage.get();
     }
 
-    template <typename T>
-    [[nodiscard]] static T* storageBase(TensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static T* storageBase(TensorView<T, Rank>& view) noexcept
     {
         return view.mStorageBase;
     }
 
-    template <typename T>
-    [[nodiscard]] static const T* storageBase(const TensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static T* storageBase(const TensorView<T, Rank>& view) noexcept
     {
         return view.mStorageBase;
     }
 
-    template <typename T>
-    [[nodiscard]] static T* storageBase(SharedTensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static T* storageBase(SharedTensorView<T, Rank>& view) noexcept
     {
         return view.mView.mStorageBase;
     }
 
-    template <typename T>
-    [[nodiscard]] static const T* storageBase(const SharedTensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static T* storageBase(const SharedTensorView<T, Rank>& view) noexcept
     {
         return view.mView.mStorageBase;
     }
 
-    template <typename R>
-    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const R&) noexcept
-    {
-        return {};
-    }
-
-    template <typename T, typename Allocator>
-    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const Tensor<T, Allocator>& owner) noexcept
+    template <typename T, typename Allocator, std::size_t Rank>
+    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const Tensor<T, Allocator, Rank>& owner) noexcept
     {
         return owner.mLifetime;
     }
 
-    template <typename T>
-    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const TensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const TensorView<T, Rank>& view) noexcept
     {
         return view.mLifetime;
     }
 
-    template <typename T>
-    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const SharedTensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const SharedTensorView<T, Rank>& view) noexcept
     {
         return view.mView.mLifetime;
     }
 
-    template <typename R>
-    [[nodiscard]] static bool tracked(const R&) noexcept
-    {
-        return false;
-    }
-
-    template <typename T, typename Allocator>
-    [[nodiscard]] static bool tracked(const Tensor<T, Allocator>&) noexcept
+    template <typename T, typename Allocator, std::size_t Rank>
+    [[nodiscard]] static bool tracked(const Tensor<T, Allocator, Rank>&) noexcept
     {
         return true;
     }
 
-    template <typename T>
-    [[nodiscard]] static bool tracked(const TensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static bool tracked(const TensorView<T, Rank>& view) noexcept
     {
         return view.mTracked;
     }
 
-    template <typename T>
-    [[nodiscard]] static bool tracked(const SharedTensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static bool tracked(const SharedTensorView<T, Rank>& view) noexcept
     {
         return view.mView.mTracked;
     }
 
-    template <typename R>
-    [[nodiscard]] static std::shared_ptr<void> sharedLifetime(const R&) noexcept
+    template <typename T, typename Allocator, std::size_t Rank>
+    [[nodiscard]] static std::shared_ptr<void> sharedLifetime(const Tensor<T, Allocator, Rank>&) noexcept
     {
         return {};
     }
 
-    template <typename T>
-    [[nodiscard]] static std::shared_ptr<void> sharedLifetime(const SharedTensorView<T>& view) noexcept
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static std::shared_ptr<void> sharedLifetime(const TensorView<T, Rank>&) noexcept
+    {
+        return {};
+    }
+
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static std::shared_ptr<void> sharedLifetime(const SharedTensorView<T, Rank>& view) noexcept
     {
         return view.mLifetime;
     }
 
-    template <typename T>
-    [[nodiscard]] static TensorView<T> makeView(T* storageBase, TensorLayout layout,
-                                                std::weak_ptr<TensorLifetimeState> lifetimeState,
-                                                bool isTracked)
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static TensorView<T, Rank>
+    makeView(T* storageBase, tensor_detail::TensorLayoutFor<Rank> layout,
+             std::weak_ptr<TensorLifetimeState> lifetimeState, bool isTracked)
     {
-        return TensorView<T>(storageBase, std::move(layout), std::move(lifetimeState), isTracked);
+        return TensorView<T, Rank>(storageBase, std::move(layout), std::move(lifetimeState), isTracked);
+    }
+
+    template <typename T, std::size_t Rank>
+    [[nodiscard]] static SharedTensorView<T, Rank>
+    makeSharedView(std::shared_ptr<void> sharedLifetimeHandle, T* storageBase,
+                   tensor_detail::TensorLayoutFor<Rank> layout)
+    {
+        return SharedTensorView<T, Rank>(
+            std::move(sharedLifetimeHandle),
+            TensorView<T, Rank>(storageBase, std::move(layout), {}, false));
     }
 };
 

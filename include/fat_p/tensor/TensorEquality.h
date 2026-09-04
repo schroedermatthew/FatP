@@ -93,8 +93,8 @@ namespace fat_p
  * Owning tensors are canonical contiguous values. Layout metadata is not part of
  * owner equality; readable owner/view comparison is provided by TensorAlgorithms.
  */
-template <typename T, typename Alloc, typename Policy>
-struct EqualDispatcher<Tensor<T, Alloc>, Policy>
+template <typename T, typename Alloc, std::size_t Rank, typename Policy>
+struct EqualDispatcher<Tensor<T, Alloc, Rank>, Policy>
 {
     /**
      * @brief Compare two tensors using the specified policy
@@ -108,7 +108,7 @@ struct EqualDispatcher<Tensor<T, Alloc>, Policy>
      */
     template <typename... EpsParams>
     static bool
-    compare(const Tensor<T, Alloc>& a, const Tensor<T, Alloc>& b, EpsParams... eps)
+    compare(const Tensor<T, Alloc, Rank>& a, const Tensor<T, Alloc, Rank>& b, EpsParams... eps)
     {
         // Check shape match
         if (a.extents() != b.extents())

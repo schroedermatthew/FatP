@@ -77,6 +77,35 @@ using SliceSpec = std::variant<Slice, std::ptrdiff_t, AllSlice, NewAxisSlice, El
 namespace tensor_detail
 {
 
+template <typename T>
+inline constexpr bool isSliceIndex = std::integral<std::remove_cvref_t<T>> &&
+    !std::same_as<std::remove_cvref_t<T>, bool>;
+
+template <typename T>
+inline constexpr bool isNewAxisSlice = std::same_as<std::remove_cvref_t<T>, NewAxisSlice>;
+
+template <typename... Specifications>
+inline constexpr std::size_t typedSliceConsumedAxes =
+    (std::size_t{0} + ... + (isSliceIndex<Specifications> ? 1 : 0));
+
+template <std::size_t SourceRank, typename... Specifications>
+inline constexpr std::size_t typedSliceResultRank =
+    SourceRank - typedSliceConsumedAxes<Specifications...> +
+    (std::size_t{0} + ... + (isNewAxisSlice<Specifications> ? 1 : 0));
+
+template <typename Specification>
+[[nodiscard]] SliceSpec makeSliceSpec(Specification&& specification)
+{
+    if constexpr (isSliceIndex<Specification>)
+    {
+        return SliceSpec(static_cast<std::ptrdiff_t>(specification));
+    }
+    else
+    {
+        return SliceSpec(std::forward<Specification>(specification));
+    }
+}
+
 struct NormalizedSlice
 {
     std::ptrdiff_t start = 0;

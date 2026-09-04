@@ -3,7 +3,8 @@ doc_id: DN-TENSOR-001
 doc_type: "Design Note"
 title: "Tensor Semantic Contract"
 fatp_components: ["Tensor", "TensorLayout", "TensorView", "TensorAlgorithms", "TensorReductions", "TensorInterop",
-  "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorStatic"]
+  "TensorSelection", "TensorMatmul", "TensorContractions", "TensorExecution", "TensorEquality", "TensorStatic",
+  "TensorRanked"]
 topics: ["rank-zero tensor", "zero-extent tensor", "tensor ownership", "strided layout", "broadcast aliasing",
   "tensor dtype"]
 constraints: ["owner and view lifetime", "signed stride reachability", "overlapping tensor mappings"]
@@ -11,7 +12,7 @@ cxx_standard: "C++20"
 std_equivalent: null
 boost_equivalent: "Boost.MultiArray (partial semantic overlap)"
 build_modes: ["Debug", "Release"]
-last_verified: "2026-09-01"
+last_verified: "2026-09-04"
 audience: ["C++ developers", "library maintainers", "AI assistants"]
 status: "draft"
 ---
@@ -20,7 +21,7 @@ status: "draft"
 
 **Status:** Experimental  
 **Contract version:** 0.15\
-**Applies to:** `Tensor`, `StaticTensor`, tensor views, and tensor algorithms  
+**Applies to:** `Tensor`, `RankedTensor`, `StaticTensor`, tensor views, and tensor algorithms
 **Stability:** This design note is intentionally not an API or ABI stability promise.
 
 ## Scope
@@ -80,10 +81,13 @@ The key words **must**, **must not**, **should**, and **may** are normative.
 | Borrowed view | A mapping that does not extend storage lifetime. |
 | Shared view | A mapping that participates in storage lifetime. |
 | Materialization | Creation of independent owning storage in logical order. |
+| Ranked tensor | A tensor whose rank is encoded in its type while its extents remain runtime values. |
 
 The existing compile-time `Shape<Dims...>` belongs to `TensorStatic`. Runtime
 metadata uses `DynamicExtents`, `TensorStrides`, and `TensorLayout`, avoiding a
 second public type named `Shape`.
+`RankedExtents<Rank>` and `RankedTensorLayout<Rank>` are the array-backed
+fixed-rank counterparts and retain the same extent and reachability rules.
 
 ## Options Considered
 
@@ -163,12 +167,19 @@ public promise testable.
   an empty tensor has at least one zero extent.
 - `StaticTensor<T, Shape<>>` and
   `Tensor<T>(std::vector<size_t>{})` must agree on rank and size.
-- Moved-from tensors are valid empty objects with canonical shape `{0}`.
+- A moved-from dynamic `Tensor` is a valid empty object with canonical shape `{0}`.
+- A default or moved-from positive-rank `RankedTensor` retains its static rank
+  with all-zero extents. A default rank-zero owner is a one-element scalar;
+  moving it leaves the source as a valid scalar with the element type's
+  ordinary moved-from value.
 
 ### 2. Extents, size, and strides
 
 - Dynamic extents use `size_t`; strides use `ptrdiff_t` and are measured in
   elements, not bytes.
+- Ranks zero through four keep extent and stride metadata inline. Higher ranks
+  use an unbounded heap fallback; the inline capacity is an allocation policy,
+  not a semantic rank limit.
 - Shape rank and stride rank must match for every usable layout.
 - Owning dynamic tensors use canonical row-major strides. Nonempty owners have
   positive strides; canonical empty layouts may contain zero strides because
@@ -196,6 +207,9 @@ Tensor<T>                 // owning, deep-copy value type
 TensorView<T>             // mutable borrowed mapping
 TensorView<const T>       // read-only borrowed mapping
 SharedTensorView<T>       // optional shared-lifetime mapping
+RankedTensor<T, R>        // owning, fixed-rank/runtime-extents value type
+RankedTensorView<T, R>    // fixed-rank borrowed mapping
+SharedRankedTensorView<T, R> // fixed-rank shared mapping
 ```
 
 - A borrowed view must not outlive its storage owner.
@@ -916,6 +930,7 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 | Static/dynamic value and extent checks | `test_TensorInterop.cpp::static_dynamic_conversion` |
 | Signed pointer-forming views stay within validated storage | `test_TensorView.cpp::external_mapping_validation` |
 | Checked runtime extents and signed layout reachability | `test_TensorLayout.cpp::dynamic_extents_and_axes`; `test_TensorLayout.cpp::validation_boundaries`; `test_TensorLayout.cpp::randomized_scalar_oracle` |
+| Ranks zero through four use inline extent/stride metadata and higher ranks retain heap fallback | `test_TensorLayout.cpp::inline_metadata_storage` |
 | Empty, contiguous, injective, broadcast, overlap, and indeterminate classification | `test_TensorLayout.cpp::canonical_layouts`; `test_TensorLayout.cpp::signed_reachability_and_classification` |
 | Counted iteration supports signed, scalar, and empty mappings | `test_TensorAlgorithms.cpp::counted_signed_iteration` |
 | Three-layout broadcasting handles reversed, broadcast, and padded mappings | `test_TensorAlgorithms.cpp::binary_broadcast_three_layouts` |
@@ -1019,10 +1034,13 @@ completed cross-platform compiler/sanitizer gates recorded in the additions plan
 
 ## Implementation Status
 
-The public runtime vocabulary is fixed as `DynamicExtents`, `TensorLayout`,
+The public runtime-rank vocabulary is fixed as `DynamicExtents`, `TensorLayout`,
 `SliceSpec`, `TensorView<T>`, `TensorView<const T>`, `SharedTensorView<T>`, and
-`TensorDType`. Borrowed factories are lvalue-qualified. Compile-time `Shape`
-remains the `StaticTensor` vocabulary.
+`TensorDType`. The opt-in fixed-rank/runtime-extents vocabulary is
+`RankedExtents<R>`, `RankedTensorLayout<R>`, `RankedTensor<T, R>`,
+`RankedTensorView<T, R>`, and `SharedRankedTensorView<T, R>`. Borrowed factories
+and adapters are lvalue-qualified. Compile-time `Shape` remains the
+`StaticTensor` vocabulary.
 
 Rank/scalar rules, checked signed layouts, distinct owner/view types, allocator
 propagation, read-only broadcasting, explicit clone/reshape materialization,
@@ -1032,7 +1050,9 @@ materializing numeric casts, unified serial kernels, extended slicing, checked
 axis reductions, borrowed interop,
 named linear algebra, explicit-axis tensorDot, native explicit execution contexts,
 indexed selection, canonical dtype metadata, and same-element-type static/dynamic
-interop have current executable evidence.
+interop have current executable evidence. Fixed-rank/runtime-extents ownership,
+views, checked adapters, result-rank propagation, shared traversal, and
+ranked/dynamic differential layout behavior also have current executable evidence.
 Further numeric families, contraction-path optimization, and complete einsum
 remain target-only. The dedicated
 [TensorContractions CI run](https://github.com/schroedermatthew/FatP/actions/runs/33419554296)

@@ -34,6 +34,7 @@ FATP_META:
 
 #include "TensorMatmul.h"
 
+#include <array>
 #include <cstddef>
 #include <stdexcept>
 #include <type_traits>
@@ -59,10 +60,29 @@ struct ContractionShape
     std::size_t innerRun = 1;
     std::ptrdiff_t leftInnerStep = 0;
     std::ptrdiff_t rightInnerStep = 0;
+    std::size_t innerActiveRank = 0;
 };
 
-inline ContractionShape makeContractionShape(const TensorLayout& left,
-                                             const TensorLayout& right,
+template <std::size_t LeftRank, std::size_t RightRank, std::size_t PairCount>
+struct FixedContractionShape
+{
+    static constexpr std::size_t OutputRank = LeftRank + RightRank - 2 * PairCount;
+    FixedRankExtents<OutputRank> outputExtents;
+    std::array<std::size_t, PairCount> innerExtents{};
+    std::array<std::ptrdiff_t, OutputRank> leftOutputStrides{};
+    std::array<std::ptrdiff_t, OutputRank> rightOutputStrides{};
+    std::array<std::ptrdiff_t, PairCount> leftInnerStrides{};
+    std::array<std::ptrdiff_t, PairCount> rightInnerStrides{};
+    std::size_t inner = 0;
+    std::size_t innerRun = 1;
+    std::ptrdiff_t leftInnerStep = 0;
+    std::ptrdiff_t rightInnerStep = 0;
+    std::size_t innerActiveRank = PairCount;
+};
+
+template <typename LeftLayout, typename RightLayout>
+inline ContractionShape makeContractionShape(const LeftLayout& left,
+                                             const RightLayout& right,
                                              const std::vector<TensorAxis>& leftAxes,
                                              const std::vector<TensorAxis>& rightAxes)
 {
@@ -126,18 +146,91 @@ inline ContractionShape makeContractionShape(const TensorLayout& left,
         shape.leftInnerStrides.pop_back();
         shape.rightInnerStrides.pop_back();
     }
+    shape.innerActiveRank = shape.innerExtents.size();
     return shape;
 }
 
+template <std::size_t LeftRank, std::size_t RightRank, std::size_t PairCount>
+[[nodiscard]] FixedContractionShape<LeftRank, RightRank, PairCount>
+makeFixedContractionShape(const BasicTensorLayout<LeftRank>& left,
+                          const BasicTensorLayout<RightRank>& right,
+                          const std::array<TensorAxis, PairCount>& leftAxes,
+                          const std::array<TensorAxis, PairCount>& rightAxes)
+{
+    static_assert(PairCount <= LeftRank && PairCount <= RightRank,
+                  "tensorDot contracts more axes than an operand has");
+    const auto normalizedLeft = normalizeAxes(leftAxes, LeftRank);
+    const auto normalizedRight = normalizeAxes(rightAxes, RightRank);
+    std::array<bool, LeftRank> leftContracted{};
+    std::array<bool, RightRank> rightContracted{};
+    FixedContractionShape<LeftRank, RightRank, PairCount> shape;
+    for (std::size_t pair = 0; pair < PairCount; ++pair)
+    {
+        const auto leftAxis = normalizedLeft[pair];
+        const auto rightAxis = normalizedRight[pair];
+        if (left.extents()[leftAxis] != right.extents()[rightAxis])
+        {
+            throw std::invalid_argument("tensorDot paired axis extents must match");
+        }
+        leftContracted[leftAxis] = true;
+        rightContracted[rightAxis] = true;
+        shape.innerExtents[pair] = left.extents()[leftAxis];
+        shape.leftInnerStrides[pair] = left.strides()[leftAxis];
+        shape.rightInnerStrides[pair] = right.strides()[rightAxis];
+    }
+
+    std::array<std::size_t, FixedContractionShape<LeftRank, RightRank, PairCount>::OutputRank>
+        outputExtents{};
+    std::size_t outputAxis = 0;
+    for (std::size_t axis = 0; axis < LeftRank; ++axis)
+    {
+        if (!leftContracted[axis])
+        {
+            outputExtents[outputAxis] = left.extents()[axis];
+            shape.leftOutputStrides[outputAxis] = left.strides()[axis];
+            ++outputAxis;
+        }
+    }
+    for (std::size_t axis = 0; axis < RightRank; ++axis)
+    {
+        if (!rightContracted[axis])
+        {
+            outputExtents[outputAxis] = right.extents()[axis];
+            shape.rightOutputStrides[outputAxis] = right.strides()[axis];
+            ++outputAxis;
+        }
+    }
+    shape.outputExtents =
+        FixedRankExtents<FixedContractionShape<LeftRank, RightRank, PairCount>::OutputRank>(
+            std::move(outputExtents));
+    if (shape.outputExtents.logicalSize() != 0)
+    {
+        shape.inner = checkedLogicalSize(shape.innerExtents);
+    }
+    if constexpr (PairCount > 0)
+    {
+        if (shape.inner != 0)
+        {
+            shape.innerRun = shape.innerExtents[PairCount - 1];
+            shape.leftInnerStep = shape.leftInnerStrides[PairCount - 1];
+            shape.rightInnerStep = shape.rightInnerStrides[PairCount - 1];
+            shape.innerActiveRank = PairCount - 1;
+        }
+    }
+    return shape;
+}
+
+template <typename Extents, typename LeftStrides, typename RightStrides>
 inline std::pair<std::ptrdiff_t, std::ptrdiff_t> contractionOffsets(std::size_t linear,
-                                                                    const std::vector<std::size_t>& extents,
-                                                                    const TensorStrides& leftStrides,
-                                                                    const TensorStrides& rightStrides,
+                                                                    const Extents& extents,
+                                                                    const LeftStrides& leftStrides,
+                                                                    const RightStrides& rightStrides,
                                                                     std::ptrdiff_t leftOrigin,
-                                                                    std::ptrdiff_t rightOrigin)
+                                                                    std::ptrdiff_t rightOrigin,
+                                                                    std::size_t activeRank)
 {
     // Only called for reachable coordinates, never for an empty domain.
-    for (std::size_t reverse = extents.size(); reverse > 0; --reverse)
+    for (std::size_t reverse = activeRank; reverse > 0; --reverse)
     {
         const auto axis = reverse - 1;
         const auto coordinate = linear % extents[axis];
@@ -148,11 +241,23 @@ inline std::pair<std::ptrdiff_t, std::ptrdiff_t> contractionOffsets(std::size_t 
     return {leftOrigin, rightOrigin};
 }
 
-template <ReadableTensor Left, ReadableTensor Right, typename Result, typename Allocator>
+
+template <typename Extents, typename LeftStrides, typename RightStrides>
+inline std::pair<std::ptrdiff_t, std::ptrdiff_t> contractionOffsets(
+    std::size_t linear, const Extents& extents, const LeftStrides& leftStrides,
+    const RightStrides& rightStrides, std::ptrdiff_t leftOrigin,
+    std::ptrdiff_t rightOrigin)
+{
+    return contractionOffsets(linear, extents, leftStrides, rightStrides,
+                              leftOrigin, rightOrigin, extents.size());
+}
+
+template <ReadableTensor Left, ReadableTensor Right, typename Shape, typename Result,
+          typename Allocator, std::size_t OutputRank>
 void contractionRows(const Left& left,
                      const Right& right,
-                     const ContractionShape& shape,
-                     Tensor<Result, Allocator>& result,
+                     const Shape& shape,
+                     Tensor<Result, Allocator, OutputRank>& result,
                      std::size_t first,
                      std::size_t last)
 {
@@ -174,7 +279,8 @@ void contractionRows(const Left& left,
                                               shape.leftInnerStrides,
                                               shape.rightInnerStrides,
                                               origins.first,
-                                              origins.second);
+                                              origins.second,
+                                              shape.innerActiveRank);
             for (std::size_t index = 0; index < shape.innerRun; ++index)
             {
                 const auto product = checkedSameTypeMultiply(static_cast<Result>(a[offsets.first]),
@@ -193,6 +299,27 @@ void contractionRows(const Left& left,
         result[output] = total;
     }
 }
+
+} // namespace tensor_detail
+
+namespace tensor_detail
+{
+
+template <std::size_t PairCount, typename Left, typename Right>
+inline constexpr std::size_t contractionStaticRank = [] {
+    constexpr auto leftRank = tensorStaticRankValue<Left>;
+    constexpr auto rightRank = tensorStaticRankValue<Right>;
+    if constexpr (leftRank == kDynamicTensorRank || rightRank == kDynamicTensorRank)
+    {
+        return kDynamicTensorRank;
+    }
+    else
+    {
+        static_assert(PairCount <= leftRank && PairCount <= rightRank,
+                      "tensorDot contracts more axes than an operand has");
+        return leftRank + rightRank - 2 * PairCount;
+    }
+}();
 
 } // namespace tensor_detail
 
@@ -253,6 +380,52 @@ template <ReadableTensor Left, ReadableTensor Right>
                      right,
                      leftAxes,
                      rightAxes,
+                     tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
+}
+
+template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right, typename Allocator>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type> &&
+             tensor_detail::AllocatorFor<Allocator, TensorMatmulType<typename Left::value_type>>
+[[nodiscard]] auto tensorDot(const Left& left, const Right& right,
+                             const std::array<TensorAxis, PairCount>& leftAxes,
+                             const std::array<TensorAxis, PairCount>& rightAxes,
+                             const Allocator& allocator)
+{
+    constexpr auto outputRank = tensor_detail::contractionStaticRank<PairCount, Left, Right>;
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    tensor_detail::TensorAccess::validate(left);
+    tensor_detail::TensorAccess::validate(right);
+    const auto shape = [&] {
+        if constexpr (outputRank == tensor_detail::kDynamicTensorRank)
+        {
+            const std::vector<TensorAxis> dynamicLeft(leftAxes.begin(), leftAxes.end());
+            const std::vector<TensorAxis> dynamicRight(rightAxes.begin(), rightAxes.end());
+            return tensor_detail::makeContractionShape(
+                left.layout(), right.layout(), dynamicLeft, dynamicRight);
+        }
+        else
+        {
+            return tensor_detail::makeFixedContractionShape(
+                left.layout(), right.layout(), leftAxes, rightAxes);
+        }
+    }();
+    Tensor<result_type, Allocator, outputRank> result(
+        std::allocator_arg, allocator, shape.outputExtents, result_type{0});
+    if (!result.empty() && shape.inner != 0)
+    {
+        tensor_detail::contractionRows(left, right, shape, result, 0, result.size());
+    }
+    return result;
+}
+
+template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right>
+    requires SameTensorValue<Left, Right> && std::is_arithmetic_v<typename Left::value_type>
+[[nodiscard]] auto tensorDot(const Left& left, const Right& right,
+                             const std::array<TensorAxis, PairCount>& leftAxes,
+                             const std::array<TensorAxis, PairCount>& rightAxes)
+{
+    using result_type = TensorMatmulType<typename Left::value_type>;
+    return tensorDot(left, right, leftAxes, rightAxes,
                      tensor_detail::selectBinaryResultAllocator<result_type>(left, right));
 }
 

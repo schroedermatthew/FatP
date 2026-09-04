@@ -32,7 +32,7 @@ FATP_META:
 
 /**
  * @file TensorKernels.h
- * @brief Scalar-reference kernels over TensorIterationPlan.
+ * @brief Scalar-reference kernels over the rank-aware Tensor iteration plan.
  */
 
 #include "TensorIterationPlan.h"
@@ -57,7 +57,7 @@ void fillKernel(Destination& destination, const Value& value)
         throw std::invalid_argument("Tensor fill destination must be injective");
     }
     auto* output = TensorAccess::storageBase(destination);
-    const TensorIterationPlan plan(destination.extents(), {std::cref(destination.layout())});
+    const auto plan = makeTensorIterationPlan(destination.extents(), destination.layout());
     plan.forEachOffset([&](std::size_t, const auto& offsets) { output[offsets[0]] = value; });
 }
 
@@ -100,8 +100,7 @@ void copyKernel(const Source& source, Destination& destination)
     validateCopy(source, destination);
     const auto* input = TensorAccess::storageBase(source);
     auto* output = TensorAccess::storageBase(destination);
-    const TensorIterationPlan plan(source.extents(),
-                                   {std::cref(source.layout()), std::cref(destination.layout())});
+    const auto plan = makeTensorIterationPlan(source.extents(), source.layout(), destination.layout());
     plan.forEachOffset(
         [&](std::size_t, const auto& offsets) { output[offsets[1]] = input[offsets[0]]; });
 }
@@ -121,8 +120,7 @@ void unaryKernel(const Source& source, Destination& destination, Function&& func
     }
     const auto* input = TensorAccess::storageBase(source);
     auto* output = TensorAccess::storageBase(destination);
-    const TensorIterationPlan plan(source.extents(),
-                                   {std::cref(source.layout()), std::cref(destination.layout())});
+    const auto plan = makeTensorIterationPlan(source.extents(), source.layout(), destination.layout());
     plan.forEachOffset([&](std::size_t, const auto& offsets) {
         output[offsets[1]] = std::invoke(function, input[offsets[0]]);
     });
@@ -134,8 +132,7 @@ void binaryKernel(const Left& left, const Right& right, Destination& destination
     TensorAccess::validate(left);
     TensorAccess::validate(right);
     TensorAccess::validate(destination);
-    const auto expected =
-        TensorIterationPlan::broadcastExtents({std::cref(left.layout()), std::cref(right.layout())});
+    const auto expected = broadcastExtents(left.layout(), right.layout());
     if (destination.extents() != expected)
     {
         throw std::invalid_argument("Tensor binary destination has incorrect broadcast extents");
@@ -147,8 +144,7 @@ void binaryKernel(const Left& left, const Right& right, Destination& destination
     const auto* leftData = TensorAccess::storageBase(left);
     const auto* rightData = TensorAccess::storageBase(right);
     auto* output = TensorAccess::storageBase(destination);
-    const TensorIterationPlan plan(expected, {std::cref(left.layout()), std::cref(right.layout()),
-                                              std::cref(destination.layout())});
+    const auto plan = makeTensorIterationPlan(expected, left.layout(), right.layout(), destination.layout());
     plan.forEachOffset([&](std::size_t, const auto& offsets) {
         output[offsets[2]] = std::invoke(function, leftData[offsets[0]], rightData[offsets[1]]);
     });
@@ -159,17 +155,27 @@ template <ReadableTensor Left, ReadableTensor Right, typename Predicate>
 {
     TensorAccess::validate(left);
     TensorAccess::validate(right);
-    if (left.extents() != right.extents())
+    constexpr auto leftRank = tensorStaticRankValue<Left>;
+    constexpr auto rightRank = tensorStaticRankValue<Right>;
+    if constexpr (leftRank != kDynamicTensorRank && rightRank != kDynamicTensorRank &&
+                  leftRank != rightRank)
     {
         return false;
     }
-    const auto* leftData = TensorAccess::storageBase(left);
-    const auto* rightData = TensorAccess::storageBase(right);
-    const TensorIterationPlan plan(left.extents(), {std::cref(left.layout()), std::cref(right.layout())});
-    plan.forEachOffset([&](std::size_t linearIndex, const auto& offsets) {
-        std::invoke(predicate, linearIndex, leftData[offsets[0]], rightData[offsets[1]]);
-    });
-    return true;
+    else
+    {
+        if (left.extents() != right.extents())
+        {
+            return false;
+        }
+        const auto* leftData = TensorAccess::storageBase(left);
+        const auto* rightData = TensorAccess::storageBase(right);
+        const auto plan = makeTensorIterationPlan(left.extents(), left.layout(), right.layout());
+        plan.forEachOffset([&](std::size_t linearIndex, const auto& offsets) {
+            std::invoke(predicate, linearIndex, leftData[offsets[0]], rightData[offsets[1]]);
+        });
+        return true;
+    }
 }
 
 template <ReadableTensor Left, ReadableTensor Right, typename Predicate>
@@ -201,7 +207,7 @@ template <ReadableTensor Source, typename Hasher>
         combine(std::hash<std::size_t>{}(extent));
     }
     const auto* input = TensorAccess::storageBase(source);
-    const TensorIterationPlan plan(source.extents(), {std::cref(source.layout())});
+    const auto plan = makeTensorIterationPlan(source.extents(), source.layout());
     plan.forEachOffset([&](std::size_t, const auto& offsets) { combine(std::invoke(hasher, input[offsets[0]])); });
     return seed;
 }

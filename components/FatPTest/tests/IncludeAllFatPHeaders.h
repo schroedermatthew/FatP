@@ -117,6 +117,7 @@ FATP_META:
       - include/fat_p/TensorIteration.h
       - include/fat_p/TensorLayout.h
       - include/fat_p/TensorView.h
+      - include/fat_p/TensorRanked.h
       - include/fat_p/TensorStatic.h
       - include/fat_p/TensorStridePolicy.h
       - include/fat_p/ThreadPool.h
@@ -263,6 +264,7 @@ FATP_META:
 #include "TensorIteration.h"
 #include "TensorLayout.h"
 #include "TensorView.h"
+#include "TensorRanked.h"
 #include "TensorStatic.h"
 #include "TensorStridePolicy.h"
 #include "ThreadPool.h"

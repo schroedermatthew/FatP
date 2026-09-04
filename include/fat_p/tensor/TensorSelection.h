@@ -132,7 +132,8 @@ inline std::size_t normalizeIndexValue(Index index, std::size_t extent)
     return static_cast<std::size_t>(converted);
 }
 
-inline void decodeCoordinates(std::size_t linear, const DynamicExtents& extents,
+template <typename Extents>
+inline void decodeCoordinates(std::size_t linear, const Extents& extents,
                               std::vector<std::size_t>& coordinates)
 {
     std::fill(coordinates.begin(), coordinates.end(), std::size_t{0});
@@ -144,8 +145,9 @@ inline void decodeCoordinates(std::size_t linear, const DynamicExtents& extents,
     }
 }
 
+template <typename Extents>
 inline std::size_t encodeCoordinates(const std::vector<std::size_t>& coordinates,
-                                     const DynamicExtents& extents)
+                                     const Extents& extents)
 {
     std::size_t linear = 0;
     for (std::size_t axis = 0; axis < extents.rank(); ++axis)
@@ -155,8 +157,9 @@ inline std::size_t encodeCoordinates(const std::vector<std::size_t>& coordinates
     return linear;
 }
 
+template <typename Extents>
 inline std::size_t encodeCoordinatesSkippingAxis(const std::vector<std::size_t>& coordinates,
-                                                 const DynamicExtents& extents,
+                                                 const Extents& extents,
                                                  std::size_t skippedAxis)
 {
     std::size_t linear = 0;
@@ -180,27 +183,66 @@ inline std::size_t checkedExtentAdd(std::size_t left, std::size_t right)
     return left + right;
 }
 
-inline DynamicExtents insertExtent(const DynamicExtents& source, std::size_t axis, std::size_t extent)
+template <typename Extents>
+inline auto insertExtent(const Extents& source, std::size_t axis, std::size_t extent)
 {
-    std::vector<std::size_t> result;
-    result.reserve(source.rank() + 1);
+    constexpr auto SourceRank = tensor_detail::extentsStaticRank<Extents>;
+    constexpr auto ResultRank = SourceRank == tensor_detail::kDynamicTensorRank
+                                    ? tensor_detail::kDynamicTensorRank
+                                    : SourceRank + 1;
+    using ResultExtents = tensor_detail::TensorExtentsFor<ResultRank>;
+    typename ResultExtents::container_type result{};
+    if constexpr (ResultRank == tensor_detail::kDynamicTensorRank)
+    {
+        result.reserve(source.rank() + 1);
+    }
+    std::size_t next = 0;
     for (std::size_t outputAxis = 0; outputAxis <= source.rank(); ++outputAxis)
     {
         if (outputAxis == axis)
         {
-            result.push_back(extent);
+            if constexpr (ResultRank == tensor_detail::kDynamicTensorRank)
+            {
+                result.push_back(extent);
+            }
+            else
+            {
+                result[next++] = extent;
+            }
         }
         else
         {
-            result.push_back(source[outputAxis < axis ? outputAxis : outputAxis - 1]);
+            const auto value = source[outputAxis < axis ? outputAxis : outputAxis - 1];
+            if constexpr (ResultRank == tensor_detail::kDynamicTensorRank)
+            {
+                result.push_back(value);
+            }
+            else
+            {
+                result[next++] = value;
+            }
         }
     }
-    return DynamicExtents(std::move(result));
+    return ResultExtents(std::move(result));
 }
 
+template <typename First, typename Second>
+inline constexpr std::size_t compositionRank = tensor_detail::binaryResultRank<First, Second>;
+
+template <typename First, typename Second>
+inline constexpr bool compositionRanksCompatible =
+    tensor_detail::tensorStaticRankValue<First> == tensor_detail::kDynamicTensorRank ||
+    tensor_detail::tensorStaticRankValue<Second> == tensor_detail::kDynamicTensorRank ||
+    tensor_detail::tensorStaticRankValue<First> == tensor_detail::tensorStaticRankValue<Second>;
+
+template <typename First, typename Second>
+inline constexpr std::size_t stackRank = compositionRank<First, Second> == tensor_detail::kDynamicTensorRank
+                                             ? tensor_detail::kDynamicTensorRank
+                                             : compositionRank<First, Second> + 1;
+
 template <ReadableTensor First, ReadableTensor Second, typename Allocator>
-    requires SameTensorValue<First, Second>
-[[nodiscard]] Tensor<typename First::value_type, Allocator>
+    requires SameTensorValue<First, Second> && compositionRanksCompatible<First, Second>
+[[nodiscard]] Tensor<typename First::value_type, Allocator, stackRank<First, Second>>
 stackPair(const First& first, const Second& second, TensorAxis requestedAxis, const Allocator& allocator)
 {
     tensor_detail::TensorAccess::validate(first);
@@ -210,8 +252,11 @@ stackPair(const First& first, const Second& second, TensorAxis requestedAxis, co
         throw std::invalid_argument("stack operands must have identical extents");
     }
     const auto axis = normalizeInsertionAxis(requestedAxis, first.rank());
-    Tensor<typename First::value_type, Allocator> result(std::allocator_arg, allocator,
-                                                         insertExtent(first.extents(), axis, 2));
+    auto outputExtents = insertExtent(first.extents(), axis, 2);
+    using ResultExtents = tensor_detail::TensorExtentsFor<stackRank<First, Second>>;
+    ResultExtents resultExtents(outputExtents.begin(), outputExtents.end());
+    Tensor<typename First::value_type, Allocator, stackRank<First, Second>> result(
+        std::allocator_arg, allocator, std::move(resultExtents));
     std::vector<std::size_t> coordinates(result.rank(), 0);
     for (std::size_t linear = 0; linear < result.size(); ++linear)
     {
@@ -224,8 +269,8 @@ stackPair(const First& first, const Second& second, TensorAxis requestedAxis, co
 }
 
 template <ReadableTensor First, ReadableTensor Second, typename Allocator>
-    requires SameTensorValue<First, Second>
-[[nodiscard]] Tensor<typename First::value_type, Allocator>
+    requires SameTensorValue<First, Second> && compositionRanksCompatible<First, Second>
+[[nodiscard]] Tensor<typename First::value_type, Allocator, compositionRank<First, Second>>
 concatenatePair(const First& first, const Second& second, TensorAxis requestedAxis, const Allocator& allocator)
 {
     tensor_detail::TensorAccess::validate(first);
@@ -244,8 +289,10 @@ concatenatePair(const First& first, const Second& second, TensorAxis requestedAx
         }
     }
     output[axis] = checkedExtentAdd(output[axis], second.extents()[axis]);
-    Tensor<typename First::value_type, Allocator> result(std::allocator_arg, allocator,
-                                                         DynamicExtents(std::move(output)));
+    using ResultExtents = tensor_detail::TensorExtentsFor<compositionRank<First, Second>>;
+    ResultExtents resultExtents(output.begin(), output.end());
+    Tensor<typename First::value_type, Allocator, compositionRank<First, Second>> result(
+        std::allocator_arg, allocator, std::move(resultExtents));
     std::vector<std::size_t> coordinates(result.rank(), 0);
     for (std::size_t linear = 0; linear < result.size(); ++linear)
     {
@@ -266,14 +313,16 @@ concatenatePair(const First& first, const Second& second, TensorAxis requestedAx
 } // namespace tensor_selection_detail
 
 template <ReadableTensor First, ReadableTensor Second, typename Allocator>
-    requires SameTensorValue<First, Second>
+    requires SameTensorValue<First, Second> &&
+             tensor_selection_detail::compositionRanksCompatible<First, Second>
 [[nodiscard]] auto stack(const First& first, const Second& second, TensorAxis axis, const Allocator& allocator)
 {
     return tensor_selection_detail::stackPair(first, second, axis, allocator);
 }
 
 template <ReadableTensor First, ReadableTensor Second>
-    requires SameTensorValue<First, Second>
+    requires SameTensorValue<First, Second> &&
+             tensor_selection_detail::compositionRanksCompatible<First, Second>
 [[nodiscard]] auto stack(const First& first, const Second& second, TensorAxis axis = 0)
 {
     using value_type = typename First::value_type;
@@ -292,7 +341,8 @@ template <ReadableTensor First, ReadableTensor Second>
 }
 
 template <ReadableTensor First, ReadableTensor Second, typename Allocator>
-    requires SameTensorValue<First, Second>
+    requires SameTensorValue<First, Second> &&
+             tensor_selection_detail::compositionRanksCompatible<First, Second>
 [[nodiscard]] auto concatenate(const First& first, const Second& second, TensorAxis axis,
                                const Allocator& allocator)
 {
@@ -300,7 +350,8 @@ template <ReadableTensor First, ReadableTensor Second, typename Allocator>
 }
 
 template <ReadableTensor First, ReadableTensor Second>
-    requires SameTensorValue<First, Second>
+    requires SameTensorValue<First, Second> &&
+             tensor_selection_detail::compositionRanksCompatible<First, Second>
 [[nodiscard]] auto concatenate(const First& first, const Second& second, TensorAxis axis = 0)
 {
     using value_type = typename First::value_type;
@@ -319,7 +370,10 @@ template <ReadableTensor First, ReadableTensor Second>
 }
 
 template <ReadableTensor Source, typename Allocator>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator,
+                     tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank
+                         ? tensor_detail::kDynamicTensorRank
+                         : tensor_detail::tensorStaticRankValue<Source> + 1>
 stack(std::span<const std::reference_wrapper<const Source>> inputs, TensorAxis requestedAxis,
       const Allocator& allocator)
 {
@@ -339,9 +393,12 @@ stack(std::span<const std::reference_wrapper<const Source>> inputs, TensorAxis r
             throw std::invalid_argument("stack operands must have identical extents");
         }
     }
-    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator,
-                                                          tensor_selection_detail::insertExtent(
-                                                              prototype.extents(), axis, inputs.size()));
+    constexpr auto ResultRank = tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank
+                                    ? tensor_detail::kDynamicTensorRank
+                                    : tensor_detail::tensorStaticRankValue<Source> + 1;
+    Tensor<typename Source::value_type, Allocator, ResultRank> result(
+        std::allocator_arg, allocator,
+        tensor_selection_detail::insertExtent(prototype.extents(), axis, inputs.size()));
     std::vector<std::size_t> coordinates(result.rank(), 0);
     for (std::size_t linear = 0; linear < result.size(); ++linear)
     {
@@ -354,7 +411,8 @@ stack(std::span<const std::reference_wrapper<const Source>> inputs, TensorAxis r
 }
 
 template <ReadableTensor Source, typename Allocator>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator,
+                     tensor_detail::tensorStaticRankValue<Source>>
 concatenate(std::span<const std::reference_wrapper<const Source>> inputs, TensorAxis requestedAxis,
             const Allocator& allocator)
 {
@@ -391,8 +449,9 @@ concatenate(std::span<const std::reference_wrapper<const Source>> inputs, Tensor
         output[axis] = tensor_selection_detail::checkedExtentAdd(output[axis], input.extents()[axis]);
         boundaries.push_back(output[axis]);
     }
-    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator,
-                                                          DynamicExtents(std::move(output)));
+    using ResultExtents = tensor_detail::TensorExtentsFor<tensor_detail::tensorStaticRankValue<Source>>;
+    Tensor<typename Source::value_type, Allocator, tensor_detail::tensorStaticRankValue<Source>> result(
+        std::allocator_arg, allocator, ResultExtents(output.begin(), output.end()));
     std::vector<std::size_t> coordinates(result.rank(), 0);
     for (std::size_t linear = 0; linear < result.size(); ++linear)
     {
@@ -469,7 +528,8 @@ template <ReadableTensor Source>
 }
 
 template <ReadableTensor Source, typename Allocator>
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator,
+                     tensor_detail::tensorStaticRankValue<Source>>
 take(const Source& source, std::span<const std::ptrdiff_t> indices, TensorAxis requestedAxis,
      const Allocator& allocator)
 {
@@ -487,8 +547,9 @@ take(const Source& source, std::span<const std::ptrdiff_t> indices, TensorAxis r
     }
     auto output = source.extents().values();
     output[axis] = indices.size();
-    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator,
-                                                          DynamicExtents(std::move(output)));
+    using ResultExtents = tensor_detail::TensorExtentsFor<tensor_detail::tensorStaticRankValue<Source>>;
+    Tensor<typename Source::value_type, Allocator, tensor_detail::tensorStaticRankValue<Source>> result(
+        std::allocator_arg, allocator, ResultExtents(output.begin(), output.end()));
     std::vector<std::size_t> coordinates(result.rank(), 0);
     for (std::size_t linear = 0; linear < result.size(); ++linear)
     {
@@ -511,7 +572,8 @@ template <ReadableTensor Source>
 template <ReadableTensor Source, ReadableTensor Indices, typename Allocator>
     requires std::integral<typename Indices::value_type> &&
              (!std::same_as<std::remove_cv_t<typename Indices::value_type>, bool>)
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+[[nodiscard]] Tensor<typename Source::value_type, Allocator,
+                     tensor_detail::tensorStaticRankValue<Indices>>
 takeAlongAxis(const Source& source, const Indices& indices, TensorAxis requestedAxis,
               const Allocator& allocator)
 {
@@ -536,7 +598,8 @@ takeAlongAxis(const Source& source, const Indices& indices, TensorAxis requested
         normalized.push_back(
             tensor_selection_detail::normalizeIndexValue(indices[linear], source.extents()[axis]));
     }
-    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator, indices.extents());
+    Tensor<typename Source::value_type, Allocator, tensor_detail::tensorStaticRankValue<Indices>> result(
+        std::allocator_arg, allocator, indices.extents());
     std::vector<std::size_t> coordinates(result.rank(), 0);
     for (std::size_t linear = 0; linear < result.size(); ++linear)
     {
@@ -557,11 +620,14 @@ template <ReadableTensor Source, ReadableTensor Indices>
                          tensor_detail::selectResultAllocator<value_type>(source));
 }
 
-template <ReadableTensor Source, ReadableTensor Indices, typename Allocator>
+namespace tensor_selection_detail
+{
+
+template <std::size_t OutputRank, ReadableTensor Source, ReadableTensor Indices, typename Allocator>
     requires std::integral<typename Indices::value_type> &&
              (!std::same_as<std::remove_cv_t<typename Indices::value_type>, bool>)
-[[nodiscard]] Tensor<typename Source::value_type, Allocator>
-gatherND(const Source& source, const Indices& indices, const Allocator& allocator)
+[[nodiscard]] Tensor<typename Source::value_type, Allocator, OutputRank>
+gatherNDImpl(const Source& source, const Indices& indices, const Allocator& allocator)
 {
     tensor_detail::TensorAccess::validate(source);
     tensor_detail::TensorAccess::validate(indices);
@@ -594,8 +660,9 @@ gatherND(const Source& source, const Indices& indices, const Allocator& allocato
     {
         output.push_back(source.extents()[axis]);
     }
-    Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator,
-                                                          DynamicExtents(std::move(output)));
+    using ResultExtents = tensor_detail::TensorExtentsFor<OutputRank>;
+    Tensor<typename Source::value_type, Allocator, OutputRank> result(
+        std::allocator_arg, allocator, ResultExtents(output.begin(), output.end()));
     const auto prefixRank = indices.rank() - 1;
     std::vector<std::size_t> outputCoordinates(result.rank(), 0);
     std::vector<std::size_t> sourceCoordinates(source.rank(), 0);
@@ -622,6 +689,18 @@ gatherND(const Source& source, const Indices& indices, const Allocator& allocato
     return result;
 }
 
+} // namespace tensor_selection_detail
+
+template <ReadableTensor Source, ReadableTensor Indices, typename Allocator>
+    requires std::integral<typename Indices::value_type> &&
+             (!std::same_as<std::remove_cv_t<typename Indices::value_type>, bool>)
+[[nodiscard]] Tensor<typename Source::value_type, Allocator>
+gatherND(const Source& source, const Indices& indices, const Allocator& allocator)
+{
+    return tensor_selection_detail::gatherNDImpl<tensor_detail::kDynamicTensorRank>(source, indices,
+                                                                                    allocator);
+}
+
 template <ReadableTensor Source, ReadableTensor Indices>
     requires std::integral<typename Indices::value_type> &&
              (!std::same_as<std::remove_cv_t<typename Indices::value_type>, bool>)
@@ -629,6 +708,52 @@ template <ReadableTensor Source, ReadableTensor Indices>
 {
     using value_type = typename Source::value_type;
     return gatherND(source, indices, tensor_detail::selectResultAllocator<value_type>(source));
+}
+
+template <std::size_t TupleDepth, ReadableTensor Source, ReadableTensor Indices, typename Allocator>
+    requires std::integral<typename Indices::value_type> &&
+             (!std::same_as<std::remove_cv_t<typename Indices::value_type>, bool>)
+[[nodiscard]] auto gatherND(const Source& source, const Indices& indices, const Allocator& allocator)
+{
+    constexpr auto sourceRank = tensor_detail::tensorStaticRankValue<Source>;
+    constexpr auto indicesRank = tensor_detail::tensorStaticRankValue<Indices>;
+    constexpr auto outputRank = [=] {
+        if constexpr (sourceRank == tensor_detail::kDynamicTensorRank ||
+                      indicesRank == tensor_detail::kDynamicTensorRank)
+        {
+            return tensor_detail::kDynamicTensorRank;
+        }
+        else
+        {
+            static_assert(indicesRank > 0, "gatherND indices must have positive rank");
+            static_assert(TupleDepth <= sourceRank, "gatherND tuple depth exceeds the source rank");
+            return indicesRank - 1 + sourceRank - TupleDepth;
+        }
+    }();
+    if constexpr (sourceRank != tensor_detail::kDynamicTensorRank)
+    {
+        static_assert(TupleDepth <= sourceRank, "gatherND tuple depth exceeds the source rank");
+    }
+    if constexpr (indicesRank != tensor_detail::kDynamicTensorRank)
+    {
+        static_assert(indicesRank > 0, "gatherND indices must have positive rank");
+    }
+    tensor_detail::TensorAccess::validate(source);
+    tensor_detail::TensorAccess::validate(indices);
+    if (indices.rank() == 0 || indices.extents()[indices.rank() - 1] != TupleDepth)
+    {
+        throw std::invalid_argument("gatherND final indices extent does not match its tuple depth");
+    }
+    return tensor_selection_detail::gatherNDImpl<outputRank>(source, indices, allocator);
+}
+
+template <std::size_t TupleDepth, ReadableTensor Source, ReadableTensor Indices>
+    requires std::integral<typename Indices::value_type> &&
+             (!std::same_as<std::remove_cv_t<typename Indices::value_type>, bool>)
+[[nodiscard]] auto gatherND(const Source& source, const Indices& indices)
+{
+    using value_type = typename Source::value_type;
+    return gatherND<TupleDepth>(source, indices, tensor_detail::selectResultAllocator<value_type>(source));
 }
 
 } // namespace fat_p

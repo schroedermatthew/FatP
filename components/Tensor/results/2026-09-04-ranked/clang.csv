@@ -1,0 +1,17 @@
+Timestamp,Benchmark,Case,Library,Unit,Median,Mean,StdDev,CI95_Low,CI95_High,Min,Max,P95,P99,Samples,Platform,Compiler,CPU_MHz,CPU_Ref_MHz,Ref_Is_Max,Seed,Warmup,Batches,Min_Batch_MS
+2026-09-04T14:01:29,TensorRanked,ranked_construct,,ns/op,95.1,111.65,49.6126,65.6757,157.624,95.05,243.95,95.35,95.35,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,dynamic_construct,,ns/op,132.3,138.594,13.447,126.134,151.055,132.05,172.75,144.35,144.35,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,static_construct,,ns/op,1.2,1.18333,0.025,1.16017,1.2065,1.15,1.2,1.2,1.2,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,ranked_copy,,ns/op,92.05,92.3389,0.79285,91.6042,93.0736,92.05,94.45,92.15,92.15,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,dynamic_copy,,ns/op,93.95,94.6556,1.45698,93.3054,96.0057,93.9,98.25,95.65,95.65,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,static_copy,,ns/op,1.2,1.2,0,1.2,1.2,1.2,1.2,1.2,1.2,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,ranked_index,,ns/op,3.175,3.22743,0.109495,3.12596,3.3289,3.17188,3.475,3.35,3.35,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,dynamic_index,,ns/op,3.83438,3.87708,0.0791495,3.80374,3.95043,3.82187,4.05,3.94687,3.94687,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,static_index,,ns/op,0.371875,0.371875,5.88785e-17,0.371875,0.371875,0.371875,0.371875,0.371875,0.371875,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,ranked_add,,ns/op,148.6,148.961,0.825673,148.196,149.726,148.25,150.7,149.95,149.95,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,dynamic_add,,ns/op,282.9,297.85,46.0043,255.219,340.481,273.4,419.5,293.2,293.2,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,static_add,,ns/op,1.2,1.22222,0.0263523,1.1978,1.24664,1.2,1.25,1.25,1.25,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,ranked2_to_dynamic_view,,ns/op,40.05,40.15,0.319179,39.8542,40.4458,40,41,40.05,40.05,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,dynamic2_to_ranked_view,,ns/op,15.45,15.6,0.394493,15.2344,15.9656,15.45,16.65,15.5,15.5,9,Windows-x64,Clang 22.1,2359,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,ranked8_to_dynamic_view,,ns/op,118.5,118.278,1.40648,116.974,119.581,116.95,121.4,118.85,118.85,9,Windows-x64,Clang 22.1,2727,3686,false,12345,2,9,10
+2026-09-04T14:01:29,TensorRanked,dynamic8_to_ranked_view,,ns/op,28,28.15,0.394493,27.7844,28.5156,28,29.2,28.05,28.05,9,Windows-x64,Clang 22.1,2727,3686,false,12345,2,9,10

@@ -9,7 +9,7 @@
  *       components\Tensor\benchmarks\benchmark_Tensor.cpp /Fe:benchmark_Tensor.exe \
  *       /link advapi32.lib
  *
- * Iterator and TensorIterationPlan cases run in the same process so their
+ * Iterator and iteration-plan cases run in the same process so their
  * numbers are directly comparable. The broadcast case measures explicit clone
  * materialization, including allocation and copying.
  */
@@ -113,9 +113,9 @@ double sumPlan(const R& readable)
     fat_p::tensor_detail::TensorAccess::validate(readable);
     const auto* storage = fat_p::tensor_detail::TensorAccess::storageBase(readable);
     const auto& layout = readable.layout();
-    const fat_p::tensor_detail::TensorIterationPlan plan(layout.extents(), {std::cref(layout)});
+    const auto plan = fat_p::tensor_detail::makeTensorIterationPlan(layout.extents(), layout);
     double total = 0.0;
-    plan.forEachOffset([&](std::size_t, const std::vector<std::ptrdiff_t>& offsets) {
+    plan.forEachOffset([&](std::size_t, const auto& offsets) {
         total += static_cast<double>(storage[offsets[0]]);
     });
     return total;
@@ -289,19 +289,19 @@ int main()
     std::vector<LayoutCase> cases;
     cases.push_back({"contiguous_iterator_sum", "Owner pointer iteration", rows * columns,
                      [&owner]() { return sumIterator(owner); }});
-    cases.push_back({"contiguous_plan_sum", "TensorIterationPlan over a canonical owner", rows * columns,
+    cases.push_back({"contiguous_plan_sum", "Iteration plan over a canonical owner", rows * columns,
                      [&owner]() { return sumPlan(owner); }});
     cases.push_back({"transpose_iterator_sum", "Logical iterator over a transpose view", rows * columns,
                      [&transposed]() { return sumIterator(transposed); }});
-    cases.push_back({"transpose_plan_sum", "TensorIterationPlan over a transpose view", rows * columns,
+    cases.push_back({"transpose_plan_sum", "Iteration plan over a transpose view", rows * columns,
                      [&transposed]() { return sumPlan(transposed); }});
     cases.push_back({"slice_iterator_sum", "Logical iterator over a 384x384 interior slice",
                      (448 - 64) * (448 - 64), [&slice]() { return sumIterator(slice); }});
-    cases.push_back({"slice_plan_sum", "TensorIterationPlan over a 384x384 interior slice",
+    cases.push_back({"slice_plan_sum", "Iteration plan over a 384x384 interior slice",
                      (448 - 64) * (448 - 64), [&slice]() { return sumPlan(slice); }});
     cases.push_back({"negative_stride_iterator_sum", "Logical iterator over a reversed-axis view",
                      rows * columns, [&reversed]() { return sumIterator(reversed); }});
-    cases.push_back({"negative_stride_plan_sum", "TensorIterationPlan over a reversed-axis view",
+    cases.push_back({"negative_stride_plan_sum", "Iteration plan over a reversed-axis view",
                      rows * columns, [&reversed]() { return sumPlan(reversed); }});
     cases.push_back({"broadcast_materialize_sum", "Materialize 1x512 to 512x512, then sum", rows * columns,
                      [&broadcastSource]() {

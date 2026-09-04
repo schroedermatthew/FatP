@@ -408,6 +408,7 @@ Each adjective has a documented meaning:
 | `Flat` | Contiguous storage |
 | `LockFree` | Wait-free or lock-free progress guarantee |
 | `Policy` | Behavior defined by template policies |
+| `Ranked` | Tensor rank is encoded in the type while extents remain runtime values |
 | `Small` | Inline storage optimization |
 | `Sorted` | Order invariant maintained |
 | `Sparse` | Efficient for sparse data |
