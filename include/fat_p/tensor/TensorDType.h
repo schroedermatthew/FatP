@@ -185,15 +185,26 @@ template <TensorDTypeElement T>
 /** @brief Decodes a canonical numeric identifier, returning nullopt for unknown values. */
 [[nodiscard]] constexpr std::optional<TensorDType> tensorDTypeFromId(std::uint8_t id) noexcept
 {
+    if (id == 0 || id > tensor_detail::kTensorDTypeDescriptors.size())
+    {
+        return std::nullopt;
+    }
     const auto dtype = static_cast<TensorDType>(id);
-    return tensorDTypeDescriptor(dtype) == nullptr ? std::nullopt : std::optional<TensorDType>{dtype};
+    return tensor_detail::kTensorDTypeDescriptors[id - 1].dtype == dtype
+        ? std::optional<TensorDType>{dtype}
+        : std::nullopt;
 }
 
 /** @brief Returns the canonical lowercase name, or "unknown" for an invalid enum value. */
 [[nodiscard]] constexpr std::string_view tensorDTypeName(TensorDType dtype) noexcept
 {
-    const auto* descriptor = tensorDTypeDescriptor(dtype);
-    return descriptor == nullptr ? std::string_view{"unknown"} : descriptor->name;
+    const auto id = static_cast<std::uint8_t>(dtype);
+    if (id == 0 || id > tensor_detail::kTensorDTypeDescriptors.size())
+    {
+        return "unknown";
+    }
+    const auto& descriptor = tensor_detail::kTensorDTypeDescriptors[id - 1];
+    return descriptor.dtype == dtype ? descriptor.name : std::string_view{"unknown"};
 }
 
 /** @brief Returns the canonical lowercase name for T. */
@@ -206,8 +217,13 @@ template <TensorDTypeElement T>
 /** @brief Returns the logical bit width, or zero for an invalid enum value. */
 [[nodiscard]] constexpr std::size_t tensorDTypeBitWidth(TensorDType dtype) noexcept
 {
-    const auto* descriptor = tensorDTypeDescriptor(dtype);
-    return descriptor == nullptr ? 0 : descriptor->bitWidth;
+    const auto id = static_cast<std::uint8_t>(dtype);
+    if (id == 0 || id > tensor_detail::kTensorDTypeDescriptors.size())
+    {
+        return 0;
+    }
+    const auto& descriptor = tensor_detail::kTensorDTypeDescriptors[id - 1];
+    return descriptor.dtype == dtype ? descriptor.bitWidth : 0;
 }
 
 } // namespace fat_p

@@ -138,7 +138,7 @@ jobs:
 
       - name: Build tests
         shell: cmd
-        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorAlgorithms.cpp /Fe:test_bin.exe /link advapi32.lib
+        run: cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /bigobj /O2 /DNDEBUG /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorAlgorithms.cpp /Fe:test_bin.exe /link advapi32.lib
 
       - name: Run tests
         run: .\test_bin.exe
@@ -189,7 +189,7 @@ jobs:
           arch: x64
       - name: Build assertions-enabled tests
         shell: cmd
-        run: cl /std:c++20 /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /Od /Zi /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorAlgorithms.cpp /Fe:test_debug.exe /link advapi32.lib
+        run: cl /std:c++20 /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /bigobj /Od /Zi /DENABLE_TEST_APPLICATION /I.\include\fat_p components\Tensor\tests\test_TensorAlgorithms.cpp /Fe:test_debug.exe /link advapi32.lib
       - name: Run tests
         run: .\test_debug.exe
 

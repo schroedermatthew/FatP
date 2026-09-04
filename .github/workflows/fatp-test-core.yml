@@ -153,7 +153,7 @@ jobs:
         shell: pwsh
         run: |
           python tools/collect_fatp_test_sources.py --msvc | Out-File -Encoding ascii sources.rsp
-          cmd /c "sccache cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /O2 /DNDEBUG /I.\include\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib"
+          cmd /c "sccache cl ${{ matrix.flag }} /W4 /WX /wd4324 /wd4127 /EHsc /permissive- /Zc:preprocessor /bigobj /O2 /DNDEBUG /I.\include\fat_p @sources.rsp /Fe:test_bin.exe /link advapi32.lib"
 
       - name: sccache statistics
         if: always()

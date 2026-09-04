@@ -479,10 +479,31 @@ private:
             return TensorLayoutKind::InjectiveStrided;
         }
 
-        std::sort(activeAxes.begin(), activeAxes.begin() + static_cast<std::ptrdiff_t>(activeAxisCount),
-                  [](const ActiveAxis& left, const ActiveAxis& right) {
+        const auto axisLess = [](const ActiveAxis& left, const ActiveAxis& right) {
             return std::tie(left.magnitude, left.extent) < std::tie(right.magnitude, right.extent);
-        });
+        };
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            std::sort(activeAxes.begin(), activeAxes.end(), axisLess);
+        }
+        else
+        {
+            // libstdc++'s std::sort implementation forms an internal
+            // begin() + 16 iterator even for smaller fixed arrays.  GCC's
+            // optimized -Warray-bounds analysis diagnoses that implementation
+            // detail, so use a bounded insertion sort for fixed-rank metadata.
+            for (std::size_t index = 1; index < Rank && index < activeAxisCount; ++index)
+            {
+                auto axis = activeAxes[index];
+                auto insertion = index;
+                while (insertion > 0 && axisLess(axis, activeAxes[insertion - 1]))
+                {
+                    activeAxes[insertion] = activeAxes[insertion - 1];
+                    --insertion;
+                }
+                activeAxes[insertion] = axis;
+            }
+        }
 
         tensor_detail::UnsignedOffset coveredSpan = 0;
         bool greedyProof = true;
@@ -538,6 +559,14 @@ rebindValidatedLayout(const BasicTensorLayout<SourceRank>& source)
     using target_extents = typename target_layout::extents_type;
     using target_strides = typename target_layout::strides_type;
 
+    if constexpr (TargetRank != kDynamicTensorRank)
+    {
+        if (source.rank() != TargetRank)
+        {
+            throw std::invalid_argument("Tensor rank does not match the requested fixed-rank mapping");
+        }
+    }
+
     auto extents = [&]() -> target_extents {
         if constexpr (TargetRank == kDynamicTensorRank)
         {
@@ -545,12 +574,11 @@ rebindValidatedLayout(const BasicTensorLayout<SourceRank>& source)
         }
         else
         {
-            if (source.rank() != TargetRank)
-            {
-                throw std::invalid_argument("Tensor rank does not match the requested fixed-rank mapping");
-            }
             std::array<std::size_t, TargetRank> values{};
-            std::copy(source.mExtents.begin(), source.mExtents.end(), values.begin());
+            for (std::size_t axis = 0; axis < TargetRank; ++axis)
+            {
+                values[axis] = source.mExtents[axis];
+            }
             return target_extents(std::move(values));
         }
     }();
@@ -563,7 +591,10 @@ rebindValidatedLayout(const BasicTensorLayout<SourceRank>& source)
         else
         {
             std::array<std::ptrdiff_t, TargetRank> values{};
-            std::copy(source.mStrides.begin(), source.mStrides.end(), values.begin());
+            for (std::size_t axis = 0; axis < TargetRank; ++axis)
+            {
+                values[axis] = source.mStrides[axis];
+            }
             return values;
         }
     }();
@@ -583,12 +614,22 @@ template <std::size_t LeftRank, std::size_t RightRank>
 [[nodiscard]] bool operator==(const BasicTensorLayout<LeftRank>& left,
                               const BasicTensorLayout<RightRank>& right) noexcept
 {
-    return left.storageLength() == right.storageLength() &&
-        left.originOffset() == right.originOffset() && left.extents() == right.extents() &&
-        left.strides().size() == right.strides().size() &&
-        std::equal(left.strides().begin(), left.strides().end(), right.strides().begin()) &&
-        left.kind() == right.kind() && left.minimumOffset() == right.minimumOffset() &&
-        left.maximumOffset() == right.maximumOffset();
+    if (left.storageLength() != right.storageLength() ||
+        left.originOffset() != right.originOffset() || left.extents() != right.extents() ||
+        left.strides().size() != right.strides().size() || left.kind() != right.kind() ||
+        left.minimumOffset() != right.minimumOffset() ||
+        left.maximumOffset() != right.maximumOffset())
+    {
+        return false;
+    }
+    for (std::size_t axis = 0; axis < left.strides().size(); ++axis)
+    {
+        if (left.strides()[axis] != right.strides()[axis])
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 namespace tensor_detail
@@ -635,7 +676,10 @@ template <std::size_t Rank, typename Extents>
         throw std::invalid_argument("Tensor rank does not match the requested fixed-rank mapping");
     }
     std::array<std::size_t, Rank> values{};
-    std::copy(extents.begin(), extents.end(), values.begin());
+    for (std::size_t axis = 0; axis < Rank; ++axis)
+    {
+        values[axis] = extents[axis];
+    }
     return FixedRankExtents<Rank>(std::move(values));
 }
 
@@ -647,7 +691,10 @@ template <std::size_t Rank, typename Strides>
         throw std::invalid_argument("Tensor stride rank does not match the requested fixed-rank mapping");
     }
     std::array<std::ptrdiff_t, Rank> values{};
-    std::copy(strides.begin(), strides.end(), values.begin());
+    for (std::size_t axis = 0; axis < Rank; ++axis)
+    {
+        values[axis] = strides[axis];
+    }
     return values;
 }
 

@@ -248,30 +248,37 @@ private:
 
     void coalesceAxes()
     {
-        if (mLogicalSize == 0 || mActiveRank < 2)
+        if constexpr (Rank != kDynamicTensorRank && Rank < 2)
         {
             return;
         }
-        std::size_t axis = mActiveRank - 1;
-        while (axis > 0)
+        else
         {
-            const auto left = axis - 1;
-            if (canCoalesce(left))
+            if (mLogicalSize == 0 || mActiveRank < 2)
             {
-                mIterationExtents[left] *= mIterationExtents[axis];
-                for (auto& strides : mStrides)
-                {
-                    strides[left] = strides[axis];
-                }
-                eraseIterationAxis(axis);
-                if (axis >= mActiveRank)
-                {
-                    axis = mActiveRank - 1;
-                }
+                return;
             }
-            else
+            std::size_t axis = mActiveRank - 1;
+            while (axis > 0)
             {
-                --axis;
+                const auto left = axis - 1;
+                if (canCoalesce(left))
+                {
+                    mIterationExtents[left] *= mIterationExtents[axis];
+                    for (auto& strides : mStrides)
+                    {
+                        strides[left] = strides[axis];
+                    }
+                    eraseIterationAxis(axis);
+                    if (axis >= mActiveRank)
+                    {
+                        axis = mActiveRank - 1;
+                    }
+                }
+                else
+                {
+                    --axis;
+                }
             }
         }
     }

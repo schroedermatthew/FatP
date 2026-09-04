@@ -219,16 +219,26 @@ struct Fixture
     {
     }
 
-    template <typename Allocator>
-    [[nodiscard]] auto native(const Allocator& allocator) const -> Tensor<T, Allocator>
+    template <typename Allocator, typename Consumer>
+    void withNativeResult(const Allocator& allocator, Consumer&& consumer) const
     {
         switch (problem.operation)
         {
-        case Operation::Dot: return fat_p::dot(leftView, rightView, allocator);
-        case Operation::Outer: return fat_p::outer(leftView, rightView, allocator);
-        case Operation::Matmul: return fat_p::matmul(leftView, rightView, allocator);
-        case Operation::Diagonal: return fat_p::diagonal(leftView, allocator);
-        case Operation::Trace: return fat_p::trace(leftView, allocator);
+        case Operation::Dot:
+            std::invoke(consumer, fat_p::dot(leftView, rightView, allocator));
+            return;
+        case Operation::Outer:
+            std::invoke(consumer, fat_p::outer(leftView, rightView, allocator));
+            return;
+        case Operation::Matmul:
+            std::invoke(consumer, fat_p::matmul(leftView, rightView, allocator));
+            return;
+        case Operation::Diagonal:
+            std::invoke(consumer, fat_p::diagonal(leftView, allocator));
+            return;
+        case Operation::Trace:
+            std::invoke(consumer, fat_p::trace(leftView, allocator));
+            return;
         }
         throw std::logic_error("Unknown benchmark operation");
     }
@@ -342,8 +352,11 @@ using ResultObserver = void (*)(const T*, std::size_t);
 template <typename T>
 ResultObserver<T> volatile resultObserver = &observeResult<T>;
 
-template <typename T>
-void consumeResult(const Tensor<T>& result) { resultObserver<T>(result.data(), result.size()); }
+template <typename T, typename Allocator, std::size_t Rank>
+void consumeResult(const Tensor<T, Allocator, Rank>& result)
+{
+    resultObserver<T>(result.data(), result.size());
+}
 
 struct Sample
 {
@@ -407,22 +420,38 @@ void addCase(std::vector<Case>& cases, Problem problem, const char* sizeName, st
     }
     item.verify = [fixture] {
         const auto expected = fixture->reference(TensorAllocator<T>{});
-        const auto actual = fixture->native(TensorAllocator<T>{});
-        if (actual.extents() != expected.extents() || !std::equal(actual.begin(), actual.end(), expected.begin()))
-        {
-            throw std::runtime_error("Scalar reference mismatch");
-        }
+        fixture->withNativeResult(TensorAllocator<T>{}, [&expected](const auto& actual) {
+            if (actual.extents() != expected.extents() ||
+                !std::equal(actual.begin(), actual.end(), expected.begin()))
+            {
+                throw std::runtime_error("Scalar reference mismatch");
+            }
+        });
     };
     item.verify();
     for (std::size_t variant = 0; variant < 3; ++variant)
     {
         AllocationObservation probe;
         {
-            const auto result = variant == 0 ? fixture->native(ProbeAllocator<T>{&probe}) : variant == 1
-                ? fixture->reference(ProbeAllocator<T>{&probe})
-                : Tensor<T, ProbeAllocator<T>>(std::allocator_arg, ProbeAllocator<T>{&probe},
-                                               DynamicExtents(problem.outputShape()));
-            if (probe.calls != 1 || probe.bytes != result.size() * sizeof(T))
+            std::size_t resultSize = 0;
+            if (variant == 0)
+            {
+                fixture->withNativeResult(ProbeAllocator<T>{&probe}, [&resultSize](const auto& result) {
+                    resultSize = result.size();
+                });
+            }
+            else if (variant == 1)
+            {
+                const auto result = fixture->reference(ProbeAllocator<T>{&probe});
+                resultSize = result.size();
+            }
+            else
+            {
+                const Tensor<T, ProbeAllocator<T>> result(
+                    std::allocator_arg, ProbeAllocator<T>{&probe}, DynamicExtents(problem.outputShape()));
+                resultSize = result.size();
+            }
+            if (probe.calls != 1 || probe.bytes != resultSize * sizeof(T))
             {
                 throw std::runtime_error("Unexpected result allocation count");
             }
@@ -430,9 +459,22 @@ void addCase(std::vector<Case>& cases, Problem problem, const char* sizeName, st
         if (probe.liveBytes != 0) { throw std::runtime_error("Result allocation was not reclaimed"); }
         item.variants[variant].allocation = probe;
         item.variants[variant].invoke = [fixture, variant] {
-            const auto result = variant == 0 ? fixture->native(TensorAllocator<T>{}) : variant == 1
-                ? fixture->reference(TensorAllocator<T>{}) : Tensor<T>(DynamicExtents(fixture->problem.outputShape()));
-            consumeResult(result);
+            if (variant == 0)
+            {
+                fixture->withNativeResult(TensorAllocator<T>{}, [](const auto& result) {
+                    consumeResult(result);
+                });
+            }
+            else if (variant == 1)
+            {
+                const auto result = fixture->reference(TensorAllocator<T>{});
+                consumeResult(result);
+            }
+            else
+            {
+                const Tensor<T> result(DynamicExtents(fixture->problem.outputShape()));
+                consumeResult(result);
+            }
         };
     }
     cases.push_back(std::move(item));

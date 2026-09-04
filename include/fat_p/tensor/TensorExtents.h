@@ -412,8 +412,10 @@ private:
         const auto& inlineValues = std::get<InlineStorage>(mStorage);
         HeapStorage heapValues;
         heapValues.reserve(std::max(requestedCapacity, InlineCapacity * 2));
-        heapValues.insert(heapValues.end(), inlineValues.values.begin(),
-                          inlineValues.values.begin() + static_cast<difference_type>(inlineValues.size));
+        for (size_type index = 0; index < InlineCapacity && index < inlineValues.size; ++index)
+        {
+            heapValues.push_back(inlineValues.values[index]);
+        }
         mStorage.template emplace<HeapStorage>(std::move(heapValues));
     }
 
@@ -642,7 +644,18 @@ template <std::size_t Rank>
 [[nodiscard]] constexpr bool operator==(const DynamicExtents& left,
                                         const tensor_detail::FixedRankExtents<Rank>& right) noexcept
 {
-    return left.rank() == right.rank() && std::equal(left.begin(), left.end(), right.begin());
+    if (left.rank() != Rank)
+    {
+        return false;
+    }
+    for (std::size_t axis = 0; axis < Rank; ++axis)
+    {
+        if (left[axis] != right[axis])
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 template <std::size_t Rank>
