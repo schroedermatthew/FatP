@@ -490,6 +490,29 @@ public:
     {
     }
 
+    DynamicExtents(const DynamicExtents&) = default;
+    DynamicExtents& operator=(const DynamicExtents&) = default;
+
+    DynamicExtents(DynamicExtents&& other) noexcept
+        : mExtents(std::move(other.mExtents))
+        , mLogicalSize(other.mLogicalSize)
+    {
+        other.mExtents.clear();
+        other.mLogicalSize = 1;
+    }
+
+    DynamicExtents& operator=(DynamicExtents&& other) noexcept
+    {
+        if (this != &other)
+        {
+            mExtents = std::move(other.mExtents);
+            mLogicalSize = other.mLogicalSize;
+            other.mExtents.clear();
+            other.mLogicalSize = 1;
+        }
+        return *this;
+    }
+
     DynamicExtents(std::initializer_list<value_type> extents)
         : DynamicExtents(container_type(extents))
     {

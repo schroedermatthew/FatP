@@ -158,7 +158,17 @@ public:
     using strides_type = tensor_detail::TensorStridesFor<Rank>;
 
     BasicTensorLayout(const BasicTensorLayout&) = default;
-    BasicTensorLayout(BasicTensorLayout&&) noexcept = default;
+    BasicTensorLayout(BasicTensorLayout&& other) noexcept
+        : mStorageLength(other.mStorageLength)
+        , mOriginOffset(other.mOriginOffset)
+        , mExtents(std::move(other.mExtents))
+        , mStrides(std::move(other.mStrides))
+        , mKind(other.mKind)
+        , mMinimumOffset(other.mMinimumOffset)
+        , mMaximumOffset(other.mMaximumOffset)
+    {
+        other.resetAfterMove();
+    }
 
     BasicTensorLayout& operator=(const BasicTensorLayout& other)
     {
@@ -170,7 +180,21 @@ public:
         return *this;
     }
 
-    BasicTensorLayout& operator=(BasicTensorLayout&&) noexcept = default;
+    BasicTensorLayout& operator=(BasicTensorLayout&& other) noexcept
+    {
+        if (this != &other)
+        {
+            mStorageLength = other.mStorageLength;
+            mOriginOffset = other.mOriginOffset;
+            mExtents = std::move(other.mExtents);
+            mStrides = std::move(other.mStrides);
+            mKind = other.mKind;
+            mMinimumOffset = other.mMinimumOffset;
+            mMaximumOffset = other.mMaximumOffset;
+            other.resetAfterMove();
+        }
+        return *this;
+    }
 
     BasicTensorLayout(std::size_t storageLength, std::ptrdiff_t originOffset, extents_type extents,
                       strides_type strides)
@@ -313,6 +337,22 @@ public:
     }
 
 private:
+    void resetAfterMove() noexcept
+    {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            // These one-axis values stay inline and cannot allocate. Reset every
+            // cached property together, including the empty reachability interval.
+            mStorageLength = 0;
+            mOriginOffset = 0;
+            mExtents = extents_type{0};
+            mStrides = strides_type{0};
+            mKind = TensorLayoutKind::Empty;
+            mMinimumOffset.reset();
+            mMaximumOffset.reset();
+        }
+    }
+
     struct TrustedValidatedLayoutTag
     {
     };

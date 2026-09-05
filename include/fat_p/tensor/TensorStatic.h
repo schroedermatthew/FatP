@@ -879,15 +879,36 @@ template <typename T, size_t N, typename P>
     requires std::is_floating_point_v<T>
 StaticTensor<T, Vector<N>, P> normalize(const StaticTensor<T, Vector<N>, P>& vec)
 {
-    T n = norm(vec);
+    // Normalize before reconstructing the original magnitude: the unit vector
+    // remains representable even if norm(vec) overflows or rounds to a subnormal.
+    T scale = T{0};
+    bool finite = true;
+    for (size_t i = 0; i < N; ++i)
+    {
+        if (!std::isfinite(vec[i]))
+        {
+            finite = false;
+            break;
+        }
+        scale = std::max(scale, std::abs(vec[i]));
+    }
+    StaticTensor<T, Vector<N>, P> result = vec;
+    if (finite && scale != T{0})
+    {
+        for (size_t i = 0; i < N; ++i)
+        {
+            result[i] = P::div(vec[i], scale);
+        }
+    }
+    // Nonfinite values retain the existing arithmetic-policy behavior.
+    T n = norm(result);
     if (n == T{0})
     {
         throw std::domain_error("Cannot normalize a zero-length StaticTensor vector");
     }
-    StaticTensor<T, Vector<N>, P> result;
     for (size_t i = 0; i < N; ++i)
     {
-        result[i] = P::div(vec[i], n);
+        result[i] = P::div(result[i], n);
     }
     return result;
 }

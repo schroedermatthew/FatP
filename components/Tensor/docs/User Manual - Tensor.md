@@ -841,13 +841,21 @@ owns its extent/stride metadata but borrows element storage; callers must keep
 that storage alive. A descriptor created from `SharedTensorView` retains that
 view's shared storage handle for the descriptor's lifetime; a view returned by
 `borrow()` must not outlive the descriptor. Interop functions reject rvalues so they cannot immediately
-return dangling borrowed objects. In Debug builds, descriptors preserve the
-source owner's lifetime token when converted back to a view. A descriptor
+return dangling borrowed objects. In Debug builds, descriptors preserve an
+existing source lifetime token when converted back to a view. Shared and raw
+untracked sources do not acquire a debug tracking token through this conversion.
+Const view wrappers preserve element mutability in descriptor, span, and mdspan
+interop; use a const-element view to request read-only interop. Const owners
+always produce read-only mappings. A descriptor
 preserves storage base, storage length, logical origin, extents, and signed
 strides, and validates those public fields before pointer formation. When the
 C++ standard library supplies C++23
-`std::mdspan`, `asMdspan<Rank>` is available for injective non-negative-stride
-mappings without changing the C++20 baseline.
+`std::mdspan`, `asMdspan<Rank>` is available without changing the C++20 baseline.
+It requires non-negative strides and rejects mappings that do not satisfy
+`std::layout_stride`'s stride-ordering precondition, even if their offsets are
+unique. Singleton axes use positive placeholder strides; empty mappings use
+positive canonical strides because no elements are accessible. An empty mapping
+whose placeholder strides cannot fit in `std::size_t` throws `std::overflow_error`.
 
 ## Hashing and policy equality
 

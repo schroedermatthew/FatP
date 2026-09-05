@@ -162,6 +162,50 @@ FATP_TEST_CASE(iterator_identity_and_writable_layout_guards)
     return true;
 }
 
+FATP_TEST_CASE(dynamic_view_moves_leave_empty_sources)
+{
+    static_assert(std::is_nothrow_move_constructible_v<TensorView<int>>);
+    static_assert(std::is_nothrow_move_constructible_v<SharedTensorView<int>>);
+    for (const std::size_t rank : {4U, 5U})
+    {
+        Tensor<int> owner(DynamicExtents(std::vector<std::size_t>(rank, 2)));
+        for (std::size_t i = 0; i < owner.size(); ++i)
+        {
+            owner[i] = static_cast<int>(i);
+        }
+        for (const bool tracked : {false, true})
+        {
+            auto source = tracked ? owner.asView() : TensorView<int>::borrow(owner.data(), owner.layout());
+            auto moved = std::move(source);
+            FATP_ASSERT_TRUE(source.empty() && source.extents() == DynamicExtents{0},
+                             "Dynamic moved view has a canonical empty layout at both storage ranks");
+            FATP_ASSERT_TRUE(source.data() == nullptr && source.begin() == source.end(),
+                             "Empty moved view has no dangling pointer or tracking token");
+            FATP_ASSERT_THROWS(source[0], std::out_of_range, "Moved view cannot address original storage");
+            FATP_ASSERT_EQ(moved[owner.size() - 1], static_cast<int>(owner.size() - 1),
+                           "Transferred mapping still addresses the last element");
+            source = std::move(moved);
+            FATP_ASSERT_TRUE(moved.empty() && moved.data() == nullptr,
+                             "Dynamic view move assignment empties its source");
+            FATP_ASSERT_EQ(source[owner.size() - 1], static_cast<int>(owner.size() - 1),
+                           "Move assignment preserves destination values");
+        }
+        SharedTensorView<int> retained;
+        {
+            Tensor<int> temporary(owner);
+            auto shared = temporary.asSharedView();
+            auto moved = std::move(shared);
+            FATP_ASSERT_TRUE(shared.empty() && shared.data() == nullptr,
+                             "Shared dynamic move empties its source");
+            retained = std::move(moved);
+            FATP_ASSERT_TRUE(moved.empty(), "Shared move assignment empties its source");
+        }
+        FATP_ASSERT_EQ(retained[owner.size() - 1], static_cast<int>(owner.size() - 1),
+                       "Transferred shared view retains storage after owner destruction");
+    }
+    return true;
+}
+
 } // namespace fat_p::testing::tensor_view
 
 namespace fat_p::testing
@@ -175,6 +219,7 @@ bool test_TensorView()
     FATP_RUN_TEST_NS(runner, tensor_view, metadata_transforms);
     FATP_RUN_TEST_NS(runner, tensor_view, readonly_broadcast);
     FATP_RUN_TEST_NS(runner, tensor_view, shared_and_borrowed_lifetime);
+    FATP_RUN_TEST_NS(runner, tensor_view, dynamic_view_moves_leave_empty_sources);
     FATP_RUN_TEST_NS(runner, tensor_view, iterator_identity_and_writable_layout_guards);
     return 0 == runner.print_summary();
 }

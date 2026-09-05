@@ -168,6 +168,10 @@ public promise testable.
 - `StaticTensor<T, Shape<>>` and
   `Tensor<T>(std::vector<size_t>{})` must agree on rank and size.
 - A moved-from dynamic `Tensor` is a valid empty object with canonical shape `{0}`.
+- Moved-from `DynamicExtents` are coherent rank-zero scalar extents. Moved-from
+  dynamic `TensorLayout`, `TensorView`, and `SharedTensorView` use the canonical
+  empty shape `{0}`. Fixed-rank view moves retain the source binding. These
+  metadata/view moves remain nonthrowing and do not allocate.
 - A default or moved-from positive-rank `RankedTensor` retains its static rank
   with all-zero extents. A default rank-zero owner is a one-element scalar;
   moving it leaves the source as a valid scalar with the element type's
@@ -232,6 +236,9 @@ copying a view rebinds mapping metadata and retains that view's lifetime model.
 
 - Element constness is represented by `TensorView<const T>`, not by
   `const TensorView<T>`.
+- Descriptor, span, and mdspan interop preserves this distinction for dynamic
+  and fixed-rank views: a const wrapper around mutable elements still produces
+  a mutable mapping. Const owners and const-element views remain read-only.
 - A mutable owner may produce mutable or read-only views.
 - A const owner may produce only read-only views.
 - Constness must propagate through slice, transpose, reshape, and broadcast

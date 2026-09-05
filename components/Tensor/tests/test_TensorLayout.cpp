@@ -319,6 +319,46 @@ FATP_TEST_CASE(randomized_scalar_oracle)
     return true;
 }
 
+FATP_TEST_CASE(metadata_moves_preserve_invariants)
+{
+    static_assert(std::is_nothrow_move_constructible_v<DynamicExtents>);
+    static_assert(std::is_nothrow_move_assignable_v<TensorLayout>);
+    for (const std::size_t rank : {4U, 5U})
+    {
+        for (const bool empty : {false, true})
+        {
+            std::vector<std::size_t> values(rank, 2);
+            if (empty)
+            {
+                values[0] = 0;
+            }
+            const DynamicExtents expected(values);
+            DynamicExtents source = expected;
+            DynamicExtents moved(std::move(source));
+            FATP_ASSERT_TRUE(moved == expected, "Extent moves preserve the destination count and axes");
+            FATP_ASSERT_TRUE(source == DynamicExtents{}, "Moved-from extents are coherent scalars");
+            FATP_ASSERT_EQ(TensorLayout::contiguous(source).logicalSize(), std::size_t{1},
+                           "Moved-from extents can construct a valid scalar layout");
+            source = std::move(moved);
+            FATP_ASSERT_TRUE(source == expected && moved == DynamicExtents{},
+                             "Move assignment preserves both extent invariants");
+
+            const auto expectedLayout = TensorLayout::contiguous(expected);
+            auto layout = expectedLayout;
+            auto transferred = std::move(layout);
+            const auto emptyLayout = TensorLayout::contiguous(DynamicExtents{0});
+            FATP_ASSERT_TRUE(transferred == expectedLayout && layout == emptyLayout,
+                             "Moved-from layout resets all cached properties");
+            FATP_ASSERT_THROWS(layout.logicalOffset(0), std::out_of_range,
+                               "Moved-from layout cannot address elements through a stale count");
+            layout = std::move(transferred);
+            FATP_ASSERT_TRUE(layout == expectedLayout && transferred == emptyLayout,
+                             "Layout move assignment resets the source too");
+        }
+    }
+    return true;
+}
+
 } // namespace fat_p::testing::tensor_layout
 
 namespace fat_p::testing
@@ -330,6 +370,7 @@ bool test_TensorLayout()
     TestRunner runner;
     FATP_RUN_TEST_NS(runner, tensor_layout, dynamic_extents_and_axes);
     FATP_RUN_TEST_NS(runner, tensor_layout, inline_metadata_storage);
+    FATP_RUN_TEST_NS(runner, tensor_layout, metadata_moves_preserve_invariants);
     FATP_RUN_TEST_NS(runner, tensor_layout, canonical_layouts);
     FATP_RUN_TEST_NS(runner, tensor_layout, signed_reachability_and_classification);
     FATP_RUN_TEST_NS(runner, tensor_layout, validation_boundaries);

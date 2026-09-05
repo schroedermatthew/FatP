@@ -101,11 +101,11 @@ FATP_TEST_CASE(strided_descriptor_roundtrip)
     borrowed(1, 0) = 60;
     FATP_ASSERT_EQ(owner(1, 2), 60, "Descriptor borrowing should reconstruct the exact mapping");
 
-    const auto readonly = describeTensor(std::as_const(reversed));
-    static_assert(std::same_as<typename decltype(readonly)::element_type, const int>);
-    const auto readonlyBorrow = readonly.borrow();
-    static_assert(std::same_as<decltype(readonlyBorrow), const TensorView<const int>>);
-    FATP_ASSERT_EQ(readonlyBorrow(0, 2), 1, "Read-only descriptor should preserve logical values");
+    const auto constWrapperDescriptor = describeTensor(std::as_const(reversed));
+    static_assert(std::same_as<typename decltype(constWrapperDescriptor)::element_type, int>);
+    const auto constWrapperBorrow = constWrapperDescriptor.borrow();
+    static_assert(std::same_as<decltype(constWrapperBorrow), const TensorView<int>>);
+    FATP_ASSERT_EQ(constWrapperBorrow(0, 2), 1, "Const view wrappers preserve logical values and mutability");
 
     StridedTensorDescriptor<int> sharedDescriptor;
     {
@@ -194,6 +194,49 @@ FATP_TEST_CASE(static_dynamic_conversion)
     return true;
 }
 
+FATP_TEST_CASE(interop_element_constness)
+{
+    const auto check = []<typename Owner>(Owner& owner) {
+        const auto view = owner.asView();
+        const auto shared = owner.asSharedView();
+        const auto readonly = std::as_const(owner).asConstView();
+        auto descriptor = describeTensor(view);
+        auto sharedDescriptor = describeTensor(shared);
+        auto ownerDescriptor = describeTensor(std::as_const(owner));
+        auto readonlyDescriptor = describeTensor(readonly);
+        static_assert(std::same_as<typename decltype(descriptor)::element_type, int>);
+        static_assert(std::same_as<typename decltype(sharedDescriptor)::element_type, int>);
+        static_assert(std::same_as<typename decltype(ownerDescriptor)::element_type, const int>);
+        static_assert(std::same_as<typename decltype(readonlyDescriptor)::element_type, const int>);
+        auto span = contiguousSpan(view);
+        auto sharedSpan = contiguousSpan(shared);
+        static_assert(std::same_as<typename decltype(span)::element_type, int>);
+        static_assert(std::same_as<typename decltype(sharedSpan)::element_type, int>);
+        static_assert(std::same_as<typename decltype(contiguousSpan(std::as_const(owner)))::element_type, const int>);
+        static_assert(std::same_as<typename decltype(contiguousSpan(readonly))::element_type, const int>);
+        descriptor.borrow()[0] = 3;
+        sharedSpan[1] = 4;
+        FATP_ASSERT_EQ(owner[0], 3, "Const wrapper descriptor permits writes to mutable elements");
+        FATP_ASSERT_EQ(owner[1], 4, "Const shared wrapper span aliases mutable elements");
+#if FATP_HAS_MDSPAN
+        auto mapped = asMdspan<1>(view);
+        auto sharedMapped = asMdspan<1>(shared);
+        static_assert(std::same_as<typename decltype(mapped)::element_type, int>);
+        static_assert(std::same_as<typename decltype(sharedMapped)::element_type, int>);
+        static_assert(std::same_as<typename decltype(asMdspan<1>(std::as_const(owner)))::element_type, const int>);
+        static_assert(std::same_as<typename decltype(asMdspan<1>(readonly))::element_type, const int>);
+        mapped[0] = 5;
+        FATP_ASSERT_EQ(owner[0], 5, "Const wrapper mdspan aliases mutable elements");
+#endif
+        return true;
+    };
+    Tensor<int> dynamic({2}, 1);
+    RankedTensor<int, 1> ranked({2}, 1);
+    FATP_ASSERT_TRUE(check(dynamic), "Dynamic interop constness");
+    FATP_ASSERT_TRUE(check(ranked), "Ranked interop constness");
+    return true;
+}
+
 #if FATP_HAS_MDSPAN
 template <std::size_t Rank, typename T>
 concept CanMdspanTemporary = requires(T&& value) { asMdspan<Rank>(std::move(value)); };
@@ -220,6 +263,47 @@ FATP_TEST_CASE(mdspan_mapping)
                      "layout_stride should receive valid positive placeholder strides for empty axes");
     return true;
 }
+
+FATP_TEST_CASE(mdspan_mapping_preconditions)
+{
+    int storage[8]{0, 1, 2, 3, 4, 5, 6, 7};
+    const TensorLayout interleaved(8, 0, DynamicExtents{3, 2}, TensorStrides{2, 3});
+    auto writable = TensorView<int>::borrow(storage, interleaved);
+    const auto readonly = TensorView<const int>::borrow(storage, interleaved);
+    FATP_ASSERT_TRUE(interleaved.isInjective(), "Interleaved example is a valid FatP mapping");
+    FATP_ASSERT_THROWS(asMdspan<2>(writable), std::invalid_argument,
+                       "Mutable adapter rejects injective mappings outside layout_stride's contract");
+    FATP_ASSERT_THROWS(asMdspan<2>(readonly), std::invalid_argument,
+                       "Const adapter checks the same mapping precondition");
+    const auto ranked = asRankedView<2>(writable);
+    FATP_ASSERT_THROWS(asMdspan<2>(ranked), std::invalid_argument, "Ranked adapter rejects interleaving too");
+
+    // An unused singleton stride must not reject an otherwise representable mapping.
+    const auto singleton = TensorView<int>::borrow(
+        storage, TensorLayout(8, 0, DynamicExtents{3, 1}, TensorStrides{2, 3}));
+    auto singletonMapped = asMdspan<2>(singleton);
+    const auto last = singletonMapped[2, 0];
+    FATP_ASSERT_EQ(last, 4, "Normalizing singleton strides preserves all element addresses");
+
+    for (const auto& extents : {DynamicExtents{0, 2, 3}, DynamicExtents{2, 0, 3}, DynamicExtents{2, 3, 0}})
+    {
+        Tensor<int> empty(extents);
+        const auto mapping = asMdspan<3>(empty).mapping();
+        std::array<std::size_t, 3> order{0, 1, 2};
+        bool valid = false;
+        do
+        {
+            valid = mapping.stride(order[1]) >= mapping.stride(order[0]) * extents[order[0]] &&
+                    mapping.stride(order[2]) >= mapping.stride(order[1]) * extents[order[1]];
+        } while (!valid && std::next_permutation(order.begin(), order.end()));
+        FATP_ASSERT_TRUE(valid, "Empty placeholders meet the permutation precondition at every zero-axis position");
+        FATP_ASSERT_EQ(mapping.required_span_size(), std::size_t{0}, "Empty mdspan spans no storage");
+    }
+    Tensor<int> scalar(DynamicExtents{}, 9);
+    const auto scalarMapping = asMdspan<0>(scalar);
+    FATP_ASSERT_EQ(scalarMapping.mapping().required_span_size(), std::size_t{1}, "Rank-zero mapping remains scalar");
+    return true;
+}
 #endif
 
 } // namespace fat_p::testing::tensor_interop
@@ -235,8 +319,10 @@ bool test_TensorInterop()
     FATP_RUN_TEST_NS(runner, tensor_interop, strided_descriptor_roundtrip);
     FATP_RUN_TEST_NS(runner, tensor_interop, descriptor_storage_validation);
     FATP_RUN_TEST_NS(runner, tensor_interop, static_dynamic_conversion);
+    FATP_RUN_TEST_NS(runner, tensor_interop, interop_element_constness);
 #if FATP_HAS_MDSPAN
     FATP_RUN_TEST_NS(runner, tensor_interop, mdspan_mapping);
+    FATP_RUN_TEST_NS(runner, tensor_interop, mdspan_mapping_preconditions);
 #endif
     return 0 == runner.print_summary();
 }

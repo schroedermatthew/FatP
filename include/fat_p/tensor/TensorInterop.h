@@ -41,6 +41,7 @@ FATP_META:
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -50,6 +51,94 @@ FATP_META:
 
 namespace fat_p
 {
+
+namespace tensor_detail
+{
+
+// Const owners expose const elements; const view wrappers retain their element type.
+template <typename Source>
+using TensorInteropElement =
+    std::remove_pointer_t<decltype(TensorAccess::storageBase(std::declval<Source&>()))>;
+
+#if FATP_HAS_MDSPAN
+template <std::size_t Rank, ReadableTensor Source>
+[[nodiscard]] auto mdspanStrides(const Source& source)
+{
+    TensorAccess::validate(source);
+    if (source.rank() != Rank)
+    {
+        throw std::invalid_argument("asMdspan rank must match the Tensor mapping");
+    }
+    if (!source.layout().isInjective())
+    {
+        throw std::invalid_argument("asMdspan requires an injective Tensor mapping");
+    }
+    std::array<std::size_t, Rank> strides{};
+    std::array<std::size_t, Rank> order{};
+    for (std::size_t axis = 0; axis < Rank; ++axis)
+    {
+        if (source.strides()[axis] < 0)
+        {
+            throw std::invalid_argument("std::layout_stride interop does not represent negative Tensor strides");
+        }
+        // Singleton strides do not affect addresses and may otherwise prevent
+        // a valid layout_stride permutation (even when they were positive).
+        strides[axis] = source.extents()[axis] == 1 || source.strides()[axis] == 0
+                            ? std::size_t{1} : static_cast<std::size_t>(source.strides()[axis]);
+        order[axis] = axis;
+    }
+    if (source.empty())
+    {
+        // Empty mappings have no addresses to preserve. Use positive canonical
+        // placeholders rather than replacing each zero stride independently.
+        std::size_t running = 1;
+        for (std::size_t reverse = Rank; reverse > 0; --reverse)
+        {
+            const auto axis = reverse - 1;
+            strides[axis] = running;
+            const auto factor = std::max(source.extents()[axis], std::size_t{1});
+            if (axis != 0)
+            {
+                if (running > std::numeric_limits<std::size_t>::max() / factor)
+                {
+                    throw std::overflow_error("Empty mdspan placeholder strides exceed size_t");
+                }
+                running *= factor;
+            }
+        }
+    }
+    const auto before = [&](std::size_t left, std::size_t right) {
+        return strides[left] < strides[right] ||
+               (strides[left] == strides[right] && source.extents()[left] < source.extents()[right]);
+    };
+    // Bounded insertion sort also handles rank zero and singleton arrays.
+    for (std::size_t i = 1; i < Rank; ++i)
+    {
+        const auto axis = order[i];
+        auto j = i;
+        while (j > 0 && before(axis, order[j - 1]))
+        {
+            order[j] = order[j - 1];
+            --j;
+        }
+        order[j] = axis;
+    }
+    for (std::size_t i = 1; i < Rank; ++i)
+    {
+        const auto previous = order[i - 1];
+        const auto extent = source.extents()[previous];
+        // layout_stride requires a permutation with nextStride >= stride*extent,
+        // which is stronger than general injectivity. Divide to avoid overflow.
+        if (extent != 0 && strides[previous] > strides[order[i]] / extent)
+        {
+            throw std::invalid_argument("Tensor strides do not satisfy std::layout_stride requirements");
+        }
+    }
+    return strides;
+}
+#endif
+
+} // namespace tensor_detail
 
 template <typename T>
 struct StridedTensorDescriptor
@@ -109,7 +198,8 @@ template <WritableTensor Source>
 }
 
 template <ReadableTensor Source>
-[[nodiscard]] auto describeTensor(const Source& source) -> StridedTensorDescriptor<const typename Source::value_type>
+[[nodiscard]] auto describeTensor(const Source& source)
+    -> StridedTensorDescriptor<tensor_detail::TensorInteropElement<const Source>>
 {
     tensor_detail::TensorAccess::validate(source);
     return {tensor_detail::TensorAccess::storageBase(source), source.layout().storageLength(),
@@ -135,7 +225,8 @@ template <WritableTensor Source>
 }
 
 template <ReadableTensor Source>
-[[nodiscard]] auto contiguousSpan(const Source& source) -> std::span<const typename Source::value_type>
+[[nodiscard]] auto contiguousSpan(const Source& source)
+    -> std::span<tensor_detail::TensorInteropElement<const Source>>
 {
     tensor_detail::TensorAccess::validate(source);
     if (!source.layout().isContiguous())
@@ -207,29 +298,9 @@ template <std::size_t Rank, WritableTensor Source>
              tensor_detail::tensorStaticRankValue<Source> == Rank)
 [[nodiscard]] auto asMdspan(Source& source)
 {
-    if constexpr (tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank)
-    {
-        if (source.rank() != Rank)
-        {
-            throw std::invalid_argument("asMdspan rank must match the Tensor mapping");
-        }
-    }
-    if (!source.layout().isInjective())
-    {
-        throw std::invalid_argument("asMdspan requires an injective Tensor mapping");
-    }
+    const auto strides = tensor_detail::mdspanStrides<Rank>(source);
     std::array<std::size_t, Rank> extents{};
-    std::array<std::size_t, Rank> strides{};
-    for (std::size_t axis = 0; axis < Rank; ++axis)
-    {
-        if (source.strides()[axis] < 0)
-        {
-            throw std::invalid_argument("std::layout_stride interop does not represent negative Tensor strides");
-        }
-        extents[axis] = source.extents()[axis];
-        strides[axis] = source.strides()[axis] == 0 ? std::size_t{1}
-                                                    : static_cast<std::size_t>(source.strides()[axis]);
-    }
+    std::copy(source.extents().begin(), source.extents().end(), extents.begin());
     using extents_type = std::dextents<std::size_t, Rank>;
     using mapping_type = typename std::layout_stride::template mapping<extents_type>;
     const auto descriptor = describeTensor(source);
@@ -242,33 +313,13 @@ template <std::size_t Rank, ReadableTensor Source>
              tensor_detail::tensorStaticRankValue<Source> == Rank)
 [[nodiscard]] auto asMdspan(const Source& source)
 {
-    if constexpr (tensor_detail::tensorStaticRankValue<Source> == tensor_detail::kDynamicTensorRank)
-    {
-        if (source.rank() != Rank)
-        {
-            throw std::invalid_argument("asMdspan rank must match the Tensor mapping");
-        }
-    }
-    if (!source.layout().isInjective())
-    {
-        throw std::invalid_argument("asMdspan requires an injective Tensor mapping");
-    }
+    const auto strides = tensor_detail::mdspanStrides<Rank>(source);
     std::array<std::size_t, Rank> extents{};
-    std::array<std::size_t, Rank> strides{};
-    for (std::size_t axis = 0; axis < Rank; ++axis)
-    {
-        if (source.strides()[axis] < 0)
-        {
-            throw std::invalid_argument("std::layout_stride interop does not represent negative Tensor strides");
-        }
-        extents[axis] = source.extents()[axis];
-        strides[axis] = source.strides()[axis] == 0 ? std::size_t{1}
-                                                    : static_cast<std::size_t>(source.strides()[axis]);
-    }
+    std::copy(source.extents().begin(), source.extents().end(), extents.begin());
     using extents_type = std::dextents<std::size_t, Rank>;
     using mapping_type = typename std::layout_stride::template mapping<extents_type>;
     const auto descriptor = describeTensor(source);
-    return std::mdspan<const typename Source::value_type, extents_type, std::layout_stride>(
+    return std::mdspan<tensor_detail::TensorInteropElement<const Source>, extents_type, std::layout_stride>(
         descriptor.logicalData(), mapping_type(extents_type(extents), strides));
 }
 

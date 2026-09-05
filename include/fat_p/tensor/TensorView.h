@@ -346,6 +346,11 @@ public:
         , mLifetime(moveOrCopyLifetime(other))
         , mTracked(other.mTracked)
     {
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            other.mStorageBase = nullptr;
+            other.mTracked = false;
+        }
     }
     TensorView& operator=(const TensorView& other)
     {

@@ -546,6 +546,42 @@ FATP_TEST_CASE(normalize_rejects_zero_vector)
     return true;
 }
 
+FATP_TEST_CASE(normalize_extreme_finite_vectors)
+{
+    const auto check = []<typename T, typename Policy>() {
+        for (const T magnitude : {std::numeric_limits<T>::max(), std::numeric_limits<T>::min(),
+                                  std::numeric_limits<T>::denorm_min()})
+        {
+            if (magnitude == T{0})
+            {
+                continue;
+            }
+            const StaticTensor<T, Vector<3>, Policy> input{magnitude, -magnitude, -T{0}};
+            const auto unit = normalize(input);
+            const T expected = T{1} / std::sqrt(T{2});
+            const T tolerance = T{8} * std::numeric_limits<T>::epsilon();
+            if (std::abs(unit[0] - expected) > tolerance ||
+                std::abs(unit[1] + expected) > tolerance ||
+                std::abs(norm(unit) - T{1}) > tolerance || !std::signbit(unit[2]))
+            {
+                return false;
+            }
+        }
+        return true;
+    };
+    FATP_ASSERT_TRUE((check.template operator()<float, UncheckedPolicy>()), "Float extreme normalization");
+    FATP_ASSERT_TRUE((check.template operator()<double, UncheckedPolicy>()), "Double extreme normalization");
+    FATP_ASSERT_TRUE((check.template operator()<long double, UncheckedPolicy>()), "Long-double normalization");
+    FATP_ASSERT_TRUE((check.template operator()<double, CheckedPolicy>()), "Checked extreme normalization");
+    FATP_ASSERT_TRUE((check.template operator()<double, SaturatingArithmeticPolicy>()),
+                     "Saturating extreme normalization");
+    const Vec2d infinite{std::numeric_limits<double>::infinity(), 1.0};
+    const auto infiniteUnit = normalize(infinite);
+    FATP_ASSERT_TRUE(std::isnan(infiniteUnit[0]) && infiniteUnit[1] == 0.0,
+                     "Unchecked nonfinite normalization retains native behavior");
+    return true;
+}
+
 // =============================================================================
 // SIMD Operations Tests (when available)
 // =============================================================================
@@ -751,6 +787,7 @@ bool test_TensorStatic()
     FATP_RUN_TEST_NS(runner, tensorstatic, l2_norm_avoids_intermediate_overflow_and_underflow);
     FATP_RUN_TEST_NS(runner, tensorstatic, normalize_produces_unit_vector);
     FATP_RUN_TEST_NS(runner, tensorstatic, normalize_rejects_zero_vector);
+    FATP_RUN_TEST_NS(runner, tensorstatic, normalize_extreme_finite_vectors);
 
 #ifdef __AVX2__
     // SIMD Operations
