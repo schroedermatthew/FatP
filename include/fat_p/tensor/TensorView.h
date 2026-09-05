@@ -437,7 +437,12 @@ public:
         requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] reference operator()(Indices... indices) const
     {
-        return atIndices(std::array<std::ptrdiff_t, sizeof...(Indices)>{static_cast<std::ptrdiff_t>(indices)...});
+        checkAlive();
+        if (sizeof...(Indices) != rank())
+        {
+            throw std::invalid_argument("TensorView index count does not match its rank");
+        }
+        return atIndices(std::array<std::ptrdiff_t, sizeof...(Indices)>{tensor_detail::checkedElementIndexCast<std::ptrdiff_t>(indices)...});
     }
 
     [[nodiscard]] iterator begin() const
@@ -581,7 +586,12 @@ public:
 
     [[nodiscard]] TensorView rowView(std::size_t row) const
     {
-        if (rank() != 2 || row >= extent(0))
+        checkAlive();
+        if (rank() != 2)
+        {
+            throw std::invalid_argument("rowView requires a rank-two mapping");
+        }
+        if (row >= extent(0))
         {
             throw std::out_of_range("rowView requires a valid row in a rank-two mapping");
         }
@@ -590,7 +600,12 @@ public:
 
     [[nodiscard]] TensorView columnView(std::size_t column) const
     {
-        if (rank() != 2 || column >= extent(1))
+        checkAlive();
+        if (rank() != 2)
+        {
+            throw std::invalid_argument("columnView requires a rank-two mapping");
+        }
+        if (column >= extent(1))
         {
             throw std::out_of_range("columnView requires a valid column in a rank-two mapping");
         }
@@ -845,7 +860,7 @@ public:
     [[nodiscard]] static SharedTensorView share(std::shared_ptr<void> lifetime, pointer storageBase,
                                                 layout_type layout)
     {
-        if (!lifetime)
+        if (lifetime.use_count() == 0)
         {
             throw std::invalid_argument("SharedTensorView requires a nonempty lifetime handle");
         }
@@ -1099,6 +1114,16 @@ namespace tensor_detail
 
 struct TensorAccess
 {
+    // Publish an unpublished materialization without invoking Tensor's public
+    // move constructor (rank zero preserves a live scalar in a moved-from owner).
+    template <typename T, typename Allocator, std::size_t Rank>
+    [[nodiscard]] static Tensor<T, Allocator, Rank> finishMaterialization(Tensor<T, Allocator, Rank>&& owner)
+    {
+        using Owner = Tensor<T, Allocator, Rank>;
+        return Owner(typename Owner::AdoptTag{}, owner.mAllocator,
+                     std::move(owner.mLayout), std::move(owner.mStorage));
+    }
+
     template <typename R>
     static void validate(const R&) = delete;
 

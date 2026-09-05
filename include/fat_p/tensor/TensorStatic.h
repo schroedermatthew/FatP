@@ -67,6 +67,7 @@ FATP_META:
 #include <utility>
 
 #include "CheckedArithmetic.h"
+#include "TensorIndex.h"
 
 namespace fat_p
 {
@@ -377,18 +378,18 @@ public:
     }
 
     // Multi-dimensional indexing
-    template <typename... Indices>
+    template <std::integral... Indices>
     constexpr T& at(Indices... indices)
     {
         static_assert(sizeof...(indices) == rank, "Index count must match tensor rank");
-        return mData[compute_offset(std::array<size_t, rank>{static_cast<size_t>(indices)...})];
+        return mData[compute_offset(std::array<size_t, rank>{tensor_detail::checkedElementIndexCast<size_t>(indices)...})];
     }
 
-    template <typename... Indices>
+    template <std::integral... Indices>
     constexpr const T& at(Indices... indices) const
     {
         static_assert(sizeof...(indices) == rank, "Index count must match tensor rank");
-        return mData[compute_offset(std::array<size_t, rank>{static_cast<size_t>(indices)...})];
+        return mData[compute_offset(std::array<size_t, rank>{tensor_detail::checkedElementIndexCast<size_t>(indices)...})];
     }
 
     // Iterators

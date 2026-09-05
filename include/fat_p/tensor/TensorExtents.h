@@ -48,6 +48,7 @@ FATP_META:
 #include <utility>
 #include <variant>
 #include <vector>
+#include "TensorIndex.h"
 
 namespace fat_p
 {

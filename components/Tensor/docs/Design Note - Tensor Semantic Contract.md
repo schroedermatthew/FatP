@@ -218,6 +218,8 @@ SharedRankedTensorView<T, R> // fixed-rank shared mapping
 
 - A borrowed view must not outlive its storage owner.
 - A shared view may survive destruction of any single owner handle.
+- `share` requires a lifetime handle with shared ownership. An owning alias with
+  a null stored pointer is valid; a non-null alias without a control block is not.
 - View factories returning borrowed views must be lvalue-qualified and must
   reject rvalues.
 - External memory must use explicit `borrow`, `share`, or `adopt` operations;
@@ -926,6 +928,10 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 
 | Decision | Executable evidence |
 |---|---|
+| Integral element indices are checked before narrowing; constructor traits reflect element requirements | `test_Tensor.cpp::index_conversion_and_constructor_constraints`; `test_TensorStatic.cpp::checked_wide_indices` |
+| Failed allocator-propagating owner assignment preserves allocator, values, shape, and borrows | `test_TensorAlgorithms.cpp::owner_assignment_allocation_failure_transaction` (standalone allocation probe) |
+| Ranked scalar reshaping requires copy assignment without requiring element copy/move construction | `test_TensorAlgorithms.cpp::rank_zero_reshape_assignment_only` |
+| Row/column views check lifetime before rank and distinguish rank errors from bounds errors | `test_TensorView.cpp::shared_and_borrowed_lifetime`; `test_TensorView.cpp::external_mapping_validation` |
 | Rank-zero dynamic scalar has one element; default owner is empty | `test_Tensor.cpp::owner_scalar_empty_and_access` |
 | Owning copies are independent and moved-from owners are canonical empty | `test_Tensor.cpp::owner_copy_move_fill_and_hash` |
 | Allocator assignment and swap follow allocator traits | `test_Tensor.cpp::owner_allocator_semantics` |

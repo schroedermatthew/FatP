@@ -89,30 +89,31 @@ public:
                   "Tensor currently requires allocator_traits<Allocator>::pointer to equal T*");
 
     Tensor()
-        requires std::default_initializable<allocator_type>
+        requires(std::default_initializable<allocator_type> && std::default_initializable<value_type>)
         : Tensor(std::allocator_arg, allocator_type{}, defaultExtents())
     {
     }
 
     explicit Tensor(const allocator_type& allocator)
+        requires std::default_initializable<value_type>
         : Tensor(std::allocator_arg, allocator, defaultExtents())
     {
     }
 
     explicit Tensor(extents_type extents)
-        requires std::default_initializable<allocator_type>
+        requires(std::default_initializable<allocator_type> && std::default_initializable<value_type>)
         : Tensor(std::allocator_arg, allocator_type{}, std::move(extents))
     {
     }
 
     Tensor(std::initializer_list<size_type> extents)
-        requires std::default_initializable<allocator_type>
+        requires(std::default_initializable<allocator_type> && std::default_initializable<value_type>)
         : Tensor(extents_type(extents))
     {
     }
 
     explicit Tensor(const std::vector<size_type>& extents)
-        requires std::default_initializable<allocator_type>
+        requires(std::default_initializable<allocator_type> && std::default_initializable<value_type>)
         : Tensor(extents_type(extents))
     {
     }
@@ -297,14 +298,16 @@ public:
             else
             {
                 auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+                auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
                 mAllocator = std::move(other.mAllocator);
-                replaceByStealing(other, std::move(nextLifetime));
+                replaceByStealing(other, std::move(nextLifetime), std::move(nextSourceLifetime));
             }
         }
         else if (allocatorCompatible(other.mAllocator))
         {
             auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-            replaceByStealing(other, std::move(nextLifetime));
+            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+            replaceByStealing(other, std::move(nextLifetime), std::move(nextSourceLifetime));
         }
         else
         {
@@ -361,14 +364,22 @@ public:
         requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] reference operator()(Indices... indices)
     {
-        return atIndices(std::array<difference_type, sizeof...(Indices)>{static_cast<difference_type>(indices)...});
+        if (sizeof...(Indices) != rank())
+        {
+            throw std::invalid_argument("Tensor index count does not match its rank");
+        }
+        return atIndices(std::array<difference_type, sizeof...(Indices)>{tensor_detail::checkedElementIndexCast<difference_type>(indices)...});
     }
 
     template <std::integral... Indices>
         requires(Rank == tensor_detail::kDynamicTensorRank || sizeof...(Indices) == Rank)
     [[nodiscard]] const_reference operator()(Indices... indices) const
     {
-        return atIndices(std::array<difference_type, sizeof...(Indices)>{static_cast<difference_type>(indices)...});
+        if (sizeof...(Indices) != rank())
+        {
+            throw std::invalid_argument("Tensor index count does not match its rank");
+        }
+        return atIndices(std::array<difference_type, sizeof...(Indices)>{tensor_detail::checkedElementIndexCast<difference_type>(indices)...});
     }
 
     template <std::integral... Indices>
@@ -989,11 +1000,11 @@ private:
         }
     }
 
-    void replaceByStealing(Tensor& other, std::shared_ptr<tensor_detail::TensorLifetimeState> nextLifetime)
+    void replaceByStealing(Tensor& other, std::shared_ptr<tensor_detail::TensorLifetimeState> nextLifetime,
+                          std::shared_ptr<tensor_detail::TensorLifetimeState> nextSourceLifetime)
     {
         if constexpr (Rank == 0)
         {
-            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
             auto replacementStorage = makeRankZeroMoveStorage(other, mAllocator);
             tensor_detail::invalidateLifetime(mLifetime);
             tensor_detail::invalidateLifetime(other.mLifetime);
@@ -1004,7 +1015,6 @@ private:
         }
         else
         {
-            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
             tensor_detail::invalidateLifetime(mLifetime);
             tensor_detail::invalidateLifetime(other.mLifetime);
             mLayout = std::move(other.mLayout);
@@ -1025,11 +1035,10 @@ private:
 
     void commitStorage(Tensor&& replacement)
     {
-        auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
         tensor_detail::invalidateLifetime(mLifetime);
         mLayout = std::move(replacement.mLayout);
         mStorage = std::move(replacement.mStorage);
-        mLifetime = std::move(nextLifetime);
+        mLifetime = std::move(replacement.mLifetime);
     }
 
     [[nodiscard]] std::shared_ptr<void> sharedLifetimeHandle() const

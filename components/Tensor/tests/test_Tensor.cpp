@@ -51,6 +51,41 @@ FATP_META:
 namespace fat_p::testing::tensor
 {
 
+struct NonDefaultElement
+{
+    NonDefaultElement() = delete;
+    explicit NonDefaultElement(int n) : value(n) {}
+    int value;
+};
+using NonDefaultOwner = Tensor<NonDefaultElement>;
+static_assert(!std::is_default_constructible_v<NonDefaultOwner>);
+static_assert(!std::is_constructible_v<NonDefaultOwner, NonDefaultOwner::allocator_type>);
+static_assert(!std::is_constructible_v<NonDefaultOwner, DynamicExtents>);
+static_assert(!std::is_constructible_v<NonDefaultOwner, std::vector<std::size_t>>);
+static_assert(!std::is_constructible_v<NonDefaultOwner, std::initializer_list<std::size_t>>);
+static_assert(!std::is_constructible_v<NonDefaultOwner, std::allocator_arg_t,
+                                      NonDefaultOwner::allocator_type, DynamicExtents>);
+static_assert(std::is_constructible_v<NonDefaultOwner, DynamicExtents, const NonDefaultElement&>);
+
+FATP_TEST_CASE(index_conversion_and_constructor_constraints)
+{
+    Tensor<int> owner({1}, 7);
+    const auto& constant = owner;
+    const std::uint64_t wide = std::uint64_t{1} << 32;
+    FATP_ASSERT_THROWS(owner(wide), std::out_of_range, "Wide indices must not wrap on 32-bit targets");
+    FATP_ASSERT_THROWS(constant(wide), std::out_of_range, "Const access preserves the original index");
+    FATP_ASSERT_THROWS(owner(-1), std::out_of_range, "Negative indices are rejected");
+    FATP_ASSERT_THROWS(owner(-1, 0), std::invalid_argument, "Rank validation precedes index conversion");
+    FATP_ASSERT_THROWS(constant(-1, 0), std::invalid_argument, "Const access preserves rank error ordering");
+    FATP_ASSERT_THROWS(tensor_detail::checkedElementIndexCast<std::uint32_t>(wide),
+                       std::out_of_range, "Exercise narrowing independently of host pointer width");
+    FATP_ASSERT_EQ(tensor_detail::checkedElementIndexCast<std::uint32_t>(wide - 1),
+                   UINT32_MAX, "Largest representable index survives conversion");
+    NonDefaultOwner filled(DynamicExtents{1}, NonDefaultElement{42});
+    FATP_ASSERT_EQ(filled[0].value, 42, "Fill construction does not require a default constructor");
+    return true;
+}
+
 template <typename U>
 concept MutableLvalueViewable = requires(U& owner) { owner.asView(); };
 
@@ -599,8 +634,10 @@ namespace fat_p::testing
 
 bool test_Tensor()
 {
+    // Keep compile-time constructor constraints beside their runtime coverage.
     FATP_PRINT_HEADER(TENSOR OWNER AND VIEWS)
     TestRunner runner;
+    FATP_RUN_TEST_NS(runner, tensor, index_conversion_and_constructor_constraints);
     FATP_RUN_TEST_NS(runner, tensor, canonical_dtype_vocabulary);
     FATP_RUN_TEST_NS(runner, tensor, owner_scalar_empty_and_access);
     FATP_RUN_TEST_NS(runner, tensor, owner_copy_move_fill_and_hash);

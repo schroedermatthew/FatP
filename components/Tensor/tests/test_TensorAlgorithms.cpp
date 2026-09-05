@@ -112,6 +112,29 @@ void operator delete[](void* storage, std::size_t) noexcept { std::free(storage)
 namespace fat_p::testing::tensor_algorithms
 {
 
+struct CopyAssignableOnly
+{
+    int value = 0;
+    CopyAssignableOnly() = default;
+    CopyAssignableOnly(const CopyAssignableOnly&) = delete;
+    CopyAssignableOnly(CopyAssignableOnly&&) = delete;
+    CopyAssignableOnly& operator=(const CopyAssignableOnly&) = default;
+};
+
+FATP_TEST_CASE(rank_zero_reshape_assignment_only)
+{
+    Tensor<CopyAssignableOnly> source(DynamicExtents{});
+    source[0].value = 42;
+    auto dynamic = reshapeCopy(source, DynamicExtents{});
+    auto ranked = reshapeCopy(source, tensor_detail::FixedRankExtents<0>{});
+    auto fromView = reshapeCopy(source.asConstView(), tensor_detail::FixedRankExtents<0>{});
+    FATP_ASSERT_EQ(dynamic[0].value, 42, "Dynamic scalar needs only copy assignment");
+    FATP_ASSERT_EQ(ranked[0].value, 42, "Ranked scalar needs only copy assignment");
+    FATP_ASSERT_EQ(fromView[0].value, 42, "Borrowed scalar materializes without an element move");
+    FATP_ASSERT_EQ(source[0].value, 42, "Materialization preserves the source");
+    return true;
+}
+
 template <typename T>
 class TaggedAllocator
 {
@@ -3793,6 +3816,67 @@ FATP_TEST_CASE(compound_integer_types)
 
 #if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE) && \
     (!defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0)
+template <typename T>
+struct PropagatingAllocator
+{
+    using value_type = T;
+    using propagate_on_container_copy_assignment = std::true_type;
+    using propagate_on_container_move_assignment = std::true_type;
+    int id = 0;
+    PropagatingAllocator() = default;
+    explicit PropagatingAllocator(int identity) : id(identity) {}
+    template <typename U>
+    PropagatingAllocator(const PropagatingAllocator<U>& other) : id(other.id) {}
+    T* allocate(std::size_t count) { return std::allocator<T>{}.allocate(count); }
+    void deallocate(T* pointer, std::size_t count) noexcept { std::allocator<T>{}.deallocate(pointer, count); }
+    bool operator==(const PropagatingAllocator&) const = default;
+};
+
+FATP_TEST_CASE(owner_assignment_allocation_failure_transaction)
+{
+    using Alloc = PropagatingAllocator<int>;
+    for (bool move : {false, true})
+    {
+        bool succeeded = false;
+        for (std::ptrdiff_t failure = 0; failure < 32; ++failure)
+        {
+            Tensor<int, Alloc> destination(std::allocator_arg, Alloc{1}, DynamicExtents{2}, 11);
+            Tensor<int, Alloc> source(std::allocator_arg, Alloc{2}, DynamicExtents{3}, 37);
+            auto borrowed = destination.asView();
+            bool rejected = false;
+            {
+                allocation_probe::ScopedFailure injection(failure);
+                try
+                {
+                    if (move) { destination = std::move(source); }
+                    else { destination = source; }
+                }
+                catch (const std::bad_alloc&) { rejected = true; }
+            }
+            if (rejected)
+            {
+                FATP_ASSERT_EQ(destination.get_allocator().id, 1, "Failure preserves allocator identity");
+                FATP_ASSERT_EQ(destination.size(), 2u, "Failure preserves destination shape");
+                FATP_ASSERT_EQ(destination[0], 11, "Failure preserves destination values");
+                FATP_ASSERT_EQ(borrowed[0], 11, "Failure preserves existing borrowed views");
+                FATP_ASSERT_EQ(source.get_allocator().id, 2, "Failure preserves source allocator");
+                FATP_ASSERT_EQ(source[0], 37, "Failure preserves source values");
+            }
+            else
+            {
+                FATP_ASSERT_EQ(destination.get_allocator().id, 2, "Success propagates allocator");
+                FATP_ASSERT_EQ(destination.size(), 3u, "Success installs source shape");
+                FATP_ASSERT_EQ(destination[0], 37, "Success installs source values");
+                FATP_ASSERT_TRUE(failure > 0, "Sweep exercises at least one allocation failure");
+                succeeded = true;
+                break;
+            }
+        }
+        FATP_ASSERT_TRUE(succeeded, "Allocation failure sweep reaches success");
+    }
+    return true;
+}
+
 FATP_TEST_CASE(compound_allocation_failure_transaction)
 {
     for (int shape = 0; shape < 4; ++shape)
@@ -4075,6 +4159,7 @@ bool test_TensorAlgorithms()
 {
     FATP_PRINT_HEADER(TENSOR ALGORITHMS)
     TestRunner runner;
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, rank_zero_reshape_assignment_only);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, counted_signed_iteration);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, fill_copy_and_negative_transform);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, copy_from_shifted_and_permuted_aliases);
@@ -4134,6 +4219,7 @@ bool test_TensorAlgorithms()
     FATP_RUN_TEST_NS(runner, tensor_algorithms, compound_integer_types);
 #if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE) && \
     (!defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0)
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, owner_assignment_allocation_failure_transaction);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, compound_allocation_failure_transaction);
     FATP_RUN_TEST_NS(runner, tensor_algorithms, view_assignment_allocation_failure_transaction);
 #elif defined(ENABLE_TEST_APPLICATION)

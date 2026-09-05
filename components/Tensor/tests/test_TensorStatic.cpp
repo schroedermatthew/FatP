@@ -51,6 +51,15 @@ FATP_META:
 
 namespace fat_p::testing::tensorstatic
 {
+FATP_TEST_CASE(checked_wide_indices)
+{
+    StaticTensor<int, Shape<1>> value;
+    const auto& constant = value;
+    FATP_ASSERT_THROWS(value.at(1ULL << 32), std::out_of_range, "Wide static index must not wrap");
+    FATP_ASSERT_THROWS(constant.at(1ULL << 32), std::out_of_range, "Const static index must not wrap");
+    FATP_ASSERT_THROWS(value.at(-1), std::out_of_range, "Negative static index is rejected");
+    return true;
+}
 
 template <std::size_t... Dims>
 concept ValidShape = requires { typename Shape<Dims...>; };
@@ -791,6 +800,7 @@ bool test_TensorStatic()
 
     // Basic Construction and Access
     out << colors::blue() << "--- Basic Construction and Access ---" << colors::reset() << "\n";
+    FATP_RUN_TEST_NS(runner, tensorstatic, checked_wide_indices);
     FATP_RUN_TEST_NS(runner, tensorstatic, default_construction);
     FATP_RUN_TEST_NS(runner, tensorstatic, over_aligned_elements);
     FATP_RUN_TEST_NS(runner, tensorstatic, copy_and_move_contracts);

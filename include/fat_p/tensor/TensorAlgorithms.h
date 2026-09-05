@@ -602,7 +602,14 @@ template <tensor_detail::CopyMaterializableTensor Source, std::size_t NewRank, t
                                                                    std::move(target));
     auto destination = result.reshapeView(source.extents());
     tensor_detail::copyKernel(source, destination);
-    return result;
+    if constexpr (NewRank == 0)
+    {
+        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
+    }
+    else
+    {
+        return result;
+    }
 }
 
 template <tensor_detail::CopyMaterializableTensor Source, std::size_t NewRank>

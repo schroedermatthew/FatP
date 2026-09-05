@@ -53,6 +53,17 @@ static_assert(std::same_as<decltype(std::declval<const Tensor<int>&>().broadcast
 
 FATP_TEST_CASE(external_mapping_validation)
 {
+    Tensor<int> indexOwner({1}, 7);
+    auto indexView = indexOwner.asView();
+    const auto& constIndexView = indexView;
+    FATP_ASSERT_THROWS(indexView(1ULL << 32), std::out_of_range, "View index must not truncate");
+    FATP_ASSERT_THROWS(indexView(-1, 0), std::invalid_argument, "Rank validation precedes index conversion");
+    FATP_ASSERT_THROWS(constIndexView(1ULL << 32), std::out_of_range, "Const view index must not truncate");
+    FATP_ASSERT_THROWS(indexView.rowView(0), std::invalid_argument, "Row rank mismatch is invalid_argument");
+    FATP_ASSERT_THROWS(indexView.columnView(0), std::invalid_argument, "Column rank mismatch is invalid_argument");
+    Tensor<int> matrix({1, 1}, 7);
+    FATP_ASSERT_THROWS(matrix.asView().rowView(1), std::out_of_range, "Row bounds remain out_of_range");
+    FATP_ASSERT_THROWS(matrix.asView().columnView(1), std::out_of_range, "Column bounds remain out_of_range");
     int values[]{1, 2, 3, 4, 5, 6};
     auto reversed = TensorView<int>::borrow(values, TensorLayout(6, 2, DynamicExtents{2, 3}, TensorStrides{3, -1}));
     FATP_ASSERT_EQ(reversed(0, 0), 3, "Negative-stride view should start at its logical origin");
@@ -100,6 +111,22 @@ FATP_TEST_CASE(readonly_broadcast)
 
 FATP_TEST_CASE(shared_and_borrowed_lifetime)
 {
+    auto storage = std::make_shared<int>(23);
+    std::weak_ptr<int> weak = storage;
+    std::shared_ptr<void> owningNull(storage, nullptr);
+    auto aliased = SharedTensorView<int>::share(owningNull, storage.get(),
+                                               TensorLayout::contiguous(DynamicExtents{1}));
+    storage.reset();
+    owningNull.reset();
+    FATP_ASSERT_FALSE(weak.expired(), "Null stored pointer can still own the backing allocation");
+    FATP_ASSERT_EQ(aliased[0], 23, "Owning null alias retains storage");
+    int cell = 5;
+    std::shared_ptr<void> nonowner(std::shared_ptr<void>{}, &cell);
+    FATP_ASSERT_THROWS(SharedTensorView<int>::share(nonowner, &cell,
+                          TensorLayout::contiguous(DynamicExtents{1})),
+                       std::invalid_argument, "A stored pointer alone does not establish shared ownership");
+    FATP_ASSERT_THROWS(aliased.rowView(0), std::invalid_argument, "Shared row access requires rank two");
+    FATP_ASSERT_THROWS(aliased.columnView(0), std::invalid_argument, "Shared column access requires rank two");
     TensorView<int> borrowed;
     SharedTensorView<int> shared;
     {
@@ -109,6 +136,8 @@ FATP_TEST_CASE(shared_and_borrowed_lifetime)
     }
     FATP_ASSERT_EQ(shared[0], 17, "Shared view should retain element storage");
 #ifndef NDEBUG
+    FATP_ASSERT_THROWS(borrowed.rowView(0), std::runtime_error, "Lifetime failure precedes rank validation");
+    FATP_ASSERT_THROWS(borrowed.columnView(0), std::runtime_error, "Column access checks lifetime first");
     FATP_ASSERT_THROWS(borrowed[0], std::runtime_error,
                        "Debug borrowed view should diagnose owner destruction");
 #endif
