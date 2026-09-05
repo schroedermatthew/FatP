@@ -322,7 +322,7 @@ public:
     static constexpr size_t size = ShapeT::size;
 
     // Storage: stack-allocated array (no heap)
-    alignas(32) std::array<T, size> mData;
+    alignas(alignof(T) > 32 ? alignof(T) : 32) std::array<T, size> mData;
 
     // Constructors
     constexpr StaticTensor()
@@ -892,8 +892,12 @@ StaticTensor<T, Vector<N>, P> normalize(const StaticTensor<T, Vector<N>, P>& vec
         }
         scale = std::max(scale, std::abs(vec[i]));
     }
+    if (finite && scale == T{0})
+    {
+        throw std::domain_error("Cannot normalize a zero-length StaticTensor vector");
+    }
     StaticTensor<T, Vector<N>, P> result = vec;
-    if (finite && scale != T{0})
+    if (finite)
     {
         for (size_t i = 0; i < N; ++i)
         {

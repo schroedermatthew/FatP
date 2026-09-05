@@ -194,6 +194,29 @@ FATP_TEST_CASE(static_dynamic_conversion)
     return true;
 }
 
+FATP_TEST_CASE(over_aligned_static_conversion)
+{
+    struct alignas(64) Element
+    {
+        int value = 0;
+    };
+    Tensor<Element> source({2, 2});
+    for (std::size_t index = 0; index < source.size(); ++index)
+    {
+        source[index].value = static_cast<int>(index + 1);
+    }
+    auto fixed = toStaticTensor<Shape<2, 2>>(source.transposeView());
+    static_assert(alignof(decltype(fixed)) >= alignof(Element));
+    FATP_ASSERT_EQ(fixed.at(0, 1).value, 3, "Over-aligned conversion preserves logical view order");
+    FATP_ASSERT_EQ(fixed.at(1, 0).value, 2, "Over-aligned conversion preserves transposed coordinates");
+    fixed.at(0, 0).value = 9;
+    FATP_ASSERT_EQ(source[0].value, 1, "Static conversion owns independent elements");
+    const auto roundtrip = toTensor(fixed);
+    FATP_ASSERT_EQ(roundtrip(0, 0).value, 9, "Over-aligned static values convert back to dynamic storage");
+    FATP_ASSERT_EQ(roundtrip(0, 1).value, 3, "Roundtrip retains the converted shape and values");
+    return true;
+}
+
 FATP_TEST_CASE(interop_element_constness)
 {
     const auto check = []<typename Owner>(Owner& owner) {
@@ -319,6 +342,7 @@ bool test_TensorInterop()
     FATP_RUN_TEST_NS(runner, tensor_interop, strided_descriptor_roundtrip);
     FATP_RUN_TEST_NS(runner, tensor_interop, descriptor_storage_validation);
     FATP_RUN_TEST_NS(runner, tensor_interop, static_dynamic_conversion);
+    FATP_RUN_TEST_NS(runner, tensor_interop, over_aligned_static_conversion);
     FATP_RUN_TEST_NS(runner, tensor_interop, interop_element_constness);
 #if FATP_HAS_MDSPAN
     FATP_RUN_TEST_NS(runner, tensor_interop, mdspan_mapping);

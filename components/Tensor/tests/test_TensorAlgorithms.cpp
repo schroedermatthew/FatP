@@ -3873,6 +3873,27 @@ FATP_TEST_CASE(compound_allocation_failure_transaction)
 
 FATP_TEST_CASE(view_assignment_allocation_failure_transaction)
 {
+    // A failed heap-metadata copy must unwind before any layout/view exists.
+    const TensorStrides metadata{1, 2, 3, 4, 5};
+    bool copyRejected = false;
+    {
+        allocation_probe::ScopedFailure injection(0);
+        try
+        {
+            const TensorStrides copy(metadata);
+            (void)copy;
+        }
+        catch (const std::bad_alloc&)
+        {
+            copyRejected = true;
+        }
+    }
+    FATP_ASSERT_TRUE(copyRejected, "Heap metadata copy propagates allocation failure");
+    FATP_ASSERT_TRUE(metadata == TensorStrides({1, 2, 3, 4, 5}),
+                     "Failed metadata copy preserves the source");
+    const TensorStrides recoveredCopy(metadata);
+    FATP_ASSERT_TRUE(recoveredCopy == metadata, "Metadata can be copied after allocation recovers");
+
     const auto sameOwner = [](const auto& left, const auto& right) noexcept {
         return !left.owner_before(right) && !right.owner_before(left);
     };

@@ -65,6 +65,30 @@ FATP_TEST_CASE(default_construction)
     return true;
 }
 
+FATP_TEST_CASE(over_aligned_elements)
+{
+    const auto check = []<std::size_t Alignment>() {
+        struct alignas(Alignment) Element
+        {
+            int value = 7;
+        };
+        using TensorType = StaticTensor<Element, Shape<2>>;
+        static_assert(alignof(TensorType) >= alignof(Element));
+        TensorType tensor;
+        for (const auto& element : tensor)
+        {
+            FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(&element) % alignof(Element),
+                           std::uintptr_t{0}, "Every element retains its required alignment");
+            FATP_ASSERT_EQ(element.value, 7, "Over-aligned elements are initialized normally");
+        }
+        return true;
+    };
+    static_assert(alignof(StaticTensor<float, Shape<8>>) >= 32);
+    FATP_ASSERT_TRUE(check.template operator()<64>(), "Support cache-line-aligned elements");
+    FATP_ASSERT_TRUE(check.template operator()<128>(), "Support alignment above the dynamic default");
+    return true;
+}
+
 FATP_TEST_CASE(scalar_broadcast)
 {
     StaticTensor<int, Vector<3>, UncheckedPolicy> v(42);
@@ -535,6 +559,8 @@ FATP_TEST_CASE(normalize_produces_unit_vector)
     auto unit = normalize(v);
     float result = norm(unit);
     FATP_ASSERT_TRUE(std::abs(result - 1.0f) < 1e-6f, "Normalized vector has unit length");
+    // Exercise the over-aligned return slot when the caller discards the result.
+    (void)normalize(v);
     return true;
 }
 
@@ -543,6 +569,9 @@ FATP_TEST_CASE(normalize_rejects_zero_vector)
     Vec3f zero{0.0f, 0.0f, 0.0f};
     FATP_ASSERT_THROWS(normalize(zero), std::domain_error,
                        "normalize() must report a zero norm through the standard domain exception");
+    const StaticTensor<double, Vector<3>, CheckedPolicy> signedZero{-0.0, 0.0, -0.0};
+    FATP_ASSERT_THROWS(normalize(signedZero), std::domain_error,
+                       "Checked normalization rejects signed zero before dividing");
     return true;
 }
 
@@ -735,6 +764,7 @@ bool test_TensorStatic()
     // Basic Construction and Access
     out << colors::blue() << "--- Basic Construction and Access ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, tensorstatic, default_construction);
+    FATP_RUN_TEST_NS(runner, tensorstatic, over_aligned_elements);
     FATP_RUN_TEST_NS(runner, tensorstatic, scalar_broadcast);
     FATP_RUN_TEST_NS(runner, tensorstatic, initializer_list_construction);
     FATP_RUN_TEST_NS(runner, tensorstatic, variadic_constructor);

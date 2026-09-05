@@ -136,7 +136,19 @@ public:
         }
     }
 
-    TensorMetadataStorage(const TensorMetadataStorage&) = default;
+    TensorMetadataStorage(const TensorMetadataStorage& other)
+    {
+        // Keep a fully constructed inline alternative while a heap copy can throw.
+        if (const auto* values = std::get_if<InlineStorage>(&other.mStorage))
+        {
+            mStorage.template emplace<InlineStorage>(*values);
+        }
+        else
+        {
+            HeapStorage heapValues(std::get<HeapStorage>(other.mStorage));
+            mStorage.template emplace<HeapStorage>(std::move(heapValues));
+        }
+    }
     TensorMetadataStorage(TensorMetadataStorage&&) noexcept = default;
 
     TensorMetadataStorage& operator=(const TensorMetadataStorage& other)
@@ -414,7 +426,8 @@ private:
             mStorage.template emplace<InlineStorage>(std::move(inlineValues));
             return;
         }
-        mStorage.template emplace<HeapStorage>(values, values + count);
+        HeapStorage heapValues(values, values + count);
+        mStorage.template emplace<HeapStorage>(std::move(heapValues));
     }
 
     void spillToHeap(size_type requestedCapacity)
