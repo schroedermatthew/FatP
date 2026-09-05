@@ -717,6 +717,18 @@ FATP_TEST_CASE(counted_signed_iteration)
                      "Counted plan should carry negative offsets in logical order");
     FATP_ASSERT_EQ(plan.logicalSize(), std::size_t{6}, "Plan should retain the pre-coalescing logical size");
 
+    constexpr auto maximumDifference = std::numeric_limits<std::ptrdiff_t>::max();
+    constexpr auto sparseStride = maximumDifference / 3 + 1;
+    const auto sparseStorageLength = static_cast<std::size_t>(sparseStride * 2 + 1);
+    const TensorLayout sparse(sparseStorageLength, 0, DynamicExtents{1, 3},
+                              TensorStrides{0, sparseStride});
+    const auto sparsePlan = tensor_detail::makeTensorIterationPlan(sparse.extents(), sparse);
+    std::vector<std::ptrdiff_t> sparseOffsets;
+    sparsePlan.forEachOffset(
+        [&](std::size_t, const auto& offsets) { sparseOffsets.push_back(offsets[0]); });
+    FATP_ASSERT_TRUE(sparseOffsets == std::vector<std::ptrdiff_t>({0, sparseStride, sparseStride * 2}),
+                     "A valid layout remains iterable when optional coalescing math overflows");
+
     const TensorLayout scalar = TensorLayout::contiguous(DynamicExtents{});
     const auto scalarPlan = tensor_detail::makeTensorIterationPlan(DynamicExtents{}, scalar);
     std::size_t scalarVisits = 0;
@@ -1022,6 +1034,10 @@ FATP_TEST_CASE(copy_from_validation_empty_and_exceptions)
                        "Expired destinations must be checked before pointer arithmetic or writes");
     FATP_ASSERT_THROWS(reshapeCopy(expired, DynamicExtents{4}, CopyAllocator<int>(state, 1)), std::runtime_error,
                        "Reshape materialization validates lifetime before allocation");
+    FATP_ASSERT_THROWS(clone(expired, CopyAllocator<int>(state, 1)), std::runtime_error,
+                       "Clone validates borrowed lifetime before result allocation");
+    FATP_ASSERT_THROWS(transform(expired, [](int value) { return value; }, CopyAllocator<int>(state, 1)),
+                       std::runtime_error, "Transform validates borrowed lifetime before result allocation");
     FATP_ASSERT_EQ(state.attempts, std::size_t{0}, "Expired lifetime rejection must not allocate element storage");
 #endif
 
@@ -3833,6 +3849,179 @@ FATP_TEST_CASE(compound_allocation_failure_transaction)
     }
     return true;
 }
+
+FATP_TEST_CASE(view_assignment_allocation_failure_transaction)
+{
+    const auto sameOwner = [](const auto& left, const auto& right) noexcept {
+        return !left.owner_before(right) && !right.owner_before(left);
+    };
+    const auto verifyScenario = [&](Tensor<int>& destinationOwner, Tensor<int>& sourceOwner) -> bool {
+        bool layoutReachedSuccess = false;
+        std::size_t layoutRejectedFailures = 0;
+        for (std::ptrdiff_t failure = 0; failure < 32; ++failure)
+        {
+            auto destination = destinationOwner.layout();
+            const auto source = sourceOwner.layout();
+            const auto original = destination;
+            bool rejected = false;
+            {
+                // No assertions, formatting, or test-framework work while allocation failure is armed.
+                allocation_probe::ScopedFailure injection(failure);
+                try
+                {
+                    destination = source;
+                }
+                catch (const std::bad_alloc&)
+                {
+                    rejected = true;
+                }
+            }
+            if (rejected)
+            {
+                ++layoutRejectedFailures;
+                FATP_ASSERT_TRUE(destination == original,
+                                 "Failed TensorLayout assignment preserves all mapping metadata");
+            }
+            else
+            {
+                FATP_ASSERT_TRUE(destination == source,
+                                 "Successful TensorLayout assignment replaces all mapping metadata");
+                layoutReachedSuccess = true;
+                break;
+            }
+        }
+        FATP_ASSERT_TRUE(layoutRejectedFailures >= 2,
+                         "TensorLayout assignment exposes both dynamic metadata allocations");
+        FATP_ASSERT_TRUE(layoutReachedSuccess,
+                         "The TensorLayout allocation-failure sweep reaches a successful replacement");
+
+        bool viewReachedSuccess = false;
+        std::size_t viewRejectedFailures = 0;
+        for (std::ptrdiff_t failure = 0; failure < 32; ++failure)
+        {
+            auto destination = destinationOwner.asView();
+            const auto source = sourceOwner.asView();
+            const auto originalPointer = tensor_detail::TensorAccess::storageBase(destination);
+            const auto originalLayout = destination.layout();
+            const auto originalLifetime = tensor_detail::TensorAccess::lifetime(destination);
+            const auto sourceLifetime = tensor_detail::TensorAccess::lifetime(source);
+            bool rejected = false;
+            {
+                // No assertions, formatting, or test-framework work while allocation failure is armed.
+                allocation_probe::ScopedFailure injection(failure);
+                try
+                {
+                    destination = source;
+                }
+                catch (const std::bad_alloc&)
+                {
+                    rejected = true;
+                }
+            }
+            if (rejected)
+            {
+                ++viewRejectedFailures;
+                FATP_ASSERT_TRUE(tensor_detail::TensorAccess::storageBase(destination) == originalPointer,
+                                 "Failed TensorView assignment preserves its storage pointer");
+                FATP_ASSERT_TRUE(destination.layout() == originalLayout,
+                                 "Failed TensorView assignment preserves all layout metadata");
+                FATP_ASSERT_TRUE(sameOwner(tensor_detail::TensorAccess::lifetime(destination), originalLifetime),
+                                 "Failed TensorView assignment preserves its tracked owner lifetime");
+                FATP_ASSERT_TRUE(tensor_detail::TensorAccess::tracked(destination),
+                                 "Failed TensorView assignment preserves lifetime tracking");
+                FATP_ASSERT_EQ(destination[0], destinationOwner[0],
+                               "Failed TensorView assignment preserves the original mapping");
+            }
+            else
+            {
+                FATP_ASSERT_TRUE(tensor_detail::TensorAccess::storageBase(destination) == sourceOwner.data(),
+                                 "Successful TensorView assignment rebinds its storage pointer");
+                FATP_ASSERT_TRUE(destination.layout() == source.layout(),
+                                 "Successful TensorView assignment rebinds its complete layout");
+                FATP_ASSERT_TRUE(sameOwner(tensor_detail::TensorAccess::lifetime(destination), sourceLifetime),
+                                 "Successful TensorView assignment rebinds its owner lifetime");
+                FATP_ASSERT_TRUE(tensor_detail::TensorAccess::tracked(destination),
+                                 "The rebound TensorView remains lifetime tracked");
+                FATP_ASSERT_EQ(destination[0], sourceOwner[0],
+                               "The rebound TensorView reads from the new owner");
+                viewReachedSuccess = true;
+                break;
+            }
+        }
+        FATP_ASSERT_TRUE(viewRejectedFailures >= 2,
+                         "TensorView assignment exposes both dynamic layout metadata allocations");
+        FATP_ASSERT_TRUE(viewReachedSuccess,
+                         "The TensorView allocation-failure sweep reaches a successful rebind");
+
+        bool sharedReachedSuccess = false;
+        std::size_t sharedRejectedFailures = 0;
+        for (std::ptrdiff_t failure = 0; failure < 32; ++failure)
+        {
+            auto destination = destinationOwner.asSharedView();
+            const auto source = sourceOwner.asSharedView();
+            const auto originalPointer = tensor_detail::TensorAccess::storageBase(destination);
+            const auto originalLayout = destination.layout();
+            const auto originalLifetime = tensor_detail::TensorAccess::sharedLifetime(destination);
+            const auto sourceLifetime = tensor_detail::TensorAccess::sharedLifetime(source);
+            bool rejected = false;
+            {
+                // No assertions, formatting, or test-framework work while allocation failure is armed.
+                allocation_probe::ScopedFailure injection(failure);
+                try
+                {
+                    destination = source;
+                }
+                catch (const std::bad_alloc&)
+                {
+                    rejected = true;
+                }
+            }
+            if (rejected)
+            {
+                ++sharedRejectedFailures;
+                FATP_ASSERT_TRUE(tensor_detail::TensorAccess::storageBase(destination) == originalPointer,
+                                 "Failed SharedTensorView assignment preserves its storage pointer");
+                FATP_ASSERT_TRUE(destination.layout() == originalLayout,
+                                 "Failed SharedTensorView assignment preserves all layout metadata");
+                FATP_ASSERT_TRUE(
+                    sameOwner(tensor_detail::TensorAccess::sharedLifetime(destination), originalLifetime),
+                    "Failed SharedTensorView assignment preserves its owning lifetime handle");
+                FATP_ASSERT_EQ(destination[0], destinationOwner[0],
+                               "Failed SharedTensorView assignment preserves the original mapping");
+            }
+            else
+            {
+                FATP_ASSERT_TRUE(tensor_detail::TensorAccess::storageBase(destination) == sourceOwner.data(),
+                                 "Successful SharedTensorView assignment rebinds its storage pointer");
+                FATP_ASSERT_TRUE(destination.layout() == source.layout(),
+                                 "Successful SharedTensorView assignment rebinds its complete layout");
+                FATP_ASSERT_TRUE(
+                    sameOwner(tensor_detail::TensorAccess::sharedLifetime(destination), sourceLifetime),
+                    "Successful SharedTensorView assignment rebinds its owning lifetime handle");
+                FATP_ASSERT_EQ(destination[0], sourceOwner[0],
+                               "The rebound SharedTensorView reads from the new owner");
+                sharedReachedSuccess = true;
+                break;
+            }
+        }
+        FATP_ASSERT_TRUE(sharedRejectedFailures >= 2,
+                         "SharedTensorView assignment exposes both dynamic layout metadata allocations");
+        FATP_ASSERT_TRUE(sharedReachedSuccess,
+                         "The SharedTensorView allocation-failure sweep reaches a successful rebind");
+        return true;
+    };
+
+    Tensor<int> inlineDestination(DynamicExtents{2}, 11);
+    Tensor<int> firstHeapSource(DynamicExtents{1, 1, 1, 1, 2}, 37);
+    FATP_ASSERT_TRUE(verifyScenario(inlineDestination, firstHeapSource),
+                     "Inline-to-heap assignment failure scenarios should remain transactional");
+
+    Tensor<int> heapDestination(DynamicExtents{1, 1, 1, 2, 1}, 19);
+    Tensor<int> secondHeapSource(DynamicExtents{1, 1, 1, 1, 1, 2}, 43);
+    FATP_ASSERT_TRUE(verifyScenario(heapDestination, secondHeapSource),
+                     "Heap-to-heap assignment failure scenarios should remain transactional");
+    return true;
+}
 #endif
 
 } // namespace fat_p::testing::tensor_algorithms
@@ -3904,6 +4093,7 @@ bool test_TensorAlgorithms()
 #if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE) && \
     (!defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0)
     FATP_RUN_TEST_NS(runner, tensor_algorithms, compound_allocation_failure_transaction);
+    FATP_RUN_TEST_NS(runner, tensor_algorithms, view_assignment_allocation_failure_transaction);
 #elif defined(ENABLE_TEST_APPLICATION)
     std::cout << "[SKIP] compound_allocation_failure_transaction: "
                  "disabled or MSVC checked-iterator runtime.\n";

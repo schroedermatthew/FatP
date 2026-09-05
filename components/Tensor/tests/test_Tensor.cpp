@@ -63,10 +63,95 @@ concept ConstMutableViewable = requires(const U& owner) { owner.asView(); };
 template <typename U>
 concept ConstViewable = requires(const U& owner) { owner.asConstView(); };
 
+template <typename U>
+concept TemporaryRangeSliceViewable = requires(U&& owner) {
+    std::move(owner).sliceView(std::vector<std::size_t>{}, std::vector<std::size_t>{});
+};
+
+template <typename U>
+concept TemporarySpecificationSliceViewable = requires(U&& owner) {
+    std::move(owner).sliceView(std::vector<SliceSpec>{All});
+};
+
+template <typename U>
+concept TemporaryInitializerSliceViewable = requires(U&& owner) {
+    std::move(owner).sliceView(std::initializer_list<SliceSpec>{All});
+};
+
+template <typename U>
+concept TemporaryTypedSliceViewable = requires(U&& owner) {
+    std::move(owner).sliceView(All, std::ptrdiff_t{0});
+};
+
+template <typename U>
+concept TemporaryPermuteViewable = requires(U&& owner) {
+    std::move(owner).permuteView(std::vector<TensorAxis>{0, 1});
+};
+
+template <typename U>
+concept TemporarySqueezeViewable = requires(U&& owner) {
+    std::move(owner).squeezeView(std::vector<TensorAxis>{});
+};
+
+template <typename U>
+concept TemporaryTypedSqueezeViewable = requires(U&& owner) {
+    std::move(owner).template squeezeView<0>();
+};
+
+template <typename U>
+concept TemporaryUnsqueezeViewable = requires(U&& owner) { std::move(owner).unsqueezeView(0); };
+
+template <typename U>
+concept TemporaryRowViewable = requires(U&& owner) { std::move(owner).rowView(0); };
+
+template <typename U>
+concept TemporaryColumnViewable = requires(U&& owner) { std::move(owner).columnView(0); };
+
+template <typename U>
+concept TemporaryTransposeViewable = requires(U&& owner) { std::move(owner).transposeView(); };
+
+template <typename U>
+concept TemporaryDynamicReshapeViewable = requires(U&& owner) {
+    std::move(owner).reshapeView(DynamicExtents{1, 1});
+};
+
+template <typename U>
+concept TemporaryFixedReshapeViewable = requires(U&& owner) {
+    std::move(owner).reshapeView(tensor_detail::FixedRankExtents<2>{1, 1});
+};
+
+template <typename U>
+concept TemporaryDynamicBroadcastViewable = requires(U&& owner) {
+    std::move(owner).broadcastView(DynamicExtents{1, 1});
+};
+
+template <typename U>
+concept TemporaryFixedBroadcastViewable = requires(U&& owner) {
+    std::move(owner).broadcastView(tensor_detail::FixedRankExtents<2>{1, 1});
+};
+
+template <typename U>
+inline constexpr bool blocksTemporaryBorrowedDerivedViews =
+    !TemporaryRangeSliceViewable<U> && !TemporarySpecificationSliceViewable<U> &&
+    !TemporaryInitializerSliceViewable<U> && !TemporaryTypedSliceViewable<U> &&
+    !TemporaryPermuteViewable<U> && !TemporarySqueezeViewable<U> &&
+    !TemporaryTypedSqueezeViewable<U> && !TemporaryUnsqueezeViewable<U> &&
+    !TemporaryRowViewable<U> && !TemporaryColumnViewable<U> &&
+    !TemporaryTransposeViewable<U> && !TemporaryDynamicReshapeViewable<U> &&
+    !TemporaryFixedReshapeViewable<U> && !TemporaryDynamicBroadcastViewable<U> &&
+    !TemporaryFixedBroadcastViewable<U>;
+
+using DynamicFactoryOwner = Tensor<int>;
+using FixedFactoryOwner = Tensor<int, TensorAllocator<int>, 2>;
+
 static_assert(MutableLvalueViewable<Tensor<int>>);
 static_assert(!MutableRvalueViewable<Tensor<int>>);
 static_assert(!ConstMutableViewable<Tensor<int>>);
 static_assert(ConstViewable<Tensor<int>>);
+static_assert(blocksTemporaryBorrowedDerivedViews<DynamicFactoryOwner>);
+static_assert(blocksTemporaryBorrowedDerivedViews<const DynamicFactoryOwner>);
+static_assert(blocksTemporaryBorrowedDerivedViews<FixedFactoryOwner>);
+static_assert(blocksTemporaryBorrowedDerivedViews<const FixedFactoryOwner>);
 static_assert(std::same_as<decltype(std::declval<const Tensor<int>&>().data()), const int*>);
 static_assert(std::same_as<decltype(std::declval<const Tensor<int>&>().asConstView()), TensorView<const int>>);
 static_assert(ReadableTensor<Tensor<int>>);

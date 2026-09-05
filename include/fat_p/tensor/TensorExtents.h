@@ -258,7 +258,10 @@ public:
                 values->values[values->size++] = value;
                 return;
             }
+            const value_type preservedValue = value;
             spillToHeap(values->size + 1);
+            std::get<HeapStorage>(mStorage).push_back(preservedValue);
+            return;
         }
         std::get<HeapStorage>(mStorage).push_back(value);
     }
@@ -319,7 +322,10 @@ public:
 
         if (std::holds_alternative<InlineStorage>(mStorage))
         {
+            const value_type preservedValue = value;
             spillToHeap(requested);
+            std::get<HeapStorage>(mStorage).resize(requested, preservedValue);
+            return;
         }
         std::get<HeapStorage>(mStorage).resize(requested, value);
     }
@@ -329,16 +335,20 @@ public:
         const auto index = static_cast<size_type>(position - begin());
         if (auto* values = std::get_if<InlineStorage>(&mStorage))
         {
+            const value_type preservedValue = value;
             if (values->size < InlineCapacity)
             {
                 std::move_backward(values->values.begin() + static_cast<difference_type>(index),
                                    values->values.begin() + static_cast<difference_type>(values->size),
                                    values->values.begin() + static_cast<difference_type>(values->size + 1));
-                values->values[index] = value;
+                values->values[index] = preservedValue;
                 ++values->size;
                 return begin() + static_cast<difference_type>(index);
             }
             spillToHeap(values->size + 1);
+            auto& heapValues = std::get<HeapStorage>(mStorage);
+            heapValues.insert(heapValues.begin() + static_cast<difference_type>(index), preservedValue);
+            return heapValues.data() + static_cast<difference_type>(index);
         }
         auto& values = std::get<HeapStorage>(mStorage);
         values.insert(values.begin() + static_cast<difference_type>(index), value);

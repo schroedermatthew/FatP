@@ -157,6 +157,21 @@ public:
     using extents_type = tensor_detail::TensorExtentsFor<Rank>;
     using strides_type = tensor_detail::TensorStridesFor<Rank>;
 
+    BasicTensorLayout(const BasicTensorLayout&) = default;
+    BasicTensorLayout(BasicTensorLayout&&) noexcept = default;
+
+    BasicTensorLayout& operator=(const BasicTensorLayout& other)
+    {
+        if (this != &other)
+        {
+            BasicTensorLayout replacement(other);
+            *this = std::move(replacement);
+        }
+        return *this;
+    }
+
+    BasicTensorLayout& operator=(BasicTensorLayout&&) noexcept = default;
+
     BasicTensorLayout(std::size_t storageLength, std::ptrdiff_t originOffset, extents_type extents,
                       strides_type strides)
         : mStorageLength(storageLength)

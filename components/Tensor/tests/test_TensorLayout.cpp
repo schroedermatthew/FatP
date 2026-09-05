@@ -112,6 +112,34 @@ FATP_TEST_CASE(inline_metadata_storage)
     FATP_ASSERT_TRUE(transitioning == TensorStrides({4, 3, 2, 1}),
                      "Inline/heap transitions should preserve stride order and values");
 
+    TensorStrides pushAliased{4, 3, 2, 1};
+    pushAliased.push_back(pushAliased[1]);
+    FATP_ASSERT_FALSE(pushAliased.usesInlineStorage(),
+                      "Appending past inline capacity should spill aliased metadata to heap storage");
+    FATP_ASSERT_TRUE(pushAliased == TensorStrides({4, 3, 2, 1, 3}),
+                     "Inline-to-heap push_back should preserve an aliased source value");
+
+    TensorStrides spillInsertAliased{4, 3, 2, 1};
+    spillInsertAliased.insert(spillInsertAliased.begin() + 1, spillInsertAliased.back());
+    FATP_ASSERT_FALSE(spillInsertAliased.usesInlineStorage(),
+                      "Inserting past inline capacity should spill aliased metadata to heap storage");
+    FATP_ASSERT_TRUE(spillInsertAliased == TensorStrides({4, 1, 3, 2, 1}),
+                     "Inline-to-heap insert should preserve an aliased source value");
+
+    TensorStrides inlineInsertAliased{4, 3, 2};
+    inlineInsertAliased.insert(inlineInsertAliased.begin(), inlineInsertAliased[1]);
+    FATP_ASSERT_TRUE(inlineInsertAliased.usesInlineStorage(),
+                     "An insertion within inline capacity should remain inline");
+    FATP_ASSERT_TRUE(inlineInsertAliased == TensorStrides({3, 4, 3, 2}),
+                     "Inline insert should preserve a source value aliased by the shifted range");
+
+    TensorStrides resizeAliased{4, 3, 2, 1};
+    resizeAliased.resize(6, resizeAliased[1]);
+    FATP_ASSERT_FALSE(resizeAliased.usesInlineStorage(),
+                      "Resizing past inline capacity should spill aliased metadata to heap storage");
+    FATP_ASSERT_TRUE(resizeAliased == TensorStrides({4, 3, 2, 1, 3, 3}),
+                     "Inline-to-heap resize should preserve an aliased fill value");
+
     TensorStrides resized(6, 9);
     resized.resize(3);
     FATP_ASSERT_TRUE(resized.usesInlineStorage() && resized == TensorStrides({9, 9, 9}),

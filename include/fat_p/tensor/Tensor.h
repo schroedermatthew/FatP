@@ -571,6 +571,83 @@ public:
         return asConstView().broadcastView(std::move(target));
     }
 
+    // Borrowed derived views may not escape a temporary owner.
+    TensorView<value_type, Rank> sliceView(const std::vector<size_type>&,
+                                           const std::vector<size_type>&) && = delete;
+    TensorView<const value_type, Rank> sliceView(const std::vector<size_type>&,
+                                                 const std::vector<size_type>&) const && = delete;
+
+    void sliceView(const std::vector<SliceSpec>&) && = delete;
+    void sliceView(const std::vector<SliceSpec>&) const && = delete;
+    void sliceView(std::initializer_list<SliceSpec>) && = delete;
+    void sliceView(std::initializer_list<SliceSpec>) const && = delete;
+
+    template <typename... Specifications>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
+                 tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
+                 ((std::constructible_from<SliceSpec, Specifications> ||
+                   tensor_detail::isSliceIndex<Specifications>) && ...))
+    void sliceView(Specifications&&...) && = delete;
+
+    template <typename... Specifications>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
+                 tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
+                 ((std::constructible_from<SliceSpec, Specifications> ||
+                   tensor_detail::isSliceIndex<Specifications>) && ...))
+    void sliceView(Specifications&&...) const && = delete;
+
+    TensorView<value_type, Rank> permuteView(const std::vector<TensorAxis>&) && = delete;
+    TensorView<const value_type, Rank> permuteView(const std::vector<TensorAxis>&) const && = delete;
+
+    void squeezeView(const std::vector<TensorAxis>& = {}) && = delete;
+    void squeezeView(const std::vector<TensorAxis>& = {}) const && = delete;
+
+    template <TensorAxis... Axes>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Axes) > 0)
+    void squeezeView() && = delete;
+
+    template <TensorAxis... Axes>
+        requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Axes) > 0)
+    void squeezeView() const && = delete;
+
+    void unsqueezeView(TensorAxis) && = delete;
+    void unsqueezeView(TensorAxis) const && = delete;
+    TensorView<value_type, Rank> rowView(size_type) && = delete;
+    TensorView<const value_type, Rank> rowView(size_type) const && = delete;
+    TensorView<value_type, Rank> columnView(size_type) && = delete;
+    TensorView<const value_type, Rank> columnView(size_type) const && = delete;
+
+    TensorView<value_type, Rank> transposeView() &&
+        requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
+        = delete;
+    TensorView<const value_type, Rank> transposeView() const &&
+        requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
+        = delete;
+
+    TensorView<value_type> reshapeView(DynamicExtents) && = delete;
+    TensorView<const value_type> reshapeView(DynamicExtents) const && = delete;
+    TensorView<const value_type> broadcastView(DynamicExtents) && = delete;
+    TensorView<const value_type> broadcastView(DynamicExtents) const && = delete;
+
+    template <std::size_t NewRank>
+    TensorView<value_type, NewRank> reshapeView(tensor_detail::FixedRankExtents<NewRank>) && = delete;
+
+    template <std::size_t NewRank>
+    TensorView<const value_type, NewRank>
+    reshapeView(tensor_detail::FixedRankExtents<NewRank>) const && = delete;
+
+    template <std::size_t NewRank>
+    TensorView<const value_type, NewRank>
+    broadcastView(tensor_detail::FixedRankExtents<NewRank>) &&
+        requires(Rank == tensor_detail::kDynamicTensorRank || NewRank >= Rank)
+        = delete;
+
+    template <std::size_t NewRank>
+    TensorView<const value_type, NewRank>
+    broadcastView(tensor_detail::FixedRankExtents<NewRank>) const &&
+        requires(Rank == tensor_detail::kDynamicTensorRank || NewRank >= Rank)
+        = delete;
+
     [[nodiscard]] SharedTensorView<value_type, Rank> sharedSliceView(const std::vector<size_type>& start,
                                                                      const std::vector<size_type>& finish) &
     {
@@ -947,6 +1024,7 @@ template <ReadableTensor R, typename Allocator>
     -> Tensor<typename R::value_type, Allocator, tensor_detail::tensorStaticRankValue<R>>
 {
     using value_type = typename R::value_type;
+    tensor_detail::TensorAccess::validate(source);
     Tensor<value_type, Allocator, tensor_detail::tensorStaticRankValue<R>> result(
         std::allocator_arg, allocator, source.extents());
     tensor_detail::copyKernel(source, result);

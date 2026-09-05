@@ -60,6 +60,7 @@ FATP_META:
 #ifdef __AVX2__
 #include <immintrin.h>
 #endif
+#include <limits>
 #include <numeric>
 #include <type_traits>
 
@@ -232,10 +233,40 @@ struct SaturatingArithmeticPolicy
 // COMPILE-TIME SHAPE UTILITIES
 // =============================================================================
 
+namespace tensor_static_detail
+{
+
+template <size_t Product>
+consteval bool shapeSizeFits()
+{
+    return true;
+}
+
+template <size_t Product, size_t Dim, size_t... RemainingDims>
+consteval bool shapeSizeFits()
+{
+    if constexpr (Dim == 0)
+    {
+        // Shape emits the existing positive-dimension diagnostic.
+        return true;
+    }
+    else if constexpr (Dim > std::numeric_limits<size_t>::max() / Product)
+    {
+        return false;
+    }
+    else
+    {
+        return shapeSizeFits<Product * Dim, RemainingDims...>();
+    }
+}
+
+} // namespace tensor_static_detail
+
 /**
  * @brief Compile-time shape representation
  */
 template <size_t... Dims>
+    requires(tensor_static_detail::shapeSizeFits<1, Dims...>())
 struct Shape
 {
     static_assert(((Dims > 0) && ...), "StaticTensor dimensions must be greater than zero");
@@ -490,7 +521,15 @@ constexpr StaticTensor<T, S, P> operator-(const StaticTensor<T, S, P>& tensor)
     StaticTensor<T, S, P> result;
     for (size_t i = 0; i < S::size; ++i)
     {
-        result[i] = P::sub(T{0}, tensor[i]);
+        const auto policyResult = P::sub(T{0}, tensor[i]);
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            result[i] = tensor[i] == T{0} ? -tensor[i] : policyResult;
+        }
+        else
+        {
+            result[i] = policyResult;
+        }
     }
     return result;
 }

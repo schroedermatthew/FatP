@@ -347,23 +347,21 @@ public:
         , mTracked(other.mTracked)
     {
     }
-    TensorView& operator=(const TensorView&) = default;
+    TensorView& operator=(const TensorView& other)
+    {
+        if (this != &other)
+        {
+            TensorView replacement(other);
+            swapState(replacement);
+        }
+        return *this;
+    }
     TensorView& operator=(TensorView&& other) noexcept
     {
         if (this != &other)
         {
-            mStorageBase = other.mStorageBase;
-            if constexpr (Rank == tensor_detail::kDynamicTensorRank)
-            {
-                mLayout = std::move(other.mLayout);
-                mLifetime = std::move(other.mLifetime);
-            }
-            else
-            {
-                mLayout = other.mLayout;
-                mLifetime = other.mLifetime;
-            }
-            mTracked = other.mTracked;
+            TensorView replacement(std::move(other));
+            swapState(replacement);
         }
         return *this;
     }
@@ -381,11 +379,6 @@ public:
 
     [[nodiscard]] static TensorView borrow(pointer storageBase, layout_type layout)
     {
-        if (layout.logicalSize() != 0 && storageBase == nullptr)
-        {
-            throw std::invalid_argument("Cannot borrow a nonempty Tensor layout from a null pointer");
-        }
-        enforceWritableInjectivity(layout);
         return TensorView(storageBase, std::move(layout), {}, false);
     }
 
@@ -691,7 +684,21 @@ private:
         , mLifetime(std::move(lifetime))
         , mTracked(tracked)
     {
+        if (mLayout.logicalSize() != 0 && mStorageBase == nullptr)
+        {
+            throw std::invalid_argument("Cannot borrow a nonempty Tensor layout from a null pointer");
+        }
         enforceWritableInjectivity(mLayout);
+    }
+
+    void swapState(TensorView& other) noexcept
+    {
+        static_assert(std::is_nothrow_swappable_v<layout_type>);
+        using std::swap;
+        swap(mStorageBase, other.mStorageBase);
+        swap(mLayout, other.mLayout);
+        mLifetime.swap(other.mLifetime);
+        swap(mTracked, other.mTracked);
     }
 
     static void enforceWritableInjectivity(const layout_type& layout)
@@ -802,21 +809,21 @@ public:
         , mView(moveOrCopyView(other))
     {
     }
-    SharedTensorView& operator=(const SharedTensorView&) = default;
+    SharedTensorView& operator=(const SharedTensorView& other)
+    {
+        if (this != &other)
+        {
+            SharedTensorView replacement(other);
+            swapState(replacement);
+        }
+        return *this;
+    }
     SharedTensorView& operator=(SharedTensorView&& other) noexcept
     {
         if (this != &other)
         {
-            if constexpr (Rank == tensor_detail::kDynamicTensorRank)
-            {
-                mLifetime = std::move(other.mLifetime);
-                mView = std::move(other.mView);
-            }
-            else
-            {
-                mLifetime = other.mLifetime;
-                mView = other.mView;
-            }
+            SharedTensorView replacement(std::move(other));
+            swapState(replacement);
         }
         return *this;
     }
@@ -979,6 +986,12 @@ private:
         : mLifetime(std::move(lifetime))
         , mView(std::move(view))
     {
+    }
+
+    void swapState(SharedTensorView& other) noexcept
+    {
+        mLifetime.swap(other.mLifetime);
+        mView.swapState(other.mView);
     }
 
     [[nodiscard]] static std::shared_ptr<void> moveOrCopySharedLifetime(SharedTensorView& other) noexcept

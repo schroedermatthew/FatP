@@ -41,11 +41,15 @@ FATP_META:
 
 #include "FatPTest.h"
 #include "TensorStatic.h"
+#include <cfenv>
 #include <cmath>
 #include <limits>
 
 namespace fat_p::testing::tensorstatic
 {
+
+template <std::size_t... Dims>
+concept ValidShape = requires { typename Shape<Dims...>; };
 
 // =============================================================================
 // Basic Construction and Access Tests
@@ -153,6 +157,21 @@ FATP_TEST_CASE(shape_size)
     return true;
 }
 
+FATP_TEST_CASE(shape_size_overflow_is_rejected)
+{
+    constexpr auto maximum = std::numeric_limits<std::size_t>::max();
+    static_assert(ValidShape<>);
+    static_assert(Shape<>::size == std::size_t{1});
+    static_assert(ValidShape<maximum>);
+    static_assert(Shape<maximum>::size == maximum);
+    static_assert(!ValidShape<maximum / 2 + 1, 2>);
+    static_assert(!ValidShape<maximum, 2>);
+    static_assert(!ValidShape<maximum, maximum>);
+
+    FATP_ASSERT_EQ(Shape<>::size, std::size_t{1}, "Rank-zero Shape should retain scalar size one");
+    return true;
+}
+
 FATP_TEST_CASE(shape_dimensions)
 {
     using S1 = Shape<3, 4, 5>;
@@ -243,6 +262,63 @@ FATP_TEST_CASE(scalar_multiplication_reversed)
     FATP_ASSERT_EQ(c[0], 3.0f, "Reversed scalar multiplication c[0]");
     FATP_ASSERT_EQ(c[1], 6.0f, "Reversed scalar multiplication c[1]");
     FATP_ASSERT_EQ(c[2], 9.0f, "Reversed scalar multiplication c[2]");
+    return true;
+}
+
+FATP_TEST_CASE(unary_negation_preserves_signed_zero_and_integer_policies)
+{
+    const auto preservesSignedZero = []<typename Policy>() {
+        const StaticTensor<double, Vector<2>, Policy> input{0.0, -0.0};
+        const auto result = -input;
+        return result[0] == 0.0 && std::signbit(result[0]) && result[1] == 0.0 && !std::signbit(result[1]);
+    };
+
+    FATP_ASSERT_TRUE(preservesSignedZero.template operator()<UncheckedPolicy>(),
+                     "Unchecked unary negation should flip both floating zero signs");
+    FATP_ASSERT_TRUE(preservesSignedZero.template operator()<CheckedPolicy>(),
+                     "Checked unary negation should flip both floating zero signs");
+    FATP_ASSERT_TRUE(preservesSignedZero.template operator()<SaturatingArithmeticPolicy>(),
+                     "Saturating unary negation should flip both floating zero signs");
+
+    const auto originalRounding = std::fegetround();
+    const auto roundingChanged = originalRounding != -1 && std::fesetround(FE_DOWNWARD) == 0;
+    bool directedRoundingPreservedZero = false;
+    if (roundingChanged)
+    {
+        volatile double negativeZero = -0.0;
+        const StaticTensor<double, Vector<1>, UncheckedPolicy> input{negativeZero};
+        const auto result = -input;
+        directedRoundingPreservedZero = result[0] == 0.0 && !std::signbit(result[0]);
+        std::fesetround(originalRounding);
+    }
+    FATP_ASSERT_TRUE(roundingChanged, "The test environment should support downward rounding mode");
+    FATP_ASSERT_TRUE(directedRoundingPreservedZero,
+                     "Unary negation should flip negative zero under directed rounding");
+
+    const StaticTensor<int, Vector<1>, CheckedPolicy> minimumChecked{std::numeric_limits<int>::min()};
+    bool checkedRejected = false;
+    try
+    {
+        [[maybe_unused]] const auto invalid = -minimumChecked;
+    }
+    catch (const std::exception&)
+    {
+        checkedRejected = true;
+    }
+    FATP_ASSERT_TRUE(checkedRejected, "Checked unary negation should reject the minimum integer");
+
+    const StaticTensor<int, Vector<1>, SaturatingArithmeticPolicy> minimumSaturating{
+        std::numeric_limits<int>::min()};
+    const auto saturated = -minimumSaturating;
+    FATP_ASSERT_EQ(saturated[0], std::numeric_limits<int>::max(),
+                   "Saturating unary negation should clamp the minimum integer");
+
+    const StaticTensor<short, Vector<2>, CheckedPolicy> narrow{short{7}, short{-3}};
+    const auto narrowNegated = -narrow;
+    FATP_ASSERT_EQ(narrowNegated[0], short{-7},
+                   "Unary negation should preserve narrow integer policy types");
+    FATP_ASSERT_EQ(narrowNegated[1], short{3},
+                   "Unary negation should produce the expected narrow integer value");
     return true;
 }
 
@@ -597,6 +673,7 @@ bool test_TensorStatic()
     out << "\n" << colors::blue() << "--- Compile-Time Shape System ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, tensorstatic, shape_rank);
     FATP_RUN_TEST_NS(runner, tensorstatic, shape_size);
+    FATP_RUN_TEST_NS(runner, tensorstatic, shape_size_overflow_is_rejected);
     FATP_RUN_TEST_NS(runner, tensorstatic, shape_dimensions);
     FATP_RUN_TEST_NS(runner, tensorstatic, vector_shape);
     FATP_RUN_TEST_NS(runner, tensorstatic, matrix_shape);
@@ -609,6 +686,7 @@ bool test_TensorStatic()
     FATP_RUN_TEST_NS(runner, tensorstatic, element_wise_division);
     FATP_RUN_TEST_NS(runner, tensorstatic, scalar_multiplication);
     FATP_RUN_TEST_NS(runner, tensorstatic, scalar_multiplication_reversed);
+    FATP_RUN_TEST_NS(runner, tensorstatic, unary_negation_preserves_signed_zero_and_integer_policies);
 
     // Policy Behavior
     out << "\n" << colors::blue() << "--- Arithmetic Policy Behavior ---" << colors::reset() << "\n";

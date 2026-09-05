@@ -93,12 +93,36 @@ inline constexpr std::size_t typedSliceResultRank =
     SourceRank - typedSliceConsumedAxes<Specifications...> +
     (std::size_t{0} + ... + (isNewAxisSlice<Specifications> ? 1 : 0));
 
+template <typename Index>
+[[nodiscard]] std::ptrdiff_t checkedSliceIndexCast(Index index)
+{
+    using value_type = std::remove_cvref_t<Index>;
+    static_assert(isSliceIndex<value_type>);
+    if constexpr (std::numeric_limits<value_type>::digits >
+                  std::numeric_limits<std::ptrdiff_t>::digits)
+    {
+        if constexpr (std::is_signed_v<value_type>)
+        {
+            if (index < static_cast<value_type>(std::numeric_limits<std::ptrdiff_t>::min()) ||
+                index > static_cast<value_type>(std::numeric_limits<std::ptrdiff_t>::max()))
+            {
+                throw std::overflow_error("Tensor slice index is not representable in ptrdiff_t");
+            }
+        }
+        else if (index > static_cast<value_type>(std::numeric_limits<std::ptrdiff_t>::max()))
+        {
+            throw std::overflow_error("Tensor slice index is not representable in ptrdiff_t");
+        }
+    }
+    return static_cast<std::ptrdiff_t>(index);
+}
+
 template <typename Specification>
 [[nodiscard]] SliceSpec makeSliceSpec(Specification&& specification)
 {
     if constexpr (isSliceIndex<Specification>)
     {
-        return SliceSpec(static_cast<std::ptrdiff_t>(specification));
+        return SliceSpec(checkedSliceIndexCast(specification));
     }
     else
     {

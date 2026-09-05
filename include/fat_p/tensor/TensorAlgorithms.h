@@ -986,6 +986,7 @@ template <ReadableTensor Source, typename Function, typename Allocator>
     -> tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 {
     using value_type = typename Source::value_type;
+    tensor_detail::TensorAccess::validate(source);
     tensor_detail::UnaryTensorResult<value_type, Allocator, Source> result(std::allocator_arg, allocator,
                                                                            source.extents());
     tensor_detail::unaryKernel(source, result, std::forward<Function>(function));

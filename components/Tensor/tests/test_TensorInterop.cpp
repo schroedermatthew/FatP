@@ -130,6 +130,50 @@ FATP_TEST_CASE(strided_descriptor_roundtrip)
     return true;
 }
 
+FATP_TEST_CASE(descriptor_storage_validation)
+{
+    StridedTensorDescriptor<int> dynamic;
+    dynamic.storageLength = 1;
+    dynamic.extents = DynamicExtents{1};
+    dynamic.strides = TensorStrides{1};
+    FATP_ASSERT_THROWS(dynamic.borrow(), std::invalid_argument,
+                       "A nonempty dynamic descriptor must reject null storage");
+
+    StridedTensorDescriptor<const int> readonly;
+    readonly.storageLength = 1;
+    readonly.extents = DynamicExtents{1};
+    readonly.strides = TensorStrides{1};
+    FATP_ASSERT_THROWS(readonly.borrow(), std::invalid_argument,
+                       "A nonempty read-only descriptor must reject null storage");
+
+    RankedStridedTensorDescriptor<int, 1> ranked;
+    ranked.storageLength = 1;
+    ranked.extents = RankedExtents<1>{1};
+    ranked.strides = {1};
+    FATP_ASSERT_THROWS(ranked.borrow(), std::invalid_argument,
+                       "A nonempty ranked descriptor must reject null storage");
+
+    RankedStridedTensorDescriptor<const int, 1> rankedReadonly;
+    rankedReadonly.storageLength = 1;
+    rankedReadonly.extents = RankedExtents<1>{1};
+    rankedReadonly.strides = {1};
+    FATP_ASSERT_THROWS(rankedReadonly.borrow(), std::invalid_argument,
+                       "A nonempty read-only ranked descriptor must reject null storage");
+
+    StridedTensorDescriptor<int> empty;
+    empty.extents = DynamicExtents{0};
+    empty.strides = TensorStrides{0};
+    const auto emptyBorrow = empty.borrow();
+    FATP_ASSERT_TRUE(emptyBorrow.empty(), "An empty descriptor may use null storage");
+
+    RankedStridedTensorDescriptor<int, 1> rankedEmpty;
+    rankedEmpty.extents = RankedExtents<1>{0};
+    rankedEmpty.strides = {0};
+    const auto rankedEmptyBorrow = rankedEmpty.borrow();
+    FATP_ASSERT_TRUE(rankedEmptyBorrow.empty(), "An empty ranked descriptor may use null storage");
+    return true;
+}
+
 FATP_TEST_CASE(static_dynamic_conversion)
 {
     StaticTensor<int, Shape<2, 3>> fixed{1, 2, 3, 4, 5, 6};
@@ -189,6 +233,7 @@ bool test_TensorInterop()
     TestRunner runner;
     FATP_RUN_TEST_NS(runner, tensor_interop, contiguous_span_contract);
     FATP_RUN_TEST_NS(runner, tensor_interop, strided_descriptor_roundtrip);
+    FATP_RUN_TEST_NS(runner, tensor_interop, descriptor_storage_validation);
     FATP_RUN_TEST_NS(runner, tensor_interop, static_dynamic_conversion);
 #if FATP_HAS_MDSPAN
     FATP_RUN_TEST_NS(runner, tensor_interop, mdspan_mapping);

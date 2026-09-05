@@ -213,8 +213,16 @@ private:
         const auto rightAxis = leftAxis + 1;
         for (const auto& strides : mStrides)
         {
-            const auto expected = checkedStrideContribution(mIterationExtents[rightAxis], strides[rightAxis]);
-            if (strides[leftAxis] != expected)
+            try
+            {
+                const auto expected =
+                    checkedStrideContribution(mIterationExtents[rightAxis], strides[rightAxis]);
+                if (strides[leftAxis] != expected)
+                {
+                    return false;
+                }
+            }
+            catch (const std::overflow_error&)
             {
                 return false;
             }

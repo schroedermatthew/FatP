@@ -552,6 +552,20 @@ FATP_TEST_CASE(view_transforms_and_adapters)
     static_assert(tensor_static_rank_v<decltype(runtimeSqueezed)> == kDynamicTensorRank);
     const auto sliced = source.sliceView(All, std::ptrdiff_t{0}, NewAxis, All);
     static_assert(tensor_static_rank_v<decltype(sliced)> == 3);
+    const auto finalPlane = source.sliceView(std::ptrdiff_t{-1}, All, All);
+    FATP_ASSERT_EQ(finalPlane(0, 2), 5,
+                   "Typed slicing preserves signed negative-index normalization");
+    const auto narrowUnsignedPlane = source.sliceView(std::uint8_t{1}, All, All);
+    FATP_ASSERT_EQ(narrowUnsignedPlane(0, 2), 5,
+                   "Typed slicing accepts representable narrow unsigned indices");
+    using UnsignedDifference = std::make_unsigned_t<std::ptrdiff_t>;
+    constexpr auto firstUnrepresentable =
+        static_cast<UnsignedDifference>(std::numeric_limits<std::ptrdiff_t>::max()) + 1;
+    FATP_ASSERT_THROWS(source.sliceView(firstUnrepresentable, All, All), std::overflow_error,
+                       "Typed slicing rejects the first unsigned index above ptrdiff_t");
+    FATP_ASSERT_THROWS(source.sliceView(std::numeric_limits<UnsignedDifference>::max(), All, All),
+                       std::overflow_error,
+                       "Typed slicing rejects unsigned indices that exceed ptrdiff_t");
     const auto reshaped = source.reshapeView(RankedExtents<2>{2, 3});
     static_assert(tensor_static_rank_v<decltype(reshaped)> == 2);
     const auto broadcast = source.broadcastView(RankedExtents<4>{4, 2, 1, 3});
