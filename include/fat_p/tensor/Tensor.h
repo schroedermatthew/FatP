@@ -273,18 +273,33 @@ public:
             return *this;
         }
 
+        if constexpr (Rank == 0)
+        {
+            validateAliasPreservingElementMove(other);
+        }
+
         if constexpr (allocator_traits::propagate_on_container_move_assignment::value)
         {
-            auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
             if constexpr (Rank == 0)
             {
-                mAllocator = other.mAllocator;
+                allocator_type targetAllocator = other.mAllocator;
+                auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+                auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+                auto replacementStorage = makeRankZeroMoveStorage(other, targetAllocator);
+                mAllocator = targetAllocator;
+                tensor_detail::invalidateLifetime(mLifetime);
+                tensor_detail::invalidateLifetime(other.mLifetime);
+                mLayout = other.mLayout;
+                mStorage = std::move(replacementStorage);
+                mLifetime = std::move(nextLifetime);
+                other.mLifetime = std::move(nextSourceLifetime);
             }
             else
             {
+                auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
                 mAllocator = std::move(other.mAllocator);
+                replaceByStealing(other, std::move(nextLifetime));
             }
-            replaceByStealing(other, std::move(nextLifetime));
         }
         else if (allocatorCompatible(other.mAllocator))
         {
@@ -452,8 +467,8 @@ public:
     template <typename... Specifications>
         requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
                  tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
-                 ((std::constructible_from<SliceSpec, Specifications> ||
-                   tensor_detail::isSliceIndex<Specifications>) && ...))
+                 tensor_detail::typedSliceEllipsisCount<Specifications...> <= 1 &&
+                 (tensor_detail::isTypedSliceSpecification<Specifications> && ...))
     [[nodiscard]] auto sliceView(Specifications&&... specifications) &
     {
         return asView().sliceView(std::forward<Specifications>(specifications)...);
@@ -462,8 +477,8 @@ public:
     template <typename... Specifications>
         requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
                  tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
-                 ((std::constructible_from<SliceSpec, Specifications> ||
-                   tensor_detail::isSliceIndex<Specifications>) && ...))
+                 tensor_detail::typedSliceEllipsisCount<Specifications...> <= 1 &&
+                 (tensor_detail::isTypedSliceSpecification<Specifications> && ...))
     [[nodiscard]] auto sliceView(Specifications&&... specifications) const &
     {
         return asConstView().sliceView(std::forward<Specifications>(specifications)...);
@@ -585,15 +600,15 @@ public:
     template <typename... Specifications>
         requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
                  tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
-                 ((std::constructible_from<SliceSpec, Specifications> ||
-                   tensor_detail::isSliceIndex<Specifications>) && ...))
+                 tensor_detail::typedSliceEllipsisCount<Specifications...> <= 1 &&
+                 (tensor_detail::isTypedSliceSpecification<Specifications> && ...))
     void sliceView(Specifications&&...) && = delete;
 
     template <typename... Specifications>
         requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
                  tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
-                 ((std::constructible_from<SliceSpec, Specifications> ||
-                   tensor_detail::isSliceIndex<Specifications>) && ...))
+                 tensor_detail::typedSliceEllipsisCount<Specifications...> <= 1 &&
+                 (tensor_detail::isTypedSliceSpecification<Specifications> && ...))
     void sliceView(Specifications&&...) const && = delete;
 
     TensorView<value_type, Rank> permuteView(const std::vector<TensorAxis>&) && = delete;
@@ -658,6 +673,11 @@ public:
     {
         return asSharedView().sliceView(start, finish);
     }
+
+    SharedTensorView<value_type, Rank>
+    sharedSliceView(const std::vector<size_type>&, const std::vector<size_type>&) && = delete;
+    SharedTensorView<const value_type, Rank>
+    sharedSliceView(const std::vector<size_type>&, const std::vector<size_type>&) const && = delete;
 
     template <typename Deleter>
     [[nodiscard]] static Tensor adopt(pointer storage, extents_type extents, Deleter deleter,
@@ -795,14 +815,14 @@ private:
         , mLayout(layout_type::contiguous(std::move(checkedExtents)))
         , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
+        if constexpr (OtherRank == 0)
+        {
+            validateAliasPreservingElementMove(other);
+        }
         auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
         if constexpr (OtherRank == 0)
         {
-            mStorage = makeStorage(mAllocator, other.size(), [&other](allocator_type& active,
-                                                                      pointer location,
-                                                                      size_type index) {
-                allocator_traits::construct(active, location, std::move(other[index]));
-            });
+            mStorage = makeRankZeroMoveStorage(other, mAllocator);
             tensor_detail::invalidateLifetime(other.mLifetime);
             other.mLifetime = std::move(nextSourceLifetime);
         }
@@ -874,17 +894,59 @@ private:
         }
     }
 
+    template <std::size_t OtherRank>
+    static void validateAliasPreservingElementMove(const Tensor<T, allocator_type, OtherRank>& other)
+    {
+        static_assert(OtherRank == 0);
+        if constexpr (!std::copy_constructible<value_type>)
+        {
+            if (other.mStorage.use_count() > 1)
+            {
+                throw std::logic_error(
+                    "Cannot safely move shared rank-zero Tensor storage while preserving aliases for a non-copyable value "
+                    "type.");
+            }
+        }
+    }
+
+    template <std::size_t OtherRank>
+    [[nodiscard]] std::shared_ptr<value_type[]>
+    makeRankZeroMoveStorage(Tensor<T, allocator_type, OtherRank>& other,
+                            const allocator_type& targetAllocator)
+    {
+        static_assert(OtherRank == 0);
+        validateAliasPreservingElementMove(other);
+        if constexpr (std::copy_constructible<value_type>)
+        {
+            if (other.mStorage.use_count() > 1)
+            {
+                return makeStorage(targetAllocator, other.size(), [&other](allocator_type& active, pointer location,
+                                                                            size_type index) {
+                    allocator_traits::construct(active, location, other.data()[index]);
+                });
+            }
+        }
+        return makeStorage(targetAllocator, other.size(), [&other](allocator_type& active, pointer location,
+                                                                    size_type index) {
+            allocator_traits::construct(active, location, std::move(other.data()[index]));
+        });
+    }
+
     void materializeMoveFrom(Tensor& other)
     {
         const bool mustPreserveAliases = other.mStorage.use_count() > 1;
-        if (mustPreserveAliases)
+        if constexpr (!std::copy_constructible<value_type>)
         {
-            if constexpr (!std::copy_constructible<value_type>)
+            if (mustPreserveAliases)
             {
                 throw std::logic_error(
                     "Cannot move shared Tensor storage across unequal allocators for a non-copyable value type");
             }
-            else
+        }
+        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+        if (mustPreserveAliases)
+        {
+            if constexpr (std::copy_constructible<value_type>)
             {
                 mLayout = other.mLayout;
                 mStorage = makeStorage(mAllocator, other.size(), [&other](allocator_type& active, pointer location,
@@ -901,7 +963,6 @@ private:
                 allocator_traits::construct(active, location, std::move(other.data()[index]));
             });
         }
-        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
         if constexpr (Rank == 0)
         {
             tensor_detail::invalidateLifetime(other.mLifetime);
@@ -932,11 +993,8 @@ private:
     {
         if constexpr (Rank == 0)
         {
-            auto replacementStorage = makeStorage(
-                mAllocator, other.size(), [&other](allocator_type& active, pointer location, size_type index) {
-                    allocator_traits::construct(active, location, std::move(other.data()[index]));
-                });
             auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
+            auto replacementStorage = makeRankZeroMoveStorage(other, mAllocator);
             tensor_detail::invalidateLifetime(mLifetime);
             tensor_detail::invalidateLifetime(other.mLifetime);
             mLayout = other.mLayout;

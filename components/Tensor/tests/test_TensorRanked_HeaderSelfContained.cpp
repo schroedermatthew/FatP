@@ -36,9 +36,15 @@ concept TemporaryRankedDescriptor = requires(Source&& source) {
     fat_p::describeTensor(static_cast<Source&&>(source));
 };
 
+template <typename Descriptor>
+concept TemporaryRankedDescriptorBorrow = requires(Descriptor&& descriptor) {
+    static_cast<Descriptor&&>(descriptor).borrow();
+};
+
 static_assert(!TemporaryRankedDescriptor<fat_p::RankedTensor<int, 2>>);
 static_assert(!TemporaryRankedDescriptor<fat_p::RankedTensorView<int, 2>>);
 static_assert(!TemporaryRankedDescriptor<fat_p::SharedRankedTensorView<int, 2>>);
+static_assert(!TemporaryRankedDescriptorBorrow<fat_p::RankedStridedTensorDescriptor<int, 2>>);
 
 int main()
 {

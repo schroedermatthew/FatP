@@ -672,10 +672,17 @@ template <bool KeepDimensions, TensorAxis... Axes, ReadableTensor Source, typena
 {
     using result_type = TensorMeanType<typename Source::value_type>;
     constexpr auto outputRank = tensor_detail::staticReductionOutputRank<KeepDimensions, Source, Axes...>;
+    tensor_detail::TensorAccess::validate(source);
     const auto requested = tensor_detail::staticAxes<Axes...>();
     const auto shape = tensor_detail::makeReductionShape(source.extents(), requested, KeepDimensions);
+    if (shape.outputExtents.logicalSize() == 0)
+    {
+        return Tensor<result_type, Allocator, outputRank>(
+            std::allocator_arg, allocator,
+            tensor_detail::makeFixedExtents<outputRank>(shape.outputExtents));
+    }
     const auto count = tensor_detail::reductionElementCount(source.extents(), shape);
-    if (shape.outputExtents.logicalSize() != 0 && count == 0)
+    if (count == 0)
     {
         throw std::domain_error("Tensor mean reduction has an empty domain");
     }

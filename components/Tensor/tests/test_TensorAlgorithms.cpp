@@ -245,6 +245,14 @@ private:
     int mId = 0;
 };
 
+template <typename Allocator>
+concept TransformAllocator = requires(const Tensor<int>& source, const Allocator& allocator) {
+    transform(source, [](int value) { return value; }, allocator);
+};
+
+static_assert(TransformAllocator<std::allocator<int>>);
+static_assert(!TransformAllocator<std::allocator<double>>);
+
 
 template <typename Destination, typename Operand, bool Supported>
 [[nodiscard]] consteval bool compoundAvailability()
@@ -1271,6 +1279,19 @@ FATP_TEST_CASE(equality_approximation_and_layout_independent_hash)
                       "An infinity must not compare equal to a finite value through relative tolerance");
     FATP_ASSERT_FALSE(approxEqual(finite, positiveInfinity, 1e-6, 1e-5),
                       "Infinity handling should be symmetric");
+
+    const auto doubleMaximum = std::numeric_limits<double>::max();
+    const Tensor<double> positiveMaximum({1}, doubleMaximum);
+    const Tensor<double> negativeMaximum({1}, -doubleMaximum);
+    FATP_ASSERT_FALSE(approxEqual(positiveMaximum, negativeMaximum, doubleMaximum * 0.75, 0.75),
+                      "Overflowing finite difference and tolerance intermediates must not compare equal");
+
+    const auto floatMaximum = std::numeric_limits<float>::max();
+    const Tensor<float> positiveFloatMaximum({1}, floatMaximum);
+    const Tensor<float> negativeFloatMaximum({1}, -floatMaximum);
+    const auto widerAbsoluteTolerance = static_cast<double>(floatMaximum) * 2.1;
+    FATP_ASSERT_TRUE(approxEqual(positiveFloatMaximum, negativeFloatMaximum, widerAbsoluteTolerance, 0.0),
+                     "Comparison should promote operands before subtracting for a wider tolerance type");
     return true;
 }
 

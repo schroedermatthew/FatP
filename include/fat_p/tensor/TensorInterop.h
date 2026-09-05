@@ -90,10 +90,12 @@ struct StridedTensorDescriptor
         return storageBase + originOffset;
     }
 
-    [[nodiscard]] TensorView<T> borrow() const
+    [[nodiscard]] TensorView<T> borrow() const &
     {
         return tensor_detail::TensorAccess::makeView(storageBase, layout(), lifetime, tracked);
     }
+
+    [[nodiscard]] TensorView<T> borrow() const && = delete;
 };
 
 template <WritableTensor Source>

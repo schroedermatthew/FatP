@@ -148,15 +148,8 @@ struct EqualDispatcher<Tensor<T, Alloc, Rank>, Policy>
         }
 
         bool all_equal = true;
-        (void)tensor_detail::forEachPairKernel(a, b, [&](size_t logicalOffset, const T& value_a,
-                                                        const T& value_b) {
-            if constexpr (kStopOnFirstError)
-            {
-                if (!all_equal)
-                {
-                    return;
-                }
-            }
+        (void)tensor_detail::forEachPairWhileKernel(a, b, [&](size_t logicalOffset, const T& value_a,
+                                                             const T& value_b) {
             const auto i = logicalOffset;
             // Use Policy's epsilon matching for comparison
             if constexpr (std::is_floating_point_v<T>)
@@ -198,10 +191,7 @@ struct EqualDispatcher<Tensor<T, Alloc, Rank>, Policy>
 
                         return oss.str();
                     })());
-                    if constexpr (kStopOnFirstError)
-                    {
-                        return;
-                    }
+                    return !kStopOnFirstError;
                 }
             }
             else
@@ -212,13 +202,10 @@ struct EqualDispatcher<Tensor<T, Alloc, Rank>, Policy>
                     all_equal = false;
                     FATP_LOG_ERROR("Tensor elements differ at logical index " + std::to_string(i) + ": " +
                                    toString(value_a) + " vs " + toString(value_b));
-
-                    if constexpr (kStopOnFirstError)
-                    {
-                        return;
-                    }
+                    return !kStopOnFirstError;
                 }
             }
+            return true;
         });
 
         return all_equal;

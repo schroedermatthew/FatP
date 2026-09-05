@@ -130,6 +130,42 @@ concept BroadcastDown = requires(const Source& source) {
 template <typename Source>
 concept OverconsumingSlice = requires(Source& source) { source.sliceView(0, 0, 0); };
 
+template <typename Source>
+concept OverconsumingRetainedSlice = requires(Source& source) {
+    source.sliceView(All, All, All);
+};
+
+template <typename Source>
+concept DuplicateEllipsisSlice = requires(Source& source) {
+    source.sliceView(Ellipsis, Ellipsis);
+};
+
+enum ImplicitSliceIndex
+{
+    implicitSliceIndexZero = 0
+};
+
+template <typename Source, typename Specification>
+concept SingleTypedSlice = requires(Source& source, Specification& specification) {
+    source.sliceView(specification);
+};
+
+template <typename Source>
+concept TemporarySharedSlice = requires(Source&& source, const std::vector<std::size_t>& start,
+                                        const std::vector<std::size_t>& finish) {
+    static_cast<Source&&>(source).sharedSliceView(start, finish);
+};
+
+template <typename Source>
+concept TemporaryDynamicSharedAdapter = requires(Source&& source) {
+    asDynamicSharedView(static_cast<Source&&>(source));
+};
+
+template <typename Source>
+concept TemporaryRankedSharedAdapter = requires(Source&& source) {
+    asRankedSharedView<2>(static_cast<Source&&>(source));
+};
+
 static_assert(!OneIndexCall<RankedTensor<int, 2>>);
 static_assert(TwoIndexCall<RankedTensor<int, 2>>);
 static_assert(!ThreeIndexCall<RankedTensor<int, 2>>);
@@ -144,6 +180,24 @@ static_assert(Transposable<RankedTensor<int, 2>>);
 static_assert(!Transposable<RankedTensor<int, 3>>);
 static_assert(!BroadcastDown<RankedTensor<int, 2>>);
 static_assert(!OverconsumingSlice<RankedTensor<int, 2>>);
+static_assert(!OverconsumingRetainedSlice<RankedTensor<int, 2>>);
+static_assert(!OverconsumingRetainedSlice<RankedTensorView<int, 2>>);
+static_assert(!OverconsumingRetainedSlice<SharedRankedTensorView<int, 2>>);
+static_assert(!DuplicateEllipsisSlice<RankedTensor<int, 2>>);
+static_assert(!DuplicateEllipsisSlice<RankedTensorView<int, 2>>);
+static_assert(!DuplicateEllipsisSlice<SharedRankedTensorView<int, 2>>);
+static_assert(SingleTypedSlice<RankedTensor<int, 2>, Slice>);
+static_assert(!SingleTypedSlice<RankedTensor<int, 2>, bool>);
+static_assert(!SingleTypedSlice<RankedTensor<int, 2>, ImplicitSliceIndex>);
+static_assert(!SingleTypedSlice<RankedTensor<int, 2>, SliceSpec>);
+static_assert(!SingleTypedSlice<RankedTensorView<int, 2>, SliceSpec>);
+static_assert(!SingleTypedSlice<SharedRankedTensorView<int, 2>, SliceSpec>);
+static_assert(!TemporarySharedSlice<RankedTensor<int, 2>>);
+static_assert(!TemporarySharedSlice<const RankedTensor<int, 2>>);
+static_assert(!TemporaryDynamicSharedAdapter<RankedTensor<int, 2>>);
+static_assert(!TemporaryDynamicSharedAdapter<const RankedTensor<int, 2>>);
+static_assert(!TemporaryRankedSharedAdapter<Tensor<int>>);
+static_assert(!TemporaryRankedSharedAdapter<const Tensor<int>>);
 
 template <typename T>
 class TaggedAllocator
@@ -209,7 +263,7 @@ struct AllocationProbe
     bool failNext = false;
 };
 
-template <typename T>
+template <typename T, bool PropagateOnMove = false>
 class FailingAllocator
 {
 public:
@@ -226,7 +280,7 @@ public:
     }
 
     template <typename U>
-    FailingAllocator(const FailingAllocator<U>& other)
+    FailingAllocator(const FailingAllocator<U, PropagateOnMove>& other)
         : mProbe(other.probe())
     {
     }
@@ -251,7 +305,7 @@ public:
     [[nodiscard]] const std::shared_ptr<AllocationProbe>& probe() const noexcept { return mProbe; }
 
     template <typename U>
-    [[nodiscard]] bool operator==(const FailingAllocator<U>& other) const noexcept
+    [[nodiscard]] bool operator==(const FailingAllocator<U, PropagateOnMove>& other) const noexcept
     {
         return mProbe == other.probe();
     }
@@ -259,11 +313,54 @@ public:
     template <typename U>
     struct rebind
     {
-        using other = FailingAllocator<U>;
+        using other = FailingAllocator<U, PropagateOnMove>;
     };
+
+    using propagate_on_container_move_assignment = std::bool_constant<PropagateOnMove>;
 
 private:
     std::shared_ptr<AllocationProbe> mProbe;
+};
+
+struct MoveObserved
+{
+    int value = 0;
+
+    MoveObserved() = default;
+    explicit MoveObserved(int initialValue) : value(initialValue) {}
+    MoveObserved(const MoveObserved&) = default;
+    MoveObserved& operator=(const MoveObserved&) = default;
+
+    MoveObserved(MoveObserved&& other) noexcept
+        : value(std::exchange(other.value, -1))
+    {
+    }
+
+    MoveObserved& operator=(MoveObserved&& other) noexcept
+    {
+        value = std::exchange(other.value, -1);
+        return *this;
+    }
+};
+
+struct MoveOnlyObserved
+{
+    int value = 0;
+
+    MoveOnlyObserved() = default;
+    MoveOnlyObserved(const MoveOnlyObserved&) = delete;
+    MoveOnlyObserved& operator=(const MoveOnlyObserved&) = delete;
+
+    MoveOnlyObserved(MoveOnlyObserved&& other) noexcept
+        : value(std::exchange(other.value, -1))
+    {
+    }
+
+    MoveOnlyObserved& operator=(MoveOnlyObserved&& other) noexcept
+    {
+        value = std::exchange(other.value, -1);
+        return *this;
+    }
 };
 
 template <std::size_t Rank>
@@ -497,6 +594,169 @@ FATP_TEST_CASE(owner_defaults_moves_and_views)
     return true;
 }
 
+FATP_TEST_CASE(rank_zero_move_preserves_shared_alias_values)
+{
+    using PropagatingScalar = Tensor<MoveObserved, TaggedAllocator<MoveObserved>, 0>;
+
+    PropagatingScalar propagatingUniqueSource(
+        std::allocator_arg, TaggedAllocator<MoveObserved>(101), RankedExtents<0>{}, MoveObserved(11));
+    PropagatingScalar propagatingUniqueDestination(
+        std::allocator_arg, TaggedAllocator<MoveObserved>(102), RankedExtents<0>{}, MoveObserved(1));
+    propagatingUniqueDestination = std::move(propagatingUniqueSource);
+    FATP_ASSERT_EQ(propagatingUniqueDestination().value, 11,
+                   "Propagating rank-zero assignment moves a uniquely owned value");
+    FATP_ASSERT_EQ(propagatingUniqueSource().value, -1,
+                   "A unique propagating rank-zero source contains its moved-from value");
+    FATP_ASSERT_EQ(propagatingUniqueDestination.get_allocator().identifier(), 101,
+                   "Propagating rank-zero assignment adopts the source allocator");
+
+    PropagatingScalar propagatingSharedSource(
+        std::allocator_arg, TaggedAllocator<MoveObserved>(103), RankedExtents<0>{}, MoveObserved(21));
+    auto propagatingAlias = propagatingSharedSource.asSharedView();
+    PropagatingScalar propagatingSharedDestination(
+        std::allocator_arg, TaggedAllocator<MoveObserved>(104), RankedExtents<0>{}, MoveObserved(2));
+    propagatingSharedDestination = std::move(propagatingSharedSource);
+    FATP_ASSERT_EQ(propagatingSharedDestination().value, 21,
+                   "Propagating rank-zero assignment materializes the destination value");
+    FATP_ASSERT_EQ(propagatingSharedSource().value, 21,
+                   "Propagating rank-zero assignment copies a source with shared aliases");
+    FATP_ASSERT_EQ(propagatingAlias().value, 21,
+                   "Propagating rank-zero assignment preserves shared alias values");
+    FATP_ASSERT_EQ(propagatingSharedDestination.get_allocator().identifier(), 103,
+                   "Shared propagating rank-zero assignment still adopts the source allocator");
+
+    auto propagatingSourceProbe = std::make_shared<AllocationProbe>();
+    auto propagatingDestinationProbe = std::make_shared<AllocationProbe>();
+    using PropagatingFailingScalar =
+        Tensor<MoveObserved, FailingAllocator<MoveObserved, true>, 0>;
+    PropagatingFailingScalar failingSharedSource(
+        std::allocator_arg, FailingAllocator<MoveObserved, true>(propagatingSourceProbe),
+        RankedExtents<0>{}, MoveObserved(25));
+    auto failingSharedAlias = failingSharedSource.asSharedView();
+    auto failingSharedBorrow = failingSharedSource.asView();
+    PropagatingFailingScalar failingSharedDestination(
+        std::allocator_arg, FailingAllocator<MoveObserved, true>(propagatingDestinationProbe),
+        RankedExtents<0>{}, MoveObserved(5));
+    auto failingDestinationBorrow = failingSharedDestination.asView();
+    propagatingSourceProbe->failNext = true;
+    FATP_ASSERT_THROWS((failingSharedDestination = std::move(failingSharedSource)), std::bad_alloc,
+                       "Propagating rank-zero assignment should allocate before committing allocator state");
+    FATP_ASSERT_TRUE(failingSharedDestination.get_allocator().probe() == propagatingDestinationProbe,
+                     "Failed propagating assignment preserves the destination allocator");
+    FATP_ASSERT_EQ(failingSharedDestination().value, 5,
+                   "Failed propagating assignment preserves the destination value");
+    FATP_ASSERT_EQ(failingDestinationBorrow().value, 5,
+                   "Failed propagating assignment preserves destination borrows");
+    FATP_ASSERT_TRUE(failingSharedSource.get_allocator().probe() == propagatingSourceProbe,
+                     "Failed propagating assignment preserves the source allocator");
+    FATP_ASSERT_EQ(failingSharedSource().value, 25,
+                   "Failed propagating assignment preserves the shared source value");
+    FATP_ASSERT_EQ(failingSharedAlias().value, 25,
+                   "Failed propagating assignment preserves shared aliases");
+    FATP_ASSERT_EQ(failingSharedBorrow().value, 25,
+                   "Failed propagating assignment preserves source borrows");
+
+    auto uniqueSourceProbe = std::make_shared<AllocationProbe>();
+    PropagatingFailingScalar failingUniqueSource(
+        std::allocator_arg, FailingAllocator<MoveObserved, true>(uniqueSourceProbe),
+        RankedExtents<0>{}, MoveObserved(27));
+    uniqueSourceProbe->failNext = true;
+    FATP_ASSERT_THROWS((failingSharedDestination = std::move(failingUniqueSource)), std::bad_alloc,
+                       "A propagating allocation failure should precede moving a unique source element");
+    FATP_ASSERT_EQ(failingUniqueSource().value, 27,
+                   "Failed propagating allocation leaves a unique source element unchanged");
+    FATP_ASSERT_TRUE(failingSharedDestination.get_allocator().probe() == propagatingDestinationProbe,
+                     "Repeated propagating failure still preserves the destination allocator");
+    FATP_ASSERT_EQ(failingDestinationBorrow().value, 5,
+                   "Repeated propagating failure keeps destination borrows alive");
+
+    auto compatibleProbe = std::make_shared<AllocationProbe>();
+    using CompatibleScalar = Tensor<MoveObserved, FailingAllocator<MoveObserved>, 0>;
+    CompatibleScalar compatibleUniqueSource(
+        std::allocator_arg, FailingAllocator<MoveObserved>(compatibleProbe), RankedExtents<0>{}, MoveObserved(31));
+    CompatibleScalar compatibleUniqueDestination(
+        std::allocator_arg, FailingAllocator<MoveObserved>(compatibleProbe), RankedExtents<0>{}, MoveObserved(3));
+    compatibleUniqueDestination = std::move(compatibleUniqueSource);
+    FATP_ASSERT_EQ(compatibleUniqueDestination().value, 31,
+                   "Compatible rank-zero assignment moves a uniquely owned value");
+    FATP_ASSERT_EQ(compatibleUniqueSource().value, -1,
+                   "A unique compatible rank-zero source contains its moved-from value");
+
+    CompatibleScalar compatibleSharedSource(
+        std::allocator_arg, FailingAllocator<MoveObserved>(compatibleProbe), RankedExtents<0>{}, MoveObserved(41));
+    auto compatibleAlias = compatibleSharedSource.asSharedView();
+    CompatibleScalar compatibleSharedDestination(
+        std::allocator_arg, FailingAllocator<MoveObserved>(compatibleProbe), RankedExtents<0>{}, MoveObserved(4));
+    compatibleSharedDestination = std::move(compatibleSharedSource);
+    FATP_ASSERT_EQ(compatibleSharedDestination().value, 41,
+                   "Compatible rank-zero assignment materializes the destination value");
+    FATP_ASSERT_EQ(compatibleSharedSource().value, 41,
+                   "Compatible rank-zero assignment copies a source with shared aliases");
+    FATP_ASSERT_EQ(compatibleAlias().value, 41,
+                   "Compatible rank-zero assignment preserves shared alias values");
+
+    RankedTensor<MoveObserved, 0> crossRankUnique(RankedExtents<0>{}, MoveObserved(51));
+    auto dynamicUnique = toDynamicTensor(std::move(crossRankUnique));
+    FATP_ASSERT_EQ(dynamicUnique().value, 51,
+                   "Rank-zero-to-dynamic conversion moves a uniquely owned value");
+    FATP_ASSERT_EQ(crossRankUnique().value, -1,
+                   "A unique rank-zero cross-rank source contains its moved-from value");
+
+    RankedTensor<MoveObserved, 0> crossRankShared(RankedExtents<0>{}, MoveObserved(61));
+    auto crossRankAlias = crossRankShared.asSharedView();
+    auto dynamicShared = toDynamicTensor(std::move(crossRankShared));
+    FATP_ASSERT_EQ(dynamicShared().value, 61,
+                   "Rank-zero-to-dynamic conversion materializes the destination value");
+    FATP_ASSERT_EQ(crossRankShared().value, 61,
+                   "Rank-zero-to-dynamic conversion copies a source with shared aliases");
+    FATP_ASSERT_EQ(crossRankAlias().value, 61,
+                   "Rank-zero-to-dynamic conversion preserves shared alias values");
+
+    using NonCopyableScalar = Tensor<MoveOnlyObserved, TaggedAllocator<MoveOnlyObserved>, 0>;
+    NonCopyableScalar nonCopyableSource(
+        std::allocator_arg, TaggedAllocator<MoveOnlyObserved>(105), RankedExtents<0>{});
+    nonCopyableSource().value = 71;
+    auto nonCopyableAlias = nonCopyableSource.asSharedView();
+    auto nonCopyableBorrow = nonCopyableSource.asView();
+    NonCopyableScalar nonCopyableDestination(
+        std::allocator_arg, TaggedAllocator<MoveOnlyObserved>(106), RankedExtents<0>{});
+    nonCopyableDestination().value = 7;
+    auto destinationBorrow = nonCopyableDestination.asView();
+    FATP_ASSERT_THROWS((nonCopyableDestination = std::move(nonCopyableSource)), std::logic_error,
+                       "Shared non-copyable rank-zero assignment should fail before mutation");
+    FATP_ASSERT_EQ(nonCopyableSource().value, 71,
+                   "Rejected shared non-copyable assignment preserves the source owner");
+    FATP_ASSERT_EQ(nonCopyableAlias().value, 71,
+                   "Rejected shared non-copyable assignment preserves the shared alias");
+    FATP_ASSERT_EQ(nonCopyableBorrow().value, 71,
+                   "Rejected shared non-copyable assignment preserves source borrows");
+    FATP_ASSERT_EQ(nonCopyableDestination().value, 7,
+                   "Rejected shared non-copyable assignment preserves the destination owner");
+    FATP_ASSERT_EQ(destinationBorrow().value, 7,
+                   "Rejected shared non-copyable assignment preserves destination borrows");
+    FATP_ASSERT_EQ(nonCopyableSource.get_allocator().identifier(), 105,
+                   "Rejected shared non-copyable assignment preserves the source allocator");
+    FATP_ASSERT_EQ(nonCopyableDestination.get_allocator().identifier(), 106,
+                   "Rejected shared non-copyable assignment preserves the destination allocator");
+
+    NonCopyableScalar nonCopyableCrossRank(
+        std::allocator_arg, TaggedAllocator<MoveOnlyObserved>(107), RankedExtents<0>{});
+    nonCopyableCrossRank().value = 81;
+    auto nonCopyableCrossRankAlias = nonCopyableCrossRank.asSharedView();
+    auto nonCopyableCrossRankBorrow = nonCopyableCrossRank.asView();
+    FATP_ASSERT_THROWS(toDynamicTensor(std::move(nonCopyableCrossRank)), std::logic_error,
+                       "Shared non-copyable rank-zero conversion should fail before mutation");
+    FATP_ASSERT_EQ(nonCopyableCrossRank().value, 81,
+                   "Rejected shared non-copyable conversion preserves the source owner");
+    FATP_ASSERT_EQ(nonCopyableCrossRankAlias().value, 81,
+                   "Rejected shared non-copyable conversion preserves the shared alias");
+    FATP_ASSERT_EQ(nonCopyableCrossRankBorrow().value, 81,
+                   "Rejected shared non-copyable conversion preserves source borrows");
+    FATP_ASSERT_EQ(nonCopyableCrossRank.get_allocator().identifier(), 107,
+                   "Rejected shared non-copyable conversion preserves the source allocator");
+    return true;
+}
+
 FATP_TEST_CASE(borrowed_and_shared_ranked_lifetimes)
 {
     std::optional<RankedTensorView<int, 2>> borrowed;
@@ -566,8 +826,28 @@ FATP_TEST_CASE(view_transforms_and_adapters)
     FATP_ASSERT_THROWS(source.sliceView(std::numeric_limits<UnsignedDifference>::max(), All, All),
                        std::overflow_error,
                        "Typed slicing rejects unsigned indices that exceed ptrdiff_t");
+    const SliceSpec runtimeIndex = std::ptrdiff_t{1};
+    const auto runtimeIndexSlice = source.sliceView(std::vector<SliceSpec>{runtimeIndex});
+    static_assert(tensor_static_rank_v<decltype(runtimeIndexSlice)> == kDynamicTensorRank);
+    FATP_ASSERT_TRUE(runtimeIndexSlice.rank() == 2 && runtimeIndexSlice.extents() == DynamicExtents({1, 3}) &&
+                         runtimeIndexSlice(0, 2) == 5,
+                     "Runtime SliceSpec index alternatives use the dynamic-rank slice path");
+    const SliceSpec runtimeNewAxis = NewAxis;
+    const auto runtimeNewAxisSlice = source.sliceView({runtimeNewAxis});
+    static_assert(tensor_static_rank_v<decltype(runtimeNewAxisSlice)> == kDynamicTensorRank);
+    FATP_ASSERT_TRUE(runtimeNewAxisSlice.rank() == 4 &&
+                         runtimeNewAxisSlice.extents() == DynamicExtents({1, 2, 1, 3}),
+                     "Runtime SliceSpec new-axis alternatives use the initializer-list path");
     const auto reshaped = source.reshapeView(RankedExtents<2>{2, 3});
     static_assert(tensor_static_rank_v<decltype(reshaped)> == 2);
+    const auto runtimeReshaped = source.reshapeView(DynamicExtents{3, 2});
+    static_assert(tensor_static_rank_v<decltype(runtimeReshaped)> == kDynamicTensorRank);
+    FATP_ASSERT_TRUE(runtimeReshaped.extents() == DynamicExtents({3, 2}) && runtimeReshaped(2, 1) == 5,
+                     "A runtime reshape target returns a dynamic view from a ranked owner");
+    const auto sharedRuntimeReshaped = source.asSharedView().reshapeView(DynamicExtents{6});
+    static_assert(tensor_static_rank_v<decltype(sharedRuntimeReshaped)> == kDynamicTensorRank);
+    FATP_ASSERT_EQ(sharedRuntimeReshaped(5), 5,
+                   "A shared ranked view preserves lifetime through a dynamic-rank reshape");
     const auto broadcast = source.broadcastView(RankedExtents<4>{4, 2, 1, 3});
     static_assert(tensor_static_rank_v<decltype(broadcast)> == 4);
     FATP_ASSERT_EQ(broadcast(3, 1, 0, 2), 5, "Ranked broadcast preserves values");
@@ -713,6 +993,33 @@ FATP_TEST_CASE(arithmetic_reductions_and_selection_result_ranks)
     return true;
 }
 
+FATP_TEST_CASE(static_axis_mean_validation_and_empty_output)
+{
+    const auto largest = std::numeric_limits<std::size_t>::max();
+    const auto unreachable = RankedTensorView<const int, 3>::borrow(
+        nullptr, RankedTensorLayout<3>(0, 0, RankedExtents<3>{0, largest, 2},
+                                       std::array<std::ptrdiff_t, 3>{0, 0, 0}));
+    const auto result = mean<false, 1, 2>(unreachable);
+    static_assert(tensor_static_rank_v<decltype(result)> == 1);
+    FATP_ASSERT_TRUE(result.empty() && result.extents() == RankedExtents<1>{0},
+                     "Typed mean should not count unreachable domains for an empty output");
+
+    const RankedTensor<int, 2> emptyDomains({2, 0});
+    FATP_ASSERT_THROWS((mean<false, 1>(emptyDomains)), std::domain_error,
+                       "Typed mean should reject reachable empty reduction domains");
+
+#ifndef NDEBUG
+    std::optional<RankedTensorView<const int, 2>> expired;
+    {
+        const RankedTensor<int, 2> owner({2, 0});
+        expired.emplace(owner.asConstView());
+    }
+    FATP_ASSERT_THROWS((mean<false, 1>(*expired)), std::runtime_error,
+                       "Typed mean should validate an expired borrow before inspecting its domain");
+#endif
+    return true;
+}
+
 FATP_TEST_CASE(linear_algebra_contractions_and_execution)
 {
     RankedTensor<int, 2> left({2, 3}, 1);
@@ -806,10 +1113,12 @@ bool test_TensorRanked()
     FATP_RUN_TEST_NS(runner, tensorranked, rank_family_differential_matrix);
     FATP_RUN_TEST_NS(runner, tensorranked, layout_differential_boundaries);
     FATP_RUN_TEST_NS(runner, tensorranked, owner_defaults_moves_and_views);
+    FATP_RUN_TEST_NS(runner, tensorranked, rank_zero_move_preserves_shared_alias_values);
     FATP_RUN_TEST_NS(runner, tensorranked, allocation_failure_preserves_rank_zero_source);
     FATP_RUN_TEST_NS(runner, tensorranked, borrowed_and_shared_ranked_lifetimes);
     FATP_RUN_TEST_NS(runner, tensorranked, view_transforms_and_adapters);
     FATP_RUN_TEST_NS(runner, tensorranked, arithmetic_reductions_and_selection_result_ranks);
+    FATP_RUN_TEST_NS(runner, tensorranked, static_axis_mean_validation_and_empty_output);
     FATP_RUN_TEST_NS(runner, tensorranked, linear_algebra_contractions_and_execution);
     FATP_RUN_TEST_NS(runner, tensorranked, descriptor_equality_hash_and_static_conversion);
     return 0 == runner.print_summary();

@@ -100,11 +100,11 @@ public:
     [[nodiscard]] static constexpr std::size_t operandCount() noexcept { return OperandCount; }
 
     template <typename Function>
-    void forEachOffset(Function&& function) const
+    [[nodiscard]] bool forEachOffsetWhile(Function&& function) const
     {
         if (mLogicalSize == 0)
         {
-            return;
+            return true;
         }
 
         using Coordinates = std::conditional_t<Rank == kDynamicTensorRank,
@@ -118,7 +118,10 @@ public:
         offsets_type offsets = mOrigins;
         for (std::size_t linearIndex = 0; linearIndex < mLogicalSize; ++linearIndex)
         {
-            std::invoke(function, linearIndex, offsets);
+            if (!std::invoke(function, linearIndex, offsets))
+            {
+                return false;
+            }
             if (linearIndex + 1 == mLogicalSize || mActiveRank == 0)
             {
                 continue;
@@ -146,6 +149,16 @@ public:
                 }
             }
         }
+        return true;
+    }
+
+    template <typename Function>
+    void forEachOffset(Function&& function) const
+    {
+        (void)forEachOffsetWhile([&](std::size_t linearIndex, const offsets_type& offsets) {
+            std::invoke(function, linearIndex, offsets);
+            return true;
+        });
     }
 
 private:

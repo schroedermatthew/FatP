@@ -268,9 +268,9 @@ public:
     [[nodiscard]] reference operator*() const
     {
         tensor_detail::checkLifetime(mLifetime, mTracked);
-        if (mLinearIndex >= mLayout.logicalSize())
+        if (mStorageBase == nullptr || mLinearIndex >= mLayout.logicalSize())
         {
-            throw std::out_of_range("Cannot dereference the end Tensor iterator");
+            throw std::out_of_range("Cannot dereference a singular or end Tensor iterator");
         }
         return mStorageBase[mLayout.logicalOffset(mLinearIndex)];
     }
@@ -500,8 +500,8 @@ public:
     template <typename... Specifications>
         requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
                  tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
-                 ((std::constructible_from<SliceSpec, Specifications> ||
-                   tensor_detail::isSliceIndex<Specifications>) && ...))
+                 tensor_detail::typedSliceEllipsisCount<Specifications...> <= 1 &&
+                 (tensor_detail::isTypedSliceSpecification<Specifications> && ...))
     [[nodiscard]] auto sliceView(Specifications&&... specifications) const
     {
         constexpr auto ResultRank = tensor_detail::typedSliceResultRank<Rank, Specifications...>;
@@ -606,7 +606,7 @@ public:
         }
     }
 
-    [[nodiscard]] TensorView reshapeView(DynamicExtents target) const
+    [[nodiscard]] TensorView<T> reshapeView(DynamicExtents target) const
     {
         checkAlive();
         if constexpr (Rank == tensor_detail::kDynamicTensorRank)
@@ -901,8 +901,8 @@ public:
     template <typename... Specifications>
         requires(Rank != tensor_detail::kDynamicTensorRank && sizeof...(Specifications) > 0 &&
                  tensor_detail::typedSliceConsumedAxes<Specifications...> <= Rank &&
-                 ((std::constructible_from<SliceSpec, Specifications> ||
-                   tensor_detail::isSliceIndex<Specifications>) && ...))
+                 tensor_detail::typedSliceEllipsisCount<Specifications...> <= 1 &&
+                 (tensor_detail::isTypedSliceSpecification<Specifications> && ...))
     [[nodiscard]] auto sliceView(Specifications&&... specifications) const
     {
         auto view = mView.sliceView(std::forward<Specifications>(specifications)...);

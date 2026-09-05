@@ -151,7 +151,7 @@ void binaryKernel(const Left& left, const Right& right, Destination& destination
 }
 
 template <ReadableTensor Left, ReadableTensor Right, typename Predicate>
-[[nodiscard]] bool forEachPairKernel(const Left& left, const Right& right, Predicate&& predicate)
+[[nodiscard]] bool forEachPairWhileKernel(const Left& left, const Right& right, Predicate&& predicate)
 {
     TensorAccess::validate(left);
     TensorAccess::validate(right);
@@ -171,27 +171,29 @@ template <ReadableTensor Left, ReadableTensor Right, typename Predicate>
         const auto* leftData = TensorAccess::storageBase(left);
         const auto* rightData = TensorAccess::storageBase(right);
         const auto plan = makeTensorIterationPlan(left.extents(), left.layout(), right.layout());
-        plan.forEachOffset([&](std::size_t linearIndex, const auto& offsets) {
-            std::invoke(predicate, linearIndex, leftData[offsets[0]], rightData[offsets[1]]);
+        return plan.forEachOffsetWhile([&](std::size_t linearIndex, const auto& offsets) {
+            return std::invoke(predicate, linearIndex, leftData[offsets[0]], rightData[offsets[1]]);
         });
-        return true;
     }
+}
+
+template <ReadableTensor Left, ReadableTensor Right, typename Predicate>
+[[nodiscard]] bool forEachPairKernel(const Left& left, const Right& right, Predicate&& predicate)
+{
+    return forEachPairWhileKernel(left, right, [&](std::size_t linearIndex, const auto& leftValue,
+                                                   const auto& rightValue) {
+        std::invoke(predicate, linearIndex, leftValue, rightValue);
+        return true;
+    });
 }
 
 template <ReadableTensor Left, ReadableTensor Right, typename Predicate>
 [[nodiscard]] bool equalKernel(const Left& left, const Right& right, Predicate&& predicate)
 {
-    bool equal = true;
-    if (!forEachPairKernel(left, right, [&](std::size_t, const auto& leftValue, const auto& rightValue) {
-            if (equal && !std::invoke(predicate, leftValue, rightValue))
-            {
-                equal = false;
-            }
-        }))
-    {
-        return false;
-    }
-    return equal;
+    return forEachPairWhileKernel(left, right, [&](std::size_t, const auto& leftValue,
+                                                   const auto& rightValue) {
+        return std::invoke(predicate, leftValue, rightValue);
+    });
 }
 
 template <ReadableTensor Source, typename Hasher>

@@ -982,6 +982,7 @@ template <ReadableTensor Source, typename Scalar>
 }
 
 template <ReadableTensor Source, typename Function, typename Allocator>
+    requires tensor_detail::AllocatorFor<Allocator, typename Source::value_type>
 [[nodiscard]] auto transform(const Source& source, Function&& function, const Allocator& allocator)
     -> tensor_detail::UnaryTensorResult<typename Source::value_type, Allocator, Source>
 {
@@ -1023,6 +1024,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Tolerance>
 [[nodiscard]] bool approxEqual(const Left& left, const Right& right, Tolerance absoluteTolerance,
                                Tolerance relativeTolerance = Tolerance{})
 {
+    using comparison_type = std::common_type_t<typename Left::value_type, Tolerance>;
     return tensor_detail::equalKernel(left, right, [&](const auto& leftValue, const auto& rightValue) {
         if (leftValue == rightValue)
         {
@@ -1033,9 +1035,26 @@ template <ReadableTensor Left, ReadableTensor Right, typename Tolerance>
             return false;
         }
         using std::abs;
-        const auto difference = abs(leftValue - rightValue);
-        const auto scale = std::max(abs(leftValue), abs(rightValue));
-        return difference <= absoluteTolerance + relativeTolerance * scale;
+        const auto promotedLeft = static_cast<comparison_type>(leftValue);
+        const auto promotedRight = static_cast<comparison_type>(rightValue);
+        const auto promotedAbsolute = static_cast<comparison_type>(absoluteTolerance);
+        const auto promotedRelative = static_cast<comparison_type>(relativeTolerance);
+        const auto difference = abs(promotedLeft - promotedRight);
+        const auto scale = std::max(abs(promotedLeft), abs(promotedRight));
+        if (std::isfinite(difference))
+        {
+            return difference <= promotedAbsolute + promotedRelative * scale;
+        }
+
+        // Finite values of opposite sign can have a difference outside the
+        // comparison type even though each operand is representable. Scale
+        // both sides of the tolerance relation before comparing so two
+        // overflowing intermediates cannot compare equal as infinity.
+        const auto divisor = std::max(scale, comparison_type{1});
+        const auto normalizedDifference = abs(promotedLeft / divisor - promotedRight / divisor);
+        const auto normalizedTolerance =
+            promotedAbsolute / divisor + promotedRelative * (scale / divisor);
+        return normalizedDifference <= normalizedTolerance;
     });
 }
 

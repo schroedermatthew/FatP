@@ -94,6 +94,30 @@ FATP_TEST_CASE(policy_dispatch_reports_mismatch)
     return true;
 }
 
+FATP_TEST_CASE(equality_kernel_stops_at_first_mismatch)
+{
+    Tensor<int> left({5});
+    Tensor<int> right({5});
+    for (std::size_t index = 0; index < left.size(); ++index)
+    {
+        left[index] = static_cast<int>(index);
+        right[index] = static_cast<int>(index);
+    }
+    right[1] = -1;
+    right[4] = -1;
+
+    std::size_t comparisons = 0;
+    const auto equal = tensor_detail::equalKernel(left, right, [&](int leftValue, int rightValue) {
+        ++comparisons;
+        return leftValue == rightValue;
+    });
+
+    FATP_ASSERT_FALSE(equal, "Equality kernel should report the first mismatch");
+    FATP_ASSERT_EQ(comparisons, std::size_t{2},
+                   "Equality kernel should not invoke its predicate after the first mismatch");
+    return true;
+}
+
 FATP_TEST_CASE(hash_equality_law)
 {
     const Tensor<double> positiveZero({1}, 0.0);
@@ -152,6 +176,7 @@ bool test_TensorEquality()
     FATP_RUN_TEST_NS(runner, tensorequality, readable_layout_independence);
     FATP_RUN_TEST_NS(runner, tensorequality, approximate_values);
     FATP_RUN_TEST_NS(runner, tensorequality, policy_dispatch_reports_mismatch);
+    FATP_RUN_TEST_NS(runner, tensorequality, equality_kernel_stops_at_first_mismatch);
     FATP_RUN_TEST_NS(runner, tensorequality, hash_equality_law);
     FATP_RUN_TEST_NS(runner, tensorequality, unordered_owner_keys);
     FATP_RUN_TEST_NS(runner, tensorequality, scalar_empty_and_special_values);

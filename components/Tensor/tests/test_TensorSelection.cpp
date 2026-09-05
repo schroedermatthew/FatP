@@ -129,6 +129,16 @@ FATP_TEST_CASE(take_and_take_along_axis)
                      "takeAlongAxis output should match the indices tensor");
     FATP_ASSERT_TRUE(std::vector<int>(along.begin(), along.end()) == std::vector<int>({1, 4, 7, 6, 12, 9}),
                      "Each takeAlongAxis index should apply at its full output coordinate");
+
+    Tensor<std::ptrdiff_t, std::allocator<std::ptrdiff_t>> allocatedIndices(
+        std::allocator_arg, std::allocator<std::ptrdiff_t>{}, DynamicExtents{3, 1});
+    allocatedIndices[0] = 0;
+    allocatedIndices[1] = 1;
+    allocatedIndices[2] = 2;
+    const auto inherited = takeAlongAxis(source.asConstView(), allocatedIndices, 1);
+    static_assert(std::same_as<typename decltype(inherited)::allocator_type, std::allocator<int>>);
+    FATP_ASSERT_TRUE(std::vector<int>(inherited.begin(), inherited.end()) == std::vector<int>({1, 6, 11}),
+                     "takeAlongAxis should select the indices owner when the source is a view");
     return true;
 }
 
@@ -171,6 +181,20 @@ FATP_TEST_CASE(gather_nd_and_zero_depth)
     const auto noCopies = gatherND(source, noTuples);
     FATP_ASSERT_TRUE(noCopies.extents() == DynamicExtents({0, 3, 2}) && noCopies.empty(),
                      "A zero prefix extent should produce no gathered tuples");
+
+    Tensor<int, std::allocator<int>> allocatedTuples(
+        std::allocator_arg, std::allocator<int>{}, DynamicExtents{1, 2});
+    allocatedTuples[0] = 1;
+    allocatedTuples[1] = 2;
+    const auto inherited = gatherND(source.asConstView(), allocatedTuples);
+    const auto typedInherited = gatherND<2>(source.asConstView(), allocatedTuples);
+    static_assert(std::same_as<typename decltype(inherited)::allocator_type, std::allocator<int>>);
+    static_assert(std::same_as<typename decltype(typedInherited)::allocator_type, std::allocator<int>>);
+    FATP_ASSERT_TRUE(std::vector<int>(inherited.begin(), inherited.end()) == std::vector<int>({11, 12}),
+                     "gatherND should select the indices owner when the source is a view");
+    FATP_ASSERT_TRUE(std::vector<int>(typedInherited.begin(), typedInherited.end()) ==
+                         std::vector<int>({11, 12}),
+                     "Typed gatherND should use the same owner-selection rule");
     return true;
 }
 

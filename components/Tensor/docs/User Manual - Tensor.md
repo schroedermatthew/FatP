@@ -1044,7 +1044,13 @@ The following plan items are not yet current API promises:
 - a complete einsum grammar.
 
 The partial einsum API has been retired. `StaticTensor` remains a separate,
-fixed-size type with its own checked/saturating arithmetic policies.
+fixed-size type with its own checked/saturating arithmetic policies. Its narrow
+integer and boolean sums use 64-bit/count accumulators, and arithmetic means use
+`double` (`long double` inputs remain `long double`). Static extrema preserve the
+first NaN and first tie. Vector norms use scaled accumulation so representable
+large and tiny magnitudes do not overflow or underflow merely while squaring.
+Initializer-size, bounds, and zero-norm failures use `std::invalid_argument`,
+`std::out_of_range`, and `std::domain_error`, respectively.
 
 ## API summary
 

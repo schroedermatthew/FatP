@@ -62,10 +62,10 @@ FATP_META:
 #endif
 #include <limits>
 #include <numeric>
+#include <stdexcept>
 #include <type_traits>
 
 #include "CheckedArithmetic.h"
-#include "enforce.h"
 
 namespace fat_p
 {
@@ -337,7 +337,10 @@ public:
 
     constexpr StaticTensor(std::initializer_list<T> init)
     {
-        FATP_ALWAYS_ENFORCE(init.size() == size, "Initializer size mismatch");
+        if (init.size() != size)
+        {
+            throw std::invalid_argument("StaticTensor initializer size does not match its shape");
+        }
         std::copy(init.begin(), init.end(), mData.begin());
     }
 
@@ -410,7 +413,10 @@ private:
         for (size_t i = rank; i > 0; --i)
         {
             size_t dim_idx = i - 1;
-            FATP_ALWAYS_ENFORCE(indices[dim_idx] < ShapeT::dims[dim_idx], "StaticTensor index out of bounds");
+            if (indices[dim_idx] >= ShapeT::dims[dim_idx])
+            {
+                throw std::out_of_range("StaticTensor index is out of range");
+            }
             offset += indices[dim_idx] * stride;
             stride *= ShapeT::dims[dim_idx];
         }
@@ -709,16 +715,30 @@ constexpr StaticTensor<T, Matrix<M, N>, P> outer(const StaticTensor<T, Vector<M>
 // REDUCTION OPERATIONS
 // =============================================================================
 
+/** @brief Sum accumulator: bool counts in size_t and narrow integers widen to 64 bits. */
+template <typename T>
+using StaticTensorSumType = std::conditional_t<
+    std::is_same_v<std::remove_cv_t<T>, bool>, std::size_t,
+    std::conditional_t<std::is_integral_v<T> && (sizeof(T) < sizeof(std::int64_t)),
+                       std::conditional_t<std::is_signed_v<T>, std::int64_t, std::uint64_t>, T>>;
+
+/** @brief Mean accumulator/result for arithmetic values: double, except long double stays long double. */
+template <typename T>
+using StaticTensorMeanType = std::conditional_t<
+    std::is_arithmetic_v<std::remove_cv_t<T>>,
+    std::conditional_t<std::is_same_v<std::remove_cv_t<T>, long double>, long double, double>, T>;
+
 /**
  * @brief Sum of all elements
  */
 template <typename T, typename S, typename P>
-constexpr T sum(const StaticTensor<T, S, P>& tensor)
+constexpr StaticTensorSumType<T> sum(const StaticTensor<T, S, P>& tensor)
 {
-    T result = T{0};
+    using result_type = StaticTensorSumType<T>;
+    result_type result = result_type{0};
     for (size_t i = 0; i < S::size; ++i)
     {
-        result = P::add(result, tensor[i]);
+        result = P::add(result, static_cast<result_type>(tensor[i]));
     }
     return result;
 }
@@ -727,9 +747,15 @@ constexpr T sum(const StaticTensor<T, S, P>& tensor)
  * @brief Mean of all elements
  */
 template <typename T, typename S, typename P>
-constexpr T mean(const StaticTensor<T, S, P>& tensor)
+constexpr StaticTensorMeanType<T> mean(const StaticTensor<T, S, P>& tensor)
 {
-    return P::div(sum(tensor), static_cast<T>(S::size));
+    using result_type = StaticTensorMeanType<T>;
+    result_type result = result_type{0};
+    for (size_t i = 0; i < S::size; ++i)
+    {
+        result = P::add(result, static_cast<result_type>(tensor[i]));
+    }
+    return P::div(result, static_cast<result_type>(S::size));
 }
 
 /**
@@ -738,7 +764,26 @@ constexpr T mean(const StaticTensor<T, S, P>& tensor)
 template <typename T, typename S, typename P>
 constexpr T max(const StaticTensor<T, S, P>& tensor)
 {
-    return *std::max_element(tensor.begin(), tensor.end());
+    T result = tensor[0];
+    for (size_t i = 1; i < S::size; ++i)
+    {
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            if (result != result)
+            {
+                return result;
+            }
+            if (tensor[i] != tensor[i])
+            {
+                return tensor[i];
+            }
+        }
+        if (result < tensor[i])
+        {
+            result = tensor[i];
+        }
+    }
+    return result;
 }
 
 /**
@@ -747,7 +792,26 @@ constexpr T max(const StaticTensor<T, S, P>& tensor)
 template <typename T, typename S, typename P>
 constexpr T min(const StaticTensor<T, S, P>& tensor)
 {
-    return *std::min_element(tensor.begin(), tensor.end());
+    T result = tensor[0];
+    for (size_t i = 1; i < S::size; ++i)
+    {
+        if constexpr (std::is_floating_point_v<T>)
+        {
+            if (result != result)
+            {
+                return result;
+            }
+            if (tensor[i] != tensor[i])
+            {
+                return tensor[i];
+            }
+        }
+        if (tensor[i] < result)
+        {
+            result = tensor[i];
+        }
+    }
+    return result;
 }
 
 /**
@@ -757,12 +821,55 @@ template <typename T, size_t N, typename P>
     requires std::is_floating_point_v<T>
 T norm(const StaticTensor<T, Vector<N>, P>& vec)
 {
-    T sum_sq = T{0};
+    T scale = T{0};
+    T scaledSum = T{1};
+    bool hasNonzeroFiniteValue = false;
+    bool hasInfinity = false;
     for (size_t i = 0; i < N; ++i)
     {
-        sum_sq = P::add(sum_sq, P::mul(vec[i], vec[i]));
+        if (std::isnan(vec[i]))
+        {
+            return std::sqrt(P::mul(vec[i], vec[i]));
+        }
+        if (std::isinf(vec[i]))
+        {
+            hasInfinity = true;
+            continue;
+        }
+
+        const T magnitude = std::abs(vec[i]);
+        if (magnitude == T{0})
+        {
+            continue;
+        }
+        if (!hasNonzeroFiniteValue)
+        {
+            scale = magnitude;
+            scaledSum = T{1};
+            hasNonzeroFiniteValue = true;
+        }
+        else if (scale < magnitude)
+        {
+            const T ratio = P::div(scale, magnitude);
+            scaledSum = P::add(T{1}, P::mul(scaledSum, P::mul(ratio, ratio)));
+            scale = magnitude;
+        }
+        else
+        {
+            const T ratio = P::div(magnitude, scale);
+            scaledSum = P::add(scaledSum, P::mul(ratio, ratio));
+        }
     }
-    return std::sqrt(sum_sq);
+    if (hasInfinity)
+    {
+        const T infinity = std::numeric_limits<T>::infinity();
+        return std::sqrt(P::mul(infinity, infinity));
+    }
+    if (!hasNonzeroFiniteValue)
+    {
+        return T{0};
+    }
+    return P::mul(scale, static_cast<T>(std::sqrt(scaledSum)));
 }
 
 /**
@@ -773,7 +880,10 @@ template <typename T, size_t N, typename P>
 StaticTensor<T, Vector<N>, P> normalize(const StaticTensor<T, Vector<N>, P>& vec)
 {
     T n = norm(vec);
-    FATP_ALWAYS_ENFORCE(n != T{0}, "Cannot normalize a zero-length vector");
+    if (n == T{0})
+    {
+        throw std::domain_error("Cannot normalize a zero-length StaticTensor vector");
+    }
     StaticTensor<T, Vector<N>, P> result;
     for (size_t i = 0; i < N; ++i)
     {

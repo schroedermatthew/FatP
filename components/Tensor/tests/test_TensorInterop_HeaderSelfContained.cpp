@@ -29,6 +29,13 @@ FATP_META:
 
 #include "TensorInterop.h"
 
+template <typename Descriptor>
+concept TemporaryDescriptorBorrow = requires(Descriptor&& descriptor) {
+    static_cast<Descriptor&&>(descriptor).borrow();
+};
+
+static_assert(!TemporaryDescriptorBorrow<fat_p::StridedTensorDescriptor<int>>);
+
 int main()
 {
     fat_p::Tensor<int> value({}, 3);

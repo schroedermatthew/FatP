@@ -43,7 +43,10 @@ FATP_META:
 #include "TensorStatic.h"
 #include <cfenv>
 #include <cmath>
+#include <cstdint>
 #include <limits>
+#include <stdexcept>
+#include <type_traits>
 
 namespace fat_p::testing::tensorstatic
 {
@@ -116,16 +119,12 @@ FATP_TEST_CASE(bounds_checked_at_and_scalar_rank)
                    "One-element StaticTensor copy construction must not select the variadic constructor");
 
     StaticTensor<int, Matrix<2, 3>> matrix{1, 2, 3, 4, 5, 6};
-    bool rejected = false;
-    try
-    {
-        [[maybe_unused]] int value = matrix.at(0, 3);
-    }
-    catch (const std::exception&)
-    {
-        rejected = true;
-    }
-    FATP_ASSERT_TRUE(rejected, "at() must reject an index outside its axis");
+    FATP_ASSERT_THROWS(matrix.at(0, 3), std::out_of_range,
+                       "at() must report an out-of-range index through the standard bounds exception");
+
+    const std::initializer_list<int> tooShort{1, 2};
+    FATP_ASSERT_THROWS((StaticTensor<int, Vector<3>>(tooShort)), std::invalid_argument,
+                       "Initializer length mismatches must use the standard argument exception");
 
     return true;
 }
@@ -296,16 +295,8 @@ FATP_TEST_CASE(unary_negation_preserves_signed_zero_and_integer_policies)
                      "Unary negation should flip negative zero under directed rounding");
 
     const StaticTensor<int, Vector<1>, CheckedPolicy> minimumChecked{std::numeric_limits<int>::min()};
-    bool checkedRejected = false;
-    try
-    {
-        [[maybe_unused]] const auto invalid = -minimumChecked;
-    }
-    catch (const std::exception&)
-    {
-        checkedRejected = true;
-    }
-    FATP_ASSERT_TRUE(checkedRejected, "Checked unary negation should reject the minimum integer");
+    FATP_ASSERT_THROWS((-minimumChecked), LogicContractError,
+                       "Checked unary negation should report the arithmetic policy's exact exception type");
 
     const StaticTensor<int, Vector<1>, SaturatingArithmeticPolicy> minimumSaturating{
         std::numeric_limits<int>::min()};
@@ -455,8 +446,27 @@ FATP_TEST_CASE(sum_reduction)
 FATP_TEST_CASE(mean_reduction)
 {
     Vec4f v{2.0f, 4.0f, 6.0f, 8.0f};
-    float result = mean(v);
-    FATP_ASSERT_EQ(result, 5.0f, "Mean reduction");
+    const auto result = mean(v);
+    static_assert(std::is_same_v<decltype(result), const double>);
+    FATP_ASSERT_EQ(result, 5.0, "Mean reduction");
+    return true;
+}
+
+FATP_TEST_CASE(reductions_widen_narrow_values_and_counts)
+{
+    constexpr StaticTensor<std::uint8_t, Vector<256>> bytes(std::uint8_t{1});
+    constexpr auto byteSum = sum(bytes);
+    constexpr auto byteMean = mean(bytes);
+    static_assert(std::is_same_v<std::remove_cv_t<decltype(byteSum)>, std::uint64_t>);
+    static_assert(std::is_same_v<std::remove_cv_t<decltype(byteMean)>, double>);
+    static_assert(byteSum == 256);
+    static_assert(byteMean == 1.0);
+
+    constexpr StaticTensor<std::int16_t, Vector<2>> signedValues{
+        std::numeric_limits<std::int16_t>::max(), std::numeric_limits<std::int16_t>::max()};
+    static_assert(sum(signedValues) == std::int64_t{65534});
+    FATP_ASSERT_EQ(byteSum, std::uint64_t{256}, "Narrow unsigned sums widen before accumulation");
+    FATP_ASSERT_EQ(byteMean, 1.0, "Mean divisors remain representable when the static size exceeds uint8_t");
     return true;
 }
 
@@ -476,11 +486,46 @@ FATP_TEST_CASE(min_reduction)
     return true;
 }
 
+FATP_TEST_CASE(extrema_propagate_the_first_nan)
+{
+    const auto positiveNan = std::numeric_limits<double>::quiet_NaN();
+    const auto negativeNan = -std::numeric_limits<double>::quiet_NaN();
+    const StaticTensor<double, Vector<4>> values{4.0, negativeNan, positiveNan, -2.0};
+
+    const auto maximum = max(values);
+    const auto minimum = min(values);
+    FATP_ASSERT_TRUE(std::isnan(maximum) && std::signbit(maximum),
+                     "Maximum propagates the first NaN independent of its position");
+    FATP_ASSERT_TRUE(std::isnan(minimum) && std::signbit(minimum),
+                     "Minimum propagates the first NaN independent of its position");
+    return true;
+}
+
 FATP_TEST_CASE(l2_norm)
 {
     Vec3f v{3.0f, 4.0f, 0.0f};
     float result = norm(v);
     FATP_ASSERT_EQ(result, 5.0f, "L2 norm (3-4-5 triangle)");
+    return true;
+}
+
+FATP_TEST_CASE(l2_norm_avoids_intermediate_overflow_and_underflow)
+{
+    const StaticTensor<float, Vector<2>> large{1.0e20f, 1.0e20f};
+    const auto largeNorm = norm(large);
+    FATP_ASSERT_TRUE(std::isfinite(largeNorm), "A representable norm must not overflow while squaring inputs");
+    FATP_ASSERT_TRUE(std::abs(largeNorm / 1.0e20f - std::sqrt(2.0f)) < 4.0e-6f,
+                     "Scaled norm preserves large finite magnitudes");
+
+    const StaticTensor<float, Vector<2>> tiny{1.0e-30f, 0.0f};
+    const auto tinyNorm = norm(tiny);
+    FATP_ASSERT_TRUE(tinyNorm > 0.0f, "A representable norm must not underflow while squaring inputs");
+    FATP_ASSERT_TRUE(std::abs(tinyNorm / 1.0e-30f - 1.0f) < 1.0e-6f,
+                     "Scaled norm preserves tiny finite magnitudes");
+
+    const auto normalizedTiny = normalize(tiny);
+    FATP_ASSERT_EQ(normalizedTiny[0], 1.0f, "Tiny nonzero vectors remain normalizable");
+    FATP_ASSERT_EQ(normalizedTiny[1], 0.0f, "Normalization preserves zero components");
     return true;
 }
 
@@ -496,16 +541,8 @@ FATP_TEST_CASE(normalize_produces_unit_vector)
 FATP_TEST_CASE(normalize_rejects_zero_vector)
 {
     Vec3f zero{0.0f, 0.0f, 0.0f};
-    bool rejected = false;
-    try
-    {
-        [[maybe_unused]] auto invalid = normalize(zero);
-    }
-    catch (const std::exception&)
-    {
-        rejected = true;
-    }
-    FATP_ASSERT_TRUE(rejected, "normalize() must reject a zero-length vector");
+    FATP_ASSERT_THROWS(normalize(zero), std::domain_error,
+                       "normalize() must report a zero norm through the standard domain exception");
     return true;
 }
 
@@ -706,9 +743,12 @@ bool test_TensorStatic()
     out << "\n" << colors::blue() << "--- Reduction Operations ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, tensorstatic, sum_reduction);
     FATP_RUN_TEST_NS(runner, tensorstatic, mean_reduction);
+    FATP_RUN_TEST_NS(runner, tensorstatic, reductions_widen_narrow_values_and_counts);
     FATP_RUN_TEST_NS(runner, tensorstatic, max_reduction);
     FATP_RUN_TEST_NS(runner, tensorstatic, min_reduction);
+    FATP_RUN_TEST_NS(runner, tensorstatic, extrema_propagate_the_first_nan);
     FATP_RUN_TEST_NS(runner, tensorstatic, l2_norm);
+    FATP_RUN_TEST_NS(runner, tensorstatic, l2_norm_avoids_intermediate_overflow_and_underflow);
     FATP_RUN_TEST_NS(runner, tensorstatic, normalize_produces_unit_vector);
     FATP_RUN_TEST_NS(runner, tensorstatic, normalize_rejects_zero_vector);
 

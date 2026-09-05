@@ -77,8 +77,11 @@ overflow behavior of dynamic tensors.
 - A default `RankedTensor<T, R>` for `R > 0` has `R` zero extents and is empty.
 - Moving a positive-rank owner transfers compatible storage and resets the
   source to its all-zero empty shape.
-- Moving a rank-zero owner moves its element but leaves the source as a valid
-  scalar containing the element type's ordinary moved-from value.
+- Moving a uniquely owned rank-zero owner moves its element but leaves the
+  source as a valid scalar containing the element type's ordinary moved-from
+  value. When shared aliases exist, a copyable element is copied to preserve
+  those aliases; a non-copyable element reports `std::logic_error` before
+  either owner changes.
 - Ranked borrowed and shared views have no disengaged default state. Moving one
   has copy-equivalent binding semantics, so the source view stays bound.
 
@@ -157,7 +160,10 @@ elements. Adapting a const owner produces a const-element view.
 `asRankedView<R>` throws `std::invalid_argument` before publishing a view when
 the runtime rank differs. Borrowed adapters reject owner and view temporaries.
 Use `asDynamicSharedView` and `asRankedSharedView<R>` when the adapted view must
-retain storage lifetime.
+retain storage lifetime. These shared adapters accept named owners and shared
+view values, while owner temporaries are rejected. A borrowed adapter called on
+an lvalue `SharedTensorView` does not transfer its shared handle, so the
+resulting borrow must not outlive that shared source.
 
 Ranked-to-dynamic adaptation is O(rank). Dynamic metadata keeps ranks zero
 through four inline; adapting a higher rank may allocate its metadata fallback.

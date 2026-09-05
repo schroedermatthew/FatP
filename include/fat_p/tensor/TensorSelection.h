@@ -617,7 +617,7 @@ template <ReadableTensor Source, ReadableTensor Indices>
 {
     using value_type = typename Source::value_type;
     return takeAlongAxis(source, indices, requestedAxis,
-                         tensor_detail::selectResultAllocator<value_type>(source));
+                         tensor_detail::selectBinaryResultAllocator<value_type>(source, indices));
 }
 
 namespace tensor_selection_detail
@@ -707,7 +707,8 @@ template <ReadableTensor Source, ReadableTensor Indices>
 [[nodiscard]] auto gatherND(const Source& source, const Indices& indices)
 {
     using value_type = typename Source::value_type;
-    return gatherND(source, indices, tensor_detail::selectResultAllocator<value_type>(source));
+    return gatherND(source, indices,
+                    tensor_detail::selectBinaryResultAllocator<value_type>(source, indices));
 }
 
 template <std::size_t TupleDepth, ReadableTensor Source, ReadableTensor Indices, typename Allocator>
@@ -753,7 +754,8 @@ template <std::size_t TupleDepth, ReadableTensor Source, ReadableTensor Indices>
 [[nodiscard]] auto gatherND(const Source& source, const Indices& indices)
 {
     using value_type = typename Source::value_type;
-    return gatherND<TupleDepth>(source, indices, tensor_detail::selectResultAllocator<value_type>(source));
+    return gatherND<TupleDepth>(
+        source, indices, tensor_detail::selectBinaryResultAllocator<value_type>(source, indices));
 }
 
 } // namespace fat_p

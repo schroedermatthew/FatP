@@ -84,13 +84,36 @@ inline constexpr bool isSliceIndex = std::integral<std::remove_cvref_t<T>> &&
 template <typename T>
 inline constexpr bool isNewAxisSlice = std::same_as<std::remove_cvref_t<T>, NewAxisSlice>;
 
+template <typename T>
+inline constexpr bool isEllipsisSlice = std::same_as<std::remove_cvref_t<T>, EllipsisSlice>;
+
+template <typename T>
+inline constexpr bool isSourceAxisSlice = isSliceIndex<T> ||
+    std::same_as<std::remove_cvref_t<T>, Slice> ||
+    std::same_as<std::remove_cvref_t<T>, AllSlice>;
+
+template <typename T>
+inline constexpr bool isTypedSliceSpecification = isSliceIndex<T> ||
+    std::same_as<std::remove_cvref_t<T>, Slice> ||
+    std::same_as<std::remove_cvref_t<T>, AllSlice> ||
+    isNewAxisSlice<T> ||
+    isEllipsisSlice<T>;
+
 template <typename... Specifications>
 inline constexpr std::size_t typedSliceConsumedAxes =
+    (std::size_t{0} + ... + (isSourceAxisSlice<Specifications> ? 1 : 0));
+
+template <typename... Specifications>
+inline constexpr std::size_t typedSliceRemovedAxes =
     (std::size_t{0} + ... + (isSliceIndex<Specifications> ? 1 : 0));
+
+template <typename... Specifications>
+inline constexpr std::size_t typedSliceEllipsisCount =
+    (std::size_t{0} + ... + (isEllipsisSlice<Specifications> ? 1 : 0));
 
 template <std::size_t SourceRank, typename... Specifications>
 inline constexpr std::size_t typedSliceResultRank =
-    SourceRank - typedSliceConsumedAxes<Specifications...> +
+    SourceRank - typedSliceRemovedAxes<Specifications...> +
     (std::size_t{0} + ... + (isNewAxisSlice<Specifications> ? 1 : 0));
 
 template <typename Index>

@@ -105,10 +105,12 @@ struct RankedStridedTensorDescriptor
         return storageBase + originOffset;
     }
 
-    [[nodiscard]] RankedTensorView<T, Rank> borrow() const
+    [[nodiscard]] RankedTensorView<T, Rank> borrow() const &
     {
         return tensor_detail::TensorAccess::makeView<T, Rank>(storageBase, layout(), lifetime, tracked);
     }
+
+    [[nodiscard]] RankedTensorView<T, Rank> borrow() const && = delete;
 };
 
 namespace tensor_detail
@@ -317,6 +319,14 @@ template <typename T, typename Allocator, std::size_t Rank>
     return asDynamicSharedView(source.asSharedView());
 }
 
+template <typename T, typename Allocator, std::size_t Rank>
+    requires(Rank != kDynamicTensorRank)
+void asDynamicSharedView(Tensor<T, Allocator, Rank>&&) = delete;
+
+template <typename T, typename Allocator, std::size_t Rank>
+    requires(Rank != kDynamicTensorRank)
+void asDynamicSharedView(const Tensor<T, Allocator, Rank>&&) = delete;
+
 template <std::size_t Rank, typename T, typename Allocator>
 [[nodiscard]] auto asRankedSharedView(Tensor<T, Allocator>& source)
     -> SharedRankedTensorView<T, Rank>
@@ -330,6 +340,12 @@ template <std::size_t Rank, typename T, typename Allocator>
 {
     return asRankedSharedView<Rank>(source.asSharedView());
 }
+
+template <std::size_t Rank, typename T, typename Allocator>
+void asRankedSharedView(Tensor<T, Allocator>&&) = delete;
+
+template <std::size_t Rank, typename T, typename Allocator>
+void asRankedSharedView(const Tensor<T, Allocator>&&) = delete;
 
 template <typename T, typename Allocator, std::size_t Rank>
     requires(Rank != kDynamicTensorRank)

@@ -120,6 +120,10 @@ FATP_TEST_CASE(shared_and_borrowed_lifetime)
 
 FATP_TEST_CASE(iterator_identity_and_writable_layout_guards)
 {
+    TensorLogicalIterator<int, 0> singularScalarIterator;
+    FATP_ASSERT_THROWS((*singularScalarIterator), std::out_of_range,
+                       "A default rank-zero iterator should diagnose singular dereference");
+
     Tensor<int> owner({3});
     std::iota(owner.begin(), owner.end(), 1);
     const auto first = owner.asView();
