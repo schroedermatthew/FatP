@@ -64,6 +64,7 @@ FATP_META:
 #include <numeric>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
 
 #include "CheckedArithmetic.h"
 
@@ -330,7 +331,21 @@ public:
     {
     }
 
-    constexpr explicit StaticTensor(T scalar)
+    // GCC 13/14 can under-align a discarded return slot for trivially copied
+    // over-aligned objects. A nontrivial copy constructor makes the value type
+    // use the object-construction return path, including for NRVO results.
+    constexpr StaticTensor(const StaticTensor& other)
+        noexcept(std::is_nothrow_copy_constructible_v<decltype(mData)>)
+        requires std::is_copy_constructible_v<decltype(mData)>
+        : mData(other.mData)
+    {
+    }
+
+    constexpr StaticTensor(StaticTensor&&) = default;
+    constexpr StaticTensor& operator=(const StaticTensor&) = default;
+    constexpr StaticTensor& operator=(StaticTensor&&) = default;
+
+    constexpr explicit StaticTensor(const T& scalar)
     {
         mData.fill(scalar);
     }
@@ -346,8 +361,8 @@ public:
 
     template <typename... Args>
         requires(sizeof...(Args) == size && (std::is_convertible_v<Args, T> && ...))
-    constexpr explicit StaticTensor(Args... args)
-        : mData{static_cast<T>(args)...}
+    constexpr explicit StaticTensor(Args&&... args)
+        : mData{static_cast<T>(std::forward<Args>(args))...}
     {
     }
 

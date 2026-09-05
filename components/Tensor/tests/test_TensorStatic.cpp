@@ -45,6 +45,7 @@ FATP_META:
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <type_traits>
 
@@ -75,6 +76,11 @@ FATP_TEST_CASE(over_aligned_elements)
         using TensorType = StaticTensor<Element, Shape<2>>;
         static_assert(alignof(TensorType) >= alignof(Element));
         TensorType tensor;
+        const Element initial{11};
+        const TensorType broadcast(initial);
+        const TensorType individual(initial, Element{13});
+        FATP_ASSERT_EQ(broadcast[1].value, 11, "Over-aligned scalar arguments are accepted by reference");
+        FATP_ASSERT_EQ(individual[1].value, 13, "Over-aligned variadic arguments retain their values");
         for (const auto& element : tensor)
         {
             FATP_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(&element) % alignof(Element),
@@ -86,6 +92,28 @@ FATP_TEST_CASE(over_aligned_elements)
     static_assert(alignof(StaticTensor<float, Shape<8>>) >= 32);
     FATP_ASSERT_TRUE(check.template operator()<64>(), "Support cache-line-aligned elements");
     FATP_ASSERT_TRUE(check.template operator()<128>(), "Support alignment above the dynamic default");
+    return true;
+}
+
+FATP_TEST_CASE(copy_and_move_contracts)
+{
+    using Value = StaticTensor<int, Shape<2>>;
+    static_assert(std::is_nothrow_copy_constructible_v<Value>);
+    static_assert(std::is_nothrow_move_constructible_v<Value>);
+    constexpr Value original{3, 4};
+    constexpr Value copied(original);
+    static_assert(copied[0] == 3 && copied[1] == 4);
+    using Owner = StaticTensor<std::unique_ptr<int>, Shape<2>>;
+    static_assert(!std::is_copy_constructible_v<Owner>);
+    static_assert(std::is_nothrow_move_constructible_v<Owner>);
+    Owner source(std::make_unique<int>(3), std::make_unique<int>(4));
+    Owner moved(std::move(source));
+    FATP_ASSERT_TRUE(!source[0] && !source[1], "Moving transfers ownership of elements");
+    FATP_ASSERT_EQ(*moved[0], 3, "Move construction retains the first element");
+    Owner assigned;
+    assigned = std::move(moved);
+    FATP_ASSERT_TRUE(!moved[0] && !moved[1], "Move assignment transfers ownership of elements");
+    FATP_ASSERT_EQ(*assigned[1], 4, "Move assignment retains the second element");
     return true;
 }
 
@@ -765,6 +793,7 @@ bool test_TensorStatic()
     out << colors::blue() << "--- Basic Construction and Access ---" << colors::reset() << "\n";
     FATP_RUN_TEST_NS(runner, tensorstatic, default_construction);
     FATP_RUN_TEST_NS(runner, tensorstatic, over_aligned_elements);
+    FATP_RUN_TEST_NS(runner, tensorstatic, copy_and_move_contracts);
     FATP_RUN_TEST_NS(runner, tensorstatic, scalar_broadcast);
     FATP_RUN_TEST_NS(runner, tensorstatic, initializer_list_construction);
     FATP_RUN_TEST_NS(runner, tensorstatic, variadic_constructor);

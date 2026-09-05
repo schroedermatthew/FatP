@@ -1066,6 +1066,26 @@ remain target-only. The dedicated
 and later [aggregate FatP CI run](https://github.com/schroedermatthew/FatP/actions/runs/33474185706)
 passed the delivered contraction/execution compiler and sanitizer gates.
 
+### StaticTensor value representation and compiler portability
+
+`StaticTensor<T, Shape, Policy>` stores its elements inline, with alignment at
+least `max(32, alignof(T))`. Scalar construction accepts a const reference and
+variadic construction forwards arguments, including over-aligned element types.
+
+Copy construction is intentionally nontrivial. GCC 13 and 14 can provide an
+under-aligned temporary for a discarded return of a trivially copied,
+over-aligned value. An explicit element-array copy constructor uses the
+object-construction return path and protects all StaticTensor return-by-value
+operations. Copies remain constexpr when the elements allow it; copy availability
+and noexcept follow the element array. Move construction and both assignments
+retain their default element-wise behavior.
+
+Consequently, callers must not assume StaticTensor is trivially copyable or use
+its object representation as a serialization format. This changes trivial-copy
+traits and may change the calling ABI compared with older headers: rebuild
+translation units together when upgrading. The element layout, alignment,
+shape, and arithmetic semantics are unchanged.
+
 The remaining policy decisions are deliberately owned by later phase contracts:
 
 - Optional optimizations beyond `copyFrom`'s conservative staging fallback.

@@ -426,7 +426,12 @@ private:
             mStorage.template emplace<InlineStorage>(std::move(inlineValues));
             return;
         }
-        HeapStorage heapValues(values, values + count);
+        HeapStorage heapValues;
+        heapValues.reserve(count);
+        for (size_type index = 0; index < count; ++index)
+        {
+            heapValues.push_back(values[index]);
+        }
         mStorage.template emplace<HeapStorage>(std::move(heapValues));
     }
 
