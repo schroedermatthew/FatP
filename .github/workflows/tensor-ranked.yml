@@ -162,6 +162,10 @@ jobs:
         run: >-
           g++-13 -std=c++20 -O3 -DNDEBUG -Wall -Wextra -Wpedantic -Werror
           -iquote ./include/fat_p ${{ env.BENCH_SRC }} -o benchmark_tensor_ranked
+      - name: Install architecture-check tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ripgrep
       - name: Architecture grep manifest
         run: |
           ! rg -n 'same_as<.*(DynamicExtents|TensorLayout)' include/fat_p/tensor
