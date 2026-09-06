@@ -18,6 +18,7 @@ FATP_META:
     includes_windows_h: false
 */
 
+#include "FatPConfig.h"
 #include "FatPTest.h"
 #include "TensorInterop.h"
 
@@ -64,12 +65,20 @@ struct Guard
 };
 } // namespace fat_p::testing::tensor_owner_lifetime::allocation_probe
 
-void* operator new(std::size_t n) { return fat_p::testing::tensor_owner_lifetime::allocation_probe::allocate(n); }
-void* operator new[](std::size_t n) { return fat_p::testing::tensor_owner_lifetime::allocation_probe::allocate(n); }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
-void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
+// Keep the replacement entry points intact: GCC can otherwise inline free()
+// into a standard-library caller and diagnose a spurious new/delete mismatch.
+FATP_NOINLINE void* operator new(std::size_t n)
+{
+    return fat_p::testing::tensor_owner_lifetime::allocation_probe::allocate(n);
+}
+FATP_NOINLINE void* operator new[](std::size_t n)
+{
+    return fat_p::testing::tensor_owner_lifetime::allocation_probe::allocate(n);
+}
+FATP_NOINLINE void operator delete(void* p) noexcept { std::free(p); }
+FATP_NOINLINE void operator delete[](void* p) noexcept { std::free(p); }
+FATP_NOINLINE void operator delete(void* p, std::size_t) noexcept { std::free(p); }
+FATP_NOINLINE void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 #endif
 
 namespace fat_p::testing::tensor_owner_lifetime
