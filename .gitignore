@@ -94,3 +94,8 @@ ipch/
 
 # Visual Studio workspace settings (user-specific, not project config)
 VSWorkspaceSettings.json
+
+# Python validation caches
+__pycache__/
+*.pyc
+/meta_report.json

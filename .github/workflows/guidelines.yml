@@ -1,0 +1,130 @@
+name: Guidelines and tooling
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'guidelines/**'
+      - 'tools/**'
+      - 'include/**'
+      - 'components/**'
+      - 'Teaching/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - '.clang-format'
+      - '.github/workflows/guidelines.yml'
+  pull_request:
+    paths:
+      - 'guidelines/**'
+      - 'tools/**'
+      - 'include/**'
+      - 'components/**'
+      - 'Teaching/**'
+      - 'cmake/**'
+      - 'CMakeLists.txt'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - '.clang-format'
+      - '.github/workflows/guidelines.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  guidelines:
+    name: Corpus, ledger and checker controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      FATP_GUIDELINE_FORMATTER: clang-format
+      FATP_GUIDELINE_CLANG: clang++-18
+      PYTHONDONTWRITEBYTECODE: '1'
+      BASE_REV: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install declared tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends clang-18
+          python -m pip install -r tools/requirements.txt clang-format==22.1.8
+      - name: Resolve previous ledger
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          def git(*args):
+              return subprocess.run(["git", *args], check=True, capture_output=True).stdout
+
+          def ledger_at(revision):
+              entry = git("ls-tree", "--name-only", revision, "--", "guidelines/DEMERITS.md")
+              if not entry.strip():
+                  return None
+              return git("show", revision + ":guidelines/DEMERITS.md")
+
+          baseline = None
+          revision = os.environ.get("BASE_REV", "")
+          if revision and revision != "0" * 40:
+              if not re.fullmatch(r"[0-9a-fA-F]{40}", revision):
+                  raise SystemExit("Invalid base revision")
+              git("cat-file", "-e", revision + "^{commit}")
+              baseline = ledger_at(revision)
+              if baseline is None:
+                  for candidate in git("log", "--format=%H", revision, "--", "guidelines/DEMERITS.md").decode().splitlines():
+                      baseline = ledger_at(candidate)
+                      if baseline is not None:
+                          break
+          else:
+              parent = git("rev-list", "--first-parent", "--skip=1", "--max-count=1", "HEAD").decode().strip()
+              if parent:
+                  candidates = [parent] + git(
+                      "log", "--format=%H", parent, "--", "guidelines/DEMERITS.md"
+                  ).decode().splitlines()
+                  for candidate in dict.fromkeys(candidates):
+                      baseline = ledger_at(candidate)
+                      if baseline is not None:
+                          break
+          output = Path("build/previous-guideline-ledger.md")
+          if baseline is None:
+              output.unlink(missing_ok=True)
+              print("No prior guideline ledger in Git; validate current tally without a prior comparison.")
+          else:
+              output.parent.mkdir(exist_ok=True)
+              output.write_bytes(baseline)
+          PY
+      - name: Validate corpus and ledger retention
+        run: |
+          python - <<'PY'
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          command = [sys.executable, "tools/lint_guidelines.py", "guidelines", "--repo-root", ".", "--instantiated"]
+          previous = Path("build/previous-guideline-ledger.md")
+          if previous.is_file():
+              command.extend(["--previous-ledger", str(previous)])
+          raise SystemExit(subprocess.call(command))
+          PY
+      - name: Exercise positive and negative checker controls
+        run: python -m unittest discover -s tools/tests -v
+      - name: Check adopted tooling metadata
+        run: >-
+          python tools/lint_metadata.py --repo-root . --guidelines guidelines
+          --selected-only
+          --file tools/lint_guidelines.py --file tools/lint_metadata.py
+          --file tools/check_style.py --file tools/guideline_lib.py
+          --file tools/tests/test_guideline_tools.py
+          --file tools/tests/test_guidelines_ci.py
+
+

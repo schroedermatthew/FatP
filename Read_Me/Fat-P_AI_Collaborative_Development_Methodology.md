@@ -1,3 +1,5 @@
+> **Historical development methodology.** Current authority and task routes are in [guidelines/CORE.md](../guidelines/CORE.md). The process described below is not active contributor guidance.
+
 # Fat-P AI-Collaborative Development Methodology
 
 ## A Proven Framework for Human-AI Partnership in Production Software Engineering

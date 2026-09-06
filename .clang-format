@@ -1,19 +1,11 @@
-# Fat-P Library .clang-format
-# Based on Fat-P Library Development Guidelines v2.7
-#
-# Column policy:
-#   - Target: 100 columns (typical)
-#   - Hard limit: 120 columns (absolute)
-#
-# The ColumnLimit is set to 120 (hard limit). Use PenaltyExcessCharacter
-# to discourage lines over 100 columns while still allowing up to 120.
-
+# C++ template style. Reference formatter: clang-format 22.1.8.
+# The formatter's Standard controls parsing/formatting, not compiler language mode.
+# 100 columns is the human readability target; 120 is the configured limit.
+---
 Language: Cpp
+BasedOnStyle: LLVM
 Standard: c++20
 
-BasedOnStyle: LLVM
-
-# Indentation
 UseTab: Never
 IndentWidth: 4
 TabWidth: 4
@@ -24,30 +16,9 @@ IndentCaseLabels: true
 IndentPPDirectives: None
 NamespaceIndentation: None
 
-# Braces - Allman style (opening brace on its own line)
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterCaseLabel: true
-  AfterClass: true
-  AfterControlStatement: Always
-  AfterEnum: true
-  AfterExternBlock: false
-  AfterFunction: true
-  AfterNamespace: true
-  AfterStruct: true
-  AfterUnion: true
-  BeforeCatch: true
-  BeforeElse: true
-  IndentBraces: false
-
-# Always use braces for control statements
+BreakBeforeBraces: Allman
 InsertBraces: true
-
-# Line length
 ColumnLimit: 120
-
-# Penalties to prefer breaking at 100 columns
-# High penalty for excess characters discourages lines over 100
 PenaltyExcessCharacter: 1000000
 PenaltyBreakBeforeFirstCallParameter: 19
 PenaltyBreakComment: 300
@@ -56,7 +27,6 @@ PenaltyBreakString: 1000
 PenaltyBreakTemplateDeclaration: 10
 PenaltyReturnTypeOnItsOwnLine: 60
 
-# No short forms - always use full brace blocks
 AllowShortBlocksOnASingleLine: Never
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: false
@@ -65,22 +35,17 @@ AllowShortIfStatementsOnASingleLine: Never
 AllowShortLambdasOnASingleLine: Empty
 AllowShortLoopsOnASingleLine: false
 
-# Parameter/argument packing - one per line when wrapping
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 BinPackArguments: false
-BinPackParameters: false
-
-# Constructor initializers
+BinPackParameters: OnePerLine
+BinPackLongBracedList: false
 BreakConstructorInitializers: BeforeComma
 PackConstructorInitializers: Never
+BreakAfterReturnType: None
+BreakTemplateDeclarations: Yes
 
-# Function declarations/definitions
-AlwaysBreakAfterReturnType: None
-AlwaysBreakTemplateDeclarations: Yes
-
-# Alignment
-AlignAfterOpenBracket: Align
+AlignAfterOpenBracket: true
 AlignArrayOfStructures: None
 AlignConsecutiveAssignments: None
 AlignConsecutiveBitFields: None
@@ -88,9 +53,10 @@ AlignConsecutiveDeclarations: None
 AlignConsecutiveMacros: None
 AlignEscapedNewlines: Left
 AlignOperands: Align
-AlignTrailingComments: true
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
 
-# Spacing
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
 SpaceAfterTemplateKeyword: true
@@ -104,41 +70,34 @@ SpaceBeforeParens: ControlStatements
 SpaceBeforeRangeBasedForLoopColon: true
 SpaceBeforeSquareBrackets: false
 SpaceInEmptyBlock: false
-SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 1
 SpacesInAngles: Never
-SpacesInCStyleCastParentheses: false
-SpacesInConditionalStatement: false
 SpacesInContainerLiterals: true
 SpacesInLineCommentPrefix:
   Minimum: 1
   Maximum: 1
-SpacesInParentheses: false
+SpacesInParens: Never
 SpacesInSquareBrackets: false
 
-# Pointer/reference alignment
 DerivePointerAlignment: false
 PointerAlignment: Left
 ReferenceAlignment: Left
-
-# Includes
-SortIncludes: CaseInsensitive
+QualifierAlignment: Leave
+SortIncludes: Never
 IncludeBlocks: Preserve
-
-# Namespace comments
 FixNamespaceComments: true
 ShortNamespaceLines: 0
 
-# Empty lines
 EmptyLineAfterAccessModifier: Never
 EmptyLineBeforeAccessModifier: LogicalBlock
-KeepEmptyLinesAtTheStartOfBlocks: false
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: false
 MaxEmptyLinesToKeep: 2
 SeparateDefinitionBlocks: Leave
-
-# Misc
 BreakBeforeBinaryOperators: None
-BreakBeforeConceptDeclarations: true
+BreakBeforeConceptDeclarations: Always
 BreakBeforeTernaryOperators: true
 BreakStringLiterals: true
 CompactNamespaces: false
@@ -149,4 +108,5 @@ IndentWrappedFunctionNames: false
 InsertTrailingCommas: None
 LambdaBodyIndentation: Signature
 ReflowComments: true
-SortUsingDeclarations: true
+SortUsingDeclarations: LexicographicNumeric
+InsertNewlineAtEOF: true

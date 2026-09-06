@@ -162,7 +162,7 @@ FAT-P provides containers, concurrency primitives, memory management utilities, 
 
 All code, architecture, documentation, and governance in this library were authored by AI systems — primarily Claude (Anthropic), with contributions from ChatGPT, Gemini, and Grok. The human ([Matthew Schroeder](Authors.md)) provided direction, constraints, and judgment but wrote none of the code.
 
-The library was developed using a multi-AI collaborative pipeline: independent parallel design, cross-review and synthesis, adversarial review, and context reset cycles. The complete methodology is documented in [Fat-P AI-Collaborative Development Methodology](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md).
+The library was developed using a multi-AI collaborative pipeline: independent parallel design, cross-review and synthesis, adversarial review, and context reset cycles. Current contributor and assistant instructions start at [guidelines/README.md](guidelines/README.md). [Fat-P AI-Collaborative Development Methodology](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md) preserves the historical process.
 
 24 components have benchmark suites against 50+ competitor implementations from Boost, Abseil, LLVM, EASTL, and others. Most are competitive; some lead on specific operations, some trail. The data — including where FAT-P loses — is in [`benchmark_results/`](benchmark_results/).
 
@@ -330,7 +330,8 @@ FatP/
 ├── ThirdParty/          # Vendored headers used by tests and benchmarks
 ├── benchmark_results/   # Published competitive benchmark analysis
 ├── Teaching/            # Guides, case studies, and reference material
-├── Read_Me/             # Development guidelines and style guides
+├── guidelines/          # Canonical contributor guidelines and project profile
+├── Read_Me/             # Historical development records
 ├── tools/               # Build scripts, CI generators, Desktop sync (see tools/README.md)
 └── .github/workflows/   # CI workflows (regenerate with tools/generate_workflows.py)
 ```

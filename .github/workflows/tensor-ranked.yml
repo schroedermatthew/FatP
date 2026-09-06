@@ -22,7 +22,7 @@ on:
       - 'components/FatPTest/tests/test_FatP.*'
       - 'include/fat_p/FatPTest.h'
       - 'include/fat_p/FatPBenchmarkRunner.h'
-      - 'Read_Me/Fat-P_Library_Development_Guidelines.md'
+      - 'guidelines/**'
       - '.github/workflows/tensor-ranked.yml'
   pull_request:
     paths:
@@ -40,7 +40,7 @@ on:
       - 'components/FatPTest/tests/test_FatP.*'
       - 'include/fat_p/FatPTest.h'
       - 'include/fat_p/FatPBenchmarkRunner.h'
-      - 'Read_Me/Fat-P_Library_Development_Guidelines.md'
+      - 'guidelines/**'
       - '.github/workflows/tensor-ranked.yml'
 
 env:

@@ -47,9 +47,9 @@ Feature requests that align with the project's design philosophy (C++20, header-
 
 ## Pull Requests — Read This First
 
-FAT-P code goes through a specific development pipeline: parallel design across multiple AI systems, cross-review and synthesis, adversarial review, context reset cycles, and human judgment. This process is described in [the methodology document](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md).
+FAT-P uses independent review, synthesis, focused verification and fresh-context checks under [the current guidelines](guidelines/README.md). The [methodology document](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md) records the historical development process; its retired instructions do not govern current work.
 
-Because of this pipeline, **unsolicited code PRs are unlikely to be merged directly.** This is not a judgment on code quality — it's a process constraint. Code that enters the repository needs to go through the same multi-AI review and context reset cycle as everything else.
+Because of this pipeline, **unsolicited code PRs are unlikely to be merged directly.** This is not a judgment on code quality — it's a process constraint. Substantial changes need the review and verification applicable to their scope under the current guidelines.
 
 What *will* happen with a good PR:
 
@@ -74,15 +74,7 @@ What *will* happen with a good PR:
 
 ## Code Style
 
-If you do submit code, the project uses:
-
-- C++20 minimum
-- Allman braces, 4-space indent, 100-column target (120 hard limit)
-- `mPascalCase` for class members, `camelCase` for functions
-- `#pragma once`, no `#ifndef` guards
-- All code in `namespace fat_p`
-
-The full coding standards are in [Development Guidelines](Read_Me/Fat-P_Library_Development_Guidelines.md). A `.clang-format` file is provided at the repository root.
+The canonical entry point is [guidelines/README.md](guidelines/README.md). [C++ Style](guidelines/cpp/STYLE.md) owns naming and formatting, and [PROJECT_PROFILE](guidelines/PROJECT_PROFILE.md) records the build, tests and validation commands. Use the repository-root `.clang-format`. Existing conformance gaps are recorded separately; they are not exceptions for new work.
 
 ## Questions and Discussion
 
