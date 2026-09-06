@@ -468,7 +468,7 @@ unaryArithmetic(const Source& source, const Allocator& allocator, Operation oper
     UnaryTensorResult<typename Source::value_type, Allocator, Source> result(
         std::allocator_arg, allocator, source.extents());
     unaryKernel(source, result, operation);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <bool ScalarFirst, typename Result, ReadableTensor Source, typename Scalar,
@@ -489,7 +489,7 @@ scalarArithmetic(const Source& source, Scalar scalar, const Allocator& allocator
             return std::invoke(operation, static_cast<Result>(value), convertedScalar);
         }
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 } // namespace tensor_detail
@@ -541,7 +541,7 @@ cast(const Source& source, const Allocator& allocator)
                                                                    source.extents());
     tensor_detail::unaryKernel(source, result,
                               tensor_detail::checkedScalarCast<To, typename Source::value_type>);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief Checked cast using the owner's result-rebound SOCCC allocator, or TensorAllocator<To> for a view. */
@@ -576,7 +576,7 @@ template <tensor_detail::CopyMaterializableTensor Source, typename Allocator>
     Tensor<typename Source::value_type, Allocator> result(std::allocator_arg, allocator, std::move(target));
     auto destination = result.reshapeView(source.extents());
     tensor_detail::copyKernel(source, destination);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief Reshaped copy using owner SOCCC, or TensorAllocator for a view input. */
@@ -602,14 +602,7 @@ template <tensor_detail::CopyMaterializableTensor Source, std::size_t NewRank, t
                                                                    std::move(target));
     auto destination = result.reshapeView(source.extents());
     tensor_detail::copyKernel(source, destination);
-    if constexpr (NewRank == 0)
-    {
-        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
-    }
-    else
-    {
-        return result;
-    }
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <tensor_detail::CopyMaterializableTensor Source, std::size_t NewRank>
@@ -702,7 +695,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
         return tensor_detail::checkedSameTypeAdd(static_cast<value_type>(leftValue),
                                                       static_cast<value_type>(rightValue));
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Left, ReadableTensor Right>
@@ -731,7 +724,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
         return tensor_detail::checkedSameTypeSubtract(static_cast<value_type>(leftValue),
                                                       static_cast<value_type>(rightValue));
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Left, ReadableTensor Right>
@@ -760,7 +753,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
         return tensor_detail::checkedSameTypeMultiply(static_cast<value_type>(leftValue),
                                                       static_cast<value_type>(rightValue));
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Left, ReadableTensor Right>
@@ -802,7 +795,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
         return tensor_detail::checkedSameTypeDivide(static_cast<value_type>(leftValue),
                                                     static_cast<value_type>(rightValue));
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Left, ReadableTensor Right>
@@ -998,7 +991,7 @@ template <ReadableTensor Source, typename Function, typename Allocator>
     tensor_detail::UnaryTensorResult<value_type, Allocator, Source> result(std::allocator_arg, allocator,
                                                                            source.extents());
     tensor_detail::unaryKernel(source, result, std::forward<Function>(function));
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Source, typename Function>

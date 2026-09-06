@@ -77,10 +77,12 @@ float value = matrix.atLinear(5);
 Any zero extent makes a tensor empty. Extent products and canonical strides
 are checked against both `size_t` and `ptrdiff_t` before element allocation.
 A moved-from owner is reset to the canonical empty state `{0}`.
-Move construction is not declared `noexcept`: assertions-enabled lifetime
-tracking and allocator state may require operations that can throw. Code that
-requires a non-throwing relocation primitive should store an indirection to the
-owner instead of assuming `Tensor` is nothrow-movable.
+Ordinary dynamic and positive-fixed-rank owner moves transfer storage without
+allocating lifetime state. Move construction is `noexcept` when the allocator
+has nonthrowing move construction, allowing containers such as `std::vector`
+to relocate default-allocator tensors without copying their elements.
+Fixed-rank-zero owners retain a live scalar in the source and their moves may
+still allocate and throw. Allocator-extended moves may also materialize storage.
 
 Allocator instances are explicit when needed:
 
@@ -148,7 +150,10 @@ assert(values.data()[5] == 6);
 
 Multidimensional access enforces exact rank and per-axis bounds. `operator[]`
 is conventional unchecked contiguous owner access. `atLinear` is the checked
-logical row-major form.
+logical row-major form. Borrowed and shared views bounds-check both `operator[]`
+and `atLinear`, and translate the logical index through their signed strides.
+The `ReadableTensor` concept does not promise bounds checks for `operator[]`;
+generic code must supply an in-range index or use `atLinear` for these types.
 
 ## Borrowed views
 
@@ -213,6 +218,8 @@ auto owned = Tensor<int>::adopt(
 
 The layout proves every reachable offset before the view is returned. A
 nonempty layout rejects a null storage pointer.
+Adopting an empty shape permits null storage; the supplied deleter must accept
+that pointer and must not throw. Its final call still occurs for null storage.
 
 ## Shared views and lifetime
 
@@ -231,6 +238,13 @@ Borrowed views never extend lifetime. In assertions-enabled Debug builds,
 owner-created borrowed views carry a weak lifetime token and throw
 `std::runtime_error` when accessed after documented invalidation. Release builds
 do not turn dangling access into a supported operation.
+
+The first Debug borrow or descriptor request allocates its owner's tracking
+state lazily and can report `std::bad_alloc`; failure leaves the owner unchanged.
+Later borrows reuse that state. Concurrent const-view requests publish the state
+atomically, but callers must still synchronize owner mutation and destruction.
+Release borrows require no tracking allocation. Empty shared views retain a
+real ownership handle, created lazily when needed.
 
 | Owner event | Borrowed view | Shared view |
 |---|---|---|

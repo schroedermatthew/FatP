@@ -90,9 +90,11 @@ views in assertions-enabled builds. Shared views retain element storage.
 
 ## Result-rank rules
 
-An allocating operation returns a ranked owner only when its output rank is
-known from ranked inputs and template arguments. If any allocating input has
-dynamic rank, the result is a dynamic `Tensor`.
+An allocating operation generally returns a ranked owner when its output rank
+is known from ranked inputs and template arguments. A dynamic-rank input
+generally produces a dynamic `Tensor`. `outer` is an exception: its vector
+operands always produce a rank-two owner, including when either or both inputs
+have dynamic rank. Dynamic operands are checked at runtime to have rank one.
 
 | Operation | Ranked result |
 |---|---|

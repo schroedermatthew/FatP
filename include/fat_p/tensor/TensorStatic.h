@@ -326,9 +326,10 @@ public:
     // Storage: stack-allocated array (no heap)
     alignas(alignof(T) > 32 ? alignof(T) : 32) std::array<T, size> mData;
 
-    // Constructors
+    // Value initialization also supports explicit element default constructors.
     constexpr StaticTensor()
-        : mData{}
+        requires std::is_default_constructible_v<decltype(mData)>
+        : mData()
     {
     }
 
@@ -347,11 +348,13 @@ public:
     constexpr StaticTensor& operator=(StaticTensor&&) = default;
 
     constexpr explicit StaticTensor(const T& scalar)
+        requires(std::is_default_constructible_v<decltype(mData)> && std::is_copy_assignable_v<T>)
     {
         mData.fill(scalar);
     }
 
     constexpr StaticTensor(std::initializer_list<T> init)
+        requires(std::is_default_constructible_v<decltype(mData)> && std::is_copy_assignable_v<T>)
     {
         if (init.size() != size)
         {

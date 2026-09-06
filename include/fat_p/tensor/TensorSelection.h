@@ -265,7 +265,7 @@ stackPair(const First& first, const Second& second, TensorAxis requestedAxis, co
         const auto sourceLinear = encodeCoordinatesSkippingAxis(coordinates, first.extents(), axis);
         result[linear] = operand == 0 ? first[sourceLinear] : second[sourceLinear];
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor First, ReadableTensor Second, typename Allocator>
@@ -307,7 +307,7 @@ concatenatePair(const First& first, const Second& second, TensorAxis requestedAx
             result[linear] = second[encodeCoordinates(coordinates, second.extents())];
         }
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 } // namespace tensor_selection_detail
@@ -407,7 +407,7 @@ stack(std::span<const std::reference_wrapper<const Source>> inputs, TensorAxis r
         result[linear] = inputs[inputIndex].get()[
             tensor_selection_detail::encodeCoordinatesSkippingAxis(coordinates, prototype.extents(), axis)];
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Source, typename Allocator>
@@ -429,8 +429,6 @@ concatenate(std::span<const std::reference_wrapper<const Source>> inputs, Tensor
     const auto axis = tensor_selection_detail::normalizeExistingAxis(requestedAxis, prototype.rank());
     auto output = prototype.extents().values();
     output[axis] = 0;
-    std::vector<std::size_t> boundaries;
-    boundaries.reserve(inputs.size());
     for (const auto& inputReference : inputs)
     {
         const auto& input = inputReference.get();
@@ -447,26 +445,36 @@ concatenate(std::span<const std::reference_wrapper<const Source>> inputs, Tensor
             }
         }
         output[axis] = tensor_selection_detail::checkedExtentAdd(output[axis], input.extents()[axis]);
-        boundaries.push_back(output[axis]);
     }
     using ResultExtents = tensor_detail::TensorExtentsFor<tensor_detail::tensorStaticRankValue<Source>>;
     Tensor<typename Source::value_type, Allocator, tensor_detail::tensorStaticRankValue<Source>> result(
         std::allocator_arg, allocator, ResultExtents(output.begin(), output.end()));
-    std::vector<std::size_t> coordinates(result.rank(), 0);
-    for (std::size_t linear = 0; linear < result.size(); ++linear)
+    // Each operand owns one disjoint destination slice. Traversing those slices
+    // avoids searching the input boundaries again for every output element.
+    // Empty results still validate every operand above, but need no slice mapping.
+    if (result.empty())
     {
-        tensor_selection_detail::decodeCoordinates(linear, result.extents(), coordinates);
-        std::size_t inputIndex = 0;
-        std::size_t preceding = 0;
-        while (coordinates[axis] >= boundaries[inputIndex])
-        {
-            preceding = boundaries[inputIndex++];
-        }
-        coordinates[axis] -= preceding;
-        result[linear] = inputs[inputIndex].get()[
-            tensor_selection_detail::encodeCoordinates(coordinates, inputs[inputIndex].get().extents())];
+        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
     }
-    return result;
+    std::vector<std::size_t> start(result.rank(), 0);
+    std::vector<std::size_t> finish(result.extents().begin(), result.extents().end());
+    for (const auto& inputReference : inputs)
+    {
+        const auto& input = inputReference.get();
+        finish[axis] = start[axis] + input.extents()[axis];
+        if (!input.empty())
+        {
+            // The local result owns this fresh storage throughout the synchronous
+            // copy, so the internal slice needs no borrowed-lifetime allocation.
+            auto destination = TensorView<typename Source::value_type,
+                                          tensor_detail::tensorStaticRankValue<Source>>::borrow(
+                tensor_detail::TensorAccess::storageBase(result),
+                tensor_detail::sliceLayout(result.layout(), start, finish));
+            tensor_detail::copyKernel(input, destination);
+        }
+        start[axis] = finish[axis];
+    }
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Source>
@@ -557,7 +565,7 @@ take(const Source& source, std::span<const std::ptrdiff_t> indices, TensorAxis r
         coordinates[axis] = normalized[coordinates[axis]];
         result[linear] = source[tensor_selection_detail::encodeCoordinates(coordinates, source.extents())];
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Source>
@@ -607,7 +615,7 @@ takeAlongAxis(const Source& source, const Indices& indices, TensorAxis requested
         coordinates[axis] = normalized[linear];
         result[linear] = source[tensor_selection_detail::encodeCoordinates(coordinates, source.extents())];
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor Source, ReadableTensor Indices>
@@ -686,7 +694,7 @@ gatherNDImpl(const Source& source, const Indices& indices, const Allocator& allo
         result[linear] = source[
             tensor_selection_detail::encodeCoordinates(sourceCoordinates, source.extents())];
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 } // namespace tensor_selection_detail

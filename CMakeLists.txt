@@ -81,10 +81,23 @@ add_library(fatp INTERFACE)
 target_compile_features(fatp INTERFACE cxx_std_20)
 target_include_directories(fatp INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/fat_p>
     $<INSTALL_INTERFACE:include>
-    $<INSTALL_INTERFACE:include/fat_p>
 )
+if(WIN32 AND NOT MSVC AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # On case-insensitive filesystems, -I include/fat_p makes Signal.h shadow
+    # the C library's <signal.h>. Keep short includes in the quote-only search
+    # path; namespaced angle includes use the ordinary include root above.
+    # SHELL keeps paths with spaces intact.
+    target_compile_options(fatp INTERFACE
+        "$<BUILD_INTERFACE:SHELL:-iquote \"${CMAKE_CURRENT_SOURCE_DIR}/include/fat_p\">"
+        "$<INSTALL_INTERFACE:SHELL:-iquote \"$<INSTALL_PREFIX>/include/fat_p\">"
+    )
+else()
+    target_include_directories(fatp INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include/fat_p>
+        $<INSTALL_INTERFACE:include/fat_p>
+    )
+endif()
 
 # =========================================================
 # Benchmark-only dependencies (not exported/installed)

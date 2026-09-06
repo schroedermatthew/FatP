@@ -49,6 +49,15 @@ function(fatp_configure_executable target_name)
             target_compile_options(${target_name} PRIVATE
                 -Wno-gnu-zero-variadic-macro-arguments
             )
+            if(WIN32)
+                # Clang's integrated assembler writes classic COFF until 65,279
+                # sections, while GNU ld treats symbol section numbers above
+                # 32,767 as negative. Large unoptimized Tensor test objects hit
+                # that gap. LLVM's linker accepts the complete section range;
+                # keep all debug information and assertions in these builds.
+                # -Wa,-mbig-obj is ignored by Clang's integrated assembler.
+                target_link_options(${target_name} PRIVATE -fuse-ld=lld)
+            endif()
         endif()
     endif()
 endfunction()
@@ -81,6 +90,19 @@ function(fatp_add_component_tests component_name)
             target_link_libraries(${test_name} PRIVATE advapi32)
         endif()
         fatp_configure_executable(${test_name})
+
+        # This regression must exercise result publication without optional NRVO.
+        if(test_name STREQUAL "test_TensorMaterialization")
+            if(MSVC)
+                include(CheckCXXCompilerFlag)
+                check_cxx_compiler_flag("/Zc:nrvo-" FATP_HAS_NO_OPTIONAL_NRVO)
+                if(FATP_HAS_NO_OPTIONAL_NRVO)
+                    target_compile_options(${test_name} PRIVATE /Zc:nrvo-)
+                endif()
+            else()
+                target_compile_options(${test_name} PRIVATE -fno-elide-constructors)
+            endif()
+        endif()
 
         add_test(NAME ${test_name} COMMAND $<TARGET_FILE:${test_name}>)
         if(test_name STREQUAL "test_TensorExecution" OR test_name STREQUAL "test_TensorContractions" OR

@@ -126,6 +126,75 @@ FATP_TEST_CASE(copy_and_move_contracts)
     return true;
 }
 
+FATP_TEST_CASE(constructor_constraints)
+{
+    struct NoDefault
+    {
+        int value;
+        NoDefault() = delete;
+        constexpr explicit NoDefault(int initial) : value(initial) {}
+    };
+    struct NoAssignment
+    {
+        int value = 7;
+        NoAssignment() = default;
+        NoAssignment(const NoAssignment&) = default;
+        NoAssignment& operator=(const NoAssignment&) = delete;
+    };
+    struct AssignmentOnly
+    {
+        int value = 0;
+        AssignmentOnly() = default;
+        explicit AssignmentOnly(int initial) : value(initial) {}
+        AssignmentOnly(const AssignmentOnly&) = delete;
+        AssignmentOnly(AssignmentOnly&&) = delete;
+        AssignmentOnly& operator=(const AssignmentOnly&) = default;
+    };
+    struct ExplicitDefault
+    {
+        int value;
+        explicit ExplicitDefault() : value(11) {}
+    };
+
+    using NoDefaultVector = StaticTensor<NoDefault, Shape<2>>;
+    using NoAssignmentVector = StaticTensor<NoAssignment, Shape<2>>;
+    using AssignmentOnlyVector = StaticTensor<AssignmentOnly, Shape<2>>;
+    static_assert(!std::is_default_constructible_v<NoDefaultVector>);
+    static_assert(!std::is_default_constructible_v<StaticTensor<NoDefault, Shape<>>>);
+    static_assert(!std::is_constructible_v<NoDefaultVector, const NoDefault&>);
+    static_assert(!std::is_constructible_v<NoDefaultVector, std::initializer_list<NoDefault>>);
+    static_assert(std::is_default_constructible_v<NoAssignmentVector>);
+    static_assert(!std::is_constructible_v<NoAssignmentVector, const NoAssignment&>);
+    static_assert(!std::is_constructible_v<NoAssignmentVector, std::initializer_list<NoAssignment>>);
+    static_assert(std::is_constructible_v<AssignmentOnlyVector, const AssignmentOnly&>);
+    static_assert(std::is_constructible_v<AssignmentOnlyVector, std::initializer_list<AssignmentOnly>>);
+
+    // Direct element construction remains available even when broadcasting is unavailable.
+    const NoDefault initial(3);
+    const NoDefaultVector direct(initial, NoDefault(5));
+    const StaticTensor<NoDefault, Shape<>> scalar(initial);
+    const NoAssignment nonassignable;
+    const NoAssignmentVector copied(nonassignable, nonassignable);
+    const StaticTensor<NoAssignment, Shape<>> copied_scalar(nonassignable);
+    FATP_ASSERT_EQ(direct[1].value, 5, "Variadic construction does not require default construction");
+    FATP_ASSERT_EQ(scalar.at().value, 3, "Rank-zero direct construction does not require default construction");
+    FATP_ASSERT_EQ(copied[1].value, 7, "Variadic construction does not require assignment");
+    FATP_ASSERT_EQ(copied_scalar.at().value, 7, "Rank-zero direct construction does not require assignment");
+
+    const AssignmentOnly source(13);
+    const AssignmentOnlyVector broadcast(source);
+    const AssignmentOnlyVector listed{AssignmentOnly(17), AssignmentOnly(19)};
+    FATP_ASSERT_EQ(broadcast[1].value, 13, "Broadcasting requires assignment but not element copying");
+    FATP_ASSERT_EQ(listed[0].value, 17, "List construction assigns elements without copying them");
+    FATP_ASSERT_EQ(listed[1].value, 19, "List construction retains each assigned value");
+
+    using ExplicitDefaultVector = StaticTensor<ExplicitDefault, Shape<2>>;
+    static_assert(std::is_default_constructible_v<ExplicitDefaultVector>);
+    const ExplicitDefaultVector explicit_default;
+    FATP_ASSERT_EQ(explicit_default[1].value, 11, "Value initialization accepts an explicit element default constructor");
+    return true;
+}
+
 FATP_TEST_CASE(scalar_broadcast)
 {
     StaticTensor<int, Vector<3>, UncheckedPolicy> v(42);
@@ -804,6 +873,7 @@ bool test_TensorStatic()
     FATP_RUN_TEST_NS(runner, tensorstatic, default_construction);
     FATP_RUN_TEST_NS(runner, tensorstatic, over_aligned_elements);
     FATP_RUN_TEST_NS(runner, tensorstatic, copy_and_move_contracts);
+    FATP_RUN_TEST_NS(runner, tensorstatic, constructor_constraints);
     FATP_RUN_TEST_NS(runner, tensorstatic, scalar_broadcast);
     FATP_RUN_TEST_NS(runner, tensorstatic, initializer_list_construction);
     FATP_RUN_TEST_NS(runner, tensorstatic, variadic_constructor);

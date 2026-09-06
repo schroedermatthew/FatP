@@ -386,7 +386,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     {
         tensor_detail::matmulRows(left, right, shape, result, 0, result.size() / shape.columns);
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief Matmul with rebound first-owner SOCCC, or TensorAllocator for view-only inputs. */
@@ -467,7 +467,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     tensor_detail::binaryKernel(column, row, result, [](const auto& a, const auto& b) {
         return tensor_detail::checkedSameTypeMultiply(static_cast<result_type>(a), static_cast<result_type>(b));
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief Outer product with rebound first-owner SOCCC, or TensorAllocator for views. */

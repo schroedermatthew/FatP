@@ -32,12 +32,55 @@ FATP_META:
 #include "TensorView.h"
 
 #include <cstddef>
+#include <cstdlib>
+#include <iterator>
+#include <limits>
 #include <memory>
+#include <new>
 #include <numeric>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE) && \
+    (!defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0)
+// Scope injection to standalone runs. MSVC checked vector iterators can allocate
+// inside noexcept moves; their proxy machinery is outside this metadata probe.
+namespace fat_p::testing::tensor_view::allocation_probe
+{
+thread_local std::ptrdiff_t failIndex = -1;
+
+void* allocate(std::size_t bytes)
+{
+    if (failIndex >= 0 && failIndex-- == 0)
+    {
+        failIndex = -1;
+        throw std::bad_alloc();
+    }
+    if (void* storage = std::malloc(bytes == 0 ? 1 : bytes))
+    {
+        return storage;
+    }
+    throw std::bad_alloc();
+}
+
+struct ScopedFailure
+{
+    explicit ScopedFailure(std::ptrdiff_t index) noexcept { failIndex = index; }
+    ~ScopedFailure() { failIndex = -1; }
+    ScopedFailure(const ScopedFailure&) = delete;
+    ScopedFailure& operator=(const ScopedFailure&) = delete;
+};
+} // namespace fat_p::testing::tensor_view::allocation_probe
+
+void* operator new(std::size_t bytes) { return fat_p::testing::tensor_view::allocation_probe::allocate(bytes); }
+void* operator new[](std::size_t bytes) { return fat_p::testing::tensor_view::allocation_probe::allocate(bytes); }
+void operator delete(void* storage) noexcept { std::free(storage); }
+void operator delete[](void* storage) noexcept { std::free(storage); }
+void operator delete(void* storage, std::size_t) noexcept { std::free(storage); }
+void operator delete[](void* storage, std::size_t) noexcept { std::free(storage); }
+#endif
 
 namespace fat_p::testing::tensor_view
 {
@@ -50,6 +93,240 @@ static_assert(std::same_as<decltype(std::declval<const Tensor<int>&>().rowView(0
 static_assert(std::same_as<decltype(std::declval<Tensor<int>&>().rowView(0)), TensorView<int>>);
 static_assert(std::same_as<decltype(std::declval<const Tensor<int>&>().broadcastView(DynamicExtents{1})),
                            TensorView<const int>>);
+static_assert(std::forward_iterator<TensorLogicalIterator<int>>);
+static_assert(std::forward_iterator<TensorLogicalIterator<const int, 0>>);
+static_assert(std::forward_iterator<TensorLogicalIterator<int, 6>>);
+static_assert(std::indirectly_writable<TensorLogicalIterator<int>, int>);
+static_assert(!std::indirectly_writable<TensorLogicalIterator<const int>, int>);
+
+template <std::size_t Rank>
+bool verifyIteratorCoordinates(const BasicTensorLayout<Rank>& layout)
+{
+    std::vector<int> storage(layout.storageLength() + 1);
+    std::iota(storage.begin(), storage.end(), 11);
+    std::vector<std::ptrdiff_t> expected;
+    // Independent nested coordinate enumeration: neither logicalOffset nor the
+    // iteration plan participates in this oracle.
+    const auto enumerate = [&](const auto& self, std::size_t axis, std::ptrdiff_t offset) -> void {
+        if (axis == layout.rank())
+        {
+            expected.push_back(offset);
+            return;
+        }
+        for (std::size_t coordinate = 0; coordinate < layout.extents()[axis]; ++coordinate)
+        {
+            self(self, axis + 1, offset + static_cast<std::ptrdiff_t>(coordinate) * layout.strides()[axis]);
+        }
+    };
+    if (layout.logicalSize() != 0)
+    {
+        enumerate(enumerate, 0, layout.originOffset());
+    }
+    const auto view = TensorView<const int, Rank>::borrow(storage.data(), layout);
+    auto current = view.begin();
+    const auto end = view.end();
+    for (std::size_t index = 0; index < expected.size(); ++index)
+    {
+        FATP_ASSERT_TRUE(current != end, "Iterator must visit every oracle coordinate");
+        FATP_ASSERT_EQ(*current, storage[expected[index]], "Iterator value agrees with coordinate enumeration");
+        FATP_ASSERT_TRUE(current.operator->() == storage.data() + expected[index],
+                         "Iterator arrow must address the physical oracle element");
+        auto copy = current;
+        TensorLogicalIterator<const int, Rank> assigned;
+        assigned = current;
+        auto positioned = TensorLogicalIterator<const int, Rank>(storage.data(), layout, index);
+        FATP_ASSERT_TRUE(positioned == current && assigned == current,
+                         "Construction and assignment preserve the iterator position and mapping");
+        const auto previous = current++;
+        FATP_ASSERT_TRUE(previous == copy, "Postincrement retains the independent previous position");
+        FATP_ASSERT_EQ(*copy, storage[expected[index]], "Advancing an iterator cannot move its copies");
+        ++assigned;
+        ++positioned;
+        FATP_ASSERT_TRUE(assigned == current && positioned == current,
+                         "Copied and arbitrarily initialized cursors must advance consistently");
+        if (index + 1 < expected.size())
+        {
+            FATP_ASSERT_EQ(*positioned, storage[expected[index + 1]],
+                           "Arbitrary-position construction initializes carry coordinates");
+        }
+    }
+    FATP_ASSERT_TRUE(current == end, "Last coordinate must advance to the logical end sentinel");
+    FATP_ASSERT_THROWS((*current), std::out_of_range, "Empty and exhausted iterators reject dereference");
+    return true;
+}
+
+FATP_TEST_CASE(iterator_coordinate_oracle)
+{
+    for (std::size_t rank = 0; rank <= 8; ++rank)
+    {
+        for (std::size_t variant = 0; variant < 12; ++variant)
+        {
+            std::vector<std::size_t> extents(rank);
+            TensorStrides strides(rank);
+            std::ptrdiff_t minimum = 0;
+            std::ptrdiff_t maximum = 0;
+            std::ptrdiff_t magnitude = 1;
+            for (std::size_t reverseAxis = rank; reverseAxis > 0; --reverseAxis)
+            {
+                const auto axis = reverseAxis - 1;
+                extents[axis] = 1 + (variant + axis * 7) % 3;
+                strides[axis] = (variant + axis) % 2 == 0 ? magnitude : -magnitude;
+                if (variant % 3 == 0 && axis % 2 == 0)
+                {
+                    strides[axis] = 0;
+                }
+                const auto contribution = static_cast<std::ptrdiff_t>(extents[axis] - 1) * strides[axis];
+                minimum += contribution < 0 ? contribution : 0;
+                maximum += contribution > 0 ? contribution : 0;
+                magnitude *= static_cast<std::ptrdiff_t>(extents[axis] + 1);
+            }
+            const auto origin = 3 - minimum;
+            const TensorLayout layout(static_cast<std::size_t>(origin + maximum + 1), origin,
+                                      DynamicExtents(extents), strides);
+            FATP_ASSERT_TRUE(verifyIteratorCoordinates(TensorLayout::contiguous(DynamicExtents(extents))),
+                             "Contiguous cursor handles arbitrary ranks and singleton axes");
+            FATP_ASSERT_TRUE(verifyIteratorCoordinates(layout),
+                             "Dynamic-rank signed/padded/broadcast mappings match the coordinate oracle");
+            switch (rank)
+            {
+            case 0: FATP_ASSERT_TRUE(verifyIteratorCoordinates(tensor_detail::makeFixedLayout<0>(layout)),
+                                     "Fixed scalar iterator agrees with oracle"); break;
+            case 2: FATP_ASSERT_TRUE(verifyIteratorCoordinates(tensor_detail::makeFixedLayout<2>(layout)),
+                                     "Fixed rank-two iterator agrees with oracle"); break;
+            case 6: FATP_ASSERT_TRUE(verifyIteratorCoordinates(tensor_detail::makeFixedLayout<6>(layout)),
+                                     "Fixed high-rank iterator agrees with oracle"); break;
+            default: break;
+            }
+        }
+    }
+    for (std::size_t rank = 1; rank <= 8; ++rank)
+    {
+        for (std::size_t emptyAxis = 0; emptyAxis < rank; ++emptyAxis)
+        {
+            std::vector<std::size_t> extents(rank, 2);
+            extents[emptyAxis] = 0;
+            const TensorLayout empty(0, 0, DynamicExtents(extents),
+                                     TensorStrides(rank, std::numeric_limits<std::ptrdiff_t>::min()));
+            FATP_ASSERT_TRUE(verifyIteratorCoordinates(empty),
+                             "Empty mappings must never evaluate their unused extreme strides");
+            if (rank == 6)
+            {
+                FATP_ASSERT_TRUE(verifyIteratorCoordinates(tensor_detail::makeFixedLayout<6>(empty)),
+                                 "Fixed empty mappings avoid all offset arithmetic");
+            }
+        }
+    }
+    return true;
+}
+
+FATP_TEST_CASE(iterator_extreme_offsets_and_sentinel)
+{
+    int storage[]{11, 22};
+    constexpr auto maximum = std::numeric_limits<std::ptrdiff_t>::max();
+    // These pointer-free layouts describe enormous spans. Only offsets 0 and 1
+    // are dereferenced against the actual array; advancing never forms pointers.
+    const TensorLayout extreme(static_cast<std::size_t>(maximum), 0,
+                               DynamicExtents{2, 2}, TensorStrides{1, maximum - 2});
+    TensorLogicalIterator<const int> cursor(storage, extreme, 0);
+    FATP_ASSERT_EQ(*cursor, 11, "Extreme-stride cursor starts at the logical origin");
+    ++cursor;
+    ++cursor;
+    FATP_ASSERT_EQ(*cursor, 22, "Carry rewinds before advancing the outer coordinate");
+    ++cursor;
+    ++cursor;
+    FATP_ASSERT_TRUE(cursor == TensorLogicalIterator<const int>(storage, extreme, 4),
+                     "Final increment must not calculate an unrepresentable offset");
+    FATP_ASSERT_THROWS((*cursor), std::out_of_range, "Extreme layout end cannot be dereferenced");
+
+    const auto hugeCount = static_cast<std::size_t>(maximum);
+    const TensorLayout broadcast(1, 0, DynamicExtents{hugeCount}, TensorStrides{0});
+    TensorLogicalIterator<const int> huge(storage, broadcast, hugeCount - 2);
+    FATP_ASSERT_EQ(*huge, 11, "Large broadcast coordinates leave the physical offset unchanged");
+    ++huge;
+    FATP_ASSERT_EQ(*huge, 11, "Last broadcast coordinate remains reachable");
+    ++huge;
+    FATP_ASSERT_TRUE(huge == TensorLogicalIterator<const int>(storage, broadcast, hugeCount),
+                     "Maximum-size broadcast reaches end without coordinate overflow");
+
+    const TensorLayout singleton(1, 0, DynamicExtents{1},
+                                  TensorStrides{std::numeric_limits<std::ptrdiff_t>::min()});
+    auto singletonCursor = TensorLogicalIterator<int>(storage, singleton, 0);
+    *singletonCursor = 33;
+    ++singletonCursor;
+    FATP_ASSERT_EQ(storage[0], 33, "Mutable iterator dereference retains write-through semantics");
+    FATP_ASSERT_THROWS((*singletonCursor), std::out_of_range,
+                       "Singleton extreme strides are never used to advance past end");
+    return true;
+}
+
+FATP_TEST_CASE(iterator_retains_debug_lifetime_checks)
+{
+#ifndef NDEBUG
+    TensorLogicalIterator<int> borrowed;
+    TensorLogicalIterator<int> borrowedEnd;
+    {
+        Tensor<int> owner({2}, 19);
+        borrowed = owner.asView().begin();
+        borrowedEnd = owner.asView().end();
+        FATP_ASSERT_EQ(*borrowed, 19, "Tracked iterator is usable while its owner lives");
+    }
+    FATP_ASSERT_THROWS((*borrowed), std::runtime_error, "Cached offset cannot skip lifetime validation");
+    FATP_ASSERT_THROWS(borrowed.operator->(), std::runtime_error, "Iterator arrow validates lifetime");
+    FATP_ASSERT_THROWS((*borrowedEnd), std::runtime_error, "Lifetime failure precedes end validation");
+#endif
+    return true;
+}
+
+FATP_TEST_CASE(iterator_assignment_allocation_failure)
+{
+#if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE) && \
+    (!defined(_MSC_VER) || _ITERATOR_DEBUG_LEVEL == 0)
+    std::vector<int> sourceStorage(128);
+    std::iota(sourceStorage.begin(), sourceStorage.end(), 100);
+    const TensorLayout sourceLayout(128, 0, DynamicExtents{2, 2, 2, 2, 2, 2}, {64, 32, 16, 8, 4, 1});
+    const TensorLogicalIterator<const int> source(sourceStorage.data(), sourceLayout, 17);
+    int targetStorage[]{200, 201, 202, 203, 204, 205, 206, 207};
+    const TensorLayout targetLayout(8, 2, DynamicExtents{2, 3}, {4, -1});
+    std::size_t failures = 0;
+    bool succeeded = false;
+    for (std::ptrdiff_t index = 0; index < 16 && !succeeded; ++index)
+    {
+        TensorLogicalIterator<const int> target(targetStorage, targetLayout, 1);
+        const auto original = target;
+        bool failed = false;
+        try
+        {
+            allocation_probe::ScopedFailure injection(index);
+            target = source;
+        }
+        catch (const std::bad_alloc&)
+        {
+            failed = true;
+        }
+        FATP_ASSERT_EQ(*source, 133, "Failed or successful iterator assignment never modifies its source");
+        if (failed)
+        {
+            ++failures;
+            FATP_ASSERT_TRUE(target == original, "Allocation failure preserves the destination equality domain");
+            FATP_ASSERT_EQ(*target, 201, "Allocation failure preserves the destination element");
+            ++target;
+            FATP_ASSERT_EQ(*target, 200, "After failure the original reversed cursor must still advance");
+        }
+        else
+        {
+            succeeded = true;
+            FATP_ASSERT_TRUE(target == source, "Successful assignment commits the source mapping and position");
+            FATP_ASSERT_EQ(*target, 133, "Successful assignment updates the cached offset");
+            ++target;
+            FATP_ASSERT_EQ(*target, 136, "Successful assignment commits coordinates needed for the next carry");
+        }
+    }
+    FATP_ASSERT_TRUE(failures > 0 && succeeded, "Sweep covers every metadata allocation and successful assignment");
+#else
+    std::cout << "[SKIP] Iterator allocation failure requires standalone replacement-new support\n";
+#endif
+    return true;
+}
 
 FATP_TEST_CASE(external_mapping_validation)
 {
@@ -250,6 +527,10 @@ bool test_TensorView()
     FATP_RUN_TEST_NS(runner, tensor_view, shared_and_borrowed_lifetime);
     FATP_RUN_TEST_NS(runner, tensor_view, dynamic_view_moves_leave_empty_sources);
     FATP_RUN_TEST_NS(runner, tensor_view, iterator_identity_and_writable_layout_guards);
+    FATP_RUN_TEST_NS(runner, tensor_view, iterator_coordinate_oracle);
+    FATP_RUN_TEST_NS(runner, tensor_view, iterator_extreme_offsets_and_sentinel);
+    FATP_RUN_TEST_NS(runner, tensor_view, iterator_retains_debug_lifetime_checks);
+    FATP_RUN_TEST_NS(runner, tensor_view, iterator_assignment_allocation_failure);
     return 0 == runner.print_summary();
 }
 

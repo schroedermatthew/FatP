@@ -3867,7 +3867,20 @@ FATP_TEST_CASE(owner_assignment_allocation_failure_transaction)
                 FATP_ASSERT_EQ(destination.get_allocator().id, 2, "Success propagates allocator");
                 FATP_ASSERT_EQ(destination.size(), 3u, "Success installs source shape");
                 FATP_ASSERT_EQ(destination[0], 37, "Success installs source values");
-                FATP_ASSERT_TRUE(failure > 0, "Sweep exercises at least one allocation failure");
+                if (move)
+                {
+                    FATP_ASSERT_EQ(failure, 0, "Propagating move assignment performs no allocation");
+                    FATP_ASSERT_EQ(source.size(), 0u, "Successful move leaves the source canonically empty");
+                    FATP_ASSERT_EQ(source.rank(), 1u, "Moved-from dynamic owners have rank-one empty shape");
+#ifndef NDEBUG
+                    FATP_ASSERT_THROWS(borrowed[0], std::runtime_error,
+                                       "Successful move assignment invalidates old destination borrows");
+#endif
+                }
+                else
+                {
+                    FATP_ASSERT_TRUE(failure > 0, "Copy sweep exercises at least one allocation failure");
+                }
                 succeeded = true;
                 break;
             }

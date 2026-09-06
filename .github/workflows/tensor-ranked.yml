@@ -8,11 +8,13 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'include/fat_p/TensorRanked.h'
+      - 'include/fat_p/Tensor*.h'
       - 'include/fat_p/tensor/TensorRanked.h'
       - 'include/fat_p/tensor/Tensor*.h'
       - 'include/fat_p/FatPConcepts.h'
-      - 'components/Tensor/tests/test_TensorRanked*.cpp'
+      - 'components/Tensor/tests/**'
+      - 'CMakeLists.txt'
+      - 'cmake/FatPComponents.cmake'
       - 'components/Tensor/benchmarks/benchmark_TensorRanked.cpp'
       - 'components/Tensor/docs/*Tensor*.md'
       - 'components/Tensor/results/2026-09-04-ranked/**'
@@ -24,11 +26,13 @@ on:
       - '.github/workflows/tensor-ranked.yml'
   pull_request:
     paths:
-      - 'include/fat_p/TensorRanked.h'
+      - 'include/fat_p/Tensor*.h'
       - 'include/fat_p/tensor/TensorRanked.h'
       - 'include/fat_p/tensor/Tensor*.h'
       - 'include/fat_p/FatPConcepts.h'
-      - 'components/Tensor/tests/test_TensorRanked*.cpp'
+      - 'components/Tensor/tests/**'
+      - 'CMakeLists.txt'
+      - 'cmake/FatPComponents.cmake'
       - 'components/Tensor/benchmarks/benchmark_TensorRanked.cpp'
       - 'components/Tensor/docs/*Tensor*.md'
       - 'components/Tensor/results/2026-09-04-ranked/**'
@@ -41,6 +45,8 @@ on:
 
 env:
   TEST_SRC: components/Tensor/tests/test_TensorRanked.cpp
+  MATERIALIZATION_TEST_SRC: components/Tensor/tests/test_TensorMaterialization.cpp
+  OWNER_LIFETIME_TEST_SRC: components/Tensor/tests/test_TensorOwnerLifetime.cpp
   HEADER_TEST_SRC: components/Tensor/tests/test_TensorRanked_HeaderSelfContained.cpp
   BENCH_SRC: components/Tensor/benchmarks/benchmark_TensorRanked.cpp
 
@@ -82,6 +88,22 @@ jobs:
           -iquote ./include/fat_p ${{ env.TEST_SRC }} -o test_bin
       - name: Run tests
         run: ./test_bin
+      - name: Build materialization regressions without optional copy elision
+        run: >-
+          ${{ matrix.cxx }} -std=c++${{ matrix.std }}
+          -Wall -Wextra -Wpedantic -Werror -fno-elide-constructors
+          ${{ matrix.flags }} -DENABLE_TEST_APPLICATION
+          -iquote ./include/fat_p ${{ env.MATERIALIZATION_TEST_SRC }} -o materialization_bin
+      - name: Run materialization regressions
+        run: ./materialization_bin
+      - name: Build owner lifetime regressions
+        run: >-
+          ${{ matrix.cxx }} -std=c++${{ matrix.std }}
+          -Wall -Wextra -Wpedantic -Werror -pthread
+          ${{ matrix.flags }} -DENABLE_TEST_APPLICATION
+          -iquote ./include/fat_p ${{ env.OWNER_LIFETIME_TEST_SRC }} -o owner_lifetime_bin
+      - name: Run owner lifetime regressions
+        run: ./owner_lifetime_bin
 
   windows-msvc:
     name: MSVC C++${{ matrix.std }} ${{ matrix.mode }}
@@ -111,6 +133,56 @@ jobs:
           /I.\include\fat_p ${{ env.TEST_SRC }} /Fe:test_bin.exe /link advapi32.lib
       - name: Run tests
         run: .\test_bin.exe
+      - name: Build materialization regressions without optional copy elision
+        shell: cmd
+        run: >-
+          cl ${{ matrix.stdflag }} ${{ matrix.opt }} /W4 /WX /wd4324 /wd4127
+          /EHsc /permissive- /Zc:preprocessor /Zc:nrvo- /DENABLE_TEST_APPLICATION
+          /I.\include\fat_p ${{ env.MATERIALIZATION_TEST_SRC }} /Fe:materialization_bin.exe /link advapi32.lib
+      - name: Run materialization regressions
+        run: .\materialization_bin.exe
+      - name: Build owner lifetime regressions
+        shell: cmd
+        run: >-
+          cl ${{ matrix.stdflag }} ${{ matrix.opt }} /W4 /WX /wd4324 /wd4127
+          /EHsc /permissive- /Zc:preprocessor /DENABLE_TEST_APPLICATION
+          /I.\include\fat_p ${{ env.OWNER_LIFETIME_TEST_SRC }} /Fe:owner_lifetime_bin.exe /link advapi32.lib
+      - name: Run owner lifetime regressions
+        run: .\owner_lifetime_bin.exe
+
+  windows-clang-debug:
+    name: Windows Clang full Debug Tensor suite
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-clang
+            mingw-w64-ucrt-x86_64-lld
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+      - name: Configure full Debug build
+        run: >-
+          cmake -S . -B build-clang-debug -G Ninja
+          -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_SCAN_FOR_MODULES=OFF -DFATP_BUILD_BENCHMARKS=OFF
+      - name: Build every Tensor test with debug information and assertions
+        run: |
+          targets=()
+          for source in components/*/tests/test_Tensor*.cpp; do
+            name="${source##*/}"
+            targets+=("${name%.cpp}")
+          done
+          cmake --build build-clang-debug --parallel 2 --target "${targets[@]}"
+      - name: Run every Tensor test
+        run: ctest --test-dir build-clang-debug -R '^test_Tensor' --output-on-failure --no-tests=error
 
   sanitizers:
     name: ${{ matrix.name }}
@@ -138,6 +210,22 @@ jobs:
           ${{ env.TEST_SRC }} -o test_bin
       - name: Run
         run: ${{ matrix.options }} ./test_bin
+      - name: Build materialization regressions
+        run: >-
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -O1 -g
+          -fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer -fno-elide-constructors
+          -DENABLE_TEST_APPLICATION -iquote ./include/fat_p
+          ${{ env.MATERIALIZATION_TEST_SRC }} -o materialization_bin
+      - name: Run materialization regressions
+        run: ${{ matrix.options }} ./materialization_bin
+      - name: Build owner lifetime regressions
+        run: >-
+          g++-13 -std=c++20 -Wall -Wextra -Wpedantic -Werror -O1 -g -pthread
+          -fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer
+          -DENABLE_TEST_APPLICATION -iquote ./include/fat_p
+          ${{ env.OWNER_LIFETIME_TEST_SRC }} -o owner_lifetime_bin
+      - name: Run owner lifetime regressions
+        run: ${{ matrix.options }} ./owner_lifetime_bin
 
   header-and-hygiene:
     name: Header, warnings, and metadata
@@ -182,7 +270,7 @@ jobs:
 
   ci-success:
     name: CI Success
-    needs: [linux, windows-msvc, sanitizers, header-and-hygiene]
+    needs: [linux, windows-msvc, windows-clang-debug, sanitizers, header-and-hygiene]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -190,5 +278,6 @@ jobs:
         run: |
           test '${{ needs.linux.result }}' = success
           test '${{ needs.windows-msvc.result }}' = success
+          test '${{ needs.windows-clang-debug.result }}' = success
           test '${{ needs.sanitizers.result }}' = success
           test '${{ needs.header-and-hygiene.result }}' = success

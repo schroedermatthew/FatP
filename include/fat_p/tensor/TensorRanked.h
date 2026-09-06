@@ -448,7 +448,7 @@ template <ReadableTensor Source>
     Tensor<value_type, decltype(allocator)> result(
         std::allocator_arg, allocator, tensor_detail::toDynamicExtents(source.extents()));
     tensor_detail::copyKernel(source, result);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <typename T, typename Allocator, std::size_t Rank>
@@ -466,7 +466,7 @@ template <std::size_t Rank, ReadableTensor Source>
     auto allocator = tensor_detail::selectRankedResultAllocator<value_type>(source);
     RankedTensor<value_type, Rank, decltype(allocator)> result(std::allocator_arg, allocator, extents);
     tensor_detail::copyKernel(source, result);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <std::size_t Rank, typename T, typename Allocator, std::size_t SourceRank>

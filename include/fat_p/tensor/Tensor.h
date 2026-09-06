@@ -22,6 +22,8 @@ FATP_META:
     tests:
       - components/Tensor/tests/test_Tensor.cpp
       - components/Tensor/tests/test_TensorView.cpp
+      - components/Tensor/tests/test_TensorMaterialization.cpp
+      - components/Tensor/tests/test_TensorOwnerLifetime.cpp
   hygiene:
     pragma_once: true
     include_guard: false
@@ -45,6 +47,7 @@ FATP_META:
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <concepts>
 #include <cstddef>
 #include <functional>
@@ -144,7 +147,6 @@ public:
                                                                     size_type) {
             allocator_traits::construct(active, location);
         }))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
     }
 
@@ -168,7 +170,6 @@ public:
                                                                            pointer location, size_type) {
             allocator_traits::construct(active, location, value);
         }))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
     }
 
@@ -196,7 +197,6 @@ public:
                                                                   size_type index) {
             allocator_traits::construct(active, location, other.data()[index]);
         }))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
     }
 
@@ -209,7 +209,6 @@ public:
                                                                   size_type index) {
             allocator_traits::construct(active, location, other[index]);
         }))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
     }
 
@@ -220,16 +219,14 @@ public:
     {
     }
 
-    Tensor(Tensor&& other)
+    Tensor(Tensor&& other) noexcept(Rank != 0 && std::is_nothrow_move_constructible_v<allocator_type>)
         : mAllocator(moveConstructAllocator(other))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
         stealStorageFrom(other);
     }
 
     Tensor(Tensor&& other, const allocator_type& allocator)
         : mAllocator(allocator)
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
         if (allocatorCompatible(other.mAllocator))
         {
@@ -243,7 +240,7 @@ public:
 
     ~Tensor()
     {
-        tensor_detail::invalidateLifetime(mLifetime);
+        invalidateBorrows();
     }
 
     Tensor& operator=(const Tensor& other)
@@ -268,6 +265,9 @@ public:
     }
 
     Tensor& operator=(Tensor&& other)
+        noexcept(Rank != 0 && (allocator_traits::propagate_on_container_move_assignment::value
+                                  ? std::is_nothrow_move_assignable_v<allocator_type>
+                                  : allocator_traits::is_always_equal::value))
     {
         if (this == &other)
         {
@@ -284,30 +284,22 @@ public:
             if constexpr (Rank == 0)
             {
                 allocator_type targetAllocator = other.mAllocator;
-                auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-                auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
                 auto replacementStorage = makeRankZeroMoveStorage(other, targetAllocator);
                 mAllocator = targetAllocator;
-                tensor_detail::invalidateLifetime(mLifetime);
-                tensor_detail::invalidateLifetime(other.mLifetime);
+                invalidateBorrows();
+                other.invalidateBorrows();
                 mLayout = other.mLayout;
                 mStorage = std::move(replacementStorage);
-                mLifetime = std::move(nextLifetime);
-                other.mLifetime = std::move(nextSourceLifetime);
             }
             else
             {
-                auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-                auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
                 mAllocator = std::move(other.mAllocator);
-                replaceByStealing(other, std::move(nextLifetime), std::move(nextSourceLifetime));
+                replaceByStealing(other);
             }
         }
         else if (allocatorCompatible(other.mAllocator))
         {
-            auto nextLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-            replaceByStealing(other, std::move(nextLifetime), std::move(nextSourceLifetime));
+            replaceByStealing(other);
         }
         else
         {
@@ -415,14 +407,14 @@ public:
 
     [[nodiscard]] TensorView<value_type, Rank> asView() &
     {
-        return TensorView<value_type, Rank>(data(), mLayout, mLifetime, true);
+        return TensorView<value_type, Rank>(data(), mLayout, borrowedLifetime(), true);
     }
 
     [[nodiscard]] TensorView<value_type, Rank> asView() && = delete;
 
     [[nodiscard]] TensorView<const value_type, Rank> asConstView() const &
     {
-        return TensorView<const value_type, Rank>(data(), mLayout, mLifetime, true);
+        return TensorView<const value_type, Rank>(data(), mLayout, borrowedLifetime(), true);
     }
 
     [[nodiscard]] TensorView<const value_type, Rank> asConstView() const && = delete;
@@ -690,6 +682,8 @@ public:
     SharedTensorView<const value_type, Rank>
     sharedSliceView(const std::vector<size_type>&, const std::vector<size_type>&) const && = delete;
 
+    // Empty extents permit null storage. The deleter must accept that pointer
+    // and must not throw, including when it is called with nullptr.
     template <typename Deleter>
     [[nodiscard]] static Tensor adopt(pointer storage, extents_type extents, Deleter deleter,
                                       const allocator_type& futureAllocator)
@@ -711,6 +705,9 @@ public:
     }
 
     void swap(Tensor& other)
+        noexcept(allocator_traits::propagate_on_container_swap::value
+                     ? std::is_nothrow_swappable_v<allocator_type>
+                     : allocator_traits::is_always_equal::value)
     {
         if (this == &other)
         {
@@ -725,20 +722,16 @@ public:
             }
         }
 
-        auto leftLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
-        auto rightLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
         if constexpr (allocator_traits::propagate_on_container_swap::value)
         {
             using std::swap;
             swap(mAllocator, other.mAllocator);
         }
-        tensor_detail::invalidateLifetime(mLifetime);
-        tensor_detail::invalidateLifetime(other.mLifetime);
+        invalidateBorrows();
+        other.invalidateBorrows();
         using std::swap;
         swap(mLayout, other.mLayout);
         swap(mStorage, other.mStorage);
-        mLifetime = std::move(leftLifetime);
-        other.mLifetime = std::move(rightLifetime);
     }
 
     friend void swap(Tensor& left, Tensor& right) noexcept(noexcept(left.swap(right)))
@@ -789,6 +782,10 @@ private:
     {
     };
 
+    struct MaterializationTag
+    {
+    };
+
     struct CrossRankMoveTag
     {
     };
@@ -824,25 +821,21 @@ private:
            extents_type checkedExtents)
         : mAllocator(moveConstructAllocator(other))
         , mLayout(layout_type::contiguous(std::move(checkedExtents)))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
     {
         if constexpr (OtherRank == 0)
         {
             validateAliasPreservingElementMove(other);
         }
-        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
         if constexpr (OtherRank == 0)
         {
             mStorage = makeRankZeroMoveStorage(other, mAllocator);
-            tensor_detail::invalidateLifetime(other.mLifetime);
-            other.mLifetime = std::move(nextSourceLifetime);
+            other.invalidateBorrows();
         }
         else
         {
-            tensor_detail::invalidateLifetime(other.mLifetime);
+            other.invalidateBorrows();
             mStorage = std::move(other.mStorage);
             other.mLayout = decltype(other.mLayout)::contiguous(other.defaultExtents());
-            other.mLifetime = std::move(nextSourceLifetime);
         }
     }
 
@@ -850,7 +843,18 @@ private:
         : mAllocator(allocator)
         , mLayout(std::move(layout))
         , mStorage(std::move(storage))
-        , mLifetime(std::make_shared<tensor_detail::TensorLifetimeState>())
+    {
+    }
+
+    // The source is an unpublished local result and may only be destroyed after
+    // this transfer. In particular, it need not retain a live rank-zero scalar.
+    // Copy the selected allocator before moving state; no SOCCC, element move,
+    // or new lifetime allocation is needed to publish the completed result.
+    Tensor(MaterializationTag, Tensor&& other)
+        : mAllocator(other.mAllocator)
+        , mLayout(std::move(other.mLayout))
+        , mStorage(std::move(other.mStorage))
+        , mLifetime(other.mLifetime.exchange({}, std::memory_order_acq_rel))
     {
     }
 
@@ -954,7 +958,6 @@ private:
                     "Cannot move shared Tensor storage across unequal allocators for a non-copyable value type");
             }
         }
-        auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
         if (mustPreserveAliases)
         {
             if constexpr (std::copy_constructible<value_type>)
@@ -976,12 +979,11 @@ private:
         }
         if constexpr (Rank == 0)
         {
-            tensor_detail::invalidateLifetime(other.mLifetime);
-            other.mLifetime = std::move(nextSourceLifetime);
+            other.invalidateBorrows();
         }
         else
         {
-            resetMovedFrom(other, std::move(nextSourceLifetime));
+            resetMovedFrom(other);
         }
     }
 
@@ -993,52 +995,76 @@ private:
         }
         else
         {
-            auto nextSourceLifetime = std::make_shared<tensor_detail::TensorLifetimeState>();
             mLayout = std::move(other.mLayout);
             mStorage = std::move(other.mStorage);
-            resetMovedFrom(other, std::move(nextSourceLifetime));
+            resetMovedFrom(other);
         }
     }
 
-    void replaceByStealing(Tensor& other, std::shared_ptr<tensor_detail::TensorLifetimeState> nextLifetime,
-                          std::shared_ptr<tensor_detail::TensorLifetimeState> nextSourceLifetime)
+    void replaceByStealing(Tensor& other)
     {
         if constexpr (Rank == 0)
         {
             auto replacementStorage = makeRankZeroMoveStorage(other, mAllocator);
-            tensor_detail::invalidateLifetime(mLifetime);
-            tensor_detail::invalidateLifetime(other.mLifetime);
+            invalidateBorrows();
+            other.invalidateBorrows();
             mLayout = other.mLayout;
             mStorage = std::move(replacementStorage);
-            mLifetime = std::move(nextLifetime);
-            other.mLifetime = std::move(nextSourceLifetime);
         }
         else
         {
-            tensor_detail::invalidateLifetime(mLifetime);
-            tensor_detail::invalidateLifetime(other.mLifetime);
+            invalidateBorrows();
+            other.invalidateBorrows();
             mLayout = std::move(other.mLayout);
             mStorage = std::move(other.mStorage);
-            mLifetime = std::move(nextLifetime);
             other.mLayout = layout_type::contiguous(defaultExtents());
-            other.mLifetime = std::move(nextSourceLifetime);
         }
     }
 
-    void resetMovedFrom(Tensor& other, std::shared_ptr<tensor_detail::TensorLifetimeState> nextLifetime)
+    void resetMovedFrom(Tensor& other)
     {
-        tensor_detail::invalidateLifetime(other.mLifetime);
+        other.invalidateBorrows();
         other.mLayout = layout_type::contiguous(defaultExtents());
         other.mStorage.reset();
-        other.mLifetime = std::move(nextLifetime);
     }
 
     void commitStorage(Tensor&& replacement)
     {
-        tensor_detail::invalidateLifetime(mLifetime);
+        invalidateBorrows();
         mLayout = std::move(replacement.mLayout);
         mStorage = std::move(replacement.mStorage);
-        mLifetime = std::move(replacement.mLifetime);
+        mLifetime.store(replacement.mLifetime.exchange({}, std::memory_order_acq_rel), std::memory_order_release);
+    }
+
+    void invalidateBorrows() noexcept
+    {
+        tensor_detail::invalidateLifetime(mLifetime.exchange({}, std::memory_order_acq_rel));
+    }
+
+    // Const view factories may run concurrently. Publish a single state without
+    // requiring every owner construction or storage transfer to allocate one.
+    [[nodiscard]] std::shared_ptr<tensor_detail::TensorLifetimeState> ensureLifetime() const
+    {
+        auto state = mLifetime.load(std::memory_order_acquire);
+        if (!state)
+        {
+            auto replacement = std::make_shared<tensor_detail::TensorLifetimeState>();
+            if (mLifetime.compare_exchange_strong(state, replacement, std::memory_order_acq_rel,
+                                                 std::memory_order_acquire))
+            {
+                state = std::move(replacement);
+            }
+        }
+        return state;
+    }
+
+    [[nodiscard]] std::weak_ptr<tensor_detail::TensorLifetimeState> borrowedLifetime() const
+    {
+#ifndef NDEBUG
+        return ensureLifetime();
+#else
+        return {};
+#endif
     }
 
     [[nodiscard]] std::shared_ptr<void> sharedLifetimeHandle() const
@@ -1047,7 +1073,7 @@ private:
         {
             return std::shared_ptr<void>(mStorage, static_cast<void*>(mStorage.get()));
         }
-        return std::shared_ptr<void>(mLifetime, static_cast<void*>(mLifetime.get()));
+        return ensureLifetime();
     }
 
     template <std::size_t IndexRank>
@@ -1083,7 +1109,7 @@ private:
     allocator_type mAllocator;
     layout_type mLayout = layout_type::contiguous(defaultExtents());
     std::shared_ptr<value_type[]> mStorage;
-    std::shared_ptr<tensor_detail::TensorLifetimeState> mLifetime;
+    mutable std::atomic<std::shared_ptr<tensor_detail::TensorLifetimeState>> mLifetime;
 };
 
 template <ReadableTensor R, typename Allocator>
@@ -1095,7 +1121,7 @@ template <ReadableTensor R, typename Allocator>
     Tensor<value_type, Allocator, tensor_detail::tensorStaticRankValue<R>> result(
         std::allocator_arg, allocator, source.extents());
     tensor_detail::copyKernel(source, result);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <ReadableTensor R>

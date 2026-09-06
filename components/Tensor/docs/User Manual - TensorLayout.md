@@ -134,9 +134,11 @@ No pointer is formed during validation or logical offset calculation.
 | `Indeterminate` | A bounded large-layout proof established neither injectivity nor overlap. |
 
 Rank-two layouts are classified exactly using a bounded linear Diophantine
-test. Higher-rank layouts up to 8,192 elements use exact offset enumeration.
-Larger higher-rank layouts use constructive injectivity and overlap proofs; an
-unresolved mapping is classified as `Indeterminate`, never falsely labeled
+test. Higher-rank layouts first attempt a stride-packing injectivity proof,
+so ordinary permutations and padded mappings avoid enumerating their elements.
+If that proof is inconclusive, layouts up to 8,192 elements use exact offset
+enumeration. Larger layouts use a constructive overlap proof; an unresolved
+mapping is classified as `Indeterminate`, never falsely labeled
 `Overlapping`. Mutable views require `isInjective()`, so an indeterminate layout
 is conservatively read-only until a stronger proof is added.
 

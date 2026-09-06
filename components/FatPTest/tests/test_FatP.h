@@ -124,6 +124,8 @@ bool test_TensorSelection();
 bool test_TensorSlice();
 bool test_TensorEquality();
 bool test_TensorRanked();
+bool test_TensorMaterialization();
+bool test_TensorOwnerLifetime();
 bool test_TensorStatic();
 bool test_ThreadPool();
 bool test_ValueGuard();

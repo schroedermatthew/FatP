@@ -252,6 +252,22 @@ public:
     using reference = Element&;
 
     TensorLogicalIterator() = default;
+    TensorLogicalIterator(const TensorLogicalIterator&) = default;
+    TensorLogicalIterator(TensorLogicalIterator&&) noexcept = default;
+
+    TensorLogicalIterator& operator=(const TensorLogicalIterator& other)
+    {
+        if (this != &other)
+        {
+            // Higher-rank metadata copies can allocate. Commit the layout and
+            // its cursor together so allocation failure cannot separate them.
+            auto copy = other;
+            *this = std::move(copy);
+        }
+        return *this;
+    }
+
+    TensorLogicalIterator& operator=(TensorLogicalIterator&&) noexcept = default;
 
     using layout_type = tensor_detail::TensorLayoutFor<Rank>;
 
@@ -263,6 +279,7 @@ public:
         , mLifetime(std::move(lifetime))
         , mTracked(tracked)
     {
+        initializePosition();
     }
 
     [[nodiscard]] reference operator*() const
@@ -272,7 +289,7 @@ public:
         {
             throw std::out_of_range("Cannot dereference a singular or end Tensor iterator");
         }
-        return mStorageBase[mLayout.logicalOffset(mLinearIndex)];
+        return mStorageBase[mOffset];
     }
 
     [[nodiscard]] pointer operator->() const
@@ -283,6 +300,33 @@ public:
     TensorLogicalIterator& operator++()
     {
         ++mLinearIndex;
+        // End is a logical sentinel: computing its physical offset could leave
+        // the validated span or overflow for a reversed or broadcast mapping.
+        if (mLinearIndex >= mLayout.logicalSize())
+        {
+            return *this;
+        }
+        if (mLayout.isContiguous())
+        {
+            ++mOffset;
+            return *this;
+        }
+        for (std::size_t reverseAxis = mLayout.rank(); reverseAxis > 0; --reverseAxis)
+        {
+            const auto axis = reverseAxis - 1;
+            ++mCoordinates[axis];
+            if (mCoordinates[axis] < mLayout.extents()[axis])
+            {
+                mOffset = tensor_detail::checkedOffsetAdd(mOffset, mLayout.strides()[axis]);
+                break;
+            }
+            mCoordinates[axis] = 0;
+            // Rewind from the last reachable coordinate, without first forming
+            // extent * stride or an out-of-range intermediate offset.
+            const auto rewind = tensor_detail::checkedStrideContribution(
+                mLayout.extents()[axis] - 1, mLayout.strides()[axis]);
+            mOffset = tensor_detail::checkedOffsetSubtract(mOffset, rewind);
+        }
         return *this;
     }
 
@@ -295,8 +339,10 @@ public:
 
     friend bool operator==(const TensorLogicalIterator& left, const TensorLogicalIterator& right)
     {
-        if (left.mStorageBase != right.mStorageBase || left.mLayout != right.mLayout ||
-            left.mLinearIndex != right.mLinearIndex || left.mTracked != right.mTracked)
+        // Most comparisons are with end(). Avoid comparing rank-sized mapping
+        // metadata when the logical positions already prove inequality.
+        if (left.mLinearIndex != right.mLinearIndex || left.mStorageBase != right.mStorageBase ||
+            left.mTracked != right.mTracked || left.mLayout != right.mLayout)
         {
             return false;
         }
@@ -305,6 +351,40 @@ public:
     }
 
 private:
+    void initializePosition()
+    {
+        if (mLinearIndex >= mLayout.logicalSize())
+        {
+            return;
+        }
+        mOffset = mLayout.originOffset();
+        if (mLayout.isContiguous())
+        {
+            // A nonempty contiguous layout fits in its ptrdiff_t-sized span.
+            mOffset += static_cast<std::ptrdiff_t>(mLinearIndex);
+            return;
+        }
+        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
+        {
+            mCoordinates.resize(mLayout.rank(), 0);
+        }
+        if (mLinearIndex == 0)
+        {
+            return;
+        }
+        // Public construction at any logical position keeps its original
+        // semantics; division is needed only once when establishing the cursor.
+        auto remainder = mLinearIndex;
+        for (std::size_t reverseAxis = mLayout.rank(); reverseAxis > 0; --reverseAxis)
+        {
+            const auto axis = reverseAxis - 1;
+            mCoordinates[axis] = remainder % mLayout.extents()[axis];
+            remainder /= mLayout.extents()[axis];
+            mOffset = tensor_detail::checkedOffsetAdd(
+                mOffset, tensor_detail::checkedStrideContribution(mCoordinates[axis], mLayout.strides()[axis]));
+        }
+    }
+
     pointer mStorageBase = nullptr;
     layout_type mLayout = [] {
         if constexpr (Rank == tensor_detail::kDynamicTensorRank)
@@ -317,6 +397,8 @@ private:
         }
     }();
     std::size_t mLinearIndex = 0;
+    std::ptrdiff_t mOffset = 0;
+    typename layout_type::extents_type::container_type mCoordinates{};
     std::weak_ptr<tensor_detail::TensorLifetimeState> mLifetime;
     bool mTracked = false;
 };
@@ -475,14 +557,7 @@ public:
                                        const std::vector<std::size_t>& end) const
     {
         checkAlive();
-        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
-        {
-            return TensorView(mStorageBase, tensor_detail::sliceLayout(mLayout, start, end), mLifetime, mTracked);
-        }
-        else
-        {
-            return TensorView(mStorageBase, tensor_detail::sliceLayout(mLayout, start, end), mLifetime, mTracked);
-        }
+        return TensorView(mStorageBase, tensor_detail::sliceLayout(mLayout, start, end), mLifetime, mTracked);
     }
 
     [[nodiscard]] auto sliceView(const std::vector<SliceSpec>& specifications) const
@@ -616,14 +691,7 @@ public:
         requires(Rank == tensor_detail::kDynamicTensorRank || Rank == 2)
     {
         checkAlive();
-        if constexpr (Rank == tensor_detail::kDynamicTensorRank)
-        {
-            return TensorView(mStorageBase, tensor_detail::transposeLayout(mLayout), mLifetime, mTracked);
-        }
-        else
-        {
-            return TensorView(mStorageBase, tensor_detail::transposeLayout(mLayout), mLifetime, mTracked);
-        }
+        return TensorView(mStorageBase, tensor_detail::transposeLayout(mLayout), mLifetime, mTracked);
     }
 
     [[nodiscard]] TensorView<T> reshapeView(DynamicExtents target) const
@@ -1116,12 +1184,13 @@ struct TensorAccess
 {
     // Publish an unpublished materialization without invoking Tensor's public
     // move constructor (rank zero preserves a live scalar in a moved-from owner).
+    // Returning a prvalue also makes publication independent of optional NRVO.
+    // The consumed local must not be used again except for destruction.
     template <typename T, typename Allocator, std::size_t Rank>
     [[nodiscard]] static Tensor<T, Allocator, Rank> finishMaterialization(Tensor<T, Allocator, Rank>&& owner)
     {
         using Owner = Tensor<T, Allocator, Rank>;
-        return Owner(typename Owner::AdoptTag{}, owner.mAllocator,
-                     std::move(owner.mLayout), std::move(owner.mStorage));
+        return Owner(typename Owner::MaterializationTag{}, std::move(owner));
     }
 
     template <typename R>
@@ -1181,9 +1250,9 @@ struct TensorAccess
     }
 
     template <typename T, typename Allocator, std::size_t Rank>
-    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const Tensor<T, Allocator, Rank>& owner) noexcept
+    [[nodiscard]] static std::weak_ptr<TensorLifetimeState> lifetime(const Tensor<T, Allocator, Rank>& owner)
     {
-        return owner.mLifetime;
+        return owner.borrowedLifetime();
     }
 
     template <typename T, std::size_t Rank>

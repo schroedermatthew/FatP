@@ -247,7 +247,7 @@ template <typename T, typename ShapeT, typename Policy>
     std::vector<std::size_t> extents(ShapeT::dims.begin(), ShapeT::dims.end());
     Tensor<T> result(DynamicExtents(std::move(extents)));
     std::copy(source.begin(), source.end(), result.begin());
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <typename T, typename ShapeT, typename Policy>
@@ -266,7 +266,7 @@ template <typename T, typename ShapeT, typename Policy>
     RankedExtents<ShapeT::rank> extents(ShapeT::dims.begin(), ShapeT::dims.end());
     RankedTensor<T, ShapeT::rank> result(extents);
     std::copy(source.begin(), source.end(), result.begin());
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <typename ShapeT, typename Policy = UncheckedPolicy, ReadableTensor Source>

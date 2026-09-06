@@ -188,6 +188,12 @@ add_subdirectory(path/to/FatP)
 target_link_libraries(your_target PRIVATE fatp)
 ```
 
+Use namespaced includes such as `<fat_p/Tensor.h>`, or quoted short includes
+such as `"Tensor.h"`. On Windows with GCC or Clang's GNU driver, CMake keeps the
+short-header directory out of the normal `-I` search path so `Signal.h` cannot
+shadow the C library's `<signal.h>`. Include the signal component as
+`"Signal.h"` or `<fat_p/Signal.h>`.
+
 ## Components
 
 Per-component tests, benchmarks, and user manuals live under [`components/`](components/). Highlights by area:

@@ -517,23 +517,8 @@ private:
                                                               : TensorLayoutKind::InjectiveStrided;
         }
 
-        // Exact enumeration is deliberately bounded so metadata-only view
-        // transforms do not perform work proportional to a large tensor.
-        constexpr std::size_t exactLimit = 8'192;
-        if (logicalSize() <= exactLimit)
-        {
-            std::unordered_set<std::ptrdiff_t> offsets;
-            offsets.reserve(logicalSize());
-            for (std::size_t linearIndex = 0; linearIndex < logicalSize(); ++linearIndex)
-            {
-                if (!offsets.insert(logicalOffset(linearIndex)).second)
-                {
-                    return TensorLayoutKind::Overlapping;
-                }
-            }
-            return TensorLayoutKind::InjectiveStrided;
-        }
-
+        // Prove ordinary permuted/padded mappings from their strides before
+        // considering element-wise enumeration, even for small tensors.
         const auto axisLess = [](const ActiveAxis& left, const ActiveAxis& right) {
             return std::tie(left.magnitude, left.extent) < std::tie(right.magnitude, right.extent);
         };
@@ -575,6 +560,23 @@ private:
         }
         if (greedyProof)
         {
+            return TensorLayoutKind::InjectiveStrided;
+        }
+
+        // Packing is sufficient but not necessary. Keep small interleaved
+        // mappings exact, while bounding the fallback's element-dependent work.
+        constexpr std::size_t exactLimit = 8'192;
+        if (logicalSize() <= exactLimit)
+        {
+            std::unordered_set<std::ptrdiff_t> offsets;
+            offsets.reserve(logicalSize());
+            for (std::size_t linearIndex = 0; linearIndex < logicalSize(); ++linearIndex)
+            {
+                if (!offsets.insert(logicalOffset(linearIndex)).second)
+                {
+                    return TensorLayoutKind::Overlapping;
+                }
+            }
             return TensorLayoutKind::InjectiveStrided;
         }
 

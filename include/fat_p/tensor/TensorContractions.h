@@ -364,7 +364,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
     {
         tensor_detail::contractionRows(left, right, shape, result, 0, result.size());
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief tensorDot with rebound first-owner SOCCC, or TensorAllocator for view-only inputs. */
@@ -415,7 +415,7 @@ template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right, type
     {
         tensor_detail::contractionRows(left, right, shape, result, 0, result.size());
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right>

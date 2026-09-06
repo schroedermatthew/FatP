@@ -92,6 +92,13 @@ static_assert(!HasVectorProducts<Tensor<int>, Tensor<float>>);
 static_assert(!HasVectorProducts<Tensor<std::string>, Tensor<std::string>>);
 static_assert(HasIntegralAllocations<std::allocator<std::int64_t>>);
 static_assert(!HasIntegralAllocations<std::allocator<int>>);
+static_assert(std::same_as<decltype(outer(std::declval<const Tensor<int>&>(),
+                                        std::declval<const Tensor<int>&>())),
+                           Tensor<std::int64_t, TensorAllocator<std::int64_t>, 2>>);
+static_assert(std::same_as<decltype(outer(std::declval<const Tensor<int>&>(),
+                                        std::declval<const Tensor<int>&>(),
+                                        std::allocator<std::int64_t>{})),
+                           Tensor<std::int64_t, std::allocator<std::int64_t>, 2>>);
 
 struct AllocationCounts
 {

@@ -201,6 +201,10 @@ public promise testable.
   iteration plan. Extended slice syntax creates them with negative steps.
 - Layout validation proves that the minimum and maximum reachable offsets remain
   within the backing storage span before a view can be constructed.
+- Owner `operator[]` is unchecked; borrowed and shared view `operator[]` checks
+  logical bounds before mapping through signed strides. `atLinear` checks
+  logical bounds on all three types. `ReadableTensor` does not require checked
+  indexing, so generic `operator[]` callers must establish an in-range index.
 
 ### 3. Ownership and lifetime
 
@@ -283,6 +287,10 @@ constness rule at compile time.
   with POCMA disabled, materializes logical elements through the destination
   allocator instead.
 - `clone()` is an unconditional deep logical copy into canonical storage.
+- Publishing a completed algorithm result transfers its element storage and
+  lifetime state without moving elements or allocating a second element buffer,
+  including for fixed-rank scalars and builds with optional copy elision disabled.
+  This internal publication path does not change the public moved-from owner rules.
 - Existing `clone(owner)` copy-constructs elements and does not require default
   initialization. `clone(view)` and `clone(source, allocator)` default-initialize
   result elements and copy-assign them, so those paths require both operations.
@@ -339,6 +347,20 @@ sources by copying their logical sequence and never returns an alias.
   Canonical owner copy construction may use direct contiguous storage.
 - Owner destruction, assignment, move, and swap invalidate borrowed views.
   Shared views retain element storage. View assignment rebinds metadata.
+- Owner lifetime tracking is created lazily by the first borrowed-view or
+  descriptor request in assertions-enabled builds. Concurrent const borrowing
+  publishes one shared tracking state atomically. A failed first tracking
+  allocation leaves the owner unchanged and may be retried. Release borrowed
+  views do not allocate tracking state; an empty shared view still creates a
+  real shared ownership handle when needed.
+- Ordinary dynamic and positive-fixed-rank moves transfer storage without
+  allocating tracking state. Move construction is nonthrowing when allocator
+  move construction is nonthrowing. Move assignment is nonthrowing when a
+  propagating allocator has nonthrowing move assignment, or a non-propagating
+  allocator is always equal. Otherwise allocator comparison/materialization may
+  throw. Fixed-rank-zero owner moves still materialize a scalar and may throw.
+  Successful moves invalidate existing borrows, and both destination and
+  moved-from owners can publish fresh borrows afterward.
 
 ### 9. Numeric operations
 
@@ -611,8 +633,9 @@ make subsequent checked offset arithmetic nonthrowing, and primitive element
 assignment is statically required to be nonthrowing. No swap or owner
 replacement occurs. Allocator bookkeeping and floating status flags are not
 rolled back. Scratch is reclaimed on success and failure.
-The scratch owner value-initializes its element storage before computation
-and creates normal owner lifetime metadata; these are deliberate reuse costs.
+The scratch owner value-initializes its element storage before computation.
+Its lifetime tracking is lazy, like other owners; no tracking allocation is
+needed merely to construct, fill, and commit this scratch storage.
 
 Explicit scratch allocators must have the destination value type, not the
 promoted compute type, and are used unchanged. Otherwise an owner supplies its
@@ -930,7 +953,11 @@ complete einsum is a separate API decision, not a promised compatibility layer.
 |---|---|
 | Integral element indices are checked before narrowing; constructor traits reflect element requirements | `test_Tensor.cpp::index_conversion_and_constructor_constraints`; `test_TensorStatic.cpp::checked_wide_indices` |
 | Failed allocator-propagating owner assignment preserves allocator, values, shape, and borrows | `test_TensorAlgorithms.cpp::owner_assignment_allocation_failure_transaction` (standalone allocation probe) |
+| Ordinary owner relocation transfers element storage without tracking allocation; first-borrow failures are retryable and concurrent const borrows share invalidation | `test_TensorOwnerLifetime.cpp` (standalone allocation probe and concurrent borrowing) |
 | Ranked scalar reshaping requires copy assignment without requiring element copy/move construction | `test_TensorAlgorithms.cpp::rank_zero_reshape_assignment_only` |
+| Ranked scalar transforms, view clones, gather, and adapters publish assignment-only elements without constructing them from source values | `test_TensorMaterialization.cpp::assignment_only_scalar_transform`; `test_TensorMaterialization.cpp::assignment_only_scalar_clone_gather_and_adapters` |
+| Scalar result publication uses one element allocation independently of optional copy elision | `test_TensorMaterialization.cpp::scalar_arithmetic_has_one_result_allocation`; `scalar_reductions_have_one_result_allocation`; `scalar_contractions_have_one_result_allocation`; `scalar_selection_and_adapters_have_one_result_allocation` (CMake and ranked CI disable optional NRVO) |
+| StaticTensor constructor availability reflects the element operations actually performed | `test_TensorStatic.cpp::constructor_constraints` |
 | Row/column views check lifetime before rank and distinguish rank errors from bounds errors | `test_TensorView.cpp::shared_and_borrowed_lifetime`; `test_TensorView.cpp::external_mapping_validation` |
 | Rank-zero dynamic scalar has one element; default owner is empty | `test_Tensor.cpp::owner_scalar_empty_and_access` |
 | Owning copies are independent and moved-from owners are canonical empty | `test_Tensor.cpp::owner_copy_move_fill_and_hash` |

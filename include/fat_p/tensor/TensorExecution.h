@@ -310,7 +310,7 @@ matmul(const Left& left, const Right& right, const TensorExecutionContext& conte
                                          });
     }
     tensor_detail::checkTensorCancellation(context.options().cancellation);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief Context matmul with unchanged first-owner SOCCC/default result allocator selection. */
@@ -385,7 +385,7 @@ template <ReadableTensor Left, ReadableTensor Right, typename Allocator>
                                          });
     }
     tensor_detail::checkTensorCancellation(context.options().cancellation);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 /** @brief Context tensorDot with the same allocator selection as the serial overload. */
@@ -444,7 +444,7 @@ template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right, type
             });
     }
     tensor_detail::checkTensorCancellation(context.options().cancellation);
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <std::size_t PairCount, ReadableTensor Left, ReadableTensor Right>

@@ -38,11 +38,56 @@ FATP_META:
 #include "TensorTestSupport.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <limits>
+#include <new>
 #include <set>
 #include <stdexcept>
 #include <vector>
+
+#if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE)
+// Count ordinary metadata allocations only in the standalone executable. Unlike
+// element allocator counters, this observes the classifier's hash nodes too.
+// No failures are injected, so MSVC checked-iterator builds can use this probe.
+namespace fat_p::testing::tensor_layout::allocation_probe
+{
+thread_local std::size_t* activeCounter = nullptr;
+
+void* allocate(std::size_t bytes)
+{
+    if (void* storage = std::malloc(bytes == 0 ? 1 : bytes))
+    {
+        if (activeCounter != nullptr)
+        {
+            ++*activeCounter;
+        }
+        return storage;
+    }
+    throw std::bad_alloc();
+}
+
+class ScopedCounter
+{
+public:
+    explicit ScopedCounter(std::size_t& count) noexcept : mPrevious(activeCounter) { activeCounter = &count; }
+    ~ScopedCounter() { activeCounter = mPrevious; }
+    ScopedCounter(const ScopedCounter&) = delete;
+    ScopedCounter& operator=(const ScopedCounter&) = delete;
+
+private:
+    std::size_t* mPrevious;
+};
+} // namespace fat_p::testing::tensor_layout::allocation_probe
+
+void* operator new(std::size_t bytes) { return fat_p::testing::tensor_layout::allocation_probe::allocate(bytes); }
+void* operator new[](std::size_t bytes) { return fat_p::testing::tensor_layout::allocation_probe::allocate(bytes); }
+void operator delete(void* storage) noexcept { std::free(storage); }
+void operator delete[](void* storage) noexcept { std::free(storage); }
+void operator delete(void* storage, std::size_t) noexcept { std::free(storage); }
+void operator delete[](void* storage, std::size_t) noexcept { std::free(storage); }
+#endif
 
 namespace fat_p::testing::tensor_layout
 {
@@ -236,6 +281,88 @@ FATP_TEST_CASE(signed_reachability_and_classification)
     return true;
 }
 
+FATP_TEST_CASE(higher_rank_injectivity_proofs)
+{
+    struct Case
+    {
+        std::size_t storageLength;
+        std::ptrdiff_t origin;
+        std::array<std::size_t, 3> extents;
+        std::array<std::ptrdiff_t, 3> strides;
+        TensorLayoutKind expected;
+    };
+    const std::array cases{
+        Case{8000, 0, {20, 20, 20}, {1, 20, 400}, TensorLayoutKind::InjectiveStrided},
+        Case{8000, 380, {20, 20, 20}, {1, -20, 400}, TensorLayoutKind::InjectiveStrided},
+        // These interleaved addresses require the exact fallback, not packing.
+        Case{18, 0, {3, 2, 2}, {2, 3, 10}, TensorLayoutKind::InjectiveStrided},
+        // No pair aliases by itself, but 2 + 3 = 5 creates a three-axis collision.
+        Case{11, 0, {2, 2, 2}, {2, 3, 5}, TensorLayoutKind::Overlapping},
+        Case{1'000'004, 0, {100'000, 2, 2}, {10, 6, 7}, TensorLayoutKind::Indeterminate}};
+    for (const auto& test : cases)
+    {
+        const TensorLayout dynamic(test.storageLength, test.origin,
+                                   DynamicExtents(test.extents.begin(), test.extents.end()),
+                                   TensorStrides(test.strides.begin(), test.strides.end()));
+        const BasicTensorLayout<3> fixed(test.storageLength, test.origin,
+                                         tensor_detail::FixedRankExtents<3>(test.extents), test.strides);
+        FATP_ASSERT_TRUE(dynamic.kind() == test.expected, "Dynamic classification should preserve exact/proven results");
+        FATP_ASSERT_TRUE(fixed.kind() == test.expected, "Fixed-rank classification should agree with dynamic layouts");
+    }
+
+    const auto maximum = std::numeric_limits<std::ptrdiff_t>::max();
+    const auto minimum = std::numeric_limits<std::ptrdiff_t>::min();
+    const TensorLayout extreme(static_cast<std::size_t>(maximum), maximum - 4,
+                                DynamicExtents{2, 2, 2, 1}, TensorStrides{-(maximum - 4), 2, 1, minimum});
+    const BasicTensorLayout<4> fixedExtreme(static_cast<std::size_t>(maximum), maximum - 4,
+                                           {2, 2, 2, 1}, {-(maximum - 4), 2, 1, minimum});
+    FATP_ASSERT_TRUE(extreme.isInjective() && fixedExtreme.isInjective(),
+                     "Signed packing at the reachable-span limit should ignore extreme singleton strides");
+    FATP_ASSERT_EQ(extreme.minimumOffset().value(), std::ptrdiff_t{0}, "Extreme mapping should start at zero");
+    FATP_ASSERT_EQ(extreme.maximumOffset().value(), maximum - 1, "Extreme mapping should stay within storage");
+    const BasicTensorLayout<5> interspersedSingletons(8, 0, {2, 1, 2, 1, 2}, {1, maximum, 4, minimum, 2});
+    FATP_ASSERT_TRUE(interspersedSingletons.isInjective(), "Packing should sort only active fixed-rank axes");
+    return true;
+}
+
+FATP_TEST_CASE(packed_layout_metadata_allocations)
+{
+#if defined(ENABLE_TEST_APPLICATION) && !defined(FATP_TENSOR_DISABLE_ALLOCATION_PROBE)
+    std::array<std::size_t, 2> dynamicAllocations{};
+    std::array<std::size_t, 2> fixedAllocations{};
+    // Strides describe a common 3D permutation on either side of the exact
+    // classification cutoff. Its metadata cost must not scale with element count.
+    for (std::size_t index = 0; index < 2; ++index)
+    {
+        const auto side = std::size_t{20} + index;
+        const auto stride = static_cast<std::ptrdiff_t>(side);
+        TensorLayoutKind dynamicKind;
+        TensorLayoutKind fixedKind;
+        {
+            allocation_probe::ScopedCounter counter(dynamicAllocations[index]);
+            const TensorLayout layout(side * side * side, 0, DynamicExtents{side, side, side},
+                                       TensorStrides{1, stride, stride * stride});
+            dynamicKind = layout.kind();
+        }
+        {
+            allocation_probe::ScopedCounter counter(fixedAllocations[index]);
+            const BasicTensorLayout<3> layout(side * side * side, 0, {side, side, side},
+                                              {1, stride, stride * stride});
+            fixedKind = layout.kind();
+        }
+        FATP_ASSERT_TRUE(dynamicKind == TensorLayoutKind::InjectiveStrided && fixedKind == dynamicKind,
+                         "Permuted layouts should be proven injective for both rank families");
+    }
+    FATP_ASSERT_EQ(dynamicAllocations[0], dynamicAllocations[1],
+                   "A smaller permutation must not allocate one hash node per logical element");
+    FATP_ASSERT_EQ(fixedAllocations[0], std::size_t{0}, "Small packed fixed-rank classification needs no heap scratch");
+    FATP_ASSERT_EQ(fixedAllocations[1], std::size_t{0}, "Large packed fixed-rank classification needs no heap scratch");
+#else
+    std::cout << "[SKIP] Metadata allocation counting requires standalone replacement-new support\n";
+#endif
+    return true;
+}
+
 FATP_TEST_CASE(validation_boundaries)
 {
     FATP_ASSERT_THROWS(TensorLayout(4, 0, DynamicExtents{2, 2}, TensorStrides{1}), std::invalid_argument,
@@ -373,6 +500,8 @@ bool test_TensorLayout()
     FATP_RUN_TEST_NS(runner, tensor_layout, metadata_moves_preserve_invariants);
     FATP_RUN_TEST_NS(runner, tensor_layout, canonical_layouts);
     FATP_RUN_TEST_NS(runner, tensor_layout, signed_reachability_and_classification);
+    FATP_RUN_TEST_NS(runner, tensor_layout, higher_rank_injectivity_proofs);
+    FATP_RUN_TEST_NS(runner, tensor_layout, packed_layout_metadata_allocations);
     FATP_RUN_TEST_NS(runner, tensor_layout, validation_boundaries);
     FATP_RUN_TEST_NS(runner, tensor_layout, randomized_scalar_oracle);
     return 0 == runner.print_summary();

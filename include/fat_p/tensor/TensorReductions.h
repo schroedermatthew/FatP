@@ -181,7 +181,7 @@ reduceInitialized(const Source& source, const Axes& axes, bool keepDimensions,
     Tensor<Result, Allocator, OutputRank> result(std::allocator_arg, allocator, std::move(outputExtents), initial);
     if (source.empty() || result.empty())
     {
-        return result;
+        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
     }
     const auto* input = TensorAccess::storageBase(source);
     const auto plan = makeTensorIterationPlan(source.extents(), source.layout());
@@ -198,7 +198,7 @@ reduceInitialized(const Source& source, const Axes& axes, bool keepDimensions,
             decodeReductionCoordinates(linearIndex, source.extents(), shape, coordinates).outputLinear;
         result[output] = std::invoke(combine, result[output], static_cast<Result>(input[offsets[0]]));
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <std::size_t OutputRank = kDynamicTensorRank, ReadableTensor Source, typename Axes,
@@ -225,7 +225,7 @@ reduceExtremum(const Source& source, const Axes& axes, bool keepDimensions,
                                                      std::move(outputExtents));
     if (result.empty())
     {
-        return result;
+        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
     }
     std::vector<bool> initialized(result.size(), initial.has_value());
     if (initial)
@@ -238,7 +238,7 @@ reduceExtremum(const Source& source, const Axes& axes, bool keepDimensions,
         {
             throw std::domain_error("Tensor extremum reduction has an empty domain");
         }
-        return result;
+        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
     }
 
     const auto* input = TensorAccess::storageBase(source);
@@ -275,7 +275,7 @@ reduceExtremum(const Source& source, const Axes& axes, bool keepDimensions,
             initialized[output] = true;
         }
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <std::size_t OutputRank = kDynamicTensorRank, ReadableTensor Source, typename Axes,
@@ -301,7 +301,7 @@ reduceArgExtremum(const Source& source, const Axes& axes, bool keepDimensions,
                                                       std::move(outputExtents), 0);
     if (result.empty())
     {
-        return result;
+        return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
     }
     if (source.empty())
     {
@@ -345,7 +345,7 @@ reduceArgExtremum(const Source& source, const Axes& axes, bool keepDimensions,
             initialized[coordinates.outputLinear] = true;
         }
     });
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <typename Source>
@@ -440,7 +440,7 @@ template <tensor_detail::ArithmeticTensor Source, typename Allocator>
             value /= static_cast<result_type>(count);
         }
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <tensor_detail::ArithmeticTensor Source>
@@ -692,7 +692,7 @@ template <bool KeepDimensions, TensorAxis... Axes, ReadableTensor Source, typena
     {
         value /= static_cast<result_type>(count);
     }
-    return result;
+    return tensor_detail::TensorAccess::finishMaterialization(std::move(result));
 }
 
 template <bool KeepDimensions, TensorAxis... Axes, ReadableTensor Source>
