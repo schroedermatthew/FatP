@@ -300,7 +300,10 @@ template <std::size_t Rank, WritableTensor Source>
 {
     const auto strides = tensor_detail::mdspanStrides<Rank>(source);
     std::array<std::size_t, Rank> extents{};
-    std::copy(source.extents().begin(), source.extents().end(), extents.begin());
+    if constexpr (Rank > 0)
+    {
+        std::copy(source.extents().begin(), source.extents().end(), extents.begin());
+    }
     using extents_type = std::dextents<std::size_t, Rank>;
     using mapping_type = typename std::layout_stride::template mapping<extents_type>;
     const auto descriptor = describeTensor(source);
@@ -315,7 +318,10 @@ template <std::size_t Rank, ReadableTensor Source>
 {
     const auto strides = tensor_detail::mdspanStrides<Rank>(source);
     std::array<std::size_t, Rank> extents{};
-    std::copy(source.extents().begin(), source.extents().end(), extents.begin());
+    if constexpr (Rank > 0)
+    {
+        std::copy(source.extents().begin(), source.extents().end(), extents.begin());
+    }
     using extents_type = std::dextents<std::size_t, Rank>;
     using mapping_type = typename std::layout_stride::template mapping<extents_type>;
     const auto descriptor = describeTensor(source);

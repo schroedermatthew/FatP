@@ -215,7 +215,8 @@ FATP_TEST_CASE(concurrent_const_borrows_share_tracking)
         FATP_ASSERT_THROWS(view[0], std::runtime_error, "One owner move invalidates every concurrent borrow");
     }
 #endif
-    FATP_ASSERT_EQ(relocated.asConstView()[0], 31, "Moved owner publishes a new tracking generation");
+    const auto relocatedView = relocated.asConstView();
+    FATP_ASSERT_EQ(relocatedView[0], 31, "Moved owner publishes a new tracking generation");
     FATP_ASSERT_TRUE(owner.asConstView().empty(), "Moved-from owner can be borrowed again");
     return true;
 }

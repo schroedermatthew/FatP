@@ -128,7 +128,7 @@ bool verifyIteratorCoordinates(const BasicTensorLayout<Rank>& layout)
     for (std::size_t index = 0; index < expected.size(); ++index)
     {
         FATP_ASSERT_TRUE(current != end, "Iterator must visit every oracle coordinate");
-        FATP_ASSERT_EQ(*current, storage[expected[index]], "Iterator value agrees with coordinate enumeration");
+        FATP_ASSERT_EQ(*current, storage.data()[expected[index]], "Iterator value agrees with coordinate enumeration");
         FATP_ASSERT_TRUE(current.operator->() == storage.data() + expected[index],
                          "Iterator arrow must address the physical oracle element");
         auto copy = current;
@@ -139,14 +139,14 @@ bool verifyIteratorCoordinates(const BasicTensorLayout<Rank>& layout)
                          "Construction and assignment preserve the iterator position and mapping");
         const auto previous = current++;
         FATP_ASSERT_TRUE(previous == copy, "Postincrement retains the independent previous position");
-        FATP_ASSERT_EQ(*copy, storage[expected[index]], "Advancing an iterator cannot move its copies");
+        FATP_ASSERT_EQ(*copy, storage.data()[expected[index]], "Advancing an iterator cannot move its copies");
         ++assigned;
         ++positioned;
         FATP_ASSERT_TRUE(assigned == current && positioned == current,
                          "Copied and arbitrarily initialized cursors must advance consistently");
         if (index + 1 < expected.size())
         {
-            FATP_ASSERT_EQ(*positioned, storage[expected[index + 1]],
+            FATP_ASSERT_EQ(*positioned, storage.data()[expected[index + 1]],
                            "Arbitrary-position construction initializes carry coordinates");
         }
     }

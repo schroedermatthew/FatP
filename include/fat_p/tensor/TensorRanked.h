@@ -185,7 +185,12 @@ template <std::size_t Rank, typename Extents>
         throw std::invalid_argument("Tensor rank does not match the requested ranked adapter");
     }
     std::array<std::size_t, Rank> result{};
-    std::copy(extents.begin(), extents.end(), result.begin());
+    if constexpr (Rank > 0)
+    {
+        // A rank-zero array may have null iterators. Avoid instantiating an
+        // empty copy that GCC can lower to a nonnull-annotated memmove.
+        std::copy(extents.begin(), extents.end(), result.begin());
+    }
     return RankedExtents<Rank>(std::move(result));
 }
 
