@@ -2,7 +2,8 @@
 
 ## SlotMap benchmark dependency cache
 
-Source: workflow working tree based on
+Source: workflow repair commit
+`438e9d35d5cd93c9465bb057254f8df449d76da8`, based on
 `6a9f42b0ac8fb927a0f2ac3bfa71a99ba733dbc1`.
 Observation date: 2026-09-26 (America/Los_Angeles). Scope: pinned Hive dependency,
 header cache invalidation, C++20 cache publication gate, and SlotMap summary
@@ -27,7 +28,9 @@ v2 without a v1 restore fallback. Compiled dependency cache keys remain unchange
 | Workflow structure and script behavior | PASS | All 16 edited workflows pass actionlint 1.7.12 structural validation; 147 Bash syntax probes, 23 extracted-summary success/failure/missing-result scenarios, and six actual Linux/Windows wrapper exit-status probes pass |
 | Full actionlint and ShellCheck | FAIL: existing diagnostics | ShellCheck 0.9.0 reports 292 diagnostics across the 16 files, down from the 295-diagnostic baseline; zero added and three removed; structural validity is separate from this remaining lint debt |
 | Guideline corpus | PASS | Instantiated corpus, profile, links, and ledger arithmetic; no ledger change |
-| Hosted cache publication and benchmark matrix | Not yet run | Requires publishing the workflow changes and building v2 before dispatching SlotMap |
+| Hosted cache publication | PASS | [Dependency build](https://github.com/schroedermatthew/FatP/actions/runs/36250029036) missed v2, fetched the pinned Hive revision, passed all five C++20 compiler checks, and saved `fatp-bench-deps-headeronly-v2-36250029036`; existing compiled caches were reused |
+| Hosted SlotMap benchmark matrix | PASS: all seven jobs | [SlotMap run](https://github.com/schroedermatthew/FatP/actions/runs/36250161009): GCC 12/13/14, Clang 16/17, MSVC, and summary all succeed; all six benchmarks reach completion, and all five Linux logs confirm the v2 cache hit and exact pinned Hive SHA |
+| Hosted guideline checks | PASS | [Guidelines and tooling](https://github.com/schroedermatthew/FatP/actions/runs/36250028754) at the repair commit |
 | C++ style and metadata inventories | Not rerun | YAML and this Markdown record are outside their authored-code change triggers; prior conformance failures remain recorded below |
 
 The Linux build gate uses the benchmark's existing CI warning policy. Existing
