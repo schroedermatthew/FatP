@@ -71,8 +71,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
-          restore-keys: fatp-bench-deps-headeronly-v1-
+          key: fatp-bench-deps-headeronly-v2
+          restore-keys: fatp-bench-deps-headeronly-v2-
 
       - name: Verify caches restored
         run: |
@@ -149,8 +149,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
-          restore-keys: fatp-bench-deps-headeronly-v1-
+          key: fatp-bench-deps-headeronly-v2
+          restore-keys: fatp-bench-deps-headeronly-v2-
 
       - name: Verify caches restored
         run: |

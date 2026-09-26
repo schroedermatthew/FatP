@@ -8,9 +8,9 @@
 # 4 shared caches that individual benchmark workflows restore read-only.
 #
 # Cache key strategy:
-#   Save key:    fatp-bench-deps-{name}-v1-{run_id}   (unique per run)
-#   Restore key: fatp-bench-deps-{name}-v1            (primary, rarely exact)
-#                fatp-bench-deps-{name}-v1-           (prefix → latest run)
+#   Save key:    fatp-bench-deps-{name}-{version}-{run_id} (unique per run)
+#   Restore key: fatp-bench-deps-{name}-{version}          (primary, rarely exact)
+#                fatp-bench-deps-{name}-{version}-         (prefix → latest run)
 #
 # Skip rebuild when lookup-only restore finds a prefix match (cache-matched-key
 # is set). Saves only after a successful build so partial failures are not cached.
@@ -18,7 +18,7 @@
 # Cache prefixes:
 #   fatp-bench-deps-gcc-v1-          Compiled deps (gcc-14, ubuntu-24.04)
 #   fatp-bench-deps-clang-v1-        Compiled deps (clang-17, ubuntu-24.04)
-#   fatp-bench-deps-headeronly-v1-   Header-only external deps (universal)
+#   fatp-bench-deps-headeronly-v2-   Header-only external deps (universal)
 #   fatp-bench-deps-vcpkg-v1-        vcpkg x64-windows-release packages
 #
 # Cache contents:
@@ -60,8 +60,8 @@
 # In-repo vendored headers (ThirdParty/) are NOT cached here -- they are
 # available automatically via actions/checkout + -I./ThirdParty.
 #
-# Rebuild: bump the -v1 suffix in cache keys here AND in all benchmark
-# workflows that consume them.
+# Rebuild: bump the affected cache version here AND in all benchmark workflows
+# that consume it. Header cache v2 pins Hive to the C++20-compatible revision.
 # =============================================================================
 
 name: Build Benchmark Dependencies
@@ -97,6 +97,9 @@ jobs:
   header-only:
     name: Header-Only External Deps
     runs-on: ubuntu-24.04
+    env:
+      # Later Hive revisions use std::from_range_t, which requires C++23.
+      PLF_HIVE_REVISION: aa47e3627a08251d6df2103ddc3be482eb9fa5b3
 
     steps:
       - name: Check existing cache
@@ -105,9 +108,12 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
-          restore-keys: fatp-bench-deps-headeronly-v1-
+          key: fatp-bench-deps-headeronly-v2
+          restore-keys: fatp-bench-deps-headeronly-v2-
           lookup-only: true
+
+      - uses: actions/checkout@v6
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
 
       - name: Clone header-only libraries
         if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
@@ -131,8 +137,13 @@ jobs:
           echo "::endgroup::"
 
           echo "::group::plf_hive"
-          git clone --depth 1 https://github.com/mattreecebentley/plf_hive.git \
-            $HOME/thirdparty-headers/plf_hive
+          hive_dir="$HOME/thirdparty-headers/plf_hive"
+          git init "$hive_dir"
+          git -C "$hive_dir" remote add origin https://github.com/mattreecebentley/plf_hive.git
+          git -C "$hive_dir" fetch --depth 1 origin "$PLF_HIVE_REVISION"
+          git -C "$hive_dir" checkout --detach FETCH_HEAD
+          test "$(git -C "$hive_dir" rev-parse HEAD)" = "$PLF_HIVE_REVISION"
+          echo "plf_hive revision: $PLF_HIVE_REVISION"
           echo "::endgroup::"
 
           echo "::group::eigen"
@@ -189,12 +200,29 @@ jobs:
             echo "  $name: $count headers"
           done
 
+      - name: Verify SlotMap competitor builds in C++20
+        if: inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == ''
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-12 g++-13 g++-14 clang-16 clang-17
+          for compiler in g++-12 g++-13 g++-14 clang++-16 clang++-17; do
+            echo "::group::SlotMap C++20 ($compiler)"
+            "$compiler" -std=c++20 -O3 -DNDEBUG -march=native -pthread \
+              -I./include/fat_p -I./ThirdParty \
+              -I"$HOME/thirdparty-headers/entt/single_include" \
+              -I"$HOME/thirdparty-headers/plf_hive" \
+              components/SlotMap/benchmarks/benchmark_SlotMap.cpp \
+              -o "$RUNNER_TEMP/slotmap-$compiler"
+            echo "::endgroup::"
+          done
+
       - name: Save cache
         if: success() && (inputs.force_rebuild == 'true' || steps.cache-check.outputs.cache-matched-key == '')
         uses: actions/cache/save@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1-${{ github.run_id }}
+          key: fatp-bench-deps-headeronly-v2-${{ github.run_id }}
 
   # ===========================================================================
   # GCC Compiled Dependencies (gcc-14, ubuntu-24.04)
@@ -760,7 +788,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Cache Key | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| fatp-bench-deps-headeronly-v1 | ${{ needs.header-only.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| fatp-bench-deps-headeronly-v2 | ${{ needs.header-only.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| fatp-bench-deps-gcc-v1 | ${{ needs.compiled-gcc.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| fatp-bench-deps-clang-v1 | ${{ needs.compiled-clang.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| fatp-bench-deps-vcpkg-v1 | ${{ needs.vcpkg-msvc.result }} |" >> $GITHUB_STEP_SUMMARY

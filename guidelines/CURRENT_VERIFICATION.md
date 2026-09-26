@@ -1,7 +1,47 @@
 # Current verification
 
-Source: uncommitted working tree based on
-`f4d756ad392656131a76accc3f2960f3cf1ae5b9`.
+## SlotMap benchmark dependency cache
+
+Source: workflow working tree based on
+`6a9f42b0ac8fb927a0f2ac3bfa71a99ba733dbc1`.
+Observation date: 2026-09-26 (America/Los_Angeles). Scope: pinned Hive dependency,
+header cache invalidation, C++20 cache publication gate, and SlotMap summary
+failure propagation. Product and benchmark C++ sources are unchanged.
+
+The supplied [failed run](https://github.com/schroedermatthew/FatP/actions/runs/36218608677)
+restored header cache `fatp-bench-deps-headeronly-v1-36210665780`; all five Linux
+builds failed in Hive. Upstream commit
+`94e396f5542448d9158145119684306cd54c234f` replaced its range-constructor fallback
+with C++23 `std::from_range_t`. The builder now pins its preceding revision,
+`aa47e3627a08251d6df2103ddc3be482eb9fa5b3`, and all 15 header-cache consumers use
+v2 without a v1 restore fallback. Compiled dependency cache keys remain unchanged.
+
+| Gate | Result | Scope and limits |
+|---|---|---|
+| Pinned fetch provenance | PASS | Exact shallow fetch/check-out command resolves the requested SHA; header SHA-256 is `ab9c7b42b3c4ee491b6cf0babe49ab654077d2a78f21ac9eade521b5f5e9c3fa`, matching the local test header |
+| Linux C++20 benchmark build/link | PASS: five compilers | WSL Ubuntu 24.04 x86-64, libstdc++, GCC 12.4/13.3/14.2 and Clang 16.0.6/17.0.6; actual SlotMap source with pinned Hive, EnTT, vendored SG14, `-O3 -DNDEBUG -march=native -pthread` |
+| Windows C++20 benchmark build/link | PASS: two compilers | MSYS2 UCRT64 GCC 16.1 and Clang 22.1.8, libstdc++, `-O2`; pinned Hive and SG14 enabled |
+| Regression negative controls | PASS: four compiler configurations | Current upstream Hive `89b0b8c7af5d74f6c9f1b6e1b9411ed567b790a6` fails the actual C++20 benchmark on Linux GCC 13/Clang 16 and Windows GCC 16/Clang 22; the pinned header removes the range-constructor and Clang allocator errors |
+| Linux runtime smoke checks | PASS: five full executions | All five compiler builds exit 0, reach `Benchmark Complete`, and report Hive and EnTT enabled; one warmup and one measured batch, parallel runs, about 91 seconds each; no performance inference |
+| Windows runtime checks | Partial | Focused Hive-adapter checks pass all eight operation cases on both compilers; both full unchanged benchmark runs timed out at 300 seconds during later cooldown/stabilization waits, without reported runtime errors; full completion is not claimed |
+| Workflow structure and script behavior | PASS | All 16 edited workflows pass actionlint 1.7.12 structural validation; 147 Bash syntax probes, 23 extracted-summary success/failure/missing-result scenarios, and six actual Linux/Windows wrapper exit-status probes pass |
+| Full actionlint and ShellCheck | FAIL: existing diagnostics | ShellCheck 0.9.0 reports 292 diagnostics across the 16 files, down from the 295-diagnostic baseline; zero added and three removed; structural validity is separate from this remaining lint debt |
+| Guideline corpus | PASS | Instantiated corpus, profile, links, and ledger arithmetic; no ledger change |
+| Hosted cache publication and benchmark matrix | Not yet run | Requires publishing the workflow changes and building v2 before dispatching SlotMap |
+| C++ style and metadata inventories | Not rerun | YAML and this Markdown record are outside their authored-code change triggers; prior conformance failures remain recorded below |
+
+The Linux build gate uses the benchmark's existing CI warning policy. Existing
+GCC 12 volatile-assignment and Clang switch-enumerator warnings remain visible.
+Local Linux checks did not include Boost; hosted workflows restore that competitor
+from the compiled dependency cache.
+The benchmark's local cooldown helper still performs its own stabilization waits;
+setting shared no-cooldown flags does not eliminate those waits. This dependency
+repair does not change benchmark timing or make performance claims.
+
+## Previous numeric and concurrent-size verification
+
+Source: `6a9f42b0ac8fb927a0f2ac3bfa71a99ba733dbc1`, originally verified as a working
+tree based on `f4d756ad392656131a76accc3f2960f3cf1ae5b9`.
 Observation date: 2026-09-25 (America/Los_Angeles). Scope: checked-cast bounds,
 finite ULP-count conversion, bounded concurrent size estimates, and their tests.
 The documented ULP subnormal fallback is preserved by explicit maintainer direction.

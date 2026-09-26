@@ -42,9 +42,6 @@ env:
 
 jobs:
   # ===========================================================================
-  # Ensure shared benchmark dependency caches exist
-  # ===========================================================================
-  # ===========================================================================
   # Linux GCC Benchmarks
   # ===========================================================================
   benchmarks-gcc:
@@ -67,8 +64,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
-          restore-keys: fatp-bench-deps-headeronly-v1-
+          key: fatp-bench-deps-headeronly-v2
+          restore-keys: fatp-bench-deps-headeronly-v2-
 
       - name: Restore compiled deps
         uses: actions/cache/restore@v5
@@ -79,10 +76,11 @@ jobs:
 
       - name: Verify caches restored
         run: |
-          if [ ! -d "$HOME/thirdparty-compiled/boost" ] || [ ! -d "$HOME/thirdparty-headers" ]; then
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ] || [ ! -f "$HOME/thirdparty-headers/plf_hive/plf_hive.h" ]; then
             echo "::error::Shared benchmark dependency caches could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           fi
+          echo "plf_hive revision: $(git -C "$HOME/thirdparty-headers/plf_hive" rev-parse HEAD)"
 
       - name: Build benchmark
         run: |
@@ -102,6 +100,7 @@ jobs:
             -Wl,--end-group
 
       - name: Run benchmark
+        shell: bash
         env:
           FATP_BENCH_WARMUP_RUNS: "3"
           FATP_BENCH_BATCHES: ${{ inputs.batches }}
@@ -140,8 +139,8 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: ~/thirdparty-headers
-          key: fatp-bench-deps-headeronly-v1
-          restore-keys: fatp-bench-deps-headeronly-v1-
+          key: fatp-bench-deps-headeronly-v2
+          restore-keys: fatp-bench-deps-headeronly-v2-
 
       - name: Restore compiled deps
         uses: actions/cache/restore@v5
@@ -152,10 +151,11 @@ jobs:
 
       - name: Verify caches restored
         run: |
-          if [ ! -d "$HOME/thirdparty-compiled/boost" ] || [ ! -d "$HOME/thirdparty-headers" ]; then
+          if [ ! -d "$HOME/thirdparty-compiled/boost" ] || [ ! -f "$HOME/thirdparty-headers/plf_hive/plf_hive.h" ]; then
             echo "::error::Shared benchmark dependency caches could not be restored. Re-run the workflow or dispatch build-benchmark-deps.yml with force_rebuild=true."
             exit 1
           fi
+          echo "plf_hive revision: $(git -C "$HOME/thirdparty-headers/plf_hive" rev-parse HEAD)"
 
       - name: Build benchmark
         run: |
@@ -176,6 +176,7 @@ jobs:
             -lstdc++
 
       - name: Run benchmark
+        shell: bash
         env:
           FATP_BENCH_WARMUP_RUNS: "3"
           FATP_BENCH_BATCHES: ${{ inputs.batches }}
@@ -257,6 +258,7 @@ jobs:
         run: |
           $env:PATH = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-release\bin;$env:PATH"
           .\bench_slotmap.exe 2>&1 | Tee-Object -FilePath benchmark_msvc_cpp20.log
+          exit $LASTEXITCODE
 
       - name: Upload results
         uses: actions/upload-artifact@v5
@@ -280,32 +282,46 @@ jobs:
           merge-multiple: false
 
       - name: Aggregate results
+        if: always()
+        shell: bash
+        env:
+          GCC_RESULT: ${{ needs.benchmarks-gcc.result }}
+          CLANG_RESULT: ${{ needs.benchmarks-clang.result }}
+          MSVC_RESULT: ${{ needs.benchmarks-msvc.result }}
         run: |
-          echo "# SlotMap Benchmark Summary" > summary.md
-          echo "" >> summary.md
-          echo "| Compiler | Status |" >> summary.md
-          echo "|----------|--------|" >> summary.md
-          for dir in all-benchmarks/bench-SlotMap-*/; do
-            name=$(basename "$dir" | sed 's/^bench-SlotMap-//')
-            if ls "$dir"/*.log 1>/dev/null 2>&1; then
-              echo "| $name | [PASS] |" >> summary.md
-            else
-              echo "| $name | [FAIL] |" >> summary.md
+          failed=0
+          {
+            echo "# SlotMap Benchmark Summary"
+            echo ""
+            echo "| Required jobs | Result |"
+            echo "|---------------|--------|"
+            echo "| GCC 12, 13, 14 | $GCC_RESULT |"
+            echo "| Clang 16, 17 | $CLANG_RESULT |"
+            echo "| MSVC | $MSVC_RESULT |"
+            if [[ "$GCC_RESULT" != success || "$CLANG_RESULT" != success || "$MSVC_RESULT" != success ]]; then
+              failed=1
             fi
-          done
-          echo "" >> summary.md
-          echo "## Individual Results" >> summary.md
-          for dir in all-benchmarks/bench-SlotMap-*/; do
-            name=$(basename "$dir" | sed 's/^bench-SlotMap-//')
-            echo "" >> summary.md
-            echo "### $name" >> summary.md
-            for log in "$dir"/*.log; do
-              [ -f "$log" ] && echo '```' >> summary.md && tail -80 "$log" >> summary.md && echo '```' >> summary.md
+            echo ""
+            echo "## Individual Results"
+            for name in gcc12 gcc13 gcc14 clang16 clang17 msvc; do
+              log="all-benchmarks/bench-SlotMap-$name/benchmark_${name}_cpp20.log"
+              echo ""
+              echo "### $name"
+              if [[ -s "$log" ]]; then
+                echo '```'
+                tail -80 "$log"
+                echo '```'
+              else
+                echo "[FAIL] Benchmark log missing; inspect the compiler job."
+                failed=1
+              fi
             done
-          done
-          cat summary.md >> $GITHUB_STEP_SUMMARY
+          } > summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
 
       - uses: actions/upload-artifact@v5
+        if: always()
         with:
           name: bench-SlotMap-summary
           path: |
