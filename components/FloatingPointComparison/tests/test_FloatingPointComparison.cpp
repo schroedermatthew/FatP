@@ -39,8 +39,8 @@ FATP_META:
 //   AVOID: 1.0 + epsilon                 // May not land exactly on boundary
 // This ensures tests behave consistently across platforms and compilers.
 
-#include "FatPTest.h"
 #include "FloatingPointComparison.h"
+
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -49,6 +49,8 @@ FATP_META:
 #include <limits>
 #include <random>
 #include <vector>
+
+#include "FatPTest.h"
 
 namespace fat_p::testing::floatingpointcomparison
 {
@@ -273,6 +275,44 @@ FATP_TEST_CASE(ulp_sign_sensitivity)
     FATP_ASSERT_FALSE((floatEqual<double, UlpComparisonPolicy>(tiny_pos, tiny_neg, 1000.0)),
                       "Tiny opposite signs fail");
 
+    return true;
+}
+
+template <typename T>
+bool checkLargeUlpTolerance()
+{
+    const T lower = std::numeric_limits<T>::min();
+    const T upper = std::numeric_limits<T>::max();
+    constexpr int kCountBits = sizeof(T) == 4 ? 32 : 64;
+    const T countLimit = std::ldexp(T{1}, kCountBits);
+    const T tolerances[] = {std::nextafter(countLimit, T{0}),
+                            countLimit,
+                            std::nextafter(countLimit, upper),
+                            static_cast<T>(1e20),
+                            upper};
+    for (T tolerance : tolerances)
+    {
+        FATP_ASSERT_TRUE(UlpComparisonPolicy::epsilonMatch(lower, upper, tolerance),
+                         "Large finite tolerance covers all same-sign finite values");
+        FATP_ASSERT_TRUE(UlpComparisonPolicy::epsilonMatch(-lower, -upper, tolerance),
+                         "Large finite tolerance covers negative finite values");
+        FATP_ASSERT_FALSE(UlpComparisonPolicy::epsilonMatch(-lower, upper, tolerance),
+                          "Large tolerance preserves strict sign handling");
+        FATP_ASSERT_FALSE(UlpComparisonPolicy::epsilonMatch(lower, std::numeric_limits<T>::infinity(), tolerance),
+                          "Large tolerance does not equate finite values with infinity");
+    }
+    FATP_ASSERT_FALSE(UlpComparisonPolicy::epsilonMatch(lower, upper, T{-1}), "Negative tolerance is invalid");
+    FATP_ASSERT_FALSE(UlpComparisonPolicy::epsilonMatch(lower, upper, std::numeric_limits<T>::infinity()),
+                      "Infinite tolerance is invalid");
+    FATP_ASSERT_FALSE(UlpComparisonPolicy::epsilonMatch(lower, upper, std::numeric_limits<T>::quiet_NaN()),
+                      "NaN tolerance is invalid");
+    return true;
+}
+
+FATP_TEST_CASE(ulpLargeFiniteTolerance)
+{
+    FATP_ASSERT_TRUE(checkLargeUlpTolerance<float>(), "Float ULP count boundaries");
+    FATP_ASSERT_TRUE(checkLargeUlpTolerance<double>(), "Double ULP count boundaries");
     return true;
 }
 
@@ -852,6 +892,7 @@ bool test_FloatingPointComparison()
     FATP_RUN_TEST_NS(runner, floatingpointcomparison, ulp_subnormals);
     FATP_RUN_TEST_NS(runner, floatingpointcomparison, ulp_subnormal_boundaries);
     FATP_RUN_TEST_NS(runner, floatingpointcomparison, ulp_sign_sensitivity);
+    FATP_RUN_TEST_NS(runner, floatingpointcomparison, ulpLargeFiniteTolerance);
 
     std::cout << "\n=== RelativeComparisonPolicy ===" << std::endl;
     FATP_RUN_TEST_NS(runner, floatingpointcomparison, relative_scale_independence);

@@ -232,6 +232,7 @@ struct StandardComparisonPolicy
  *
  * @note ULP tolerance is an integer count. Floating-point values are
  *       truncated (e.g., 4.9 â†’ 4 ULPs). Default: 4 ULPs.
+ * @note Finite ULP counts beyond the integer range saturate at its maximum.
  * @note Sign-strict: opposite signs always compare unequal (ULP distance
  *       across zero is not meaningful due to IEEE 754 representation).
  * @note Subnormal fallback: uses absolute tolerance (1e-6f for float,
@@ -336,10 +337,13 @@ struct UlpComparisonPolicy
         // Safe unsigned subtraction (no overflow possible)
         const BitsType ulp_diff = (ordered_a > ordered_b) ? (ordered_a - ordered_b) : (ordered_b - ordered_a);
 
-        // Truncate floating-point epsilon to integer ULP count
-        const BitsType max_ulps = static_cast<BitsType>(actualEps);
+        // Saturate before conversion: the rounded integer maximum may itself
+        // be outside BitsType's range when represented as T.
+        const BitsType maxUlps = actualEps >= static_cast<T>(std::numeric_limits<BitsType>::max())
+                                     ? std::numeric_limits<BitsType>::max()
+                                     : static_cast<BitsType>(actualEps);
 
-        if (ulp_diff > max_ulps)
+        if (ulp_diff > maxUlps)
         {
 #ifndef NDEBUG
             FATP_LOG_ERROR(std::string("Equality check failed: ") + toString(ulp_diff) + " ULPs");

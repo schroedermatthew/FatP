@@ -186,7 +186,7 @@ inline void freeAligned(void* ptr) noexcept
  * - peek(): Consumer thread only, O(1), wait-free
  * - empty(): Consumer thread (producer thread use is racy but benign)
  * - full(): Producer thread (consumer thread use is racy but benign)
- * - size(): Either thread (approximate, may be stale)
+ * - size(): Any thread, including observers (approximate, may be stale)
  */
 template <typename T>
 class LockFreeRingBuffer
@@ -390,12 +390,16 @@ public:
 
     /**
      * @brief Get approximate size (snapshot, may be stale)
+     * @return An estimate in [0, capacity()]; concurrent samples may saturate at capacity.
      */
     [[nodiscard]] size_t size() const noexcept
     {
         size_t write = mWritePos.load(std::memory_order_acquire);
         size_t read = mReadPos.load(std::memory_order_acquire);
-        return write - read;
+        // Separate atomic loads may observe different states. Keep modular
+        // subtraction for counter wraparound, then bound the estimate.
+        const size_t distance = write - read;
+        return distance <= mCapacity ? distance : mCapacity;
     }
 
     /**
@@ -615,12 +619,16 @@ public:
 
     /**
      * @brief Get approximate size (snapshot, may be stale)
+     * @return An estimate in [0, capacity()]; concurrent samples may saturate at capacity.
      */
     [[nodiscard]] size_t size() const noexcept
     {
         size_t enq = mEnqueuePos.load(std::memory_order_acquire);
         size_t deq = mDequeuePos.load(std::memory_order_acquire);
-        return enq - deq;
+        // Separate atomic loads may observe different states. Keep modular
+        // subtraction for counter wraparound, then bound the estimate.
+        const size_t distance = enq - deq;
+        return distance <= mCapacity ? distance : mCapacity;
     }
 
     /**

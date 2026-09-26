@@ -37,14 +37,17 @@ FATP_META:
     mode: autogen
 */
 
+#include "CheckedArithmetic.h"
+
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <type_traits>
 #include <vector>
 
-#include "CheckedArithmetic.h"
 #include "FatPTest.h"
 
 namespace fat_p::testing
@@ -2014,6 +2017,75 @@ FATP_TEST_CASE(checked_cast_fp_to_int)
     return true;
 }
 
+template <typename To, typename From>
+bool checkFloatCastBoundaries()
+{
+    const From upperExclusive = std::ldexp(From{1}, std::numeric_limits<To>::digits);
+    // Use a whole-number input inside the range even when From retains fractions at this scale.
+    const From insideUpper = std::floor(std::nextafter(upperExclusive, From{0}));
+    const From lower = static_cast<From>(std::numeric_limits<To>::lowest());
+    const From belowLower = std::nextafter(lower, -std::numeric_limits<From>::infinity());
+    const From upperInputs[] = {upperExclusive, std::nextafter(upperExclusive, std::numeric_limits<From>::infinity())};
+    for (From value : upperInputs)
+    {
+        auto result = checked_cast<To, ReturnExpectedPolicy>(value);
+        FATP_ASSERT_FALSE(result.has_value(), "Finite upper boundary must reject overflow");
+        FATP_ASSERT_EQ(result.error(), MathError::Overflow, "Upper boundary reports Overflow");
+        FATP_ASSERT_THROWS((checked_cast<To, ThrowOnErrorPolicy>(value)),
+                           std::logic_error,
+                           "Upper boundary throws a logic contract error");
+        FATP_ASSERT_EQ((checked_cast<To, SaturatingPolicy>(value)),
+                       std::numeric_limits<To>::max(),
+                       "Upper boundary saturates to maximum");
+        FATP_ASSERT_EQ((checked_cast<To, InfTolerantPolicy>(value)),
+                       std::numeric_limits<To>::max(),
+                       "Inf-tolerant integer cast saturates to maximum");
+    }
+    auto upperResult = checked_cast<To, ReturnExpectedPolicy>(insideUpper);
+    FATP_ASSERT_TRUE(upperResult.has_value(), "Representable integer below upper boundary is accepted");
+    FATP_ASSERT_EQ(*upperResult, static_cast<To>(insideUpper), "Accepted upper neighbor converts correctly");
+    auto lowerResult = checked_cast<To, ReturnExpectedPolicy>(lower);
+    FATP_ASSERT_TRUE(lowerResult.has_value(), "Exact lower boundary is accepted");
+    FATP_ASSERT_EQ(*lowerResult, std::numeric_limits<To>::lowest(), "Exact lower boundary converts correctly");
+    auto belowResult = checked_cast<To, ReturnExpectedPolicy>(belowLower);
+    FATP_ASSERT_FALSE(belowResult.has_value(), "Inputs below the lower bound remain rejected");
+    FATP_ASSERT_EQ(belowResult.error(), MathError::Underflow, "Lower boundary reports Underflow");
+    FATP_ASSERT_THROWS((checked_cast<To, ThrowOnErrorPolicy>(belowLower)),
+                       std::logic_error,
+                       "Lower boundary throws a logic contract error");
+    FATP_ASSERT_EQ((checked_cast<To, SaturatingPolicy>(belowLower)),
+                   std::numeric_limits<To>::lowest(),
+                   "Negative finite overflow saturates to the lower bound");
+    FATP_ASSERT_EQ((checked_cast<To, InfTolerantPolicy>(belowLower)),
+                   std::numeric_limits<To>::lowest(),
+                   "Inf-tolerant negative integer cast saturates to the lower bound");
+    FATP_ASSERT_EQ((checked_cast<To>(From{12.75})), To{12}, "In-range fractions still truncate");
+    FATP_ASSERT_EQ((checked_cast<To>(From{-0.0})), To{0}, "Negative zero is valid");
+    if constexpr (std::is_signed_v<To>)
+    {
+        FATP_ASSERT_EQ((checked_cast<To>(From{-12.75})), To{-12}, "Negative in-range fractions still truncate");
+    }
+    return true;
+}
+
+template <typename From>
+bool checkFloatCastTargets()
+{
+    FATP_ASSERT_TRUE((checkFloatCastBoundaries<int32_t, From>()), "Signed 32-bit boundaries");
+    FATP_ASSERT_TRUE((checkFloatCastBoundaries<uint32_t, From>()), "Unsigned 32-bit boundaries");
+    FATP_ASSERT_TRUE((checkFloatCastBoundaries<int64_t, From>()), "Signed 64-bit boundaries");
+    FATP_ASSERT_TRUE((checkFloatCastBoundaries<uint64_t, From>()), "Unsigned 64-bit boundaries");
+    return true;
+}
+
+FATP_TEST_CASE(checkedCastFiniteBoundaries)
+{
+    FATP_ASSERT_TRUE(checkFloatCastTargets<float>(), "Float finite bounds");
+    FATP_ASSERT_TRUE(checkFloatCastTargets<double>(), "Double finite bounds");
+    FATP_ASSERT_TRUE(checkFloatCastTargets<long double>(), "Long double finite bounds");
+    return true;
+}
+
 FATP_TEST_CASE(checked_cast_fp_to_fp)
 {
     std::cout << colors::cyan() << "\nTesting checked_cast FP to FP..." << colors::reset() << std::endl;
@@ -2815,6 +2887,7 @@ bool test_CheckedArithmetic()
     FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_narrowing);
     FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_sign_conversion);
     FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_fp_to_int);
+    FATP_RUN_TEST_NS(runner, checkedarithmetic, checkedCastFiniteBoundaries);
     FATP_RUN_TEST_NS(runner, checkedarithmetic, checked_cast_fp_to_fp);
     FATP_RUN_TEST_NS(runner, checkedarithmetic, static_checked_cast);
 

@@ -29,18 +29,77 @@ FATP_META:
     mode: autogen
 */
 
+#include "LockFreeRingBuffer.h"
+
 #include <algorithm>
 #include <atomic>
+#include <barrier>
 #include <iostream>
 #include <numeric>
 #include <thread>
 #include <vector>
 
 #include "FatPTest.h"
-#include "LockFreeRingBuffer.h"
 
 namespace fat_p::testing::lockfreeringbuffer
 {
+
+template <typename Buffer>
+bool checkConcurrentSizeBounds()
+{
+    Buffer buffer(8);
+    for (size_t index = 0; index < buffer.capacity(); ++index)
+    {
+        FATP_ASSERT_EQ(buffer.size(), index, "Quiescent size is exact while filling");
+        FATP_ASSERT_TRUE(buffer.push(static_cast<int>(index)), "Fill buffer");
+    }
+    for (size_t count = buffer.capacity(); count > 0; --count)
+    {
+        FATP_ASSERT_EQ(buffer.size(), count, "Quiescent size is exact while draining");
+        FATP_ASSERT_TRUE(buffer.pop().has_value(), "Drain buffer");
+    }
+
+    std::barrier start(2);
+    bool transferSucceeded = true;
+    size_t largestSize = 0;
+    std::thread worker(
+        [&]()
+        {
+            start.arrive_and_wait();
+            for (int index = 0; index < 1000000; ++index)
+            {
+                if (!buffer.push(index))
+                {
+                    transferSucceeded = false;
+                    break;
+                }
+                auto value = buffer.pop();
+                if (!value.has_value() || *value != index)
+                {
+                    transferSucceeded = false;
+                    break;
+                }
+            }
+        });
+    start.arrive_and_wait();
+    for (int sample = 0; sample < 1000000; ++sample)
+    {
+        const size_t observedSize = buffer.size();
+        largestSize = largestSize < observedSize ? observedSize : largestSize;
+    }
+    worker.join();
+    FATP_ASSERT_TRUE(transferSucceeded, "Transfers complete correctly during size observation");
+    FATP_ASSERT_LE(largestSize, buffer.capacity(), "Concurrent size stays within capacity");
+    FATP_ASSERT_EQ(buffer.size(), size_t{0}, "Buffer is empty after worker joins");
+    return true;
+}
+
+FATP_TEST_CASE(concurrentSizeBounds)
+{
+    FATP_ASSERT_TRUE(checkConcurrentSizeBounds<LockFreeRingBuffer<int>>(), "SPSC observer size bounds");
+    FATP_ASSERT_TRUE(checkConcurrentSizeBounds<LockFreeRingBufferMPMC<int>>(), "MPMC observer size bounds");
+    return true;
+}
 
 // ============================================================================
 // SPSC Ring Buffer Tests
@@ -480,6 +539,7 @@ bool test_LockFreeRingBuffer()
 
     // Capacity tests
     FATP_RUN_TEST_NS(runner, lockfreeringbuffer, ring_buffer_capacity_rounding);
+    FATP_RUN_TEST_NS(runner, lockfreeringbuffer, concurrentSizeBounds);
 
 
     return 0 == runner.print_summary();

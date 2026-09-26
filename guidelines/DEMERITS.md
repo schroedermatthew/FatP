@@ -21,7 +21,7 @@ invent attribution or silently remove an existing one.
 | ID | Violation | Claude | ChatGPT | Gemini | Grok |
 |---|---|---:|---:|---:|---:|
 | D01 | Skipped or truncated the required guidelines read | 10 | 0 | 0 | 1 |
-| D02 | Did not read relevant source, contracts, or available dependencies | 1 | 0 | 0 | 0 |
+| D02 | Did not read relevant source, contracts, or available dependencies | 1 | 1 | 0 | 0 |
 | D03 | Violated the mandatory naming/style guide or substituted an external style | 1 | 1 | 0 | 0 |
 | D04 | Delivered code without compiling when the required build was available | 2 | 1 | 0 | 0 |
 | D05 | Claimed compilation, testing, or execution that did not occur | 0 | 1 | 0 | 0 |
@@ -44,7 +44,7 @@ invent attribution or silently remove an existing one.
 | D22 | Invented a replacement without inspecting an available existing implementation | 1 | 0 | 0 | 0 |
 | D23 | Removed or weakened mandatory tools or rules while generalizing the guidelines | 0 | 1 | 0 | 0 |
 | D24 | Erased, reset, or concealed a recorded demerit without owner direction | 0 | 0 | 0 | 0 |
-| **Total** | | **24** | **41** | **0** | **2** |
+| **Total** | | **24** | **42** | **0** | **2** |
 
 ## Failure mechanisms to carry forward
 
@@ -98,4 +98,3 @@ with --previous-ledger. Any directed count correction uses the separate
 [correction interface](../tools/README.md#ledger-comparison-and-directed-corrections).
 The checker cannot authenticate an award or its authority. Without a previous
 tally, it cannot detect a reset. Neither mode claims a complete event history.
-

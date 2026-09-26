@@ -29,16 +29,65 @@ FATP_META:
     mode: autogen
 */
 
+#include "LockFreeQueue.h"
+
 #include <atomic>
+#include <barrier>
 #include <iostream>
 #include <thread>
 #include <vector>
 
 #include "FatPTest.h"
-#include "LockFreeQueue.h"
 
 namespace fat_p::testing::lockfreequeue
 {
+
+FATP_TEST_CASE(concurrentSizeBounds)
+{
+    LockFreeQueue<int, 8, true> queue;
+    for (size_t index = 0; index < queue.capacity(); ++index)
+    {
+        FATP_ASSERT_EQ(queue.size(), index, "Quiescent size is exact while filling");
+        FATP_ASSERT_TRUE(queue.enqueue(static_cast<int>(index)), "Fill queue");
+    }
+    for (size_t count = queue.capacity(); count > 0; --count)
+    {
+        FATP_ASSERT_EQ(queue.size(), count, "Quiescent size is exact while draining");
+        int value = 0;
+        FATP_ASSERT_TRUE(queue.dequeue(value), "Drain queue");
+    }
+
+    std::barrier start(2);
+    bool transferSucceeded = true;
+    size_t largestSize = 0;
+    std::thread worker(
+        [&]()
+        {
+            start.arrive_and_wait();
+            for (int index = 0; index < 1000000; ++index)
+            {
+                int value = 0;
+                if (!queue.enqueue(index) || !queue.dequeue(value) || value != index)
+                {
+                    transferSucceeded = false;
+                    break;
+                }
+            }
+        });
+    start.arrive_and_wait();
+    for (int sample = 0; sample < 1000000; ++sample)
+    {
+        const size_t observedSize = queue.size();
+        const size_t statsSize = queue.stats().currentSize;
+        largestSize = largestSize < observedSize ? observedSize : largestSize;
+        largestSize = largestSize < statsSize ? statsSize : largestSize;
+    }
+    worker.join();
+    FATP_ASSERT_TRUE(transferSucceeded, "Transfers complete correctly during size observation");
+    FATP_ASSERT_LE(largestSize, queue.capacity(), "Concurrent size and statistics stay within capacity");
+    FATP_ASSERT_EQ(queue.size(), size_t{0}, "Queue is empty after worker joins");
+    return true;
+}
 
 // ============================================================================
 // Basic Operations
@@ -470,6 +519,7 @@ bool test_LockFreeQueue()
     FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_try_dequeue);
     FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_statistics);
     FATP_RUN_TEST_NS(runner, lockfreequeue, lock_free_queue_capacity);
+    FATP_RUN_TEST_NS(runner, lockfreequeue, concurrentSizeBounds);
 
 
     return 0 == runner.print_summary();

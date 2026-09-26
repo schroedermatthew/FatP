@@ -220,12 +220,22 @@ struct CastOverflowCheck
     {
         if constexpr (std::is_floating_point_v<From> && std::is_integral_v<To>)
         {
-            // FP to integer: check truncated value fits
+            // Reject FP inputs outside the integer range before truncating.
             if (std::isnan(value) || std::isinf(value))
             {
                 return true;
             }
-            return value < static_cast<From>(ToLimits::lowest()) || value > static_cast<From>(ToLimits::max());
+            if constexpr (std::numeric_limits<From>::digits < ToLimits::digits)
+            {
+                // The integer maximum can round up when converted to From. Build
+                // the exclusive power-of-two limit using only exact conversions.
+                constexpr From kUpperExclusive = static_cast<From>(ToLimits::max() / 2 + 1) * From{2};
+                return value < static_cast<From>(ToLimits::lowest()) || value >= kUpperExclusive;
+            }
+            else
+            {
+                return value < static_cast<From>(ToLimits::lowest()) || value > static_cast<From>(ToLimits::max());
+            }
         }
         else if constexpr (std::is_integral_v<From> && std::is_floating_point_v<To>)
         {
@@ -359,7 +369,7 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
         }
         else if constexpr (std::is_same_v<Policy, ReturnExpectedPolicy>)
         {
-            if constexpr (std::is_signed_v<From> && !std::is_floating_point_v<From>)
+            if constexpr (std::is_signed_v<From>)
             {
                 if (value < 0)
                 {
@@ -370,7 +380,7 @@ checked_cast(From value) noexcept(PolicyTraits<Policy>::template is_noexcept<To>
         }
         else if constexpr (std::is_same_v<Policy, SaturatingPolicy> || std::is_same_v<Policy, InfTolerantPolicy>)
         {
-            if constexpr (std::is_signed_v<From> && !std::is_floating_point_v<From>)
+            if constexpr (std::is_signed_v<From>)
             {
                 if (value < 0)
                 {

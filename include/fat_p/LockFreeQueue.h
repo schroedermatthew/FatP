@@ -321,12 +321,16 @@ public:
     /**
      * @brief Get approximate queue size
      * @note Snapshot only - may not be exact under high contention
+     * @return An estimate in [0, capacity()]; concurrent samples may saturate at capacity.
      */
     [[nodiscard]] size_t size() const noexcept
     {
         uint64_t enq = mEnqueuePos.load(std::memory_order_acquire);
         uint64_t deq = mDequeuePos.load(std::memory_order_acquire);
-        return static_cast<size_t>(enq - deq);
+        // The counters are not a single snapshot. Bound an inconsistent sample
+        // while retaining unsigned subtraction for counter wraparound.
+        const uint64_t distance = enq - deq;
+        return distance <= MaxSize ? static_cast<size_t>(distance) : MaxSize;
     }
 
     /**
