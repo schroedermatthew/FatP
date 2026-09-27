@@ -1,5 +1,32 @@
 # Current verification
 
+## README and workflow badge refresh
+
+Source: documentation and generator working tree based on
+`afdc8ca5a62173dec3bc4a51f85e804fea1a0f42`.
+Observation date: 2026-09-26 (America/Los_Angeles). Scope: README requirements,
+installation/build commands, component descriptions, repository paths, and the
+workflow badge generator. Library, test, and benchmark C++ sources are unchanged.
+
+| Gate | Result | Scope and limits |
+|---|---|---|
+| README references and workflow inventory | PASS | All 29 local link destinations resolve to tracked files/directories; all 129 tracked workflows occur exactly once in the generated block with matching clickable badge targets |
+| Badge generator controls | PASS: 19 checks | Syntax, current marked-block equality, preservation of unrelated details/prose, idempotence, workflow categories, and malformed-marker rejection; no tracked bytecode regenerated |
+| Manual header-copy installation | PASS | Actual recursive copy, then GCC 13.3/libstdc++ C++20 `-Wall -Wextra -Wpedantic -Werror` compile/link/run using SmallVector and the nested TensorRanked include chain; both `-I include` and `-iquote include/fat_p` are required and documented |
+| External CMake consumer | PASS | Configure/build/run with tests and benchmarks disabled; MSVC 19.51, Microsoft STL, x64, C++20 Release, `/W4 /WX` and the existing `/wd4324` intentional-padding exception; `fatp` supplies include paths and language mode |
+| Documented test commands | PASS: 127/127 CTest tests | Reconfigured the existing MSVC Release scratch build; incremental build found no C++ changes; the complete test command ran successfully |
+| Documented benchmark target | PASS: configure/build/link | Separate MSVC Release configuration built `benchmark_SlotMap` with vendored competitors and no vcpkg setup; no benchmark timing measurement was requested |
+| Legacy metadata | PASS: 363 files | Zero findings; output identical to the pre-edit baseline |
+| Strict metadata | FAIL: 383 checked, 377 first diagnostics | Output identical to the baseline, including the generator's existing metadata key-order finding; no introduced metadata diagnostics |
+| C++ style inventory | Not rerun | No authored C++ file changed; the previous full inventory and its limits remain below |
+
+The copy-header check initially exposed the missing short-header search path in
+the installation prose; the documented flags were corrected and the same consumer
+then compiled and ran. The strict MSVC consumer initially reported C4324 for
+SmallVector's explicit alignment; it passed with the project's existing narrow
+warning exception. The README now distinguishes configured CI coverage, historical
+benchmark reports, optional platform/competitor dependencies, and current results.
+
 ## SlotMap benchmark dependency cache
 
 Source: workflow repair commit

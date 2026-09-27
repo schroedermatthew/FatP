@@ -29,11 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKFLOWS = ROOT / ".github" / "workflows"
 README = ROOT / "README.md"
 BASE = "https://github.com/schroedermatthew/FatP/actions/workflows"
+BEGIN_MARKER = "<!-- BEGIN GENERATED WORKFLOW BADGES -->"
+END_MARKER = "<!-- END GENERATED WORKFLOW BADGES -->"
 
 LABELS = {
     "ci_verify": "Layer & Dependency Verification",
     "fatp_meta_compliance": "FATP_META Compliance",
     "header-hygiene": "Header Hygiene",
+    "guidelines": "Guidelines and tooling",
+    "delete-all-workflow-runs": "Delete Workflow Runs",
     "fatp-test-core": "FatP CI",
     "fatp-test": "FatPTest CI",
     "fatp-benchmark-runner": "FatPBenchmarkRunner CI",
@@ -100,7 +104,8 @@ CORE = [
     "fatp-benchmark-runner.yml",
     "fatp-concepts.yml",
 ]
-VERIFY = ["ci_verify.yml", "fatp_meta_compliance.yml", "header-hygiene.yml"]
+VERIFY = ["ci_verify.yml", "fatp_meta_compliance.yml", "header-hygiene.yml", "guidelines.yml"]
+MAINTENANCE = ["delete-all-workflow-runs.yml"]
 
 
 def title_words(name: str) -> str:
@@ -129,28 +134,33 @@ def label(fname: str) -> str:
 
 
 def badge_line(fname: str) -> str:
-    return f"![{label(fname)}]({BASE}/{fname}/badge.svg)"
+    return f"[![{label(fname)}]({BASE}/{fname}/badge.svg)]({BASE}/{fname})"
 
 
 def generate_details_block() -> str:
     workflows = sorted(p.name for p in WORKFLOWS.glob("*.yml"))
+    core = [f for f in CORE if f in workflows]
+    verify = [f for f in VERIFY if f in workflows]
+    maintenance = [f for f in MAINTENANCE if f in workflows]
     aggregate = sorted(f for f in workflows if f.startswith("run-all"))
     bench = sorted(
         f for f in workflows if f.endswith("-benchmarks.yml") or f == "build-benchmark-deps.yml"
+        if f not in aggregate
     )
     components = sorted(
-        set(workflows) - set(CORE) - set(VERIFY) - set(aggregate) - set(bench)
+        set(workflows) - set(core) - set(verify) - set(maintenance) - set(aggregate) - set(bench)
     )
 
     lines = [
+        BEGIN_MARKER,
         "<details>",
         "<summary><strong>All CI Workflows</strong></summary>",
         "",
         "#### Core Infrastructure",
-        *[badge_line(f) for f in CORE],
+        *[badge_line(f) for f in core],
         "",
         "#### Verification",
-        *[badge_line(f) for f in VERIFY],
+        *[badge_line(f) for f in verify],
         "",
         "#### Components",
         *[badge_line(f) for f in components],
@@ -161,7 +171,11 @@ def generate_details_block() -> str:
         "#### Aggregate Runners",
         *[badge_line(f) for f in aggregate],
         "",
+        "#### Maintenance",
+        *[badge_line(f) for f in maintenance],
+        "",
         "</details>",
+        END_MARKER,
     ]
     return "\n".join(lines)
 
@@ -169,7 +183,12 @@ def generate_details_block() -> str:
 def main() -> None:
     details = generate_details_block()
     readme = README.read_text(encoding="utf-8")
-    readme = re.sub(r"<details>.*?</details>", details, readme, count=1, flags=re.DOTALL)
+    if readme.count(BEGIN_MARKER) != 1 or readme.count(END_MARKER) != 1:
+        raise ValueError("README must contain exactly one generated workflow badge block")
+    pattern = re.escape(BEGIN_MARKER) + r".*?" + re.escape(END_MARKER)
+    readme, count = re.subn(pattern, lambda _: details, readme, flags=re.DOTALL)
+    if count != 1:
+        raise ValueError("README must contain exactly one generated workflow badge block")
     README.write_text(readme, encoding="utf-8", newline="\n")
     print(f"Updated {README.relative_to(ROOT)}")
 
