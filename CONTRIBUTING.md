@@ -2,7 +2,12 @@
 
 ## How This Project Works
 
-FAT-P is developed through a multi-AI collaborative pipeline. All code, architecture, documentation, and governance are authored by AI systems — primarily Claude (Anthropic), with contributions from ChatGPT, Gemini, and Grok. The human maintainer provides direction, judgment, and accountability but does not write code.
+FAT-P is developed through human–AI collaboration. The human maintainer contributes
+direction, architecture, judgment, and accountability. AI systems — primarily
+Claude (Anthropic), with contributions from ChatGPT, Gemini, and Grok — contribute
+architecture, implementation, tests, documentation, and governance. See
+[Authors.md](Authors.md) for attribution, including the maintainer's BoneId design
+contribution.
 
 This means the contribution model is different from a typical open-source project. Please read this before opening issues or pull requests.
 
@@ -47,7 +52,7 @@ Feature requests that align with the project's design philosophy (C++20, header-
 
 ## Pull Requests — Read This First
 
-FAT-P uses independent review, synthesis, focused verification and fresh-context checks under [the current guidelines](guidelines/README.md). The [methodology document](Read_Me/Fat-P_AI_Collaborative_Development_Methodology.md) records the historical development process; its retired instructions do not govern current work.
+FAT-P uses independent review, synthesis, focused verification and fresh-context checks under [the current guidelines](guidelines/README.md). The [methodology document](documents/Fat-P_AI_Collaborative_Development_Methodology.md) records the historical development process; its retired instructions do not govern current work.
 
 Because of this pipeline, **unsolicited code PRs are unlikely to be merged directly.** This is not a judgment on code quality — it's a process constraint. Substantial changes need the review and verification applicable to their scope under the current guidelines.
 

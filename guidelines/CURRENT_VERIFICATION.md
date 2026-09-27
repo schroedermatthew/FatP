@@ -1,5 +1,37 @@
 # Current verification
 
+## Human and AI architectural attribution
+
+Source: documentation working tree based on
+`8673bd7356f2d8d7d597a99e2aa0d11111ab4a7e`.
+Observation date: 2026-09-26 (America/Los_Angeles). The maintainer clarified that
+BoneId and related contributions mean the project is no longer purely
+AI-architected. README, Authors, contributor guidance, and onboarding now recognize
+human and AI architecture. Authors remains the attribution source; the historical
+methodology notice scopes its earlier exclusive claims. No human implementation
+authorship is inferred.
+
+The provenance clauses in CORE, the crash course, and project philosophy were
+corrected in place. Authority, autonomous work within scope, evidence requirements,
+mandatory demerits, style, and reading routes are retained. Product code, tooling,
+workflows, and the demerit ledger are unchanged.
+
+| Check | Result | Scope and limits |
+|---|---|---|
+| Documentation review and local links | PASS | All 97 local link destinations in the seven attribution documents resolve; final diff has no whitespace errors |
+| Guideline corpus | PASS | Instantiated corpus, profile, links, and ledger arithmetic; existing Python dependencies required execution outside the restricted sandbox |
+| Fresh-context decision review | PASS | A new read-only internal reviewer with no inherited conversation correctly distinguished shared architecture, implementation authorship, historical methodology, active authority, and the checks required for prose-only changes |
+| Product builds and tests | Not rerun | No product source, build settings, examples, or checker implementation changed; earlier runs below remain scoped to their recorded source states |
+
+The fresh reviewer read the normal index and five onboarding documents, the
+Documentation, Review and delivery, Governance, Fresh-context review, Teaching,
+Testing, and Workflow modules, teaching type guidance, this verification record,
+the three public attribution documents, the methodology notice, the seven-file
+diff, and guidelines CI. Its input was the live source and maintainer clarification,
+without earlier reviews or scratch records. It found no actionable contradiction.
+This verifies the bounded attribution task, not historical session provenance,
+the unchanged methodology body, or product correctness.
+
 ## README and workflow badge refresh
 
 Source: documentation and generator working tree based on

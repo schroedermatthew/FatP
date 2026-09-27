@@ -41,9 +41,10 @@ required check. Use the trigger table to exclude clearly unrelated modules; do n
 them merely to confirm that they do not apply. Inspect further when task scope is
 genuinely unclear. Apply the relevant constraints and continue authorized work.
 
-The human directs and judges; AI authors architecture, implementation, verification,
-and guidelines. Apply settled precedent and make technical choices within existing
-authority. Ask only for a genuinely unresolved commitment outside that authority.
+The human directs, contributes architecture, and judges; AI contributes architecture,
+implementation, verification, and guidelines. Apply settled precedent and make
+technical choices within existing authority. Ask only for a genuinely unresolved
+commitment outside that authority.
 Encode useful new judgment during the work; do not ask the owner to perform edits
 you can make. Use Governance's selective learning procedure.
 

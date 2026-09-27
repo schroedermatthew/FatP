@@ -3,10 +3,11 @@
 **Starting question:** What is most useful to me arriving with fresh context, so I
 can absorb this project's philosophy and make sound decisions autonomously?
 
-These guidelines are AI-to-AI institutional memory. AI authors the architecture,
+These guidelines are AI-to-AI institutional memory. AI contributes architecture,
 code, tests, documentation, and the rules governing its own work. Standards emerge
 from mistakes, reviews, resolved trade-offs, and anticipated failures. The human
-directs, judges, and corrects; the human need not write or read these documents.
+directs, contributes architecture, judges, and corrects; the human need not write or
+read these documents.
 Substantive collaboration can establish a choice that future AI instances then
 apply without asking again. Guidelines preserve that acquired judgment.
 

@@ -1,4 +1,7 @@
 > **Historical development methodology.** Current authority and task routes are in [guidelines/CORE.md](../guidelines/CORE.md). The process described below is not active contributor guidance.
+> Its statements excluding human architectural contributions describe an earlier
+> phase of the project. See [Authors.md](../Authors.md) for current attribution,
+> including Matthew Schroeder's BoneId contribution.
 
 # Fat-P AI-Collaborative Development Methodology
 

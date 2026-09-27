@@ -173,11 +173,13 @@ header directory, including its nested implementation directories, or use the
 
 ## How This Library Was Built
 
-Project-owned code, architecture, documentation, and governance were authored by
-AI systems — primarily Claude (Anthropic), with contributions from ChatGPT,
-Gemini, and Grok. The human ([Matthew Schroeder](Authors.md)) provided direction,
-constraints, and judgment. Vendored code in [`ThirdParty/`](ThirdParty/) retains
-its upstream authorship and licenses.
+FAT-P is developed through human–AI collaboration. [Matthew Schroeder](Authors.md)
+provides direction, constraints, judgment, and architectural contributions,
+including the introduction of BoneId and related design work. AI systems —
+primarily Claude (Anthropic), with contributions from ChatGPT, Gemini, and Grok —
+contribute architecture, implementation, tests, documentation, and governance.
+Vendored code in [`ThirdParty/`](ThirdParty/) retains its upstream authorship and
+licenses.
 
 The library was developed using independent design, cross-review, synthesis,
 focused verification, and context reset cycles. Current contributor and assistant

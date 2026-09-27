@@ -7,10 +7,10 @@ CORE or the owning rules.
 
 ## Direction and boundaries
 
-The maintainer supplies direction and judgment; AI authors the implementation,
-architecture and operational guidance within that direction. The actual provenance
-is recorded in [Authors](../Authors.md). Agreement among assistants is evidence to
-examine, not owner ratification.
+The maintainer contributes direction, architecture, and judgment; AI contributes
+architecture, implementation, and operational guidance within that direction. The
+actual provenance is recorded in [Authors](../Authors.md). Agreement among
+assistants is evidence to examine, not owner ratification.
 
 FatP is not a standard-library polyfill, a compiled framework, or a vehicle for
 forcing optional third-party dependencies on core users. Header-only and C++20 are
