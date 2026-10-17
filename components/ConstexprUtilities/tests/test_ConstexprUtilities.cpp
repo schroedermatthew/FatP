@@ -46,6 +46,7 @@ FATP_META:
 #include <limits>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -188,6 +189,71 @@ FATP_TEST_CASE(hash_combine)
     FATP_ASSERT_TRUE(multi != multi2, "hash_values distinguishes different inputs");
 
     std::cout << colors::green() << "  PASSED: hash_combine tests" << colors::reset() << std::endl;
+    return true;
+}
+
+// Published FNV-1a test vectors (Fowler/Noll/Vo reference set) and a high-bit
+// byte vector, so the expected values do not come from the implementation.
+constexpr uint32_t kFnv1a32OfA = 0xe40c292cU;
+constexpr uint32_t kFnv1a32OfFoobar = 0xbf9cf968U;
+constexpr uint32_t kFnv1a32OfByteFf = 0x7a0b824eU;
+constexpr uint64_t kFnv1a64OfA = 0xaf63dc4c8601ec8cULL;
+constexpr uint64_t kFnv1a64OfFoobar = 0x85944171f73967e8ULL;
+constexpr uint64_t kFnv1a64OfByteFf = 0xaf64724c8602eb6eULL;
+
+int dispatchCommand(std::string_view command)
+{
+    switch (constexpr_hash(command))
+    {
+        case constexpr_hash("start"):
+            return command == "start" ? 1 : 0;
+        case constexpr_hash("stop"):
+            return command == "stop" ? 2 : 0;
+        default:
+            return 0;
+    }
+}
+
+FATP_TEST_CASE(runtimeHashMatchesConstantEvaluation)
+{
+    std::cout << colors::cyan() << "\nTesting: hashing runtime strings matches constant evaluation..."
+              << colors::reset() << std::endl;
+
+    static_assert(constexpr_hash("a") == kFnv1a32OfA);
+    static_assert(constexpr_hash("foobar") == kFnv1a32OfFoobar);
+    static_assert(constexpr_hash("\xff") == kFnv1a32OfByteFf);
+    static_assert(constexpr_hash64("a") == kFnv1a64OfA);
+    static_assert(constexpr_hash64("foobar") == kFnv1a64OfFoobar);
+    static_assert(constexpr_hash64("\xff") == kFnv1a64OfByteFf);
+
+    // Built at runtime so the calls below cannot be constant-evaluated.
+    std::string runtimeFoobar = std::string("foo") + std::string("bar");
+    std::string runtimeA(1, 'a');
+    std::string runtimeByteFf(1, static_cast<char>(0xff));
+
+    FATP_ASSERT_EQ(constexpr_hash(runtimeA), kFnv1a32OfA, "Runtime 32-bit hash of \"a\"");
+    FATP_ASSERT_EQ(constexpr_hash(runtimeFoobar), kFnv1a32OfFoobar, "Runtime 32-bit hash of \"foobar\"");
+    FATP_ASSERT_EQ(constexpr_hash(runtimeByteFf), kFnv1a32OfByteFf, "Runtime 32-bit hash of byte 0xff");
+    FATP_ASSERT_EQ(constexpr_hash64(runtimeA), kFnv1a64OfA, "Runtime 64-bit hash of \"a\"");
+    FATP_ASSERT_EQ(constexpr_hash64(runtimeFoobar), kFnv1a64OfFoobar, "Runtime 64-bit hash of \"foobar\"");
+    FATP_ASSERT_EQ(constexpr_hash64(runtimeByteFf), kFnv1a64OfByteFf, "Runtime 64-bit hash of byte 0xff");
+
+    constexpr uint64_t kLiteralCombined = hash_values("module", "function", "v1");
+    std::string runtimeModule = std::string("mod") + std::string("ule");
+    std::string runtimeFunction = std::string("func") + std::string("tion");
+    std::string runtimeVersion = std::string("v") + std::string("1");
+    FATP_ASSERT_EQ(hash_values(runtimeModule, runtimeFunction, runtimeVersion),
+                   kLiteralCombined,
+                   "Runtime hash_values matches constant evaluation");
+
+    std::string runtimeStart = std::string("sta") + std::string("rt");
+    std::string runtimeStop = std::string("st") + std::string("op");
+    std::string runtimeUnknown = std::string("pau") + std::string("se");
+    FATP_ASSERT_EQ(dispatchCommand(runtimeStart), 1, "String switch selects start");
+    FATP_ASSERT_EQ(dispatchCommand(runtimeStop), 2, "String switch selects stop");
+    FATP_ASSERT_EQ(dispatchCommand(runtimeUnknown), 0, "String switch rejects unknown command");
+
+    std::cout << colors::green() << "  PASSED: runtime and constant evaluation agree" << colors::reset() << std::endl;
     return true;
 }
 
@@ -930,6 +996,7 @@ bool test_ConstexprUtilities()
     FATP_RUN_TEST_NS(runner, constexprutilities, constexpr_hash_avalanche);
     FATP_RUN_TEST_NS(runner, constexprutilities, constexpr_hash64_basic);
     FATP_RUN_TEST_NS(runner, constexprutilities, hash_combine);
+    FATP_RUN_TEST_NS(runner, constexprutilities, runtimeHashMatchesConstantEvaluation);
 
     // Arithmetic tests
     FATP_RUN_TEST_NS(runner, constexprutilities, is_power_of_two_signed);

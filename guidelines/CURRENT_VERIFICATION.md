@@ -1,6 +1,27 @@
 # Current verification
 
-## Human and AI architectural attribution
+## ConstexprHash constexpr evaluation
+
+Source: uncommitted working tree based on
+`4c7726deed763cb77d105ad299fdb5da629ae6a3`, which also contains unrelated
+uncommitted SmallVector edits not made by this task.
+Observation date: 2026-10-16 (America/Los_Angeles). Scope: `constexpr_hash`,
+`constexpr_hash64` and `hash_values` changed from `consteval` to `constexpr` by
+owner direction, so one definition hashes both string-switch case labels and the
+runtime input; a regression case and the ConstexprUtilities Overview/User Manual.
+
+| Check | Result | Scope and limits |
+|---|---|---|
+| MSVC Release build and CTest | PASS: 127/127 | MSVC 19.51 x64, C++20, existing `/WX` Ninja tree `build/guidelines-tests`, final source state; includes the unrelated SmallVector edits |
+| Clang 22.1.8 strict build and run | PASS: 30/30 cases | Windows GNU/libstdc++, `-O2 -Wall -Wextra -Wpedantic -Werror`, `-fuse-ld=lld` |
+| GCC 16.1 build and run | PASS with one relaxed warning: 30/30 cases | `-Wno-cast-function-type` for the existing `FatPTest.h` PDH casts; without it, only those five existing diagnostics fail |
+| Regression negative control | PASS | The new case fails to compile against the original `consteval` header with "call to consteval function ... is not a constant expression" |
+| Independent oracle | PASS | Published FNV-1a vectors for "a" and "foobar" plus a 0xff byte vector, at compile time and on runtime-built strings |
+| Header standalone compile | PASS | `ConstexprHash.h` alone under GCC, Clang and MSVC `/W4 /WX` |
+| Doc snippets | PASS | New collision-handling switch, 64-bit map lookup, `method_hash` and known values compiled and run with stubs under Clang |
+| Style, edited files | Limited | `ConstexprHash.h` formats cleanly; its four snake_case public names are existing API drift, not renamed. Test diagnostics on added lines are harness-generated names only |
+| Metadata | Unchanged blocks | Legacy gate PASS; strict gate FAIL with the two existing findings on these files' unedited blocks |
+| Hosted CI / Linux matrix | Not run | Uncommitted edits |
 
 Source: documentation working tree based on
 `8673bd7356f2d8d7d597a99e2aa0d11111ab4a7e`.

@@ -19,9 +19,8 @@ status: "reviewed"
 **Scope:** Complete usage guide for the `fat_p` constexpr utilities: compile-time FNV-1a hashing for string-switch patterns, constexpr arithmetic utilities, number-to-string conversion, hexadecimal conversion, and string manipulation utilities. (There are no string-to-number/parse functions in this component.)
 
 **Not covered:**
-- Runtime hashing for hash tables (see FastHashMap/StableHashMap)
+- Hash-table hashing policies and containers (see FastHashMap/StableHashMap)
 - Compile-time regular expressions
-- consteval-only utilities (C++23+)
 
 **Prerequisites:** C++20; understanding of `constexpr` evaluation; familiarity with the string-switch problem (why `switch` doesn't work with `std::string`)
 
@@ -31,11 +30,11 @@ status: "reviewed"
 
 **Component:** ConstexprUtilities
 **Primary use case:** Enable `switch`-like dispatch on string values using compile-time hashing, and perform string conversions at compile time
-**Integration pattern:** Use `constexpr_hash("key")` in `case` labels; the `switch` expression needs a matching *runtime* FNV-1a hash that you supply (the library's hash functions are `consteval` and only accept compile-time strings)
+**Integration pattern:** Use `constexpr_hash("key")` in `case` labels and `constexpr_hash(input)` in the `switch` expression; the functions are `constexpr`, so one definition produces both the compile-time labels and the runtime input hash
 **Key API:** `constexpr_hash()`, `constexpr_hash64()`, `to_string_view()`, `to_hex_string_view()`, `constexpr_concat()` (no from-string/parse functions are provided)
 **std equivalent:** None
 **Common mistakes:** Relying on hash uniqueness without collision handling; using runtime string operations where constexpr versions exist; exceeding compiler constexpr evaluation limits with very long strings
-**Performance notes:** Compile-time hashing enables jump table optimization by the compiler. Runtime hashing is branch-free FNV-1a. See `components/ConstexprUtilities/results/` for current data
+**Performance notes:** A hash switch costs one O(length) FNV-1a pass over the input plus integer case selection; FNV-1a values are spread across the full integer range, so compilers typically emit a comparison tree (O(log n) in the number of cases) rather than a dense jump table. No current measurement exists for this component
 
 ---
 ## Table of Contents
@@ -111,30 +110,17 @@ Template metaprogramming can solve some of these problems, but the resulting cod
 
 ConstexprUtilities provides compile-time utilities that integrate naturally with standard C++20.
 
-One important honesty note up front: `fat_p::constexpr_hash` is **`consteval`** — it only accepts strings known at compile time. That makes it perfect for `case` labels, but it cannot hash the runtime string in the `switch` expression. For that you supply a small runtime FNV-1a with the identical constants:
+A string switch has two sides that must agree bit for bit: the `case` labels, hashed from literals during compilation, and the `switch` expression, hashed from the runtime input. `fat_p::constexpr_hash` is `constexpr`, so the same function serves both sides. A `case` label is a constant expression by language rule, so the label hashes are still computed by the compiler; the input hash runs at runtime. Because there is only one definition, the two sides cannot drift apart.
 
 ```cpp
 #include "ConstexprUtilities.h"
 #include <iostream>
 
-// Runtime counterpart to fat_p::constexpr_hash (same FNV-1a algorithm).
-// The library itself provides only the consteval version.
-[[nodiscard]] inline std::uint32_t fnv1a_runtime(std::string_view s) noexcept
-{
-    std::uint32_t hash = 2166136261u;
-    for (char c : s)
-    {
-        hash ^= static_cast<std::uint32_t>(static_cast<unsigned char>(c));
-        hash *= 16777619u;
-    }
-    return hash;
-}
-
 void handle_command(std::string_view cmd)
 {
-    // consteval hashes in case labels: compile-time constants
-    // Runtime hash in the switch expression: O(1) dispatch via jump table
-    switch (fnv1a_runtime(cmd))
+    // Case labels: constant-evaluated. Switch expression: runtime hash of cmd.
+    // One O(length) hash pass, then integer case selection.
+    switch (fat_p::constexpr_hash(cmd))
     {
         case fat_p::constexpr_hash("start"):
             start_system();
@@ -395,7 +381,7 @@ This design enables:
 
 | Requirement | Minimum Version |
 |-------------|-----------------|
-| C++ Standard | C++20 (`consteval` required) |
+| C++ Standard | C++20 |
 | GCC | 10 |
 | Clang | 11 |
 | MSVC | 2019 16.10 (19.29) |
@@ -425,23 +411,11 @@ This complete example demonstrates the three core use cases:
 #include <iostream>
 #include <string_view>
 
-// Runtime FNV-1a matching fat_p::constexpr_hash (which is consteval and
-// therefore cannot hash the runtime `command` in the switch expression)
-[[nodiscard]] inline std::uint32_t fnv1a_runtime(std::string_view s) noexcept
-{
-    std::uint32_t hash = 2166136261u;
-    for (char c : s)
-    {
-        hash ^= static_cast<std::uint32_t>(static_cast<unsigned char>(c));
-        hash *= 16777619u;
-    }
-    return hash;
-}
-
-// Use case 1: Command dispatch with compile-time hashes in case labels
+// Use case 1: Command dispatch; the same constexpr_hash produces the
+// compile-time case labels and the runtime hash of `command`
 void execute(std::string_view command)
 {
-    switch (fnv1a_runtime(command))
+    switch (fat_p::constexpr_hash(command))
     {
         case fat_p::constexpr_hash("help"):
             std::cout << "Available: help, version, quit\n";
@@ -527,15 +501,14 @@ Hex: 0xff
 32-bit FNV-1a hash suitable for switch statements and small-to-medium hash tables.
 
 ```cpp
-[[nodiscard]] consteval std::uint32_t fat_p::constexpr_hash(std::string_view s) noexcept;
+[[nodiscard]] constexpr std::uint32_t fat_p::constexpr_hash(std::string_view s) noexcept;
 ```
 
-**Compile-time usage:**
+**String switch:**
 ```cpp
-// Case labels must be compile-time constants: consteval guarantees it.
-// The switch expression is a runtime string, so it needs a runtime FNV-1a
-// with the same constants (see fnv1a_runtime in Getting Started).
-switch (fnv1a_runtime(input))
+// Case labels are constant expressions, so the compiler evaluates their hashes.
+// The switch expression hashes the runtime input with the same function.
+switch (fat_p::constexpr_hash(input))
 {
     case fat_p::constexpr_hash("GET"):
         handle_get();
@@ -557,15 +530,17 @@ switch (fnv1a_runtime(input))
 
 **Runtime strings:**
 ```cpp
-// Does NOT compile: constexpr_hash is consteval, so it rejects runtime input
+// Runtime input is accepted; the result equals the constant-evaluated hash
+// of the same characters.
 std::string user_input = get_user_command();
-// std::uint32_t h = fat_p::constexpr_hash(user_input);  // error
+std::uint32_t h = fat_p::constexpr_hash(user_input);
 
-// A runtime hash needs a different tool: either a hand-written FNV-1a with
-// the same constants (see fnv1a_runtime above) or a proper runtime hash
-// container (see FastHashMap/StableHashMap).
-std::uint32_t h = fnv1a_runtime(user_input);
+// To force compile-time evaluation of a literal hash, bind it to a constexpr
+// variable or use it where a constant expression is required.
+constexpr std::uint32_t kGetHash = fat_p::constexpr_hash("GET");
 ```
+
+For a general-purpose runtime hash table, use FastHashMap or StableHashMap with their own hashing policies; FNV-1a processes one byte per step and is intended here for dispatch on short keys.
 
 **Known values:**
 ```cpp
@@ -579,7 +554,7 @@ static_assert(fat_p::constexpr_hash("hello") == 1335831723u);
 64-bit variant for applications with many strings or where collision probability matters.
 
 ```cpp
-[[nodiscard]] consteval std::uint64_t fat_p::constexpr_hash64(std::string_view s) noexcept;
+[[nodiscard]] constexpr std::uint64_t fat_p::constexpr_hash64(std::string_view s) noexcept;
 ```
 
 **When to use 64-bit:**
@@ -593,19 +568,7 @@ static_assert(fat_p::constexpr_hash("hello") == 1335831723u);
 
 ```cpp
 // Large dispatch tables benefit from 64-bit hashes.
-// Keys are computed at compile time from literals (consteval is fine here);
-// the runtime lookup needs a runtime FNV-1a with the same 64-bit constants.
-[[nodiscard]] inline std::uint64_t fnv1a64_runtime(std::string_view s) noexcept
-{
-    std::uint64_t hash = 14695981039346656037ULL;
-    for (char c : s)
-    {
-        hash ^= static_cast<std::uint64_t>(static_cast<unsigned char>(c));
-        hash *= 1099511628211ULL;
-    }
-    return hash;
-}
-
+// The keys and the runtime lookup use the same constexpr_hash64.
 std::unordered_map<std::uint64_t, Handler> handlers = {
     { fat_p::constexpr_hash64("start"), on_start },
     { fat_p::constexpr_hash64("stop"),  on_stop  },
@@ -613,7 +576,7 @@ std::unordered_map<std::uint64_t, Handler> handlers = {
 
 void dispatch(std::string_view name)
 {
-    auto it = handlers.find(fnv1a64_runtime(name));
+    auto it = handlers.find(fat_p::constexpr_hash64(name));
     if (it != handlers.end())
     {
         it->second();
@@ -634,9 +597,8 @@ Combines two hash values for composite keys.
 The algorithm uses the golden ratio constant for optimal bit mixing:
 
 ```cpp
-// Hash a namespace::class::method triplet
-// (consteval: constexpr_hash64 can only be called in constant evaluation)
-consteval std::uint64_t method_hash(
+// Hash a namespace::class::method triplet (usable at compile time or runtime)
+constexpr std::uint64_t method_hash(
     std::string_view ns,
     std::string_view cls,
     std::string_view method)
@@ -659,8 +621,10 @@ Variadic helper for hashing multiple strings:
 
 ```cpp
 template <typename... Args>
-[[nodiscard]] consteval std::uint64_t fat_p::hash_values(const Args&... args) noexcept;
+[[nodiscard]] constexpr std::uint64_t fat_p::hash_values(const Args&... args) noexcept;
 ```
+
+Each argument must convert to `std::string_view`. The fold starts from a seed of 0, so `hash_values(s)` is `hash_combine(0, constexpr_hash64(s))`, not `constexpr_hash64(s)`.
 
 ```cpp
 constexpr auto key = fat_p::hash_values("namespace", "class", "method");
@@ -1232,12 +1196,11 @@ void dispatch_std(std::string_view cmd)
     if (h == hasher("start")) { start(); }  // Must use if-else
 }
 
-// ConstexprUtilities - compile-time case labels
-// (switch expression uses a matching runtime FNV-1a; constexpr_hash itself
-// is consteval and only accepts compile-time strings)
+// ConstexprUtilities - compile-time case labels, runtime input hash,
+// both from the same constexpr_hash
 void dispatch_fat_p(std::string_view cmd)
 {
-    switch (fnv1a_runtime(cmd))
+    switch (fat_p::constexpr_hash(cmd))
     {
         case fat_p::constexpr_hash("start"):  // Compile-time constant
             start();
@@ -1338,9 +1301,7 @@ void handle(std::string_view cmd)
 ```cpp
 void handle(std::string_view cmd)
 {
-    // fnv1a_runtime: your runtime FNV-1a twin of the consteval constexpr_hash
-    // (see Getting Started)
-    switch (fnv1a_runtime(cmd))
+    switch (fat_p::constexpr_hash(cmd))
     {
         case fat_p::constexpr_hash("start"):  start();  break;
         case fat_p::constexpr_hash("stop"):   stop();   break;
@@ -1351,7 +1312,7 @@ void handle(std::string_view cmd)
 }
 ```
 
-Always include a `default` case. Hash collisions are statistically rare but possible.
+Always include a `default` case. Two labels that hash to the same value are a duplicate-case compile error, so collisions among your own keys are caught at build time. An unrelated input string can still share a label's hash; when unknown input must be rejected, compare the string inside the matched case (see [Hash Collision Handling](#hash-collision-handling)).
 
 ### From std::to_string Concatenation
 
@@ -1406,24 +1367,28 @@ ConstexprUtilities can be adopted incrementally:
 
 ### Hash Collision Handling
 
-Always handle the possibility of hash collisions in switch statements:
+The hash selects a candidate case; it does not prove the input equals the label. A string that is not `"action"` but shares its 32-bit hash lands in the `"action"` case. Checking in `default` does not help, because a colliding input never reaches `default`. Confirm the string inside the matched case:
 
 ```cpp
 void dispatch(std::string_view cmd)
 {
-    switch (fnv1a_runtime(cmd))
+    switch (fat_p::constexpr_hash(cmd))
     {
         case fat_p::constexpr_hash("action"):
-            do_action();
+            if (cmd == "action")
+            {
+                do_action();
+                return;
+            }
             break;
         default:
-            // For rare commands or collision handling
-            if (cmd == "action") { do_action(); }
-            else { handle_unknown(cmd); }
             break;
     }
+    handle_unknown(cmd);
 }
 ```
+
+The confirming comparison runs only for the one selected case, so dispatch still costs a single hash pass plus at most one string comparison.
 
 ### Buffer Pool Awareness
 
@@ -1449,11 +1414,11 @@ Prefer compile-time evaluation when possible:
 constexpr auto HASH = fat_p::constexpr_hash("keyword");
 static_assert(fat_p::is_power_of_two(BUFFER_SIZE));
 
-// Runtime: constexpr_hash is consteval and will NOT accept dynamic input.
-// Use a hand-written runtime FNV-1a (see fnv1a_runtime in Getting Started)
-// or a runtime hash container (FastHashMap/StableHashMap).
-auto hash = fnv1a_runtime(user_input);
+// Runtime: the same function hashes dynamic input, O(length) per call.
+auto hash = fat_p::constexpr_hash(user_input);
 ```
+
+`constexpr` permits compile-time evaluation; it does not force it. A literal hash in an ordinary expression may be evaluated at runtime. Bind it to a `constexpr` variable (as `HASH` above) or use it in a `case` label, `static_assert`, or template argument when compile-time evaluation is the requirement.
 
 ### Signed vs Unsigned Types
 
@@ -1486,31 +1451,18 @@ auto x = fat_p::next_power_of_two(100u);  // Explicitly unsigned
 auto x = fat_p::next_power_of_two(static_cast<std::size_t>(n));
 ```
 
-**Error:** `call to consteval function ... is not a constant expression`
-
-```cpp
-// Problem: runtime string passed to a consteval function
-std::string input = get_input();
-auto h = fat_p::constexpr_hash(input);  // Error! input is not compile-time
-
-// Solution: consteval functions only accept compile-time strings.
-// For runtime input, use a hand-written runtime FNV-1a with the same
-// constants (see fnv1a_runtime in Getting Started).
-auto h = fnv1a_runtime(input);
-```
-
 **Error:** `case label does not reduce to an integer constant`
 
 ```cpp
 // Problem: non-constant value in case label
 std::string_view cmd = "start";
-switch (fnv1a_runtime(input))
+switch (fat_p::constexpr_hash(input))
 {
     case fat_p::constexpr_hash(cmd):  // Error! cmd is not compile-time
 }
 
 // Solution: use string literal directly
-switch (fnv1a_runtime(input))
+switch (fat_p::constexpr_hash(input))
 {
     case fat_p::constexpr_hash("start"):  // OK - literal is compile-time
 }
@@ -1552,13 +1504,14 @@ std::snprintf(buf, sizeof(buf), "%.6g", 1e20);
 // This is statistically rare but possible with 32-bit hashes
 
 // Solution 1: Use 64-bit hashes for large string sets
-// (64-bit runtime FNV-1a in the switch expression, consteval labels)
-switch (fnv1a64_runtime(cmd)) { /* ... */ }
+// (constexpr_hash64 on both the switch expression and the labels)
+switch (fat_p::constexpr_hash64(cmd)) { /* ... */ }
 
-// Solution 2: Add exact string check in default case
-default:
+// Solution 2: Confirm the string inside the matched case
+case fat_p::constexpr_hash("expected"):
     if (cmd == "expected") { handle_expected(); }
     else { handle_unknown(); }
+    break;
 ```
 
 ---
@@ -1591,9 +1544,8 @@ default:
 ```cpp
 #include "ConstexprUtilities.h"
 
-// String switch with O(1) dispatch
-// (fnv1a_runtime: your runtime FNV-1a twin — constexpr_hash is consteval)
-switch (fnv1a_runtime(cmd))
+// String switch: one O(length) hash of cmd, constant-evaluated labels
+switch (fat_p::constexpr_hash(cmd))
 {
     case fat_p::constexpr_hash("start"): start(); break;
     case fat_p::constexpr_hash("stop"):  stop();  break;

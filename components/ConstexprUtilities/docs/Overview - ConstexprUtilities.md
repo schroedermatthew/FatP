@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-ConstexprUtilities is a **compile-time computation toolkit** providing hashing, bit manipulation, arithmetic, and string operations that execute entirely during compilation via `constexpr` and `consteval`. Unlike runtime equivalents that pay CPU cost on every call, ConstexprUtilities performs computation **once at compile time**, embedding results directly in the binary. The FNV-1a hash enables compile-time string switches, while power-of-two and popcount functions leverage compiler builtins that map to single CPU instructions.
+ConstexprUtilities is a **compile-time computation toolkit** providing hashing, bit manipulation, arithmetic, and string operations that can execute during compilation via `constexpr`. When the inputs are constants, ConstexprUtilities performs computation **once at compile time**, embedding results directly in the binary; the same functions also accept runtime inputs. The FNV-1a hash enables string switches whose case labels are compile-time constants and whose input is hashed by the same function at runtime, while power-of-two and popcount functions leverage compiler builtins that map to single CPU instructions.
 
 ---
 
@@ -50,38 +50,36 @@ C++20 adds `std::bit_ceil`, `std::popcount`, etc., but:
 
 ## Architecture: Compile-Time Evaluation
 
-### The Mechanism: constexpr/consteval Computation
+### The Mechanism: constexpr Computation
 
 ```cpp
-// FNV-1a hash - computes at compile time
-[[nodiscard]] consteval uint32_t constexpr_hash(std::string_view s) noexcept {
-    constexpr uint32_t FNV_PRIME = 16777619U;
-    constexpr uint32_t FNV_OFFSET_BASIS = 2166136261U;
-    
-    uint32_t hash = FNV_OFFSET_BASIS;
+// FNV-1a hash - constant-evaluated for constant inputs, runtime otherwise
+[[nodiscard]] constexpr uint32_t constexpr_hash(std::string_view s) noexcept {
+    constexpr uint32_t kFnvPrime = 16777619U;
+    constexpr uint32_t kFnvOffsetBasis = 2166136261U;
+
+    uint32_t hash = kFnvOffsetBasis;
     for (char c : s) {
         hash ^= static_cast<uint32_t>(static_cast<unsigned char>(c));
-        hash *= FNV_PRIME;
+        hash *= kFnvPrime;
     }
     return hash;
 }
 
-// Usage: compile-time hashes in case labels.
-// Note: constexpr_hash is consteval, so it cannot hash the runtime
-// `command` in the switch expression — supply a runtime FNV-1a twin
-// with the same constants for that (the library provides only the
-// consteval version).
-switch (fnv1a_runtime(command)) {
+// Usage: the same function hashes the case labels (constant expressions,
+// so evaluated by the compiler) and the runtime `command`.
+switch (constexpr_hash(command)) {
     case constexpr_hash("create"): return handleCreate();
     case constexpr_hash("update"): return handleUpdate();
     case constexpr_hash("delete"): return handleDelete();
 }
-// All case values computed at compile time → efficient jump table
+// Case values are compile-time constants; the input costs one O(length) hash.
+// Sparse hash values usually compile to a comparison tree, not a jump table.
 ```
 
-**Why `consteval` over `constexpr`:**
+**Why `constexpr` rather than `consteval`:**
 
-`consteval` guarantees compile-time evaluation. `constexpr` may evaluate at runtime if context isn't constant. The hash functions use raw `consteval` (there is no selection macro), which is why the component requires C++20: a compile-time hash that silently degraded to runtime evaluation would defeat the point.
+A string switch needs the same hash on both sides: the `case` labels and the runtime input. A `case` label is a constant expression by language rule, so a `constexpr` function is already evaluated by the compiler there; `consteval` adds no guarantee for labels. What `consteval` does add is a ban on runtime calls, which would force every caller to hand-write a second runtime FNV-1a with the same constants, and that copy could drift from the library's definition. The hash functions were `consteval` until 2026-10-16 and were changed for this reason. Callers who need a literal's hash computed at compile time outside a `case` label bind it to a `constexpr` variable.
 
 ### Builtin Acceleration
 
@@ -212,12 +210,12 @@ constexpr bool same = constexpr_streq("hello", "hello");  // true
 | If You Need... | Why Not std::hash | Why Not std::bit_* (C++20) | Why Not Manual Loop | Fat-P Advantage |
 |----------------|-------------------|---------------------------|--------------------|-----------------| 
 | Compile-time hash | ❌ Not constexpr | N/A | ✅ Works but verbose | ✅ Clean API |
-| Guaranteed compile-time eval | ❌ No | Partial | ❌ No | ✅ consteval (C++20) |
+| Same hash at compile time and runtime | ❌ No | N/A | ✅ If written constexpr | ✅ constexpr (C++20) |
 | Builtin acceleration | ❌ Implementation-defined | ✅ Yes | ❌ No | ✅ Yes |
 | String switch | ❌ No | ❌ No | ❌ No | ✅ Hash-based |
 | Overflow detection | ❌ No | ❌ No | Manual | ✅ Built-in |
 
-**The Sweet Spot:** ConstexprUtilities is the only option combining guaranteed compile-time hashing, builtin-accelerated bit ops, and string switches in a single C++20 header.
+**The Sweet Spot:** ConstexprUtilities combines one constexpr hash for both case labels and runtime input, builtin-accelerated bit ops, and string switches in a single C++20 header.
 
 ---
 
@@ -226,7 +224,7 @@ constexpr bool same = constexpr_streq("hello", "hello");  // true
 **Standard Reality:** C++20 added `std::bit_ceil`, `std::popcount`, etc., but:
 - `std::hash` is **still not constexpr** (C++26 doesn't change this)
 - String switches via hashing are **not standardized**
-- There is no standard consteval string hash
+- There is no standard constexpr string hash
 
 ConstexprUtilities provides compile-time computation capabilities that the standard doesn't offer and won't offer for years.
 
@@ -281,7 +279,7 @@ ConstexprUtilities delivers on the fat_p promise through three pillars:
 Builtin detection (`__builtin_popcount`, etc.) ensures optimal code generation. FNV-1a hash is tuned for compile-time evaluation with good avalanche properties.
 
 ### 3. Control
-Raw `consteval` on the hash functions guarantees compile-time evaluation — there is no runtime fallback to reason about. Overflow detection in `next_power_of_two` prevents silent wraparound.
+One `constexpr` definition per hash width serves both constant evaluation and runtime input, so case labels and the switch expression cannot use different hash implementations. Overflow detection in `next_power_of_two` prevents silent wraparound.
 
 **Architectural Verdict:** ConstexprUtilities transforms runtime computations into **compile-time constants**, enabling string switches, zero-cost dispatch tables, and optimal bit manipulation through a clean, portable API.
 

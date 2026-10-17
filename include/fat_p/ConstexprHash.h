@@ -18,7 +18,6 @@ FATP_META:
     defines_total: 0
     defines_unprefixed: 0
     undefs_total: 0
-    includes_windows_h: false
   generated:
     by: fatp-meta-tool
     mode: autogen
@@ -28,9 +27,15 @@ FATP_META:
  * @file ConstexprHash.h
  * @brief Compile-time FNV-1a hashing and hash-combine utilities.
  *
- * Provides consteval string hashing (32-bit and 64-bit FNV-1a), a Boost-style
+ * Provides constexpr string hashing (32-bit and 64-bit FNV-1a), a Boost-style
  * hash_combine function, and a variadic hash_values helper for combining
  * multiple string hashes.
+ *
+ * Every function is constexpr rather than consteval: one definition hashes
+ * string literals during constant evaluation (case labels, static_assert,
+ * template arguments) and runtime strings in ordinary code. A string switch
+ * therefore uses the same function on both sides, so the label hashes and the
+ * input hash cannot disagree.
  *
  * @note Not suitable for cryptographic purposes.
  *
@@ -50,33 +55,38 @@ namespace fat_p
 // =============================================================================
 
 /**
- * @brief Compile-time FNV-1a hash function for strings (32-bit).
+ * @brief FNV-1a hash function for strings (32-bit), usable at compile time and runtime.
  *
  * FNV-1a is a non-cryptographic hash with good avalanche properties.
- * Useful for compile-time string switches and hash-based dispatch tables.
+ * Useful for string switches and hash-based dispatch tables: hash the case
+ * labels and the runtime input with this same function.
  *
  * @param s The string view to hash.
  * @return uint32_t The 32-bit hash value.
  *
  * @note Not suitable for cryptographic purposes.
  * @note Empty string returns the FNV offset basis (2166136261).
+ * @note Each byte is hashed as unsigned char, so the result does not depend on
+ *       the signedness of char.
+ * @note Distinct strings can share a hash. A dispatch that must reject unknown
+ *       input compares the matched string after the hash selects a case.
  */
-[[nodiscard]] consteval uint32_t constexpr_hash(std::string_view s) noexcept
+[[nodiscard]] constexpr uint32_t constexpr_hash(std::string_view s) noexcept
 {
-    constexpr uint32_t FNV_PRIME = 16777619U;
-    constexpr uint32_t FNV_OFFSET_BASIS = 2166136261U;
+    constexpr uint32_t kFnvPrime = 16777619U;
+    constexpr uint32_t kFnvOffsetBasis = 2166136261U;
 
-    uint32_t hash = FNV_OFFSET_BASIS;
+    uint32_t hash = kFnvOffsetBasis;
     for (char c : s)
     {
         hash ^= static_cast<uint32_t>(static_cast<unsigned char>(c));
-        hash *= FNV_PRIME;
+        hash *= kFnvPrime;
     }
     return hash;
 }
 
 /**
- * @brief Compile-time FNV-1a hash function for strings (64-bit).
+ * @brief FNV-1a hash function for strings (64-bit), usable at compile time and runtime.
  *
  * 64-bit variant provides better collision resistance for large hash tables.
  *
@@ -85,16 +95,16 @@ namespace fat_p
  *
  * @note Empty string returns the FNV offset basis (14695981039346656037).
  */
-[[nodiscard]] consteval uint64_t constexpr_hash64(std::string_view s) noexcept
+[[nodiscard]] constexpr uint64_t constexpr_hash64(std::string_view s) noexcept
 {
-    constexpr uint64_t FNV_PRIME = 1099511628211ULL;
-    constexpr uint64_t FNV_OFFSET_BASIS = 14695981039346656037ULL;
+    constexpr uint64_t kFnvPrime = 1099511628211ULL;
+    constexpr uint64_t kFnvOffsetBasis = 14695981039346656037ULL;
 
-    uint64_t hash = FNV_OFFSET_BASIS;
+    uint64_t hash = kFnvOffsetBasis;
     for (char c : s)
     {
         hash ^= static_cast<uint64_t>(static_cast<unsigned char>(c));
-        hash *= FNV_PRIME;
+        hash *= kFnvPrime;
     }
     return hash;
 }
@@ -119,14 +129,18 @@ namespace fat_p
 /**
  * @brief Hash multiple string values into a single hash.
  *
- * @param args String views to hash and combine.
+ * Folds constexpr_hash64 of each argument into a seed of 0 with hash_combine.
+ * The result is order-sensitive, and a single argument does not reproduce
+ * constexpr_hash64 of that argument.
+ *
+ * @param args Values convertible to std::string_view.
  * @return uint64_t The combined hash of all inputs.
  *
  * @example
  *   constexpr auto h = hash_values("namespace", "class", "method");
  */
 template <typename... Args>
-[[nodiscard]] consteval uint64_t hash_values(const Args&... args) noexcept
+[[nodiscard]] constexpr uint64_t hash_values(const Args&... args) noexcept
 {
     uint64_t seed = 0;
     ((seed = hash_combine(seed, constexpr_hash64(args))), ...);
