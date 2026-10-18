@@ -114,6 +114,9 @@ FATP_META:
  * | shrink_to_fit()              | Strong*      | Original state preserved on exception      |
  * | swap()                       | Basic        | If move can throw; no resource leaks;      |
  * |                              |              | containers remain valid; noexcept otherwise|
+ * | operator=(SmallVector&&)     | Basic        | If element moves can throw; this vector    |
+ * |                              |              | is left empty and other remains valid;     |
+ * |                              |              | noexcept otherwise                         |
  * | clear()                      | No-throw     | Always succeeds                            |
  * | Self-range insert            | **UB**       | Applies to all iterator categories;        |
  * |                              |              | e.g., v.insert(pos, v.begin(), v.end())    |
@@ -653,9 +656,17 @@ public:
     /**
      * @brief Move assignment
      * @note Implements POCMA (Propagate On Container Move Assignment) semantics
+     * @note noexcept only when allocators are always equal or propagate and T is nothrow move
+     *       constructible. A heap-mode source with equal or propagating allocators transfers its
+     *       buffer without moving elements. A nonempty inline source, or a source whose allocator
+     *       is unequal and does not propagate, is moved element by element. If an element move or
+     *       an allocation throws, the exception propagates with the basic guarantee: this vector's
+     *       previous elements have been destroyed and it is left empty, and other remains valid
+     *       with possibly moved-from elements.
      */
-    SmallVector& operator=(SmallVector&& other) noexcept(AllocTraits::is_always_equal::value ||
-                                                         AllocTraits::propagate_on_container_move_assignment::value)
+    SmallVector& operator=(SmallVector&& other) noexcept((AllocTraits::is_always_equal::value ||
+                                                          AllocTraits::propagate_on_container_move_assignment::value) &&
+                                                         std::is_nothrow_move_constructible_v<T>)
     {
         if (this == &other)
         {

@@ -1229,7 +1229,7 @@ SmallVector& operator=(SmallVector&& other) noexcept(/* see below */);
 Move assignment. If `other` is in heap mode and allocators are equal (or `propagate_on_container_move_assignment` is true), steals `other`'s storage in O(1). Otherwise, moves elements individually.
 
 **Complexity:** O(1) for storage theft; O(n + m) otherwise.
-**Exception safety:** noexcept if allocators are always equal or propagate, and `T` is nothrow move-constructible/assignable.
+**Exception safety:** noexcept if allocators are always equal or propagate, and `T` is nothrow move-constructible. Move assignment never calls `T`'s move assignment operator: a nonempty inline `other`, or an `other` whose allocator is unequal and does not propagate, is move-constructed element by element into this vector. If one of those element moves, or an allocation, throws, the exception propagates with the basic guarantee: this vector's previous elements have been destroyed and it is left empty, and `other` remains valid with possibly moved-from elements. A heap-mode `other` with equal or propagating allocators transfers its buffer without moving any element.
 
 ```cpp
 SmallVector& operator=(std::initializer_list<T> init);

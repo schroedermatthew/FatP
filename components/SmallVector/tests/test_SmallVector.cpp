@@ -29,16 +29,19 @@ FATP_META:
     mode: autogen
 */
 
+#include "SmallVector.h"
+
 #include <algorithm>
 #include <cstring>
 #include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "FatPTest.h"
-#include "SmallVector.h"
 
 namespace fat_p::testing::smallvector
 {
@@ -167,6 +170,79 @@ struct ThrowOnCopy
 int ThrowOnCopy::operation_count = 0;
 int ThrowOnCopy::throw_after = -1;
 
+// Counts live objects so a failed move assignment can be checked for balanced cleanup.
+// Unlike ThrowOnCopy, copying never throws: inline move assignment must propagate a move
+// failure without relying on a copy fallback.
+class ThrowingMoveRecord
+{
+public:
+    static constexpr int kNeverThrow = -1;
+    static constexpr int kMovedFromValue = -1;
+
+    explicit ThrowingMoveRecord(int value = 0) noexcept
+        : mValue(value)
+    {
+        ++sLiveCount;
+    }
+
+    ThrowingMoveRecord(const ThrowingMoveRecord& other) noexcept
+        : mValue(other.mValue)
+    {
+        ++sLiveCount;
+    }
+
+    ThrowingMoveRecord(ThrowingMoveRecord&& other)
+        : mValue(other.mValue)
+    {
+        if (sMoveConstructions++ == sThrowOnMoveConstruction)
+        {
+            throw std::runtime_error("ThrowingMoveRecord move construction failed");
+        }
+        other.mValue = kMovedFromValue;
+        ++sLiveCount;
+    }
+
+    ThrowingMoveRecord& operator=(const ThrowingMoveRecord&) noexcept = default;
+    ThrowingMoveRecord& operator=(ThrowingMoveRecord&&) noexcept = default;
+
+    ~ThrowingMoveRecord()
+    {
+        --sLiveCount;
+    }
+
+    int value() const noexcept
+    {
+        return mValue;
+    }
+
+    // Selects the zero-based move construction that throws; kNeverThrow disables failures.
+    static void reset(int throwOnMoveConstruction = kNeverThrow) noexcept
+    {
+        sMoveConstructions = 0;
+        sThrowOnMoveConstruction = throwOnMoveConstruction;
+    }
+
+    inline static int sLiveCount = 0;
+    inline static int sMoveConstructions = 0;
+    inline static int sThrowOnMoveConstruction = kNeverThrow;
+
+private:
+    int mValue;
+};
+
+// Inline storage moves elements individually, so move assignment can be noexcept only when
+// element move construction is. A propagating or always-equal allocator alone is not enough.
+static_assert(!std::is_nothrow_move_constructible_v<ThrowingMoveRecord>,
+              "ThrowingMoveRecord must have a potentially throwing move constructor");
+static_assert(!std::is_nothrow_move_assignable_v<SmallVector<ThrowingMoveRecord, 4>>,
+              "Move assignment must not be noexcept when element move construction can throw");
+static_assert(std::is_nothrow_move_assignable_v<SmallVector<int, 4>>,
+              "Move assignment with nothrow elements and the default allocator must be noexcept");
+static_assert(std::is_nothrow_move_assignable_v<SmallVector<std::string, 4>>,
+              "Move assignment with nothrow-movable strings and the default allocator must be noexcept");
+static_assert(std::is_nothrow_move_assignable_v<SmallVector<int, 4, TrackingAllocator<int>>>,
+              "Move assignment with nothrow elements and a propagating allocator must be noexcept");
+
 // Helper to check if a SmallVector is using inline storage
 // NOTE: This is a QoI-style heuristic, not a formal proof of mode.
 // It assumes inline_buffer_ lives within the object and that heap
@@ -290,6 +366,136 @@ FATP_TEST_CASE(move_assignment)
     auto& v5_ref = v5; // Indirect reference to avoid -Wself-move
     v5 = std::move(v5_ref);
     FATP_ASSERT_TRUE(v5.size() == 3, "Self-move assignment works");
+
+    return true;
+}
+
+FATP_TEST_CASE(move_assignment_throwing_element)
+{
+    using RecordVector = SmallVector<ThrowingMoveRecord, 4>;
+
+    // Inline source and inline destination: the first element move throws.
+    {
+        RecordVector source;
+        source.emplace_back(7);
+        RecordVector destination;
+        destination.emplace_back(9);
+
+        ThrowingMoveRecord::reset(0);
+        bool caught = false;
+        try
+        {
+            destination = std::move(source);
+        }
+        catch (const std::runtime_error&)
+        {
+            caught = true;
+        }
+        ThrowingMoveRecord::reset();
+
+        FATP_ASSERT_TRUE(caught, "Inline element move failure must reach the caller");
+        FATP_ASSERT_TRUE(destination.empty(), "Failed move assignment leaves the destination empty");
+        FATP_ASSERT_EQ(source.size(), size_t{1}, "Failed move assignment keeps the source elements");
+        FATP_ASSERT_EQ(ThrowingMoveRecord::sLiveCount, 1, "Only the source element remains alive");
+
+        destination.emplace_back(11);
+        source.emplace_back(12);
+        FATP_ASSERT_EQ(destination.size(), size_t{1}, "Destination remains usable after the failure");
+        FATP_ASSERT_EQ(source.size(), size_t{2}, "Source remains usable after the failure");
+    }
+    FATP_ASSERT_EQ(ThrowingMoveRecord::sLiveCount, 0, "Inline-destination case destroys every element");
+
+    // Inline source and heap destination: the second element move throws after one succeeds.
+    {
+        RecordVector source;
+        for (int index = 0; index < 3; ++index)
+        {
+            source.emplace_back(100 + index);
+        }
+        RecordVector destination;
+        for (int index = 0; index < 6; ++index)
+        {
+            destination.emplace_back(200 + index);
+        }
+        FATP_ASSERT_GT(destination.capacity(), size_t{4}, "Destination must start in heap storage");
+
+        ThrowingMoveRecord::reset(1);
+        bool caught = false;
+        try
+        {
+            destination = std::move(source);
+        }
+        catch (const std::runtime_error&)
+        {
+            caught = true;
+        }
+        ThrowingMoveRecord::reset();
+
+        FATP_ASSERT_TRUE(caught, "Element move failure after a successful move must reach the caller");
+        FATP_ASSERT_TRUE(destination.empty(), "Failed move assignment leaves the heap destination empty");
+        FATP_ASSERT_EQ(source.size(), size_t{3}, "Failed move assignment keeps every source element");
+        FATP_ASSERT_EQ(ThrowingMoveRecord::sLiveCount,
+                       3,
+                       "Previous and partially moved destination elements are destroyed");
+    }
+    FATP_ASSERT_EQ(ThrowingMoveRecord::sLiveCount, 0, "Heap-destination case destroys every element");
+
+    // Control: the same inline transfer succeeds when no element move throws.
+    {
+        RecordVector source;
+        source.emplace_back(1);
+        source.emplace_back(2);
+        RecordVector destination;
+        destination.emplace_back(3);
+
+        ThrowingMoveRecord::reset();
+        destination = std::move(source);
+
+        FATP_ASSERT_EQ(destination.size(), size_t{2}, "Successful inline move assignment transfers every element");
+        FATP_ASSERT_EQ(destination[0].value(), 1, "Successful inline move assignment preserves order");
+        FATP_ASSERT_EQ(destination[1].value(), 2, "Successful inline move assignment preserves values");
+        FATP_ASSERT_TRUE(source.empty(), "Successful move assignment empties the source");
+        FATP_ASSERT_EQ(ThrowingMoveRecord::sLiveCount, 2, "Only the transferred elements remain alive");
+    }
+
+    // Heap source: buffer transfer moves no element, so enabled failures are never reached.
+    {
+        RecordVector source;
+        for (int index = 0; index < 5; ++index)
+        {
+            source.emplace_back(300 + index);
+        }
+        const ThrowingMoveRecord* sourceData = source.data();
+        RecordVector destination;
+        destination.emplace_back(4);
+
+        ThrowingMoveRecord::reset(0);
+        destination = std::move(source);
+        int moveConstructions = ThrowingMoveRecord::sMoveConstructions;
+        ThrowingMoveRecord::reset();
+
+        FATP_ASSERT_EQ(moveConstructions, 0, "Heap move assignment must not move-construct elements");
+        FATP_ASSERT_TRUE(destination.data() == sourceData, "Heap move assignment transfers the buffer");
+        FATP_ASSERT_EQ(destination.size(), size_t{5}, "Heap move assignment keeps every element");
+        FATP_ASSERT_EQ(destination[4].value(), 304, "Heap move assignment keeps element values");
+        FATP_ASSERT_TRUE(source.empty(), "Heap move assignment empties the source");
+    }
+
+    // Empty inline source: no element move occurs even when failures are enabled.
+    {
+        RecordVector source;
+        RecordVector destination;
+        destination.emplace_back(5);
+
+        ThrowingMoveRecord::reset(0);
+        destination = std::move(source);
+        int moveConstructions = ThrowingMoveRecord::sMoveConstructions;
+        ThrowingMoveRecord::reset();
+
+        FATP_ASSERT_EQ(moveConstructions, 0, "Empty source move assignment must not move-construct elements");
+        FATP_ASSERT_TRUE(destination.empty(), "Empty source move assignment empties the destination");
+    }
+    FATP_ASSERT_EQ(ThrowingMoveRecord::sLiveCount, 0, "Every case destroys its elements");
 
     return true;
 }
@@ -1853,6 +2059,7 @@ bool test_SmallVector()
     FATP_RUN_TEST_NS(runner, smallvector, move_construction);
     FATP_RUN_TEST_NS(runner, smallvector, copy_assignment);
     FATP_RUN_TEST_NS(runner, smallvector, move_assignment);
+    FATP_RUN_TEST_NS(runner, smallvector, move_assignment_throwing_element);
     FATP_RUN_TEST_NS(runner, smallvector, element_access);
     FATP_RUN_TEST_NS(runner, smallvector, iterators);
     FATP_RUN_TEST_NS(runner, smallvector, capacity_operations);
